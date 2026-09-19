@@ -11,7 +11,7 @@ use crate::choice::{
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
-use baylee_cards_dsl::SpellMode;
+use baylee_cards_dsl::{PlayerRel, SpellMode};
 use baylee_core::ids::AbilityRef;
 use baylee_core::preset::LoopPolicy;
 
@@ -693,6 +693,39 @@ impl<L: CardLookup> Engine<L> {
                         if !self.controls_at_least(filter, controller, id, usize::from(*at_least))
                             && let Some(obj) = self.state.object_mut(id)
                         {
+                            obj.status.insert(Status::TAPPED);
+                            changed = true;
+                        }
+                    }
+                    // Both of these count *players*, and neither re-derives
+                    // which ones count. `eval::players` is the one place that
+                    // knows a teammate is not an opponent and that a player
+                    // who has lost is out of the game — a hand-rolled
+                    // `self.state.players.len() - 1` here would have been
+                    // right in a duel and wrong at every table these lands
+                    // are actually printed for.
+                    EnterModifier::TappedUnlessOpponents { at_least } => {
+                        let opponents = eval::players(PlayerRel::Opponent, &self.state, controller)
+                            .map_or(0, |seats| seats.len());
+                        if opponents < usize::from(*at_least)
+                            && let Some(obj) = self.state.object_mut(id)
+                        {
+                            obj.status.insert(Status::TAPPED);
+                            changed = true;
+                        }
+                    }
+                    EnterModifier::TappedUnlessSomeoneAtOrBelow { life } => {
+                        // "A player", so the controller is on the list too.
+                        let low = eval::players(PlayerRel::EachPlayer, &self.state, controller)
+                            .unwrap_or_default()
+                            .into_iter()
+                            .any(|seat| {
+                                self.state
+                                    .players
+                                    .get(seat.get() as usize)
+                                    .is_some_and(|p| p.life <= *life)
+                            });
+                        if !low && let Some(obj) = self.state.object_mut(id) {
                             obj.status.insert(Status::TAPPED);
                             changed = true;
                         }

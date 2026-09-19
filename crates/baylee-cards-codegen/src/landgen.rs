@@ -688,6 +688,36 @@ impl Recognizer<'_> {
             self.body.notes.push("checkland".to_string());
             return Some(());
         }
+        // The two cycles whose condition counts *players* rather than
+        // permanents, and which read nothing like the checkland above them —
+        // "you control" is what every other clause here says, and neither of
+        // these says it.
+        if let Some(n) = line
+            .strip_prefix("This land enters tapped unless you have ")
+            .and_then(|rest| rest.strip_suffix(" or more opponents"))
+            .and_then(number)
+            .and_then(|n| u8::try_from(n).ok())
+        {
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::TappedUnlessOpponents {{ at_least: {n} }}"
+            ));
+            self.body.notes.push("crowd land".to_string());
+            return Some(());
+        }
+        // "a player", not "an opponent": Duskmourn prints the first, and the
+        // difference is whether your own low life turns your own land on.
+        if let Some(n) = line
+            .strip_prefix("This land enters tapped unless a player has ")
+            .and_then(|rest| rest.strip_suffix(" or less life"))
+            .and_then(number)
+            .and_then(|n| i32::try_from(n).ok())
+        {
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::TappedUnlessSomeoneAtOrBelow {{ life: {n} }}"
+            ));
+            self.body.notes.push("unlucky land".to_string());
+            return Some(());
+        }
         if let Some(rest) = line.strip_prefix("As this land enters, you may pay ")
             && let Some(n) = rest
                 .strip_suffix(" life. If you don't, it enters tapped")
@@ -1657,6 +1687,49 @@ mod tests {
         assert_eq!(
             body.abilities,
             ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])])"]
+        );
+    }
+
+    /// The two cycles whose condition counts players, read off the printed
+    /// line rather than off a reference script.
+    ///
+    /// They sit here and not only in `scriptgen` because `landgen` runs
+    /// first: for a land it is this reader that decides whether a card is
+    /// written at all.
+    #[test]
+    fn a_crowd_and_an_unlucky_land_count_players() {
+        let crowd = read(
+            "Land",
+            "This land enters tapped unless you have two or more opponents.\n{T}: Add {B} or {R}.",
+        );
+        assert_eq!(
+            crowd.enter_modifiers,
+            ["EnterModifier::TappedUnlessOpponents { at_least: 2 }"]
+        );
+
+        let unlucky = read(
+            "Land",
+            "This land enters tapped unless a player has 13 or less life.\n{T}: Add {B} or {R}.",
+        );
+        assert_eq!(
+            unlucky.enter_modifiers,
+            ["EnterModifier::TappedUnlessSomeoneAtOrBelow { life: 13 }"]
+        );
+
+        // "A player" and "an opponent" are two different cards, and only the
+        // first is printed. The second has to refuse rather than be read as
+        // the first, because it is the one whose own low life would not turn
+        // the land on.
+        assert!(
+            recognize(
+                &card(
+                    "Land",
+                    "This land enters tapped unless an opponent has 13 or less life.\n{T}: Add {B}."
+                ),
+                &cats()
+            )
+            .is_none(),
+            "an opponent's life is not a player's life"
         );
     }
 

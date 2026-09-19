@@ -314,6 +314,32 @@ pub enum EnterModifier {
         /// How many of them it takes.
         at_least: u8,
     },
+    /// Enters tapped unless you have `at_least` opponents (the Battlebond
+    /// "crowd" lands: "unless you have two or more opponents").
+    ///
+    /// Not a [`Self::TappedUnlessCount`] over some filter, because no filter
+    /// reaches a *player*: this counts seats, and which seats count is a rule
+    /// rather than a description. A **teammate is not an opponent**
+    /// (`GameState::is_opponent` reads the sides `SeatSpec::team` put players
+    /// on), and a player who has already lost is not one either — in a
+    /// four-player game that has gone to three, these lands are looking at
+    /// two.
+    TappedUnlessOpponents {
+        /// How many opponents it takes to enter untapped.
+        at_least: u8,
+    },
+    /// Enters tapped unless **some** player is at `life` or below (the
+    /// Duskmourn "unlucky" lands: "unless a player has 13 or less life").
+    ///
+    /// *A* player, which includes you: your own twelve life turns your own
+    /// land on, and that is the half a test at twenty-all cannot see. Signed,
+    /// because a life total can be negative between a loss and the
+    /// state-based action that reads it (CR 704.5a), and a player at −2 has
+    /// thirteen or less life by any reading.
+    TappedUnlessSomeoneAtOrBelow {
+        /// The life total that counts as low enough.
+        life: i32,
+    },
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     TappedOrPayLife(u16),
     /// "As this enters, choose a creature type" (Roaming Throne,

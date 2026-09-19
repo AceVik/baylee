@@ -43,11 +43,12 @@ pub struct Duel {
     seed: u64,
     /// Whether the seats get the harness' own dev capability.
     dev: bool,
-    hand: [Vec<CardIndex>; 2],
-    battlefield: [Vec<CardIndex>; 2],
-    sideboard: [Vec<CardIndex>; 2],
-    commanders: [Vec<CardIndex>; 2],
-    life: [Option<i32>; 2],
+    hand: Vec<Vec<CardIndex>>,
+    battlefield: Vec<Vec<CardIndex>>,
+    sideboard: Vec<Vec<CardIndex>>,
+    commanders: Vec<Vec<CardIndex>>,
+    life: Vec<Option<i32>>,
+    team: Vec<Option<u8>>,
     library_filler: CardIndex,
 }
 
@@ -56,16 +57,45 @@ impl Duel {
     /// basic land keeps draws legal and uninteresting).
     #[must_use]
     pub fn new(seed: u64, library_filler: CardIndex) -> Self {
+        Self::table(seed, library_filler, 2)
+    }
+
+    /// The same, with `seats` players instead of two.
+    ///
+    /// Not a luxury: a duel cannot see one side of the rules that count
+    /// *seats* rather than permanents. Every Battlebond land enters tapped at
+    /// a two-player table, so a test written on [`Self::new`] would assert
+    /// the tapped branch twice and pass whatever the rule did — the same
+    /// vacuum a count check falls into when the defect replaces the thing it
+    /// counted.
+    ///
+    /// # Panics
+    /// Below two seats, which is not a game.
+    #[must_use]
+    pub fn table(seed: u64, library_filler: CardIndex, seats: usize) -> Self {
+        assert!(seats >= 2, "a table needs at least two seats, got {seats}");
         Self {
             seed,
             dev: true,
-            hand: [Vec::new(), Vec::new()],
-            battlefield: [Vec::new(), Vec::new()],
-            sideboard: [Vec::new(), Vec::new()],
-            commanders: [Vec::new(), Vec::new()],
-            life: [None, None],
+            hand: vec![Vec::new(); seats],
+            battlefield: vec![Vec::new(); seats],
+            sideboard: vec![Vec::new(); seats],
+            commanders: vec![Vec::new(); seats],
+            life: vec![None; seats],
+            team: vec![None; seats],
             library_filler,
         }
+    }
+
+    /// Puts a seat on a side, the way `dev-table --teams 1,1,2` does.
+    ///
+    /// Seats sharing a number are teammates, and `GameState::is_opponent`
+    /// reads exactly that — which is the difference between "two other
+    /// players" and "two opponents".
+    #[must_use]
+    pub fn team(mut self, seat: usize, side: u8) -> Self {
+        self.team[seat] = Some(side);
+        self
     }
 
     /// Cards in a seat's opening hand.
@@ -139,7 +169,7 @@ impl Duel {
             starting_hand: Some(self.hand[seat].iter().copied().map(entry).collect()),
             starting_battlefield: self.battlefield[seat].iter().copied().map(entry).collect(),
             emblems: vec![],
-            team: None,
+            team: self.team[seat],
         };
         let preset = GamePreset {
             format: FormatId::Freeform,
@@ -151,23 +181,37 @@ impl Duel {
                 lang: "EN".into(),
                 finish: Finish::Normal,
             }],
-            seats: vec![mk(0), mk(1)],
+            seats: (0..self.hand.len()).map(mk).collect(),
         };
         Engine::new(&preset, RegistryLookup).expect("duel starts")
     }
 }
 
-/// Keeps both opening hands.
+/// Keeps every opening hand.
+///
+/// Counted against the seats rather than run a fixed number of times: this
+/// was `for _ in 0..2`, which is right for a duel and leaves the third player
+/// of a three-seat table sitting on their mulligan — where the next thing a
+/// test does is panic somewhere else entirely.
+///
+/// # Panics
+/// If the questions asked are not one mulligan per seat, which means it was
+/// called somewhere other than the start of a game.
 #[track_caller]
 pub fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
-    for _ in 0..2 {
-        match engine.pending().clone() {
-            Pending::Mulligan { player, .. } => {
-                engine.apply(player, PlayerAction::MulliganKeep).unwrap();
-            }
-            other => panic!("expected mulligan, got {other:?}"),
-        }
+    let seats = engine.state().players.len();
+    let mut kept = 0;
+    while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        kept += 1;
+        assert!(kept <= seats, "more mulligans than seats");
     }
+    assert_eq!(
+        kept,
+        seats,
+        "every seat keeps: got {kept} of {seats}, then {:?}",
+        engine.pending()
+    );
 }
 
 /// Advances until `seat` holds priority in their first main phase.

@@ -2137,9 +2137,16 @@ impl Tx<'_> {
                 self.note("replacement `Moved` both counting and charging".to_string());
                 return None;
             }
-            (None, None) => "EnterModifier::Tapped".to_string(),
             (None, Some(cost)) => self.enters_tapped_or_pays(&mut body, &cost)?,
             (Some(present), None) => self.enters_tapped_unless(&mut body, &present)?,
+            // A fourth sentence, and it arrives through a different key
+            // because it counts something no `IsPresent$` filter reaches: a
+            // number of *players*. Without one of those the line is the
+            // plain "enters tapped".
+            (None, None) => match body.take("ConditionCheckSVar") {
+                None => "EnterModifier::Tapped".to_string(),
+                Some(svar) => self.enters_tapped_unless_players(&mut body, &svar)?,
+            },
         };
         if !body.exhausted() {
             self.note(format!(
@@ -2240,6 +2247,76 @@ impl Tx<'_> {
         } else {
             format!("EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {at_least} }}")
         })
+    }
+
+    /// The two enters-tapped sentences whose condition counts **players**.
+    ///
+    /// `ConditionCheckSVar$` points at an `SVar` and `ConditionSVarCompare$`
+    /// says when the *tap* happens, so both readings are the card's sentence
+    /// turned around — the same inversion [`Self::enters_tapped_unless`]
+    /// documents, and the reason each direction is spelled out here rather
+    /// than shared:
+    ///
+    /// * `PlayerCountOpponents$Amount` with `LT2` taps while you have fewer
+    ///   than two opponents, which is "unless you have two or more
+    ///   opponents": `LT n` is `at_least = n`, `LE n` is `n + 1`.
+    /// * `PlayerCountPlayers$LowestLifeTotal` with `GT13` taps while the
+    ///   *lowest* life total at the table is above thirteen, which is
+    ///   "unless a player has 13 or less life": `GT n` is `life = n`, `GE n`
+    ///   is `n - 1`.
+    ///
+    /// The two take **opposite** comparators, and that is used rather than
+    /// tolerated: a count accepts only `LT`/`LE` and a life total only
+    /// `GT`/`GE`, so a pairing this rule has never seen is refused instead
+    /// of being read with the direction silently flipped. Together they are
+    /// 20 of the reference's 27 conditional enters-tapped lines; the other
+    /// seven count something else and are refused by the definition not
+    /// matching.
+    fn enters_tapped_unless_players(&mut self, body: &mut Params, svar: &str) -> Option<String> {
+        let Some(defn) = self.svars.get(svar).cloned() else {
+            self.note(format!("`ConditionCheckSVar$ {svar}` names no SVar"));
+            return None;
+        };
+        let Some(cmp) = body.take("ConditionSVarCompare") else {
+            self.note("replacement `Moved` counting an SVar with no comparison".to_string());
+            return None;
+        };
+        let value = |prefix: &str| cmp.strip_prefix(prefix).and_then(|n| n.parse::<i64>().ok());
+        let modifier = match defn.trim() {
+            "PlayerCountOpponents$Amount" => {
+                let at_least = match (value("LT"), value("LE")) {
+                    (Some(n), _) => n,
+                    (None, Some(n)) => n + 1,
+                    (None, None) => return self.unread_enter_condition(&defn, &cmp),
+                };
+                let Ok(at_least) = u8::try_from(at_least) else {
+                    return self.unread_enter_condition(&defn, &cmp);
+                };
+                format!("EnterModifier::TappedUnlessOpponents {{ at_least: {at_least} }}")
+            }
+            "PlayerCountPlayers$LowestLifeTotal" => {
+                let life = match (value("GT"), value("GE")) {
+                    (Some(n), _) => n,
+                    (None, Some(n)) => n - 1,
+                    (None, None) => return self.unread_enter_condition(&defn, &cmp),
+                };
+                let Ok(life) = i32::try_from(life) else {
+                    return self.unread_enter_condition(&defn, &cmp);
+                };
+                format!("EnterModifier::TappedUnlessSomeoneAtOrBelow {{ life: {life} }}")
+            }
+            _ => return self.unread_enter_condition(&defn, &cmp),
+        };
+        Some(modifier)
+    }
+
+    /// One refusal for both halves above, so the report names the *count*
+    /// rather than the letter the corpus happened to write.
+    fn unread_enter_condition(&mut self, defn: &str, cmp: &str) -> Option<String> {
+        self.note(format!(
+            "an enter-tapped condition counting `{defn}` `{cmp}`"
+        ));
+        None
     }
 
     /// `R:Event$ Untap | … | Layer$ CantHappen` as
@@ -4118,10 +4195,10 @@ mod tests {
                 "| UnlessCost$ PayLife<2> | UnlessPayer$ Opponent",
                 "replacement `Moved` charging `Opponent`",
             ),
-            // A computed condition, which is still nothing this can say.
+            // A computed condition whose SVar is not there to read.
             (
                 "| ConditionCheckSVar$ X | ConditionSVarCompare$ LT2",
-                "replacement `Moved` tapping with `ConditionCheckSVar`",
+                "`ConditionCheckSVar$ X` names no SVar",
             ),
         ] {
             let script = parse(&format!(
@@ -4300,6 +4377,95 @@ mod tests {
             refusal_reason(&two, &cats(), None).as_deref(),
             Some("`ChangeZone` returning 2 chosen permanents")
         );
+    }
+
+    /// The two enters-tapped sentences that count players, and the four
+    /// ways a line is refused instead.
+    ///
+    /// Both directions are struck on their own, because the whole risk in
+    /// this rule is reading one of them with the other's sign: the
+    /// comparator says when the land comes down *tapped* and the card prints
+    /// when it does not.
+    #[test]
+    fn an_enters_tapped_condition_may_count_players() {
+        let head = "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield \
+             | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n";
+
+        // Luxury Suite: taps while you have fewer than two opponents, which
+        // is "unless you have two or more opponents".
+        let crowd = read(&format!(
+            "{head}SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True \
+             | ConditionCheckSVar$ Y | ConditionSVarCompare$ LT2\n\
+             SVar:Y:PlayerCountOpponents$Amount"
+        ));
+        assert_eq!(
+            crowd.enter_modifiers,
+            ["EnterModifier::TappedUnlessOpponents { at_least: 2 }"]
+        );
+
+        // Razortrap Gorge: taps while the lowest life total is above
+        // thirteen, which is "unless a player has 13 or less life".
+        let unlucky = read(&format!(
+            "{head}SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True \
+             | ConditionCheckSVar$ X | ConditionSVarCompare$ GT13\n\
+             SVar:X:PlayerCountPlayers$LowestLifeTotal"
+        ));
+        assert_eq!(
+            unlucky.enter_modifiers,
+            ["EnterModifier::TappedUnlessSomeoneAtOrBelow { life: 13 }"]
+        );
+
+        // `LE`/`GE` are the same sentences off by one, and the arithmetic is
+        // asserted rather than assumed.
+        let off_by_one = read(&format!(
+            "{head}SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True \
+             | ConditionCheckSVar$ Y | ConditionSVarCompare$ LE1\n\
+             SVar:Y:PlayerCountOpponents$Amount"
+        ));
+        assert_eq!(
+            off_by_one.enter_modifiers,
+            ["EnterModifier::TappedUnlessOpponents { at_least: 2 }"]
+        );
+
+        for (tail, svar, why) in [
+            // The opponent count with the life total's comparator. Read with
+            // a flipped sign this would be a land that enters untapped in
+            // every duel; refused, it is a stub.
+            (
+                "| ConditionCheckSVar$ Y | ConditionSVarCompare$ GT1",
+                "SVar:Y:PlayerCountOpponents$Amount",
+                "an enter-tapped condition counting `PlayerCountOpponents$Amount` `GT1`",
+            ),
+            // And the life total with the count's comparator.
+            (
+                "| ConditionCheckSVar$ X | ConditionSVarCompare$ LT13",
+                "SVar:X:PlayerCountPlayers$LowestLifeTotal",
+                "an enter-tapped condition counting `PlayerCountPlayers$LowestLifeTotal` `LT13`",
+            ),
+            // A count this rule has never seen: named by what it counts, not
+            // by the letter the corpus wrote.
+            (
+                "| ConditionCheckSVar$ Z | ConditionSVarCompare$ EQ0",
+                "SVar:Z:Count$Valid Creature.YouCtrl",
+                "an enter-tapped condition counting `Count$Valid Creature.YouCtrl` `EQ0`",
+            ),
+            // The comparison missing altogether.
+            (
+                "| ConditionCheckSVar$ Y",
+                "SVar:Y:PlayerCountOpponents$Amount",
+                "replacement `Moved` counting an SVar with no comparison",
+            ),
+        ] {
+            let script = parse(&format!(
+                "{head}SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True {tail}\n{svar}"
+            ));
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(why),
+                "{tail}"
+            );
+        }
     }
 
     /// A fetchland: `Origin$ Library` is a *search*, not a zone change with

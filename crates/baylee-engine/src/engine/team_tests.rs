@@ -360,3 +360,37 @@ fn karns_lock_spares_a_teammate() {
         "the lock let an opponent activate an artifact"
     );
 }
+
+/// The shared harness seats a table and puts its players on sides.
+///
+/// Every other test in this file builds its own `GamePreset` by hand,
+/// because `testkit::Duel` could only ever seat two — which is also why a
+/// rule that counts *opponents* had no way to be played at all. `Duel::table`
+/// and `Duel::team` are that gap closed, and this is what says they reach
+/// `SeatSpec` rather than merely compiling.
+#[test]
+fn the_harness_can_seat_a_table_and_put_it_on_sides() {
+    let engine = crate::engine::testkit::Duel::table(41, forest(), 3)
+        .team(0, 1)
+        .team(1, 1)
+        .team(2, 2)
+        .start();
+    let state = engine.state();
+    assert_eq!(state.players.len(), 3, "three seats were asked for");
+
+    let me = PlayerId::new(0);
+    let ally = PlayerId::new(1);
+    let foe = PlayerId::new(2);
+    assert!(
+        !state.is_opponent(ally, me),
+        "a teammate is not an opponent, which is the whole point of the field"
+    );
+    assert!(state.is_opponent(foe, me), "the other side is");
+    assert_eq!(
+        crate::eval::players(baylee_cards_dsl::PlayerRel::Opponent, state, me)
+            .expect("a state-only relation")
+            .len(),
+        1,
+        "two other players, one opponent"
+    );
+}
