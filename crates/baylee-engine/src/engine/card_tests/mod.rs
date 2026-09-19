@@ -267,15 +267,33 @@ fn deserted_beach() -> CardIndex {
 /// The lands whose own enters-tapped-unless filter matches the land printing
 /// it, and therefore the exact set that
 /// [`a_slow_land_counts_the_other_lands_and_never_itself`] speaks for.
+///
+/// Both bounds over `Filter::YOUR_LAND` are in it, and they are what the
+/// list is for: a slow land wants two other lands and a fast land wants at
+/// most two, so one count that included the entering land would turn one
+/// cycle on a land early and the other off a land early. Twenty-one cards
+/// ride on the skip in `Engine::controls_count`, and Cave of the Frost
+/// Dragon rides on it printing the bound as its complement.
 const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
+    "Blackcleave Cliffs",
+    "Blooming Marsh",
+    "Botanical Sanctum",
+    "Cave of the Frost Dragon",
+    "Concealed Courtyard",
+    "Copperline Gorge",
+    "Darkslick Shores",
     "Deathcap Glade",
     "Deserted Beach",
     "Dreamroot Cascade",
     "Haunted Ridge",
+    "Inspiring Vantage",
     "Overgrown Farmland",
+    "Razorverge Thicket",
     "Rockfall Vale",
+    "Seachrome Coast",
     "Shattered Sanctum",
     "Shipwreck Marsh",
+    "Spirebluff Canal",
     "Stormcarved Coast",
     "Sundown Pass",
 ];

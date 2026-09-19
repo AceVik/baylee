@@ -408,7 +408,8 @@ fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
             for modifier in face.enter_modifiers {
                 let filter = match modifier {
                     baylee_cards_dsl::EnterModifier::TappedUnless(f) => *f,
-                    baylee_cards_dsl::EnterModifier::TappedUnlessCount { filter, .. } => *filter,
+                    baylee_cards_dsl::EnterModifier::TappedUnlessCount { filter, .. }
+                    | baylee_cards_dsl::EnterModifier::TappedUnlessAtMost { filter, .. } => *filter,
                     _ => continue,
                 };
                 if i == 0 {
@@ -7733,4 +7734,152 @@ fn a_land_that_searches_finds_nothing_outside_its_own_filter() {
         checked, 5,
         "the Panorama cycle is five cards, and this test speaks for all of them"
     );
+}
+
+/// The ten fast lands, on the two boards their sentence divides.
+///
+/// Every other enters-tapped cycle in this file is a lower bound, and these
+/// are the upper one — so the board that turns a slow land on is the board
+/// that turns these off, and a test written on a duel's empty table would
+/// show only the untapped branch of all of them.
+const UNTAPPED_ON_A_SMALL_BOARD: &[(&str, &str)] = &[
+    ("5ad94412-6f79-4c5d-bbd4-4ef5779a7b6d", "Blackcleave Cliffs"),
+    ("66fa2326-1b5d-41fb-b919-83bf9f383577", "Blooming Marsh"),
+    ("88f8f683-738e-48f3-afff-c8f73f1033a2", "Botanical Sanctum"),
+    (
+        "2d899466-b1eb-4901-b626-1f2fb09b786d",
+        "Concealed Courtyard",
+    ),
+    ("a05f641c-15c9-43dc-ae0d-1ea372fd33d5", "Copperline Gorge"),
+    ("a2b48695-f7d7-42ce-a8a0-2a723428542a", "Darkslick Shores"),
+    ("3f17c60e-923a-4392-9da8-87d9ded009b7", "Inspiring Vantage"),
+    ("94f6c407-e665-4032-be13-a01e40c1f306", "Razorverge Thicket"),
+    ("9e7a240d-dc33-47ac-9f17-77fab4c1c340", "Seachrome Coast"),
+    ("eb0d8093-5f93-4b25-9384-08f9731bfb28", "Spirebluff Canal"),
+];
+
+/// "Enters tapped unless you control two or fewer **other** lands."
+///
+/// Three assertions, and each is a different way to get the sentence wrong.
+/// Two other lands plus the land itself is three on the battlefield and it
+/// comes down untapped — the case a count that included the entering land
+/// taps, and the only boundary that separates "other" from "any". Three
+/// others taps it, which is the bound being a bound rather than a decoration.
+/// And three of them across the table changes nothing, because the card says
+/// "you control".
+#[test]
+fn a_fast_land_is_untapped_while_your_own_board_is_small() {
+    for (i, (oracle, name)) in UNTAPPED_ON_A_SMALL_BOARD.iter().enumerate() {
+        let card = card_index(oracle);
+        let seed = 1040 + u64::try_from(i).expect("ten rows");
+        assert!(
+            !arrives_tapped(
+                || Duel::new(seed, forest()).battlefield(0, &[forest(), forest()]),
+                card
+            ),
+            "{name} entered tapped over two other lands, and two or fewer is its own sentence"
+        );
+        assert!(
+            arrives_tapped(
+                || Duel::new(seed, forest()).battlefield(0, &[forest(), forest(), forest()]),
+                card
+            ),
+            "{name} entered untapped over three other lands"
+        );
+        assert!(
+            !arrives_tapped(
+                || Duel::new(seed, forest()).battlefield(1, &[forest(), forest(), forest()]),
+                card
+            ),
+            "{name} counted the lands across the table, and its sentence says \"you control\""
+        );
+    }
+}
+
+/// Cave of the Frost Dragon prints the same bound as its complement — "if
+/// you control two or more other lands, this land enters tapped" — which is
+/// one lower, and that off-by-one is the whole reading.
+///
+/// The eleventh card the upper bound finished, and the only one of the five
+/// manlands whose animation the transcoder could also read: the other four
+/// print a ward cost or a trigger no rule says. So it is played twice here,
+/// once for the bound and once for the sentence underneath it, because a
+/// card that arrives correctly and animates into the wrong thing is still a
+/// wrong card.
+#[test]
+fn a_manland_bound_is_one_lower_and_its_dragon_is_still_a_land() {
+    let p0 = PlayerId::new(0);
+    let cave = card_index("1e4146d2-cfa0-4f5e-9761-3c83519b90c3");
+    assert!(
+        !arrives_tapped(
+            || Duel::new(1060, forest()).battlefield(0, &[forest()]),
+            cave
+        ),
+        "one other land is not two, and the Cave should have entered untapped"
+    );
+    assert!(
+        arrives_tapped(
+            || Duel::new(1061, forest()).battlefield(0, &[forest(), forest()]),
+            cave
+        ),
+        "two other lands is exactly what the card names"
+    );
+
+    // {4}{W}: a 3/4 white Dragon with flying, and still a land.
+    let mut engine = Duel::new(1062, forest())
+        // Five other lands, so the Cave itself arrives tapped — which the
+        // animation does not care about, because "{4}{W}:" charges mana and
+        // not a tap. The Plains is the white half of that price: the Cave's
+        // own mana ability is the card's only other white source and a tapped
+        // land cannot pay.
+        .battlefield(0, &[cave, plains(), forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let id = on_battlefield(&engine, p0, cave).expect("the Cave is on the battlefield");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(object, index)| *object == id && *index == 1)
+        .expect("the animate ability is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(id)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE))
+    });
+
+    let types = engine
+        .state()
+        .object(id)
+        .expect("the Cave exists")
+        .characteristics()
+        .types;
+    assert!(
+        types.contains(TypeSet::CREATURE),
+        "it never became a Dragon"
+    );
+    assert!(types.contains(TypeSet::LAND), "\"It's still a land\"");
+    assert_eq!(pt(&engine, id), (3, 4), "a 3/4 Dragon");
 }
