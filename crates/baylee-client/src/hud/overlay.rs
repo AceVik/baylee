@@ -1335,6 +1335,7 @@ mod tests {
                     ledge::drawer::zoom_the_drawer,
                     ledge::pool::sync_pool,
                     ledge::pool::zoom_the_pool,
+                    ledge::pool::grow_the_pool,
                     tray::sync_tray,
                     tray::reveal_tray,
                 )
@@ -2579,6 +2580,138 @@ mod tests {
     fn pool_entries(app: &mut App) -> Vec<Entity> {
         let mut q = app.world_mut().query::<(Entity, &ledge::pool::PoolEntry)>();
         q.iter(app.world()).map(|(e, _)| e).collect::<Vec<_>>()
+    }
+
+    /// The strip grows out of the shelf rather than appearing on it.
+    ///
+    /// Three claims, and the first two are what a plain `from_bottom` would
+    /// break. On the frame the first mana arrives the strip is drawn at
+    /// [`motion::ZOOM_FROM`] — the start of the arrival, not the end of it —
+    /// and it is pinned at the **bottom-left** corner, because a node fixed
+    /// at the left margin that shrinks toward its own middle slides right as
+    /// it grows. Then the movement ends: the clock is advanced past
+    /// [`motion::ZOOM_IN`] and the strip is at full size, which is what makes
+    /// the first two an arrival rather than a strip permanently drawn 12%
+    /// short.
+    ///
+    /// With `reduce_motion` it is at full size on that same first frame,
+    /// which is the counter-test for the first claim on its own terms.
+    #[test]
+    fn the_strip_grows_out_of_the_shelf_rather_than_appearing_on_it() {
+        for (still, want) in [(false, motion::ZOOM_FROM), (true, 1.0)] {
+            let mut app = bar_of(pool_of(0, "none"));
+            app.world_mut()
+                .resource_mut::<crate::prefs::Prefs>()
+                .edit()
+                .reduce_motion = still;
+            assert!(!strip_is_shown(&mut app), "nothing floating yet");
+
+            *app.world_mut().resource_mut::<Duel>() = pool_of(1, "one");
+            app.update();
+
+            assert!(
+                strip_is_shown(&mut app),
+                "a mana arrived, so the strip is up"
+            );
+            let (scale, shift) = strip_pose(&mut app);
+            assert!(
+                (scale.x - want).abs() < 0.001 && (scale.y - want).abs() < 0.001,
+                "reduce_motion {still}: the strip is drawn at {scale:?} and \
+                 {want} was wanted"
+            );
+            if !still {
+                assert_eq!(
+                    shift,
+                    motion::from_bottom_left(want),
+                    "the strip grows out of the corner it is pinned at"
+                );
+
+                tick(&mut app, motion::ZOOM_IN + 0.01);
+                let (scale, shift) = strip_pose(&mut app);
+                assert!(
+                    (scale.x - 1.0).abs() < 0.001,
+                    "and the arrival ends at full size, not at {scale:?}"
+                );
+                assert_eq!(
+                    shift,
+                    motion::from_bottom_left(1.0),
+                    "with nothing left to correct for"
+                );
+            }
+        }
+    }
+
+    /// And it folds back into the shelf rather than being taken off it.
+    ///
+    /// The clock has to be advanced for this one, and that is the finding
+    /// rather than a detail. Written against the harness's own still clock it
+    /// read as a test and asserted nothing: the strip's fold cannot start
+    /// until the row is empty, the last pip cannot finish fading while
+    /// `delta` is zero, so with the movement on the fold was never reached
+    /// and "the strip is still shown" was true for the wrong reason. It
+    /// passed against a `grow_the_pool` that hid the strip the instant the
+    /// pool emptied — the exact fault it was written for.
+    ///
+    /// So the two movements are walked through in order, each with the clock
+    /// pushed past its own span: the pip leaves, the frame after that reads
+    /// an empty row and starts the fold, and the strip is **still there**
+    /// through it. Only past [`motion::ZOOM_OUT`] again is it away.
+    #[test]
+    fn the_strip_folds_back_into_the_shelf_rather_than_being_taken_off_it() {
+        let mut app = bar_of(pool_of(1, "one"));
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = false;
+        app.update();
+        assert!(strip_is_shown(&mut app), "one mana is floating");
+
+        // Spent. The pip's own fade runs first, because the strip must not
+        // fold around something still standing on it.
+        *app.world_mut().resource_mut::<Duel>() = pool_of(0, "none");
+        tick(&mut app, motion::ZOOM_OUT + 0.01);
+        assert!(pool_entries(&mut app).is_empty(), "the pip has gone");
+        assert!(
+            strip_is_shown(&mut app),
+            "and the strip is still up: nothing has read the empty row yet"
+        );
+
+        // The frame that reads it and starts the fold, with no time in it —
+        // so the strip is at the beginning of its own movement and not past
+        // the end of it.
+        tick(&mut app, 0.0);
+        assert!(
+            strip_is_shown(&mut app),
+            "the strip folds away rather than being taken away"
+        );
+        let (scale, _) = strip_pose(&mut app);
+        assert!(
+            (scale.x - 1.0).abs() < 0.001,
+            "and the fold begins at full size, not at {scale:?}"
+        );
+
+        tick(&mut app, motion::ZOOM_OUT + 0.01);
+        assert!(
+            !strip_is_shown(&mut app),
+            "and once the fold is over the strip is away"
+        );
+    }
+
+    /// One frame, with `seconds` of clock in front of it.
+    fn tick(app: &mut App, seconds: f32) {
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_secs_f32(seconds));
+        app.update();
+    }
+
+    /// The strip's scale and where that scale is anchored.
+    fn strip_pose(app: &mut App) -> (Vec2, Val2) {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&UiTransform, With<ledge::pool::PoolStrip>>();
+        let at = q.single(app.world()).expect("one strip");
+        (at.scale, at.translation)
     }
 
     /// The strip never goes away around a pip that is still on it.

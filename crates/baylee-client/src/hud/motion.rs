@@ -124,6 +124,28 @@ pub(super) fn from_bottom(scale: f32) -> Val2 {
     Val2::new(Val::ZERO, Val::Percent(50.0 * (1.0 - scale)))
 }
 
+/// The same, for a node pinned at the window's **left** margin rather than
+/// centred on the shelf.
+///
+/// [`from_bottom`] lets a node shrink toward its own horizontal middle, which
+/// is right for the drawer: it is centred, so its middle is where it came
+/// from. A strip is fixed at one margin, and a node that scales about its
+/// centre while one edge is pinned by the layout appears to *slide* inward as
+/// it grows — a second movement, in a direction nothing is going. Pinning the
+/// bottom-left corner is the same arithmetic on the other axis, with the sign
+/// the other way because the correction is leftwards.
+///
+/// There is no `from_bottom_right` because nothing needs one yet. The tray at
+/// the other margin does not move at all; the day it does, this is the
+/// function to copy with one sign flipped, and it is three lines rather than
+/// a parameter so that neither strip can be handed the wrong corner.
+pub(super) fn from_bottom_left(scale: f32) -> Val2 {
+    Val2::new(
+        Val::Percent(-50.0 * (1.0 - scale)),
+        Val::Percent(50.0 * (1.0 - scale)),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

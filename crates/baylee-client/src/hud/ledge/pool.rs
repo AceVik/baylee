@@ -95,6 +95,35 @@ pub struct PoolCount;
 #[derive(Component)]
 pub struct PoolLabel;
 
+/// Where the **strip** is in its own arrival or departure.
+///
+/// A component on the strip and not a resource, which is the shape
+/// [`super::drawer::DrawerZoom`] already has and is worth saying why: a
+/// resource is a third thing every test harness that runs this system has to
+/// be told about, and a missing one is a runtime panic that `cargo check` and
+/// clippy are both green over. There is one strip; its movement belongs to
+/// it.
+///
+/// It is spawned **shut** — `t` at the end of a close — because the strip is
+/// spawned hidden and a fresh `Default` would read as the first frame of an
+/// arrival that nobody asked for.
+#[derive(Component)]
+pub struct StripZoom {
+    /// 0 at the start of the movement, 1 at its end.
+    t: f32,
+    /// Whether this is the way out.
+    closing: bool,
+}
+
+impl Default for StripZoom {
+    fn default() -> Self {
+        Self {
+            t: 1.0,
+            closing: true,
+        }
+    }
+}
+
 /// Where an entry is in its own arrival or departure.
 #[derive(Component, Default)]
 pub struct PipZoom {
@@ -168,6 +197,7 @@ pub(in crate::hud) fn spawn_pool_strip(commands: &mut Commands) -> Entity {
     commands
         .spawn((
             PoolStrip,
+            StripZoom::default(),
             Node {
                 column_gap: px(POOL_ENTRY_GAP),
                 ..strip_node(StripSide::Left)
@@ -213,14 +243,14 @@ pub fn sync_pool(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     mut revision: ResMut<PoolRevision>,
-    mut strip: Query<(Entity, Option<&Children>, &mut Visibility), With<PoolStrip>>,
+    mut strip: Query<(Entity, Option<&Children>, &Visibility, &mut StripZoom), With<PoolStrip>>,
     mut entries: Query<(&PoolEntry, &mut PipZoom)>,
     kids: Query<&Children>,
     mut counts: Query<&mut Text, With<PoolCount>>,
     labels: Query<(), With<PoolLabel>>,
     painted: Painted,
 ) {
-    let Ok((column, standing, mut seen)) = strip.single_mut() else {
+    let Ok((column, standing, seen, mut fold)) = strip.single_mut() else {
         return;
     };
     let lang = Lang::of(&settings.lang);
@@ -270,21 +300,29 @@ pub fn sync_pool(
     // that §4.1 forbids — and left out here it would take the whole strip
     // away over a pip in the middle of its fade.
     let empty = wanted.is_empty() && leaving.is_empty() && live.is_empty();
-    let hidden = *seen == Visibility::Hidden;
+    // **Showing**, not visible: a strip in the middle of folding away is still
+    // on the screen and is already answered for, so reading `Visibility` alone
+    // would start the same close on every frame until it finished and reset
+    // `t` each time — a fold that never gets past its first frame. It is the
+    // same pair `hud::tray`'s `showing = drawn && !closing` is, one level
+    // down.
+    let showing = *seen != Visibility::Hidden && !fold.closing;
     // The second half is the tree, as everywhere on this shelf: an entry that
     // has finished fading is despawned by `zoom_the_pool` and leaves a
     // reading that is still true and a row that is no longer what it says.
-    if *revision == next && shown == wanted && hidden == empty {
+    if *revision == next && shown == wanted && showing != empty {
         return;
     }
     let relabel = revision.lang != next.lang;
     *revision = next;
 
-    *seen = if empty {
-        Visibility::Hidden
-    } else {
-        Visibility::Inherited
-    };
+    // Which way the strip is going. Nothing here shows or hides it —
+    // `grow_the_pool` does both at the ends of the movement, because a strip
+    // hidden on the frame the last mana was spent is a fold nobody sees.
+    if empty != fold.closing {
+        fold.closing = empty;
+        fold.t = 0.0;
+    }
     let head = head(&mut commands, &children, &labels, &fonts, lang, relabel);
 
     let mut ordered: Vec<(usize, Entity)> = Vec::new();
@@ -335,6 +373,64 @@ pub fn sync_pool(
     let mut row = vec![head];
     row.extend(ordered.into_iter().map(|(_, entry)| entry));
     commands.entity(column).replace_children(&row);
+}
+
+/// Grows the strip out of the shelf, and folds it back into it.
+///
+/// The counterpart of [`super::drawer::zoom_the_drawer`] and the same curve,
+/// because the two are the same kind of thing: a lip of the shelf that is
+/// sometimes there. What differs is the corner it is pinned at — the drawer
+/// is centred and shrinks toward its own middle, this is fixed at the
+/// window's left margin and would appear to *slide* inward if it did the
+/// same, so [`motion::from_bottom_left`] holds the corner it grows out of.
+///
+/// And what differs more usefully: the drawer is despawned at the end of its
+/// close and this is only **hidden**. The strip is spawned once with the
+/// overlay's root and nothing would ever build it again — the same trap the
+/// tray would have fallen into — so the end of the fold is a `Visibility`
+/// and not a `despawn`.
+///
+/// The pips inside run their own [`PipZoom`] on the same curve over the same
+/// [`motion::ZOOM_IN`], so a strip arriving with its first mana is two
+/// movements at once. They are not fought over: both start together, both
+/// end together, and the compounded scale reads as one thing arriving rather
+/// than as a pip that is late.
+pub fn grow_the_pool(
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut strips: Query<(&mut StripZoom, &mut UiTransform, &mut Visibility), With<PoolStrip>>,
+) {
+    let still = prefs.all().reduce_motion;
+    for (mut fold, mut transform, mut seen) in &mut strips {
+        // At rest, either way. Written as an early continue rather than let
+        // the arithmetic run over it, because `Mut` writes on every deref and
+        // a strip that is simply standing there would mark itself changed on
+        // every frame of every game.
+        if fold.t >= 1.0 {
+            continue;
+        }
+        let span = if fold.closing {
+            motion::ZOOM_OUT
+        } else {
+            motion::ZOOM_IN
+        };
+        fold.t = motion::step(fold.t, span, time.delta_secs(), still);
+        if fold.closing {
+            if fold.t >= 1.0 {
+                *seen = Visibility::Hidden;
+                continue;
+            }
+        } else if *seen != Visibility::Inherited {
+            *seen = Visibility::Inherited;
+        }
+        let scale = if fold.closing {
+            motion::shutting(fold.t)
+        } else {
+            motion::opening(fold.t)
+        };
+        transform.scale = Vec2::splat(scale);
+        transform.translation = motion::from_bottom_left(scale);
+    }
 }
 
 /// Advances every arrival and departure, and takes a spent entry off the row.

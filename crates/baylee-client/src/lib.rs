@@ -1046,11 +1046,21 @@ fn add_present_systems(app: &mut App) {
                 // leave, and a panel it has just spawned is drawn small on
                 // the frame it first appears rather than a frame later.
                 hud::zoom_the_drawer.after(hud::sync_drawer),
-                // The pool's own row, on its own revision, after the shelf
-                // that holds its column — and its movement after that, for
-                // the drawer's reason: a spent mana has to be able to leave.
+                // The pool's own row, on its own revision, after the shelf it
+                // hangs beside — and its two movements after that, for the
+                // drawer's reason: a spent mana has to be able to leave, and
+                // so does the strip it was the last thing on.
                 hud::sync_pool.after(hud::sync_ledge),
-                hud::zoom_the_pool.after(hud::sync_pool),
+                // The two of them nested as one element on purpose: bevy
+                // implements `IntoScheduleConfigs` for tuples up to twenty,
+                // and this tuple was at nineteen. A nested tuple is a tuple
+                // of systems like any other, so the grouping costs nothing at
+                // run time and the pair that belongs together is the one that
+                // pays for the ceiling.
+                (
+                    hud::zoom_the_pool.after(hud::sync_pool),
+                    hud::grow_the_pool.after(hud::sync_pool),
+                ),
                 // The tray hangs off the shelf's edge and not out of its
                 // layout, so it needs nothing the shelf worked out — but it
                 // is ordered after it anyway, because it is spawned by the

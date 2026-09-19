@@ -1930,7 +1930,7 @@ pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
-pub use ledge::pool::{PoolRevision, sync_pool, zoom_the_pool};
+pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{LedgeLayout, LedgeRevision, LedgeShelf, sync_ledge};
 pub(crate) use overlay::answer_button;

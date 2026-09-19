@@ -4355,6 +4355,35 @@ reaches across the whole band, and the mana a player is holding is most worth
 reading exactly while they are spending it — which is when a zone dialog may
 well be open in front of them.
 
+**It grows out of the shelf and folds back into it**, rather than being put
+on the screen and taken off it. `StripZoom` is the tray's own pair one level
+down — a `t` and which way it is going — and `grow_the_pool` is the only
+thing that touches the strip's `Visibility`: it shows it on the first frame of
+an arrival and hides it on the *last* frame of a fold, so the strip is never
+taken away around a movement of its own that has not finished. The anchor is
+the one number that is not the drawer's: `motion::from_bottom_left`, because
+a node pinned at the left margin that shrinks toward its own middle slides
+right as it grows, and the pool would arrive sliding out from under the
+sorting buttons instead of out of the shelf.
+
+Photographed with the clock stopped (`/pause`, then `/step` a counted few
+frames at a time), the arrival is 52 physical pixels tall on its first frame
+against 60 at rest, and 210 wide against 239 — 0.867 and 0.879 against the
+0.88 `ZOOM_FROM` asks for. The two numbers that do **not** move are the point:
+the left edge is at 24 and the bottom at 1701 in every frame of both
+movements, where the drawer's `from_bottom` would have started the strip 14 px
+to the right of where it ends.
+
+That movement is also where the harness's still clock stopped being free.
+`bar_of` runs with no time in it, which is right for everything that is a
+layout and wrong for anything with two movements in series: the strip cannot
+start folding until the last pip has finished fading, and a pip fades on
+`delta`. Written without advancing `Time` the fold test read as a test,
+passed, and asserted nothing — it survived a `grow_the_pool` that hid the
+strip the instant the pool emptied, which is the exact fault it was written
+for. It walks the two movements through in order now, each with the clock
+pushed past its own span.
+
 **The hand's sorting buttons took the shelf's left column, and got smaller.**
 *"Dafür verschiebe die Hand Sorting Buttons in der Actions-Bar ganz nach links
 und mache sie etwas kleiner"*, which is the other half of the same request:
