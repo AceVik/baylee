@@ -348,6 +348,11 @@ validate: 1915 cards, 2 problems — beide Planes, keiner der 42
 at all**, and the pool holds 1616. The first batch is not an LLM batch. It
 is adding the cards the reader already reads.
 
+The extrapolation held. `xtask reach-list` was written afterwards and counts
+the same population exactly rather than from a sample: 500 of them are in the
+pool now and it names 3946 more, which is 4446 against an estimate of 4400
+drawn from 299 cards. §E8 step 1 is where that count lives and moves.
+
 The probe paid for itself twice over besides: 299 random ledger cards
 found the plane-type hole above, and one collision — the pool naming a
 card by its front face where the ledger names both — which `codegen`
@@ -510,19 +515,26 @@ That is the cross-lane rule, and the Mikaeus failure is why.
 
 ### E8. The order, and what is still the owner's to say
 
-1. **Take the 4400 cards the reader already writes.** In batches small
+1. **Take the cards the reader already writes.** In batches small
    enough that a bad reader day is one revert, with `codegen --check` and
    `validate` green before each. This needs no DSL work and no lane.
 
    `cargo run -p xtask -- reach-list --out <file>` is what names them, and
    it walks the **ledger** rather than the corpus: a card with no row stops
    `codegen` outright, and the ledger's spelling is Scryfall's, which is what
-   `data/card-pool.txt` requires. Measured 19.09: **4112** of the 31 761
-   unattempted rows that carry a reference script read in full. The number is
-   a worklist and not a promise — `scriptgen` claiming every clause is one
-   reader agreeing, while `stubgen::transcode_card` still needs a printing —
-   but the one independent check of it came out exact: of the 300 names the
-   §E probe added at random it lists 42, and the probe finished 42.
+   `data/card-pool.txt` requires. Measured 19.09 after batch 2: **3946** of
+   the 31 661 unattempted rows that carry a reference script read in full.
+   The number is a worklist and not a promise — `scriptgen` claiming every
+   clause is one reader agreeing, while `stubgen::transcode_card` still needs
+   a printing — but the one independent check of it came out exact: of the 300
+   names the §E probe added at random it lists 42, and the probe finished 42.
+
+   It moves when the *reader* does, and downwards is the healthy direction:
+   the same command said 4112 over a pool a hundred cards smaller, and 66 of
+   that difference is one refusal learned in between (a spell's additional
+   cost, #52). Re-measure before every batch rather than slicing the list the
+   last one was cut from — twelve of batch 2's proposed names were cards the
+   fix had since taken off it.
 
    The batch itself is five steps, in this order: append the names to
    `data/card-pool.txt`, fill the payload cache (`scryfall-cache`, one bulk
@@ -537,6 +549,18 @@ That is the cross-lane rule, and the Mikaeus failure is why.
    color" as a promise of nothing, and `printed_tests` counted Auras against a
    ceiling somebody then had to raise by hand. Both are checks meeting printed
    text they had not seen, which is what volume does first.
+
+   Batch 2 was four hundred, all four hundred finished, and it turned up
+   three of a harder kind. One was in the **reader**: a spell's `Cost$` is its
+   mana cost plus whatever else the card charges (CR 601.2b) and the spell
+   branch dropped the second half in silence, so Crop Rotation was already
+   shipping as a one-mana tutor that sacrifices no land. The other two were
+   pool-wide sweeps meeting a shape they had assumed away — `claim_tests`
+   holding a card's sentence against a press nobody made, because cycling is
+   a button that is not the cast, and the Karoo family's population test
+   meeting the first non-land ever to print that sentence. A batch's real
+   yield is that kind of finding: each of them was one rule wrong for every
+   card it touched, surfaced by whichever card happened to arrive first.
 2. **Then the residue, ranked `--stubs`**, one cause at a time, each cause
    cut out first to see what is behind it.
 3. **Then the corpus ranking**, which is where a rule buys hundreds of
