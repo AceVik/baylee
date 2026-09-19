@@ -4458,6 +4458,18 @@ why it needs a list at all: a press and a click land on different frames, so
 the press would shut the panel and `menu_click` would re-open it a frame
 later, leaving a button that looked busy and did nothing.
 
+Photographed with the clock stopped, the panel is 859 physical pixels wide
+two frames into the arrival and 871 at rest — and its **right** edge is at
+3394 and 3395, which is the claim: the corner the button is in holds still to
+a pixel while the rest of the panel comes out of it. The vertical half is the
+same expression as the drawer's and is held by `motion`'s own arithmetic test.
+The whole-frame diff that would have measured both at once is not available
+here, and that is worth knowing before reaching for it: `/pause` stops
+`Time<Virtual>`, which every movement reads, but a shader's `globals.time`
+runs off the render clock — so the felt, the rims and the sky all differ
+between any two frames separated by a `/step`, and a diff of the whole window
+comes back saying everything moved.
+
 **Writing it found that the sweep's exemptions were held by nothing.**
 `sync_overlay` spares six markers under `HudRoot`, and taking the tray's, the
 pool's or the menu's condition out left all 27 tests in `hud::overlay`
