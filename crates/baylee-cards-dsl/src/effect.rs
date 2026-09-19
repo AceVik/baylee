@@ -647,6 +647,42 @@ pub enum Effect {
         /// What may be sacrificed.
         filter: &'static Filter,
     },
+    /// Each player in `who` returns a permanent they control matching the
+    /// filter to its owner's hand (their choice; the Ravnica bounce lands —
+    /// "when this land enters, return a land you control to its owner's
+    /// hand").
+    ///
+    /// **Nothing here targets.** The card does not print the word, so
+    /// CR 115.1 does not apply: the permanent is picked while the ability
+    /// resolves (CR 608.2d), hexproof and ward never answer, and nothing
+    /// triggers on becoming a target. That is not a detail of the wording —
+    /// a bounce land can return a hexproof creature's land, and a targeted
+    /// spelling would let a single protected permanent make the whole
+    /// ability do nothing.
+    ///
+    /// **Its owner's hand, never the chooser's**, which CR 400.3 supplies
+    /// whatever the card says: a Forest borrowed off another battlefield
+    /// goes home rather than joining the borrower's hand.
+    ///
+    /// Not [`CostPart::ReturnToHand`], which is the same movement bought at
+    /// a different moment: a cost is paid while an ability is activated and
+    /// an unpayable one means the ability is never announced, while this
+    /// happens on resolution and a player with nothing to return simply
+    /// does nothing (CR 608.2d "as much as possible"). Quirion Ranger
+    /// prints the first sentence and Azorius Chancery the second.
+    ///
+    /// Mandatory, because the printed sentence is. "You may return …" is
+    /// this effect inside a [`Effect::MayDo`], which is where the word
+    /// belongs — a flag here would put the decision on the rule instead of
+    /// on the card.
+    ///
+    /// [`CostPart::ReturnToHand`]: crate::CostPart::ReturnToHand
+    ReturnChosenToHand {
+        /// Who chooses and returns.
+        who: PlayerRel,
+        /// What may be returned.
+        filter: &'static Filter,
+    },
     /// Remove all counters from all permanents; the source enters with
     /// that many +1/+1 counters (Thief of Blood).
     DrainAllCountersIntoSelf,

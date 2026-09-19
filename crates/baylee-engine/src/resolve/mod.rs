@@ -282,6 +282,14 @@ pub enum AwaitingOp {
         /// Players still to choose.
         remaining: Vec<PlayerId>,
     },
+    /// After `ReturnChosenToHand`: put the chosen permanent into its
+    /// owner's hand, then ask the next remaining player.
+    ReturnChosen {
+        /// What may be returned.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Players still to choose.
+        remaining: Vec<PlayerId>,
+    },
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
     DigRest {
         /// The looked-at cards not chosen.
@@ -1034,6 +1042,42 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
+        AwaitingOp::ReturnChosen { filter, remaining } => {
+            if let Some(&returned) = chosen.first() {
+                // CR 400.3: its owner's hand, whoever was controlling it.
+                let owner = state.object(returned).map_or(res.controller, |o| o.owner);
+                if let Some(obj) = state.object_mut(returned) {
+                    obj.kind = ObjectKind::Card;
+                }
+                // No `ask_commander_replace` here, and that is the sibling's
+                // answer rather than a decision of this arm: a commander
+                // replacement re-runs its operation *from the top*, which a
+                // start block can do and a continuation cannot — re-entering
+                // here would ask the same player to choose again. Both
+                // per-player chains have the same hole, and closing it is one
+                // piece of work for all three (a commander is never one of
+                // the twelve lands this arm was written for).
+                let _ = state.move_object(
+                    returned,
+                    ZoneLocation::Hand(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            let mut remaining = remaining;
+            if let Some((player, options)) =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            {
+                res.awaiting = Some(AwaitingOp::ReturnChosen { filter, remaining });
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: 1,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
+                });
+            }
+        }
         AwaitingOp::ReorderTopLibrary => {
             // chosen[0] becomes the topmost card (end of the library vec).
             for &card in chosen.iter().rev() {
@@ -1545,6 +1589,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::DiscardForPlayers { .. }
         | Effect::SacrificeFilter { .. }
+        | Effect::ReturnChosenToHand { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
         | Effect::ExileSelfReturnAsFace { .. }
         | Effect::ReturnLinkedToBattlefield

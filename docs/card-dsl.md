@@ -816,7 +816,18 @@ Removal: `Destroy`, `DestroyAll`, `Exile`, `CounterTargetSpell`,
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
 countered, so it has to follow one; `source_filter` is the printed
 restriction on which permanents it reaches), `SacrificeFilter`, `ReturnToHand`,
-`ReturnAllToHand`, `RedirectTarget` (Misdirection).
+`ReturnAllToHand`, `ReturnChosenToHand`, `RedirectTarget` (Misdirection).
+
+The three returns are three different sentences and picking by destination
+gets them wrong. `ReturnToHand` **targets** one permanent, so the caster
+chooses and hexproof answers; `ReturnAllToHand` sweeps every match with
+nobody choosing at all; `ReturnChosenToHand { who, filter }` is the bounce
+land's "return a land you control to its owner's hand" — each player in
+`who` picks one of the permanents **they** control, on resolution, and the
+card prints no "target", so CR 115.1 never applies. It is mandatory, because
+the printed sentence is: "you may return …" is the same effect wrapped in
+`MayDo`. `SacrificeFilter` and `DestroyChosenForPlayers` are its two
+siblings, identical but for where the permanent ends up.
 Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,

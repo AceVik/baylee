@@ -1,10 +1,11 @@
 //! One player at a time, picking one of their own permanents.
 //!
-//! Two effects share a shape rather than a meaning: the effect names a
+//! Three effects share a shape rather than a meaning: the effect names a
 //! filter and a set of players, and every one of those players is asked, in
 //! turn, to name one of their own permanents matching it. Only what happens
 //! to the pick differs — [`Effect::SacrificeFilter`] sends it to the
-//! graveyard and [`Effect::DestroyChosenForPlayers`] destroys it.
+//! graveyard, [`Effect::DestroyChosenForPlayers`] destroys it, and
+//! [`Effect::ReturnChosenToHand`] puts it in its owner's hand.
 //!
 //! Two questions are the same in all of them and live here. What a given
 //! player may pick ([`options`]), and who is asked next ([`next_asked`]) —
@@ -19,6 +20,7 @@
 //!
 //! [`Effect::SacrificeFilter`]: baylee_cards_dsl::Effect::SacrificeFilter
 //! [`Effect::DestroyChosenForPlayers`]: baylee_cards_dsl::Effect::DestroyChosenForPlayers
+//! [`Effect::ReturnChosenToHand`]: baylee_cards_dsl::Effect::ReturnChosenToHand
 
 use baylee_cards_dsl::Filter;
 use baylee_core::ids::{ObjectId, PlayerId};

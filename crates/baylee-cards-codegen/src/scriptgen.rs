@@ -1160,6 +1160,16 @@ impl Tx<'_> {
                 return None;
             }
         };
+        // "Return a land you control to its owner's hand": no target, no
+        // `Defined$`, and a player picking one of their own permanents while
+        // the ability resolves.
+        if !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Battlefield"
+            && p.has("Hidden")
+        {
+            return self.return_chosen(p, &destination);
+        }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
             self.note("`ChangeZone` with neither a target nor `Defined$`".to_string());
@@ -1174,6 +1184,68 @@ impl Tx<'_> {
                 return None;
             }
         })
+    }
+
+    /// `Origin$ Battlefield` with a chooser rather than a target: the bounce
+    /// land's "return a land you control to its owner's hand".
+    ///
+    /// **`Hidden$ True` is the discriminator, not decoration**, and that is
+    /// a measurement rather than a reading of the word. Of the reference's
+    /// 173 untargeted `Battlefield` → `Hand` lines, 96 carry a
+    /// `ChangeType$` and **all 96** of those carry `Hidden$ True`; of the 77
+    /// that name no filter — "return this land to its owner's hand", a
+    /// different card — exactly one does. So the key separates "somebody
+    /// chooses from the battlefield" from "this moves itself" cleanly, and
+    /// the branch above is guarded on its presence so a line without it
+    /// still gets the old, correct report.
+    ///
+    /// `Mandatory$ True` is required for the reason [`Self::search_library`]
+    /// requires a word about its count: [`Effect::ReturnChosenToHand`] is an
+    /// instruction and "you may return" is a different card, so a script
+    /// that does not say which is refused rather than read as either. It
+    /// separates the corpus 81 to 15 and every one of the twelve lands this
+    /// was written for is on the mandatory side.
+    ///
+    /// Everything else is refused by not being claimed — `DefinedPlayer$`
+    /// and `Chooser$` (14 and 9 lines that hand the choice to somebody
+    /// else), `Optional$`, `UnlessCost$`, `RememberLKI$`. Each is a rule
+    /// this does not have, and the generic unclaimed-parameter report names
+    /// it better than a guess would.
+    ///
+    /// [`Effect::ReturnChosenToHand`]: baylee_cards_dsl::Effect::ReturnChosenToHand
+    fn return_chosen(&mut self, p: &mut Params, destination: &str) -> Option<Vec<String>> {
+        if destination != "Hand" {
+            self.note(format!(
+                "`ChangeZone` chosen off the battlefield into {destination}"
+            ));
+            return None;
+        }
+        for (key, expected) in [("Hidden", "True"), ("Mandatory", "True")] {
+            match p.take(key).as_deref() {
+                Some(value) if value == expected => {}
+                Some(other) => {
+                    self.note(format!("`ChangeZone` with `{key}$ {other}`"));
+                    return None;
+                }
+                None => {
+                    self.note(format!("`ChangeZone` chosen without `{key}$`"));
+                    return None;
+                }
+            }
+        }
+        // One permanent, because that is the only count the effect states.
+        // A sentence returning two is a different rule and says so here
+        // rather than writing a card that returns one of them.
+        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        if count != 1 {
+            self.note(format!("`ChangeZone` returning {count} chosen permanents"));
+            return None;
+        }
+        let filter = self.filter_expr(&p.take("ChangeType")?)?;
+        let name = self.body.filter_static("RETURN", &filter);
+        Some(vec![format!(
+            "Effect::ReturnChosenToHand {{ who: PlayerRel::You, filter: &{name} }}"
+        )])
     }
 
     /// `Origin$ Library`: the fetchland sentence — "search your library for
@@ -4141,6 +4213,92 @@ mod tests {
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
             Some("`Animate` of something other than the source")
+        );
+    }
+
+    /// The bounce land's sentence: nobody is targeted, the ability's
+    /// controller picks one of their own lands, and it goes to its owner's
+    /// hand.
+    ///
+    /// Each half is struck on its own below, because a reader that emitted
+    /// this shape for *any* untargeted `Battlefield` → `Hand` line would
+    /// pass the first assertion and be wrong about four other cards.
+    #[test]
+    fn a_hidden_battlefield_to_hand_is_a_choice_among_your_own() {
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | Execute$ TrigReturn | TriggerDescription$ return a land you control.\n\
+             SVar:TrigReturn:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand \
+             | Hidden$ True | Mandatory$ True | ChangeType$ Land.YouCtrl \
+             | AILogic$ NeverBounceItself | SpellDescription$ Return a land you control.",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "triggered!(Trigger::ETB, &[Effect::ReturnChosenToHand { who: PlayerRel::You, \
+                 filter: &Filter::YOUR_LAND }])"
+            ]
+        );
+
+        // `Mandatory$ True` is what separates "return a land you control"
+        // from "you may return a land you control", and the effect can only
+        // say the first. Without the word it is refused rather than read as
+        // either — the same bargain a library search makes about its count.
+        let silent = parse(
+            "Name:X\nTypes:Land\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | Execute$ TrigReturn | TriggerDescription$ return a land you control.\n\
+             SVar:TrigReturn:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand \
+             | Hidden$ True | ChangeType$ Land.YouCtrl",
+        );
+        assert_eq!(
+            refusal_reason(&silent, &cats(), None).as_deref(),
+            Some("`ChangeZone` chosen without `Mandatory$`")
+        );
+
+        // `Hidden$` is the discriminator, and without it the line falls
+        // through to the report it had before this rule existed.
+        let open = parse(
+            "Name:X\nTypes:Land\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | Execute$ TrigReturn | TriggerDescription$ return a land you control.\n\
+             SVar:TrigReturn:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand \
+             | Mandatory$ True | ChangeType$ Land.YouCtrl",
+        );
+        assert_eq!(
+            refusal_reason(&open, &cats(), None).as_deref(),
+            Some("`ChangeZone` with neither a target nor `Defined$`")
+        );
+
+        // Arid Archway: the return is this rule, and the surveil hanging
+        // off it reads the permanent that came back. Nothing claims
+        // `RememberLKI$`, so the card is refused whole rather than written
+        // as a bounce land that forgot half its sentence.
+        let remembered = parse(
+            "Name:X\nTypes:Land\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | Execute$ TrigReturn | TriggerDescription$ return a land you control.\n\
+             SVar:TrigReturn:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand \
+             | Hidden$ True | Mandatory$ True | ChangeType$ Land.YouCtrl | RememberLKI$ True",
+        );
+        assert_eq!(
+            refusal_reason(&remembered, &cats(), None).as_deref(),
+            Some("unclaimed parameter `ChangeZone.RememberLKI`")
+        );
+
+        // A second permanent is a different rule, and it says so rather
+        // than writing a card that returns one of them.
+        let two = parse(
+            "Name:X\nTypes:Land\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | Execute$ TrigReturn | TriggerDescription$ return two lands you control.\n\
+             SVar:TrigReturn:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand \
+             | Hidden$ True | Mandatory$ True | ChangeNum$ 2 | ChangeType$ Land.YouCtrl",
+        );
+        assert_eq!(
+            refusal_reason(&two, &cats(), None).as_deref(),
+            Some("`ChangeZone` returning 2 chosen permanents")
         );
     }
 

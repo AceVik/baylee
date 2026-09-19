@@ -454,6 +454,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
             })
         }
+        Effect::ReturnChosenToHand { who, filter } => {
+            let mut players = players_of(who, state, you, res);
+            // `min: 1` because the printed sentence is an instruction and
+            // not an offer; a player with nothing that matches is skipped by
+            // `next_asked` rather than shown an empty menu (CR 608.2d: as
+            // much as possible, and no question that cannot be answered).
+            let (player, options) =
+                chosen::next_asked(state, &mut players, filter, you, res.source)?;
+            res.awaiting = Some(AwaitingOp::ReturnChosen {
+                filter,
+                remaining: players,
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::DiscardForPlayers { who, count } => {
             let players = players_of(who, state, you, res);
             let mut remaining: Vec<PlayerId> = players
