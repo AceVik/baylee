@@ -126,6 +126,25 @@ in two places.
 hand's shelf*, *the mat ledge* and *the HUD ledge*. A sentence that needs its
 section heading to be read correctly is a sentence missing a word.
 
+And the qualifier is only half of it. Applying the rule to `docs/client.md`
+took **eight edits out of 107 occurrences** — 79 uses were already unambiguous
+from what is cued within three lines, and qualifying those would have been
+noise. What was genuinely wrong split in two, and only one kind is a missing
+word:
+
+- **A bare word for the surface the section is *not* about** — the zone
+  browser's `LedgeRevision` rebuilding the hand's shelf among 54 neighbouring
+  uses meaning the mat's. A qualifier fixes it.
+- **A paragraph alternating both words for *one* surface**, a line apart:
+  "it reports both *shelves* … the number that decides the *ledge*". That
+  reads as two things where there is one, and **no qualifier repairs it** —
+  the fix is to stop alternating.
+
+So: qualify where both surfaces are reachable, pick one word and keep it where
+only one is, and put the rule at the head of the section rather than a
+qualifier on every line inside it. The pass is the cheap half; the next writer
+is the expensive one.
+
 ---
 
 ## Terms of art you are expected to know
