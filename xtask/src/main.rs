@@ -5755,9 +5755,23 @@ mod tests {
                     std::thread::sleep(std::time::Duration::from_millis(5));
                     continue;
                 };
-                // Ten rather than two, for the same reason: this bounds how
-                // long one request's bytes may take to arrive over loopback,
-                // and under load that is scheduling latency, not I/O.
+                // macOS hands the accepted socket its listener's `O_NONBLOCK`;
+                // Linux does not. Measured here rather than recalled: a probe
+                // on this machine reported the accepted socket non-blocking
+                // after the listener was set so. `set_read_timeout` writes
+                // `SO_RCVTIMEO` and clears no flag, so on a socket that
+                // inherited the flag every read below answers `WouldBlock` the
+                // instant no byte has arrived yet — which is what failed, once
+                // in twenty-five runs, twenty-one milliseconds into a read
+                // whose timeout says ten seconds. The earlier reading of that
+                // failure as scheduling latency was wrong: a ten-second
+                // timeout that expires in twenty-one milliseconds is not a
+                // deadline being missed, it is a deadline that was never
+                // armed.
+                stream.set_nonblocking(false).unwrap();
+                // Ten rather than two: this bounds how long one request's
+                // bytes may take to arrive over loopback, and under load that
+                // is scheduling latency, not I/O.
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(10)))
                     .unwrap();
