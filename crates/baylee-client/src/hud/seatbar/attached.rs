@@ -209,10 +209,11 @@ pub(super) fn spawn(
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
+    role: baylee_client_core::board::SeatRole,
     orders: &PhaseOrders,
     fonts: &UiFonts,
 ) {
-    spawn_identity(commands, root, lang, view, statics, seat, fonts);
+    spawn_identity(commands, root, lang, view, statics, seat, role, fonts);
     spawn_counts(commands, root, view, seat, fonts);
     spawn_phases(commands, root, lang, view, statics, seat, orders, fonts);
 }
@@ -225,6 +226,7 @@ fn spawn_identity(
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
+    role: baylee_client_core::board::SeatRole,
     fonts: &UiFonts,
 ) {
     let identity = frame(commands, root, seat.player, Panel::Identity);
@@ -248,7 +250,9 @@ fn spawn_identity(
             ..default()
         },
     ));
-    let label = name(commands, lang, view, statics, seat, fonts, HEADER_W, 22.0);
+    let label = name(
+        commands, lang, view, statics, seat, role, fonts, HEADER_W, 22.0,
+    );
     let status = commands
         .spawn((
             Node {

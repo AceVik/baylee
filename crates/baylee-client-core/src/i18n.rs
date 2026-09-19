@@ -199,6 +199,20 @@ messages! {
     Refresh { en: "Refresh", de: "Neu laden" },
     /// The one-tap game against the house AI.
     PlayTheHouse { en: "Play the house", de: "Gegen das Haus" },
+    /// What a chair the house plays is called on its own bar.
+    ///
+    /// Written from the **flag** and never from the name the host sent, and
+    /// that is safe for a plain reason rather than a clever one: neither
+    /// producer has any other name for such a chair. `LocalHost` seats the
+    /// literal `"House AI"` and the gateway writes the same string for every
+    /// empty chair in a running game, so there is no host-chosen name for
+    /// this to hide — only an English one for a German player to read.
+    ///
+    /// The day a host does name its AI chairs, this is the line that has to
+    /// give way, and `a_house_chair_is_called_the_house_in_the_players_own_
+    /// language`'s sibling in `host.rs` is what will say so: it pins the one
+    /// string `LocalHost` writes.
+    SeatHouse { en: "House AI", de: "Haus-KI" },
     /// Caption over the room password box.
     RoomPassword { en: "ROOM PASSWORD", de: "RAUM-PASSWORT" },
     /// Before the row of table sizes.

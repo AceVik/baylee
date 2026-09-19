@@ -42,6 +42,7 @@ use super::rail::row_visual;
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::automation::{PhaseOrders, RailSide};
+use baylee_client_core::board::SeatRole;
 use baylee_client_core::seatbar::{
     CELL_GAP, Cell, Density, HALO_OUT, SPLIT_COLUMN_GAP, SPLIT_LIFE_H, SPLIT_NAME_H,
     SPLIT_PLAQUE_PAD, SPLIT_PLAQUE_W, Zone,
@@ -262,13 +263,40 @@ impl Shelves {
     }
 }
 
+/// Who is answering for `player`, as the board model read it off the roster.
+///
+/// Through the pod and not through `GameStatic` directly, although the bar has
+/// both in hand. The pod is where [`SeatRole::of`] resolved the roster's two
+/// bools into the three states that exist, and three surfaces ask this
+/// question — this bar, the mat's rim and the seat sheet after it. A second
+/// reading of the same payload is a second chance to answer it differently,
+/// which is the whole argument for the field being on the pod at all.
+///
+/// A board this client has not built yet seats a present player, which is the
+/// same answer an empty roster gives and for the same reason: nobody has been
+/// introduced.
+fn role_of(duel: &Duel, player: PlayerId) -> SeatRole {
+    duel.board
+        .as_ref()
+        .and_then(|board| board.pod(player))
+        .map_or(SeatRole::Present, |pod| pod.role)
+}
+
 /// What the bars were last built from.
 ///
 /// Deliberately *not* the pointer, and deliberately not the shelves either:
 /// a shelf moves every frame the camera does, and the bar follows it by
 /// having its `Node` rewritten rather than by being rebuilt. Only the
 /// **density** of a shelf is here, because that changes what the tree is.
-#[derive(Resource, Default)]
+///
+/// Compared and assigned **whole**, which is the point of it being a struct at
+/// all. Six `&&`s against six field assignments is a list that has to be
+/// added to in two places, and the field a change forgets is not a
+/// compilation error — it is a bar that stops redrawing for one of the seven
+/// things that should redraw it, silently, for as long as nobody looks. A
+/// struct literal is a list of its fields and the compiler reads it; that is
+/// what `drawer::reading` is built this way for too.
+#[derive(Resource, Default, PartialEq)]
 pub struct BarRevision {
     /// The snapshot the seats, life and counts came from.
     seq: Option<u64>,
@@ -280,6 +308,12 @@ pub struct BarRevision {
     /// The densities, in seat order. A camera that zooms past a boundary is
     /// the one thing that rebuilds these trees without the game moving.
     densities: Vec<(PlayerId, Density)>,
+    /// Who is answering for each chair, in seat order.
+    ///
+    /// The one thing in this key that does not come from the view. See where
+    /// it is built for why a bar that left it out drew a stand-in's clock
+    /// late and then kept it after the player was back.
+    roles: Vec<(PlayerId, SeatRole)>,
     /// Whether the game has a day/night designation, which widens the hinge.
     designated: bool,
     /// The interface's language.
@@ -438,25 +472,33 @@ pub fn sync_seat_bars(
         .iter()
         .map(|(player, shelf)| (*player, shelf.density))
         .collect();
-    let seq = duel.board.as_ref().map(|b| b.seq);
-    let unchanged = revision.seq == seq
-        && revision.focus == duel.focus
-        && revision.densities == densities
-        && revision.designated == designated
-        && revision.lang == Some(lang)
-        && revision
-            .orders
-            .as_ref()
-            .is_some_and(|had| had.same_as(&orders));
-    if unchanged && !existing.is_empty() {
+    let fresh = BarRevision {
+        seq: duel.board.as_ref().map(|b| b.seq),
+        orders: Some(orders.clone()),
+        focus: duel.focus,
+        densities,
+        // Who is answering for each chair, and it is in the key rather than
+        // left to `seq` for a reason that is invisible until it bites. `seq`
+        // is the **view's**, and a chair changing hands is not a view: the
+        // host marks every seat's roster stale and re-sends `GameStatic`,
+        // which reaches this client as its own message. A bar keyed on the
+        // view alone is built from whichever roster happened to be in hand and
+        // goes on saying so — which for a stand-in means the clock arrives
+        // late and, worse, stays after the player has come back. "Nothing
+        // remembers it afterwards" is the whole design of `away`, and this
+        // field is what makes it true in the direction that matters.
+        roles: view
+            .seats
+            .iter()
+            .map(|seat| (seat.player, role_of(&duel, seat.player)))
+            .collect(),
+        designated,
+        lang: Some(lang),
+    };
+    if *revision == fresh && !existing.is_empty() {
         return;
     }
-    revision.seq = seq;
-    revision.focus = duel.focus;
-    revision.densities = densities;
-    revision.designated = designated;
-    revision.lang = Some(lang);
-    revision.orders = Some(orders.clone());
+    *revision = fresh;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -507,6 +549,7 @@ pub fn sync_seat_bars(
                 view,
                 duel.statics.as_ref(),
                 seat,
+                role_of(&duel, seat.player),
                 &orders,
                 &fonts,
             );
@@ -521,6 +564,7 @@ pub fn sync_seat_bars(
             view,
             duel.statics.as_ref(),
             seat,
+            role_of(&duel, seat.player),
             shelf,
             &orders,
             &fonts,
@@ -539,6 +583,7 @@ fn spawn_bar(
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
+    role: SeatRole,
     shelf: Shelf,
     orders: &PhaseOrders,
     fonts: &UiFonts,
@@ -627,7 +672,9 @@ fn spawn_bar(
             let node = match cell {
                 Cell::Caret => caret(commands, view, seat, fonts, width, height),
                 Cell::Swatch => swatch(commands, view, statics, seat, width, height),
-                Cell::Name => name(commands, lang, view, statics, seat, fonts, width, height),
+                Cell::Name => name(
+                    commands, lang, view, statics, seat, role, fonts, width, height,
+                ),
                 Cell::Life => life(commands, seat, fonts, width, height, density),
                 Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
                 Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
@@ -869,6 +916,21 @@ fn swatch(
 }
 
 /// The seat's name, and the cell a player clicks to frame that seat.
+///
+/// It is also the whole of where a seat's **role** is said, and the reason
+/// for that is arithmetic rather than taste. The design
+/// (`docs/game-log-design.md` §"The seat that stepped away") asked for a role
+/// line under the name, written for a strip of seat tabs that no longer
+/// exists; the plaque that replaced it is `HEADER_H` = 60 logical pixels tall
+/// and its two rows already spend 56 of them, and the plaque's size is what
+/// `Panel::Identity` is fitted to the mat's band with. A third row means a
+/// taller plaque means a band fit that two tests hold. So the role is a
+/// **mark**, and the name cell is where it goes.
+///
+/// Nothing costs the bar a pixel when a seat is an ordinary player, which is
+/// the rule the caret beside this cell already obeys: this cell is
+/// `cell_node`, a fixed `width` that does not shrink, so everything inside it
+/// spends the name's room and never the bar's.
 #[allow(clippy::too_many_arguments)] // one cell, one flat build
 fn name(
     commands: &mut Commands,
@@ -876,6 +938,7 @@ fn name(
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
+    role: SeatRole,
     fonts: &UiFonts,
     width: f32,
     height: f32,
@@ -885,6 +948,17 @@ fn name(
         || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
         |s| s.seat_name(player).to_string(),
     );
+    // A chair the house plays is called the house in the player's own
+    // language. Off the **flag** and never by matching the string, for the
+    // reason `Phrase::SeatHouse` gives: neither host has another name for such
+    // a chair, so there is nothing here to hide — only an English word a
+    // German player was being shown. A chair that is merely *held* keeps its
+    // player's name, which is the whole reason `away` is not `is_ai`.
+    let printed = if role == SeatRole::House {
+        Phrase::SeatHouse.text(lang).to_string()
+    } else {
+        printed
+    };
     let display = if player == view.seat {
         baylee_client_core::i18n::own_seat_name(lang, &printed)
     } else {
@@ -904,26 +978,50 @@ fn name(
                 bevy::text::LineHeight::Px(height),
                 TextColor(ink_of(seat)),
                 TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+                // The name is what gives way, and it has to be *told* to.
+                // A flex item's `min-width` is `auto`, which for a `NoWrap`
+                // text resolves to the whole string — so a long name refuses
+                // to shrink, and anything after it in the row is pushed past
+                // the `clip_x` edge and drawn nowhere. That is the shape the
+                // mark below was in from the day it was written: present in
+                // the tree, invisible for exactly the names long enough to
+                // matter.
+                Node {
+                    min_width: px(0),
+                    ..default()
+                },
                 Pickable::IGNORE,
             )],
         ))
         .id();
-    // A seat somebody has walked away from says so where its name is, which
-    // is the one place a player is already looking to find out who it is.
-    // `away` is on the **roster**, not on the view of the seat: a chair the
-    // house is holding is not relabelled an AI, so "is somebody there" and
-    // "what is their life total" come from two different payloads.
-    let away = statics.is_some_and(|s| {
-        s.seats
-            .iter()
-            .any(|identity| identity.player == player && identity.away)
-    });
-    if away {
+    // A chair that is not being answered for by the person whose chair it is
+    // says so where its name is, which is the one place a player is already
+    // looking to find out who it is.
+    //
+    // Only [`SeatRole::Away`] gets a mark. A chair the house plays by
+    // arrangement has already said so in the name itself, and a bar that said
+    // it twice would be spending the cell's room on its own repetition.
+    if role == SeatRole::Away {
         let clock = commands
             .spawn((
+                // A clock, because the caveat the design's sentence carried —
+                // *stepped away*, not *gone* — is the one a clock makes
+                // without any words: it says "for a while". The chair is not
+                // empty and the next question will be answered.
                 Text::new('\u{f017}'.to_string()),
                 icon_tf(fonts, fits(10.0, height)),
+                // The bar's own glyph ink, the life heart's, and deliberately
+                // not the seat's accent: the accent is identity, and this is
+                // not a fact about who the player is. `docs/game-log-design.md`
+                // says `MUTED`, which is the panel register and not this one.
                 TextColor(palette::PARCHMENT_EDGE),
+                // It does not give way. The name does — see above — and with
+                // both halves of that in place the mark is at the cell's
+                // right whatever the name is, instead of off the end of it.
+                Node {
+                    flex_shrink: 0.0,
+                    ..default()
+                },
                 Pickable::IGNORE,
             ))
             .id();
@@ -1479,5 +1577,319 @@ fn cell_node(width: f32, height: f32) -> Node {
         justify_content: JustifyContent::Center,
         column_gap: px(3),
         ..default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_view::SeatIdentity;
+
+    /// What one name cell is asked about, handed to the system that draws it.
+    ///
+    /// A resource and a one-system app rather than a direct call, because
+    /// `name` builds through `Commands` and what is under test is the tree it
+    /// leaves behind — the same reason `combatlines::running` and the ledge's
+    /// harness are apps rather than arithmetic.
+    #[derive(Resource, Clone)]
+    struct Asked {
+        lang: Lang,
+        role: SeatRole,
+        statics: GameStatic,
+        view: PlayerView,
+    }
+
+    fn draw(mut commands: Commands, asked: Res<Asked>, fonts: Res<UiFonts>) {
+        let seat = &asked.view.seats[OTHER];
+        name(
+            &mut commands,
+            asked.lang,
+            &asked.view,
+            Some(&asked.statics),
+            seat,
+            asked.role,
+            &fonts,
+            240.0,
+            22.0,
+        );
+    }
+
+    /// The chair every test below is about: the opponent's, not the viewer's.
+    ///
+    /// Not seat 0, because `own_seat_name` wraps the viewing seat's own name
+    /// — "You (Alice)" — and a test reading that would be reading the wrapper
+    /// rather than the name. Nothing about a role differs between the two
+    /// chairs; the wrapper is simply noise here.
+    const OTHER: usize = 1;
+
+    /// One name cell, drawn for a chair in `role` and called `called`.
+    fn cell(role: SeatRole, lang: Lang, called: &str) -> App {
+        let view = ViewBuilder::new(2).build();
+        let mut statics = baylee_client_core::test_support::statics(1);
+        statics.seats = vec![SeatIdentity {
+            player: view.seats[OTHER].player,
+            display_name: called.to_string(),
+            is_ai: role == SeatRole::House,
+            away: role == SeatRole::Away,
+            team: None,
+        }];
+        let mut app = App::new();
+        app.insert_resource(Asked {
+            lang,
+            role,
+            statics,
+            view,
+        })
+        .insert_resource(fonts())
+        .add_systems(Update, draw);
+        app.update();
+        app
+    }
+
+    /// A two-seat table with its shelves already measured, running the real
+    /// [`sync_seat_bars`].
+    ///
+    /// The shelves are handed in rather than projected, because what is under
+    /// test is the gate and not the camera: `measure_shelves` runs off a rig
+    /// and a window, and a harness that needed both would be testing those.
+    /// Long enough for `Density::Full`, so both seats get a bar with a name on
+    /// it. `Cloth` and its materials are left out on purpose — that is the
+    /// branch a machine with no GPU takes.
+    fn table() -> App {
+        let mut duel = Duel {
+            view: Some(ViewBuilder::new(2).build()),
+            statics: Some(baylee_client_core::test_support::statics(1)),
+            ..Duel::default()
+        };
+        if let Some(statics) = duel.statics.as_mut() {
+            statics.seats = (0..2)
+                .map(|at| SeatIdentity {
+                    player: PlayerId::new(at),
+                    display_name: format!("Seat {at}"),
+                    is_ai: false,
+                    away: false,
+                    team: None,
+                })
+                .collect();
+        }
+        crate::rebuild_board(&mut duel);
+        let shelves = Shelves(
+            (0..2)
+                .map(|at| {
+                    (
+                        PlayerId::new(at),
+                        Shelf {
+                            middle: Vec2::new(600.0, 200.0 + f32::from(at) * 400.0),
+                            along: 1100.0,
+                            depth: 46.0,
+                            tilt: 0.0,
+                            density: Density::Full,
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let mut app = App::new();
+        app.insert_resource(duel)
+            .insert_resource(shelves)
+            .insert_resource(fonts())
+            .insert_resource(crate::settings::ClientSettings::default())
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<BarRevision>()
+            .add_systems(Update, sync_seat_bars);
+        app.update();
+        app
+    }
+
+    /// Fonts with no asset server behind them: what is under test is the tree
+    /// the bar builds, and none of that is the GPU's.
+    fn fonts() -> UiFonts {
+        UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        }
+    }
+
+    /// Every word the cell put on the screen.
+    fn said(app: &mut App) -> Vec<String> {
+        let mut q = app.world_mut().query::<&Text>();
+        q.iter(app.world()).map(|t| t.0.clone()).collect()
+    }
+
+    /// The clock, which is the whole of what a held chair says.
+    const CLOCK: &str = "\u{f017}";
+
+    /// A chair the house is *holding* wears a clock; the other two do not.
+    ///
+    /// Three cases and not one, because each of the other two is a different
+    /// way to get this wrong. A present player wearing a clock is the table
+    /// telling everyone somebody has left when nobody has. And a chair the
+    /// house plays by arrangement wearing one would be saying the same thing
+    /// twice — its name already says the house is there — while spending the
+    /// name's own room on the repetition.
+    #[test]
+    fn only_a_held_chair_wears_the_clock() {
+        let mut held = cell(SeatRole::Away, Lang::En, "Alice");
+        assert!(
+            said(&mut held).iter().any(|word| word == CLOCK),
+            "a chair the house is holding says so beside its name: {:?}",
+            said(&mut held)
+        );
+        for role in [SeatRole::Present, SeatRole::House] {
+            let mut other = cell(role, Lang::En, "Alice");
+            assert!(
+                !said(&mut other).iter().any(|word| word == CLOCK),
+                "{role:?} is not an interruption and must not wear its mark: \
+                 {:?}",
+                said(&mut other)
+            );
+        }
+    }
+
+    /// A chair the house plays is called the house in the player's language,
+    /// and a chair it is merely holding keeps its player's name.
+    ///
+    /// The second half is the one worth having. `away` and `is_ai` are two
+    /// fields rather than one precisely so that a thirty-second hiccup does
+    /// not rename somebody's chair to the house — a rename that would still
+    /// be on the bar after they came back.
+    #[test]
+    fn a_house_chair_is_called_the_house_in_the_players_own_language() {
+        let mut house = cell(SeatRole::House, Lang::De, "House AI");
+        assert!(
+            said(&mut house).iter().any(|word| word == "Haus-KI"),
+            "a German player was still being shown an English word: {:?}",
+            said(&mut house)
+        );
+
+        let mut held = cell(SeatRole::Away, Lang::De, "Alice");
+        assert!(
+            said(&mut held).iter().any(|word| word == "Alice"),
+            "a held chair still belongs to the player who left it: {:?}",
+            said(&mut held)
+        );
+        assert!(
+            !said(&mut held).iter().any(|word| word == "Haus-KI"),
+            "and must not be relabelled the house while they are gone"
+        );
+    }
+
+    /// A chair changing hands redraws the bars, although no view arrived.
+    ///
+    /// The one field in [`BarRevision`] that does not come from the view, and
+    /// the reason it has to be there. A roster is its own payload: the host
+    /// marks every seat's roster stale when a chair changes hands and the
+    /// fresh `GameStatic` reaches this client as a separate message, so a bar
+    /// gated on the view's `seq` alone is built from whichever roster was in
+    /// hand at the time and goes on saying so.
+    ///
+    /// Both directions, and the **second** is the one worth having: a clock
+    /// that arrives late is a nuisance, and a clock that stays after the
+    /// player has come back is the bar telling the table something untrue —
+    /// against the whole design of `away`, which is that a thirty-second
+    /// hiccup leaves no trace.
+    ///
+    /// The counter-half is the third `update`: with the roster settled and
+    /// nothing else moved, the bars are *not* rebuilt. Without it this test
+    /// would pass just as well against a gate that had been deleted.
+    #[test]
+    fn a_chair_changing_hands_redraws_the_bar_and_settling_does_not() {
+        let bars = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<SeatBarRoot>>();
+            q.iter(app.world()).next()
+        };
+        let set_away = |app: &mut App, away: bool| {
+            let mut duel = app.world_mut().resource_mut::<Duel>();
+            if let Some(statics) = duel.statics.as_mut() {
+                statics.seats[OTHER].away = away;
+            }
+            crate::rebuild_board(&mut duel);
+        };
+
+        let mut app = table();
+        let first = bars(&mut app).expect("the seats were given bars");
+
+        // The player steps away. No view arrives — only the roster changes.
+        set_away(&mut app, true);
+        app.update();
+        let held = bars(&mut app).expect("the seats still have bars");
+        assert_ne!(
+            held, first,
+            "the roster said a chair had changed hands and the bar did not              notice, so its clock is one view behind"
+        );
+
+        // Nothing moves. The gate is a gate.
+        app.update();
+        assert_eq!(
+            bars(&mut app),
+            Some(held),
+            "nothing changed and the bars were rebuilt anyway, so the test              above is not measuring a gate at all"
+        );
+
+        // And the player comes back.
+        set_away(&mut app, false);
+        app.update();
+        let back = bars(&mut app).expect("and after they return");
+        assert_ne!(
+            back, held,
+            "the clock would still be on a bar whose player is answering              again, which is the half of `away` that must leave no trace"
+        );
+    }
+
+    /// The mark does not give way; the name does.
+    ///
+    /// This is the claim that decides whether any of the above is ever *seen*,
+    /// and it is asserted on the two nodes rather than on a measured layout
+    /// because nothing in this repository runs `bevy_ui`'s layout in a test —
+    /// every other `ComputedNode` here is hand-written by the test that reads
+    /// it. What the pair stands for: a flex item's `min-width` is `auto`,
+    /// which for a `NoWrap` text resolves to the whole string, so a name long
+    /// enough to fill the cell refuses to shrink and everything after it is
+    /// pushed past the `clip_x` edge. The mark has been in this tree since the
+    /// bar was written and was invisible for exactly the names that matter.
+    #[test]
+    fn a_long_name_gives_way_to_the_mark_and_not_the_other_way_round() {
+        let mut app = cell(SeatRole::Away, Lang::En, "Alexandra Wintersmith-Ó");
+        let mut q = app.world_mut().query::<(&Text, &Node)>();
+        let nodes: Vec<(String, Val, f32)> = q
+            .iter(app.world())
+            .map(|(text, node)| (text.0.clone(), node.min_width, node.flex_shrink))
+            .collect();
+        let name = nodes
+            .iter()
+            .find(|(word, _, _)| word != CLOCK)
+            .expect("the cell drew a name");
+        let mark = nodes
+            .iter()
+            .find(|(word, _, _)| word == CLOCK)
+            .expect("and a clock beside it");
+        assert_eq!(
+            name.1,
+            px(0),
+            "the name keeps `min-width: auto`, so it is the whole string wide \
+             and will not shrink: {nodes:?}"
+        );
+        assert!(
+            name.2 > 0.0,
+            "and it has to be the one that gives way: {nodes:?}"
+        );
+        // Not positive, rather than exactly zero: what the row does is divide
+        // the overflow by the shrink factors, so any factor at all is a share
+        // of the shortfall and the claim is that the mark takes none of it.
+        assert!(
+            mark.2 <= 0.0,
+            "the mark must not be the thing that shrinks — it is one glyph, \
+             and a shrunk glyph is no glyph: {nodes:?}"
+        );
     }
 }

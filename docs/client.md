@@ -3571,6 +3571,77 @@ arranging stops wants the whole arrangement in front of them. `PhaseOrders` is
 keyed by `RailSide` and not by seat, so one tile on one seat's bar sets an
 order every other seat's bar then draws.
 
+### Who is answering for a chair
+
+A seat is one of three things, and until 19.09.2026 no table could tell them
+apart: a player answering for themselves, the house playing that chair by
+arrangement, and a player's chair the house is **holding** because nobody is on
+the other end of it. `SeatIdentity` keeps `is_ai` and `away` as two fields for
+a reason worth restating — a chair held for thirty seconds must not rename
+itself to the house, or it would still be saying so after the player came back
+— and its own rule is that the two are never both set.
+
+`board::SeatRole` is those three as one enum, which is the collapse and not a
+convenience: a pair of bools on a `SeatPod` is a shape with a fourth state
+nothing can produce and every reader has to decide what to do about.
+`SeatRole::of` asks them as an ordered pair rather than matching on both, so a
+roster that broke its own rule gives one of the three answers — `Away`, which
+is the more urgent and the only one that can stop being true. It comes off the
+**roster** and not the view, because a held chair still has its player's life,
+their hand and their name, and it lives on the pod because three surfaces ask
+it: the bar, the mat's rim, and the seat sheet after them.
+
+**The role is said as a mark in the name cell, and that is arithmetic rather
+than taste.** `docs/game-log-design.md` §"The seat that stepped away" asked for
+a `MUTED` role line under the name, written for a strip of seat tabs that no
+longer exists. The identity plaque that replaced it is `HEADER_H` = 60 logical
+pixels and its two rows already spend 56 of them, and the plaque's size is what
+`Panel::Identity` is fitted to the mat's band with — so a third row is a taller
+plaque is a band fit that two tests hold. A mark costs nothing instead: the
+name cell is a `cell_node`, a fixed width that does not shrink, so everything
+inside it spends the name's room and never the bar's. That is the caret rule
+one level down.
+
+The two states are drawn as two different things, because they are different
+in kind. A chair the house plays is **named** the house, in the player's own
+language — off the flag and never by matching the string, which is safe for a
+plain reason: neither `LocalHost` nor the gateway has any other name for such
+a chair, both write the literal `"House AI"`, so there is no host-chosen name
+to hide and only an English word a German player was being shown. A chair that
+is merely held keeps its player's name and wears a **clock**, which says "for
+a while" without any words — the caveat the design's sentence carried. At
+`Density::Mark` there is no name cell at all, and the rim is the whole answer;
+that density's own contract is that framing the seat widens it back to a bar
+that can talk.
+
+Two things decide whether any of it is ever seen, and both were wrong before.
+A flex item's `min-width` is `auto`, which for a `NoWrap` text resolves to the
+whole string — so a name long enough to fill the cell refuses to shrink and
+anything after it is pushed past the `clip_x` edge. The mark had been in this
+tree since the bar was written and was invisible for exactly the names that
+matter; the name now carries `min_width: 0` and the mark `flex_shrink: 0`.
+That claim is asserted on the two `Node`s rather than on a measured layout,
+because nothing in this repository runs `bevy_ui`'s layout in a test — every
+other `ComputedNode` here is hand-written by the test that reads it.
+
+And `BarRevision` gained the roles, because a roster is **its own payload**.
+The host marks every seat's roster stale when a chair changes hands and the
+fresh `GameStatic` arrives as a separate message, so a bar gated on the view's
+`seq` alone is built from whichever roster was in hand and goes on saying so.
+The direction that matters is the second one: a clock arriving late is a
+nuisance, and a clock still there after the player has returned is the bar
+telling the table something untrue. The revision is now compared and assigned
+**whole** rather than field by field, which is what makes the next field
+added to it a compile error instead of a gate that quietly stops watching one
+of seven things.
+
+One trap found on the way, and it is #91: `PlayerView::object` answers for the
+battlefield, the stack, graveyards, exile, the command zone and `looking_at` —
+and **not** the hand, which is a `Vec<HandObject>` of a different type
+entirely. It is a type split rather than a forgotten zone, so it will be found
+again by the next panel that asks a question about a card in hand;
+`face::face_name` is the door that searches both.
+
 ### Where a bar is measured from
 
 A mat is drawn larger than the board it carries: `tabletop::MAT_MARGIN` past
