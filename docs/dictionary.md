@@ -189,6 +189,17 @@ Two crates belong to nobody and are **announced before they are changed**:
   so a breaking change reaches engine, client and gateway at once.
 - **`baylee-build`** — the compile-time build stamp every binary reads.
 
+**One branch at a time reaches for the next `VIEW_VERSION`.** Not because the
+conflict is expensive — it is one line — but because of what a clean merge
+looks like when two branches both ship "22 → 23": the numbers now agree and
+the two view *shapes* do not, and the assertion in gamehost and client tests
+passes precisely because it only ever compares the number. A client would then
+refuse nothing and render a host it cannot read. So the sequence is held on
+whichever branch already owns it, and the next one waits — 23 (#90), then 24
+(#68), then 25 (#92) — and a session reads the constant out of
+`crates/baylee-view/src/lib.rs` when it starts rather than out of the ticket
+it was written on.
+
 **A document follows its subject, not this table.** `docs/` as a whole is the
 PM's, but a file that is normative for one Revier belongs to that Revier's
 session and is committed on its branch with the change it describes —
