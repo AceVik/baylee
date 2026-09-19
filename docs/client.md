@@ -10,6 +10,15 @@ Bevy 2.5D duel client. Three crates, split by what can be tested without a GPU.
 
 ## Table presentation (17 September 2026)
 
+> The panels here are named as `docs/dictionary.md` names them — **bar** is
+> the seat bar, **ledge** the merged hand-and-question bar, **drawer** what
+> grows out of it, **tray** the put-down dialog. This section was written with
+> a vocabulary of its own ("action dock", "action rail", "information
+> drawer", "phase track") and none of those four was a panel anybody could
+> look up. `frontal.rs` still spells its material handles `skirt` / `rail` /
+> `drawer`, which is why the mapping is given where it matters rather than
+> renamed out from under the code.
+
 The current table uses warm golden-hour daylight, cool cloud shadows, and
 an indigo night with moving aurora and stars. The sky's eased day/night value
 also grades the glass. Rules day/night still overrides the ambient preference.
@@ -54,7 +63,8 @@ cast. The compass turn numeral uses bold, centered serif type.
 
 Battlefield outlines enclose **only the three card lanes**. The reserved
 centre-facing band is outside the outline: compact name/life/hand/counters
-at the owner's left, and a separate phase track beside it. Library, graveyard
+at the owner's left, and the step tiles beside it — the phase rail is gone
+and `seatbar::tile` draws a turn's steps on each seat's own bar. Library, graveyard
 and exile counts sit beyond their respective piles, icon above number. Life
 uses a 24-point numeral with an 18-point icon. Poison and energy appear only
 when nonzero; the wire view does not expose player experience or charge.
@@ -91,9 +101,11 @@ and catch sound is synthesised once and follows the sound preference. Joining
 a game does not rotate or play it; priority changes do not move it. Reduced
 motion settles the ring immediately and freezes the shader clocks.
 
-The information drawer shares the action dock material. Its bottom remains
-open, and its measured width removes the action rail's top tooling across
-the join. Both keep their normal outer edges.
+The **drawer** shares the **ledge**'s material. Its bottom remains open, and
+its measured width removes the ledge rail's top tooling across the join. Both
+keep their normal outer edges. (`Cloth` in `frontal.rs` holds the three
+handles this is about: `skirt` is the hand well, `rail` the strip at the
+ledge's top, `drawer` the extension above it.)
 
 This section supersedes the older descriptions of the cloth, weather overlay,
 and information panels inside the mat below.
@@ -191,7 +203,7 @@ The CPU generators remain references for base colours, lane boundaries,
 contrast and texture—not pixel-identical renderings of the shader's added
 metalwork. Shared constants are still checked by the client camera tests.
 
-The hand/action dock and seat furniture share `FrontalMaterial`: recessed
+The ledge and seat furniture share `FrontalMaterial`: recessed
 mineral-leather ground, thin champagne tooling and fixed five-colour inlays.
 Eleven persistent handles cover the dock, its upward info extension and eight seats; the virtual clock and
 reduced-motion preference govern decorative movement. Split seat bars place
@@ -6011,7 +6023,7 @@ the canvas is a change to that stylesheet and to nothing in Rust.
 
 ### Dock extension and discard feedback (September 2026)
 
-The occasional information drawer uses the action rail’s mineral material,
+The occasional drawer uses the ledge rail’s mineral material,
 champagne tooling and ivory text, with an open foot joining the rail. Its
 material handle is separate because its measured dimensions differ. Forced
 hand-size discard keeps a live selected/required count in that extension;

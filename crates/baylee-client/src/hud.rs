@@ -480,10 +480,13 @@ pub struct PlayerTab {
 /// is always a *new* entity — which is what makes a value that only ever
 /// climbs from zero the whole transition.
 ///
-/// Nothing spawns one at the moment: the rail that did is gone, and the seat
-/// bar draws its now-light as two rings rather than as a border and a shadow.
-/// The system and this marker are kept for the commit that gives the bar its
-/// baton — see the note at the top of [`rail`].
+/// The seat bar spawns one, and that is the commit the old note here was
+/// waiting for: `seatbar::tile` puts it on the current step's tile of the
+/// seat whose turn it is (`state.now && state.gold`), together with the
+/// `BoxShadow` the ease writes into. The rail that used to carry it is gone;
+/// what survived the move is the *property*, which is why the marker did —
+/// a value that only climbs from zero is the whole transition precisely
+/// because the tree is rebuilt whole.
 #[derive(Component, Default)]
 pub struct PhaseNow {
     /// How far the light has come, 0 to 1.
@@ -493,9 +496,12 @@ pub struct PhaseNow {
 /// The block that says whether it is day or night, and which designation it
 /// was built for.
 ///
-/// Nothing spawns one at the moment, for [`PhaseNow`]'s reason: it stood in
-/// the rail's head, and the seat bar carries the designation on its hinge
-/// instead.
+/// **Nothing spawns one outside a test**, and it is now alone in that —
+/// [`PhaseNow`] beside it has been spawned by the seat bar since the bar got
+/// its baton. This one stood in the rail's head and the bar was to carry it
+/// on the hinge; the hinge-light is not written yet, so
+/// [`rail::flash_the_designation`] runs over an empty query and its tests
+/// spawn the marker by hand.
 ///
 /// The value is carried on the component rather than read back out of the
 /// view, because the flash that marks a change has to be anchored to the

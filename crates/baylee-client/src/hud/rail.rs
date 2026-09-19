@@ -9,15 +9,19 @@
 //!
 //! [`row_visual`] survived the move: a step's glyph and its three letters are
 //! the same wherever a step is drawn, and the seat bar reads them from here.
-//! So did [`light_the_current_step`] and [`flash_the_designation`], and those
-//! two are **waiting**: nothing spawns a [`PhaseNow`] or a [`Designation`]
-//! between this commit and the one that gives the bar its baton and its
-//! hinge-light, so both systems run over an empty query. They are kept rather
-//! than rewritten because what they know is not the rail — it is that a light
+//! So did [`light_the_current_step`] and [`flash_the_designation`], and the
+//! two are no longer in the same state. The bar has its **baton**:
+//! `seatbar::tile` spawns a [`PhaseNow`] on the current step's tile of the
+//! seat whose turn it is, so `light_the_current_step` runs over a real query
+//! and the ease is on screen. The **hinge-light** is not written, so nothing
+//! spawns a [`Designation`] outside a test and `flash_the_designation` still
+//! runs over an empty one.
+//!
+//! Both were kept for the same reason, and it is the reason that outlived the
+//! rail: what they know is not where the strip was — it is that a light
 //! eased from zero at spawn *is* the transition when the tree is rebuilt
 //! whole, and that a flash anchored to an entity restarts every time the
-//! pointer moves. Their tests spawn the markers by hand and hold both of
-//! those.
+//! pointer moves. Their tests spawn the markers by hand and hold both.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
