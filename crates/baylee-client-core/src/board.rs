@@ -467,6 +467,69 @@ impl ZonePile {
     }
 }
 
+/// Who is answering for a chair.
+///
+/// Three states and **not two bools**, although two bools is what the roster
+/// carries. `SeatIdentity` keeps `is_ai` and `away` apart on the wire on
+/// purpose — a chair the house is holding for thirty seconds must not rename
+/// itself to the house, or it would still be saying so after the player came
+/// back — and its own rule is that the two are never both set. A pair of
+/// bools here would be a shape with a fourth state nothing can produce and
+/// every reader has to decide what to do about; an enum makes it
+/// unrepresentable and leaves one `match` per drawing.
+///
+/// It is a fact about the **chair**, not about the game, so it is read off
+/// the roster rather than the view: a held chair still has its player's life
+/// total, its player's hand and its player's name.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum SeatRole {
+    /// Somebody is sitting there and answering for themselves.
+    #[default]
+    Present,
+    /// The house plays this chair and always has: that is how the table was
+    /// arranged, and nothing about it is going to change during the game.
+    House,
+    /// A player's chair that the house is holding because nobody is on the
+    /// other end of it right now.
+    ///
+    /// Temporary by construction — `HouseRules::reconnect_window_secs` is the
+    /// clock it runs on — and the player takes it straight back. Nothing
+    /// remembers it afterwards, which is the point: a thirty-second hiccup
+    /// should not become a story.
+    Away,
+}
+
+impl SeatRole {
+    /// What the roster says about one chair.
+    ///
+    /// Asked as an ordered pair of questions rather than as a match on both,
+    /// so that a roster which broke its own "never both" rule produces one of
+    /// these three answers instead of a fourth. `away` is asked first because
+    /// it is the more urgent of the two facts and the only one that can stop
+    /// being true.
+    #[must_use]
+    pub const fn of(identity: &baylee_view::SeatIdentity) -> Self {
+        if identity.away {
+            Self::Away
+        } else if identity.is_ai {
+            Self::House
+        } else {
+            Self::Present
+        }
+    }
+
+    /// What this chair's seat can be told to expect.
+    ///
+    /// True where the next question put to this chair is answered by the
+    /// house rather than by a person — the one thing [`Self::House`] and
+    /// [`Self::Away`] genuinely share, and the reason they are two states of
+    /// one enum rather than two unrelated flags.
+    #[must_use]
+    pub const fn answered_by_the_house(self) -> bool {
+        matches!(self, Self::House | Self::Away)
+    }
+}
+
 /// One seat's board.
 // The flags are independent facts about a seat that a renderer reads one at a
 // time (is it me, is it their turn, do they hold priority, have they lost).
@@ -496,6 +559,14 @@ pub struct SeatPod {
     pub is_active: bool,
     /// Whether this seat holds priority.
     pub has_priority: bool,
+    /// Who is answering for this chair.
+    ///
+    /// On the pod and not looked up at each drawing, because three surfaces
+    /// ask it — the mat's rim, the bar's name and (next) the seat sheet — and
+    /// the roster is a payload that arrives once per socket while a pod is
+    /// rebuilt from a view. A lookup per surface is three chances to ask a
+    /// different question.
+    pub role: SeatRole,
     /// Board rows.
     pub lanes: Vec<Lane>,
     /// The piles standing beside this seat's ground, in [`PileKind::ALL`]
@@ -758,11 +829,21 @@ impl BoardModel {
     /// `token_art`: the registry lives in a crate this one does not link.
     /// Answering `None` to everything is a legal registry — a client with
     /// nothing to ask draws what it drew before.
+    /// `roster` is `GameStatic::seats`, and is what says who is *answering*
+    /// for each chair. It is a second payload rather than part of the view
+    /// because that is how it travels: a roster is sent once per socket and a
+    /// view arrives many times a turn, and a chair changing hands marks every
+    /// seat's roster stale so the next view carries a fresh one. An empty
+    /// slice is a legal roster — a client drawing its first frame has not been
+    /// told who anybody is yet — and every chair in one is
+    /// [`SeatRole::Present`], which is what a table looked like before any of
+    /// this existed.
     #[must_use]
     pub fn from_view(
         view: &PlayerView,
         openings: Openings<'_>,
         lane_width: impl Fn(PlayerId) -> f32,
+        roster: &[baylee_view::SeatIdentity],
         reg: Registry<'_>,
     ) -> Self {
         let individual = individual_objects(view);
@@ -780,6 +861,10 @@ impl BoardModel {
                     &individual,
                     openings.activatable,
                     lane_width(player),
+                    roster
+                        .iter()
+                        .find(|identity| identity.player == player)
+                        .map_or(SeatRole::Present, SeatRole::of),
                     reg,
                 )
             })
@@ -1327,6 +1412,7 @@ fn build_pod(
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
     pod_width: f32,
+    role: SeatRole,
     reg: Registry<'_>,
 ) -> SeatPod {
     let seat = view.seat(player);
@@ -1390,6 +1476,7 @@ fn build_pod(
         is_local: player == view.seat,
         is_active: player == view.active,
         has_priority: view.awaiting == Some(player),
+        role,
         lanes,
         piles: zone_piles(view, player),
         tokens: token_chips(&permanents),

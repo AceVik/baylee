@@ -39,6 +39,7 @@ fn a_registry_token_wears_its_own_picture_and_a_copy_token_the_card_it_copies() 
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry::of(&|name: &str| (name == "Bear").then_some(Wears::Card(bear, 0))),
     );
     let art = |m: &BoardModel, name: &str| {
@@ -75,7 +76,7 @@ fn a_registry_token_wears_its_own_picture_and_a_copy_token_the_card_it_copies() 
     // to ask is in: a lookup that answers nothing leaves the copy token
     // exactly where it was — its own face with its own name on it, never
     // somebody else's picture.
-    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
+    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &[], Registry::none());
     assert_eq!(art(&blind, "Bear"), None);
     assert_eq!(
         art(&blind, "Soldier"),
@@ -108,6 +109,7 @@ fn a_permanent_that_has_become_a_copy_is_drawn_as_the_card_it_copies() {
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry::of(&|name: &str| (name == "Llanowar Elves").then_some(Wears::Card(elves, 0))),
     );
     let lane = m
@@ -139,7 +141,7 @@ fn a_permanent_that_has_become_a_copy_is_drawn_as_the_card_it_copies() {
 
     // The counter-test: with no registry to ask, both fall back to their
     // own printings and the Clone is once again drawn as a Clone.
-    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
+    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &[], Registry::none());
     let blind_lane = blind
         .pod(PlayerId::new(0))
         .and_then(|p| p.lane(LaneKind::Creatures))
@@ -184,6 +186,7 @@ fn a_permanent_says_whether_it_is_a_token_a_copy_or_the_card_it_looks_like() {
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry::of(&|name: &str| (name == "Llanowar Elves").then_some(Wears::Card(elves, 0))),
     );
     let lane = m
@@ -211,7 +214,7 @@ fn a_permanent_says_whether_it_is_a_token_a_copy_or_the_card_it_looks_like() {
     // The counter-test. A client with nothing to ask still knows a token
     // from a card — that half needs no registry — and simply never finds
     // a copy, which is what it did before any of this existed.
-    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
+    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &[], Registry::none());
     let blind_lane = blind
         .pod(PlayerId::new(0))
         .and_then(|p| p.lane(LaneKind::Creatures))
@@ -251,6 +254,7 @@ fn a_copy_offers_the_card_underneath_it() {
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry::of(&|name: &str| (name == "Llanowar Elves").then_some(Wears::Card(elves, 0))),
     );
     let lane = m
@@ -281,7 +285,7 @@ fn a_copy_offers_the_card_underneath_it() {
 
     // The counter-arm. A client with nothing to ask finds no copies, so
     // no card on its board carries a second picture at all.
-    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
+    let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &[], Registry::none());
     assert!(
         blind
             .pod(PlayerId::new(0))
@@ -321,6 +325,7 @@ fn a_permanent_copying_a_token_wears_the_token() {
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry {
             named: &named,
             token_name: &token_name,
@@ -344,6 +349,7 @@ fn a_permanent_copying_a_token_wears_the_token() {
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry::none(),
     ));
     assert_eq!(blind.provenance, Provenance::Printed);
@@ -373,6 +379,7 @@ fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
         &view,
         Openings::none(),
         |_| WIDE,
+        &[],
         Registry {
             named: &named,
             token_name: &token_name,

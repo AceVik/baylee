@@ -74,6 +74,7 @@ fn duel(groups: Vec<CardGroup>) -> Duel {
                 is_local: true,
                 is_active: true,
                 has_priority: true,
+                role: baylee_client_core::board::SeatRole::Present,
                 lanes: vec![Lane {
                     kind: LaneKind::Creatures,
                     groups,
@@ -131,6 +132,7 @@ fn the_keyword_survives_the_trip_from_the_view_to_the_table() {
         &view,
         Openings::none(),
         |_| 12.0,
+        &[],
         crate::cardart::registry(),
     );
     let duel = Duel {

@@ -173,7 +173,7 @@ fn a_second_copy_of_a_land_does_not_swallow_the_first() {
             b.status = ObjectStatus::TAPPED;
         }
         let view = ViewBuilder::new(2).with_battlefield(0, vec![a, b]).build();
-        let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, Registry::none());
+        let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, &[], Registry::none());
         m.pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Lands))
             .expect("lane")
@@ -194,7 +194,7 @@ fn a_second_copy_of_a_land_does_not_swallow_the_first() {
         let view = ViewBuilder::new(2)
             .with_battlefield(0, (1..=n).map(forest).collect::<Vec<_>>())
             .build();
-        let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, Registry::none());
+        let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, &[], Registry::none());
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Lands))
@@ -236,6 +236,7 @@ fn each_pod_is_measured_against_its_own_row() {
         |p| {
             if p == PlayerId::new(0) { WIDE } else { CROWDED }
         },
+        &[],
         Registry::none(),
     );
     assert_eq!(groups(&m, 0), 4, "the roomy pod kept its cards apart");
@@ -248,6 +249,7 @@ fn each_pod_is_measured_against_its_own_row() {
         |p| {
             if p == PlayerId::new(0) { CROWDED } else { WIDE }
         },
+        &[],
         Registry::none(),
     );
     assert_eq!(groups(&m, 0), 1);
@@ -262,7 +264,7 @@ fn a_narrow_pod_reports_overflow_after_grouping() {
         .map(|i| token(i, 0, &format!("Creature {i}"), 1, 1))
         .collect();
     let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-    let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, Registry::none());
+    let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, &[], Registry::none());
     let lane = m
         .pod(PlayerId::new(0))
         .and_then(|p| p.lane(LaneKind::Creatures))
@@ -276,7 +278,7 @@ fn grouping_removes_the_overflow_that_distinct_cards_would_cause() {
     // The same forty permanents, all identical: one group, no overflow.
     let objs: Vec<PublicObject> = (0..40).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
     let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-    let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, Registry::none());
+    let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, &[], Registry::none());
     let lane = m
         .pod(PlayerId::new(0))
         .and_then(|p| p.lane(LaneKind::Creatures))

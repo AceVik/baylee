@@ -90,3 +90,74 @@ fn the_awaited_seat_is_the_one_reported_on_the_pod() {
     let m = model(&nobody);
     assert!(m.pods.iter().all(|p| !p.has_priority));
 }
+
+/// Who is answering for a chair comes off the roster, not the view.
+///
+/// The three states a chair can be in, each read from the payload that
+/// actually carries them: a present human, the house playing a chair by
+/// arrangement, and a player's chair the house is holding while nobody is on
+/// the other end of it. `SeatIdentity` keeps the last two apart on the wire
+/// so a thirty-second hiccup does not rename the chair to the house, and this
+/// is what stops that distinction being thrown away on arrival.
+#[test]
+fn a_chair_says_who_is_answering_for_it() {
+    let view = ViewBuilder::new(3).build();
+    let roster = vec![
+        identity(0, false, false),
+        identity(1, true, false),
+        identity(2, false, true),
+    ];
+    let m = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &roster, Registry::none());
+    let role = |seat: u8| m.pod(PlayerId::new(seat)).expect("pod").role;
+    assert_eq!(role(0), SeatRole::Present, "somebody is sitting there");
+    assert_eq!(role(1), SeatRole::House, "the house plays that chair");
+    assert_eq!(role(2), SeatRole::Away, "and that one is being held");
+
+    // The half that matters to whatever is about to be drawn: two of the
+    // three answer the next question with the house, and they are still not
+    // the same state.
+    assert!(!role(0).answered_by_the_house());
+    assert!(role(1).answered_by_the_house() && role(2).answered_by_the_house());
+    assert_ne!(role(1), role(2), "an arrangement is not an interruption");
+}
+
+/// A table nobody has been introduced at is a table of present players.
+///
+/// The roster is a second payload — sent once per socket, where a view
+/// arrives many times a turn — so the first frame of a game is drawn without
+/// it, and so is every frame of the offline harness. The counter-half is what
+/// makes the claim worth anything: the same view with a roster does say
+/// something, so "everyone is present" is an answer to an empty roster rather
+/// than to the question never being asked.
+#[test]
+fn an_empty_roster_seats_nobody_the_house_is_playing_for() {
+    let view = ViewBuilder::new(2).build();
+    let bare = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &[], Registry::none());
+    assert!(
+        bare.pods.iter().all(|pod| pod.role == SeatRole::Present),
+        "a chair nothing has been said about belongs to a player"
+    );
+
+    let roster = vec![identity(0, false, false), identity(1, true, false)];
+    let told = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &roster, Registry::none());
+    assert!(
+        told.pods.iter().any(|pod| pod.role == SeatRole::House),
+        "with a roster the same view does say who is at the table, so the \
+         bare one above is answering a question it was asked"
+    );
+}
+
+/// A roster that breaks its own rule still gives one of the three answers.
+///
+/// `SeatIdentity` documents `is_ai` and `away` as never both set, and that is
+/// a promise made by a payload this crate does not build. Reading them as an
+/// ordered pair of questions rather than as a match over both is what keeps a
+/// fourth state out of the client: the chair is *held*, which is the more
+/// urgent of the two and the only one of them that can stop being true.
+#[test]
+fn a_chair_that_is_both_is_read_as_the_one_that_can_end() {
+    let view = ViewBuilder::new(2).build();
+    let roster = vec![identity(0, false, false), identity(1, true, true)];
+    let m = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &roster, Registry::none());
+    assert_eq!(m.pod(PlayerId::new(1)).expect("pod").role, SeatRole::Away);
+}

@@ -216,6 +216,7 @@ mod running {
             &view,
             Openings::none(),
             |_| 12.0,
+            &[],
             crate::cardart::registry(),
         )
     }

@@ -771,6 +771,7 @@ mod tests {
             &view,
             Openings::none(),
             |_| 800.0,
+            &[],
             crate::cardart::registry(),
         );
         (board, view)
@@ -863,6 +864,7 @@ mod tests {
             &view,
             Openings::none(),
             |_| 800.0,
+            &[],
             crate::cardart::registry(),
         );
         let mode = crate::face::FaceMode::default();

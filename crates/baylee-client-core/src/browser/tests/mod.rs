@@ -39,7 +39,7 @@ fn obj(slot: u32) -> ObjectId {
 /// Everything a client can already click without the browser: the
 /// battlefield as drawn cards, and the seat's own hand.
 fn drawn_on_the_table(view: &PlayerView) -> Vec<ObjectId> {
-    let board = BoardModel::from_view(view, Openings::none(), |_| 100.0, Registry::none());
+    let board = BoardModel::from_view(view, Openings::none(), |_| 100.0, &[], Registry::none());
     let mut ids: Vec<ObjectId> = board
         .pods
         .iter()

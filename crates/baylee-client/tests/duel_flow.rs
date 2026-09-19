@@ -338,6 +338,7 @@ impl Client {
                         &v,
                         Openings::none(),
                         |_| 12.0,
+                        self.statics.as_ref().map_or(&[][..], |s| &s.seats),
                         baylee_client::cardart::registry(),
                     ));
                     self.view = Some(*v);
@@ -1161,6 +1162,7 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
         view,
         Openings::none(),
         |_| 12.0,
+        &[],
         baylee_client::cardart::registry(),
     );
     let on_table = board

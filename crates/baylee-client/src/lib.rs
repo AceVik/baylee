@@ -1925,6 +1925,15 @@ pub fn rebuild_board(duel: &mut Duel) {
                 .slot(player)
                 .map_or(12.0, baylee_client_core::layout::SeatSlot::lane_width)
         },
+        // Who is answering for each chair. From the roster and not from the
+        // view, because that is the payload that knows: a chair the house is
+        // holding keeps its player's name, life and hand, and only the roster
+        // says nobody is behind them. An empty slice until `GameStatic`
+        // arrives, which is the honest answer for a table nobody has been
+        // introduced at yet.
+        duel.statics
+            .as_ref()
+            .map_or(&[][..], |statics| &statics.seats),
         // What card a projected name belongs to, so a permanent that has
         // become a copy is drawn as the card it copies rather than as the
         // cardboard underneath it.

@@ -53,6 +53,7 @@ fn board(groups: Vec<CardGroup>) -> BoardModel {
             is_local: true,
             is_active: true,
             has_priority: true,
+            role: baylee_client_core::board::SeatRole::Present,
             lanes: vec![Lane {
                 kind: LaneKind::Creatures,
                 groups,

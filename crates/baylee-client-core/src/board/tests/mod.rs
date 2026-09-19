@@ -49,12 +49,27 @@ const WIDE: f32 = 40.0;
 /// rather than [`WIDE`].
 const CROWDED: f32 = 2.0;
 
+/// One chair on the roster, by the two facts that say who is answering for it.
+///
+/// Positional rather than a builder, because the pair is the whole point: a
+/// caller that could set one and forget the other is exactly the shape
+/// [`SeatRole`] exists to keep out of the rest of the client.
+fn identity(player: u8, is_ai: bool, away: bool) -> baylee_view::SeatIdentity {
+    baylee_view::SeatIdentity {
+        player: PlayerId::new(player),
+        display_name: format!("Seat {player}"),
+        is_ai,
+        away,
+        team: None,
+    }
+}
+
 fn model(view: &PlayerView) -> BoardModel {
-    BoardModel::from_view(view, Openings::none(), |_| WIDE, Registry::none())
+    BoardModel::from_view(view, Openings::none(), |_| WIDE, &[], Registry::none())
 }
 
 fn crowded_model(view: &PlayerView) -> BoardModel {
-    BoardModel::from_view(view, Openings::none(), |_| CROWDED, Registry::none())
+    BoardModel::from_view(view, Openings::none(), |_| CROWDED, &[], Registry::none())
 }
 
 /// A spell on the stack and the permanent it is pointed at.

@@ -118,6 +118,7 @@ fn the_card_cursor_reaches_a_spell_on_the_stack() {
         &view,
         Openings::none(),
         |_| 12.0,
+        &[],
         crate::cardart::registry(),
     );
     assert!(
