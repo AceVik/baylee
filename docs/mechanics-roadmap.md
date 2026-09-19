@@ -522,19 +522,21 @@ That is the cross-lane rule, and the Mikaeus failure is why.
    `cargo run -p xtask -- reach-list --out <file>` is what names them, and
    it walks the **ledger** rather than the corpus: a card with no row stops
    `codegen` outright, and the ledger's spelling is Scryfall's, which is what
-   `data/card-pool.txt` requires. Measured 19.09 after batch 2: **3946** of
-   the 31 661 unattempted rows that carry a reference script read in full.
+   `data/card-pool.txt` requires. Measured 19.09 before batch 3: **3546** of
+   the 31 261 unattempted rows that carry a reference script read in full.
    The number is a worklist and not a promise — `scriptgen` claiming every
    clause is one reader agreeing, while `stubgen::transcode_card` still needs
    a printing — but the one independent check of it came out exact: of the 300
    names the §E probe added at random it lists 42, and the probe finished 42.
 
    It moves when the *reader* does, and downwards is the healthy direction:
-   the same command said 4112 over a pool a hundred cards smaller, and 66 of
-   that difference is one refusal learned in between (a spell's additional
+   the same command said 4112 over a pool five hundred cards smaller, and 66
+   of that difference is one refusal learned in between (a spell's additional
    cost, #52). Re-measure before every batch rather than slicing the list the
-   last one was cut from — twelve of batch 2's proposed names were cards the
-   fix had since taken off it.
+   last one was cut from — twelve of batch 2's proposed names were cards that
+   fix had since taken off it. A re-measure that moves by *exactly* the size
+   of the last batch, as batch 3's did, is the other half of the reading: it
+   says the reader stood still, so the batch is the same list one page on.
 
    The batch itself is five steps, in this order: append the names to
    `data/card-pool.txt`, fill the payload cache (`scryfall-cache`, one bulk
@@ -561,6 +563,23 @@ That is the cross-lane rule, and the Mikaeus failure is why.
    meeting the first non-land ever to print that sentence. A batch's real
    yield is that kind of finding: each of them was one rule wrong for every
    card it touched, surfaced by whichever card happened to arrive first.
+
+   Batch 3 was six hundred — the limit is not the cards but how many sweep
+   failures one sitting can diagnose — and all six hundred finished. Its
+   three findings were a reader, a tool and a lint. `scriptgen::pump_amount`
+   read every `X` as the number the player announced, where its own sibling
+   `amount` six lines above had demanded `SVar:X:Count$xPaid` and an ability
+   that announces one since the day it was written: 207 reference scripts
+   pump by `X`, all of them define `SVar:X`, and only 44 mean the announced
+   number, so seven new cards *and three already in `main`* stood at
+   `Coverage::Implemented` and pumped by nothing. `xtask`'s `quoted_value`
+   stopped at the first `"` and could not read a card whose name prints one.
+   And the five-basic-subtypes pool lint met the single card its claim is
+   untrue of, and now asks the printing rather than the filter.
+
+   Three batches, 1100 cards, every one of them finished, and eight findings
+   — of which exactly one was in a card. That ratio is the argument for the
+   step, and the reason to keep taking it in batches that a person reads.
 2. **Then the residue, ranked `--stubs`**, one cause at a time, each cause
    cut out first to see what is behind it.
 3. **Then the corpus ranking**, which is where a rule buys hundreds of
