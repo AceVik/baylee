@@ -347,6 +347,25 @@ fn plain_number(raw: &str, svars: &BTreeMap<String, String>) -> Option<i64> {
         .or_else(|| svars.get(raw)?.trim().parse::<i64>().ok())
 }
 
+/// Which side of a count an enters-tapped clause is on, once the reference's
+/// comparator has been read.
+///
+/// The reference states when the land comes down **tapped** and the card
+/// prints when it does not, so every comparator [`Tx::enters_tapped_unless`]
+/// sees is already the opposite of what a player reads. Naming the two
+/// directions keeps that inversion in one place: the arithmetic happens where
+/// the comparator is parsed, and the emitter picks its variant from a word
+/// instead of re-deriving a direction from a number it was handed.
+#[derive(Clone, Copy)]
+enum Bound {
+    /// "unless you control N or more" — a slow land, a battle land, and at
+    /// one a checkland.
+    AtLeast(u16),
+    /// "unless you control N or fewer" — a fast land, and the same predicate
+    /// the manlands print as "if you control N+1 or more, it enters tapped".
+    AtMost(u16),
+}
+
 impl Tx<'_> {
     /// Records the first reason this script was refused.
     ///
@@ -2208,12 +2227,18 @@ impl Tx<'_> {
     /// not the script spells `+Other` — and the ten that do spell it emit a
     /// redundant `Filter::Another` rather than a wrong count.
     ///
-    /// `GT` and `GE` are the **inverse** sentence and not a variant of this
-    /// one: Hall of Storm Giants prints "*if* you control two or more other
-    /// lands, this enters tapped", tapped where these are untapped. No
-    /// `EnterModifier` says that, so its 16 scripts are refused under a
-    /// cause that names the missing variant instead of this rule guessing a
-    /// direction.
+    /// `GT` and `GE` are the **upper** bound and come out as
+    /// [`EnterModifier::TappedUnlessAtMost`]: `GT n` is `at_most = n` and
+    /// `GE n` is `n - 1`. One predicate, and the corpus writes it from both
+    /// ends — a fast land prints the bound ("unless you control two or fewer
+    /// other lands", `GT2`, ten scripts) and the Forgotten Realms manlands
+    /// print the complement ("if you control two or more other lands, this
+    /// land enters tapped", `GE2` on three of them and `GT1` on the other
+    /// two). Fifteen scripts, three spellings, one `at_most`.
+    ///
+    /// `GE0` is refused rather than read as `at_most` underflowing: a land
+    /// that is tapped whatever the board is not this sentence, and the
+    /// corpus writes it nowhere.
     fn enters_tapped_unless(&mut self, body: &mut Params, present: &str) -> Option<String> {
         let Some(cmp) = body.take("ConditionCompare") else {
             self.note("replacement `Moved` counting with no `ConditionCompare$`".to_string());
@@ -2224,28 +2249,37 @@ impl Tx<'_> {
             .strip_prefix("LE")
             .and_then(|n| n.parse::<u16>().ok())
             .and_then(|n| n.checked_add(1));
-        let at_least = match (cmp.as_str(), lt, le) {
-            ("EQ0", _, _) => 1,
-            (_, Some(n), _) | (_, None, Some(n)) if n >= 1 => n,
+        let gt = cmp.strip_prefix("GT").and_then(|n| n.parse::<u16>().ok());
+        let ge = cmp
+            .strip_prefix("GE")
+            .and_then(|n| n.parse::<u16>().ok())
+            .and_then(|n| n.checked_sub(1));
+        let bound = match (cmp.as_str(), lt, le, gt, ge) {
+            ("EQ0", ..) => Bound::AtLeast(1),
+            (_, Some(n), _, _, _) | (_, None, Some(n), _, _) if n >= 1 => Bound::AtLeast(n),
+            (_, _, _, Some(n), _) | (_, _, _, None, Some(n)) => Bound::AtMost(n),
             _ => {
                 self.note(format!(
-                    "an enter-tapped condition `{cmp}`, which taps *when* a count is \
-                     reached rather than unless it is"
+                    "an enter-tapped condition `{cmp}` this rule cannot read"
                 ));
                 return None;
             }
         };
         let expr = self.filter_expr(present)?;
         let name = self.body.filter_static("CHECK", &expr);
-        // One spelling for one sentence: "unless you control at least one"
-        // is what a checkland prints, and `TappedUnless` is the variant that
-        // says it. Emitting `TappedUnlessCount { at_least: 1 }` beside it
-        // would give that sentence a second form nothing but a hash could
-        // tell from the first.
-        Some(if at_least == 1 {
-            format!("EnterModifier::TappedUnless(&{name})")
-        } else {
-            format!("EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {at_least} }}")
+        Some(match bound {
+            // One spelling for one sentence: "unless you control at least
+            // one" is what a checkland prints, and `TappedUnless` is the
+            // variant that says it. Emitting `TappedUnlessCount { at_least:
+            // 1 }` beside it would give that sentence a second form nothing
+            // but a hash could tell from the first.
+            Bound::AtLeast(1) => format!("EnterModifier::TappedUnless(&{name})"),
+            Bound::AtLeast(n) => {
+                format!("EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {n} }}")
+            }
+            Bound::AtMost(n) => {
+                format!("EnterModifier::TappedUnlessAtMost {{ filter: &{name}, at_most: {n} }}")
+            }
         })
     }
 
@@ -4177,14 +4211,43 @@ mod tests {
         );
         assert_eq!(shock.enter_modifiers, ["EnterModifier::TappedOrPayLife(2)"]);
 
+        // Blackcleave Cliffs: "unless you control two or fewer other lands",
+        // which the reference states as the tap — `GT2`.
+        let fast = read(
+            "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.YouCtrl | ConditionCompare$ GT2",
+        );
+        assert_eq!(
+            fast.enter_modifiers,
+            ["EnterModifier::TappedUnlessAtMost { filter: &Filter::YOUR_LAND, at_most: 2 }"]
+        );
+
+        // The manlands write one sentence two ways — Hall of Storm Giants
+        // `GE2`, Den of the Bugbear `GT1` — and both are the same bound. A
+        // reader that took the letter rather than the predicate would have
+        // given one cycle two different cards.
+        for tail in ["GE2", "GT1"] {
+            let manland = read(&format!(
+                "Name:X\nTypes:Land\n\
+                 R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+                 SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.YouCtrl | ConditionCompare$ {tail}"
+            ));
+            assert_eq!(
+                manland.enter_modifiers,
+                ["EnterModifier::TappedUnlessAtMost { filter: &Filter::YOUR_LAND, at_most: 1 }"],
+                "{tail}"
+            );
+        }
+
         for (tail, why) in [
-            // Hall of Storm Giants: "*if* you control two or more other
-            // lands, this enters tapped" — tapped where the others are
-            // untapped, and no `EnterModifier` says it.
+            // `GE0` is where the conversion would underflow, and it is not a
+            // sentence: a land tapped whatever the board says needs the other
+            // variant entirely. The corpus writes it nowhere, so this is the
+            // boundary being refused rather than a card being lost.
             (
-                "| ConditionPresent$ Land.YouCtrl | ConditionCompare$ GE2",
-                "an enter-tapped condition `GE2`, which taps *when* a count is reached \
-                 rather than unless it is",
+                "| ConditionPresent$ Land.YouCtrl | ConditionCompare$ GE0",
+                "an enter-tapped condition `GE0` this rule cannot read",
             ),
             // Rustic Clachan reveals a Kithkin instead of paying life.
             (

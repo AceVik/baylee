@@ -633,7 +633,16 @@ those have no fields the rules can supply for you.
 `TappedUnlessCount { filter, at_least }` (the battle lands' "two or more
 basic lands" — its own variant because a checkland asks about *a*
 permanent and a card never restates a default; the entering permanent
-never counts itself), `TappedOrPayLife(n)`, `ChooseSubtype`
+never counts itself),
+`TappedUnlessAtMost { filter, at_most }` (the same count bounded from
+above — the fast lands' "two or fewer other lands", and the same predicate
+the Forgotten Realms manlands print as its complement, "if you control two
+or more other lands, this land enters tapped"),
+`TappedUnlessOpponents { at_least }` and
+`TappedUnlessSomeoneAtOrBelow { life }` (the two cycles whose condition
+counts **players** — no filter reaches a seat, and which seats count is a
+rule: a teammate is not an opponent and a player who has lost is out),
+`TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
 `ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving

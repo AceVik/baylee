@@ -438,10 +438,10 @@ fn sentences(line: &str) -> Vec<String> {
 /// The word before "lands" is the entire difference between them and it is
 /// not a modifier a reader may drop: a battle land counts *basic* lands and a
 /// slow land counts *other* lands. "Other" costs nothing extra here because
-/// the entering land never counts itself anyway. Two phrases this table does
-/// **not** carry, and deliberately: "two or fewer other lands" is the fast
-/// lands and is the opposite comparison, and "three or more other Islands"
-/// is a cycle whose second sentence the reader cannot read regardless.
+/// the entering land never counts itself anyway. One phrase this table does
+/// **not** carry: "three or more other Islands" is a cycle whose second
+/// sentence the reader cannot read regardless, so reading its first would
+/// finish no card.
 ///
 /// Both filters are a name the DSL already carries, so neither is hoisted:
 /// a `static CHECK: Filter = Filter::YOUR_LAND;` would give one spelling of
@@ -454,6 +454,17 @@ const COUNTED: [(&str, &str, &str); 2] = [
     ),
     (" or more other lands", "Filter::YOUR_LAND", "slow land"),
 ];
+
+/// The same sentence bounded from above: "unless you control N or fewer …".
+///
+/// One phrase and its own table rather than a flag on [`COUNTED`], because
+/// the two emit different modifiers and a shared table would have had to
+/// carry the direction as data anyway. The predicate reaches five more pool
+/// cards through the *other* arm below — the manlands print its complement —
+/// and those two spellings meeting one `EnterModifier` is the whole point of
+/// the variant.
+const COUNTED_AT_MOST: [(&str, &str, &str); 1] =
+    [(" or fewer other lands", "Filter::YOUR_LAND", "fast land")];
 
 struct Recognizer<'a> {
     cats: &'a SubtypeCatalogs,
@@ -618,6 +629,67 @@ impl Recognizer<'_> {
         Some(())
     }
 
+    /// The enters-tapped clauses whose condition is a **count**, in the three
+    /// ways the printed cards write one.
+    ///
+    /// Its own method rather than three more arms in `enters_line`, because
+    /// the three belong together: they count the same kind of thing and
+    /// differ only in which side of the number turns the land on, and a
+    /// reader deciding that has to have all three in front of it. Two say
+    /// "unless you control N or more/fewer …" and share a prefix; the third
+    /// is the second one's complement written as a condition, which is a
+    /// different sentence and the same bound.
+    fn counted_enters_clause(&mut self, line: &str) -> Option<()> {
+        if let Some(rest) = line.strip_prefix("This land enters tapped unless you control ") {
+            for (phrase, filter, note) in COUNTED {
+                let Some(n) = rest
+                    .strip_suffix(phrase)
+                    .and_then(number)
+                    .and_then(|n| u8::try_from(n).ok())
+                else {
+                    continue;
+                };
+                self.body.enter_modifiers.push(format!(
+                    "EnterModifier::TappedUnlessCount {{ filter: &{filter}, at_least: {n} }}"
+                ));
+                self.body.notes.push(note.to_string());
+                return Some(());
+            }
+            for (phrase, filter, note) in COUNTED_AT_MOST {
+                let Some(n) = rest
+                    .strip_suffix(phrase)
+                    .and_then(number)
+                    .and_then(|n| u8::try_from(n).ok())
+                else {
+                    continue;
+                };
+                self.body.enter_modifiers.push(format!(
+                    "EnterModifier::TappedUnlessAtMost {{ filter: &{filter}, at_most: {n} }}"
+                ));
+                self.body.notes.push(note.to_string());
+                return Some(());
+            }
+        }
+        // The complement, printed as a condition rather than as an exception:
+        // "if you control two or more other lands, this land enters tapped"
+        // is the fast lands' bound one lower, and the manlands are the only
+        // cycle that writes it. `n - 1` is the whole conversion, and `n = 0`
+        // is refused because "if you control no other lands it enters tapped"
+        // is not a sentence Magic prints and would need the opposite variant
+        // to mean anything.
+        let n = line
+            .strip_prefix("If you control ")
+            .and_then(|rest| rest.strip_suffix(" or more other lands, this land enters tapped"))
+            .and_then(number)
+            .and_then(|n| u8::try_from(n).ok())
+            .and_then(|n| n.checked_sub(1))?;
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::TappedUnlessAtMost {{ filter: &Filter::YOUR_LAND, at_most: {n} }}"
+        ));
+        self.body.notes.push("manland bound".to_string());
+        Some(())
+    }
+
     fn enters_line(&mut self, line: &str) -> Option<()> {
         if line == "This land enters tapped" {
             self.body
@@ -664,21 +736,8 @@ impl Recognizer<'_> {
         }
         // Before the checkland below it, which claims the same prefix and
         // would refuse the whole card on the phrases these read.
-        if let Some(rest) = line.strip_prefix("This land enters tapped unless you control ") {
-            for (phrase, filter, note) in COUNTED {
-                let Some(n) = rest
-                    .strip_suffix(phrase)
-                    .and_then(number)
-                    .and_then(|n| u8::try_from(n).ok())
-                else {
-                    continue;
-                };
-                self.body.enter_modifiers.push(format!(
-                    "EnterModifier::TappedUnlessCount {{ filter: &{filter}, at_least: {n} }}"
-                ));
-                self.body.notes.push(note.to_string());
-                return Some(());
-            }
+        if self.counted_enters_clause(line).is_some() {
+            return Some(());
         }
         if let Some(rest) = line.strip_prefix("This land enters tapped unless you control ") {
             let name = self.control_filter(rest)?;
@@ -1629,16 +1688,6 @@ mod tests {
             )
             .is_none()
         );
-        // …including a count the table beside it does not carry. A fast land
-        // is one word from a slow land and the opposite comparison, so the
-        // reader that learned "two or more" must not answer "two or fewer".
-        assert!(
-            recognize(
-                &card("Land", "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {G}."),
-                &cats(),
-            )
-            .is_none()
-        );
         // …and a count that *is* read still refuses the card when the
         // sentence after it is not. The Eldraine cycle's second clause is a
         // trigger on entering **untapped**, which is a condition no rule
@@ -1669,6 +1718,47 @@ mod tests {
             ["EnterModifier::TappedUnlessCount { filter: &Filter::YOUR_LAND, at_least: 2 }"]
         );
         assert!(body.statics.is_empty(), "{}", body.statics);
+    }
+
+    /// The fast lands: a slow land's sentence with one word changed, and the
+    /// bound is the other way round.
+    ///
+    /// Held beside `a_slow_land_counts_the_other_lands` deliberately. The two
+    /// texts differ in exactly "more"/"fewer", they count the same filter to
+    /// the same number, and a reader that read one of them for the other
+    /// would produce a card that is right on an empty board and wrong on
+    /// every other — which is the board these lands are played on.
+    #[test]
+    fn a_fast_land_is_a_slow_land_bounded_the_other_way() {
+        let body = read(
+            "Land",
+            "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {G}.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::TappedUnlessAtMost { filter: &Filter::YOUR_LAND, at_most: 2 }"]
+        );
+        assert!(body.statics.is_empty(), "{}", body.statics);
+    }
+
+    /// The manlands print the same bound as its complement, and one lower.
+    ///
+    /// "If you control two or more other lands, this land enters tapped" is
+    /// `at_most: 1` — the conversion is the whole reading, and getting it
+    /// wrong by one is a land that is untapped on precisely the turn it
+    /// should not be. The card here stops at the mana ability: the five that
+    /// print this sentence also animate themselves, which no rule reads, so
+    /// this is the sentence being read rather than a card being finished.
+    #[test]
+    fn a_manland_prints_the_same_bound_as_a_condition() {
+        let body = read(
+            "Land",
+            "If you control two or more other lands, this land enters tapped.\n{T}: Add {U}.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::TappedUnlessAtMost { filter: &Filter::YOUR_LAND, at_most: 1 }"]
+        );
     }
 
     /// The battle lands: a condition that **counts**, and counts *basic*

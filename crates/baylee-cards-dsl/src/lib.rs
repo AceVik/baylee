@@ -314,6 +314,31 @@ pub enum EnterModifier {
         /// How many of them it takes.
         at_least: u8,
     },
+    /// Enters tapped unless you control **at most** `at_most` matching
+    /// permanents (the fast lands' "two or fewer other lands").
+    ///
+    /// The upper bound to [`Self::TappedUnlessCount`]'s lower one, and a
+    /// variant rather than a signed count because no card prints a bound it
+    /// does not mean: a fast land is turned *off* by a board a slow land is
+    /// turned on by, and a reader that had to pick a direction from a number
+    /// would be guessing at the one thing the sentence is about.
+    ///
+    /// Magic prints the same predicate from both ends and the reference
+    /// spells it three ways. A fast land prints the bound — "enters tapped
+    /// unless you control two or fewer other lands", `GT2` — and the
+    /// Forgotten Realms manlands print the complement — "if you control two
+    /// or more other lands, this land enters tapped", written `GE2` on three
+    /// of them and `GT1` on the other two. All of it is one `at_most`, which
+    /// is why this carries no comparison of its own.
+    ///
+    /// "Other" needs no clause here either: the count skips the entering
+    /// permanent, for the reason `Engine::controls_count` gives.
+    TappedUnlessAtMost {
+        /// What each of them has to be.
+        filter: &'static Filter,
+        /// How many of them it may be and still enter untapped.
+        at_most: u8,
+    },
     /// Enters tapped unless you have `at_least` opponents (the Battlebond
     /// "crowd" lands: "unless you have two or more opponents").
     ///

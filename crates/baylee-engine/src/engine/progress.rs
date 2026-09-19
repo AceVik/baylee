@@ -697,6 +697,17 @@ impl<L: CardLookup> Engine<L> {
                             changed = true;
                         }
                     }
+                    // The same count, the other way round: a fast land comes
+                    // down tapped once the board is *past* its bound, which is
+                    // the sentence a slow land's arm would answer backwards.
+                    EnterModifier::TappedUnlessAtMost { filter, at_most } => {
+                        if self.controls_count(filter, controller, id) > usize::from(*at_most)
+                            && let Some(obj) = self.state.object_mut(id)
+                        {
+                            obj.status.insert(Status::TAPPED);
+                            changed = true;
+                        }
+                    }
                     // Both of these count *players*, and neither re-derives
                     // which ones count. `eval::players` is the one place that
                     // knows a teammate is not an opponent and that a player
@@ -870,6 +881,23 @@ impl<L: CardLookup> Engine<L> {
         entering: ObjectId,
         at_least: usize,
     ) -> bool {
+        self.controls_count(filter, controller, entering) >= at_least
+    }
+
+    /// The count both bounds read, and the one place the entering permanent
+    /// is skipped.
+    ///
+    /// Two sentences ask about the same number from opposite ends — a slow
+    /// land wants at least two other lands and a fast land wants at most two
+    /// — so the comparison belongs to the modifier and the counting does not.
+    /// Written twice, the word "other" would have had two places to go
+    /// missing.
+    fn controls_count(
+        &self,
+        filter: &baylee_cards_dsl::Filter,
+        controller: PlayerId,
+        entering: ObjectId,
+    ) -> usize {
         self.state
             .zones
             .list(ZoneLocation::Battlefield)
@@ -881,7 +909,6 @@ impl<L: CardLookup> Engine<L> {
                     })
             })
             .count()
-            >= at_least
     }
 
     /// Checks a newly entered permanent for a clone-on-enter clause and
