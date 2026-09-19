@@ -245,7 +245,8 @@ fn a_named_grant_offers_exactly_the_card_it_names() {
     let p0 = PlayerId::new(0);
     let (mut engine, ritual, elf) = bench();
 
-    grant_flashback(&mut engine, p0, EffectFilter::ObjectIs(ritual));
+    let names_the_ritual = EffectFilter::object(engine.state(), ritual);
+    grant_flashback(&mut engine, p0, names_the_ritual);
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())

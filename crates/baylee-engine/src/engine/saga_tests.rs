@@ -748,7 +748,7 @@ fn a_saga_whose_last_chapter_is_countered_is_sacrificed_anyway() {
     // which is what a widened filter would take from it.
     assert!(
         !engine.state().effects.iter().any(
-            |fx| matches!(fx.filter, crate::effects::EffectFilter::ObjectIs(id) if id == saga)
+            |fx| matches!(fx.filter, crate::effects::EffectFilter::ObjectIs(id, _) if id == saga)
         ),
         "the tidebinder's rider was registered against a land"
     );

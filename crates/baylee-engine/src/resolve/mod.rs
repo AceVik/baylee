@@ -463,7 +463,7 @@ pub(super) fn bound_now(
                     && eval::matches(filter, state, o, you, this)
             })
         })
-        .map(|id| crate::effects::EffectFilter::ObjectIs(*id))
+        .map(|id| crate::effects::EffectFilter::object(state, *id))
         .collect()
 }
 
@@ -1782,7 +1782,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 // was activated with none, so this half of its sentence has
                 // no subject and registers nothing.
                 let this = this_object(res)?;
-                smallvec::smallvec![crate::effects::EffectFilter::ObjectIs(this)]
+                smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
                 bound_now(state, filter, &modifier, you, res.source, None)
             };
@@ -1921,7 +1921,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     layer: baylee_cards_dsl::Layer::Text,
                     timestamp: ts,
                     duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-                    filter: crate::effects::EffectFilter::ObjectIs(target),
+                    filter: crate::effects::EffectFilter::object(state, target),
                     modifier: baylee_cards_dsl::Modifier::GrantsFlashback,
                 });
             }
@@ -1968,7 +1968,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         layer: baylee_cards_dsl::Layer::Ability,
                         timestamp: ts,
                         duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                        filter: crate::effects::EffectFilter::ObjectIs(src),
+                        filter: crate::effects::EffectFilter::object(state, src),
                         modifier: baylee_cards_dsl::Modifier::LoseKeywords,
                     });
                 }

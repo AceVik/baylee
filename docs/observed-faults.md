@@ -3214,3 +3214,61 @@ counters (CR 716.2c) and a Leveler's level *is* its level counters
 (CR 711.2b), so a Wizard Class carrying one counter stands at level 2 while a
 Hexdrinker carrying one stands at level 1. The client can tell them apart
 without asking the pool: a Class is an enchantment, a Leveler is a creature.
+
+### 59. A blinked creature came back still pumped — FIXED
+
+Found while scoping the "doesn't untap during your next untap step" work
+(#72) and not part of it: the honest-stub rule asks whether a claimed
+reference key has a *rule* behind it, and asking that about
+`ExileOnMoved$ Battlefield` walked into a live bug two `Coverage::Implemented`
+cards could reach on their own.
+
+Ondu Cleric (1/3), Giant Growth, Ephemerate, played through `Duel`:
+
+```
+base=Some(1)  pumped=Some(4)  after_blink=Some(4)
+```
+
+CR 400.7 makes what returns a new object, so the pump is not on it. The
+engine kept applying it.
+
+**One site, and the model was already written down.** `object.rs`'s module
+header says an `ObjectId` is stable for a whole game, that `move_object`
+bumps `version` instead, and that *"effects and targets that must track
+identity record `(ObjectId, version)`"*. Five sites already did —
+`resolve/mod.rs:385` and `:543` for CR 608.2h last-known information,
+`progress.rs:2515`, `:2634` and `:3019`. `EffectFilter::ObjectIs` held an id
+alone and was the one identity-tracking site that never adopted the model its
+own module header promises.
+
+**The obvious rule would not have closed it**, which is the part worth
+keeping. The natural fix is to drop the effect when its object leaves the
+battlefield, and there is already a sweep that looks like that
+(`progress.rs:1331`, `:3488`). It closes nothing here: the sweep computes
+`gone` from the zones **as they stand** when `sync_static_effects` runs, and
+`Effect::Blink` exiles and returns inside one `exec_immediate`, so by the
+time anything syncs the object is back on the battlefield and was never in
+`gone`. A poll cannot see an event that began and ended between two of its
+samples. A version compare is evaluated at *read* time and does not need the
+departure to have been observed at all — it survives the counter-example that
+kills the sweep, which is a better reason to choose it than that it works.
+
+`version` is written at exactly one site in the workspace — `state.rs:1360`,
+inside `move_object` — so the compare cannot fire for any reason but a zone
+change. That is asserted rather than trusted: the fix's second test pumps a
+creature that stays put and asks after every step of the turn, because a
+compare that fired on anything else would quietly cancel every created effect
+in the pool and would be far worse than the bug it closes.
+
+Two neighbours came along, both of them copies of the predicate rather than
+new code. `combat::prevent_from` and `prevent_to` each carried their own id
+compare — the last two of the copies `effects::applies_to` was written to
+replace — and now ask `EffectFilter::names`.
+
+**What this does not close**, because it is the same defect one layer over:
+`GameObject::targets` holds a bare `ObjectId` too, so a creature blinked in
+response to a spell that targets it is still a legal target when CR 608.2b's
+re-check (#116) asks. The header names that half as well — "effects **and
+targets**" — and it wants its own pass: the target list is read at 73 sites
+in the engine and converted once in `baylee-gamehost`'s view, where the
+effect filter was nine sites and two readers.

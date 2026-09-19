@@ -113,7 +113,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // every noncreature artifact in the game became a 0/0 and
             // was put into a graveyard by the next state-based check.
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
-                smallvec::smallvec![crate::effects::EffectFilter::ObjectIs(this)]
+                smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
                 super::bound_now(state, filter, &modifier, you, res.source, None)
             };
@@ -189,7 +189,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let filters: SmallVec<[crate::effects::EffectFilter; 4]> = res
                 .targets
                 .iter()
-                .map(|target| crate::effects::EffectFilter::ObjectIs(*target))
+                .map(|target| crate::effects::EffectFilter::object(state, *target))
                 .collect();
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None

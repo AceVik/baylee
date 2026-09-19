@@ -91,6 +91,22 @@ fn curse_of_the_swine() -> CardIndex {
     card_index("5669ea7c-c4fc-494c-896b-4bce9b494817")
 }
 
+fn giant_growth() -> CardIndex {
+    card_index("5748ebf1-24e3-499d-ab7c-c2cebd462a24")
+}
+
+fn ephemerate() -> CardIndex {
+    card_index("0fd57894-b917-41c8-a394-360d1d31b236")
+}
+
+/// A permanent's projected power, which is what a pump is visible in.
+fn power_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<i16> {
+    engine
+        .state()
+        .object(object)
+        .and_then(|o| o.characteristics().power)
+}
+
 fn storm_of_saruman() -> CardIndex {
     card_index("cf5f4860-e805-46a3-9352-a2c583e33403")
 }

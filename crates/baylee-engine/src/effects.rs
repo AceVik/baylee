@@ -15,8 +15,57 @@ use baylee_core::ids::{EffectId, ObjectId, PlayerId};
 pub enum EffectFilter {
     /// A declarative DSL filter.
     Dsl(&'static Filter),
-    /// Exactly one object (created effects like Giant Growth).
-    ObjectIs(ObjectId),
+    /// Exactly one object (created effects like Giant Growth), named by the
+    /// pair that identifies it: its id and the `version` it had when the
+    /// effect began.
+    ///
+    /// **Both halves, because an `ObjectId` alone is not an identity here.**
+    /// `object.rs`'s module header states the model — an id is stable for a
+    /// whole game and `GameState::move_object` bumps `version` instead
+    /// (CR 400.7, "it becomes a new object") — and this was the one
+    /// identity-tracking site that never adopted it. With the id alone, a
+    /// creature pumped by Giant Growth and then blinked with Ephemerate came
+    /// back **still pumped**: the returning permanent really is on the
+    /// battlefield and really does carry the same id, so no zone test can
+    /// tell it from the object the spell was cast at. The version can.
+    ObjectIs(ObjectId, u32),
+}
+
+impl EffectFilter {
+    /// Names `id` as it stands right now.
+    ///
+    /// A constructor rather than a written-out pair at each of the nine
+    /// registration sites: the second half is not a value any of them has an
+    /// opinion about, and a site that wrote the wrong one would be an effect
+    /// that quietly reaches nothing.
+    ///
+    /// An object that is not there cannot be named, and `u32::MAX` is how
+    /// this says so — it is a version no object in a finite game reaches,
+    /// so the effect applies to nothing rather than to whatever is at that
+    /// id. Registering against a missing object is a caller's bug and the
+    /// `debug_assert` says which caller.
+    #[must_use]
+    pub fn object(state: &crate::state::GameState, id: ObjectId) -> Self {
+        let object = state.object(id);
+        debug_assert!(
+            object.is_some(),
+            "a continuous effect was registered against {id:?}, which is not in the arena"
+        );
+        Self::ObjectIs(id, object.map_or(u32::MAX, |o| o.version))
+    }
+
+    /// Whether this filter names exactly `obj` — the same object, not merely
+    /// the same id.
+    ///
+    /// One predicate with four readers, for the reason [`applies_to`] gives
+    /// about itself: `combat::prevent_from` and `prevent_to` each carried
+    /// their own copy of the id compare, and a copy is a chance to answer
+    /// the identity question differently from its neighbours.
+    #[must_use]
+    pub fn names(&self, obj: &crate::object::GameObject) -> bool {
+        matches!(self, Self::ObjectIs(id, version)
+            if *id == obj.id && *version == obj.version)
+    }
 }
 
 /// Whether a continuous effect carrying this modifier fixes the set of
@@ -237,7 +286,7 @@ pub fn applies_to(
     obj: &crate::object::GameObject,
 ) -> bool {
     match &fx.filter {
-        EffectFilter::ObjectIs(id) => *id == obj.id,
+        EffectFilter::ObjectIs(..) => fx.filter.names(obj),
         EffectFilter::Dsl(filter) => crate::eval::matches(
             filter,
             state,

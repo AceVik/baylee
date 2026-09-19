@@ -1130,7 +1130,7 @@ impl<L: CardLookup> Engine<L> {
                     layer: baylee_cards_dsl::Layer::Copy,
                     timestamp: ts,
                     duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-                    filter: crate::effects::EffectFilter::ObjectIs(id),
+                    filter: crate::effects::EffectFilter::object(&self.state, id),
                     modifier: baylee_cards_dsl::Modifier::BecomeCopyOf(target),
                 });
             // Abilities are copiable values too (CR 707.2), and the effect
@@ -1208,7 +1208,7 @@ impl<L: CardLookup> Engine<L> {
                         layer,
                         timestamp: ts,
                         duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-                        filter: crate::effects::EffectFilter::ObjectIs(id),
+                        filter: crate::effects::EffectFilter::object(&self.state, id),
                         modifier,
                     });
             }

@@ -157,7 +157,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     layer: baylee_cards_dsl::Layer::PtModify,
                     timestamp: ts,
                     duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                    filter: crate::effects::EffectFilter::ObjectIs(id),
+                    filter: crate::effects::EffectFilter::object(state, id),
                     modifier: baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t },
                 });
             }
