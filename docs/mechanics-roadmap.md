@@ -513,6 +513,30 @@ That is the cross-lane rule, and the Mikaeus failure is why.
 1. **Take the 4400 cards the reader already writes.** In batches small
    enough that a bad reader day is one revert, with `codegen --check` and
    `validate` green before each. This needs no DSL work and no lane.
+
+   `cargo run -p xtask -- reach-list --out <file>` is what names them, and
+   it walks the **ledger** rather than the corpus: a card with no row stops
+   `codegen` outright, and the ledger's spelling is Scryfall's, which is what
+   `data/card-pool.txt` requires. Measured 19.09: **4112** of the 31 761
+   unattempted rows that carry a reference script read in full. The number is
+   a worklist and not a promise — `scriptgen` claiming every clause is one
+   reader agreeing, while `stubgen::transcode_card` still needs a printing —
+   but the one independent check of it came out exact: of the 300 names the
+   §E probe added at random it lists 42, and the probe finished 42.
+
+   The batch itself is five steps, in this order: append the names to
+   `data/card-pool.txt`, fill the payload cache (`scryfall-cache`, one bulk
+   download rather than one request per card), run `codegen` **twice** because
+   it is two-phase, hold it with `codegen --check` and `validate`, and then
+   the full gate — the pool-wide engine sweeps are what actually play the new
+   cards, and they are in it.
+
+   Expect a batch to find things in the **tools** rather than in the cards.
+   Batch 1 was a hundred cards of Alpha and Arabian Nights, all hundred
+   finished, and it turned up two: `validate` read "add three mana of any one
+   color" as a promise of nothing, and `printed_tests` counted Auras against a
+   ceiling somebody then had to raise by hand. Both are checks meeting printed
+   text they had not seen, which is what volume does first.
 2. **Then the residue, ranked `--stubs`**, one cause at a time, each cause
    cut out first to see what is behind it.
 3. **Then the corpus ranking**, which is where a rule buys hundreds of
