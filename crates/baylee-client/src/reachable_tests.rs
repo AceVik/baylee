@@ -61,7 +61,17 @@ fn forest(slot: u32) -> baylee_view::PublicObject {
 /// working client gives all the time; `board: None` is not, and every system
 /// that reads it bails loudly enough for a test to notice.
 fn duel_holding_a_sorcery() -> Duel {
-    let def = a_cheap_sorcery();
+    duel_holding(a_cheap_sorcery())
+}
+
+/// The same table, holding whichever card is named.
+///
+/// Split out of [`duel_holding_a_sorcery`] so the instant tests below stand
+/// on the *same* board — two Forests, one hand card, the engine offering
+/// both lands as mana abilities and nothing as castable. A second fixture
+/// would let the two halves drift, and the whole claim is that the only
+/// thing differing between them is the card's type.
+fn duel_holding(def: &'static baylee_cards_dsl::CardDef) -> Duel {
     let lands: Vec<_> = (1..=2).map(forest).collect();
     let ids: Vec<ObjectId> = lands.iter().map(|o| o.id).collect();
     let mut view = ViewBuilder::new(2).with_battlefield(0, lands).build();
@@ -131,4 +141,65 @@ fn nor_on_somebody_elses_turn() {
     let mut duel = duel_holding_a_sorcery();
     duel.view.as_mut().expect("the view").active = PlayerId::new(1);
     assert!(reachable(&duel).is_empty());
+}
+
+/// The first card in the registry that is only an instant and costs at
+/// most one green mana plus generic.
+///
+/// Found rather than named, for the reason [`a_cheap_sorcery`] gives.
+fn a_cheap_instant() -> &'static baylee_cards_dsl::CardDef {
+    const GREEN: ColorSet = ColorSet::of(Color::Green);
+    baylee_cards::all()
+        .filter(|def| def.faces.len() == 1)
+        .find(|def| {
+            let face = &def.faces[0];
+            face.types == TypeSet::INSTANT
+                && face.mana_cost.symbols().next().is_some()
+                && face.mana_cost.cmc() <= 2
+                && face.mana_cost.colors().difference(GREEN) == ColorSet::EMPTY
+        })
+        .expect("the pool has a cheap mono-green instant")
+}
+
+/// The offer this client makes on its own, for a card the stack does not
+/// close the window on.
+///
+/// Every claim this file made about the stack and the turn was a
+/// **negative** — a sorcery is not offered over a stack, not on somebody
+/// else's turn — and a file of negatives passes exactly as well when
+/// `reachable` has stopped offering anything at all. That is the shape of
+/// the fault reported in #112: an instant in hand, an untapped land, no
+/// floating mana, so `castable` is empty by design and the card is
+/// reachable or it is nothing.
+///
+/// `timing::allows` already asserts the instant case at the unit. This
+/// asserts it through the composition a player actually meets, which is
+/// where the cost filter, the source scan and the mana plan are.
+#[test]
+fn an_instant_is_reached_for_over_an_unresolved_stack() {
+    let mut duel = duel_holding(a_cheap_instant());
+    duel.view
+        .as_mut()
+        .expect("the view")
+        .stack
+        .push(token(90, 1, "Something Resolving", 0, 0));
+    assert_eq!(
+        reachable(&duel).len(),
+        1,
+        "CR 117.1b: responding is the whole reason to hold one"
+    );
+}
+
+/// And on somebody else's turn, which is where a player holds one.
+#[test]
+fn and_on_somebody_elses_turn_as_well() {
+    let mut duel = duel_holding(a_cheap_instant());
+    let view = duel.view.as_mut().expect("the view");
+    view.active = PlayerId::new(1);
+    view.stack.push(token(90, 1, "Something Resolving", 0, 0));
+    assert_eq!(
+        reachable(&duel).len(),
+        1,
+        "the reported window: an opponent's spell on the stack, on their turn"
+    );
 }

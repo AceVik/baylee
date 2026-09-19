@@ -228,3 +228,306 @@ fn a_mana_ability_still_goes_through_on_one_tap() {
         [PlayerAction::ActivateManaAbility { source }]
     );
 }
+
+use crate::host::{DuelHost, HostMessage, LocalHost};
+use baylee_core::ids::ObjectId;
+
+/// Carry one frame between a real host and the client, in `lib.rs`'s order.
+///
+/// Poll, apply, advance the run, flush. A test that flushed before it
+/// advanced would be testing an order no running client uses.
+fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
+    for m in host.poll() {
+        match m {
+            HostMessage::Static(s) => duel.statics = Some(*s),
+            HostMessage::View(v) => {
+                duel.receive_view(*v);
+                crate::rebuild_board(duel);
+            }
+            HostMessage::Choice(p) => duel.receive_choice(*p),
+            HostMessage::Failed(e) => panic!("the host refused: {e}"),
+        }
+    }
+    crate::advance_mana_run(duel);
+    for action in duel.take_outbox() {
+        host.submit(action);
+    }
+}
+
+/// A real duel played to the window #112 reports, and the instant in hand.
+///
+/// It is the half a hand-built view cannot honestly stand in for.
+/// [`crate::reachable`] reads projected types, the printed cost and the
+/// seat's own mana sources, and `host::tests::duel_preset` already says why
+/// that matters: *a view assembled by a test is a view that agrees with
+/// whatever the test expected of it.* So this runs a real `LocalHost`
+/// against the house AI and pumps its messages the way `lib.rs` pumps them.
+///
+/// The position is the one reported: an opponent's spell on the stack, one
+/// untapped Plains, and an instant in hand.
+fn the_reported_window() -> (LocalHost, crate::Duel, ObjectId) {
+    use baylee_core::ids::PrintRef;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo,
+        SeatCapabilities, SeatController, SeatSpec,
+    };
+
+    let entry = |name: &str| DeckEntry {
+        card: baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("`{name}` in the pool")),
+        print: PrintRef::new(0),
+    };
+    let filler: Vec<DeckEntry> = (0..40).map(|_| entry("Island")).collect();
+    let seat = |ai: bool, hand: Vec<DeckEntry>, field: Vec<DeckEntry>| SeatSpec {
+        controller: if ai {
+            SeatController::Ai(AIProfile::default())
+        } else {
+            SeatController::Open
+        },
+        capabilities: SeatCapabilities::default(),
+        deck: filler.clone(),
+        sideboard: vec![],
+        commanders: vec![],
+        starting_life: None,
+        starting_hand: Some(hand),
+        starting_battlefield: field,
+        emblems: vec![],
+        team: None,
+    };
+    // The AI seat holds exactly one card and the lands to pay for it, so the
+    // spell that reaches the stack is not a bet on what a heuristic felt like
+    // doing. If this ever stops arriving the test says so out loud rather
+    // than passing over an empty stack.
+    let preset = GamePreset {
+        format: FormatId::Freeform,
+        seed: 11,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints: vec![PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        }],
+        seats: vec![
+            seat(
+                false,
+                vec![entry("Swords to Plowshares")],
+                vec![entry("Plains")],
+            ),
+            seat(
+                true,
+                vec![entry("Eerie Interlude")],
+                vec![
+                    entry("Baleful Strix"),
+                    entry("Plains"),
+                    entry("Plains"),
+                    entry("Plains"),
+                ],
+            ),
+        ],
+    };
+
+    let mut host =
+        LocalHost::new(&preset, PlayerId::new(0), &["You", "House"]).expect("the duel starts");
+    let mut duel = crate::Duel::default();
+
+    // Play on until this seat holds priority over something on the stack.
+    let mut spell = None;
+    for _ in 0..400 {
+        pump(&mut host, &mut duel);
+        let Some(pending) = duel.interaction.as_ref().map(|i| i.pending().clone()) else {
+            continue;
+        };
+        let stacked = duel.view.as_ref().is_some_and(|v| !v.stack.is_empty());
+        match &pending {
+            Pending::Priority { player, .. } if *player == PlayerId::new(0) && stacked => {
+                spell = duel
+                    .view
+                    .as_ref()
+                    .and_then(|v| v.hand.first().map(|h| h.id));
+                break;
+            }
+            Pending::Mulligan { player, .. } if *player == PlayerId::new(0) => {
+                host.submit(PlayerAction::MulliganKeep);
+            }
+            Pending::Priority { player, .. } if *player == PlayerId::new(0) => {
+                host.submit(PlayerAction::PassPriority);
+            }
+            _ => {}
+        }
+    }
+    let spell = spell.expect(
+        "the opponent never put a spell on the stack, so the window this test \
+         is about never opened — re-arrange the position rather than relaxing \
+         the assertions below",
+    );
+    (host, duel, spell)
+}
+
+/// The end of the gesture, which is the half a tap-level assertion misses.
+///
+/// A run that arms and never sends is precisely the fault that was reported,
+/// and it passes every assertion that stops at `armed`. Sending is also not
+/// landing: on the frame the run ends the seat is still holding priority
+/// with its mana floating, so a test that read the pending here would be
+/// reading its own last frame. The engine gets its answer first, and the
+/// proof that it took the cast is that it turns round and asks this seat for
+/// the spell's target.
+fn the_gesture_lands_on_a_target(host: &mut LocalHost, duel: &mut crate::Duel) {
+    for _ in 0..40 {
+        pump(host, duel);
+        if duel.mana_run.is_none() {
+            break;
+        }
+    }
+    assert!(
+        duel.mana_run.is_none(),
+        "the run never finished: {:?}",
+        duel.last_error
+    );
+    assert_eq!(duel.last_error, None, "the gesture ended on an error");
+
+    for _ in 0..20 {
+        pump(host, duel);
+        if matches!(
+            duel.interaction.as_ref().map(Interaction::pending),
+            Some(Pending::ChooseTargets { .. })
+        ) {
+            break;
+        }
+    }
+    assert!(
+        matches!(
+            duel.interaction.as_ref().map(Interaction::pending),
+            Some(Pending::ChooseTargets { options, .. }) if !options.is_empty()
+        ),
+        "after the gesture the engine is at {:?}",
+        duel.interaction.as_ref().map(Interaction::pending)
+    );
+}
+
+/// The indigo half of the hand, clicked the way a player clicks it.
+///
+/// Every other test in this file walks the **gold** path, and not by choice:
+/// `window_with` carries no view at all, and [`crate::reachable`] returns an
+/// empty set without one. So "this client will tap your lands for you" — the
+/// other half of the hand, and two of the four branches of `activate_card` —
+/// had never been reached by a tap.
+#[test]
+fn the_indigo_half_of_the_hand_casts_on_two_taps() {
+    let (mut host, mut duel, spell) = the_reported_window();
+
+    // Lit, and lit by whichever authority is supposed to be lighting it.
+    let card = duel
+        .board
+        .as_ref()
+        .and_then(|b| b.hand.iter().find(|h| h.id == spell))
+        .expect("the card is in the rendered hand");
+    assert!(
+        !card.playable && card.reachable,
+        "the engine has not offered this cast and the client has: {card:?}"
+    );
+
+    activate_card(&mut duel, spell);
+    assert!(
+        matches!(
+            duel.armed,
+            Some(crate::Armed {
+                deed: crate::Deed::Run {
+                    then: crate::RunEnd::Cast,
+                    ..
+                },
+                ..
+            })
+        ),
+        "the first tap armed {:?}",
+        duel.armed
+    );
+    assert!(duel.outbox().is_empty(), "the first tap put it on the wire");
+
+    activate_card(&mut duel, spell);
+    assert!(
+        duel.mana_run.is_some(),
+        "the second tap started no run: {:?}",
+        duel.last_error
+    );
+
+    // `pump` carries each step of the run to the engine in the order the run
+    // emits them — the land first, the spell only once its mana is floating.
+    the_gesture_lands_on_a_target(&mut host, &mut duel);
+}
+
+/// The same window with the mana **already in the pool**, which is the
+/// position actually reported.
+///
+/// The owner's words were "ich habe ein weißes Mana im Pool". That is the
+/// *gold* path — the engine has verified the cost and offers the cast
+/// outright — and it is a different branch of `activate_card` from the
+/// indigo one: `Deed::Play` and no run at all. `a_spell_still_arms_and_a_
+/// second_tap_sends_it` covers that branch over a stub, and the first #112
+/// probe covered it over an `Interaction`; neither had a board model, an
+/// opponent's spell on the stack, or a real projection underneath it.
+#[test]
+fn the_gold_half_casts_with_the_mana_already_in_the_pool() {
+    let (mut host, mut duel, spell) = the_reported_window();
+
+    // Tapping the land is also the likeliest way a white mana got into a
+    // player's pool in this window, so this arm gets there the way he would
+    // have.
+    let source = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+        .and_then(|l| l.mana_abilities.first().copied())
+        .expect("an untapped land to tap");
+    host.submit(PlayerAction::ActivateManaAbility { source });
+    for _ in 0..20 {
+        pump(&mut host, &mut duel);
+        if duel
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .is_some_and(|l| l.castable.contains(&spell))
+        {
+            break;
+        }
+    }
+
+    let card = duel
+        .board
+        .as_ref()
+        .and_then(|b| b.hand.iter().find(|h| h.id == spell))
+        .expect("the card is in the rendered hand");
+    assert!(
+        card.playable && !card.reachable,
+        "with the mana floating the engine itself offers the cast, so it is \
+         gold and not this client's own offer: {card:?}"
+    );
+
+    activate_card(&mut duel, spell);
+    assert!(
+        matches!(
+            duel.armed,
+            Some(crate::Armed {
+                deed: crate::Deed::Play,
+                ..
+            })
+        ),
+        "nothing needs tapping, so the first tap arms a plain play: {:?}",
+        duel.armed
+    );
+    assert!(duel.outbox().is_empty(), "the first tap put it on the wire");
+
+    activate_card(&mut duel, spell);
+    assert!(
+        duel.mana_run.is_none(),
+        "there was nothing left to tap, so no run should have started"
+    );
+    assert_eq!(
+        duel.outbox(),
+        [PlayerAction::CastSpell { card: spell }],
+        "the second tap did not send the cast: {:?}",
+        duel.last_error
+    );
+
+    the_gesture_lands_on_a_target(&mut host, &mut duel);
+}
