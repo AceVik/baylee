@@ -1265,21 +1265,19 @@ the same reason a token's is and is not the same fact at all, and `is_token`,
 which was that field, called every opponent's morph a token for as long as
 nothing read it.
 
-The mark is drawn in the **identity column**, the lower of its two rows: the
-Mana font's `ms-token` (a squirrel) for a token, `ms-ability-copy` (two
-cards) for a copy, sampled out of the same atlas the rail's marks come from.
-Both still, for the crest's reason — a permanent stops being a copy only by
-ceasing to be that permanent (CR 400.7).
+The mark is drawn on an **identity slip**: the Mana font's `ms-token` (a
+squirrel) for a token on verdigris paper, `ms-ability-copy` (two cards) for a
+copy on violet, sampled out of the same atlas the rail's marks come from. A
+commander's `ms-commander` on gilt is the third, and the three pack left to
+right with provenance first.
 
-It was a filled disc in the card's **top-left corner** until September 2026,
-with the crest centred on the same edge, and the pair cost the crest the
-strongest form of its own argument (one thing on the top edge, so the
-silhouette alone answers "is that a commander"). What the two of them also
-cost was the **printed name**, which a printing puts hard against that edge
-— and that is what the owner read off a live table and asked to have back.
-Both marks moved into one column in the right margin instead;
-`client-core/src/cardcrest.rs` is where it is measured and the section below
-carries the whole argument.
+The paper is what carries the distinction now, and that is what let the marks
+pack at all: they were two **fixed rows** in a column in the right margin,
+and a filled disc in the card's **top-left corner** before that. Both of
+those homes were sent back by the owner — the first because it sat on the
+printed name, the second because the position was wrong for something that is
+not a number. `client-core/src/cardcrest.rs` is where the slips are measured
+and the section below carries the whole argument.
 
 Proved on a running table rather than argued: Llanowar Elves, a Spark Double
 that entered as a copy of it and a Rite of Replication token of it, drawn side
@@ -1614,60 +1612,90 @@ separation is the whole grammar:
   keywords are eleven coloured pips where six are six pictograms; that
   degradation is the honest one, since a rail that ran off the card or hid its
   tail would both be lying about the creature.
-- **The right margin says what the card *is*.** Two facts that are not
+- **A slip under the name says what the card *is*.** Two facts that are not
   combat keywords and would not sort among eleven that are: a commander
   (CR 903.3), and whether the card a permanent looks like is its own. Both
   are identities — true in every zone, for the whole game, before an attack
   is ever declared — so they get their own region rather than a rail slot.
   They are the Mana font's `ms-commander`, `ms-token` and
-  `ms-ability-copy`, out of the rail's atlas and in the rail's own slot, so
-  they read as three more glyphs in one alphabet. `cardcrest::GLYPHS` is
+  `ms-ability-copy`, out of the rail's atlas. `cardcrest::GLYPHS` is
   the third door of `docs/legal.md` §2a and carries the date the three were
   held against the Fan Content Policy's table.
 
-  That region was the card's **top edge** — a crown centred on it, a
-  provenance mark hard against the top-left corner — and the argument for it
-  was that nothing else claimed the edge, so a silhouette alone answered "is
-  that a commander" at table distance. What the argument never priced is
-  that the top edge is the **title bar**: the two marks together covered the
-  printed name, which is the one thing this client repeats in the hover
-  preview, on the stack and in both seat bars. The owner read it off a live
-  table as marks sitting on the name, which is what it was.
-  So they moved to the plate's own centre line, above what the plate and the
-  swing reserve: the whole right-hand corner is one column now — the
-  numbers, what counters did to them, and what the permanent is — and what
-  it covers instead is the ragged right of the rules text, which at table
-  scale nobody reads. `cardcrest::COLUMN_BOTTOM` is a **constant**, every
-  term of it reserved whether or not anything is drawn there, so a Treasure
-  token with no plate at all wears its squirrel exactly where a creature
-  with three `+1/+1` counters wears one.
+  **Two homes were tried and sent back before this one.** The card's **top
+  edge** first — a crown centred on it, a provenance mark hard against the
+  top-left corner — on the argument that nothing else claimed that edge, so
+  a silhouette alone answered "is that a commander" at table distance. What
+  that never priced is that the top edge is the **title bar**: the two marks
+  together covered the printed name, which is the one thing this client
+  repeats in the hover preview, on the stack and in both seat bars, and the
+  owner read it off a live table. Then a **column in the right margin**, on
+  the plate's own centre line — which put the numbers, what counters did to
+  them and what the permanent is all in one corner, and drew the answer
+  *„Die Position gefällt mir noch nicht"*. That is a fair reading: none of
+  this is a number, and a corner that had collected three kinds of number
+  was the wrong company for it.
 
-  The position argument survives in its stronger form. The two rows are
-  **fixed** — provenance below, commander above — and a bare commander
-  leaves the lower row empty rather than sliding into it, because at the
-  seven physical pixels a slot gets on a table card a shield and a squirrel
-  are both a blob and where the blob is is all that is left to tell them
-  apart. That is also the one place the column does *not* follow the rail,
-  which packs. Both are plain `INK` with no accent of their own, because
-  every hue here is already spoken for — the rail tints by keyword, the
-  swing by which way it went, the felt by seat — and neither moves, unlike
-  every rail mark and every offer light, because those all say something
-  that could stop being true and these cannot. It reaches the hand bar too,
-  which is where the crest earns its keep: a commander that declined
-  CR 903.9b's replacement is sitting in the hand looking like any other
-  legend.
+  So: **slips**, along the card's left margin, clipped under the printed
+  name and hanging into the top corner of the art. `cardcrest::SLIP_TOP`
+  places the tab's *top* edge and is a **constant** — an old border, a full
+  art card and a saga each put something different at that height, and a
+  slip that chased the frame would move when a player swapped one printing
+  for another. It hangs *across* the picture rather than sitting in the air
+  above it because there is no such air: a modern frame opens its art where
+  it closes its title bar, and a tab that fitted between them would be too
+  small to read at the seven physical pixels a table card gives it. The rail
+  and the plate already lie across the bottom of the same picture.
 
-  Three procedural drawings went with the move — a crown of a circlet under
-  three points, a filled disc, two offset cards — and with them `sd_tri`,
-  `sd_circle` and the test that held every triangle in `card_common.wgsl` to
-  the winding the helper needs. That test existed because the crown shipped
-  its first frame as a **plain white bar**: the circlet drew, all three
-  points were wound backwards, and the test that checks where the crest *is*
-  stayed green, placement tests being unable to see shape. It is written
-  down in the shader now instead of asserted, because a floor of nought over
-  a population of nought is the vacuous assertion the test itself warned
-  about — whoever writes the next triangle there writes the test back with
-  it.
+  **The move changed three things, and each withdrew an argument the column
+  had made.** They **pack**: the column reserved a row per question so that
+  position alone told a shield from a squirrel at seven pixels, and a lone
+  commander now takes the first slip where a lone token would. They are
+  **coloured**, which the column refused on the grounds that every hue in
+  this client is spoken for — the rail tints by keyword, the swing by which
+  way it went, the felt by seat — and what makes a fourth reading
+  affordable is that the colour is the *stock* rather than ink added to the
+  mark: verdigris for a token, violet for a copy, gilt for a commander,
+  three papers in one place and therefore an alphabet of three. And they
+  **move**, which the column refused because a permanent stops being a
+  commander only by ceasing to be that permanent (CR 400.7), so a mark that
+  breathed would promise a change that cannot come. The owner asked for an
+  animation; what ships is the rarest motion on the card — a band of light
+  crossing one tab about every thirty seconds, against the rail's slowest
+  keyword at 24.1 s — and it is light on paper rather than the mark itself
+  changing.
+
+  **The papers are linear constants and the framebuffer converts**, which is
+  the trap the rail's plate records from the other side and which the first
+  draft walked into. Papers at 0.72–0.92 display at 221 to 246 of 255, and a
+  sheen mixed 45% toward white moves a sheet that pale by **16** levels —
+  under the 20 a mark that does not move at all already swings from the ink
+  pulse. At 55% of those values the same sheen moves 44 to 70. A slip too
+  pale cannot catch the light, and no amount of sheen fixes it.
+
+  Measured on a running table rather than argued. Ragavan as a commander and
+  a Rite of Replication token of it, side by side: the gilt paper reads
+  (187, 173, 129) against the (185, 172, 128) its linear triple predicts and
+  the verdigris (168, 176, 172) against (167, 176, 172). With the clock
+  stopped, two frames of the same moment are **byte-identical**; at the
+  sheen's peak the slip's own box swings 34/42/70 per channel while three
+  control boxes on the same card — the art below it, the border under it,
+  the middle of the card — are byte-identical, so the light is the slip's
+  and nothing else's. The violet is held by `cardcrest`'s own hue test (the
+  closest surviving pair is 106.8° apart) and by the mirror test against the
+  shader, not by a photograph.
+
+  Three procedural drawings went with the *first* move — a crown of a
+  circlet under three points, a filled disc, two offset cards — and with
+  them `sd_tri`, `sd_circle` and the test that held every triangle in
+  `card_common.wgsl` to the winding the helper needs. That test existed
+  because the crown shipped its first frame as a **plain white bar**: the
+  circlet drew, all three points were wound backwards, and the test that
+  checks where the crest *is* stayed green, placement tests being unable to
+  see shape. It is written down in the shader now instead of asserted,
+  because a floor of nought over a population of nought is the vacuous
+  assertion the test itself warned about — whoever writes the next triangle
+  there writes the test back with it.
 - **The corner says what the card *is* in numbers.** The fifth of the bottom
   edge the rail has been reserving since it was written now carries a plate:
   a creature's power and toughness, or a planeswalker's loyalty behind a gilt

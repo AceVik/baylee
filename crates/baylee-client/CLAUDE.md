@@ -607,19 +607,24 @@ hover preview, which showed the printed body until it existed. Lore counters
 are only ever on sagas (CR 714), so no subtypes are needed to recognise one
 — and a `CardGroup` has none to offer.
 
-Above the swing stands the **identity column**
-(`client-core/src/cardcrest.rs`): two fixed rows saying what the permanent
-*is* rather than what it can do — provenance below (a squirrel for a token,
-two cards for a copy), a commander's shield above, both the Mana font's own
-and both out of the rail's atlas. They were a crown centred on the card's
-**top edge** and a mark in its top-left corner until September 2026, and
-what that cost was the printed name, which the owner read off a live table.
-The column is the plate's own centre line, so the whole right-hand corner
-is one column, and `COLUMN_BOTTOM` is a constant — a Treasure token with no
-plate wears its squirrel where a counter-laden creature wears one. The rows
-are fixed and do not pack, which is the one place the column does not
-follow the rail: at seven pixels a shield and a squirrel are both a blob and
-position is all that separates them. Three procedural drawings left with the
+Under the printed name, on the card's **left** margin, hang the **identity
+slips** (`client-core/src/cardcrest.rs`): small paper tabs saying what the
+permanent *is* rather than what it can do — a squirrel for a token, two
+cards for a copy, a commander's shield, all three the Mana font's own and
+out of the rail's atlas. They were a crown on the card's **top edge** and
+then a column in its **right** margin, and the owner sent both back: the
+first sat on the printed name, the second put something that is not a number
+in the corner where the numbers are. `SLIP_TOP` is a constant and places the
+tab's *top* edge; the tab hangs into the art, because a modern frame opens
+its art where it closes its title bar and there is no band between them.
+Three things changed with the move and each withdrew an argument the column
+had made — the slips **pack** (a lone commander takes the first slip), they
+are **coloured** (verdigris, violet, gilt: the stock, not ink on the mark,
+which is what makes packing safe), and they **move** (one band of light
+about every thirty seconds, rarer than anything else on the card). The
+papers are **linear** constants over an sRGB framebuffer: the first draft's
+displayed at 221–246 and a 45% sheen moved them 16 levels, under the 20 a
+still mark already swings. Three procedural drawings left with the first
 move, and `sd_tri`, `sd_circle` and the triangle-winding test with them —
 that lesson is in the shader's prose now, because a floor of nought over a
 population of nought is exactly the vacuous assertion it warned about.

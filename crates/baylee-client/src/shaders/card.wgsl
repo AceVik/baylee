@@ -584,19 +584,23 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         color.a,
     );
 
-    // ---- the identity column, above the plate's corner
+    // ---- the identity slips, under the printed name
     //
     // Beside the rail rather than in it: neither of these is a combat
-    // keyword and neither would sort among eleven that are. It gets no `t`
-    // — a commander is a commander whatever the clock is doing, and so is a
-    // token. Before the plate because the two share a centre line and the
-    // column is what stands above what the plate and its swing reserve.
+    // keyword and neither would sort among eleven that are. On the same `t`
+    // the rail runs on, which is `globals.time` through the reduce-motion
+    // multiplier — so a player who asked for stillness gets paper that does
+    // not catch the light, rather than a second switch to find.
+    //
+    // Before the art's own ink and after the frame, because a slip is a
+    // piece of paper lying on the card: nothing it covers shows through it.
     color = vec4<f32>(
         identity_layer(
             uv,
             (params.glow & GLOW_COMMANDER) != 0u,
             (params.glow & GLOW_TOKEN) != 0u,
             (params.glow & GLOW_COPY) != 0u,
+            t,
             color.rgb,
             marks,
             marks_sampler,

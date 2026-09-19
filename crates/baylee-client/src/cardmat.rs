@@ -1280,6 +1280,43 @@ pub(crate) mod tests {
         }
     }
 
+    /// The same reading for a colour, which [`wgsl_const`] cannot do: its
+    /// answer is one `f32` and every constant here is three.
+    ///
+    /// Written as a second function rather than as a general one returning a
+    /// slice, because the two are asked different questions — a scalar that
+    /// is secretly a triple is a bug and a triple read as a scalar is a
+    /// panic, and keeping them apart means neither can quietly become the
+    /// other. It accepts only the fully-spelled form
+    /// `vec3<f32>(a, b, c)`; a shorthand `vec3(…)` or a splat panics here
+    /// instead of reading two of the three channels as zero.
+    pub(crate) fn wgsl_vec3(source: &str, name: &str) -> [f32; 3] {
+        let head = format!("const {name}:");
+        let line = source
+            .lines()
+            .map(str::trim_start)
+            .find(|line| line.starts_with(&head))
+            .unwrap_or_else(|| panic!("no `{name}` in the shader"));
+        let body = line
+            .rsplit_once('=')
+            .and_then(|(_, rhs)| rhs.trim().strip_suffix(';'))
+            .and_then(|rhs| rhs.trim().strip_prefix("vec3<f32>("))
+            .and_then(|rhs| rhs.strip_suffix(')'))
+            .unwrap_or_else(|| panic!("cannot read `{line}`"));
+        let mut out = [0.0; 3];
+        let mut seen = 0;
+        for (slot, text) in body.split(',').enumerate() {
+            assert!(slot < 3, "`{name}` has more than three channels");
+            out[slot] = text
+                .trim()
+                .parse()
+                .unwrap_or_else(|_| panic!("`{text}` in `{name}` is not a number"));
+            seen += 1;
+        }
+        assert_eq!(seen, 3, "`{name}` has {seen} channels, not three");
+        out
+    }
+
     /// The rail is laid out twice — once in Rust so the pointer can hit-test
     /// a mark, once in WGSL so the GPU can draw one — and the two have to be
     /// the same rail. Nothing in either compiler can notice that they are.
@@ -2093,7 +2130,6 @@ struct Globals { time: f32 };
     /// half that checks the shader agrees about where the bits are.
     #[test]
     fn the_plate_is_the_same_plate_in_both_languages() {
-        use baylee_client_core::cardcrest as crest;
         use baylee_client_core::cardplate as plate;
         let src = include_str!("shaders/card_common.wgsl");
 
@@ -2165,34 +2201,11 @@ struct Globals { time: f32 };
             ("BASE_GAP", plate::BASE_GAP),
             ("BASE_H", plate::BASE_H),
             ("BASE_AA", plate::BASE_AA),
-            // The identity column hangs off the same arithmetic — its foot
-            // is the plate's box and the swing's subtracted from the card's
-            // height — so it is mirrored here rather than in a test of its
-            // own. `COLUMN_BOTTOM` is written out as a literal in the
-            // shader because WGSL has no way to derive it there, which is
-            // exactly the kind of number that goes stale in silence.
-            ("COLUMN_SLOT", crest::COLUMN_SLOT),
-            ("COLUMN_GAP", crest::COLUMN_GAP),
-            ("COLUMN_X", crest::COLUMN_X),
-            ("COLUMN_BOTTOM", crest::COLUMN_BOTTOM),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
                 (theirs - ours).abs() < 1e-5,
                 "{name}: {ours} here, {theirs} in the shader"
-            );
-        }
-
-        for (name, ours) in [
-            ("CREST_BASE", crate::markatlas::CREST_BASE),
-            ("CREST_TOKEN", crest::GLYPH_TOKEN),
-            ("CREST_COPY", crest::GLYPH_COPY),
-            ("CREST_COMMANDER", crest::GLYPH_COMMANDER),
-            ("CREST_NONE", crest::GLYPH_COUNT),
-        ] {
-            assert!(
-                (wgsl_const(src, name) - ours as f32).abs() < 0.5,
-                "{name} differs between the two files"
             );
         }
 
@@ -2428,66 +2441,181 @@ struct Globals { time: f32 };
         );
     }
 
-    /// The identity column is the rail's alphabet, in the margin nothing
-    /// else claims.
+    /// The slips are laid out twice for the same reason the rail is, and
+    /// carry one thing the rail does not: colour.
     ///
-    /// Three claims, all geometry rather than taste. It borrows the rail's
-    /// slot so a commander's shield is the same size as a flying chevron —
-    /// that is what makes it read as one more glyph instead of a second
-    /// design language. It stands clear of the swing below it, which is the
-    /// nearest thing that moves. And it stays inside the card's right
-    /// margin, because a column that drifted left would sit over the rules
-    /// text rather than beside it, with no error and no crash — exactly the
-    /// failure the flag test above exists to catch on the other axis.
+    /// They used to be mirrored inside the plate's test, on the argument
+    /// that the old identity column hung off the plate's arithmetic — its
+    /// foot was the plate's box and the swing's subtracted from the card's
+    /// height. The slips hang off nothing the plate does, so they get their
+    /// own test, and the numbers are compared rather than derived: WGSL
+    /// cannot compute `SLIP_W` from its parts, so the shader spells the
+    /// parts and adds them at the use site.
+    #[test]
+    fn the_slips_are_the_same_paper_in_both_languages() {
+        use baylee_client_core::cardcrest as crest;
+
+        let src = include_str!("shaders/card_common.wgsl");
+        for (name, ours) in [
+            ("SLIP_SLOT", crest::SLIP_SLOT),
+            ("SLIP_PAD_X", crest::SLIP_PAD_X),
+            ("SLIP_PAD_Y", crest::SLIP_PAD_Y),
+            ("SLIP_GAP", crest::SLIP_GAP),
+            ("SLIP_INSET", crest::SLIP_INSET),
+            ("SLIP_TOP", crest::SLIP_TOP),
+            ("SLIP_SHEEN", crest::SLIP_SHEEN),
+            ("SLIP_SHEEN_RATE", crest::SLIP_SHEEN_RATE),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours).abs() < 1e-5,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+
+        for (name, ours) in [
+            ("SLIP_MAX", crest::MAX_SLIPS),
+            ("CREST_BASE", crate::markatlas::CREST_BASE),
+            ("CREST_TOKEN", crest::GLYPH_TOKEN),
+            ("CREST_COPY", crest::GLYPH_COPY),
+            ("CREST_COMMANDER", crest::GLYPH_COMMANDER),
+            ("CREST_NONE", crest::GLYPH_COUNT),
+        ] {
+            assert!(
+                (wgsl_const(src, name) - ours as f32).abs() < 0.5,
+                "{name} differs between the two files"
+            );
+        }
+
+        // The slips' colours, which are the half of this that a reader
+        // would notice and a compiler would not. Three papers and one ink,
+        // and the papers are keyed by the glyph index rather than written
+        // out in order, so a shader that swapped two of them fails here
+        // rather than shipping a commander on verdigris.
+        for (name, ours) in [
+            ("SLIP_PAPER_TOKEN", crest::SLIP_PAPER[crest::GLYPH_TOKEN]),
+            ("SLIP_PAPER_COPY", crest::SLIP_PAPER[crest::GLYPH_COPY]),
+            (
+                "SLIP_PAPER_COMMANDER",
+                crest::SLIP_PAPER[crest::GLYPH_COMMANDER],
+            ),
+            ("SLIP_INK", crest::SLIP_INK),
+        ] {
+            let theirs = wgsl_vec3(src, name);
+            for c in 0..3 {
+                assert!(
+                    (theirs[c] - ours[c]).abs() < 1e-5,
+                    "{name}: {ours:?} here, {theirs:?} in the shader"
+                );
+            }
+        }
+    }
+
+    /// The identity slips sit in the one band of a card that carries neither
+    /// the printed name nor the numbers.
+    ///
+    /// Four claims, all geometry rather than taste, and every one of them is
+    /// a way the slips could go wrong without failing to draw.
+    ///
+    /// They are **smaller** than a rail mark, which is what the owner asked
+    /// for and is the one number here with a direction rather than a value:
+    /// a slip is a label on the card and a rail mark is a thing the card
+    /// does, so the two must not read as one alphabet. They start **below
+    /// the title bar**, which is what the whole move was for — the column
+    /// they replaced was in the right margin and the crown before that was
+    /// on the printed name. They stop well short of the card's **middle**,
+    /// vertically, because the art starts there and a slip hanging into it
+    /// is a sticker rather than a tab. And two of them stay in the **left
+    /// half**, because the right half of every band on a card belongs to
+    /// something else and the slips pack rightwards without a bound of their
+    /// own.
     ///
     /// Read out of the shader on both sides of the comparison. The Rust
     /// half's own bounds are in `cardcrest`, where they are checked against
     /// the constants the Rust half derives them from; this is the half that
     /// fails when the WGSL says something else.
     #[test]
-    fn the_identity_column_shares_the_rails_slot_and_stays_in_its_margin() {
+    fn the_identity_slips_sit_under_the_name_and_stay_in_the_left_margin() {
         let src = include_str!("shaders/card_common.wgsl");
-        let slot = wgsl_const(src, "COLUMN_SLOT");
+        let slot = wgsl_const(src, "SLIP_SLOT");
         let rail = wgsl_const(src, "RAIL_SLOT");
         assert!(
-            (slot - rail).abs() < f32::EPSILON,
-            "COLUMN_SLOT is {slot} and RAIL_SLOT is {rail}"
+            slot < rail,
+            "a slip's mark is {slot} and a rail's is {rail}, and a slip is meant to be smaller"
         );
 
         // Width-units on both axes, the way the shader measures them,
         // because the card is taller than it is wide and a bound compared
         // across that would be off by the aspect.
-        let aspect = wgsl_const(src, "CARD_ASPECT");
-        let height = 1.0 / aspect;
-        let swing_top = height
-            - wgsl_const(src, "PLATE_INSET")
-            - wgsl_const(src, "PLATE_H")
-            - wgsl_const(src, "SWING_GAP")
-            - wgsl_const(src, "SWING_H");
-        let foot = wgsl_const(src, "COLUMN_BOTTOM");
+        let height = 1.0 / wgsl_const(src, "CARD_ASPECT");
+        let top = wgsl_const(src, "SLIP_TOP");
+        let deep = slot + 2.0 * wgsl_const(src, "SLIP_PAD_Y");
+
+        // A modern frame's title bar is about an eighth of the card's height.
+        // The bound is loose on purpose: what it is really saying is that a
+        // number nobody can check by eye has not drifted back onto the name,
+        // which is the fault this is the third answer to.
         assert!(
-            foot < swing_top,
-            "the column's foot is at {foot} and the swing reaches {swing_top}"
+            top > height * 0.09,
+            "the slips start at {top}, which is up in the title bar"
+        );
+        assert!(
+            top + deep < height * 0.25,
+            "the slips reach {} and the picture's subject has the middle of the card",
+            top + deep
         );
 
-        // Two rows and a gap, climbing away from the plate, all of it on the
-        // card.
-        let top = foot - (slot + wgsl_const(src, "COLUMN_GAP")) - slot;
-        assert!(top > 0.0, "the column's head runs off the card at {top}");
+        // Two slips, packed, against the left half of the card. The pack is
+        // `SLIP_INSET + n * (SLIP_W + SLIP_GAP)` and `SLIP_W` is spelled out
+        // here for the same reason the shader spells it: neither language
+        // derives it, so a test that reused a derivation would be agreeing
+        // with itself.
+        let wide = slot + 2.0 * wgsl_const(src, "SLIP_PAD_X");
+        let right = wgsl_const(src, "SLIP_INSET") + (wide + wgsl_const(src, "SLIP_GAP")) + wide;
+        assert!(
+            right < 0.5,
+            "two slips reach {right} of the card's width and should stay in the left half"
+        );
 
-        // The plate is the bound that cannot move: the column is centred on
-        // the plate's own centre line, so what has to hold is that the slot
-        // and the disc under it stay inside the card's edge.
-        let x = wgsl_const(src, "COLUMN_X");
-        let plate_mid = 1.0 - wgsl_const(src, "PLATE_INSET") - wgsl_const(src, "PLATE_W") * 0.5;
+        // And the sheen is the rarest motion on the card, which is what
+        // makes an animation on a fact that never changes bearable. Every
+        // periodic term in this file is a `fract(ph * k)`, so the claim is
+        // asked of the *file* rather than of one hand-picked neighbour: the
+        // slips' `k` has to be the smallest one there is.
+        //
+        // The rail spells its own rates as literals inside a `switch`, so
+        // they are read out of the source rather than named — and the
+        // population is bounded, because a scan that found nothing would
+        // prove this by finding no rival at all. Eight today: the rail's
+        // drift and the seven keyword impulses that move. The slips' own
+        // term is *not* among them, because it is written as the named
+        // constant compared against, so this is a comparison and not a
+        // number against itself. Six is a floor with room under it for a
+        // mark to stop moving.
+        let rates: Vec<f32> = src
+            .match_indices("fract(ph * ")
+            .filter_map(|(at, head)| {
+                let rest = &src[at + head.len()..];
+                let end = rest.find(|c: char| !c.is_ascii_digit() && c != '.')?;
+                rest[..end].parse().ok()
+            })
+            .collect();
         assert!(
-            (x - plate_mid).abs() < 1e-5,
-            "the column is at {x} and the plate's centre line at {plate_mid}"
+            rates.len() >= 6,
+            "only {} periodic terms found in the shader — the scan has gone blind",
+            rates.len()
         );
-        assert!(
-            x + slot * 0.5 + 0.014 < 1.0,
-            "the column's disc runs off the card's right edge"
-        );
+        let ours = wgsl_const(src, "SLIP_SHEEN_RATE");
+        let beat = wgsl_const(src, "BEAT");
+        for rate in &rates {
+            assert!(
+                *rate >= ours,
+                "something on the card runs every {} s and a slip every {} s, \
+                 which makes the slips no longer the rarest motion there is",
+                1.0 / (beat * rate),
+                1.0 / (beat * ours)
+            );
+        }
     }
 
     /// The rail's own file, which is plain WGSL and needs nothing stubbed.

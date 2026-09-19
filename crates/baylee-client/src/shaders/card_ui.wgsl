@@ -451,19 +451,24 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         color.a,
     );
 
-    // ---- the identity column, also from that file
+    // ---- the identity slips, also from that file
     //
-    // The hand zone is where the crest earns its keep: a commander that
-    // declined CR 903.9b sits in the hand looking like any other legend, and
-    // the command-zone card beside it is the same card in a zone that taxes
-    // it. Before the plate, because the column stands above what the plate
-    // and its swing reserve on the same centre line.
+    // The hand zone is where they earn their keep: a commander that declined
+    // CR 903.9b sits in the hand looking like any other legend, and the
+    // command-zone card beside it is the same card in a zone that taxes it.
+    //
+    // This is the one drawing where the slips are large enough to read
+    // without knowing what they say, which is the argument for putting them
+    // in a band the preview shows at full size rather than in a corner that
+    // a table card crops nothing from and a preview crops nothing from
+    // either — the same picture, twice the pixels.
     color = vec4<f32>(
         identity_layer(
             uv,
             (params.glow & GLOW_COMMANDER) != 0u,
             (params.glow & GLOW_TOKEN) != 0u,
             (params.glow & GLOW_COPY) != 0u,
+            t,
             color.rgb,
             marks,
             marks_sampler,
