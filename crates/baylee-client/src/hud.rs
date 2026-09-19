@@ -1927,6 +1927,32 @@ pub struct OverlayTree<'w, 's> {
     /// between the two presses of the one decision in this client that has no
     /// undo.
     pub(crate) menu: Query<'w, 's, Entity, With<ledge::menu::MenuPanel>>,
+    /// The drawer's **panel**, as a box rather than as an entity — and the one
+    /// field here that is not about surviving the sweep.
+    ///
+    /// It is the preview's keep-out: a hand card's preview is placed centred
+    /// on that card and just above the ledge, and the drawer grows upward out
+    /// of the ledge centred on the same middle, so a colour chooser and the
+    /// preview of the card asking for the colour arrive at the same height by
+    /// construction. [`hand::preview_place`] takes it and moves the panel
+    /// sideways.
+    ///
+    /// The **panel** and not [`ledge::drawer::DrawerRoot`], which is the full
+    /// width of the window and empty most of the time — a keep-out cut from
+    /// the root would push every preview off whichever edge it was nearest,
+    /// on every frame, for a drawer that is not open. An empty drawer has no
+    /// panel and this query is empty with it, which is what makes the closed
+    /// case cost nothing rather than needing a flag to ask about.
+    ///
+    /// It lives in this struct for the ceiling the doc above names:
+    /// [`sync_overlay`] stands at bevy's sixteen parameters and this is a
+    /// seventeenth wherever else it is written. A `SystemParam` costs one.
+    pub(crate) drawer_box: Query<
+        'w,
+        's,
+        (&'static ComputedNode, &'static UiGlobalTransform),
+        With<ledge::drawer::DrawerZoom>,
+    >,
 }
 
 /// The zone dialog's own nodes, and the root they hang from.

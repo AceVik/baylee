@@ -491,7 +491,20 @@ pub fn sync_overlay(
             // The panel is the picture plus its six pixels of padding on
             // every side, and the sheet under it when there is one.
             let panel = art_size + Vec2::splat(12.0) + Vec2::new(0.0, slip_h);
-            let place = preview_place(anchor, panel, window);
+            // The drawer, if one is open, as the rectangle the preview
+            // must not cover. Read off the tree rather than rebuilt from
+            // `drawer.rs`'s constants: what is drawn is what a player sees
+            // covered, and the panel is scaled while it opens.
+            //
+            // `UiGlobalTransform` is in physical pixels and centred on the
+            // node, which is why both halves of this are converted and the
+            // size is halved before it is spent.
+            let keep_out = tree.drawer_box.iter().next().map(|(computed, at)| {
+                let size = computed.size() * computed.inverse_scale_factor;
+                let centre = at.translation * computed.inverse_scale_factor;
+                Rect::from_center_size(centre, size)
+            });
+            let place = preview_place(anchor, panel, window, keep_out);
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
                 ..art

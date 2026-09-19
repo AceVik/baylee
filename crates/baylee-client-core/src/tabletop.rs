@@ -175,11 +175,26 @@ pub const APRON: [f32; 3] = [0.040, 0.035, 0.029];
 
 /// How wide the padded rail runs, in table units — under a card width.
 ///
-/// It is exactly `SLAB_MARGIN - AIR` in the client's camera: the framing fits
-/// the layout plus `AIR` of table, the slab is cut to the layout plus its own
-/// margin, and the ring between the two is this. So the rail is precisely the
-/// part of the table the camera keeps outside the play area, which is what a
-/// rail is.
+/// It was once exactly `SLAB_MARGIN - AIR` in the client's camera, and that
+/// sentence stood here long after it stopped being true. `01449bda` wrote
+/// `SLAB_MARGIN = AIR + RAIL_WIDTH`, which makes the identity exact; the sky
+/// commit `cedd0267`, the same day, made it `RAIL_WIDTH + 1.0`, took `AIR`
+/// from 2.0 to 3.5 and added `assert!(SLAB_MARGIN < AIR)` — so the slab is
+/// now cut *inside* the frame and the ring between the two is **sky**, which
+/// is the whole point of that commit. `SLAB_MARGIN - AIR` is −1.95 today: the
+/// sign is wrong, and so is the quantity.
+///
+/// What the rail actually is: `SLAB_MARGIN` less the unit of felt the slab
+/// carries outside the play area, by the definition of `SLAB_MARGIN` itself.
+/// The camera keeps `AIR` outside that area, of which one unit is felt, this
+/// is rail, and the rest is sky.
+///
+/// The reason nothing caught it is worth more than the correction. Both
+/// constants named here live in `baylee-client`, which depends on this crate
+/// and not the other way about — so this comment is a claim about a crate it
+/// cannot see, and no test that could have failed on it was ever possible to
+/// write. A cross-crate identity belongs where both halves are in scope, or
+/// it belongs in neither.
 pub const RAIL_WIDTH: f32 = 0.55;
 
 /// The corner radius of a table this size: a racetrack, not a rectangle.

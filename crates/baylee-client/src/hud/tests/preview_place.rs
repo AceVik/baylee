@@ -21,7 +21,7 @@ fn the_panel_never_lands_under_the_pointer_that_opened_it() {
     for x in [12.0_f32, 200.0, 864.0, 1400.0, 1716.0] {
         for y in [60.0_f32, 300.0, 526.0, 870.0] {
             let at = Vec2::new(x, y);
-            let place = preview_place(PreviewAt::Pointer(at), PANEL, WINDOW);
+            let place = preview_place(PreviewAt::Pointer(at), PANEL, WINDOW, None);
             assert!(
                 !covers(place, PANEL, at),
                 "a pointer at {at} opened a panel at {place} that covers it"
@@ -44,7 +44,7 @@ fn the_panel_stays_in_the_band() {
         PreviewAt::Pointer(Vec2::new(900.0, 60.0)),
     ];
     for at in anchors {
-        let place = preview_place(at, PANEL, WINDOW);
+        let place = preview_place(at, PANEL, WINDOW, None);
         assert!(place.x >= 0.0, "{at:?} put the panel off the left: {place}");
         assert!(
             place.x + PANEL.x <= WINDOW.x,
@@ -65,7 +65,7 @@ fn the_panel_stays_in_the_band() {
 #[test]
 fn a_pointer_anchor_clears_the_window_edge_and_the_hand_bar() {
     for y in [0.0_f32, 30.0, 500.0, 1000.0, 1052.0] {
-        let place = preview_place(PreviewAt::Pointer(Vec2::new(600.0, y)), PANEL, WINDOW);
+        let place = preview_place(PreviewAt::Pointer(Vec2::new(600.0, y)), PANEL, WINDOW, None);
         assert!(place.y >= EDGE, "at y {y} the panel starts at {}", place.y);
         assert!(
             place.y + PANEL.y <= WINDOW.y - HAND_ZONE_H,
@@ -93,7 +93,7 @@ fn a_card_anchor_opens_beside_the_card_and_never_over_it() {
                 min: Vec2::new(cx - w / 2.0, cy - h / 2.0),
                 max: Vec2::new(cx + w / 2.0, cy + h / 2.0),
             };
-            let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW);
+            let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW, None);
             let panel = Rect {
                 min: place,
                 max: place + PANEL,
@@ -119,7 +119,7 @@ fn a_card_anchor_clears_the_window_edge_and_the_hand_bar() {
             min: Vec2::new(800.0, cy - 73.0),
             max: Vec2::new(904.0, cy + 73.0),
         };
-        let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW);
+        let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW, None);
         assert!(
             place.y >= EDGE,
             "a card centred at y {cy} opened a panel at {}",
@@ -177,7 +177,7 @@ fn the_panel_is_never_cut_off_by_a_window_edge() {
                 PreviewAt::Card(card(window.x / 2.0, window.y / 2.0)),
             ];
             for at in anchors {
-                let place = preview_place(at, panel, window);
+                let place = preview_place(at, panel, window, None);
                 assert!(
                     place.x >= 0.0 && place.y >= 0.0,
                     "{at:?} with a {panel} panel in a {window} window opened \
@@ -264,7 +264,7 @@ fn a_panel_too_tall_for_the_band_sits_at_the_top_of_the_window() {
             max: Vec2::new(692.0, 673.0),
         }),
     ] {
-        let place = preview_place(at, panel, window);
+        let place = preview_place(at, panel, window, None);
         assert!(
             (place.y - EDGE).abs() < 1e-3,
             "{at:?} opened at {place}, and the only sensible y here is {EDGE}"
@@ -276,7 +276,7 @@ fn a_panel_too_tall_for_the_band_sits_at_the_top_of_the_window() {
 /// the caret drawn between the two has something to bridge.
 #[test]
 fn a_hand_card_still_previews_above_the_hand_bar() {
-    let place = preview_place(PreviewAt::Hand(864.0), PANEL, WINDOW);
+    let place = preview_place(PreviewAt::Hand(864.0), PANEL, WINDOW, None);
     assert!(
         (place.y + PANEL.y - (WINDOW.y - HAND_ZONE_H - 10.0)).abs() < 1e-3,
         "the panel's bottom edge is at {}",
@@ -303,7 +303,7 @@ fn the_card_underneath_stands_beside_the_preview_and_on_the_screen() {
     let mut on_the_right = 0;
     for x in [12.0_f32, 200.0, 864.0, 1400.0, 1716.0] {
         for y in [60.0_f32, 300.0, 526.0, 870.0] {
-            let place = preview_place(PreviewAt::Pointer(Vec2::new(x, y)), PANEL, WINDOW);
+            let place = preview_place(PreviewAt::Pointer(Vec2::new(x, y)), PANEL, WINDOW, None);
             let preview = Rect::from_corners(place, place + PANEL);
             let at = underneath_place(preview, thumb, WINDOW);
             let it = Rect::from_corners(at, at + thumb);
@@ -348,11 +348,112 @@ fn a_window_with_no_room_beside_the_preview_keeps_it_on_the_screen() {
     let window = Vec2::new(390.0, 844.0);
     let panel = Vec2::new(360.0, 500.0);
     let thumb = Vec2::new(122.0, 184.0);
-    let place = preview_place(PreviewAt::Loose, panel, window);
+    let place = preview_place(PreviewAt::Loose, panel, window, None);
     let at = underneath_place(Rect::from_corners(place, place + panel), thumb, window);
     assert!(
         at.x >= 0.0 && at.x + thumb.x <= window.x,
         "at {at} it hangs off a {window} window"
     );
     assert!(at.y >= 0.0 && at.y + thumb.y <= window.y, "and vertically");
+}
+
+/// A drawer the size of a colour chooser, centred, standing on the ledge.
+///
+/// The measurements are the ones the collision actually happened at: the
+/// chooser is centred on the middle of the shelf and grows upward out of it,
+/// so it occupies the same band a hand card's preview is placed in.
+fn chooser(window: Vec2) -> Rect {
+    let size = Vec2::new(360.0, 180.0);
+    Rect::from_center_size(
+        Vec2::new(window.x / 2.0, window.y - HAND_ZONE_H - size.y / 2.0),
+        size,
+    )
+}
+
+/// With no drawer open, every placement is exactly what it was.
+///
+/// The keep-out is an `Option` and this is the arm that has to cost nothing.
+/// It is asserted over all four anchors rather than one, because the dodge is
+/// applied after the match and could reach any of them.
+#[test]
+fn no_drawer_places_a_preview_exactly_where_it_always_did() {
+    let card = Rect::from_corners(Vec2::new(700.0, 300.0), Vec2::new(800.0, 440.0));
+    for at in [
+        PreviewAt::Hand(864.0),
+        PreviewAt::Loose,
+        PreviewAt::Card(card),
+        PreviewAt::Pointer(Vec2::new(600.0, 500.0)),
+    ] {
+        let was = preview_place(at, PANEL, WINDOW, None);
+        // The same call with a drawer that is nowhere near it: the arm that
+        // costs nothing has to be the *overlap* and not the `Option`, or a
+        // closed drawer and an open one somewhere else are two behaviours.
+        let far = Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(40.0, 40.0));
+        let still = preview_place(at, PANEL, WINDOW, Some(far));
+        assert!(
+            (was - still).length() < 1e-3,
+            "{at:?} moved from {was} to {still} for a drawer it does not touch"
+        );
+    }
+}
+
+/// A hand card's preview standing over an open chooser steps aside, and does
+/// not step *up*.
+///
+/// The y is the assertion that matters. Moving the panel above the drawer is
+/// the obvious dodge and is wrong twice — the drawer's height is whatever its
+/// content asked for, and above the ledge is the board the preview was opened
+/// to explain.
+#[test]
+fn a_preview_over_an_open_drawer_steps_aside_and_never_up() {
+    let out = chooser(WINDOW);
+    let over = preview_place(PreviewAt::Hand(WINDOW.x / 2.0), PANEL, WINDOW, None);
+    assert!(
+        over.x < out.max.x && out.min.x < over.x + PANEL.x,
+        "the test is vacuous unless the undodged placement really overlaps: \
+         {over} against {out:?}"
+    );
+
+    let place = preview_place(PreviewAt::Hand(WINDOW.x / 2.0), PANEL, WINDOW, Some(out));
+    assert!(
+        (place.y - over.y).abs() < 1e-3,
+        "it moved up: {} against {}",
+        place.y,
+        over.y
+    );
+    assert!(
+        place.x + PANEL.x <= out.min.x + 1e-3 || place.x >= out.max.x - 1e-3,
+        "it still covers the drawer: {place} against {out:?}"
+    );
+}
+
+/// It moves to the nearer flank, not to whichever the code tries first.
+///
+/// A card played from the left of the hand opens its preview on the left; a
+/// dodge that always went right would carry the picture across the whole
+/// window to clear a panel three hundred pixels wide.
+#[test]
+fn the_dodge_is_to_the_nearer_side_of_the_drawer() {
+    let out = chooser(WINDOW);
+    // Both cards have to *overlap* the chooser, or the case is decided before
+    // the dodge is reached and the assertion below is about nothing. The first
+    // draft used 520 and 1200: at 520 the panel ends at 680 and the chooser
+    // begins at 684, so that case never dodged at all and the test passed
+    // against a `clear_of` hard-wired to the right-hand side. These two
+    // straddle the chooser's edges from inside, and the guard is what says so.
+    for (x, want_left) in [(700.0_f32, true), (1030.0_f32, false)] {
+        let over = preview_place(PreviewAt::Hand(x), PANEL, WINDOW, None);
+        assert!(
+            over.x < out.max.x && out.min.x < over.x + PANEL.x,
+            "a card at {x} does not overlap the chooser undodged ({over} against {out:?}), so this case tests nothing"
+        );
+        let place = preview_place(PreviewAt::Hand(x), PANEL, WINDOW, Some(out));
+        let left = place.x + PANEL.x <= out.min.x + 1e-3;
+        assert_eq!(
+            left,
+            want_left,
+            "a card at {x} dodged to the {} side, landing at {place}",
+            if left { "left" } else { "right" }
+        );
+    }
 }

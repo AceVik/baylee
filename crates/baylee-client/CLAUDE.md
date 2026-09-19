@@ -244,8 +244,9 @@ together read as a surface *sunk inside a frame*. Now the cloth keeps a crest
 of light at its own boundary and the rail falls from `RAIL_LIP` at the inner
 edge to `RAIL_HIDE` at the outer one on a quarter circle's cosine — so the
 top is the highest thing there is and its edge is rounded over and away.
-`RAIL_WIDTH` is 0.55 and `table_corner` 0.11 of the short side, both narrowed
-with it. The table also carries **its own lamp** (`under_lamp`): an
+`RAIL_WIDTH` is 0.55, narrowed with it from 0.9, and `table_corner` went 0.11
+the same day — and is **0.065** of the short side since `d368cb56` on 17.09,
+which this file did not follow. The table also carries **its own lamp** (`under_lamp`): an
 elliptical pool that darkens the ends rather than lifting the middle, because
 the cloth is already as bright as `the_felt_is_dark_enough_to_read_cards_
 against` allows. It is a multiply on the table's colour for the same reason

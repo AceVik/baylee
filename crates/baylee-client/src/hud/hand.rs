@@ -751,10 +751,15 @@ pub(super) fn preview_art_size(want: Vec2, pad: f32, window: Vec2) -> Vec2 {
 ///
 /// Pure arithmetic on purpose — it is the whole of the placement, and the
 /// alternative is reading it off a photograph.
-pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
+pub(super) fn preview_place(
+    at: PreviewAt,
+    panel: Vec2,
+    window: Vec2,
+    keep_out: Option<Rect>,
+) -> Vec2 {
     let (low, high) = viewport(panel, window);
     let banded = |v: Vec2| v.clamp(low, high);
-    match at {
+    let place = match at {
         PreviewAt::Hand(x) => banded(Vec2::new(
             x - panel.x / 2.0,
             window.y - HAND_ZONE_H - 10.0 - panel.y,
@@ -767,7 +772,72 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
         // The pointer is a rectangle of no size: the same arithmetic, with
         // the gap measured from the one point there is.
         PreviewAt::Pointer(p) => beside(Rect::from_corners(p, p), panel, low, high, window),
+    };
+    keep_out.map_or(place, |out| clear_of(place, panel, out, low, high))
+}
+
+/// Do two rectangles share any area at all?
+///
+/// Written out rather than taken from `Rect::intersect`, which answers with a
+/// rectangle and leaves the caller to decide what an empty one looks like —
+/// and two panels touching along an edge are not overlapping, which a test on
+/// a width of zero gets right only by accident.
+fn overlaps(a: Rect, b: Rect) -> bool {
+    a.min.x < b.max.x && b.min.x < a.max.x && a.min.y < b.max.y && b.min.y < a.max.y
+}
+
+/// The same placement, moved **sideways** until it is clear of `keep_out`.
+///
+/// The drawer is the one panel a preview can be asked to share a height with:
+/// it grows upward out of the ledge, centred, and a hand card's preview is
+/// placed centred on that card and just above the same ledge. So a colour
+/// chooser and the preview of the card asking for the colour arrive at the
+/// same y by construction, and the preview covers the thing it is there to
+/// help the player answer.
+///
+/// **Sideways and never up**, which is the part worth stating because "move
+/// it above the drawer" is the obvious fix and is wrong twice: the drawer's
+/// height is whatever its content asked for, so there is no bound on how far
+/// up the preview would go, and above the ledge is where the table is — the
+/// preview would clear the chooser by covering the board it was opened to
+/// explain. Sideways it stays at the height the hand put it at, which is the
+/// height a player is already looking.
+///
+/// The near side wins when both clear, so the panel moves as little as it
+/// can; when neither does, the flank with more room, and the panel keeps
+/// whatever the clamp leaves it. A preview wider than the room beside an open
+/// drawer has nowhere to be, and covering some of the drawer from the side
+/// with more air is the least bad of the placements that remain — it is not a
+/// case a window this client supports can reach, and it is a decision rather
+/// than whichever bound a clamp applied last.
+fn clear_of(place: Vec2, panel: Vec2, keep_out: Rect, low: Vec2, high: Vec2) -> Vec2 {
+    if !overlaps(Rect::from_corners(place, place + panel), keep_out) {
+        return place;
     }
+    let right = keep_out.max.x + PREVIEW_GAP;
+    let left = keep_out.min.x - PREVIEW_GAP - panel.x;
+    // `high.x` is already the largest *top-left* x a panel of this width may
+    // take, so a side fits when its own corner lands inside the band — the
+    // panel's width is spent once, in `viewport`, and must not be again here.
+    let x = match (left >= low.x, right <= high.x) {
+        (true, true) => {
+            if (left - place.x).abs() <= (right - place.x).abs() {
+                left
+            } else {
+                right
+            }
+        }
+        (true, false) => left,
+        (false, true) => right,
+        (false, false) => {
+            if keep_out.min.x - low.x >= high.x - keep_out.max.x {
+                low.x
+            } else {
+                high.x
+            }
+        }
+    };
+    Vec2::new(x.clamp(low.x, high.x), place.y)
 }
 
 /// Where the little card underneath a copy stands, given where its preview
