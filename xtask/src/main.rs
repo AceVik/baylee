@@ -5737,14 +5737,29 @@ mod tests {
         listener.set_nonblocking(true).unwrap();
         let server = std::thread::spawn(move || {
             let mut requests = Vec::new();
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            // Sixty seconds, and it is a hang-breaker rather than a timing
+            // assumption. It was three, which is the length of time this
+            // thread needs to be *scheduled* — not the length of the
+            // conversation, which is three local requests and takes
+            // milliseconds. Under `cargo test` xtask's binary has the machine
+            // largely to itself and three was invisible; under `cargo nextest
+            // run`, where every test is its own process and ten run at once,
+            // the loop reached its deadline before the first request was
+            // served, dropped the listener, and the client reported the only
+            // thing it could see: `Peer disconnected`. A deadline that a
+            // loaded machine can miss is a test that fails for a reason that
+            // is not about the code.
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
             while requests.len() < 3 && std::time::Instant::now() < deadline {
                 let Ok((mut stream, _)) = listener.accept() else {
                     std::thread::sleep(std::time::Duration::from_millis(5));
                     continue;
                 };
+                // Ten rather than two, for the same reason: this bounds how
+                // long one request's bytes may take to arrive over loopback,
+                // and under load that is scheduling latency, not I/O.
                 stream
-                    .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                    .set_read_timeout(Some(std::time::Duration::from_secs(10)))
                     .unwrap();
                 let mut reader = std::io::BufReader::new(stream.try_clone().unwrap());
                 let mut request = String::new();
