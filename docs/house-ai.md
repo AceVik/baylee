@@ -64,6 +64,21 @@ printed order breaks every tie, so a table the agent cannot read is answered
 exactly as before. A card that also offers a normal cast keeps it: overload
 prints a mode that costs more than the card does.
 
+**What a card says includes what it says behind a price.** Every reader here
+that walks an effect list — `tactics::meaning`, `activate::gains`,
+`harmless`, `draws`, `intelligence::sweeper` — asks
+`baylee_cards_dsl::Effect::branches` which effects run another effect, rather
+than listing them itself. Each of them used to carry its own list, each list
+was short, and all five stopped at `Sequence` and `MayDo`: an effect printed
+behind "unless you pay" sits in a variant carrying a single effect rather
+than a list, so it was read by none of them. Thirty-five effects in the pool
+are there — twenty-nine of them a Karoo land sacrificing itself — and two are
+counterspells, Flusterstorm and Malevolent Hermit, which the agent held for
+ever because `policy` only casts one it knows is a counterspell. `draws` sums
+both halves of a two-branch effect although only one of them runs, which is
+wrong in the one direction it is allowed to be wrong in: over-counting
+refuses a safe draw, under-counting decks the seat out (CR 704.5b).
+
 `act(&PlayerView, &Pending)` remains available and needs no hidden information.
 Hosted AI seats additionally receive the selected spell/ability effects from
 `Engine::decision_context`, covering cast modes and triggered or copied abilities.

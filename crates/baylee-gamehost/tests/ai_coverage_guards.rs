@@ -85,42 +85,31 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
     }
 }
 
-/// Every counter an effect list puts on anything, following the nine shapes
-/// the DSL nests an effect list inside.
+/// Every counter an effect list puts on anything.
 ///
-/// This one **does** end in a wildcard, because `Effect` has 154 variants and
-/// listing them here would be a second copy of that enum rather than a
-/// reading of it. That is exactly why the test below counts the effects it
-/// visited and holds the count against a floor: a wildcard that quietly
-/// swallowed the nesting shapes would report zero counters over a pool full
-/// of them, and a number with nothing underneath it is the failure this file
-/// exists to prevent.
+/// The descent is [`Effect::walk`]'s, which is the crate that owns `Effect`
+/// answering which effects carry another one. This file used to answer it
+/// here, and was short by the two `&'static Effect` singles — so a counter
+/// behind "unless you pay" was invisible, and `seen` was 2696 where it is
+/// now 2731.
 fn counters_put(effects: &'static [Effect], seen: &mut usize, found: &mut Vec<CounterKind>) {
-    for effect in effects {
-        *seen += 1;
-        match effect {
-            Effect::AddCounter { kind, .. } | Effect::AddCounterFilter { kind, .. } => {
-                found.push(*kind);
-            }
-            Effect::Sequence(inner) | Effect::MayDo { effects: inner } => {
-                counters_put(inner, seen, found);
-            }
-            Effect::IfControlGreatestCmc { then, .. }
-            | Effect::IfCreaturesDiedAtLeast { then, .. }
-            | Effect::IfNoCountersOnSelf { then, .. }
-            | Effect::IfNotLostLifeThisTurn { then, .. } => counters_put(then, seen, found),
-            Effect::IfEventPowerAtLeast {
-                then, otherwise, ..
-            }
-            | Effect::IfKicked {
-                then, otherwise, ..
-            } => {
-                counters_put(then, seen, found);
-                counters_put(otherwise, seen, found);
-            }
-            _ => {}
+    Effect::walk(effects, seen, &mut |effect| {
+        if let Effect::AddCounter { kind, .. } | Effect::AddCounterFilter { kind, .. } = effect {
+            found.push(*kind);
+        }
+    });
+}
+
+/// Every effect the whole pool reaches, and how many were visited.
+fn pool_effects() -> (Vec<&'static Effect>, usize) {
+    let mut seen = 0;
+    let mut all = Vec::new();
+    for def in baylee_cards::all() {
+        for effects in abilities(def).flat_map(ability_effects) {
+            Effect::walk(effects, &mut seen, &mut |effect| all.push(effect));
         }
     }
+    (all, seen)
 }
 
 /// The pool prints none of these, so the AI test each one would need cannot
@@ -282,7 +271,7 @@ fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
         .filter(|kind| matches!(kind, CounterKind::Plus { .. } | CounterKind::Minus { .. }))
         .count();
 
-    // 2696 on 19.09.2026. The floor is the population and not the number,
+    // 2731 on 19.09.2026. The floor is the population and not the number,
     // so a card added or removed is not news and a walker that stopped
     // descending is.
     assert!(
@@ -301,6 +290,66 @@ fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
          something. The counter-clock rule in `tactics::clock_score` is \
          reachable in a real game: write the game, put it beside the two \
          `baylee-ai` unit tests, and delete this test."
+    );
+}
+
+/// The pool really does hide effects behind "unless you pay", and this is
+/// the population that says so.
+///
+/// [`Effect::PlayerMayPayOr`] and [`Effect::PlayerMayPayCostOr`] carry a
+/// single `&'static Effect` rather than a list, and every hand-rolled walker
+/// in this workspace descended into the lists and stopped there. That is a
+/// blind spot no reader reported, because an effect nobody walks looks
+/// exactly like an effect that is not there — so this test asks the pool
+/// what is behind the clause instead of asking a reader whether it looked.
+///
+/// Measured on 19.09.2026: **35 effects on 35 cards**, being 29
+/// `SacrificeSelf` (every Karoo land and the upkeep creatures), 3
+/// `DrawCards` (Esper Sentinel, Mystic Remora, Rhystic Study), 2
+/// `CounterTargetSpell` (Flusterstorm, Malevolent Hermit) and 1
+/// `CreateToken` (Smothering Tithe). Floors and not the numbers: a card
+/// joining or leaving is not news, and a walk that stopped descending is.
+///
+/// The breakdown is the test's own, taken by tallying `behind` rather than
+/// by grepping card files: the first reading of it said 29 and then wrote
+/// 28, and 28 + 3 + 2 + 1 is 34 against a total of 35. A census whose parts
+/// do not sum to its whole has a card in it nobody looked at.
+#[test]
+fn the_pool_hides_effects_behind_a_price() {
+    let (all, seen) = pool_effects();
+    let behind: Vec<&'static Effect> = all
+        .iter()
+        .flat_map(|effect| match effect {
+            Effect::PlayerMayPayOr { .. } | Effect::PlayerMayPayCostOr { .. } => {
+                effect.branches().0
+            }
+            _ => &[][..],
+        })
+        .collect();
+    let sacrifices = behind
+        .iter()
+        .filter(|effect| matches!(effect, Effect::SacrificeSelf))
+        .count();
+
+    assert!(
+        seen > 2_000,
+        "the effect walk visited {seen} effects, which is too few to have \
+         read this pool: the nesting shapes it follows have gone stale"
+    );
+    assert!(
+        behind.len() >= 20,
+        "the walk found {} effect(s) behind a price where 35 were measured. \
+         Either the pool stopped printing the clause or `Effect::branches` \
+         stopped descending into it — and the second is the one that makes \
+         every reader in this workspace quietly short.",
+        behind.len()
+    );
+    assert!(
+        sacrifices >= 15,
+        "{sacrifices} of the effects behind a price are `SacrificeSelf` \
+         where 28 were measured. The Karoo lands are what that clause is \
+         mostly made of here, so this reaching nought means the walk found \
+         the wrapper and not what is inside it"
     );
 }
 

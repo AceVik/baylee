@@ -156,24 +156,29 @@ fn consumes(cost: &Cost) -> bool {
 }
 
 /// Whether this effect is one the agent recognises as a gain.
+///
+/// An optional clause is a gain the seat can still decline, so what it *may*
+/// do is what it is worth — and which effects have an inside at all is
+/// [`Effect::branches`]' question rather than this one's. It used to name
+/// `Sequence` and `MayDo` and stop there, so a gain printed inside a kicker
+/// clause or behind "unless you pay" was an ability the agent never
+/// activated.
 fn gains(effect: &Effect) -> bool {
-    match effect {
-        Effect::Sequence(inner) => inner.iter().any(gains),
-        // An optional clause is a gain the seat can still decline, so what
-        // it *may* do is what it is worth.
-        Effect::MayDo { effects } => effects.iter().any(gains),
-        e => matches!(
-            e,
-            Effect::SearchLibrary { .. }
-                | Effect::DrawCards { .. }
-                | Effect::Scry { .. }
-                | Effect::CreateToken { .. }
-                | Effect::CreateTokenN { .. }
-                | Effect::Amass { .. }
-                | Effect::AddCounter { .. }
-                | Effect::GainLife { .. }
-        ),
+    let (then, otherwise) = effect.branches();
+    if !then.is_empty() || !otherwise.is_empty() {
+        return then.iter().chain(otherwise).any(gains);
     }
+    matches!(
+        effect,
+        Effect::SearchLibrary { .. }
+            | Effect::DrawCards { .. }
+            | Effect::Scry { .. }
+            | Effect::CreateToken { .. }
+            | Effect::CreateTokenN { .. }
+            | Effect::Amass { .. }
+            | Effect::AddCounter { .. }
+            | Effect::GainLife { .. }
+    )
 }
 
 /// Whether this effect is one the agent knows will not hurt it.
@@ -181,20 +186,26 @@ fn gains(effect: &Effect) -> bool {
 /// Everything it counts as a gain, plus the bookkeeping that rides along
 /// with one: Sensei's Divining Top draws a card *and* puts itself back on
 /// the library, and refusing the second half would refuse the first.
+///
+/// A wrapper is as harmless as everything inside it, which is why this is
+/// `all` where [`gains`] is `any`: one clause the agent cannot vouch for is
+/// enough to leave the ability alone.
 fn harmless(effect: &Effect) -> bool {
-    match effect {
-        Effect::Sequence(inner) => inner.iter().all(harmless),
-        Effect::MayDo { effects } => effects.iter().all(harmless),
-        // A surveil is the second of these, and it is the split these two
-        // functions exist for. This agent answers a surveil by keeping
-        // everything — it cannot read a card well enough to decide one is
-        // worth binning — so a surveil never costs it anything and never
-        // wins it anything either. Calling it a gain would have it paying
-        // `{2}{U}` for a no-op; leaving it out of *both* would have it
-        // declining a draw that happened to surveil alongside.
-        Effect::PutSourceOnTopOfLibrary | Effect::Surveil { .. } => true,
-        e => gains(e),
+    let (then, otherwise) = effect.branches();
+    if !then.is_empty() || !otherwise.is_empty() {
+        return then.iter().chain(otherwise).all(harmless);
     }
+    // A surveil is the second of these, and it is the split these two
+    // functions exist for. This agent answers a surveil by keeping
+    // everything — it cannot read a card well enough to decide one is
+    // worth binning — so a surveil never costs it anything and never
+    // wins it anything either. Calling it a gain would have it paying
+    // `{2}{U}` for a no-op; leaving it out of *both* would have it
+    // declining a draw that happened to surveil alongside.
+    matches!(
+        effect,
+        Effect::PutSourceOnTopOfLibrary | Effect::Surveil { .. }
+    ) || gains(effect)
 }
 
 /// Whether the life this cost asks for is life the seat can spare.
@@ -227,21 +238,24 @@ fn draw_is_safe(view: &PlayerView, effects: &[Effect]) -> bool {
 
 /// How many cards these effects draw, or `None` when one of them draws an
 /// amount that is not a plain number.
+///
+/// The agent answers every optional clause with yes, so a draw inside one is
+/// a draw it will take — counting it as zero would be the deck-out this
+/// whole function exists to refuse. For the same reason both halves of a
+/// two-branch effect are **summed** although only one of them runs: this
+/// function is allowed to be wrong in one direction only, and over-counting
+/// refuses a safe draw where under-counting loses the game (CR 704.5b).
 fn draws(effects: &[Effect]) -> Option<u32> {
     let mut want = 0u32;
     for effect in effects {
-        match effect {
-            // The agent answers every optional clause with yes, so a draw
-            // inside one is a draw it will take — counting it as zero would
-            // be the deck-out this whole function exists to refuse.
-            Effect::Sequence(inner) | Effect::MayDo { effects: inner } => {
-                want = want.saturating_add(draws(inner)?);
-            }
-            Effect::DrawCards { amount } => match amount {
+        let (then, otherwise) = effect.branches();
+        want = want.saturating_add(draws(then)?);
+        want = want.saturating_add(draws(otherwise)?);
+        if let Effect::DrawCards { amount } = effect {
+            match amount {
                 baylee_cards_dsl::Amount::Fixed(n) => want = want.saturating_add(*n),
                 _ => return None,
-            },
-            _ => {}
+            }
         }
     }
     Some(want)
@@ -485,6 +499,44 @@ mod tests {
         assert!(
             TOP.iter().any(gains) && TOP.iter().all(harmless),
             "the same two effects fail as a flat list"
+        );
+    }
+
+    /// A clause behind a price is still a clause.
+    ///
+    /// `PlayerMayPayOr` carries a single `&'static Effect` rather than a
+    /// list, and every hand-rolled walker in this workspace descended into
+    /// the lists and stopped there — so "unless you pay {1}, draw a card"
+    /// read as an effect with nothing in it. Both readers are asked, because
+    /// they disagree about wrappers by design: `gains` is `any` and
+    /// `harmless` is `all`, and a conversion that fixed one and not the
+    /// other would leave the ability still unactivated.
+    ///
+    /// Synthetic and not a pool card on purpose: the census behind #109 says
+    /// the pool hides `SacrificeSelf`, `DrawCards`, `CounterTargetSpell` and
+    /// `CreateToken` behind that clause, and *none* of them sits in an
+    /// activated ability — so no card here changes these two answers today
+    /// and a test claiming otherwise would be about a card that does not
+    /// exist. What is being pinned is the descent.
+    #[test]
+    fn a_gain_behind_a_price_is_still_a_gain() {
+        static DRAW: Effect = Effect::DrawCards {
+            amount: Amount::Fixed(1),
+        };
+        let priced = Effect::PlayerMayPayOr {
+            player: baylee_cards_dsl::PlayerRel::Opponent,
+            mana: Amount::Fixed(1),
+            effect: &DRAW,
+        };
+        assert!(gains(&priced), "the draw behind the price was missed");
+        assert!(
+            harmless(&priced),
+            "the draw behind the price read as a harm"
+        );
+        assert_eq!(
+            draws(std::slice::from_ref(&priced)),
+            Some(1),
+            "a draw the agent will take has to count against the library"
         );
     }
 }

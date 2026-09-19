@@ -1465,6 +1465,182 @@ impl Effect {
             restriction: Some(ManaRestriction { filter, rider }),
         }
     }
+    /// The effect lists this one runs, as at most two slices.
+    ///
+    /// **Ten variants carry another effect and this is the only list of
+    /// them.** Before it existed there were five: two pool lints, three
+    /// readers in `baylee-ai`, and a coverage probe, each with its own
+    /// match and each with different holes. Every one of them descended
+    /// into `Sequence` and `MayDo`; none of them descended into
+    /// [`Effect::PlayerMayPayOr`] or [`Effect::PlayerMayPayCostOr`], so
+    /// whatever a card hid behind "unless you pay" was invisible to all
+    /// five — 35 effects in the pool as this was written — and three of the
+    /// AI readers also stopped short of the five conditionals. A lint blind
+    /// inside that clause reports a clean pool it never read, which is worse
+    /// than a lint that fails.
+    ///
+    /// Two slices is the shape because [`Effect::IfKicked`] is the widest
+    /// carrier, and it allocates nothing: an agent asks this per decision.
+    ///
+    /// The match is **exhaustive with no wildcard**, which is the whole
+    /// mechanism. An eleventh carrier added to [`Effect`] does not quietly
+    /// fall into a `_` and go unwalked by everything at once; it fails to
+    /// compile here, in the crate that owns the enum, and the person adding
+    /// it says where its branches are.
+    #[must_use]
+    #[allow(clippy::too_many_lines)] // 97 variants named once; the length is the guarantee
+    pub fn branches(&self) -> (&'static [Effect], &'static [Effect]) {
+        const NONE: &[Effect] = &[];
+        match self {
+            // **Every carrier below binds every one of its fields**, with
+            // no `..` in any of these ten arms. That is the second half of
+            // the guarantee, and it is deliberate: an exhaustive match over
+            // *variants* says nothing about a new *field* on one of them, so
+            // `IfKicked { then, .. }` would let a third branch be added and
+            // go unwalked by everything at once — the very defect this
+            // method closes. Fields the walk does not use are bound to `_`
+            // by name, so adding one is a build error here and a decision
+            // somebody makes on purpose.
+            //
+            // The 87 non-carrying variants do use `..`, and that is the one
+            // hole left: giving `GainLife` an effect field would be caught
+            // by nobody. It is left open on the measurement that such a
+            // field makes the variant a carrier, which is a thing one writes
+            // rather than stumbles into — where a *twelfth* branch on a
+            // variant that already nests is exactly what somebody stumbles
+            // into, because the arm already looks handled.
+            Effect::Sequence(effects) | Effect::MayDo { effects } => (effects, NONE),
+            Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::IfNoCountersOnSelf { kind: _, then }
+            | Effect::IfNotLostLifeThisTurn { then }
+            | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
+            Effect::IfKicked { then, otherwise }
+            | Effect::IfEventPowerAtLeast {
+                n: _,
+                then,
+                otherwise,
+            } => (then, otherwise),
+            // A single effect, not a list: the branch taken when the player
+            // declines the price. `from_ref` is what makes it one shape with
+            // the rest rather than a second kind of caller.
+            Effect::PlayerMayPayOr {
+                player: _,
+                mana: _,
+                effect,
+            }
+            | Effect::PlayerMayPayCostOr {
+                player: _,
+                cost: _,
+                effect,
+            } => (core::slice::from_ref(*effect), NONE),
+            Effect::GainLife { .. }
+            | Effect::GainLifeFor { .. }
+            | Effect::Exile { .. }
+            | Effect::Blink { .. }
+            | Effect::LookAtTopPick { .. }
+            | Effect::PutFromHandOnTop { .. }
+            | Effect::LoseLife { .. }
+            | Effect::DrawCards { .. }
+            | Effect::DrawCardsFor { .. }
+            | Effect::ExileTargetsCreateTokens { .. }
+            | Effect::DealDamage { .. }
+            | Effect::DealDamageToTargetController { .. }
+            | Effect::WishToHand { .. }
+            | Effect::Destroy { .. }
+            | Effect::PutTargetOnBottomOfLibrary
+            | Effect::GrantFlashback
+            | Effect::TakeExtraTurn
+            | Effect::ExileSource
+            | Effect::TapTarget
+            | Effect::UntapTarget
+            | Effect::UntapSelf
+            | Effect::ExileAndReturnAtEndStep
+            | Effect::CounterTargetSpellToExile
+            | Effect::CounterTargetSpell
+            | Effect::CounterTargetAbility
+            | Effect::CounterTargetSpellOrAbility
+            | Effect::TargetSourceLosesAbilities { .. }
+            | Effect::DelayedManaAtNextFirstMain { .. }
+            | Effect::RedirectTarget { .. }
+            | Effect::ExchangeControlOrSacrifice
+            | Effect::DestroyChosenForPlayers { .. }
+            | Effect::DiscardForPlayers { .. }
+            | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::ExileSelfReturnAsFace { .. }
+            | Effect::SacrificeFilter { .. }
+            | Effect::ReturnChosenToHand { .. }
+            | Effect::DrainAllCountersIntoSelf
+            | Effect::ShuffleGraveyardIntoLibrary
+            | Effect::BecomePrepared
+            | Effect::GainLifeDoubleX
+            | Effect::SearchLibrary { .. }
+            | Effect::Scry { .. }
+            | Effect::Surveil { .. }
+            | Effect::ScryFor { .. }
+            | Effect::ExileLibraryAndShuffleHand { .. }
+            | Effect::SetPTFilter { .. }
+            | Effect::Mill { .. }
+            | Effect::AddMana { .. }
+            | Effect::GrantSubtype { .. }
+            | Effect::AddCounter { .. }
+            | Effect::AddCounterFilter { .. }
+            | Effect::ReturnToHand { .. }
+            | Effect::ReturnAllToHand { .. }
+            | Effect::DestroyAll { .. }
+            | Effect::ExileGraveyard { .. }
+            | Effect::GraveyardToTop { .. }
+            | Effect::GraveyardToHand { .. }
+            | Effect::GraveyardToBattlefield { .. }
+            | Effect::CreateTokenPtPerCount { .. }
+            | Effect::CreateToken { .. }
+            | Effect::CreateTokenN { .. }
+            | Effect::CreateTokenForTargetController { .. }
+            | Effect::Amass { .. }
+            | Effect::PutSourceOnTopOfLibrary
+            | Effect::CreateTokenCopyOf { .. }
+            | Effect::CreateTokenCopyOfEquipped { .. }
+            | Effect::CreateTokenCopyOfFirstToken
+            | Effect::BottomCardFromHand { .. }
+            | Effect::CopyTargetSpell { .. }
+            | Effect::AttachSelf { .. }
+            | Effect::ReorderTopLibrary { .. }
+            | Effect::PayLifeOrEnterTapped { .. }
+            | Effect::CreateContinuousEffect { .. }
+            | Effect::ChangeController { .. }
+            | Effect::AllCreaturesToOwner
+            | Effect::ControlRotation
+            | Effect::PhaseOut { .. }
+            | Effect::ExileLinked { .. }
+            | Effect::ReturnLinkedToBattlefield
+            | Effect::CreateTokenFromLinked { .. }
+            | Effect::SacrificeSelf
+            | Effect::PayCostOrLoseLater { .. }
+            | Effect::CreateEmblem { .. }
+            | Effect::BecomeMonarch
+            | Effect::OptionalBasicLandSearchFor { .. }
+            | Effect::PumpFilter { .. }
+            | Effect::PumpTarget { .. } => (NONE, NONE),
+        }
+    }
+
+    /// Every effect reachable from this one, itself included, depth first.
+    ///
+    /// The walk [`Self::branches`] exists for. `seen` is what a caller holds
+    /// against a floor: a probe reporting nought over a pool is only news
+    /// once it says how much it read to get there.
+    pub fn walk(
+        effects: &'static [Effect],
+        seen: &mut usize,
+        visit: &mut impl FnMut(&'static Effect),
+    ) {
+        for effect in effects {
+            *seen += 1;
+            visit(effect);
+            let (then, otherwise) = effect.branches();
+            Self::walk(then, seen, visit);
+            Self::walk(otherwise, seen, visit);
+        }
+    }
 }
 
 #[cfg(test)]

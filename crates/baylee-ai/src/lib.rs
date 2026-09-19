@@ -554,6 +554,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_cards_dsl::AbilityDef;
     use baylee_core::color::ColorSet;
     use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
     use baylee_view::{
@@ -2713,5 +2714,46 @@ mod tests {
         assert_eq!(read(&OR_TRUE), Some(true), "a true disjunct settles it");
         assert_eq!(read(&OR_FALSE), None, "a false one leaves the unknown");
         assert_eq!(read(&Filter::Not(&UNREADABLE)), None);
+    }
+
+    /// A counterspell printed behind "unless you pay" is a counterspell.
+    ///
+    /// Flusterstorm and Malevolent Hermit both spell their text as
+    /// `PlayerMayPayOr { effect: CounterTargetSpell }` — the spell is
+    /// countered unless its controller pays — and that variant carries a
+    /// single `&'static Effect` rather than a list. Every hand-rolled walker
+    /// in this workspace descended into the lists and stopped, so `meaning`
+    /// was handed these two cards and read an effect list that says nothing
+    /// at all. An agent holding a counterspell it does not know is a
+    /// counterspell holds it for ever: `policy` only casts one when there is
+    /// an opposing stack entry, and it never asks unless `counter` is set.
+    ///
+    /// Two real cards and not a constructed effect, because this is the one
+    /// reader whose answer the pool actually moves — the census behind #109
+    /// found 35 effects behind that clause and these are the two that any
+    /// reader here asks about.
+    #[test]
+    fn a_counterspell_behind_a_price_is_read_as_one() {
+        for name in ["Flusterstorm", "Malevolent Hermit"] {
+            let index = baylee_cards::decks::by_name(name).expect("card in the pool");
+            let def = baylee_cards::by_index(index).expect("card compiles");
+            let counters = def.faces.iter().enumerate().any(|(face, _)| {
+                def.abilities_for_face(face).iter().any(|ability| {
+                    let effects = match ability {
+                        AbilityDef::Spell { effects, .. }
+                        | AbilityDef::Triggered { effects, .. }
+                        | AbilityDef::Activated { effects, .. }
+                        | AbilityDef::ActivatedConditional { effects, .. } => *effects,
+                        _ => &[],
+                    };
+                    tactics::meaning(effects, 0).counter
+                })
+            });
+            assert!(
+                counters,
+                "{name} counters a spell unless its controller pays, and the \
+                 agent reads it as an effect list with no meaning"
+            );
+        }
     }
 }

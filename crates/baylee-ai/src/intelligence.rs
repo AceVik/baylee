@@ -131,16 +131,28 @@ pub(crate) struct Strategy {
     pub tribe: Option<SubtypeId>,
 }
 
-fn sweeper(effects: &[Effect]) -> bool {
-    effects.iter().any(|effect| match effect {
-        Effect::Sequence(inner) | Effect::MayDo { effects: inner } => sweeper(inner),
-        Effect::DestroyAll { .. }
-        | Effect::ReturnAllToHand { .. }
-        | Effect::PumpFilter {
-            toughness: baylee_cards_dsl::Amount::NegX,
-            ..
-        } => true,
-        _ => false,
+/// Whether a card's effects contain a board sweeper.
+///
+/// The descent is [`Effect::branches`]', not this function's. It used to
+/// name `Sequence` and `MayDo` and stop there, so a sweeper printed inside a
+/// kicker clause or behind "unless you pay" was a sweeper this scout did not
+/// see — and a scouted sweeper is what stops the agent committing a third
+/// creature.
+fn sweeper(effects: &'static [Effect]) -> bool {
+    effects.iter().any(|effect| {
+        if matches!(
+            effect,
+            Effect::DestroyAll { .. }
+                | Effect::ReturnAllToHand { .. }
+                | Effect::PumpFilter {
+                    toughness: baylee_cards_dsl::Amount::NegX,
+                    ..
+                }
+        ) {
+            return true;
+        }
+        let (then, otherwise) = effect.branches();
+        sweeper(then) || sweeper(otherwise)
     })
 }
 

@@ -148,6 +148,11 @@ fn branches(ability: &AbilityDef) -> Vec<Branch> {
 ///
 /// `Filter::This` is the DSL's way of writing "the target" inside a
 /// continuous effect, so it is never a sweep however it is spelled.
+///
+/// Which effects run another effect is [`Effect::branches`]' question, not
+/// this lint's. This file used to answer it twice, in two different matches,
+/// and both were short: a sweep behind "unless you pay" was read by neither,
+/// and a sweep inside a `Sequence` by only one of them.
 fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
     match effect {
         Effect::DestroyAll { filter }
@@ -163,23 +168,18 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
                 vec![filter]
             }
         }
-        // A conditional runs its branches, so the sweep inside one is still
-        // a sweep. Everything else either carries no filter or carries one
-        // for a job that is not "every object matching this".
-        Effect::IfKicked { then, otherwise }
-        | Effect::IfEventPowerAtLeast {
-            then, otherwise, ..
-        } => then
-            .iter()
-            .chain(*otherwise)
-            .flat_map(swept_filters)
-            .collect(),
-        Effect::MayDo { effects: then }
-        | Effect::IfCreaturesDiedAtLeast { then, .. }
-        | Effect::IfNotLostLifeThisTurn { then, .. }
-        | Effect::IfControlGreatestCmc { then, .. }
-        | Effect::IfNoCountersOnSelf { then, .. } => then.iter().flat_map(swept_filters).collect(),
-        _ => Vec::new(),
+        // Anything that runs another effect runs the sweep inside it, and
+        // which effects those are is `Effect::branches`' to say rather than
+        // this lint's. It used to be listed here and the list was short by
+        // three — `Sequence` and both halves of "unless you pay" — so a
+        // sweep behind a Karoo's price was a sweep this lint never read.
+        _ => {
+            let (then, otherwise) = effect.branches();
+            then.iter()
+                .chain(otherwise)
+                .flat_map(swept_filters)
+                .collect()
+        }
     }
 }
 
@@ -230,33 +230,25 @@ fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
 ///
 /// The recursion is the one [`swept_filters`] does and for the same reason —
 /// a continuous effect inside a conditional is still a continuous effect,
-/// and the pool has exactly one of those (Jin-Gitaxias's kicked half). The
-/// `_` arm is the same bargain too: an effect that carries no layer has
-/// nothing to say here, and the pair this lint is about can only appear in
-/// the one variant that has both fields.
+/// and the pool has exactly one of those (Jin-Gitaxias's kicked half). Both
+/// ask [`Effect::branches`] which effects those are, rather than listing
+/// them: the pair this lint is about appears in one variant, and every other
+/// variant is either a carrier or has nothing to say, so the one arm covers
+/// both cases.
 fn declared_layers(effect: &Effect) -> Vec<(Layer, Modifier)> {
-    match effect {
-        Effect::CreateContinuousEffect {
-            layer, modifier, ..
-        } => vec![(*layer, *modifier)],
-        Effect::Sequence(effects) => effects.iter().flat_map(declared_layers).collect(),
-        Effect::IfKicked { then, otherwise }
-        | Effect::IfEventPowerAtLeast {
-            then, otherwise, ..
-        } => then
-            .iter()
-            .chain(*otherwise)
-            .flat_map(declared_layers)
-            .collect(),
-        Effect::MayDo { effects: then }
-        | Effect::IfCreaturesDiedAtLeast { then, .. }
-        | Effect::IfNotLostLifeThisTurn { then, .. }
-        | Effect::IfControlGreatestCmc { then, .. }
-        | Effect::IfNoCountersOnSelf { then, .. } => {
-            then.iter().flat_map(declared_layers).collect()
-        }
-        _ => Vec::new(),
+    // The early return is exact rather than a shortcut: a continuous effect
+    // carries no branches, so there is nothing under it to walk.
+    if let Effect::CreateContinuousEffect {
+        layer, modifier, ..
+    } = effect
+    {
+        return vec![(*layer, *modifier)];
     }
+    let (then, otherwise) = effect.branches();
+    then.iter()
+        .chain(otherwise)
+        .flat_map(declared_layers)
+        .collect()
 }
 
 /// A continuous effect declared on a layer its modifier does not belong to

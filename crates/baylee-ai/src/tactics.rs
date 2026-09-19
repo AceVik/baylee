@@ -54,8 +54,17 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
     let mut result = Meaning::default();
     for effect in effects {
         let mut m = Meaning::default();
+        // What an effect runs inside itself is [`Effect::branches`]' to say,
+        // not this table's. It used to name `Sequence` and `MayDo` and stop
+        // there, so removal printed inside a kicker clause or behind "unless
+        // you pay" read as no meaning at all — and an effect with no meaning
+        // is one `targets` declines to express a preference about.
+        let (then, otherwise) = effect.branches();
+        if !then.is_empty() || !otherwise.is_empty() {
+            m = meaning(then, x);
+            m.absorb(meaning(otherwise, x));
+        }
         match effect {
-            Effect::Sequence(inner) | Effect::MayDo { effects: inner } => m = meaning(inner, x),
             Effect::AddCounter { kind, .. } => match kind {
                 CounterKind::Minus { .. } | CounterKind::Poison | CounterKind::Rad => {
                     m.benefit = -1;
@@ -161,20 +170,32 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             Effect::GainLife { .. } => m.value = 80,
             _ => {}
         }
-        result.benefit += m.benefit;
-        result.damage = result.damage.saturating_add(m.damage);
-        result.draw = result.draw.saturating_add(m.draw);
-        result.commander_draws = result.commander_draws.saturating_add(m.commander_draws);
-        result.value += m.value;
-        result.removal |= m.removal;
-        result.destroy |= m.destroy;
-        result.counter |= m.counter;
-        // The first clock in the list wins. A spell that both advances a Saga
-        // and delays a suspended card prints two sentences and would need two
-        // target choices; one effect list answering one prompt has one.
-        result.clock = result.clock.or(m.clock);
+        result.absorb(m);
     }
     result
+}
+
+impl Meaning {
+    /// Fold another reading into this one.
+    ///
+    /// One method rather than a block per caller, because there are two of
+    /// them now: the effect list's accumulator, and the two branches of an
+    /// effect that carries both. A merge written twice is a field that gets
+    /// added to one of them.
+    fn absorb(&mut self, other: Meaning) {
+        self.benefit += other.benefit;
+        self.damage = self.damage.saturating_add(other.damage);
+        self.draw = self.draw.saturating_add(other.draw);
+        self.commander_draws = self.commander_draws.saturating_add(other.commander_draws);
+        self.value += other.value;
+        self.removal |= other.removal;
+        self.destroy |= other.destroy;
+        self.counter |= other.counter;
+        // The first clock wins. A spell that both advances a Saga and delays
+        // a suspended card prints two sentences and would need two target
+        // choices; one effect list answering one prompt has one.
+        self.clock = self.clock.or(other.clock);
+    }
 }
 
 pub(crate) fn material(o: &PublicObject) -> i64 {
