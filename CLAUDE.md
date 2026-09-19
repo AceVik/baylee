@@ -98,24 +98,28 @@ wrong rule. One consequence for a writer: a line that *records* an old wrong
 citation writes the number without its `CR`, or it is a finding nothing can
 ever clear.
 
-**A cold payload cache is one download, not 1365 requests.** `fetch_named`
-answers from disk with no HTTP call at all, so the whole cost of codegen's
-Scryfall half is how the cache gets filled the first time — and filling it one
-card at a time is 1365 requests at a 200 ms pause, which on a hosted runner
-(where an IP is shared) earned thirteen 60-second rate-limit backoffs, 13 of
-28 minutes spent asleep. `scryfall::fill_from_bulk` takes Scryfall's
+**A cold payload cache is one download, not one request per card.**
+`fetch_named` answers from disk with no HTTP call at all, so the whole cost of
+codegen's Scryfall half is how the cache gets filled the first time — and
+filling it one card at a time is one request per card at a 200 ms pause, which
+on a hosted runner (where an IP is shared) earned thirteen 60-second
+rate-limit backoffs, 13 of 28 minutes spent asleep. Those 28 minutes were
+measured over a pool of 1365 and the pool is 2716 now, so a serial fill today
+costs about twice that — the bulk figure beside it does not grow the same
+way, because it is one download. `scryfall::fill_from_bulk` takes Scryfall's
 `oracle_cards` bulk feed instead, which their guidelines ask for: measured
 cold, 26 s against 28 min, with no per-card request left to make.
 
 Which feed and which key are both measurements rather than preferences.
 `oracle_cards` is one row per oracle card — Scryfall's own default printing,
 which is the choice `/cards/named?exact=` makes; `default_cards` carries every
-English printing, so 1097 of the pool's 1365 names match several rows there.
-Cards are matched on **`oracle_id`** out of the ledger and never on the name,
-because three cards in this pool share a name with a token. Held against the
-1365 payloads fetched one at a time, the feed writes 1359 byte-identical files
-and disagrees on six — and the live API has moved on those six too, so the
-feed introduces no printing this repo would not have fetched anyway. The
+English printing, so 1097 of the pool's names matched several rows there when
+the pair was measured over 1365 cards. Cards are matched on **`oracle_id`**
+out of the ledger and never on the name, because three cards in this pool
+share a name with a token. Held against the 1365 payloads that pool then had,
+fetched one at a time, the feed wrote 1359 byte-identical files and disagreed
+on six — and the live API has moved on those six too, so the feed introduces
+no printing this repo would not have fetched anyway. The
 lookup is two-tier, whole name then front face, because the pool names a
 two-faced card by its front face (`Sheoldred`) where the ledger follows
 Scryfall (`Sheoldred // The True Scriptures`); both tiers are unambiguous
@@ -480,7 +484,7 @@ ability came from, so a client can draw a stack entry as what the ability
 two-phase, so a card added by one run gets its row from the next) and the name
 table (`crates/baylee-cards/src/generated_names.rs` — which card a printed
 English name is, which `decks::by_name` answers in one hash instead of walking
-1365 cards; two-phase for the same reason, so the tests in
+2716 cards; two-phase for the same reason, so the tests in
 `decks::name_table_tests` fail between the run that adds a card and the run
 after it). You then
 edit **only**
@@ -496,7 +500,7 @@ The index
 comes from the append-only ledger `baylee_cards_index::ROWS`, which numbers
 **every card there is** and not this pool — `cargo run -p xtask -- ledger`
 assigns it over the corpus `cargo run -p baylee-catalog -- corpus` scans,
-33 694 rows of which this repo compiles 1365 — so implementing a card inserts
+33 694 rows of which this repo compiles 2716 — so implementing a card inserts
 nothing and renumbers nothing, and a `CardIndex` is what saved decks and
 replays name. A card this repo implements that the corpus filter drops is
 named in `data/corpus-keep.tsv`, the hand-kept additive half, and is admitted
@@ -513,7 +517,7 @@ own crate rather than a feature on `baylee-core`, because the table carries
 unifies features across a workspace build — one tool asking for the data
 would compile it into everything. The engine does not link the crate, so it
 cannot. The **name** table went the other way and lives in `baylee-cards`:
-the pool's 1365 names are already compiled into the engine there as
+the pool's 2716 names are already compiled into the engine there as
 `FaceDef::name`, and the corpus's 33 694 are not.
 `docs/card-identity.md` is normative on which handle lives where, what each
 one survives, and which of them may be stored.
@@ -601,10 +605,11 @@ have is a bail rather than a land quietly filed one level shallower.
 thirty cycles by their own sentence (fast, slow, check, crowd, unlucky,
 filter, pain, bounce, manlands, cycling, …), then `utility` for a land that
 does something other than make mana and `tapland` for one that only comes in
-tapped. It is why `lands/` holds 73 files instead of 872, and why growing the
-map is a browsing improvement rather than a correctness fix.
+tapped. It is why `lands/` opens into 116 named levels rather than listing
+its 1124 files flat, and why growing the map is a browsing improvement rather
+than a correctness fix.
 
-Two properties are what make it safe to arrange 1365 files this way, and both
+Two properties are what make it safe to arrange 2716 files this way, and both
 would be easy to lose. The **file moves and the module path never does** —
 `cards/mod.rs` declares every card with `#[path = …]`, so
 `cards::lightning_bolt` resolves as it did when the directory was flat and a
@@ -633,7 +638,7 @@ question they could not see; three of them were blind from the day they were
 written, and four went blind the day the macros moved — `cross-read`, both
 halves of `validate`'s header-against-code identity check, and a stubgen
 assertion that no longer had a spelling it could fail on. Each of those four
-matched `"<field>: "`, the struct-literal spelling, which not one of the 1365
+matched `"<field>: "`, the struct-literal spelling, which not one of the 2716
 card files has contained since. Only one of them said so: `cross-read` carries
 a bound on how many cards it may read and refused at nought against a floor of
 190, while the other three ran green over the whole pool and compared nothing.
@@ -712,8 +717,9 @@ scripts read in full.
 **`--stubs` is the ranking that ships cards, and the plain one is not.** The
 report's default population is all 33 826 reference scripts, which measures the
 DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
-own unfinished cards — 640 of the 648 stubs have one — and the two orders
-disagree so sharply that the corpus one is a trap when the goal is a card.
+own unfinished cards — 640 of the 648 stubs had one when this was measured on
+17.09 — and the two orders disagree so sharply that the corpus one is a trap
+when the goal is a card.
 Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
 `Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
 `ChangesZone.OptionalDecider` 439 and **0**. Three commits that day moved the
@@ -865,7 +871,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 560 machine-owned, 648 stubs), which is the number
+the split (328 hand-owned, 1697 machine-owned, 691 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the
