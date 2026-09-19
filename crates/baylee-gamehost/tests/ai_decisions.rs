@@ -5,7 +5,7 @@ use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
-use baylee_gamehost::{PlayerView, RegistryLookup, player_view};
+use baylee_gamehost::{PlayerView, RegistryLookup, SeatContext, player_view};
 
 /// The view a seat gets at a decision point, as every fixture in this file
 /// wants it: the seat being asked is the seat the table is waiting for, and
@@ -16,7 +16,16 @@ fn asked_view(
     seq: u64,
     pending: &Pending,
 ) -> PlayerView {
-    player_view(state, seat, Some(seat), seq, Some(pending), false, None)
+    player_view(
+        state,
+        seat,
+        seq,
+        Some(pending),
+        &SeatContext {
+            awaiting: Some(seat),
+            ..Default::default()
+        },
+    )
 }
 
 fn entry(name: &str) -> DeckEntry {

@@ -285,11 +285,13 @@ pub fn play_report<L: CardLookup>(
         let view = crate::view::player_view(
             engine.state(),
             player,
-            pending_player(&pending),
             i as u64,
             Some(&pending),
-            engine.automation(player).hold.suppresses(),
-            crate::view::owed_payment(&engine),
+            &crate::view::SeatContext {
+                awaiting: pending_player(&pending),
+                held: engine.automation(player).hold.suppresses(),
+                owed: crate::view::owed_payment(&engine),
+            },
         );
         let crate::SeatKind::Ai(agent) = &seats[usize::from(player.get())] else {
             unreachable!()
@@ -479,11 +481,13 @@ mod tests {
             crate::view::player_view(
                 engine.state(),
                 me,
-                pending_player(engine.pending()),
                 7,
                 Some(engine.pending()),
-                false,
-                crate::view::owed_payment(engine),
+                &crate::view::SeatContext {
+                    awaiting: pending_player(engine.pending()),
+                    owed: crate::view::owed_payment(engine),
+                    ..Default::default()
+                },
             )
         };
         let va = view(&a);
@@ -855,11 +859,13 @@ mod tests {
             let view = crate::view::player_view(
                 engine.state(),
                 player,
-                pending_player(&pending),
                 i,
                 Some(&pending),
-                engine.automation(player).hold.suppresses(),
-                crate::view::owed_payment(&engine),
+                &crate::view::SeatContext {
+                    awaiting: pending_player(&pending),
+                    held: engine.automation(player).hold.suppresses(),
+                    owed: crate::view::owed_payment(&engine),
+                },
             );
             let action = agent.act(&view, &pending);
             let activating = player == me

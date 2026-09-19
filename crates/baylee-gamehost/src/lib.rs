@@ -15,4 +15,4 @@ pub mod view;
 
 pub use baylee_view::{GameStatic, PlayerView, SeatIdentity};
 pub use session::{RegistryLookup, SeatKind, Session};
-pub use view::{game_static, owed_payment, player_view};
+pub use view::{SeatContext, game_static, owed_payment, player_view};

@@ -402,11 +402,13 @@ impl Session {
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
-            awaiting,
             self.seq,
             Some(self.engine.pending()),
-            self.engine.automation(seat).hold.suppresses(),
-            crate::view::owed_payment(&self.engine),
+            &crate::view::SeatContext {
+                awaiting,
+                held: self.engine.automation(seat).hold.suppresses(),
+                owed: crate::view::owed_payment(&self.engine),
+            },
         );
         let mut out = Vec::new();
         // Two separate `let`s: `reveal` marks printings as shown, so folding
@@ -474,11 +476,13 @@ impl Session {
                     let view = crate::view::player_view(
                         self.engine.state(),
                         player,
-                        pending_player(&pending),
                         self.seq,
                         Some(&pending),
-                        self.engine.automation(player).hold.suppresses(),
-                        crate::view::owed_payment(&self.engine),
+                        &crate::view::SeatContext {
+                            awaiting: pending_player(&pending),
+                            held: self.engine.automation(player).hold.suppresses(),
+                            owed: crate::view::owed_payment(&self.engine),
+                        },
                     );
                     let context = self.engine.decision_context();
                     let scouting = agent.scouting_request(&pending).and_then(|request| {
@@ -562,11 +566,13 @@ impl Session {
         let view = crate::view::player_view(
             self.engine.state(),
             player,
-            pending_player(pending),
             self.seq,
             Some(pending),
-            self.engine.automation(player).hold.suppresses(),
-            crate::view::owed_payment(&self.engine),
+            &crate::view::SeatContext {
+                awaiting: pending_player(pending),
+                held: self.engine.automation(player).hold.suppresses(),
+                owed: crate::view::owed_payment(&self.engine),
+            },
         );
         Some((player, agent.act(&view, pending)))
     }
@@ -608,11 +614,13 @@ impl Session {
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
-            pending_player(&pending),
             self.seq,
             Some(&pending),
-            self.engine.automation(seat).hold.suppresses(),
-            crate::view::owed_payment(&self.engine),
+            &crate::view::SeatContext {
+                awaiting: pending_player(&pending),
+                held: self.engine.automation(seat).hold.suppresses(),
+                owed: crate::view::owed_payment(&self.engine),
+            },
         );
         let mut out = vec![view_envelope(self.seq, &view)];
         if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
@@ -1738,11 +1746,9 @@ mod tests {
         let before = crate::view::player_view(
             session.engine.state(),
             PlayerId::new(0),
-            None,
             0,
             None,
-            false,
-            None,
+            &crate::view::SeatContext::default(),
         );
         let report = crate::scouting::request(
             &session.seats,
@@ -1783,11 +1789,9 @@ mod tests {
             crate::view::player_view(
                 session.engine.state(),
                 PlayerId::new(0),
-                None,
                 0,
                 None,
-                false,
-                None,
+                &crate::view::SeatContext::default()
             )
         );
     }
