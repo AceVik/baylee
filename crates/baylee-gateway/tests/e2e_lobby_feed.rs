@@ -198,7 +198,7 @@ async fn the_lobby_socket_refuses_a_token_it_does_not_know() {
 
 /// The next text frame, or a panic if the socket says nothing in time.
 async fn next_text(socket: &mut Socket) -> String {
-    let deadline = std::time::Duration::from_secs(5);
+    let deadline = common::WAIT_BUDGET;
     loop {
         let frame = tokio::time::timeout(deadline, socket.next())
             .await

@@ -17,7 +17,7 @@
 mod common;
 
 use baylee_protocol::v1::{self, Envelope};
-use common::{attach_agent, http, json_field, login, spawn_gateway};
+use common::{attach_agent_watching, http, json_field, login, spawn_gateway};
 use futures_util::StreamExt;
 use prost::Message;
 
@@ -25,7 +25,7 @@ use prost::Message;
 async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
     let gw = spawn_gateway("late-socket");
     let port = gw.port;
-    let _agent = attach_agent(&gw).await;
+    let (_agent, mut engines) = attach_agent_watching(&gw).await;
 
     let token = login(port, "latecomer@example.com", "latecomer");
     let (status, body) = http(
@@ -44,10 +44,22 @@ async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
     let game_id = json_field(&body, "game_id").to_string();
     let seat_token = json_field(&body, "seat_token").to_string();
 
-    // The whole point: give the engine time to attach *first*, so this socket
-    // is the late one. A gateway that only notices readiness as it happens
-    // has nothing left to tell this socket.
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    // The whole point: the engine attaches *first*, so this socket is the late
+    // one. A gateway that only notices readiness as it happens has nothing
+    // left to tell this socket.
+    //
+    // Waiting for the engine rather than for three seconds is what makes that
+    // true by construction instead of by hope. The agent sends a preset when
+    // the gateway sends it `GameSetup`, and the gateway sends `GameSetup` only
+    // once the engine has dialled in and said hello — so a preset in hand *is*
+    // an attached engine. Three seconds was the same claim on an idle box, and
+    // on a busy one it bought an engine that had not arrived yet: the socket
+    // below was then the early one, the seam this file is named for went
+    // untested, and the test passed.
+    tokio::time::timeout(common::WAIT_BUDGET, engines.recv())
+        .await
+        .expect("the agent was never asked to run this game")
+        .expect("the agent hung up before its engine attached");
 
     let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
     let mut ws = common::dial_seat(&url).await;
@@ -55,7 +67,7 @@ async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
     // A working gateway answers at once. The broken one accepted the socket,
     // said nothing, and closed it half a minute later — so a generous
     // timeout still fails fast enough to be worth running.
-    let frame = tokio::time::timeout(std::time::Duration::from_secs(10), ws.next())
+    let frame = tokio::time::timeout(common::WAIT_BUDGET, ws.next())
         .await
         .expect("the table said nothing to a socket that arrived after its engine")
         .expect("the socket was closed instead of played on")

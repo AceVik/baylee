@@ -37,9 +37,9 @@ where
     F: FnMut(&Envelope) -> bool,
 {
     for _ in 0..50 {
-        let frame = tokio::time::timeout(std::time::Duration::from_secs(10), ws.next())
+        let frame = tokio::time::timeout(common::WAIT_BUDGET, ws.next())
             .await
-            .expect("no frame within 10s")
+            .expect("no frame within the wait budget")
             .expect("stream open")
             .expect("frame ok");
         if !frame.is_binary() {
@@ -184,11 +184,18 @@ async fn human_vs_human_both_seats_receive_updates() {
         Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
         _ => PlayerAction::PassPriority,
     };
-
-    // Drain whatever B got from the initial pumps (non-blocking).
-    while let Ok(Some(_)) =
-        tokio::time::timeout(std::time::Duration::from_millis(200), ws_b.next()).await
-    {}
+    // The frame below has to be one A's action *caused*, and this is what
+    // says so. `Session::seq` is one counter for the whole game, and nothing
+    // moves it between the engine asking A and A answering — so every frame B
+    // was sent by the initial pumps carries at most this number, and a
+    // greater one cannot have been written before the action.
+    //
+    // It replaces draining B's queue for 200 ms, which was the same question
+    // asked as a stopwatch: on a loaded box a pump's frame outlives the
+    // drain, `recv_until` returns that stale frame at once, and the assertion
+    // passes without A's action having reached anybody. A budget that fails
+    // by **passing** cannot be tuned, only removed.
+    let baseline = req.seq;
 
     // A acts. WITHOUT B sending anything, B's socket must now deliver a
     // fresh envelope — this is the regression assertion.
@@ -205,11 +212,10 @@ async fn human_vs_human_both_seats_receive_updates() {
     .await
     .expect("A sends its action");
 
-    recv_until(&mut ws_b, |env| {
-        matches!(
-            env.msg,
-            Some(v1::envelope::Msg::StateDelta(_) | v1::envelope::Msg::ChoiceRequest(_))
-        )
+    recv_until(&mut ws_b, |env| match &env.msg {
+        Some(v1::envelope::Msg::StateDelta(d)) => d.seq > baseline,
+        Some(v1::envelope::Msg::ChoiceRequest(r)) => r.seq > baseline,
+        _ => false,
     })
     .await;
 
@@ -251,6 +257,15 @@ async fn a_game_without_an_agent_is_refused() {
 
 /// An agent is not a player. The control socket takes a shared secret from the
 /// gateway's own configuration, and nothing a player could ever hold.
+///
+/// Refusing is a thing the gateway **does**, and this asks for it that way.
+/// It used to ask the opposite — five seconds of silence and
+/// `assert!(!welcomed)` — which is a negative behind a clock and passes for
+/// two very different reasons: the socket was refused, or the socket is still
+/// open and the welcome had not arrived yet. A gateway that accepted the
+/// wrong secret and then said nothing satisfied it, and so did a busy box.
+/// `run_agent_socket` returns on a token that does not match, which drops the
+/// socket, so the end of the stream is a fact this test can wait for instead.
 #[tokio::test]
 async fn the_control_socket_refuses_the_wrong_secret() {
     let gw = spawn_gateway("agent-auth");
@@ -270,10 +285,30 @@ async fn the_control_socket_refuses_the_wrong_secret() {
     ))
     .await
     .expect("send hello");
-    let next = tokio::time::timeout(std::time::Duration::from_secs(5), ws.next()).await;
-    let welcomed = matches!(
-        next,
-        Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(_))))
-    );
-    assert!(!welcomed, "an agent with the wrong secret was welcomed");
+    // Read until the socket says something that settles it. A control frame
+    // is neither answer — tungstenite surfaces pings, and skipping them is
+    // what keeps this about the secret rather than about keepalives.
+    loop {
+        let Ok(next) = tokio::time::timeout(common::WAIT_BUDGET, ws.next()).await else {
+            panic!(
+                "the gateway held an agent that presented the wrong secret open \
+                 and silent for {:?} instead of dropping it",
+                common::WAIT_BUDGET
+            )
+        };
+        match next {
+            Some(Ok(
+                tokio_tungstenite::tungstenite::Message::Binary(_)
+                | tokio_tungstenite::tungstenite::Message::Text(_),
+            )) => {
+                panic!("an agent with the wrong secret was welcomed")
+            }
+            Some(Ok(
+                tokio_tungstenite::tungstenite::Message::Ping(_)
+                | tokio_tungstenite::tungstenite::Message::Pong(_),
+            )) => {}
+            // A close frame, a broken stream, or the end of it: refused.
+            _ => break,
+        }
+    }
 }

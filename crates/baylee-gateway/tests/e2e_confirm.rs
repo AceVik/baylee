@@ -174,7 +174,7 @@ fn a_mailed_link_is_what_lets_the_account_in() {
     assert_eq!(status, 401, "a wrong password stays a wrong password");
 
     let received = mail
-        .recv_timeout(std::time::Duration::from_secs(10))
+        .recv_timeout(common::WAIT_BUDGET)
         .expect("the confirmation mail arrives");
     assert!(
         received.contains("Best") || received.contains("=?utf-8?"),

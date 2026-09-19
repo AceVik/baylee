@@ -220,7 +220,7 @@ async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
 
     let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
     let mut ws = common::dial_seat(&url).await;
-    let frame = tokio::time::timeout(std::time::Duration::from_secs(10), {
+    let frame = tokio::time::timeout(common::WAIT_BUDGET, {
         use futures_util::StreamExt as _;
         ws.next()
     })

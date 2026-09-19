@@ -173,6 +173,24 @@ fn ticket(port: u16) -> SeatTicket {
     }
 }
 
+/// How long anything here waits for something that **must** arrive.
+///
+/// The third copy of the budget #78 raised in the gateway suite and #97 in
+/// `baylee-engine-server`'s, written — like both of those — against a machine
+/// with nothing else on it. Five worktrees share this one, and a socket
+/// opening beside another tree's compile is not a ten-second event.
+///
+/// Every loop below exits on the message it was waiting for, so the raised
+/// ceiling costs a passing run nothing and only changes which failures are
+/// real: a genuine hang still fails, later, with the same words.
+const WAIT_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// How many [`WAIT_STEP`]s fit in [`WAIT_BUDGET`].
+const WAIT_TRIES: u32 = 3000;
+
+/// One poll interval, so a loop states its budget instead of its arithmetic.
+const WAIT_STEP: std::time::Duration = std::time::Duration::from_millis(10);
+
 /// Polls the host until the messages so far satisfy `done`.
 ///
 /// A frame loop with a deadline, which is what the client itself does: the
@@ -182,14 +200,14 @@ where
     F: FnMut(&[HostMessage]) -> bool,
 {
     let mut all = Vec::new();
-    for _ in 0..1000 {
+    for _ in 0..WAIT_TRIES {
         all.extend(host.poll());
         if done(&all) {
             return all;
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        std::thread::sleep(WAIT_STEP);
     }
-    panic!("waited 10s for {what}; got {all:#?}");
+    panic!("waited {WAIT_BUDGET:?} for {what}; got {all:#?}");
 }
 
 fn statics(messages: &[HostMessage]) -> Vec<&baylee_view::GameStatic> {
