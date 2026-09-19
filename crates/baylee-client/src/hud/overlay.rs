@@ -1258,6 +1258,7 @@ fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
 mod tests {
     use super::*;
     use baylee_core::ids::PlayerId;
+    use baylee_core::mana::ManaCost;
     use baylee_engine::win::{EndReason, GameResult, Victor};
 
     /// Fonts with no asset server behind them: what is under test is which
@@ -1324,6 +1325,10 @@ mod tests {
             .init_resource::<ledge::menu::MenuRevision>()
             .init_resource::<tray::TrayRevision>()
             .init_resource::<tray::TrayReveal>()
+            .init_resource::<super::SheetRevision>()
+            .insert_resource(super::UiSheets {
+                parchment: Handle::default(),
+            })
             // All of them, chained, in the order the app runs them: the
             // first spawns the shelf, the three retained attachments and the
             // drawer's node, the second writes the shelf and records where
@@ -1350,6 +1355,12 @@ mod tests {
                     ledge::menu::grow_the_menu,
                     tray::sync_tray,
                     tray::reveal_tray,
+                    // The parchment leaf, which since AX 6c draws *both*
+                    // choosers — a permanent's abilities and the ways a card
+                    // in hand can be cast. A harness that ran the drawer and
+                    // not this one could watch a row leave the drawer and
+                    // would have nothing to say about where it went.
+                    super::sync_ability_sheet,
                 )
                     .chain(),
             );
@@ -2313,6 +2324,207 @@ mod tests {
             tiles.iter().all(|lift| *lift > 0.0),
             "nothing in this dialog lifts at all, so the rows standing at zero \
              says nothing about the rows: {tiles:?}"
+        );
+    }
+
+    /// Whether `entity` hangs somewhere under a standing parchment leaf.
+    ///
+    /// Ancestry and not a count, because AX 6c moved rows between two panels
+    /// that draw the **same component**: a cast row is one row of an indexed
+    /// choice on the sheet exactly as a colour is one in the drawer, and both
+    /// wear a [`ChoiceButton`]. Counting them would pass whichever panel had
+    /// them, which is the one thing this is about.
+    fn under_a_sheet(app: &App, entity: Entity) -> bool {
+        let mut at = entity;
+        loop {
+            let found = app.world().entity(at);
+            if found.contains::<AbilitySheetRoot>() {
+                return true;
+            }
+            let Some(parent) = found.get::<ChildOf>().map(ChildOf::parent) else {
+                return false;
+            };
+            at = parent;
+        }
+    }
+
+    /// Every indexed-choice row on the screen, and where it is standing.
+    fn choice_rows(app: &mut App) -> Vec<(usize, bool)> {
+        let mut q = app.world_mut().query::<(Entity, &ChoiceButton)>();
+        let found: Vec<(Entity, usize)> = q
+            .iter(app.world())
+            .map(|(entity, button)| (entity, button.index))
+            .collect();
+        found
+            .into_iter()
+            .map(|(entity, index)| (index, under_a_sheet(app, entity)))
+            .collect()
+    }
+
+    /// How many panels the drawer is holding.
+    fn drawer_panels(app: &mut App) -> usize {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Option<&Children>, With<ledge::drawer::DrawerRoot>>();
+        q.iter(app.world())
+            .map(|c| c.map_or(0, bevy::ecs::hierarchy::Children::len))
+            .sum()
+    }
+
+    /// A seat holding one card it can cast two ways, with **this client's
+    /// own** chooser standing open over it.
+    ///
+    /// `CastMenu` is a `Prompt::CastMode` built one step before the engine
+    /// would have built one, while the engine is still holding an ordinary
+    /// priority window. Two modes and no card text, because
+    /// `choices::cast_label` answers `Normal` and `Alternative` out of
+    /// `Phrase` when the printing has not arrived — which is the state this
+    /// harness is always in.
+    fn duel_casting() -> Duel {
+        use baylee_engine::choice::CastModeKind;
+        let mut duel = duel_with(false);
+        duel.view = Some(
+            baylee_client_core::test_support::ViewBuilder::new(2)
+                .with_hand(vec![("Fire", 2, 4)])
+                .build(),
+        );
+        crate::rebuild_board(&mut duel);
+        duel.cast_menu = Some(crate::CastMenu {
+            card: ObjectId::new(4, 0),
+            modes: vec![
+                crate::castmodes::ReachableMode {
+                    kind: CastModeKind::Normal,
+                    cost: ManaCost::default(),
+                    plan: baylee_client_core::manaplan::Plan::default(),
+                },
+                crate::castmodes::ReachableMode {
+                    kind: CastModeKind::Alternative(0),
+                    cost: ManaCost::default(),
+                    plan: baylee_client_core::manaplan::Plan::default(),
+                },
+            ],
+            pick: 0,
+        });
+        duel
+    }
+
+    /// The ways of casting a card stand on the card's own sheet, and the
+    /// drawer keeps the questions with no card to stand beside.
+    ///
+    /// The owner's answer of 14.09.2026, and AX step 6c: the cast-mode
+    /// chooser is the **same piece of parchment** as the ability chooser. §5
+    /// had put the indexed chooser in the drawer and left the ability one
+    /// beside the card, and the sentence §5 gave for that — *it belongs to
+    /// the card, not to the question* — is just as true of this one.
+    ///
+    /// The colour half is what stops the sheet swallowing every indexed
+    /// choice there is. A colour has no card: the question comes off a mana
+    /// ability that is already resolving, so there is nothing on the table to
+    /// hang paper beside, and a rule that moved *all* `ChoiceButton`s onto a
+    /// sheet would have nowhere to put it.
+    #[test]
+    fn the_ways_to_cast_a_card_stand_on_its_sheet_and_not_in_the_drawer() {
+        let mut app = bar_of(duel_casting());
+        let rows = choice_rows(&mut app);
+        assert_eq!(
+            rows,
+            vec![(0, true), (1, true)],
+            "both ways of casting the card have to be on the leaf beside it"
+        );
+        assert_eq!(
+            drawer_panels(&mut app),
+            0,
+            "the rows moved to the sheet, so the drawer is an empty panel \
+             standing over the table saying nothing"
+        );
+
+        // And the question with no card to stand beside stayed where it was.
+        let mut app = bar_of(duel_choosing_a_colour());
+        let rows = choice_rows(&mut app);
+        assert_eq!(
+            rows,
+            vec![(0, false), (1, false), (2, false)],
+            "a colour is answered out of the drawer — it comes off an ability \
+             that is already resolving and has no card to hang paper beside"
+        );
+        assert_eq!(drawer_panels(&mut app), 1, "and they stand on one panel");
+    }
+
+    /// The same question drawn in the same place however it arrived.
+    ///
+    /// This client asks first, but the engine asks `ChooseCastMode` itself
+    /// whenever the client did not get there first — a modal trigger, a
+    /// pathway, a seat driven over the wire. Both are `Prompt::CastMode` and
+    /// both are about a card, so a chooser that stood beside the card on one
+    /// route and in the drawer on the other would be one question moving
+    /// depending on how it had arrived.
+    ///
+    /// It is also the half that fails against the code this replaced: the
+    /// drawer stopped reading `Prompt::CastMode` at all, so a sheet that read
+    /// only `Duel::cast_menu` would draw this question **nowhere**.
+    ///
+    /// The cross is the second assertion, and it is the difference the two
+    /// routes really do have. Every door out of this sheet works by clearing
+    /// the menu that opened it; a question the engine asked is one the table
+    /// is waiting on, so there is nothing to clear and a cross there would be
+    /// a control that visibly does nothing.
+    #[test]
+    fn a_cast_question_the_engine_asked_lands_on_the_same_sheet() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+
+        let crosses = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<SheetClose>>();
+            q.iter(app.world()).count()
+        };
+
+        let mut duel = duel_casting();
+        duel.cast_menu = None;
+        duel.interaction = Some(baylee_client_core::Interaction::new(
+            baylee_engine::choice::Pending::ChooseCastMode {
+                player: PlayerId::new(0),
+                object: ObjectId::new(4, 0),
+                options: vec![
+                    CastModeDesc {
+                        index: 0,
+                        kind: CastModeKind::Normal,
+                        cost: ManaCost::default(),
+                    },
+                    CastModeDesc {
+                        index: 1,
+                        kind: CastModeKind::Alternative(0),
+                        cost: ManaCost::default(),
+                    },
+                ],
+            },
+            PlayerId::new(0),
+        ));
+        let mut app = bar_of(duel);
+        assert_eq!(
+            choice_rows(&mut app),
+            vec![(0, true), (1, true)],
+            "the engine asked the question this time, and it is the same \
+             question about the same card"
+        );
+        assert_eq!(
+            drawer_panels(&mut app),
+            0,
+            "and it is not drawn twice, nor left in the drawer it came from"
+        );
+        assert_eq!(
+            crosses(&mut app),
+            0,
+            "a question the table is waiting on cannot be put down, so the \
+             cross on it would be a door to nowhere"
+        );
+
+        // The counter-half: the cross is drawn where there *is* something to
+        // clear, or the assertion above would pass on a sheet that never had
+        // one.
+        let mut app = bar_of(duel_casting());
+        assert_eq!(
+            crosses(&mut app),
+            1,
+            "this client's own chooser can be put down, and the cross is how"
         );
     }
 

@@ -31,6 +31,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::Prompt;
 use baylee_client_core::abilitysheet;
 use baylee_client_core::card_face::TextBlock;
 
@@ -492,6 +493,22 @@ pub struct SheetZoom {
 #[derive(Resource, Default)]
 pub struct SheetRevision {
     object: Option<ObjectId>,
+    /// Which model the standing sheet is drawing.
+    ///
+    /// In the gate and not derived from `object`, because the same card can be
+    /// both: a card in hand is cast through one chooser and may offer an
+    /// activated ability through the other, and a sheet that changed model
+    /// without changing card would otherwise keep the rows it had.
+    source: Option<Source>,
+    /// Whether the standing sheet was drawn with its cross.
+    ///
+    /// In the gate for the same reason `source` is: one card can be asked
+    /// about by both owners in turn — this client's `CastMenu` puts the ways
+    /// up, the row taken sends the deed, and the engine may ask its own
+    /// `Prompt::CastMode` about the same card a frame later — and every other
+    /// field in this gate can come out identical across that handover. Without
+    /// it the cross stays on a question that can no longer be withdrawn.
+    dismissible: bool,
     page: usize,
     pick: usize,
     armed: Option<usize>,
@@ -505,6 +522,67 @@ pub struct SheetRevision {
     /// when it lands, so a sheet opened first would keep showing the fallback
     /// label for as long as it stood.
     texts: usize,
+}
+
+/// Which of the two models a sheet is drawing.
+///
+/// The owner's answer of 14.09.2026: the cast-mode chooser and the ability
+/// chooser are the **same piece of parchment beside the card**. §5 had put the
+/// indexed chooser in the drawer and left this one where it was, and the
+/// sentence §5 gave for keeping it — *it belongs to the card, not to the
+/// question* — is just as true of the other one. So this panel has two models
+/// and one renderer.
+///
+/// What it is **not** is a field on the button. A cast row is one row of an
+/// indexed choice, and [`crate::hud::ChoiceButton`] already says exactly that:
+/// `input::pick_choice` routes this client's own `CastMenu` first and the
+/// engine's own `Prompt::CastMode` behind it, and `devctl` already reports
+/// such a row under `choice`. A row that moved to this sheet keeps its click
+/// path, its keys and its `/state` shape, and a reader asking for *abilities*
+/// rightly does not see it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Source {
+    /// What a permanent can do. Rows can carry pips, and a row is armed
+    /// before it is sent.
+    Ability,
+    /// The ways a card can be cast. There are never pips, nothing is armed,
+    /// and a press answers.
+    Cast,
+}
+
+/// One row of the sheet, whichever model opened it.
+///
+/// The renderer reads three things and no more, which is what lets two models
+/// share one panel without a second copy of the paper: what the row costs,
+/// what it says in the card's own words, and — only where the card says
+/// nothing — the one line this client has for it.
+struct SheetRow {
+    /// Which of its model's options this row answers.
+    ///
+    /// Carried rather than taken from the row's position, for the reason
+    /// [`crate::hud::ChoiceButton`] carries one: a list the player can filter
+    /// draws a subset, and a button that answered by position would send the
+    /// wrong one. It happens to equal the position for both models today —
+    /// `Prompt::CastMode` numbers its options with the same `enumerate` the
+    /// rows are built with — and the field is what keeps that a coincidence
+    /// rather than a rule something later has to remember.
+    answer: usize,
+    /// The printed sentence, already split into rules text and reminder text.
+    blocks: Option<Vec<TextBlock>>,
+    /// What to write when there are no blocks, and **only** then.
+    ///
+    /// Not a second wording of a card, which is the thing the owner struck
+    /// out (*„Bitte nicht custom texte für abilities verwenden, sondern die
+    /// echten texte von skryfall"*). For an ability it is set only where
+    /// `AbilityOption::printed_index` is `None` — the CR 305.6 mana of a basic
+    /// land type, an ability a continuous effect granted, a prepared cast —
+    /// each of which is printed on no card at all, so there is no first
+    /// wording for it to be a second of. For a cast row it is
+    /// `choices::cast_label`, which *is* the printed sentence where the card
+    /// has one and the face's own name where the row is a face.
+    line: Option<String>,
+    /// What it costs, written so [`crate::manaui::spawn_rich`] can draw it.
+    cost: Option<String>,
 }
 
 /// Which row of `options` the armed deed is, if any of them is.
@@ -527,6 +605,162 @@ fn armed_row(
     options.iter().position(|o| &o.action == action)
 }
 
+/// What a sheet is about, whichever model opened it.
+///
+/// One struct rather than a tuple, for the reason [`crate::hud::BrowserGate`]
+/// is one: this is what the revision gate is compared against, and a field
+/// left out of a tuple is a control that silently does nothing.
+struct Opening {
+    /// The card the sheet stands beside — a permanent on the table, or a card
+    /// in the hand being cast.
+    object: ObjectId,
+    source: Source,
+    /// The pip half, and empty on a cast sheet. Indexed the same as
+    /// [`Self::rows`].
+    options: Vec<crate::abilities::AbilityOption>,
+    rows: Vec<SheetRow>,
+    split: crate::abilities::Split,
+    /// Which row the keyboard is standing on.
+    picked: usize,
+    /// Which row is armed, and never any on a cast sheet: a cast row answers
+    /// rather than arming, which is what `abilitysheet::press` decides for an
+    /// ability and what a mode has no equivalent of.
+    armed: Option<usize>,
+    /// Whether the sheet can be put down without answering it.
+    ///
+    /// True where a *menu of this client's* opened it, because the four doors
+    /// out (the cross, `Esc`, a press outside, the row itself) all work by
+    /// clearing that menu. False where the **engine** is the one asking: a
+    /// `Prompt::CastMode` the engine put up is a question the table is waiting
+    /// on, and nothing on this paper can withdraw it.
+    dismissible: bool,
+    /// One string per row, for the redraw gate.
+    fingerprint: Vec<String>,
+}
+
+/// The sheet a permanent's abilities open.
+fn ability_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> Option<Opening> {
+    let object = duel.ability_menu?;
+    let options = ability_options(duel, lang, object)?;
+    if options.len() < 2 {
+        return None;
+    }
+    let rows = options
+        .iter()
+        .enumerate()
+        .map(|(at, option)| SheetRow {
+            answer: at,
+            blocks: row_text(faces, duel, object, option),
+            // Only where the card prints nothing for this row at all.
+            // `printed_index` is `None` for exactly three things a permanent
+            // can offer — the CR 305.6 mana of a basic land type, an ability a
+            // continuous effect granted, a prepared cast — and for those this
+            // client's one-line name is the only wording there has ever been.
+            line: (option.printed_index().is_none() && !option.label.is_empty())
+                .then(|| option.label.clone()),
+            cost: option.cost.clone(),
+        })
+        .collect();
+    Some(Opening {
+        object,
+        source: Source::Ability,
+        split: crate::abilities::Split::of(&options),
+        picked: duel.ability_pick,
+        armed: armed_row(duel, object, &options),
+        // `Duel::ability_menu` is this client's own and every door out clears
+        // it.
+        dismissible: true,
+        fingerprint: options.iter().map(|o| o.label.clone()).collect(),
+        rows,
+        options,
+    })
+}
+
+/// The sheet the ways of casting a card open.
+///
+/// **Two arrivals, one question, and both of them land here.** This client
+/// builds a `Prompt::CastMode` of its own one step *before* the engine would
+/// have built one — `CastMenu` stands while the engine is still holding an
+/// ordinary priority window — and the engine asks the same question itself
+/// whenever this client did not get there first. Reading only one of them
+/// would draw one question beside the card on one route and in the drawer on
+/// the other, which is a chooser that moves depending on how it arrived; the
+/// drawer drops both for the same reason.
+///
+/// This client's own is asked first, for the reason `input::pick_choice` asks
+/// it first: while it stands, it *is* the question, and the engine's priority
+/// window behind it is not what the player is answering.
+fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> Option<Opening> {
+    // The engine's own is filtered on the turn the way the drawer filtered it,
+    // because a question for somebody else is not this seat's to answer. This
+    // client's own needs no such guard: nothing builds a `CastMenu` except the
+    // press that opened it.
+    let asked = || {
+        let interaction = duel
+            .interaction
+            .as_ref()
+            .filter(|_| duel.is_my_turn_to_act())?;
+        let prompt = interaction.prompt();
+        // The cursor with nothing on it stands on the first row, which is
+        // where the other two sources start theirs. A sheet is a keyboard
+        // surface — `1`..`9` answer it — so a sheet with no row lit would be
+        // one that looks unreachable until an arrow key is pressed.
+        matches!(prompt, Prompt::CastMode { .. })
+            .then(|| (prompt, interaction.chosen_index().unwrap_or(0), false))
+    };
+    let (prompt, picked, dismissible) = duel
+        .cast_menu
+        .as_ref()
+        .map(|menu| (menu.prompt(), menu.pick, true))
+        .or_else(asked)?;
+    let Prompt::CastMode { object, .. } = &prompt else {
+        return None;
+    };
+    let object = *object;
+    let options = crate::choices::options(
+        &prompt,
+        lang,
+        duel.statics.as_ref(),
+        &duel.subtype_filter,
+        crate::choices::FaceNames {
+            view: duel.view.as_ref(),
+            texts: Some(faces),
+        },
+    )?;
+    if options.len() < 2 {
+        return None;
+    }
+    let rows: Vec<SheetRow> = options
+        .iter()
+        .map(|option| SheetRow {
+            answer: option.index,
+            // A cast row has no printed *structure* to draw: `cast_label` has
+            // already resolved it to one line, which for four of the six kinds
+            // is the card's own sentence and for the other two is the face's
+            // own name.
+            blocks: None,
+            line: (!option.label.is_empty()).then(|| option.label.clone()),
+            cost: option.cost.map(|cost| cost.to_string()),
+        })
+        .collect();
+    Some(Opening {
+        object,
+        source: Source::Cast,
+        // No pips: a pip says what a *permanent* pours, and a card being cast
+        // pours nothing.
+        options: Vec::new(),
+        split: crate::abilities::Split {
+            pips: 0,
+            rows: rows.len(),
+        },
+        picked,
+        armed: None,
+        dismissible,
+        fingerprint: options.iter().map(|o| o.label.clone()).collect(),
+        rows,
+    })
+}
+
 /// Builds the sheet when what it says changes.
 #[allow(clippy::too_many_arguments)]
 pub fn sync_ability_sheet(
@@ -541,12 +775,14 @@ pub fn sync_ability_sheet(
     settings: Res<crate::settings::ClientSettings>,
 ) {
     let lang = Lang::of(&settings.lang);
-    let open = duel
-        .ability_menu
-        .and_then(|object| Some((object, ability_options(&duel, lang, object)?)))
-        .filter(|(_, options)| options.len() > 1);
+    // Cast first, for the reason `cast_opening` gives and `input::pick_choice`
+    // already obeys. The two are never both open in practice — `activate_card`
+    // clears one where it sets the other — and the order is written down
+    // rather than relied on, because "they never stand together" is a claim
+    // about two `Option`s that nothing enforces.
+    let open = cast_opening(&duel, lang, &faces).or_else(|| ability_opening(&duel, lang, &faces));
 
-    let Some((object, options)) = open else {
+    let Some(open) = open else {
         // Closed. Guarded on the revision so an interface with no sheet in it
         // does not run a query and a despawn loop on every frame of the game.
         //
@@ -565,18 +801,26 @@ pub fn sync_ability_sheet(
         return;
     };
 
-    let page = abilitysheet::clamp(
-        crate::abilities::Split::of(&options).rows,
-        duel.ability_page,
-    );
-    let armed = armed_row(&duel, object, &options);
-    let fingerprint: Vec<String> = options.iter().map(|o| o.label.clone()).collect();
+    let object = open.object;
+    // A cast sheet stands on its one page. `duel.ability_page` belongs to the
+    // other model — `turn_the_page` writes it and `ability_menu_keys` turns it
+    // with `0` — and a cast list has no counter of its own, so paging one
+    // would draw a pager the keyboard could not turn. Nothing in this pool
+    // reaches ten ways to cast a card; the day one does, this is where it asks
+    // for a counter rather than quietly losing the tenth row, because the
+    // pager is refused below for the same source.
+    let page = match open.source {
+        Source::Ability => abilitysheet::clamp(open.split.rows, duel.ability_page),
+        Source::Cast => 0,
+    };
     if revision.object == Some(object)
+        && revision.source == Some(open.source)
+        && revision.dismissible == open.dismissible
         && revision.page == page
-        && revision.pick == duel.ability_pick
-        && revision.armed == armed
+        && revision.pick == open.picked
+        && revision.armed == open.armed
         && revision.lang == Some(lang)
-        && revision.fingerprint == fingerprint
+        && revision.fingerprint == open.fingerprint
         && revision.texts == faces.len()
     {
         return;
@@ -598,11 +842,13 @@ pub fn sync_ability_sheet(
         })
         .flatten();
     revision.object = Some(object);
+    revision.source = Some(open.source);
+    revision.dismissible = open.dismissible;
     revision.page = page;
-    revision.pick = duel.ability_pick;
-    revision.armed = armed;
+    revision.pick = open.picked;
+    revision.armed = open.armed;
     revision.lang = Some(lang);
-    revision.fingerprint = fingerprint;
+    revision.fingerprint.clone_from(&open.fingerprint);
     revision.texts = faces.len();
 
     for entity in &existing {
@@ -641,9 +887,14 @@ pub fn sync_ability_sheet(
         lang,
         &duel,
         object,
-        &options,
+        open.source,
+        &open.options,
+        &open.rows,
+        open.split,
+        open.picked,
         page,
-        armed,
+        open.armed,
+        open.dismissible,
         fresh,
         standing,
     );
@@ -726,9 +977,17 @@ fn spawn_sheet(
     lang: Lang,
     duel: &Duel,
     object: ObjectId,
+    source: Source,
+    // The pip half, and empty on a cast sheet: pips, their prefix and the
+    // bubble are all questions about what a *permanent* pours, and a card
+    // being cast pours nothing. Indexed the same as `rows`.
     options: &[crate::abilities::AbilityOption],
+    rows: &[SheetRow],
+    split: crate::abilities::Split,
+    picked: usize,
     page: usize,
     armed: Option<usize>,
+    dismissible: bool,
     fresh: bool,
     standing: Option<Placement>,
 ) -> Entity {
@@ -737,7 +996,6 @@ fn spawn_sheet(
     // sheet's and none of them is worth a second copy. What it
     // does not take is the sheet's *shape* — no head, no footer, no floor
     // under its width, and a row of pips instead of a column of sentences.
-    let split = crate::abilities::Split::of(options);
     let bubble = crate::abilities::pouring(options);
     let mut node = Node {
         position_type: PositionType::Absolute,
@@ -847,13 +1105,13 @@ fn spawn_sheet(
         }
         for (at, option) in options.iter().enumerate() {
             let Some(pour) = option.pour else { continue };
-            let pip = spawn_pour(commands, fonts, at, pour.color, duel.ability_pick == at);
+            let pip = spawn_pour(commands, fonts, at, pour.color, picked == at);
             commands.entity(sheet).add_child(pip);
         }
         return sheet;
     }
 
-    spawn_head(commands, fonts, faces, duel, object, sheet);
+    spawn_head(commands, fonts, faces, duel, object, dismissible, sheet);
 
     // ---- the header of pips ----------------------------------------------
     //
@@ -874,26 +1132,28 @@ fn spawn_sheet(
     // row with a column of its own width would put its prose where its
     // neighbours' costs are. Decided over the rows on this page, because a
     // page is what is seen.
-    let costs = cost_column(options, split, page);
+    let costs = cost_column(rows, split, page);
     for at in abilitysheet::rows(split.rows, page) {
         let digit = digit_of(at).unwrap_or('?');
         let index = split.option(at);
         let row = spawn_row(
             commands,
             fonts,
-            faces,
-            duel,
-            object,
-            index,
-            &options[index],
+            source,
+            &rows[index],
             digit,
             armed == Some(index),
-            duel.ability_pick == index,
+            picked == index,
             costs,
         );
         commands.entity(sheet).add_child(row);
     }
-    if abilitysheet::paged(split.rows) {
+    // The pager belongs to the model that has a page counter. `turn_the_page`
+    // writes `Duel::ability_page` and `ability_menu_keys` turns it with `0`;
+    // a cast list has neither, so a pager here would be a control that does
+    // nothing — worse than no pager, because it claims there is more to see
+    // and then refuses to show it. See where `page` is decided.
+    if source == Source::Ability && abilitysheet::paged(split.rows) {
         let row = spawn_pager(commands, fonts, lang, page, abilitysheet::pages(split.rows));
         commands.entity(sheet).add_child(row);
     }
@@ -916,21 +1176,21 @@ fn spawn_head(
     faces: &crate::cardtext::CardTexts,
     duel: &Duel,
     object: ObjectId,
+    dismissible: bool,
     sheet: Entity,
 ) {
-    /// The close button's side.
-    ///
-    /// Half again the widest keycap and close to the 44 logical pixels the
-    /// lobby gives a phone — the sheet is not a responsive screen, it is
-    /// pinned to a card 47 px wide, so a target sized for a thumb would be a
-    /// sixth of the paper. This is sized for a finger on a tablet, which is
-    /// what a card on a table is played with, and it is the only thing on
-    /// the sheet a pointer has to *find* rather than being handed by a row.
-    const CLOSE: f32 = 30.0;
-
+    // Two lookups, because the sheet stands beside two kinds of card now and
+    // `PlayerView::object` answers for only one of them. A permanent goes
+    // through [`crate::face::name_of`], which knows that an ability on the
+    // stack borrows its source's name (CR 113.7a); a card in **hand** — which
+    // is what a cast chooser is about, and the one zone `object` does not look
+    // in — goes through [`crate::face::face_name`], which searches the hand
+    // first. Without the second the sheet drew its rows under a blank line.
     let name = duel.view.as_ref().map_or_else(String::new, |view| {
         view.object(object)
-            .map_or_else(String::new, |o| crate::face::name_of(o, view, faces))
+            .map(|o| crate::face::name_of(o, view, faces))
+            .or_else(|| crate::face::face_name(object, 0, view, Some(faces)))
+            .unwrap_or_default()
     });
     let row = commands
         .spawn((
@@ -976,6 +1236,36 @@ fn spawn_head(
         .id();
     commands.entity(row).add_child(head);
 
+    // A door only where there is somewhere to go. The cross takes the sheet
+    // back by clearing the menu that opened it, so on a sheet drawn for a
+    // question the **engine** asked there is nothing for it to clear and it
+    // would be a control that visibly does nothing — the same objection the
+    // pager answers where `Duel::ability_page` is not the counter in play.
+    // The name and the hairline stay: those say whose list this is, which is
+    // as true of a question that has to be answered as of one that can be put
+    // down.
+    if dismissible {
+        let shut = shut_button(commands, fonts);
+        commands.entity(row).add_child(shut);
+    }
+
+    commands.entity(sheet).add_child(row);
+    let hair = rule(commands, 5.0);
+    commands.entity(sheet).add_child(hair);
+}
+
+/// The cross in the head, which is one of the four doors out of the sheet.
+fn shut_button(commands: &mut Commands, fonts: &UiFonts) -> Entity {
+    /// The close button's side.
+    ///
+    /// Half again the widest keycap and close to the 44 logical pixels the
+    /// lobby gives a phone — the sheet is not a responsive screen, it is
+    /// pinned to a card 47 px wide, so a target sized for a thumb would be a
+    /// sixth of the paper. This is sized for a finger on a tablet, which is
+    /// what a card on a table is played with, and it is the only thing on
+    /// the sheet a pointer has to *find* rather than being handed by a row.
+    const CLOSE: f32 = 30.0;
+
     let shut = commands
         .spawn((
             SheetClose,
@@ -1010,11 +1300,7 @@ fn spawn_head(
         ))
         .id();
     commands.entity(shut).add_child(cross);
-    commands.entity(row).add_child(shut);
-
-    commands.entity(sheet).add_child(row);
-    let hair = rule(commands, 5.0);
-    commands.entity(sheet).add_child(hair);
+    shut
 }
 
 /// The rule under the rows, and the one line that says which key does what.
@@ -1243,15 +1529,11 @@ fn rule(commands: &mut Commands, above: f32) -> Entity {
 /// Either one and the page puts every cost where the printed card puts it:
 /// [`spawn_cost_title`], a title line over the sentence it charges for, with
 /// the row's whole width to wrap in.
-fn cost_column(
-    options: &[crate::abilities::AbilityOption],
-    split: crate::abilities::Split,
-    page: usize,
-) -> Option<f32> {
+fn cost_column(rows: &[SheetRow], split: crate::abilities::Split, page: usize) -> Option<f32> {
     let mut widest: Option<f32> = None;
     for row in abilitysheet::rows(split.rows, page) {
         let at = split.option(row);
-        let Some(cost) = options[at].cost.as_deref() else {
+        let Some(cost) = rows[at].cost.as_deref() else {
             continue;
         };
         let mut payments = crate::abilities::payments(cost);
@@ -1518,11 +1800,8 @@ fn spawn_pour(
 fn spawn_row(
     commands: &mut Commands,
     fonts: &UiFonts,
-    faces: &crate::cardtext::CardTexts,
-    duel: &Duel,
-    object: ObjectId,
-    index: usize,
-    option: &crate::abilities::AbilityOption,
+    source: Source,
+    option: &SheetRow,
     digit: char,
     armed: bool,
     picked: bool,
@@ -1537,10 +1816,6 @@ fn spawn_row(
     };
     let row = commands
         .spawn((
-            // The *whole row* is the button, not the keycap on it: a target
-            // 21 pixels across beside a sentence that is not clickable is a
-            // row a player aims at and misses.
-            crate::hud::AbilityButton { index },
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
@@ -1565,6 +1840,28 @@ fn spawn_row(
             Feel::tinting_to(wash, pressed(wash)),
         ))
         .id();
+    // The *whole row* is the button, not the keycap on it: a target 21 pixels
+    // across beside a sentence that is not clickable is a row a player aims at
+    // and misses.
+    //
+    // Which button it is, is the whole of what [`Source`] decides. An ability
+    // row is armed and then sent and is an [`crate::hud::AbilityButton`]; a
+    // cast row answers by index and is one row of an indexed choice, which
+    // [`crate::hud::ChoiceButton`] already is everywhere else in this client.
+    // Inserted after the spawn rather than chosen inside the tuple, because a
+    // tuple of components cannot hold an either-or.
+    match source {
+        Source::Ability => {
+            commands.entity(row).insert(crate::hud::AbilityButton {
+                index: option.answer,
+            });
+        }
+        Source::Cast => {
+            commands.entity(row).insert(crate::hud::ChoiceButton {
+                index: option.answer,
+            });
+        }
+    }
 
     let keycap = cap(
         commands,
@@ -1601,7 +1898,7 @@ fn spawn_row(
     // own words — it was needed while `option.label` was drawn as the
     // sentence, since for an activated ability the label *is* the cost, and
     // with the label gone it only took the cost away too.
-    let printed = row_text(faces, duel, object, option);
+    let printed = option.blocks.as_deref();
     let cost = option.cost.as_deref();
     // **Cost, sentence, key**, in that order across the row. The cost is what
     // a player checks first ("can I afford this") and the key is what they
@@ -1654,7 +1951,7 @@ fn spawn_row(
     match printed {
         Some(blocks) => {
             for block in blocks {
-                let (words, colour) = match &block {
+                let (words, colour) = match block {
                     TextBlock::Rules(t) => (t.clone(), palette::INK),
                     TextBlock::Reminder(t) => (t.clone(), palette::MUTED),
                 };
@@ -1662,24 +1959,20 @@ fn spawn_row(
                 commands.entity(says).add_child(line);
             }
         }
-        // Nothing printed, and the card prints nothing for this row at all:
-        // `AbilityOption::printed_index` is `None` for exactly the three
-        // things a permanent can offer that are on no card — the CR 305.6
-        // mana of a basic land type, an ability a continuous effect granted,
-        // a prepared cast — and for those this client's own one-line name is
-        // the only wording there has ever been. It is not a second wording of
-        // a card: there is no first.
-        None if option.printed_index().is_none() && !option.label.is_empty() => {
-            let line =
-                crate::manaui::spawn_rich(commands, fonts, &option.label, ROW_PT, palette::INK);
-            commands.entity(says).add_child(line);
+        // Nothing printed. Whether there is a line to write instead was
+        // decided where the row was built and is [`SheetRow::line`]: for an
+        // ability it is set only for the three things a permanent can offer
+        // that are on no card at all, and for a cast row it is the card's own
+        // sentence or the face's own name. A row with neither draws its cost
+        // and its key and waits — the text is a fetch away, and inventing a
+        // stand-in for the second it is missing is what put three different
+        // wordings of one card in front of the owner.
+        None => {
+            if let Some(text) = option.line.as_deref() {
+                let line = crate::manaui::spawn_rich(commands, fonts, text, ROW_PT, palette::INK);
+                commands.entity(says).add_child(line);
+            }
         }
-        // And a row whose card *does* print a sentence draws its cost and its
-        // key and waits. The text is a fetch away — `cardtext` asks the
-        // gateway and then Scryfall — and inventing a stand-in for the second
-        // it is missing is what put three different wordings of one card in
-        // front of the owner.
-        None => {}
     }
     commands.entity(row).add_child(says);
     commands.entity(row).add_child(keycap);

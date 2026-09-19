@@ -2521,10 +2521,20 @@ pub fn close_the_sheet_on_a_press_outside_it(
     hovers: Res<bevy::picking::hover::HoverMap>,
     sheet: Query<&crate::hud::AbilitySheetRoot>,
     cards: Query<&CardVisual>,
+    hand_cards: Query<&HandCardVisual>,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
 ) {
-    let Some(object) = duel.ability_menu else {
+    // Whichever model has the paper. The card exemption has to follow it: a
+    // cast chooser stands beside a card in the **hand**, and a rule that
+    // looked only at the table's cards would close it the moment the player
+    // reached back to the card it is about.
+    let object = duel
+        .cast_menu
+        .as_ref()
+        .map(|menu| menu.card)
+        .or(duel.ability_menu);
+    let Some(object) = object else {
         return;
     };
     if !buttons.just_pressed(MouseButton::Left) {
@@ -2532,12 +2542,14 @@ pub fn close_the_sheet_on_a_press_outside_it(
     }
     for hovered in hovers.values().flat_map(|over| over.keys().copied()) {
         let spared = find_in_lineage(hovered, &sheet, &parents).is_some()
-            || find_in_lineage(hovered, &cards, &parents).is_some_and(|v| v.object == object);
+            || find_in_lineage(hovered, &cards, &parents).is_some_and(|v| v.object == object)
+            || find_in_lineage(hovered, &hand_cards, &parents).is_some_and(|h| h.object == object);
         if spared {
             return;
         }
     }
     duel.ability_menu = None;
+    duel.cast_menu = None;
 }
 
 /// A press anywhere that is neither the game menu nor its own button shuts it.
@@ -2606,7 +2618,13 @@ fn sheet_click(
         // more: an armed deed survives the sheet closing, there as here,
         // because the card itself still carries it and taking it back is
         // `Esc` on the *table*.
+        //
+        // Both models, because this sheet draws both since the cast chooser
+        // moved onto it: the cross is one control on one piece of paper, and
+        // a cross that only closed one of them would be a dead button on the
+        // other. `cast_menu_keys` answers `Action::Cancel` the same way.
         duel.ability_menu = None;
+        duel.cast_menu = None;
         return true;
     }
     if let Some(button) = find_in_lineage(entity, &sheet.rows, parents) {

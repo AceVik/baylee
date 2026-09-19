@@ -2781,6 +2781,11 @@ not the one drawn as primary. The engine's own `ChooseCastMode` draws no
 answer row either, a row there *being* the answer, so this is the same chooser
 in the same clothes rather than a special case. `Esc` is the way back out.
 
+The **rows** left the bar in AX step 6c and stand on the card's own parchment
+now, beside the card in hand — §"A question about a card is a sheet" below,
+where the two models and the three things that tell them apart are set out.
+What stayed on the shelf is the sentence and the answers it takes away.
+
 And a tap on **another card** puts it away, which is the change of mind that
 already disarms. Only `activate_card` opens either menu, and it now closes the
 other before it takes any branch — without that line a card with one way, a
@@ -2861,12 +2866,12 @@ Either way the answer goes out by *position*: the list is rebuilt from the
 current `LegalActions` when the row is pressed, so a sheet drawn a frame ago
 cannot send an ability the engine has since withdrawn.
 
-### The question a permanent asks is a sheet
+### A question about a card is a sheet
 
 It was a row of buttons in the prompt bar, which sat at the far side of the
 screen from the card it was about and could only say "Ability 2" about the
 ones it had no words for. It is now a piece of parchment anchored beside the
-permanent itself: **cost, sentence, key** across each row — the cost drawn as
+card itself: **cost, sentence, key** across each row — the cost drawn as
 pips on the left, the ability's own printed sentence in the player's language
 in the middle, and a numbered keycap on the right. That is the order the row
 is *used* in: what a player checks first, then what they are choosing between,
@@ -2875,6 +2880,62 @@ one straight left edge down the whole sheet.
 `docs/keyboard-map.md` §"The ability sheet" is normative on the keys;
 `baylee_client_core::abilitysheet` is the arithmetic and
 `baylee-client/src/hud/sheet.rs` draws it.
+
+#### One renderer, two models
+
+The sheet draws **both** choosers a card can open: what a permanent can do,
+and the ways a card in hand can be cast. AX §5 had put every indexed chooser
+in the drawer and left the ability one beside the card, and the sentence §5
+gave for that exception — *it belongs to the card, not to the question* — is
+just as true of the other one. So the owner's answer of 14.09.2026 is that
+they are the same piece of paper (AX step 6c), and the drawer keeps the
+questions with **no card to stand beside**: a colour, a seat, a target, the
+number stepper, the subtype filter, combat's two lines. A colour is the case
+that fixes the line — it comes off a mana ability that is already resolving,
+so there is nothing on the table to hang parchment beside.
+
+`sheet::Opening` is the seam. Two readers — `ability_opening` and
+`cast_opening` — produce one struct of precomputed `SheetRow`s (an answer
+index, the printed blocks, the one fallback line, the cost) and everything
+below them draws rows without knowing which model it got. That direction is
+deliberate: the renderer used to take an `abilities::AbilityOption` and reach
+back into the `Duel` for the card's text, which is a shape only one model can
+satisfy.
+
+What a `Source` decides is exactly three things, and each of them is a control
+that would otherwise be wrong rather than a style choice.
+
+**Which button a row wears.** An ability row arms and is then sent, and is an
+`AbilityButton`. A cast row answers by index and is one row of an indexed
+choice, which is what `hud::ChoiceButton` is everywhere else in this client —
+so a row that moved onto this sheet kept its click path (`input::pick_choice`
+already routed both cast sources), its keys and its `/state` shape, and a
+reader asking for *abilities* rightly does not see it. It is not a field on
+`AbilityButton`: nothing downstream wanted to tell them apart.
+
+**Whether there is a pager.** `abilitysheet::paged` counts against
+`Duel::ability_page`, which `turn_the_page` writes and `ability_menu_keys`
+turns with `0`. A cast list has no counter of its own, so a pager there would
+claim there is more to see and then refuse to show it. Nothing in this pool
+reaches ten ways to cast a card; the day one does, this is where it asks for a
+counter rather than quietly losing the tenth row.
+
+**Whether the head carries its cross.** Every door out of this sheet — the
+cross, `Esc`, a press outside it, the row itself — works by clearing the menu
+that opened it. A `Prompt::CastMode` the **engine** asked is a question the
+table is waiting on and nothing on the paper can withdraw it, so the cross is
+refused there. The name and the hairline stay: those say whose list this is,
+which is as true of a question that must be answered as of one that can be put
+down.
+
+Two things about that last route are easy to get backwards, and both were
+found by building it. `cast_opening` reads the engine's `Prompt::CastMode`
+**as well as** `Duel::cast_menu` — the drawer dropped both, so a sheet that
+read only this client's own would draw the engine's question *nowhere*. And
+the head's name needs two lookups: `PlayerView::object` is the one zone-blind
+spot in the view and does not look in the **hand**, which is the whole case a
+cast chooser is about, so it falls back to `face::face_name`, which searches
+the hand first. Without it the rows stood under a blank line.
 
 **A permanent that makes mana gets a header of pips**, one per colour it can
 pour, centred above the written rows and carrying no digit —

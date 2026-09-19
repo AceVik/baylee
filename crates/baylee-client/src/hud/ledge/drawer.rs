@@ -520,19 +520,24 @@ fn reading(
         .filter(|i| !waiting && matches!(i.prompt(), Prompt::ChooseSubtype { .. }))
         .map(|_| duel.subtype_filter.clone());
 
-    // The client's own cast chooser is asked first and read by the same
-    // function: it *is* a `Prompt::CastMode`, built one step before the engine
-    // would have built it.
+    // **Neither cast chooser is drawn here.** Both stand on the parchment leaf
+    // beside the card (`hud::sheet`), which is the owner's answer of
+    // 14.09.2026: the chooser belongs to the card and not to the question, and
+    // that sentence was already §5's reason for leaving the ability chooser
+    // there. What is left in this drawer is everything with no card to stand
+    // beside — a colour, a seat, a target, the stepper, the subtype filter and
+    // combat's two lines.
+    //
+    // *Both*, and not only this client's own `CastMenu`: the engine asks
+    // `Prompt::CastMode` itself whenever this client did not get there first,
+    // and a drawer that dropped one and kept the other would draw one question
+    // in two different places depending on how it had arrived.
     let rows = duel
-        .cast_menu
+        .interaction
         .as_ref()
-        .map(crate::CastMenu::prompt)
-        .or_else(|| {
-            duel.interaction
-                .as_ref()
-                .filter(|_| !waiting)
-                .map(baylee_client_core::Interaction::prompt)
-        })
+        .filter(|_| !waiting)
+        .map(baylee_client_core::Interaction::prompt)
+        .filter(|prompt| !matches!(prompt, Prompt::CastMode { .. }))
         .and_then(|p| {
             crate::choices::options(
                 &p,
@@ -546,14 +551,12 @@ fn reading(
             )
         })
         .unwrap_or_default();
-    let picked = duel.cast_menu.as_ref().map_or_else(
-        || {
-            duel.interaction
-                .as_ref()
-                .and_then(baylee_client_core::Interaction::chosen_index)
-        },
-        |m| Some(m.pick),
-    );
+    // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
+    // went with its rows to the sheet.
+    let picked = duel
+        .interaction
+        .as_ref()
+        .and_then(baylee_client_core::Interaction::chosen_index);
 
     DrawerRevision {
         lines,
