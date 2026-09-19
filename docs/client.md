@@ -18,6 +18,18 @@ Bevy 2.5D duel client. Three crates, split by what can be tested without a GPU.
 > look up. `frontal.rs` still spells its material handles `skirt` / `rail` /
 > `drawer`, which is why the mapping is given where it matters rather than
 > renamed out from under the code.
+>
+> **"Shelf" and "ledge" each name a feature that exists on two surfaces**, and
+> that is deliberate rather than a collision: `tabletop::MAT_LEDGE` is the
+> mat's shoulder, the shelf is the defined sum `MAT_MARGIN + MAT_LEDGE`, and
+> `hud/ledge.rs` says in its own first paragraph that it took the name on
+> purpose because the hand zone gets the same shoulder at its top. Renaming
+> either would delete an analogy the code states twice. What the prose owes is
+> the **qualifier**: *the mat's shelf* against *the hand's shelf*, *the mat
+> ledge* against *the HUD ledge*, wherever both are in play. A sentence that
+> needs its section heading to be read correctly is a sentence missing a word.
+> Within one section about one surface the bare word is right, and mixing the
+> two words for that one surface a line apart is the thing to avoid.
 
 The current table uses warm golden-hour daylight, cool cloud shadows, and
 an indigo night with moving aurora and stars. The sky's eased day/night value
@@ -3525,8 +3537,8 @@ exactly the seats that needed flipping, so the steps are the row furthest
 from the board at a near seat, a far seat and a side seat alike.
 It reaches a duel and stops there, and what stops it is **length**.
 `a_duel_is_written_on_two_rows` is the test, and it reports both shelves
-rather than the first, because the number that decides the ledge is the
-*shallower* of the two. Those two are about a tenth apart (55.0 against 61.1
+rather than the first, because the number that decides the mat's shelf is
+the *shallower* of the two. Those two are about a tenth apart (55.0 against 61.1
 at 1728), so there is a band of window sizes — roughly 1280 to 1366 at this
 aspect — where a duel writes its local bar on two rows and its opponent's on
 one. It was 1150 to 1250 until the identity row grew from 14 px to 18 and took
@@ -3552,7 +3564,7 @@ mat draws. See "Where a bar is measured from", below.
 A turn has five phases and they have three, none, five, none and two steps
 (CR 500.1, and CR 501.1 / CR 506.1 / CR 512.1 for the three that have any).
 Twelve tiles at one spacing says the opposite — twelve equal parts — and on a
-duel's 1165-pixel ledge, where the tiles reach their cap long before the ends,
+duel's 1165-pixel shelf, where the tiles reach their cap long before the ends,
 the leftover went into eleven equal gaps and the row read as twelve scattered
 pills. `automation::RailPhase` is the grouping, and the row is drawn as five
 groups: `Density::tile_gap` inside a phase, the wider `Density::phase_gap`
@@ -3599,8 +3611,8 @@ life total standing under "combat" reads as being *about* combat.
 **The tiles follow the shelf, and the gap between phases has a floor.** A bar
 is rebuilt when its *density* changes and re-placed every frame, which is
 right for a box and was wrong for the one ink inside it whose width is not a
-fixed number of pixels: the twelve tiles kept the width the ledge projected at
-the moment the tree was built, and a camera still easing towards its home —
+fixed number of pixels: the twelve tiles kept the width the mat's shelf
+projected at the moment the tree was built, and a camera still easing towards its home —
 every duel, for the first second of it — then left the box on the whole shelf
 and the tiles a tenth short of it, with `SpaceBetween` quietly spending the
 difference on the phase gaps. Photographed at 1728×1052: 66 px tiles and 45 px
@@ -3622,8 +3634,8 @@ with that hierarchy upside down. A *skip* is what most steps are, and the
 skip wore `DANGER`, so the alarm colour was painted on the ordinary case
 while the deliberate one got a quiet parchment frame; every live tile was
 framed and filled either way, which is twelve stadiums across a 1127 px
-shelf. It also made the bar opaque, and the ledge is crossed by things the
-table draws — a combat line to the far seat, a card lifting under the
+shelf. It also made the bar opaque, and the mat's shelf is crossed by things
+the table draws — a combat line to the far seat, a card lifting under the
 pointer, a permanent falling in from `ENTRANCE_RISE`. Twelve solid chips
 floating over all of them is most of what "it floats over stuff" was.
 
@@ -3631,7 +3643,7 @@ So the rare state is the marked one:
 
 - **The ground is the standing order.** A stop is `PARCHMENT` at 0.14 with
   its glyph at full ink (6.99:1 on that ground); a skip is ink at half alpha
-  on bare cloth (3.75:1 over the measured ledge, which is above the 3:1 a
+  on bare cloth (3.75:1 over the measured shelf, which is above the 3:1 a
   graphical object needs and below what a paragraph wants — right for a label
   nobody is being asked to read). A *luminance* difference rather than a hue
   one, which is what a green felt makes of any attempt to say go/stop in
@@ -4889,7 +4901,7 @@ never despawns the panel: it writes `closing` and lets the fold finish.
 
 The panel is retained for an argument **neither strip has**. The concession
 takes two presses, the arming press changes `LedgeRevision` and rebuilds the
-shelf's columns — so a panel that lived among them would be despawned between
+hand's shelf and its columns — so a panel that lived among them would be despawned between
 the two presses of the one decision in this client that has no undo. The
 second press would land on a button built half a frame earlier, at a position
 nothing guaranteed was the same.
@@ -4920,7 +4932,7 @@ point is that the curve passes 1 and comes back.
 
 Two things about measuring it are worth more than the numbers. The first
 attempt matched on the panel's ground colour over a loose window and got 871
-wide with its right edge at 3395 — the shelf's own ground is that colour, so
+wide with its right edge at 3395 — the hand's shelf has that same ground, so
 what came back was the shelf, and it was committed before anyone held it
 against `2 · MENU_W` or against `2 · (1728 − EDGE)`. Either check would have
 refused it in one line, and one of them was already contradicted out loud: the
@@ -5838,7 +5850,7 @@ layout pass, so "the bar is in the wrong place" is a claim about numbers — the
 centre the box is hung on, the projected length and depth of that ledge, and
 the `ink` the depth has to be able to hold — and the route reports the numbers
 the placement was actually made from, in the same logical pixels `/pointer`
-takes. A shelf whose `ink` is close to its `depth` is a bar about to stand on
+takes. A mat's shelf whose `ink` is close to its `depth` is a bar about to stand on
 the creature lane behind it. It was added to settle exactly that question: a
 duel's bar reported `mid_y` 605.9 over a depth of 49.0, while the screenshot
 put the drawn ledge at 560..611 and the bar's ink at 591..620 — so the drawing
