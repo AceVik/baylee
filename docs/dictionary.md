@@ -303,6 +303,34 @@ are English. These are the pairs that are not a dictionary lookup.
 
 ---
 
+## The two cheap lanes
+
+Two models below this team's own tier are available to **every** session, not
+only to the card lane. The ids are read from `scripts/llm/lane.py:46-47` and
+never from memory:
+
+- **Gemini 3.8 Flash (high)** — `gemini-3.8-flash-high`, reached as
+  `agy -p <prompt> --model <model> --print-timeout <N>m`.
+- **DeepSeek Flash (max)** — `deepseek-flash[1m]`, reached over HTTP with
+  `DEEPSEEK_API_KEY`, or an opencode login.
+
+**They are scarce in different units, and that is what plans them.** DeepSeek
+costs money per token and is cheap, so it is planned in *items*. Gemini costs
+no money but a time quota — and that quota **renews weekly**, which makes it
+use-it-or-lose-it: an unspent Gemini week is gone, an unspent DeepSeek token
+is not. Prefer Gemini for anything bulky while the week is young. Gemini also
+makes **images**, which is the one capability neither this team nor DeepSeek
+has: reference imagery and mockups for a look, argued over as pictures before
+anyone writes a shader.
+
+**What does not change.** Whoever wrote a thing does not write its test — a
+card and its test from one model share that model's misreading. No lane runs
+`cargo`; the build belongs to the coordinator. No `xtask codegen` runs while a
+batch is in flight. A lane does not write a rule, a heuristic or a look: it
+produces volume where a mistake is local, and the session holding the
+territory does the reading. And it goes nowhere near the gateway's store or
+auth surface — accounts, sessions, tokens, argon2id hashes.
+
 ## House phrases
 
 Short sentences this team uses as shorthand. Each one is a rule.
@@ -350,3 +378,39 @@ Short sentences this team uses as shorthand. Each one is a rule.
   Three hashes wear two names here, and two of them are live. A no-caller
   result spread over 66 fields reads as a blanket reprieve while the sibling
   is running in every game.
+- **"A gate on a dirty tree says nothing about `HEAD`."** Observed on 19.09:
+  a full green gate — fmt, clippy, rc 0, 2929 tests — reported for a head
+  that did not compile, because the fix was in the working tree and not in
+  the commit. Every number was true of what was on disk and true of nothing
+  that was committed. `git status` before quoting a gate.
+- **"A green gate describes the tree it ran on, not the tree the merge will
+  produce."** The same day, the same break, a second cause: the commit was
+  gated before the rebase that brought a changed signature into its tree. A
+  rebase replays cleanly when no file overlaps — and a call site that no
+  longer matches its callee is a break a rebase cannot see. Rebase first,
+  then gate.
+- **"When the collision is a subsystem rather than a file, read the other
+  side's diff."** File-disjointness has waived a re-gate correctly all day.
+  It is not enough when both sides touch one subsystem: if the other diff
+  only loosens a bound (a raised timeout), the older gate still holds; if it
+  moves an assertion or a signature, it does not. The instrument is the
+  **dependency graph and not the file list** — the gateway's change listed a
+  file under `crates/baylee-client/` and was a comment, while its dev closure
+  genuinely compiled a `baylee-client-core` the other side had rewritten. One
+  of those two facts decides and the file list is not it.
+- **"The field a literal harness hides is the one whose empty value is also a
+  legal value."** Narrower than "a struct literal only claims what it sets",
+  and the narrowing is the finding: `board: None` fails loudly, because every
+  reader bails and the test notices, while `reachable: {}` and
+  `owed_plan: None` are answers a working client gives all day — so the test
+  passes whatever the feature does, including nothing. Measured over the
+  client: 41 of 192 read a wire-filled field with no fill path in reach, and
+  most of the 41 are legitimate. Build the seat through the wire and hand it
+  to the surface being asked.
+- **"A filter written for one of a tool's verbs hides the other."** `cargo`
+  says `Compiling` for a crate it builds and `Checking` for one it only
+  type-checks, so a grep for `Compiling baylee` reported that a `cargo check`
+  had touched neither of the two crates it had just checked. The run was
+  green and the filter said nothing happened — which is the same shape as a
+  reader answering a question it cannot see, in the one place it is easiest
+  to mistake for a result.
