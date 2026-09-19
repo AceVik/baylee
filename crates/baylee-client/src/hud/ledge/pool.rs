@@ -95,6 +95,18 @@ pub struct PoolCount;
 #[derive(Component)]
 pub struct PoolLabel;
 
+/// The second half of the row: what this seat still owes, while it owes it.
+///
+/// One node for the word and the pips together, because the pair is one
+/// statement and is spawned and thrown away as one. It is **not** a
+/// [`PoolEntry`]: an entry is mana that arrived and will leave, with a
+/// [`PipZoom`] carrying it through both, and an owed cost neither arrives nor
+/// leaves — it is a fact about the window that is either true or gone. Giving
+/// it an entry's machinery would put it in `wanted`, where it would be
+/// compared against the pool it is *not* part of.
+#[derive(Component)]
+pub struct PoolOwed;
+
 /// Where the **strip** is in its own arrival or departure.
 ///
 /// A component on the strip and not a resource, which is the shape
@@ -167,6 +179,9 @@ type Painted<'w, 's> = Query<
 pub struct PoolRevision {
     pool: Vec<Floating>,
     lang: Option<Lang>,
+    /// What the seat owes in an open payment window, and `None` the rest of
+    /// the time — which is nearly always.
+    owed: Option<baylee_core::mana::ManaCost>,
 }
 
 /// Spawns the strip, once, beside the shelf.
@@ -248,6 +263,7 @@ pub fn sync_pool(
     kids: Query<&Children>,
     mut counts: Query<&mut Text, With<PoolCount>>,
     labels: Query<(), With<PoolLabel>>,
+    owed_nodes: Query<(), With<PoolOwed>>,
     painted: Painted,
 ) {
     let Ok((column, standing, seen, mut fold)) = strip.single_mut() else {
@@ -262,6 +278,7 @@ pub fn sync_pool(
             .map(|s| baylee_client_core::manapool::row(&s.mana_pool))
             .unwrap_or_default(),
         lang: Some(lang),
+        owed: duel.view.as_ref().and_then(|v| v.owed),
     };
 
     let children: Vec<Entity> = standing.into_iter().flatten().copied().collect();
@@ -299,7 +316,13 @@ pub fn sync_pool(
     // and took it away again, which is the movement carrying no information
     // that §4.1 forbids — and left out here it would take the whole strip
     // away over a pip in the middle of its fade.
-    let empty = wanted.is_empty() && leaving.is_empty() && live.is_empty();
+    // A fourth conjunct, and the one that is not about a pip. The strip is
+    // hidden while nothing floats — the owner's rule of 19.09.2026 — and the
+    // first frame of a payment window is exactly that: {2} owed and nothing
+    // floated yet. Without this the row that says what is owed would be
+    // folded away until the player had already worked it out and tapped
+    // something, which is the moment it stops being worth saying.
+    let empty = wanted.is_empty() && leaving.is_empty() && live.is_empty() && next.owed.is_none();
     // **Showing**, not visible: a strip in the middle of folding away is still
     // on the screen and is already answered for, so reading `Visibility` alone
     // would start the same close on every frame until it finished and reset
@@ -370,8 +393,21 @@ pub fn sync_pool(
     }
     ordered.sort_by_key(|(rank, _)| *rank);
 
+    // Whatever said what was owed a moment ago, gone: `replace_children`
+    // takes a node out of the tree and does not despawn it, and this one is
+    // rebuilt rather than kept because its whole content is the thing that
+    // changed. The label above is the opposite case and is kept for it.
+    for &child in &children {
+        if owed_nodes.contains(child) {
+            commands.entity(child).despawn();
+        }
+    }
+
     let mut row = vec![head];
     row.extend(ordered.into_iter().map(|(_, entry)| entry));
+    if let Some(cost) = revision.owed {
+        row.push(owed_group(&mut commands, &fonts, lang, &cost));
+    }
     commands.entity(column).replace_children(&row);
 }
 
@@ -574,6 +610,59 @@ fn label(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// The row's second half: the word `Owed` and the cost, as pips.
+///
+/// Drawn by the same [`crate::manaui::spawn_pip`] the deck builder draws a
+/// printed cost with, at the pool's own pip size, because "owe {2}{G}" and
+/// "have {G}" standing in two different registers would be two things a
+/// player has to convert between before they can subtract them.
+///
+/// The word is [`palette::LEDGE_SOFT`] like the row's own label and for its
+/// measured reason — 5.45 : 1 on the strip's `DIALOG_LIT`, over the 4.5 prose
+/// is held to. The pips carry their own colours and are not dimmed: an owed
+/// cost is not a disabled thing, it is the question being asked.
+fn owed_group(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    cost: &baylee_core::mana::ManaCost,
+) -> Entity {
+    let group = commands
+        .spawn((
+            PoolOwed,
+            Node {
+                column_gap: px(POOL_ENTRY_GAP),
+                align_items: AlignItems::Center,
+                // The wider step of §4.1 before it, because this is a second
+                // statement and not a fourth pip.
+                margin: UiRect::left(px(POOL_LABEL_GAP - POOL_ENTRY_GAP)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let word = commands
+        .spawn((
+            Text::new(Phrase::Owed.text(lang).to_string()),
+            tf(fonts, POOL_LABEL_PT),
+            TextColor(palette::LEDGE_SOFT),
+            Node {
+                margin: UiRect::right(px(POOL_LABEL_GAP - POOL_ENTRY_GAP)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut kids = vec![word];
+    kids.extend(
+        baylee_client_core::manapip::cost(cost)
+            .into_iter()
+            .map(|pip| crate::manaui::spawn_pip(commands, fonts, pip, POOL_PIP)),
+    );
+    commands.entity(group).replace_children(&kids);
+    group
 }
 
 /// One entry: a pip and how many of it.

@@ -246,20 +246,33 @@ impl Offer {
     /// steps — a spell nobody can pay for has no plan at all — and a set
     /// built per frame to answer six questions costs more than the answers.
     #[must_use]
-    pub fn on(armed: Option<&crate::Armed>, members: &[ObjectId], activatable: bool) -> Self {
-        let Some(armed) = armed else {
-            return Self::activatable(activatable);
+    pub fn on(proposing: crate::Proposing<'_>, members: &[ObjectId], activatable: bool) -> Self {
+        let spends = |plan: &baylee_client_core::manaplan::Plan| {
+            plan.steps.iter().any(|step| members.contains(&step.source))
         };
-        Self {
-            activatable,
-            armed: members.contains(&armed.object),
-            will_tap: match &armed.deed {
-                // Whichever end the run has: a land the plan spends is a land
-                // the player has to see marked before the second click.
-                crate::Deed::Run { plan, .. } => {
-                    plan.steps.iter().any(|step| members.contains(&step.source))
-                }
-                crate::Deed::Play | crate::Deed::Ability(_) | crate::Deed::Suspend => false,
+        match proposing {
+            crate::Proposing::Nothing => Self::activatable(activatable),
+            crate::Proposing::Armed(armed) => Self {
+                activatable,
+                armed: members.contains(&armed.object),
+                will_tap: match &armed.deed {
+                    // Whichever end the run has: a land the plan spends is a
+                    // land the player has to see marked before the second
+                    // click.
+                    crate::Deed::Run { plan, .. } => spends(plan),
+                    crate::Deed::Play | crate::Deed::Ability(_) | crate::Deed::Suspend => false,
+                },
+            },
+            // The same light for a different claim, deliberately. `WILL_TAP`
+            // means "the plan would spend this", and that is exactly as true
+            // of a payment window as of an armed spell — what differs is what
+            // happens on the next tap, and the next tap is the player's
+            // either way. Nothing is `armed` here, because nothing was: a
+            // mana ability is one tap and the arming contract exempts it.
+            crate::Proposing::Owed(plan) => Self {
+                activatable,
+                armed: false,
+                will_tap: spends(plan),
             },
         }
     }
@@ -1897,7 +1910,7 @@ pub(crate) mod tests {
                 then: crate::RunEnd::Cast,
             },
         };
-        let offer = Offer::on(Some(&run), &forests, false);
+        let offer = Offer::on(crate::Proposing::Armed(&run), &forests, false);
         assert!(offer.will_tap, "one of the three is being spent");
         assert!(!offer.armed, "the spell is not one of the lands");
 
@@ -1917,7 +1930,7 @@ pub(crate) mod tests {
             },
         };
         assert_eq!(
-            Offer::on(Some(&other), &forests, true),
+            Offer::on(crate::Proposing::Armed(&other), &forests, true),
             Offer::activatable(true)
         );
 
@@ -1926,7 +1939,7 @@ pub(crate) mod tests {
             object: forests[0],
             deed: crate::Deed::Play,
         };
-        let offer = Offer::on(Some(&play), &forests, false);
+        let offer = Offer::on(crate::Proposing::Armed(&play), &forests, false);
         assert!(offer.armed && !offer.will_tap);
     }
 

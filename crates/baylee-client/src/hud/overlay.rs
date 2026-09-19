@@ -198,12 +198,23 @@ pub fn sync_overlay(
         .cast_menu
         .as_ref()
         .filter(|_| !over)
-        .map(|m| m.prompt().headline(lang, turn, duel.statics.as_ref()))
+        .map(|m| {
+            m.prompt().headline(
+                lang,
+                turn,
+                duel.statics.as_ref(),
+                duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
+            )
+        })
         .or_else(|| {
-            duel.interaction
-                .as_ref()
-                .filter(|_| !over)
-                .map(|i| i.prompt().headline(lang, turn, duel.statics.as_ref()))
+            duel.interaction.as_ref().filter(|_| !over).map(|i| {
+                i.prompt().headline(
+                    lang,
+                    turn,
+                    duel.statics.as_ref(),
+                    duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
+                )
+            })
         });
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an

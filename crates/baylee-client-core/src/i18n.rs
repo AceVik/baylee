@@ -935,6 +935,32 @@ messages! {
         en: "Waiting for the house — {0} is away",
         de: "Warte auf das Haus — {0} ist abwesend",
     },
+    /// You owe mana. Tap lands to pay, or pass.
+    ///
+    /// The sentence a payment window had none of. A CR 605.3a window is an
+    /// ordinary priority round offering mana abilities and nothing else, so
+    /// without this it reads "Your move" over a board with nothing to play —
+    /// which is the same thing the house agent saw before `PlayerView::owed`
+    /// existed, and it passed and lost its spell.
+    ///
+    /// It says what the window *is* and not what is owed: the amount is drawn
+    /// as pips beside the mana pool, where the mana that answers it is also
+    /// drawn, and a number said twice in two registers is a number two things
+    /// have to keep in step. It also stops short of what declining costs —
+    /// countered, or a tax unpaid — because that is the engine's sentence and
+    /// this client does not know which it is.
+    PayOrPass {
+        en: "You owe mana. Tap lands to pay, or pass.",
+        de: "Du schuldest Mana. Tippe Länder zum Bezahlen, oder passe.",
+    },
+    /// Owed
+    ///
+    /// The word the mana pool's row opens its second half with, while a
+    /// CR 605.3a window is open. One word and then the pips, beside the pips
+    /// of what is floating, so "owe {2}{G}" and "have {G}" are one glance in
+    /// one register — which is the argument for putting it here rather than
+    /// in the shelf's middle column beside the sentence.
+    Owed { en: "Owed", de: "Geschuldet" },
     /// Waiting
     JustWaiting { en: "Waiting", de: "Warte" },
     /// Keep this hand? (the next mulligan is free)

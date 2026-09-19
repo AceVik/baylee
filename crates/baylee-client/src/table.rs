@@ -2931,7 +2931,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // one particular Forest, and the card drawn for it may
                     // be standing for four.
                     offer: crate::cardmat::Offer::on(
-                        duel.armed.as_ref(),
+                        duel.proposing(),
                         &group.members,
                         group.activatable,
                     ),
@@ -3002,11 +3002,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                             1
                         },
                         art: card.art,
-                        offer: crate::cardmat::Offer::on(
-                            duel.armed.as_ref(),
-                            &[card.object],
-                            false,
-                        ),
+                        offer: crate::cardmat::Offer::on(duel.proposing(), &[card.object], false),
                         corner: baylee_client_core::cardplate::Corner::default(),
                         selected: duel
                             .interaction
@@ -3038,7 +3034,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 flying: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 art: pile.art,
-                offer: crate::cardmat::Offer::on(duel.armed.as_ref(), &[top], false),
+                offer: crate::cardmat::Offer::on(duel.proposing(), &[top], false),
                 corner: baylee_client_core::cardplate::Corner::default(),
                 selected: duel
                     .interaction

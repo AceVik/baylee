@@ -23,17 +23,20 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
             suspendable: vec![],
         }),
     });
-    assert_eq!(i.prompt().headline(Lang::En, Turn::Mine, None), "Your move");
     assert_eq!(
-        i.prompt().headline(Lang::De, Turn::Mine, None),
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Your move"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
         "Du bist dran"
     );
     assert_eq!(
-        i.prompt().headline(Lang::En, Turn::Theirs, None),
+        i.prompt().headline(Lang::En, Turn::Theirs, None, false),
         "You may respond"
     );
     assert_eq!(
-        i.prompt().headline(Lang::De, Turn::Theirs, None),
+        i.prompt().headline(Lang::De, Turn::Theirs, None, false),
         "Du kannst reagieren"
     );
 }
@@ -56,7 +59,7 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         reason: TargetPrompt::Targets,
     });
     assert_eq!(
-        i.prompt().headline(Lang::En, Turn::Mine, None),
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
         "Choose up to 2 targets"
     );
 
@@ -66,7 +69,7 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         max: 50,
     });
     assert_eq!(
-        i.prompt().headline(Lang::En, Turn::Mine, None),
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
         "Choose a number (0–50)"
     );
 
@@ -76,7 +79,7 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         source: None,
     });
     assert_eq!(
-        i.prompt().headline(Lang::En, Turn::Mine, None),
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
         "Pay 2 life? Otherwise it enters tapped"
     );
 }
@@ -106,7 +109,7 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
     })
     .prompt();
     assert_eq!(
-        waiting.headline(Lang::De, Turn::Theirs, Some(&roster)),
+        waiting.headline(Lang::De, Turn::Theirs, Some(&roster), false),
         "Warte auf AceVik"
     );
 
@@ -119,11 +122,11 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
     })
     .prompt();
     assert_eq!(
-        offer.headline(Lang::En, Turn::Mine, Some(&roster)),
+        offer.headline(Lang::En, Turn::Mine, Some(&roster), false),
         "AceVik offers a draw. Accept?"
     );
     assert_eq!(
-        offer.headline(Lang::De, Turn::Mine, Some(&roster)),
+        offer.headline(Lang::De, Turn::Mine, Some(&roster), false),
         "AceVik bietet ein Remis an. Annehmen?"
     );
 
@@ -132,11 +135,11 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
     // way, and this is what both lines said before there was a roster to
     // ask. The seat the roster does not describe answers the same way.
     assert_eq!(
-        waiting.headline(Lang::De, Turn::Theirs, None),
+        waiting.headline(Lang::De, Turn::Theirs, None, false),
         "Warte auf Platz 1"
     );
     assert_eq!(
-        offer.headline(Lang::En, Turn::Mine, None),
+        offer.headline(Lang::En, Turn::Mine, None, false),
         "Seat 1 offers a draw. Accept?"
     );
 }
@@ -173,24 +176,24 @@ fn a_held_chair_says_the_house_is_answering_for_it() {
     .prompt();
 
     assert_eq!(
-        waiting.headline(Lang::En, Turn::Theirs, Some(&roster)),
+        waiting.headline(Lang::En, Turn::Theirs, Some(&roster), false),
         "Waiting for the house — AceVik is away"
     );
     assert_eq!(
-        waiting.headline(Lang::De, Turn::Theirs, Some(&roster)),
+        waiting.headline(Lang::De, Turn::Theirs, Some(&roster), false),
         "Warte auf das Haus — AceVik ist abwesend"
     );
 
     roster.seats[1].away = false;
     assert_eq!(
-        waiting.headline(Lang::De, Turn::Theirs, Some(&roster)),
+        waiting.headline(Lang::De, Turn::Theirs, Some(&roster), false),
         "Warte auf AceVik",
         "the line is not turned by the flag"
     );
 
     roster.seats[1].is_ai = true;
     assert_eq!(
-        waiting.headline(Lang::En, Turn::Theirs, Some(&roster)),
+        waiting.headline(Lang::En, Turn::Theirs, Some(&roster), false),
         "Waiting for AceVik",
         "an AI chair was read as a held one"
     );
@@ -210,7 +213,7 @@ fn four_card_choices_read_as_four_different_decisions() {
             prompt: reason,
         })
         .prompt()
-        .headline(lang, Turn::Mine, None)
+        .headline(lang, Turn::Mine, None, false)
     };
 
     assert_eq!(
@@ -375,7 +378,11 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
     ];
     for pending in all {
         let i = interaction(pending);
-        assert!(!i.prompt().headline(Lang::En, Turn::Mine, None).is_empty());
+        assert!(
+            !i.prompt()
+                .headline(Lang::En, Turn::Mine, None, false)
+                .is_empty()
+        );
     }
 }
 
@@ -413,9 +420,9 @@ fn helping_to_pay_is_not_asked_for_as_targeting() {
         reason: TargetPrompt::Targets,
     });
     for lang in [Lang::En, Lang::De] {
-        let target_line = targeting.prompt().headline(lang, Turn::Mine, None);
+        let target_line = targeting.prompt().headline(lang, Turn::Mine, None, false);
         for asking in [&convoke, &delve] {
-            let line = asking.prompt().headline(lang, Turn::Mine, None);
+            let line = asking.prompt().headline(lang, Turn::Mine, None, false);
             assert!(!line.is_empty());
             assert_ne!(
                 line, target_line,
@@ -426,4 +433,77 @@ fn helping_to_pay_is_not_asked_for_as_targeting() {
     // And the selection itself is unchanged: it is still a bounded pick
     // over the offered permanents, answerable with none.
     assert!(convoke.confirm().is_some(), "convoke may be declined");
+}
+
+/// A payment window is a priority window and must not read as one.
+///
+/// The shape is the whole difficulty: a CR 605.3a window is an ordinary
+/// `Pending::Priority` offering mana abilities and nothing else, which is what
+/// lets every client draw it and every agent answer it without a new question
+/// — and is exactly why neither could tell it from a quiet pass. The house
+/// agent found nothing castable, passed, and its own spell was countered.
+///
+/// Both languages, and both turns: a payment window on an opponent's turn is
+/// still a payment window, so `owing` has to beat `Turn` rather than sit
+/// inside it.
+#[test]
+fn a_payment_window_says_what_it_is_instead_of_your_move() {
+    let i = interaction(Pending::Priority {
+        player: me(),
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            lands: vec![],
+            castable: vec![],
+            mana_abilities: vec![],
+            abilities: vec![],
+            suspendable: vec![],
+        }),
+    });
+    for turn in [Turn::Mine, Turn::Theirs] {
+        assert_eq!(
+            i.prompt().headline(Lang::En, turn, None, true),
+            "You owe mana. Tap lands to pay, or pass."
+        );
+        assert_eq!(
+            i.prompt().headline(Lang::De, turn, None, true),
+            "Du schuldest Mana. Tippe Länder zum Bezahlen, oder passe."
+        );
+    }
+}
+
+/// And it is the *priority* sentence it replaces, not every sentence.
+///
+/// `owing` is read off `PlayerView::owed`, which is a fact about the seat and
+/// not about the question — so it is live while any prompt is on screen, and a
+/// branch written one level too high would put the payment line over a
+/// mulligan or a discard. The engine cannot open a payment window inside
+/// those, so the only thing this can catch is the branch being in the wrong
+/// place; that is the thing worth catching.
+#[test]
+fn owing_changes_the_priority_line_and_no_other() {
+    for pending in [
+        Pending::Mulligan {
+            player: me(),
+            taken: 1,
+            next_is_free: false,
+        },
+        Pending::MulliganBottom {
+            player: me(),
+            count: 2,
+        },
+        Pending::ChooseNumber {
+            player: me(),
+            min: 0,
+            max: 3,
+        },
+    ] {
+        let i = interaction(pending);
+        let with = i.prompt().headline(Lang::En, Turn::Mine, None, true);
+        let without = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+        assert_eq!(
+            with, without,
+            "owing moved a sentence that is not the priority one: {with:?}"
+        );
+        assert!(!with.is_empty(), "and it must still say something");
+    }
 }

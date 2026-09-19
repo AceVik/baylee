@@ -2784,6 +2784,65 @@ The two differ in one thing that is not a colour: the `Surface` they hand it.
 A zone row is a projection and a pool row is a printing, so the flags an `is:`
 row offers and the rows the panel warns about are not the same on both.
 
+## A payment window, and the sentence it did not have
+
+A CR 605.3a payment window is **deliberately shaped like nothing**: an
+ordinary `Pending::Priority` offering mana abilities and no plays. That shape
+is what lets every client draw it and every agent answer it without a new
+question — and it is exactly why neither could tell it from a quiet pass over
+untapped lands, which is most windows most turns. The house agent said yes to
+ward's tax, was handed the window, found nothing castable, passed, and its own
+spell was countered. `PlayerView::owed` (`VIEW_VERSION` 24) is the answer, and
+it is a field rather than an inference on purpose: reading "I owe something"
+off an offer of mana abilities with nothing castable would tap lands in every
+other quiet window too.
+
+**The paying was never missing. Only the telling was.** A player in that
+window can already tap lands one at a time and watch the mana float — mana
+abilities are the documented exemption from the arming contract (one tap,
+CR 605.1, because floating mana is the cheap mistake), and a payment window is
+made of nothing else. So this is not the arming path pointed at a new cost. It
+is three things that say what is happening:
+
+- **The sentence.** `Prompt::headline` takes an `owing` flag and answers
+  `Phrase::PayOrPass` instead of "Your move", on either player's turn — a
+  payment window on an opponent's turn is still a payment window, so `owing`
+  beats `Turn` rather than sitting inside it. It says what the window *is* and
+  not what is owed, and stops short of what declining costs, because whether
+  it is a countered spell or an unpaid tax is the engine's sentence.
+- **The number**, beside the mana pool rather than in the shelf's middle
+  column. `Owed {2}{G}` and `have {G}` then stand in one register at one
+  scale, drawn by the same `manapip`, so a player subtracts them by looking
+  instead of converting first. The strip is hidden while nothing floats, and
+  the first frame of a payment window is exactly that case, so `owed` is a
+  fourth conjunct on its `empty` gate — otherwise the row saying what is owed
+  would unfold only after the player had worked it out.
+- **The lands**, through the planner unchanged. `manaplan::plan` takes a cost
+  it did not derive and spends the pool first by its own contract, so passing
+  `owed` — which is the *total*, not the remainder — needs no arithmetic here
+  at all. `glow::WILL_TAP` lights what it names.
+
+`Duel::proposing` is what keeps those lands honest. It is an enum —
+`Nothing` / `Armed` / `Owed` — and not an `Option<&Armed>` beside an
+`Option<&Plan>`, because two options are four states of which two are
+nonsense, and the third source this grows in a year would arrive as a third
+option every reader could go on ignoring. An armed deed wins over an open
+window: it is a commitment the player made, and a window opening underneath
+it does not relight the board. Nothing is ever *armed* by a window, which is
+its own test — arming here would be the contract growing an exception for the
+one case it was written to exclude.
+
+The plan is cached on `Duel` and refreshed on **both** edges, because it needs
+both: the view carries `owed` and the pool, the pending carries the mana
+abilities that could pay it, and the engine sends them in either order. A
+refresh on one edge only fails silently — the lands simply never light — so
+the order is asserted rather than trusted.
+
+`a_quiet_priority_window_over_untapped_lands_lights_nothing` is the test this
+whole field exists for, and it is the house-AI bug written from the client's
+side. If it is ever green for the wrong reason the feature is a permanent glow
+on every land a player owns, all game.
+
 ## Tapping lands for a spell
 
 The engine offers a spell as castable only when the mana is **already

@@ -546,6 +546,22 @@ out halfway through. In hand this is a third state: `Openings { playable,
 reachable }`, gold for what the engine offered and indigo for what this client
 is offering to do about it.
 
+The same planner answers a cost **nobody picked**. A CR 605.3a payment window
+is an ordinary `Pending::Priority` offering mana abilities and no plays —
+shaped like every quiet window in the game, which is why the house agent
+passed one and lost its spell — so `PlayerView::owed` carries what is owed
+rather than leaving it to be inferred. The paying was never missing: a mana
+ability is one tap and is the documented exemption from arming, so a player
+could always tap lands into that window. Only the telling was. `Phrase::PayOrPass`
+replaces "Your move", the cost is drawn as pips **beside the mana pool** (one
+register, one scale, so "owe" and "have" subtract by eye) and
+`glow::WILL_TAP` lights the lands `manaplan::plan` names — the planner takes
+the cost unchanged and spends the pool first by its own contract, so passing
+the *total* needs no arithmetic. `Duel::proposing` is an enum rather than two
+`Option`s so a third source cannot be added without a `match` naming it, an
+armed deed beats an open window, and a window arms **nothing**.
+`docs/client.md` §"A payment window, and the sentence it did not have".
+
 Activating an ability by hand did not exist at all until now —
 `Interaction::activate` was written and nothing called it, so a Forest, a mana
 dork and a planeswalker were equally inert under the pointer.

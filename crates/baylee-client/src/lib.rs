@@ -189,6 +189,33 @@ pub struct Armed {
     pub deed: Deed,
 }
 
+/// What this client is currently proposing the player tap, and on whose
+/// authority.
+///
+/// An enum with a variant per source rather than an `Option<&Armed>` beside an
+/// `Option<&Plan>`: two options are four states, two of which are nonsense,
+/// and the third source this grows in six months would arrive as a third
+/// `Option` that every reader could go on ignoring. A `match` here has to name
+/// it.
+///
+/// The two are not the same claim, which is the point of telling them apart at
+/// all. [`Self::Armed`] is a **commitment** — the player picked something and
+/// a second tap sends it, because the deed cannot be taken back.
+/// [`Self::Owed`] is a **suggestion**: the engine is holding a CR 605.3a
+/// window open, the plan says which lands would pay it, and nothing is armed,
+/// because tapping a land for mana is one tap by the rule at the top of this
+/// file — mana abilities are the exemption the arming contract was written
+/// with, and a payment window is made of nothing else.
+#[derive(Debug, Clone, Copy)]
+pub enum Proposing<'a> {
+    /// Nothing at all: the ordinary state of the game.
+    Nothing,
+    /// A deed waiting on its second tap.
+    Armed(&'a Armed),
+    /// An open payment window, and the taps that would settle it.
+    Owed(&'a baylee_client_core::manaplan::Plan),
+}
+
 /// What an [`Armed`] tap is waiting to do.
 ///
 /// Two of the three are *intents* rather than built actions, and the third
@@ -594,6 +621,15 @@ pub struct Duel {
     /// seat's priority — and it heals itself everywhere it is read, because
     /// every one of those paths re-resolves it first.
     pub armed: Option<Armed>,
+    /// The taps that would pay what this seat owes, while a payment window is
+    /// open for it.
+    ///
+    /// Cached rather than derived at the four places that draw a land,
+    /// because it depends on **both** edges — the view carries `owed` and the
+    /// pool, the pending carries the mana abilities that could pay it — and
+    /// the two arrive in either order. [`Self::refresh_owed_plan`] is called
+    /// from both for that reason, and neither one alone is enough.
+    pub owed_plan: Option<baylee_client_core::manaplan::Plan>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -697,6 +733,53 @@ impl Duel {
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
         }
+        self.refresh_owed_plan();
+    }
+
+    /// Works out afresh which lands would settle an open payment window.
+    ///
+    /// Both edges call it and neither is redundant: a view with no pending
+    /// yet has an `owed` and no mana abilities to pay it with, and a pending
+    /// arriving against a stale view would plan against the wrong pool.
+    ///
+    /// `owed` is the **total** and this passes it whole, because
+    /// `manaplan::plan` spends the pool first by its own contract — so the
+    /// plan is already for the remainder and nothing here subtracts anything.
+    /// A second arithmetic would be a second thing to keep in step with the
+    /// pool, which is the reason the view carries the total in the first
+    /// place.
+    pub(crate) fn refresh_owed_plan(&mut self) {
+        self.owed_plan = self.compute_owed_plan();
+    }
+
+    fn compute_owed_plan(&self) -> Option<baylee_client_core::manaplan::Plan> {
+        let view = self.view.as_ref()?;
+        // Only while this seat is the one being asked. `owed` names what the
+        // *awaited* seat owes, and the pair is one sentence.
+        if view.awaiting != Some(view.seat) {
+            return None;
+        }
+        let cost = view.owed?;
+        let legal = self.interaction.as_ref()?.legal_actions()?;
+        let pool = view.seat(view.seat)?.mana_pool;
+        baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+    }
+
+    /// What this client is proposing, if anything.
+    ///
+    /// An armed deed wins: it is a commitment the player made, and a payment
+    /// window that opened underneath it does not get to relight the board.
+    /// The engine withdraws the arming path's own option anyway, and every
+    /// reader re-resolves an `Armed` before it fires one.
+    #[must_use]
+    pub fn proposing(&self) -> Proposing<'_> {
+        if let Some(armed) = self.armed.as_ref() {
+            return Proposing::Armed(armed);
+        }
+        match self.owed_plan.as_ref() {
+            Some(plan) => Proposing::Owed(plan),
+            None => Proposing::Nothing,
+        }
     }
 
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
@@ -705,6 +788,7 @@ impl Duel {
             self.subtype_filter.clear();
         }
         self.interaction = Some(Interaction::new(pending, seat));
+        self.refresh_owed_plan();
         // The flank, not the state: `Cues` remembers whether the last
         // question was this seat's, so the acting seat being re-sent its own
         // question — which happens every time anybody at the table says
@@ -2221,6 +2305,9 @@ mod reconnect_tests;
 
 #[cfg(test)]
 mod commander_reach_tests;
+
+#[cfg(test)]
+mod owed_tests;
 
 #[cfg(test)]
 mod reachable_tests;

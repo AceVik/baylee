@@ -234,7 +234,13 @@ impl Prompt {
     /// [`crate::i18n::seat_name`] numbers a seat the roster does not describe,
     /// so a frame drawn before `GameStatic` arrives says what it used to.
     #[must_use]
-    pub fn headline(&self, lang: Lang, turn: Turn, statics: Option<&GameStatic>) -> String {
+    pub fn headline(
+        &self,
+        lang: Lang,
+        turn: Turn,
+        statics: Option<&GameStatic>,
+        owing: bool,
+    ) -> String {
         match self {
             Self::Waiting { on: Some(p) } => {
                 let name = seat_name(lang, statics, *p);
@@ -266,6 +272,16 @@ impl Prompt {
             // invitation and a different sentence: a player reads "Du bist
             // dran" over the Pass button as *it is your turn*, and then reads
             // the phase rail and the seat bars as disagreeing with it.
+            //
+            // A payment window is the one priority round where neither of
+            // those is true. It is deliberately shaped like nothing — mana
+            // abilities and no plays — so it arrives here as an ordinary
+            // `Priority` and said "Your move" over a board with nothing to
+            // move. `owing` is the caller reading `PlayerView::owed`, which
+            // exists precisely because this is not derivable: an offer of
+            // mana abilities with nothing castable is also every quiet
+            // window in the game.
+            Self::Priority { .. } if owing => Phrase::PayOrPass.text(lang).to_string(),
             Self::Priority { .. } => match turn {
                 Turn::Mine => Phrase::YourMove.text(lang).to_string(),
                 Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),

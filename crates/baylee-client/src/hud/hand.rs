@@ -200,7 +200,16 @@ pub(super) fn spawn_hand_zone(
         // never activatable — that is a battlefield word — so the only bit
         // this can carry is the armed one, and `Deed::Run` puts nothing here
         // because the lands it would tap are on the table, not in the hand.
-        let offer = crate::cardmat::Offer::on(armed, &[card.id], false);
+        //
+        // `Proposing::Owed` cannot reach here for the same reason and is not
+        // passed: a payment window's plan taps lands, and a land being tapped
+        // for it is on the battlefield by definition. The hand is given the
+        // armed half or nothing, which is the whole of what it can draw.
+        let offer = crate::cardmat::Offer::on(
+            armed.map_or(crate::Proposing::Nothing, crate::Proposing::Armed),
+            &[card.id],
+            false,
+        );
         // No border: the card is rounded like a real one; hover/selection
         // read as a soft accent glow instead of a frame.
         let shadow = if is_selected {

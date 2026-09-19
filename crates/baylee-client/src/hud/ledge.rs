@@ -809,12 +809,23 @@ pub fn sync_ledge(
         .cast_menu
         .as_ref()
         .filter(|_| !over)
-        .map(|m| m.prompt().headline(lang, turn, duel.statics.as_ref()))
+        .map(|m| {
+            m.prompt().headline(
+                lang,
+                turn,
+                duel.statics.as_ref(),
+                duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
+            )
+        })
         .or_else(|| {
-            duel.interaction
-                .as_ref()
-                .filter(|_| !over)
-                .map(|i| i.prompt().headline(lang, turn, duel.statics.as_ref()))
+            duel.interaction.as_ref().filter(|_| !over).map(|i| {
+                i.prompt().headline(
+                    lang,
+                    turn,
+                    duel.statics.as_ref(),
+                    duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
+                )
+            })
         });
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
