@@ -2172,26 +2172,45 @@ was answering for.
 
 Dialling on is right and did not change: `SeatAttached` runs `hand_back`, so
 the twelfth dial still returns the chair. What changed is that there are two
-sentences now, turning at `Retry::PATIENCE`.
+sentences now, turning at `Retry::brief`.
 
-**The client cannot say when the handover happens, and the reason is worth
-keeping.** `reconnect_window_secs` is not 60 — 60 is the `casual` preset;
-`blitz` is 30, and `gateway/src/clock.rs::resolve` accepts anything from
-`MIN_RECONNECT_SECS` (10) to `MAX_SECS` (3600) from whoever opened the room.
-No client is told it: the room listing carries `reconnect_secs` and the lobby
-model does not read it, and `baylee-view` carries no house rules at all. And
-plumbing it would not buy a countdown, because **the client is disconnected
-for exactly the window it would be counting down** — the number could only be
-learned at join, before it is needed.
+**The client still cannot say when the handover happens, and now it knows
+whether one is coming.** The half that cannot change is that **the client is
+disconnected for exactly the window it would be counting down**, so the moment
+of the handover is not observable from here however much the client is told.
+That is why the second sentence is in the future tense — *"the house will
+answer for your seat until you are back"* — rather than the indicative.
 
-So the second sentence is written in the future tense — *"the house will
-answer for your seat until you are back"* — which is true whether or not the
-handover has happened. The indicative would be a fabrication on every table
-but the one whose window matches the number the client guessed. `PATIENCE` is
-8 s, under the gateway's own floor for a window, so the first sight of that
-sentence is always before any table could have handed a chair over; the two
-constants live in crates that do not link and a `const` assertion in
-`reconnect.rs` pins the bound that cannot be compared.
+The half that did change is the window itself. `reconnect_window_secs` is not
+60 — 60 is the `casual` preset, `blitz` is 30, and
+`gateway/src/clock.rs::resolve` accepts anything from `MIN_RECONNECT_SECS`
+(10) to `MAX_SECS` (3600) from whoever opened the room. The client used to be
+told none of it and guessed, and the guess was a constant: `PATIENCE` was 8 s
+*because* 8 is under the gateway's floor of 10, so the second sentence was
+always early. `GameStatic::reconnect_secs` (`VIEW_VERSION` 26) is that number
+on the wire, and `reconnect::Window` is what a client has been told about it.
+
+**The guess was wrong in two directions and neither was the one it was written
+to prevent.** The floor of ten is the *gateway's*, enforced on a room; the
+engine takes any window at all, including zero — and zero there is not *at
+once*, it is *never*. `EngineRunner::clock` returns no deadline for it and
+`a_table_that_never_gives_up_a_chair_never_takes_one` pins that, so at a table
+seated by a harness with a zero window the bar promised a handover that was
+never coming, for the whole of a two-minute outage. And at a window of one to
+nine seconds — which a room cannot ask for and a harness can — it promised it
+late, after the chair had already gone.
+
+Both fall to one rule: **the wording turns at whichever comes first, the cap
+or the window, and does not turn at all without one.** `Window` is three
+states rather than an `Option<u32>` because *nobody told me* and *this table
+waits forever* are different facts that happen to want the same sentence, and
+flattening them would make the agreement look like an accident. `PATIENCE`
+survives as a readability cap — at an hour-long window the second sentence
+would otherwise wait an hour — and stops being a claim about a constant in a
+process this crate does not link. The `const` assertion that pinned that claim
+is gone with it; what replaced it is a test over a range of windows that
+straddles the cap, because a bound written where nothing can check it is the
+`RAIL_WIDTH` defect in a different file.
 
 Two things a `Retry` unit test cannot see, both now covered in
 `reconnect_tests.rs`. The schedule **does not advance during a dial in
@@ -2236,8 +2255,11 @@ anything. That floor is the **gateway's**: a room cannot ask for less, a
 local harness can, and at a one-second table seated by `dev-table` the sound
 becomes a tick. Named rather than guarded, because the alternative is a
 question identity the wire does not carry — and because a limit enforced in
-one layer says nothing about the layer beneath it, which is the same mistake
-`PATIENCE` one section up is written against.
+one layer says nothing about the layer beneath it, which is the mistake
+`PATIENCE` one section up was *making* until the table's own window reached
+the client. This one stays named: `decision_secs` is on the wire too, but a
+sound that fires at a fraction of the table's limit is a different decision
+from a sound that fires at a minute, and nobody has asked for it.
 
 **The number is drawn for every seat and rung only for this one.** The view
 publishes the awaited seat's remainder to the whole table deliberately, so

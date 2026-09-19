@@ -90,7 +90,7 @@ use baylee_client_core::browser::Placement;
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::{Seat, TableLayout};
-use baylee_client_core::reconnect::Retry;
+use baylee_client_core::reconnect::{Retry, Window};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{GameStatic, PlayerView};
@@ -206,6 +206,11 @@ pub struct Armed {
 /// because tapping a land for mana is one tap by the rule at the top of this
 /// file — mana abilities are the exemption the arming contract was written
 /// with, and a payment window is made of nothing else.
+///
+/// Which of the two a frame is in is [`Duel::proposing`]'s to say, and it says
+/// the commitment: **an armed deed wins over an open window**, because a
+/// window opening underneath a choice the player already made does not get to
+/// relight the board around it.
 #[derive(Debug, Clone, Copy)]
 pub enum Proposing<'a> {
     /// Nothing at all: the ordinary state of the game.
@@ -1898,6 +1903,12 @@ fn keep_the_table_connected(
     let Some(mut host) = host else {
         return;
     };
+    // Read before the arms rather than inside them, because `duel` is written
+    // in every one of them and this is the one thing read off it. It is also
+    // the last payload that arrived and not a live one: `GameStatic` reaches a
+    // client once, at join, and nothing clears it — which is what makes the
+    // window readable at all, since this runs only while the socket is gone.
+    let table = Window::of(duel.statics.as_ref());
     match host.0.link() {
         // `Local` is a host with no socket to lose, and the schedule must
         // never start on one: an in-process engine would otherwise be
@@ -1914,7 +1925,7 @@ fn keep_the_table_connected(
         // from the same place in both arms — see `link_note`.
         LinkState::Connecting => {
             retry.schedule.stayed_down(time.delta_secs());
-            duel.link_note = Some(link_note(&retry.schedule));
+            duel.link_note = Some(link_note(&retry.schedule, table));
         }
         LinkState::Down => {
             retry.schedule.stayed_down(time.delta_secs());
@@ -1925,7 +1936,7 @@ fn keep_the_table_connected(
                     reports.write(DuelReport::Unreachable);
                 }
             } else {
-                duel.link_note = Some(link_note(&retry.schedule));
+                duel.link_note = Some(link_note(&retry.schedule, table));
                 if retry.schedule.tick(time.delta_secs()) {
                     // A dial that could not even be started is not a reason
                     // to stop: the schedule has counted the attempt, and the
@@ -1947,8 +1958,14 @@ fn keep_the_table_connected(
 /// the back-off is at its cap — and the bar would alternate between two
 /// accounts of one outage. That is not a hypothetical; the arm above said
 /// `LinkLost` outright.
-fn link_note(schedule: &Retry) -> Phrase {
-    if schedule.brief() {
+///
+/// `table` is what this client was told about the reconnect window, and the
+/// second sentence is only reachable when it names one: `LinkStandIn`
+/// promises the house will answer for the seat, and at a table that hands no
+/// chair over — or one this client has not been told about — that is not
+/// early, it is a fabrication.
+fn link_note(schedule: &Retry, table: Window) -> Phrase {
+    if schedule.brief(table) {
         Phrase::LinkLost
     } else {
         Phrase::LinkStandIn

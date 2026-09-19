@@ -40,11 +40,18 @@ it stops and says so. It is allowed to back off at all because the engine's
 *decision* clock does not run for a seat with no socket — nobody is losing on
 time while it waits. That is not a licence for the banner to say nothing is
 happening: the **reconnect** clock does run, and when it expires the house
-takes the chair. The bar turns to a second sentence at `Retry::PATIENCE`, in
-the future tense, because the window is a per-table 10 s–3600 s that no
-client is ever told and could not count down anyway — it is disconnected for
-exactly that span. `docs/client.md` §"What the banner may claim, and why it
-cannot count".
+takes the chair. The bar turns to a second sentence at `Retry::brief`, in the
+future tense, because a client is disconnected for exactly the span it would
+have to count and the moment of the handover is not observable from here.
+*Whether* one is coming is: `GameStatic::reconnect_secs` carries the table's
+window (`VIEW_VERSION` 26) and `reconnect::Window` is what this client has
+been told about it, in three states because *never told* and *waits forever*
+are different facts that want the same sentence. The wording turns at
+whichever comes first, the cap or the window, and not at all without one —
+`PATIENCE` is 8 s of reading room and no longer a claim about the gateway's
+floor of ten, which only ever spoke for tables the gateway made. The engine
+takes any window, and zero there means *never*, not *at once*.
+`docs/client.md` §"What the banner may claim, and why it cannot count".
 
 The **decision** clock is the other one and is now drawn: `PlayerView`
 `decision_remaining_ms` is relative milliseconds, so `DecisionClock`

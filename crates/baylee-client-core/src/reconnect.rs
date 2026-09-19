@@ -26,6 +26,66 @@
 //! sentence over it, which went on promising that nothing was happening for
 //! as long as two minutes. [`Retry::PATIENCE`] is where the wording turns and
 //! carries the argument.
+//!
+//! *When* it turns is the table's to say and not this module's. The window
+//! is a per-table number, [`Window`] is what a client has been told about it,
+//! and the wording turns no later than the chair changes hands at whatever
+//! table this is.
+
+use baylee_view::GameStatic;
+use std::num::NonZeroU32;
+
+/// How long the table holds a seat whose player is gone, as far as this
+/// client knows.
+///
+/// Three states rather than an `Option<u32>`, because *nobody has told me*
+/// and *this table waits forever* are different facts and only one of them
+/// is a number that is missing. They happen to want the same banner, which
+/// is exactly why flattening them would be a mistake: the agreement would
+/// stop looking like a decision and start looking like an accident.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Window {
+    /// No [`GameStatic`] has arrived, so this client has not been told.
+    ///
+    /// Reachable: a dial that fails before the payload lands leaves a duel
+    /// that knows its seat and not its house rules.
+    Unknown,
+    /// The chair is held until its player comes back, however long that is.
+    ///
+    /// `HouseRules::reconnect_window_secs` spells this **zero**, which
+    /// `EngineRunner::clock` reads as *no deadline at all* rather than as
+    /// *immediately* — `a_table_that_never_gives_up_a_chair_never_takes_one`
+    /// in `baylee-engine-server` is the test that pins it.
+    Forever,
+    /// The house takes the chair after this many seconds.
+    ///
+    /// Non-zero by construction, so the one number that means the opposite
+    /// of what it looks like cannot be stored here at all. [`Window::secs`]
+    /// is the door and does the mapping.
+    Secs(NonZeroU32),
+}
+
+impl Window {
+    /// What the once-per-game payload says, if it has arrived.
+    ///
+    /// The whole mapping lives here so that no caller has to remember which
+    /// of `GameStatic`'s two `Option`s means *no limit* — both do, and
+    /// `no_limit_is_none` in `baylee-gamehost` is where they are spelt that
+    /// way.
+    #[must_use]
+    pub fn of(statics: Option<&GameStatic>) -> Self {
+        statics.map_or(Self::Unknown, |statics| {
+            statics.reconnect_secs.map_or(Self::Forever, Self::secs)
+        })
+    }
+
+    /// A window of `secs` seconds, reading zero the way the house rules
+    /// write it: a table that waits forever.
+    #[must_use]
+    pub fn secs(secs: u32) -> Self {
+        NonZeroU32::new(secs).map_or(Self::Forever, Self::Secs)
+    }
+}
 
 /// The retry schedule for a table that has lost its socket.
 #[derive(Clone, Debug)]
@@ -73,36 +133,33 @@ impl Retry {
     /// dials on this schedule is a little over two minutes.
     pub const GIVE_UP: u32 = 12;
 
-    /// How long a drop stays a hiccup, in seconds.
+    /// The longest a drop is dressed up as a hiccup, in seconds.
     ///
     /// Not a fact about the table — a fact about the wording. Under it the
     /// player is told the connection dropped and that something is being
     /// done, which is all that is true yet. Over it they are told the rest:
     /// that the house will answer for their seat until they are back.
     ///
-    /// **It is deliberately shorter than the shortest reconnect window this
-    /// gateway will host** — `MIN_RECONNECT_SECS`, ten seconds, in
-    /// `baylee-gateway/src/clock.rs`. That is what makes the second sentence
-    /// safe in the future tense: at the moment it first appears no table can
-    /// have handed a chair over yet, so it never denies something that has
-    /// already happened. The two constants cannot be compared in code —
-    /// this crate does not link the gateway and must not — so the assertion
-    /// below pins the bound and this names where the other half lives.
+    /// **A cap, and no longer a claim.** It used to be justified by being
+    /// under `MIN_RECONNECT_SECS` — the gateway's floor of ten on a reconnect
+    /// window — so that the second sentence could never appear after a chair
+    /// had already changed hands. That argument was about a constant in a
+    /// process this crate does not link, and it only held where the gateway
+    /// was the thing that made the table: the engine accepts any window at
+    /// all, so a harness could seat one this number outran. The old doc named
+    /// that case and said it was worth saying rather than guarding, and a
+    /// compile-time assertion pinned the literal. Both are gone.
+    /// [`Retry::brief`] takes the window the table actually plays at and
+    /// turns the wording at whichever comes first, so no value of this
+    /// constant can outrun any window and there is nothing left to pin.
     ///
-    /// **It is the gateway's floor and not the engine's**, which matters for
-    /// exactly one kind of table: the engine accepts a zero window and the
-    /// gateway refuses it, so a local harness may seat a shorter one than any
-    /// room can. There the second sentence can appear after a chair has
-    /// already gone to the house — still true, only no longer early. A
-    /// limit enforced in one layer says nothing about the layer under it, and
-    /// this one is worth saying rather than guarding.
-    ///
-    /// A fixed number is the best a client can do here, and that is the
-    /// finding rather than a shortcut. `reconnect_window_secs` is a
-    /// per-table value between ten seconds and an hour; it reaches no client
-    /// (neither `baylee-view` nor the lobby model carries it); and it could
-    /// not be used if it did, because the client is disconnected for exactly
-    /// the window it would be counting down.
+    /// What it is now is eight seconds of reading room on a table whose
+    /// window is long: at a one-hour window the second sentence would
+    /// otherwise wait an hour, and a player watching a bar that has said
+    /// nothing new for a minute has been told less than one that turned.
+    /// Nothing measured chose eight; it is the number that was already here,
+    /// kept because a cap has to be some number and this one has been on
+    /// screen.
     pub const PATIENCE: f32 = 8.0;
 
     /// A schedule for a link that has just gone down.
@@ -153,13 +210,30 @@ impl Retry {
         self.down += dt;
     }
 
-    /// Whether the drop is still short enough to mean nothing.
+    /// Whether the drop is still short enough to mean nothing **at this
+    /// table**.
     ///
-    /// [`Retry::PATIENCE`] has why there is a threshold and why it is where
-    /// it is.
+    /// The wording turns at whichever comes first, the cap or the window, so
+    /// the sentence that says the house will answer for the seat is only ever
+    /// shown while that is still ahead. At a table that hands the chair over
+    /// after five seconds it turns at five; at one that never does, or at one
+    /// this client has not been told about, it does not turn at all and the
+    /// player goes on being told the true thing — that the connection
+    /// dropped and it is being dialled.
+    ///
+    /// [`Retry::PATIENCE`] has why there is a cap; [`Window`] has why not
+    /// knowing and waiting forever are separate and land in the same arm.
     #[must_use]
-    pub fn brief(&self) -> bool {
-        self.down < Self::PATIENCE
+    pub fn brief(&self, window: Window) -> bool {
+        match window {
+            Window::Unknown | Window::Forever => true,
+            // In `f64` rather than casting the window to `f32`: every `u32`
+            // a window can hold is exact there, and the comparison is the
+            // one place a rounded second would move a sentence.
+            Window::Secs(secs) => {
+                f64::from(self.down) < f64::from(Self::PATIENCE).min(f64::from(secs.get()))
+            }
+        }
     }
 
     /// Whether the schedule has run out and the player has to be told.
@@ -187,20 +261,6 @@ impl Retry {
         self.left.max(0.0)
     }
 }
-
-/// The bound [`Retry::PATIENCE`] argues for, pinned where it cannot be
-/// checked.
-///
-/// `MIN_RECONNECT_SECS` is ten and lives in the gateway, which this crate
-/// does not link. A compile-time assertion against the literal is what is
-/// left: it cannot notice the gateway lowering its floor, but it does stop
-/// this number being raised past it by somebody who only wanted the banner
-/// to wait a little longer.
-const _: () = assert!(
-    Retry::PATIENCE < 10.0,
-    "PATIENCE must stay under the gateway's MIN_RECONNECT_SECS, or the \
-     second sentence can appear after a chair has already been handed over"
-);
 
 #[cfg(test)]
 mod tests {
@@ -234,12 +294,18 @@ mod tests {
     /// the stand-in from frame one would make every hiccup an event.
     #[test]
     fn a_drop_is_a_hiccup_until_it_is_not() {
+        // An ordinary table: its window is far longer than the cap, so the
+        // cap is what turns the wording and this test is about the cap.
+        let table = Window::secs(60);
         let mut retry = Retry::new();
-        assert!(retry.brief(), "a link that just went is not an outage");
+        assert!(retry.brief(table), "a link that just went is not an outage");
         retry.stayed_down(Retry::PATIENCE - 0.01);
-        assert!(retry.brief(), "still inside the hiccup");
+        assert!(retry.brief(table), "still inside the hiccup");
         retry.stayed_down(0.02);
-        assert!(!retry.brief(), "past it, and the player is told the rest");
+        assert!(
+            !retry.brief(table),
+            "past it, and the player is told the rest"
+        );
     }
 
     /// A dial in flight counts against the player even though it counts for
@@ -263,7 +329,10 @@ mod tests {
             "the schedule did not move: {}",
             retry.wait()
         );
-        assert!(!retry.brief(), "but a minute is not a hiccup");
+        assert!(
+            !retry.brief(Window::secs(60)),
+            "but a minute is not a hiccup"
+        );
     }
 
     /// A link that comes back forgets it was ever down, so the *next* drop
@@ -278,11 +347,11 @@ mod tests {
         }
         assert_eq!(retry.attempts(), 4);
         retry.stayed_down(60.0);
-        assert!(!retry.brief());
+        assert!(!retry.brief(Window::secs(60)));
         retry.settle();
         assert_eq!(retry.attempts(), 0);
         assert!(
-            retry.brief(),
+            retry.brief(Window::secs(60)),
             "a reconnected table still reads as an outage"
         );
         assert!(!retry.tick(0.4), "the first wait is short again, not zero");
@@ -317,5 +386,90 @@ mod tests {
             assert!(!retry.tick(0.0));
         }
         assert_eq!(retry.attempts(), 0);
+    }
+
+    /// The wording turns while the handover is still ahead, at every table
+    /// this client can be told about.
+    ///
+    /// This is what replaced the compile-time assertion pinning `PATIENCE`
+    /// under the gateway's floor of ten. That bound only spoke for tables the
+    /// gateway made; the range here deliberately straddles the cap, because a
+    /// window **below** it is exactly the table the old bound could not see
+    /// and the engine will happily seat.
+    ///
+    /// The turn is written out beside the window rather than computed, so
+    /// this does not check the implementation's `min` against a second copy
+    /// of itself.
+    #[test]
+    fn the_wording_turns_no_later_than_the_chair_changes_hands() {
+        for (secs, turn) in [
+            (1_u32, 1.0_f32),
+            (5, 5.0),
+            (8, 8.0),
+            (9, 8.0),
+            (10, 8.0),
+            (60, 8.0),
+            (3600, 8.0),
+        ] {
+            let table = Window::secs(secs);
+            let mut retry = Retry::new();
+            retry.stayed_down(turn - 0.01);
+            assert!(
+                retry.brief(table),
+                "a {secs}s table turned the wording before {turn}s"
+            );
+            retry.stayed_down(0.02);
+            assert!(
+                !retry.brief(table),
+                "a {secs}s table had not turned the wording by {turn}s"
+            );
+        }
+    }
+
+    /// A table that never takes a chair is never said to be about to.
+    ///
+    /// The second sentence promises a handover; where there is no handover it
+    /// is not early, it is false, and it stays false for as long as the
+    /// player is away. `LinkLost` — the connection dropped and it is being
+    /// dialled — is true the whole time instead.
+    #[test]
+    fn a_table_that_waits_forever_never_reaches_the_second_sentence() {
+        let mut retry = Retry::new();
+        for _ in 0..240 {
+            retry.stayed_down(0.5);
+            assert!(retry.brief(Window::Forever));
+        }
+    }
+
+    /// A client that was never told promises nothing either.
+    ///
+    /// The one state that is not about the table at all. It lands in the same
+    /// arm as [`Window::Forever`] and for a different reason: there the
+    /// handover is known not to be coming, here it is unknown, and a sentence
+    /// that asserts one is a fabrication in both cases.
+    #[test]
+    fn a_table_this_client_was_never_told_about_promises_nothing() {
+        let mut retry = Retry::new();
+        retry.stayed_down(3600.0);
+        assert!(retry.brief(Window::Unknown));
+    }
+
+    /// Zero is the table that waits forever, not the one that takes the chair
+    /// at once — the house rules' own spelling, and the opposite of what the
+    /// number looks like.
+    ///
+    /// Pinned here because reading it the other way is a one-character
+    /// mistake that produces a banner which is wrong from the first frame,
+    /// and because `Window::Secs` is the type that makes it unrepresentable.
+    #[test]
+    fn a_zero_window_is_read_as_forever_and_not_as_at_once() {
+        assert_eq!(Window::secs(0), Window::Forever);
+        assert_eq!(Window::of(None), Window::Unknown);
+
+        let mut statics = crate::test_support::statics(0);
+        statics.reconnect_secs = None;
+        assert_eq!(Window::of(Some(&statics)), Window::Forever);
+        statics.reconnect_secs = Some(30);
+        assert_eq!(Window::of(Some(&statics)), Window::secs(30));
     }
 }

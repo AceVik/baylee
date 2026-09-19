@@ -1274,7 +1274,10 @@ messages! {
     /// Connection lost — reconnecting…
     ///
     /// Said for the first [`crate::reconnect::Retry::PATIENCE`] seconds of a
-    /// drop, and then replaced by [`Phrase::LinkStandIn`].
+    /// drop — or for the whole of it, at a table that hands no chair over and
+    /// at one this client was never told the window of.
+    /// [`crate::reconnect::Window`] is which, and it is the only sentence
+    /// that is true at all three.
     ///
     /// The wording is deliberately not "the game is over": the table is still
     /// there and the seat is resumed from where it left off. What it used to
@@ -1295,15 +1298,17 @@ messages! {
     /// house after `HouseRules::reconnect_window_secs`, and `hand_back`
     /// returns it the moment the player is attached again.
     ///
-    /// **The tense is the finding.** "The house *is* playing your seat" is
-    /// the sentence this obviously wants and is the one thing that cannot be
-    /// written: the window is a per-table number between ten seconds and an
-    /// hour, no client is ever told it, and a client could not act on it
-    /// anyway because it is disconnected for exactly the span it would be
-    /// counting. Stating an accomplished fact would be a fabrication on
-    /// every table but one. "Will answer" is true whether or not the
-    /// handover has happened yet, and `PATIENCE` being under the gateway's
-    /// own floor means the first sight of it is always before.
+    /// **The tense is still the finding, and half its reason has gone.** "The
+    /// house *is* playing your seat" is the sentence this obviously wants and
+    /// is the one thing that cannot be written: a client is disconnected for
+    /// exactly the span it would have to count, so the moment of the handover
+    /// is not observable from here however much it knows. That part has not
+    /// changed. What has is that the window itself **is** known now —
+    /// `GameStatic::reconnect_secs` since `VIEW_VERSION` 26 — so this is no
+    /// longer shown at a table where the handover is not coming at all, and
+    /// no longer shown late at one whose window is shorter than the cap.
+    /// "Will answer" is true whenever it is on screen, which is what
+    /// [`crate::reconnect::Retry::brief`] is for.
     ///
     /// The German says it in the present, which is not a drift: German
     /// present carries the near future, and "wird … antworten" reads as a
