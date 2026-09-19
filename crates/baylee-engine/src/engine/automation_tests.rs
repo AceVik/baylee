@@ -232,8 +232,13 @@ fn a_turn_hold_expires_with_the_turn() {
 }
 
 /// Automation changes what the engine does next, so two engines that agree
-/// on the board but differ in automation must not hash the same — the loop
-/// detector compares these hashes to decide a segment repeated.
+/// on the board but differ in automation must not hash the same.
+///
+/// Not the loop detector, which this used to say: that reads
+/// `GameState::loop_signature` in the engine and `state().snapshot_hash()` in
+/// gamehost's harness, and neither calls [`Engine::snapshot_hash`]. What this
+/// hash is for is the determinism comparison a host makes — a replay against
+/// its recording, one machine against another.
 #[test]
 fn automation_is_part_of_the_engine_snapshot() {
     let mut a = started(Duel::new(21, forest()));

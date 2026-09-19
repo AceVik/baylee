@@ -576,6 +576,20 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(u64::from(r.controller.get()));
         }
         extra = extra.wrapping_mul(31).wrapping_add(u64::from(self.passes));
+        // A CR 605.3a payment window narrows the legal actions to mana and
+        // makes passing close the window rather than count toward the round,
+        // so two engines that differ in it answer the next question
+        // differently. Without this they hashed identically one step either
+        // side of the tax being agreed to, with the board byte for byte the
+        // same — and `snapshot_hash` is what a replay and a cross-machine
+        // comparison compare, so that divergence passed.
+        //
+        // `+ 1` rather than the bare seat number: a window on **seat 0**
+        // would otherwise fold in as zero and be indistinguishable from no
+        // window at all, which is the one seat a test is least likely to use.
+        extra = extra
+            .wrapping_mul(31)
+            .wrapping_add(self.mana_window.map_or(0, |p| u64::from(p.get()) + 1));
         // Automation decides which decisions the engine takes on a seat's
         // behalf, and how many loops it has already broken decides whether
         // the next one is broken or drawn. Two engines that differ in

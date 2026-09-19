@@ -409,6 +409,75 @@ fn ward_asks_a_seat_that_has_not_made_its_mana(
     );
 }
 
+/// A payment window decides what the engine does next, so an engine holding
+/// one must not hash the same as an engine that is not.
+///
+/// [`Engine::snapshot_hash`] is the determinism handle a host compares — a
+/// replay against its recording, one machine against another — so a field
+/// that decides a continuation and is missing from it is a divergence that
+/// compares equal. It is **not** what either loop detector reads: the engine
+/// finds loops with Brent over `GameState::loop_signature`, and gamehost's
+/// harness keys on `state().snapshot_hash()` beside a pending fingerprint.
+/// Neither of those calls this method, and nothing in this tree does — which
+/// is the reason the omission survived and not a reason it is harmless.
+/// Inside a
+/// window the legal actions are narrowed to mana abilities and passing closes
+/// the window instead of counting toward the round; outside one the same seat
+/// with the same board is being asked a yes-or-no. Two engines one step apart
+/// there hashed identically.
+///
+/// Two halves, because the realistic pair alone does not name the field. The
+/// pair is how a game reaches the defect — and it differs in `pending` too,
+/// which nothing hashes either (#86), so on its own it would be satisfied by
+/// a fix to something else and would stop meaning what it says the day that
+/// arrives. The second half changes **only** this field and is what pins it.
+///
+/// It sets the window to **seat 0** deliberately. An `Option<PlayerId>` folded
+/// in as "the seat number, or zero for none" collides exactly there, and a
+/// test written on seat 1 would pass over it. See
+/// [`automation_is_part_of_the_engine_snapshot`](super::automation_tests) for
+/// the sibling this is modelled on.
+#[test]
+fn a_payment_window_is_part_of_the_engine_snapshot() {
+    let p1 = PlayerId::new(1);
+    let (asked, _) = ward_asks_a_seat_that_has_not_made_its_mana(31);
+    let (mut open, _) = ward_asks_a_seat_that_has_not_made_its_mana(31);
+    open.apply(p1, PlayerAction::YesNo(true))
+        .expect("saying they will pay opens the window");
+
+    assert!(asked.payment_window().is_none(), "one is still being asked");
+    assert_eq!(
+        open.payment_window(),
+        Some((p1, 1)),
+        "and the other is inside a window for the tax it just agreed to"
+    );
+    assert_eq!(
+        asked.state().snapshot_hash(),
+        open.state().snapshot_hash(),
+        "nothing moved on the board between them, which is the point: the \
+         difference is entirely in what the engine will do next"
+    );
+    assert_ne!(
+        asked.snapshot_hash(),
+        open.snapshot_hash(),
+        "a seat inside a payment window is a different engine state"
+    );
+
+    // The same claim with nothing else moving, so this cannot be satisfied by
+    // a fix to a neighbouring field. Seat 0 because that is where a careless
+    // fold collides with `None`.
+    let (before, mut after) = (
+        ward_asks_a_seat_that_has_not_made_its_mana(31).0,
+        ward_asks_a_seat_that_has_not_made_its_mana(31).0,
+    );
+    after.mana_window = Some(PlayerId::new(0));
+    assert_ne!(
+        before.snapshot_hash(),
+        after.snapshot_hash(),
+        "an open window on seat 0 hashes as no window at all"
+    );
+}
+
 /// CR 605.3a: a player asked for a mana payment may activate mana abilities
 /// to make it, "even if it is in the middle of ... resolving an ability".
 ///
