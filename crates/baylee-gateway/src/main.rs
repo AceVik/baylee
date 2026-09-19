@@ -92,11 +92,18 @@ struct AppState {
     /// Loopback by default, which is right for a single-box deployment and
     /// wrong the moment an agent runs somewhere else.
     engine_url: String,
-    /// The card catalog, when `DATABASE_URL` is configured.
+    /// The card catalog, when its schema could be applied.
     ///
-    /// Optional on purpose: accounts, decks and lobbies live in the JSON
-    /// store and need no database, so a gateway without Postgres still runs
-    /// a full game — it just cannot serve card text.
+    /// `None` is not "no database": `DATABASE_URL` is required and this
+    /// process refuses to start without one, so by the time this field is
+    /// built the connection already works. What it records is the *second*
+    /// half failing on its own — most often a `unaccent` extension the role
+    /// may not create — and that stays non-fatal, because card text is
+    /// presentation. A gateway with `None` here plays every game and serves
+    /// no card text; the client draws faces from what the engine projects.
+    ///
+    /// `GET /health` spells this apart from an empty one: `off` is this
+    /// field, `empty` is a catalog nobody has ingested into.
     catalog: Option<baylee_catalog::Catalog>,
     /// The disk mirror of card art (`BAYLEE_ART_PATH`, `off` to disable).
     ///
@@ -176,6 +183,7 @@ async fn main() {
     spawn_cleanup(state.clone());
 
     let app = Router::new()
+        .route("/health", get(health))
         .route("/source", get(source))
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
@@ -439,6 +447,141 @@ async fn source() -> Json<serde_json::Value> {
         // the one case where the offer would otherwise mislead.
         "dirty": baylee_build::DIRTY,
     }))
+}
+
+/// How long any one probe in `/health` may take.
+///
+/// Bounded, because a health route that hangs is strictly worse than one that
+/// answers "down": a monitor blocked on a socket reports nothing at all, and
+/// "nothing" is indistinguishable from "not scraped yet". Two seconds is long
+/// enough that a loaded but working database still answers — the e2e suite
+/// runs three dozen gateways against one server at a pool of two apiece — and
+/// short enough that the caller gets a verdict rather than a timeout of its
+/// own.
+const HEALTH_PROBE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// `GET /health` — whether this gateway can do its job, and what it cannot.
+///
+/// The route exists because the only evidence this process was alive used to
+/// be a line in its log and an open port, and an open port only says that
+/// `bind` succeeded. That is a weaker claim than it looks from *both* sides:
+/// it says nothing about the states below, and — since binding is the last
+/// thing `main` does — it also cannot be observed until everything else has
+/// already worked.
+///
+/// Unauthenticated, because a monitor that needs a token is a monitor nobody
+/// wires up, and because there is nothing here to protect. No account name,
+/// no token, no store path, no configured URL, no counts that are not already
+/// visible in the lobby listing: every field is a bit or a number about this
+/// process, and the version is one `/source` already serves to anyone.
+///
+/// # What the status code carries
+///
+/// Exactly one question — is the database there — because that is the only
+/// state this process cannot work around. `DATABASE_URL` is required: a
+/// gateway whose database has gone away keeps its port open and its log
+/// quiet while answering every route that matters with a 503, which is the
+/// precise failure this route was asked for.
+///
+/// Everything else is a field and never a code. A gateway with no agent
+/// connected hosts no games, and it is still a legitimate thing to be
+/// running — the e2e suite spawns three dozen agentless ones — so
+/// `agents.connected: 0` is reported rather than escalated. The same goes for
+/// a catalog that was never ingested: no card text is a thinner client, not a
+/// broken gateway.
+async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Value>) {
+    let database = matches!(
+        tokio::time::timeout(HEALTH_PROBE, state.db.ping()).await,
+        Ok(Ok(()))
+    );
+
+    // Four states rather than a bit, because they want four different
+    // answers from whoever is reading. `off` is a choice, `empty` wants an
+    // ingest, `projection_missing` wants `baylee-catalog project` and is the
+    // one that answers every search with nothing while erroring at nobody,
+    // and `unreachable` is the database being gone — already in the code
+    // above, repeated here so one field is not read as covering for another.
+    let catalog = match state.catalog.as_ref() {
+        None => serde_json::json!({ "state": "off" }),
+        Some(catalog) => match tokio::time::timeout(HEALTH_PROBE, catalog.readiness()).await {
+            Ok(Ok(found)) => serde_json::json!({
+                "state": match (found.cards, found.projection) {
+                    (true, true) => "ready",
+                    (true, false) => "projection_missing",
+                    _ => "empty",
+                },
+                "cards": found.cards,
+                "projection": found.projection,
+            }),
+            _ => serde_json::json!({ "state": "unreachable" }),
+        },
+    };
+
+    let (agents_connected, agent_games) = {
+        let agents = state.agents.lock();
+        (
+            agents.connected.len(),
+            agents
+                .connected
+                .values()
+                .map(|agent| agent.games.len())
+                .sum::<usize>(),
+        )
+    };
+
+    // Counted from the lobby rather than from the agents, because the two
+    // disagree in the one case worth seeing: a game the gateway has ordered
+    // but whose engine has not dialled back yet is on an agent's list and has
+    // no `EngineLink`. That gap is what `seats_awaiting_engine` is.
+    let (games_running, games_waiting, seats_awaiting_engine) = {
+        let lobby = state.lobby.lock();
+        let playing = lobby
+            .games
+            .values()
+            .filter(|game| game.state == LobbyState::Playing);
+        (
+            playing.clone().count(),
+            lobby
+                .games
+                .values()
+                .filter(|game| game.state == LobbyState::Waiting)
+                .count(),
+            playing
+                .filter(|game| game.engine.is_none())
+                .map(|game| game.seats.len())
+                .sum::<usize>(),
+        )
+    };
+
+    let code = if database {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (
+        code,
+        Json(serde_json::json!({
+            "ok": database,
+            "database": database,
+            "catalog": catalog,
+            "agents": {
+                "connected": agents_connected,
+                "games": agent_games,
+            },
+            "games": {
+                "running": games_running,
+                "waiting": games_waiting,
+                "seats_awaiting_engine": seats_awaiting_engine,
+            },
+            // The same spelling `/source` uses, from the same constants, so
+            // that "I rebuilt it" is checkable against either route and the
+            // two can never drift into disagreeing about one binary.
+            "version": baylee_build::short(),
+            "commit": baylee_build::COMMIT,
+            "built_at": baylee_build::BUILT_AT,
+            "dirty": baylee_build::DIRTY,
+        })),
+    )
 }
 
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {

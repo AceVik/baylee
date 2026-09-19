@@ -163,9 +163,25 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         })
         .spawn()
         .expect("spawn gateway");
+    // Thirty seconds, and the number is a measurement rather than a margin.
+    // This loop waited five, which was enough alone and not enough beside
+    // anything else: a full gate running in a neighbouring worktree on
+    // 18.09.2026 took three e2e tests down at load ~4, purely because the
+    // gateway needed longer than five seconds to come up. Five trees share
+    // one CPU here, so the budget has to cover a gateway starting while
+    // another tree is compiling. Waiting costs nothing when the server is
+    // already up — the loop exits on the first answer.
+    //
+    // `GET /health` and not `TcpStream::connect`, which is the same change
+    // the dev tooling wants: an open port says `bind` succeeded and nothing
+    // else. It happens to be a sound readiness signal here by accident of
+    // ordering — `main` binds last, after the database and the catalog — and
+    // an accident of ordering is exactly what stops being true the day
+    // somebody binds earlier to shorten startup. Asking the route that
+    // answers the question costs one round trip and cannot rot that way.
     let mut up = false;
-    for _ in 0..50 {
-        if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+    for _ in 0..300 {
+        if let Some((200, _)) = try_http(port, "GET", "/health") {
             up = true;
             break;
         }
@@ -173,7 +189,7 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     }
     assert!(
         up,
-        "the gateway never bound port {port}. Its own words:\n{}",
+        "the gateway never answered GET /health on port {port}. Its own words:\n{}",
         std::fs::read_to_string(&stderr_path)
             .ok()
             .filter(|s| !s.trim().is_empty())
@@ -186,6 +202,28 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         store_path,
         schema,
     }
+}
+
+/// One unauthenticated request that is allowed to fail.
+///
+/// [`http`] panics on every step, which is right for a test making a request
+/// of a server it has already been told is up, and wrong for the one caller
+/// that is asking *whether* it is up: there, a refused connection is the
+/// expected answer for the first second or so. `None` means "not yet", and
+/// only the poll loop in [`spawn_gateway_with`] has any business seeing it.
+fn try_http(port: u16, method: &str, path: &str) -> Option<(u16, String)> {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).ok()?;
+    let request =
+        format!("{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).ok()?;
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).ok()?;
+    let status: u16 = raw.split_whitespace().nth(1)?.parse().ok()?;
+    Some((
+        status,
+        raw.split("\r\n\r\n").nth(1).unwrap_or("").to_string(),
+    ))
 }
 
 /// Minimal blocking HTTP/1.1 client. The gateway is a separate process;
