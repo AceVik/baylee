@@ -144,10 +144,28 @@ two have been separate objects since it was put there (CR 113.7a), and a
 source that has left the battlefield is exactly the case a clause about it
 has to be able to fail on.
 
-CR 608.2b's target re-check is the same door and is **not** written yet: a
-spell or ability all of whose targets have become illegal also does not
-resolve, and `engine-gaps.md` records it. The removal path above is where it
-will go.
+CR 608.2b's target re-check goes through the same door and is asked in the
+same place: a spell or ability all of whose targets have become illegal also
+does not resolve. `Engine::target_legality` asks it, above the spell/ability
+split rather than inside either branch, because an Aura is a targeted
+*permanent* spell and a check in one branch would miss the other. It asks with
+`eval::target_options` and `eval::target_player_options`, which are the
+enumerations that offered those targets in the first place — one predicate
+read from both ends, so an offer and a re-check cannot disagree about what was
+choosable.
+
+Partial legality is handled and not merely survived: the legal subset is
+written back to the object once, before any `Resolution` is built, which is
+safe because a `TargetReq` carries one spec and nothing reads `targets` by
+index. What is not handled is the rule's own example — "for every instance of
+the word 'target'" needs two separate instances, and this DSL has no way to
+spell a second one.
+
+A spell leaves by `Engine::leave_stack_without_resolving` and not by
+`finalize_spell`: rebound (CR 702.88) and an Adventure (CR 715.3d) exile a
+card *as it resolves*, and one that never resolved has done neither.
+Flashback is the rider that does apply, because CR 702.34a exiles the card
+"any time it would leave the stack".
 
 ### The one check in the fixpoint that is not a state-based action
 Daybound and nightbound (CR 702.145c–g) are checked as their own step of

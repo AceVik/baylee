@@ -791,10 +791,14 @@ the field there too, and none does.
   reference opting *out* of CR 603.4's second check, which this DSL cannot
   say at all and which has to be a named refusal rather than a silent
   reading.
-- **CR 608.2b's target re-check**, which is the same door: a spell or ability
-  all of whose targets have become illegal does not resolve either. Nothing
-  here checks that yet, and the removal path
-  `progress::resolve_stack_top` now has is where it goes.
+- **CR 608.2b's second instance of the word "target."** The re-check itself
+  is written (#116, `Engine::target_legality`, in `resolve_stack_top` where
+  this entry said it would go), and it handles one instance completely —
+  including the partial case, where the legal subset survives and the rest is
+  simply not affected. What is left is the shape the rule's own example uses:
+  "destroy target nonblack creature and destroy target land" is two separate
+  instances, and a `TargetReq` in this DSL carries one spec. That half is a
+  DSL gap rather than an engine one.
 - **"Doesn't untap during your next untap step"** — the ten filter lands and
   exert, which want `Duration::UntilYourNextUntapStep` on a created effect
   rather than a static ability.

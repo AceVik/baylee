@@ -959,7 +959,27 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // An "up to" prompt (`min` 0) is answered with one anyway:
             // choosing nothing is legal and exercises nothing.
             let want = usize::from(min).max(1).min(usize::from(max));
-            let objects: Vec<_> = options.into_iter().take(want).collect();
+            // **Not the permanent whose ability this is**, while any other
+            // option exists. Targets are chosen before costs are paid
+            // (CR 601.2c, then 601.2h), so an ability that sacrifices its
+            // source may legally be pointed at that source — and CR 608.2b
+            // then removes it from the stack without resolving, because its
+            // only target is gone by the time it would. That is a real
+            // answer and a rules-correct outcome; it is simply not the one a
+            // player gives, and a sweep that gives it measures a fizzle
+            // instead of the card. Coretapper put one charge counter on
+            // something while printing "two", and Gnottvold Slumbermound
+            // made no Troll at all.
+            let source = engine.activating_abilities.map(|(id, _)| id);
+            let mut pool: Vec<_> = options
+                .iter()
+                .copied()
+                .filter(|id| Some(*id) != source)
+                .collect();
+            if pool.len() < want {
+                pool = options;
+            }
+            let objects: Vec<_> = pool.into_iter().take(want).collect();
             let players = player_options
                 .into_iter()
                 .take(want.saturating_sub(objects.len()))
