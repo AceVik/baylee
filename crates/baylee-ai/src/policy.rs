@@ -18,6 +18,33 @@ pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
         .get(usize::from(card.face))
 }
 
+/// The land face of a card held in hand, whichever side it is printed on.
+///
+/// A [`CardIdentity`] in hand names the face that is *up*, and for a modal
+/// double-faced card that is the spell: Shatterskull Smashing is a sorcery
+/// with a land on its back, and every reader that asked
+/// `types.contains(LAND)` read it as a spell and nothing else. The engine
+/// does not — `compute_legal` offers the land drop when **any** face is a
+/// land (CR 712.12) — so the agent was refusing to count a card the engine
+/// was already offering it. 82 cards in this pool print a spell over a land.
+///
+/// The rule here is deliberately the engine's rule and not a better one. It
+/// does not ask whether the back is reached by *playing* it or by
+/// transforming (CR 712.2); if that distinction is wrong it is wrong in
+/// `compute_legal` first, and an agent that disagreed with the offer it is
+/// answering would decline land drops the engine is making it.
+pub(crate) fn land_face(card: CardIdentity) -> Option<&'static FaceDef> {
+    baylee_cards::by_index(card.index)?
+        .faces
+        .iter()
+        .find(|f| f.types.contains(TypeSet::LAND))
+}
+
+/// Whether a card in hand can be played as a land at all.
+pub(crate) fn plays_as_land(card: CardIdentity) -> bool {
+    land_face(card).is_some()
+}
+
 fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
     view.hand
         .iter()
@@ -112,38 +139,32 @@ impl HeuristicAgent {
         if skill == 0 || taken >= limit || view.hand.len() < 5 {
             return PlayerAction::MulliganKeep;
         }
-        let lands = view
-            .hand
-            .iter()
-            .filter(|c| c.types.contains(TypeSet::LAND))
-            .count();
+        let lands = view.hand.iter().filter(|c| plays_as_land(c.card)).count();
         let balance = (2..=5).contains(&lands);
         let curve = skill < 2
             || view.hand.iter().any(|card| {
-                !card.types.contains(TypeSet::LAND)
+                !plays_as_land(card.card)
                     && card.mana_value <= 3
                     && face(card.card).is_some_and(|f| {
-                        let colors = view
-                            .hand
-                            .iter()
-                            .filter(|c| c.types.contains(TypeSet::LAND))
-                            .filter_map(|c| face(c.card))
-                            .fold(baylee_core::color::ColorSet::EMPTY, |colors, land| {
+                        let colors = view.hand.iter().filter_map(|c| land_face(c.card)).fold(
+                            baylee_core::color::ColorSet::EMPTY,
+                            |colors, land| {
                                 let mut subtypes = baylee_core::types::SubtypeSet::EMPTY;
                                 for &subtype in land.subtypes {
                                     subtypes.insert(subtype);
                                 }
                                 let color = manaplan::basic_land_color(&subtypes);
                                 color.map_or(colors, |color| colors.union(color_set(color)))
-                            });
+                            },
+                        );
                         // Nonbasic colour sources may need board context. Do not
                         // reject an otherwise playable hand on an unknown colour.
                         f.mana_cost.colors().is_empty()
                             || f.mana_cost.colors().intersects(colors)
-                            || view.hand.iter().any(|c| {
-                                c.types.contains(TypeSet::LAND)
-                                    && face(c.card).is_some_and(|land| land.subtypes.is_empty())
-                            })
+                            || view
+                                .hand
+                                .iter()
+                                .any(|c| land_face(c.card).is_some_and(|l| l.subtypes.is_empty()))
                     })
             });
         if balance && (curve || taken >= 2) {
@@ -158,17 +179,14 @@ impl HeuristicAgent {
             return crate::costliest(view, count);
         }
         let mut hand: Vec<_> = view.hand.iter().collect();
-        let mut lands = hand
-            .iter()
-            .filter(|c| c.types.contains(TypeSet::LAND))
-            .count();
+        let mut lands = hand.iter().filter(|c| plays_as_land(c.card)).count();
         let mut result = Vec::with_capacity(count);
         for _ in 0..count.min(hand.len()) {
             let worst = hand
                 .iter()
                 .enumerate()
                 .min_by_key(|(_, c)| {
-                    let value = if c.types.contains(TypeSet::LAND) {
+                    let value = if plays_as_land(c.card) {
                         if lands > 3 { -1000 } else { 2000 }
                     } else {
                         700 - i64::from(c.mana_value) * 100
@@ -177,7 +195,7 @@ impl HeuristicAgent {
                 })
                 .map_or(0, |(i, _)| i);
             let card = hand.remove(worst);
-            if card.types.contains(TypeSet::LAND) {
+            if plays_as_land(card.card) {
                 lands = lands.saturating_sub(1);
             }
             result.push(card.id);

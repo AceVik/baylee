@@ -113,6 +113,31 @@ the same reader is not a second path. The guard now also requires the view to
 say what each attacker is aiming at, because the search reads that and
 `choose_blocks` does not need it.
 
+**A card in hand is what any of its faces can be.** A `CardIdentity` in hand
+names the face that is *up*, which for a modal double-faced card is the
+spell: Shatterskull Smashing is a sorcery with a land on its back, and every
+reading that asked `HandObject::types` counted nought lands. The engine has
+never agreed — `compute_legal` offers the land drop when **any** face is a
+land (CR 712.12) — so the agent was throwing away a hand whose land drops the
+engine was about to hand it, and keeping a card it had already decided was a
+spare spell. 82 cards in this pool print a land behind a front that is not
+one, floored by `the_pool_prints_lands_on_a_back_face`. `policy::plays_as_land`
+is the agent's half of the engine's sentence and is deliberately the same
+sentence: it does not ask whether the back is reached by playing it or by
+transforming (CR 712.2), because an agent that disagreed with the offer it is
+answering would decline land drops the engine is making it. If that
+distinction is wrong it is wrong in `compute_legal` first.
+
+The *cast* faces are a separate reading and they are **not** made yet.
+`filter::cast_mode` returns the `Normal` option the moment one is offered, so
+an adventure (CR 715) or an MDFC back is taken only when the engine offers
+nothing else — which, because it offers only modes the pool can pay for, is
+how Petty Theft gets cast on two mana: the right face, and not a decision.
+Which half is better needs a value model for "a creature now against a bounce
+now" that this crate does not have, so the behaviour is pinned by
+`an_adventure_is_offered_and_the_agent_takes_the_printed_front` rather than
+claimed, and the row stays open.
+
 `act(&PlayerView, &Pending)` remains available and needs no hidden information.
 Hosted AI seats additionally receive the selected spell/ability effects from
 `Engine::decision_context`, covering cast modes and triggered or copied abilities.

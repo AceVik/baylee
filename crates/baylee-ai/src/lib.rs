@@ -2019,6 +2019,165 @@ mod tests {
         }
     }
 
+    /// #76. A card in hand is what any of its faces can be, and the land is
+    /// not always the face that is up.
+    ///
+    /// Shatterskull Smashing is a sorcery with a land printed on its back —
+    /// 82 cards in this pool are that shape — so `HandObject::types` says
+    /// sorcery and every reading that asked it counted nought lands. The
+    /// engine has never agreed: `compute_legal` offers the land drop when
+    /// **any** face is a land (CR 712.12), so the agent was throwing away a
+    /// hand whose land drops the engine was about to hand it. Measured in a
+    /// real game before the fix: three of these beside four one-mana spells
+    /// was answered `MulliganTake`, and `legal.lands` on the next turn was
+    /// three.
+    #[test]
+    fn a_hand_whose_lands_are_on_the_back_is_not_mulliganed_as_landless() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..3)
+            .map(|i| hand_card(i, "Shatterskull Smashing"))
+            .chain((3..7).map(|i| hand_card(i, "Lightning Bolt")))
+            .collect();
+        assert!(
+            v.hand.iter().all(|c| !c.types.contains(TypeSet::LAND)),
+            "the premise: the view calls every one of these a spell",
+        );
+        let pending = Pending::Mulligan {
+            player: v.seat,
+            taken: 0,
+            next_is_free: false,
+        };
+        for (name, profile) in PROFILES {
+            if profile.mulligan_skill == 0 {
+                continue;
+            }
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::MulliganKeep,
+                "{name} threw away three land drops",
+            );
+        }
+    }
+
+    /// The other half of the same count, and the reason the rule is "count
+    /// them" and not "notice them": seven of those cards is seven lands and
+    /// a hand with nothing to cast, which is a mulligan for the opposite
+    /// reason. A predicate that only ever added to the total would keep it.
+    #[test]
+    fn a_hand_that_is_all_back_side_lands_is_still_mulliganed() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..7)
+            .map(|i| hand_card(i, "Shatterskull Smashing"))
+            .collect();
+        let pending = Pending::Mulligan {
+            player: v.seat,
+            taken: 0,
+            next_is_free: false,
+        };
+        for (name, profile) in PROFILES {
+            if profile.mulligan_skill == 0 {
+                continue;
+            }
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::MulliganTake,
+                "{name} kept seven lands",
+            );
+        }
+        // And a hand with no land on any face is still a mulligan, so the
+        // test above is not passing because the rule stopped refusing.
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..7).map(|i| hand_card(i, "Lightning Bolt")).collect();
+        for (name, profile) in PROFILES {
+            if profile.mulligan_skill == 0 {
+                continue;
+            }
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::MulliganTake,
+                "{name} kept a landless hand",
+            );
+        }
+    }
+
+    /// The same reading, at the other end of the game: a card discarded to
+    /// hand size is chosen by what it is worth, and a land the seat is short
+    /// of is worth keeping. With two land drops in hand it is a Bolt that
+    /// goes, not the land wearing a sorcery's face.
+    #[test]
+    fn a_back_side_land_is_not_discarded_as_a_spare_spell() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..2)
+            .map(|i| hand_card(i, "Shatterskull Smashing"))
+            .chain((2..5).map(|i| hand_card(i, "Lightning Bolt")))
+            .collect();
+        let pending = Pending::DiscardChoice {
+            player: v.seat,
+            count: 1,
+        };
+        for (name, profile) in PROFILES {
+            if profile.mulligan_skill == 0 {
+                continue;
+            }
+            let PlayerAction::ChooseObjects { objects } =
+                HeuristicAgent::new(profile).act(&v, &pending)
+            else {
+                panic!("{name}: not a discard answer");
+            };
+            assert_eq!(objects.len(), 1);
+            assert!(
+                objects[0].slot() >= 2,
+                "{name} discarded one of its two land drops",
+            );
+        }
+    }
+
+    /// #76, the half that is **not** fixed, recorded rather than claimed.
+    ///
+    /// An adventure is a second castable face (CR 715), offered as
+    /// `CastModeKind::Face`. `filter::cast_mode` returns the `Normal`
+    /// position the moment one is present and never looks at a face, so
+    /// Brazen Borrower is always the 3/1 and Petty Theft is never cast when
+    /// both are affordable. That is a reading the agent does not have yet
+    /// rather than a rule it gets wrong — which half is better needs a value
+    /// model for "a creature now against a bounce now", and this crate has
+    /// none.
+    ///
+    /// It is pinned so the day it changes is visible. Measured beside it in
+    /// a real game: the engine offers only the modes the pool can pay for,
+    /// so with two Islands it asks nothing at all and the adventure is cast
+    /// because it is the only option — the right face, and not a decision.
+    #[test]
+    fn an_adventure_is_offered_and_the_agent_takes_the_printed_front() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = vec![hand_card(1, "Brazen Borrower")];
+        let pending = Pending::ChooseCastMode {
+            player: v.seat,
+            object: obj(1),
+            options: vec![
+                CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Normal,
+                    cost: baylee_core::mana::ManaCost::ZERO.with_more_generic(3),
+                },
+                CastModeDesc {
+                    index: 1,
+                    kind: CastModeKind::Face(1),
+                    cost: baylee_core::mana::ManaCost::ZERO.with_more_generic(2),
+                },
+            ],
+        };
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::ChooseMode(0),
+                "{name}: the pin moved — the agent now reads a second face, \
+                 so this test is the one to rewrite",
+            );
+        }
+    }
+
     #[test]
     fn the_search_finds_a_menace_gang_block() {
         let mut attacker = permanent(obj(1), PlayerId::new(1), 4);

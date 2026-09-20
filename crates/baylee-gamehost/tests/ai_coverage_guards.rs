@@ -53,6 +53,7 @@
 use baylee_cards::dsl::{
     AbilityDef, CardDef, CostPart, CounterKind, Effect, KeywordSet, PartnerKind,
 };
+use baylee_core::types::TypeSet;
 
 /// Every ability a card carries, card-level and on either face.
 ///
@@ -681,5 +682,40 @@ fn no_pool_face_states_two_mode_lists() {
          `baylee_ai::filter::modal_modes` refuses such a face and the agent \
          takes the printed order there: give the mode list an ability handle, \
          or record here why the printed order is the right answer for it."
+    );
+}
+
+/// #76: the land the agent would miss if it read only the face that is up.
+///
+/// A modal double-faced card is filed under its front, and the front is the
+/// spell — so `HandObject::types` says sorcery and the land is on the other
+/// side. The engine has never read it that way: `compute_legal` offers the
+/// land drop when **any** face is a land (CR 712.12). `policy::plays_as_land`
+/// is the agent's half of that same sentence, and this is the population it
+/// is worth having: a floor rather than the number, because a card joining
+/// the pool does not make the rule less true, and nought would mean the rule
+/// is being kept for nothing.
+#[test]
+fn the_pool_prints_lands_on_a_back_face() {
+    let hidden = baylee_cards::all()
+        .filter(|def| {
+            def.faces.iter().any(|f| f.types.contains(TypeSet::LAND))
+                && !def.faces[0].types.contains(TypeSet::LAND)
+        })
+        .count();
+    let front = baylee_cards::all()
+        .filter(|def| def.faces[0].types.contains(TypeSet::LAND))
+        .count();
+    assert!(
+        hidden >= 50,
+        "{hidden} card(s) print a land on a face that is not the front, where \
+         82 were measured on 20.09.2026. Below this the rule `plays_as_land` \
+         states is being kept for a handful of cards and is worth re-reading."
+    );
+    assert!(
+        front > hidden,
+        "{front} card(s) print a land on the front against {hidden} behind \
+         one, which is the wrong way round for this pool: the front-face \
+         reading would then be the special case, not the rule."
     );
 }
