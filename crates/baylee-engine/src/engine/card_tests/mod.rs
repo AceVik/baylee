@@ -303,7 +303,7 @@ fn deserted_beach() -> CardIndex {
 /// Both bounds over `Filter::YOUR_LAND` are in it, and they are what the
 /// list is for: a slow land wants two other lands and a fast land wants at
 /// most two, so one count that included the entering land would turn one
-/// cycle on a land early and the other off a land early. Twenty-two cards
+/// cycle on a land early and the other off a land early. Twenty-five cards
 /// ride on the skip in `Engine::controls_count`, and Cave of the Frost
 /// Dragon rides on it printing the bound as its complement.
 const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
@@ -315,10 +315,12 @@ const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Copperline Gorge",
     "Darkslick Shores",
     "Deathcap Glade",
+    "Den of the Bugbear",
     "Deserted Beach",
     "Dreamroot Cascade",
     "Hall of Storm Giants",
     "Haunted Ridge",
+    "Hive of the Eye Tyrant",
     "Inspiring Vantage",
     "Overgrown Farmland",
     "Razorverge Thicket",
@@ -329,6 +331,7 @@ const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Spirebluff Canal",
     "Stormcarved Coast",
     "Sundown Pass",
+    "Thran Portal",
 ];
 
 fn skyclave_apparition() -> CardIndex {
@@ -1742,4 +1745,16 @@ fn voldaren_estate() -> CardIndex {
 
 fn windbrisk_heights() -> CardIndex {
     card_index("3589bcfc-42b0-414a-adce-bc690dc631c8")
+}
+
+fn den_of_the_bugbear() -> CardIndex {
+    card_index("f451b8f0-1ff5-4e8d-9f30-9352d83ed687")
+}
+
+fn hive_of_the_eye_tyrant() -> CardIndex {
+    card_index("d17163d4-dd43-4de6-b7cf-576448160b7f")
+}
+
+fn thran_portal() -> CardIndex {
+    card_index("926ce6a2-7bdd-4380-ac65-bc902ba0c284")
 }

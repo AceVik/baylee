@@ -19,7 +19,7 @@ card!(
         name = "Hall of Storm Giants",
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnlessAtMost {
-            filter: &Filter::LAND,
+            filter: &Filter::YOUR_LAND,
             at_most: 1,
         }],
     )],

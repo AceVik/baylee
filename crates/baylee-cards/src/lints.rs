@@ -1557,4 +1557,78 @@ mod tests {
             offenders.join("\n")
         );
     }
+
+    /// A counted entry clause says "you control", and the filter has to say
+    /// it too, because `controls_count` does not.
+    ///
+    /// Only the two **counted** variants. `EnterModifier::TappedUnless`
+    /// carries a filter too, and the Turbulent cycle deliberately asks about
+    /// an *opponent*'s Swamp — so a single-permanent checkland is a
+    /// different sentence and is not swept here on a guess.
+    ///
+    /// `Engine::controls_count` walks the **whole** battlefield and applies
+    /// the filter with the entering permanent's controller as the "you". So
+    /// `Filter::LAND` counts the opponent's lands and `Filter::YOUR_LAND`
+    /// does not, and every one of these 35 cards prints "you control".
+    /// Spelled unscoped, a fastland turns off and a slowland turns on
+    /// because of lands across the table — a card that is wrong in every
+    /// real game and right in every test with one player's board on it.
+    ///
+    /// Two cards were written that way by a card lane on 20.09.2026 (Thran
+    /// Portal, Hall of Storm Giants) against thirty-three spelled
+    /// correctly, which is why this is a lint and not a note: the majority
+    /// being right is what makes the minority invisible.
+    #[test]
+    fn every_counted_entry_clause_is_scoped_to_its_controller() {
+        use baylee_cards_dsl::{EnterModifier, Filter};
+
+        // The filter as written, for the two counted modifiers. A `Filter`
+        // has no name at runtime, so the question is asked of the shape:
+        // anything that is not an `And` containing `ControlledByYou` counts
+        // every permanent on the battlefield.
+        fn scoped(f: &Filter) -> bool {
+            match f {
+                Filter::ControlledByYou | Filter::ControlledByOpponent => true,
+                // One scoping part is enough inside an `And`; inside an `Or`
+                // every branch has to carry one, or the unscoped branch is
+                // the one that counts the table.
+                Filter::And(parts) => parts.iter().any(scoped),
+                Filter::Or(parts) => parts.iter().all(scoped),
+                _ => false,
+            }
+        }
+
+        let mut offenders = Vec::new();
+        let mut counted = 0_usize;
+        for def in crate::all() {
+            for face in def.faces {
+                for m in face.enter_modifiers {
+                    let filter = match m {
+                        EnterModifier::TappedUnlessCount { filter, .. }
+                        | EnterModifier::TappedUnlessAtMost { filter, .. } => *filter,
+                        _ => continue,
+                    };
+                    counted += 1;
+                    if !scoped(filter) {
+                        offenders.push(format!("{}: {filter:?}", face.name));
+                    }
+                }
+            }
+        }
+        assert!(
+            counted > 30,
+            "only {counted} counted entry clause(s) found — the walk has gone \
+             blind, and an empty sweep proves nothing"
+        );
+        assert!(
+            offenders.is_empty(),
+            "{} counted entry clause(s) count every land on the battlefield \
+             and not the controller's. `controls_count` scopes nothing, so \
+             the filter must: use `Filter::YOUR_LAND` (or an `And` carrying \
+             `ControlledByYou`) wherever the card prints \"you \
+             control\".\n{}",
+            offenders.len(),
+            offenders.join("\n")
+        );
+    }
 }

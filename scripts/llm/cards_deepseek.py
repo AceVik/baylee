@@ -78,13 +78,14 @@ def one(prefix: str, card: dict) -> str:
     path = lane.ROOT / card["path"]
     stub = path.read_text(encoding="utf-8")
     try:
-        # 32000, the same as the test lane, and for the same reason: a card
-        # that reasons out loud before it writes spends most of its budget
-        # there. At 16000 five of round E's forty and six of round C's came
-        # back empty and every one of them was written unchanged at 32000.
-        # The cap is not a charge — DeepSeek bills the tokens generated —
-        # so the smaller number bought nothing and refused eleven cards.
-        answer = lane.ask_deepseek(prefix, RULES, stub, max_tokens=32000)
+        # 64000. A card that reasons out loud before it writes spends most
+        # of its budget there, and the cap is not a charge — DeepSeek bills
+        # the tokens generated — so a low number buys nothing and refuses
+        # cards. Measured: at 16000, 5 of round E's forty and 6 of round C's
+        # came back empty; at 32000, 1 of round F's and 4 of round G's. Every
+        # one of the sixteen was written unchanged on a retry with more
+        # room, so the budget was the refusal in all sixteen cases.
+        answer = lane.ask_deepseek(prefix, RULES, stub, max_tokens=64000)
     except Exception as exc:  # noqa: BLE001 — the reason is the report
         return f"{card['name']} | error | {exc}"
     # The code block first, because a card that *was* written may also carry

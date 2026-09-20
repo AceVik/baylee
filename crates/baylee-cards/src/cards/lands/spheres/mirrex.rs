@@ -3,7 +3,8 @@
 //! Oracle: {T}: Add one mana of any color. Activate only if this land entered this turn.
 //! Oracle: {3}, {T}: Create a 1/1 colorless Phyrexian Mite artifact creature token with toxic 1 and "This token can't block." (Players dealt combat damage by it also get a poison counter.)
 //! Set: ONE #254 — Phyrexia: All Will Be One | Scryfall ID: 54a702cd-ca49-4570-b47e-8b090452a3c3 | Oracle ID: 5502741a-e3b9-454e-8121-4360a6db6750
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the {C} mana ability is the only printed clause the DSL can say;
+// the other two are NOT SUPPORTED beside the ability list.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -17,6 +18,24 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::SPHERE],
     ),],
+    coverage = Coverage::Partial(
+        "the any-color mana ability is gated on this land having entered this \
+         turn, which no Condition and no Filter can express, and the 1/1 \
+         Phyrexian Mite token cannot be created: no such token is in \
+         `crate::tokens`, toxic 1 is a keyword no rule reads, and no Modifier \
+         says a creature can't block",
+    ),
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        // NOT SUPPORTED: "{T}: Add one mana of any color. Activate only if
+        // this land entered this turn." — `Condition` carries no
+        // entered-this-turn variant and `Filter` has no predicate for it, so
+        // the ability could only be written to produce any colour at any
+        // time, which is a different and stronger card than the printed one.
+        // NOT SUPPORTED: "{3}, {T}: Create a 1/1 colorless Phyrexian Mite
+        // artifact creature token with toxic 1 and 'This token can't
+        // block.'" — a card file may not define its own `TokenDef` and no
+        // Mite stands in `crate::tokens`; toxic is a keyword bit no rule
+        // reads; and no `Modifier` says "can't block".
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
