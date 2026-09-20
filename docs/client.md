@@ -3007,8 +3007,36 @@ changing it:
 Knowing that ability 2 of a Command Tower makes mana takes the compiled card
 registry, which `baylee-client-core` deliberately does not link, so that half
 lives in `baylee-client/src/manasources.rs`. It refuses an ability that costs
-mana to activate (the plan would have to recurse) and one that does anything
-besides make mana (the player should decide about that themselves).
+mana to activate, because the plan would have to recurse.
+
+An ability that does something *besides* make mana it accepts, and **ranks**
+— which is the same policy reached a different way. A tap with a price beyond
+the tap sorts behind every clean tap the permanent has, and a permanent is one
+source, so the priced mode is reached only where nothing else can pay: the
+case in which the player would have tapped it by hand anyway. A price is two
+things written in two places and `manasources::priced` weighs both — in the
+cost (Havenwood Battleground's sacrifice, a Vivid land's charge counter, Spire
+of Industry's life) and in the effects (Adarkar Wastes deals you a damage and
+charges nothing to tap). Before that ranking existed the planner read amount
+and colours alone and so *always* took the expensive mode on the 25 faces that
+print both: it sacrificed Havenwood every time it tapped it.
+
+The consequence is worth knowing before it surprises you at a table: **the
+expensive mode of a permanent offering two is out of reach.** Havenwood is
+never planned for `{G}{G}`, Vivid Crag is never planned for blue, and Adarkar
+Wastes is never planned for white — one sentence with two causes. Reaching it
+needs `manaplan::Source` to carry modes and the matching to pick one per
+permanent; `the_expensive_mode_is_out_of_reach_and_that_is_the_bargain` is the
+test that goes red the day it does. The trade is right because the two
+failures are not symmetric: a shy planner costs a player some clicks, an
+over-eager one strands a half-tapped board mid-cast with no way back.
+
+What the accepting half buys is narrower than it sounds, and for the same
+reason. A card with a clean tap beside a ridered one is planned as the clean
+one and gains nothing. The whole yield is the eleven faces whose *only* mana
+ability carries a rider, which were not sources at all — Ancient Tomb printing
+`{T}: Add {C}{C}. This land deals 2 damage to you.` counted for nothing in
+every plan, and a player tapped it by hand each time.
 
 In the hand, this is a third state and it is drawn as one:
 `BoardModel::from_view` takes an `Openings { playable, reachable, activatable }`

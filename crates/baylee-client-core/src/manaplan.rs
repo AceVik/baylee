@@ -59,6 +59,22 @@ pub struct Source {
     pub colors: Vec<ManaColor>,
     /// How much one activation makes.
     pub amount: u8,
+    /// Whether `colors` is a **list of what one tap makes** rather than a
+    /// list of what it may be asked for.
+    ///
+    /// `{T}: Add {W}{U}` and `{T}: Add {W} or {U}` carry the same two
+    /// colours and are opposite offers, and nothing else on this struct can
+    /// tell them apart. A Karoo makes both, so it pays two pips of different
+    /// colours and the engine asks nothing; a dual land makes one, so it pays
+    /// one pip and the engine asks which.
+    ///
+    /// Read it in the direction of failure. Left false on a bundle the plan
+    /// merely under-counts, and the client is shy about a land that could
+    /// have paid. Set true on a choice it over-counts, and the plan taps a
+    /// board that then cannot pay — which is the half a player cannot undo,
+    /// because the mana is already floating and the permanents are already
+    /// tapped.
+    pub bundle: bool,
 }
 
 impl Source {
@@ -70,6 +86,7 @@ impl Source {
             tap,
             colors: vec![color],
             amount: 1,
+            bundle: false,
         }
     }
 
@@ -80,7 +97,11 @@ impl Source {
     /// matcher that treated them as independent would happily plan `{W}{U}`
     /// out of one of them.
     const fn units(&self) -> usize {
-        if self.colors.len() == 1 {
+        if self.bundle {
+            // Every colour listed arrives, so each one is its own unit — and
+            // `amount` is not a multiplier here, it is 1 per entry.
+            self.colors.len()
+        } else if self.colors.len() == 1 {
             self.amount as usize
         } else {
             1
@@ -370,11 +391,24 @@ fn units(pool: &ManaPoolView, sources: &[Source]) -> Vec<Unit> {
         if colors == ColorMask::NONE {
             continue;
         }
-        for _ in 0..source.units() {
-            units.push(Unit {
-                colors,
-                from: Some(index),
-            });
+        if source.bundle {
+            // One unit per colour, each holding only *its own* colour. The
+            // shared mask above is what makes a choice a choice; a bundle has
+            // no choice in it, and a unit that claimed the whole mask could
+            // be matched against a pip its colour cannot pay.
+            for color in &source.colors {
+                units.push(Unit {
+                    colors: ColorMask::of(*color),
+                    from: Some(index),
+                });
+            }
+        } else {
+            for _ in 0..source.units() {
+                units.push(Unit {
+                    colors,
+                    from: Some(index),
+                });
+            }
         }
     }
     units
@@ -489,8 +523,11 @@ fn steps(needs: &[ColorMask], units: &[Unit], taken: &[Option<usize>], sources: 
                 Step {
                     source: source.id,
                     tap: source.tap,
-                    // Only a source with a real choice is ever asked.
-                    color: (source.colors.len() > 1)
+                    // Only a source with a real choice is ever asked. A
+                    // bundle has several colours and no choice among them,
+                    // so answering one would be answering a question the
+                    // engine never asks.
+                    color: (!source.bundle && source.colors.len() > 1)
                         .then(|| chosen[index].unwrap_or_else(|| source.colors[0])),
                 }
             })
@@ -552,6 +589,7 @@ mod tests {
             tap: Tap::Ability(0),
             colors: ManaColor::ALL.to_vec(),
             amount: 1,
+            bundle: false,
         }
     }
 
@@ -741,6 +779,7 @@ mod tests {
             tap: Tap::Ability(0),
             colors: vec![ManaColor::White, ManaColor::Blue],
             amount: 2,
+            bundle: false,
         }];
         assert!(plan(&cost("{2}"), &empty(), &coupled).is_none());
 
@@ -749,9 +788,42 @@ mod tests {
             tap: Tap::Ability(0),
             colors: vec![ManaColor::Colorless],
             amount: 2,
+            bundle: false,
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
+    }
+
+    /// A Karoo adds both its colours and is asked nothing; a dual land
+    /// carrying the same two is asked which.
+    ///
+    /// The pair is the whole test, because a single assertion here passes for
+    /// the wrong reason. `{W}{U}` is payable only if two units arrive, one of
+    /// each colour — and `{W}{W}` must stay unpayable, because a bundle is not
+    /// a choice and no amount of needing white makes the blue one white. Drop
+    /// `bundle` and the two go wrong in *opposite* directions: the first
+    /// becomes unpayable (one unit for a two-pip cost), and the same colours
+    /// read as a choice with `amount: 2` would make the second payable, which
+    /// taps the land and then cannot pay.
+    #[test]
+    fn a_bundle_pays_one_pip_of_each_colour_and_never_two_of_one() {
+        let chancery = [Source {
+            id: ObjectId::new(1, 0),
+            tap: Tap::Ability(0),
+            colors: vec![ManaColor::White, ManaColor::Blue],
+            amount: 2,
+            bundle: true,
+        }];
+        let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
+        assert_eq!(found.taps(), 1, "one permanent is one tap");
+        assert_eq!(
+            found.steps[0].color, None,
+            "a bundle offers no choice, so the engine asks for none"
+        );
+        assert!(
+            plan(&cost("{W}{W}"), &empty(), &chancery).is_none(),
+            "it makes one of each, not two of either"
+        );
     }
 
     #[test]
@@ -770,6 +842,7 @@ mod tests {
             tap: Tap::Ability(0),
             colors: Color::ALL.iter().copied().map(mana_color).collect(),
             amount: 1,
+            bundle: false,
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());

@@ -129,8 +129,10 @@ fn priced(view: &PlayerView, source: &Source) -> bool {
         // land making red only, which is the Lantern's whole point undone.
         return false;
     }
-    let Some(AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }) =
-        ability_at(view, source.id, index)
+    let Some(
+        AbilityDef::Activated { cost, effects, .. }
+        | AbilityDef::ActivatedConditional { cost, effects, .. },
+    ) = ability_at(view, source.id, index)
     else {
         // Unreadable, so assume it costs something. That sorts it behind any
         // tap this client can read, and where it is the only offer the dedup
@@ -138,9 +140,20 @@ fn priced(view: &PlayerView, source: &Source) -> bool {
         // disappears.
         return true;
     };
-    cost.parts
+    // The two halves of a price, and they sit in different places on the
+    // card. One is written in the cost — a land sacrificed, a counter
+    // removed, a life paid. The other is written in the effects, beside the
+    // mana: Adarkar Wastes charges nothing to tap and deals you a damage for
+    // the privilege. Both are reasons to reach for a different land first,
+    // and neither is visible to the other.
+    let costs_more_than_a_tap = cost
+        .parts
         .iter()
-        .any(|part| !matches!(part, CostPart::TapSelf))
+        .any(|part| !matches!(part, CostPart::TapSelf));
+    // `mana_with_riders` accepted this source, so exactly one of its effects
+    // is the `AddMana` and anything else is a rider.
+    let does_more_than_add = effects.len() > 1;
+    costs_more_than_a_tap || does_more_than_add
 }
 
 /// Ability `index` of `object`, out of the registry.
@@ -157,6 +170,71 @@ pub fn ability_at(
     let def = baylee_cards::by_index(card.index)?;
     let abilities = def.abilities_for_face(card.face as usize);
     abilities.get(usize::try_from(index).ok()?)
+}
+
+/// Whether this printed ability is the **same button** as the CR 305.6
+/// shortcut the engine already offered for this permanent.
+///
+/// The ability chooser's question, and it is not the planner's. A Forest
+/// prints `{T}: Add {G}` and the engine offers the shortcut for the same tap,
+/// so listing both is listing one button twice — that is the whole of what
+/// this is for, and it is why it compares what comes *out* rather than
+/// trusting that anything readable must be a duplicate.
+///
+/// Asking "is this readable as a source" instead was a defect with two faces.
+/// A ridered tap became readable with #149, so Yavimaya Coast's `{T}: Add
+/// {G} or {U}. This land deals 1 damage to you.` was struck off the menu the
+/// day the planner learned to read it — and the planner will not choose it
+/// either, because `priced` ranks it behind the clean tap, so the land's
+/// coloured half was reachable by no route at all. The same sentence had been
+/// quietly true of every priced tap since #165: Havenwood Battleground's
+/// `{T}, Sacrifice this land: Add {G}{G}` is read, so it was struck off, and
+/// once the clean tap won the dedup nothing offered it either.
+///
+/// So the strict reader is the right one here and the relaxed one is not.
+/// CR 305.6 mana is a free, single-effect, one-colour tap by definition, so
+/// an ability that is anything else cannot be the shortcut wearing a card's
+/// clothes.
+#[must_use]
+pub fn duplicates_intrinsic(
+    view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    index: u32,
+) -> bool {
+    let Some(intrinsic) = view
+        .object(object)
+        .and_then(|o| basic_land_color(&o.subtypes))
+    else {
+        // No basic land type, so there is no shortcut to duplicate.
+        return false;
+    };
+    let Some(ability) = ability_at(view, object, index) else {
+        return false;
+    };
+    let (AbilityDef::Activated {
+        cost,
+        effects,
+        mana_ability: true,
+        ..
+    }
+    | AbilityDef::ActivatedConditional {
+        cost,
+        effects,
+        mana_ability: true,
+        ..
+    }) = ability
+    else {
+        return false;
+    };
+    // The strict door on purpose: a tap that also does something else is a
+    // different button from the shortcut, whatever mana it happens to make.
+    let Some((source, amount, restricted)) = baylee_cards_dsl::mana_shape(cost, effects) else {
+        return false;
+    };
+    if restricted || amount != Some(1) {
+        return false;
+    }
+    produced_colors(view, object, index, source).as_deref() == Some(&[intrinsic][..])
 }
 
 /// The source that ability `index` of `object` is, when it is one this client
@@ -176,7 +254,7 @@ pub fn printed_source(
 
 /// Reads one ability as a mana source, or decides it is not one this can use.
 ///
-/// The reading itself is [`baylee_cards_dsl::mana_shape`], which is where it
+/// The reading itself is [`baylee_cards_dsl::mana_with_riders`], which is where it
 /// has to live: the same question is asked of an ability a continuous effect
 /// *grants*, and that one is not printed on any card, so this module cannot
 /// be the one that knows the answer. What the shape leaves open is which
@@ -210,7 +288,31 @@ fn mana_ability(
     else {
         return None;
     };
-    let (source, amount, restricted) = baylee_cards_dsl::mana_shape(cost, effects)?;
+    // A tap that says "add" more than once is read first, and it is the only
+    // place a `Source` is ever marked a bundle. The two readings are
+    // disjoint rather than ordered — `mana_written` returns `None` on a
+    // second `AddMana`, so nothing below can see a Karoo — but asking the
+    // narrower question first is how this reads as the special case it is.
+    //
+    // `produced_colors` is not consulted: a bundle is `ManaSource::Fixed`
+    // throughout by construction, so its colours are printed on the card and
+    // need no board to resolve. `amount` is the count that arrives, because
+    // the field means what one activation makes and a Karoo makes two.
+    if let Some(colors) = baylee_cards_dsl::mana_bundle(cost, effects) {
+        let amount = u8::try_from(colors.len()).unwrap_or(u8::MAX);
+        return Some(Source {
+            id,
+            tap: Tap::Ability(index),
+            colors,
+            amount,
+            bundle: true,
+        });
+    }
+    // The planner's door rather than the strict one: an ability that also
+    // does something else is still a source, and `priced` is what keeps it
+    // behind every clean tap. See the module header in `manaread.rs` for why
+    // the bar moves for this caller and for no other.
+    let (source, amount, restricted) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
     // Still refused, and for the reason `simple_mana` refused it: what a
     // Cavern of Souls' mana may be spent on is a rules question, and
     // answering it this side of the wire is the guess the reading exists to
@@ -229,6 +331,7 @@ fn mana_ability(
         tap: Tap::Ability(index),
         colors,
         amount,
+        bundle: false,
     })
 }
 
@@ -425,6 +528,12 @@ pub fn granted_source(
         tap: Tap::Ability(baylee_engine::choice::granted_ability(slot)),
         colors: granted.colors.clone(),
         amount: granted.amount,
+        // Never a bundle, and by construction rather than by observation:
+        // `GrantedMana` is filled from `baylee_cards_dsl::simple_mana`, which
+        // is the strictest reader in the family and refuses a second
+        // `AddMana` outright. A grant that could bundle would have to come
+        // through a different door than this one.
+        bundle: false,
     })
 }
 
@@ -884,14 +993,7 @@ mod tests {
     /// A land offering both of its printed mana abilities, which is the
     /// shape #165 is about.
     fn both_modes(name: &str) -> (PlayerView, LegalActions) {
-        let view = ViewBuilder::new(2)
-            .with_battlefield(0, [card(1, 0, name)])
-            .build();
-        let legal = LegalActions {
-            abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
-            ..LegalActions::default()
-        };
-        (view, legal)
+        offering(name, &[0, 1])
     }
 
     fn mana_cost(src: &str) -> baylee_core::mana::ManaCost {
@@ -967,6 +1069,14 @@ mod tests {
     /// modes and `assign` picks one per permanent, and that redness is the
     /// success. A limitation test deleted when the limitation lifts was never
     /// a test.
+    ///
+    /// **One sentence, two causes.** "Expensive" means a price in the cost —
+    /// Havenwood's sacrifice, a Vivid land's charge counter — and, since
+    /// #149, a rider in the effects as well: Adarkar Wastes is never planned
+    /// for white for exactly the reason Vivid Crag is never planned for blue,
+    /// and `priced` is the one function that weighs both. So whichever of the
+    /// two lifts first, this test moves for a reason a reader can name rather
+    /// than for a reason they have to reconstruct.
     #[test]
     fn the_expensive_mode_is_out_of_reach_and_that_is_the_bargain() {
         let (view, legal) = both_modes("Havenwood Battleground");
@@ -991,6 +1101,258 @@ mod tests {
             )
             .is_some(),
             "the land pays no mana at all, so the test above proves nothing"
+        );
+    }
+
+    /// A land offering the mana abilities named by index, as the engine
+    /// would.
+    fn offering(name: &str, indices: &[u32]) -> (PlayerView, LegalActions) {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [card(1, 0, name)])
+            .build();
+        let legal = LegalActions {
+            abilities: indices
+                .iter()
+                .map(|&index| (ObjectId::new(1, 0), index))
+                .collect(),
+            ..LegalActions::default()
+        };
+        (view, legal)
+    }
+
+    /// #149, and the whole of what it buys. Ancient Tomb prints one mana
+    /// ability — `{T}: Add {C}{C}. This land deals 2 damage to you.` — and
+    /// the strict reader refused it for the damage, so the land was not a
+    /// source at all. It counted for nothing in every plan and a player
+    /// tapped it by hand each time.
+    #[test]
+    fn a_land_whose_only_mana_ability_has_a_rider_is_a_source_at_all() {
+        let (view, legal) = offering("Ancient Tomb", &[0]);
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "Ancient Tomb is still invisible");
+        assert_eq!(sources[0].amount, 2, "two colourless, as printed");
+        assert_eq!(sources[0].colors, vec![ManaColor::Colorless]);
+
+        let plan = baylee_client_core::manaplan::plan(
+            &mana_cost("{2}"),
+            &baylee_view::ManaPoolView::default(),
+            &sources,
+        )
+        .expect("one tap of Ancient Tomb pays {2}");
+        assert_eq!(plan.steps.len(), 1, "one tap");
+    }
+
+    /// The guard, and the reason the two halves of #149 are one commit.
+    ///
+    /// Adarkar Wastes prints `{T}: Add {C}` beside `{T}: Add {W} or {U}.
+    /// This land deals 1 damage to you.` — and **both cost only `{T}`**, so
+    /// the cost half of `priced` cannot tell them apart. Teach the reader to
+    /// accept riders without teaching `priced` that an effect beside the
+    /// mana is a price too, and the two-colour tap wins the dedup on
+    /// breadth: the client would pay a life to make colourless for a generic
+    /// cost.
+    ///
+    /// Green before #149 for a different reason — the reader refused the
+    /// coloured tap outright — so this discriminates only against the half
+    /// of the change it is here to guard. Strip `does_more_than_add` from
+    /// `priced` and it goes red.
+    #[test]
+    fn a_painland_pays_a_generic_cost_without_dealing_itself_damage() {
+        let (view, legal) = offering("Adarkar Wastes", &[0, 1]);
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "one permanent is one source");
+        assert_eq!(
+            sources[0].tap,
+            Tap::Ability(0),
+            "took the damaging tap over the free one"
+        );
+        assert_eq!(
+            sources[0].colors,
+            vec![ManaColor::Colorless],
+            "the clean colourless tap, which is what a generic cost asks for"
+        );
+    }
+
+    /// **The reader family's relation, made a build failure.**
+    ///
+    /// `mana_shape` is documented as `mana_with_riders` with one clause put
+    /// back, and a sentence is not a check. Over every ability in the pool:
+    /// what the strict reader accepts, the loose one accepts *identically*;
+    /// and what the loose one accepts with something beside the mana, the
+    /// strict one refuses. Either half failing means the two have drifted
+    /// into different answers about one ability, which is the fault the
+    /// module header says this family exists to prevent.
+    ///
+    /// The population is bounded at both ends for the reason `cross-read`'s
+    /// is: a reader that goes blind reports agreement over nothing.
+    #[test]
+    fn the_strict_reader_is_the_loose_one_with_its_clause_put_back() {
+        let (mut agreed, mut riders) = (0usize, 0usize);
+        for def in baylee_cards::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    let (AbilityDef::Activated {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }) = ability
+                    else {
+                        continue;
+                    };
+                    let strict = baylee_cards_dsl::mana_shape(cost, effects);
+                    let loose = baylee_cards_dsl::mana_with_riders(cost, effects);
+                    if let Some(strict) = strict {
+                        assert_eq!(
+                            Some(strict),
+                            loose,
+                            "the loose reader lost an ability the strict one reads"
+                        );
+                        agreed += 1;
+                    } else if loose.is_some() {
+                        assert!(
+                            effects.len() > 1,
+                            "the strict reader refused for something other than a rider"
+                        );
+                        riders += 1;
+                    }
+                }
+            }
+        }
+        assert!(
+            agreed > 800,
+            "only {agreed} abilities read alike — the walk went blind"
+        );
+        assert!(
+            riders > 30,
+            "only {riders} ridered abilities found — the walk went blind"
+        );
+    }
+
+    /// Every tap in the pool that says "add" more than once.
+    ///
+    /// **24** when this was written, and the bound is a window rather than a
+    /// floor because both directions are defects and they are different ones.
+    /// Fewer means the reader stopped seeing a family it used to read. More
+    /// means it began admitting something still undecided — a choice, a
+    /// computed amount — and that is the direction that taps a board which
+    /// then cannot pay.
+    ///
+    /// The population is two cycles and three strays: the Karoo/bounce lands,
+    /// the Mirage lands that sacrifice themselves (which is why a bundle may
+    /// carry a non-mana cost part), plus Composite Golem, Morgue Toad and
+    /// Nantuko Elder. **None of the 24 carries a rider**, which is the measured
+    /// answer to a question `mana_bundle` had to settle anyway: it allows one,
+    /// on the family rule that it may relax exactly the clause between it and
+    /// `mana_with_riders`, and this pool cannot currently tell the difference.
+    #[test]
+    fn a_tap_that_says_add_twice_is_read_as_the_pair_it_makes() {
+        let mut bundles = 0usize;
+        let mut ridered = 0usize;
+        let mut chancery = None;
+        for def in baylee_cards::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    let (AbilityDef::Activated {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }) = ability
+                    else {
+                        continue;
+                    };
+                    let Some(colors) = baylee_cards_dsl::mana_bundle(cost, effects) else {
+                        continue;
+                    };
+                    bundles += 1;
+                    assert!(colors.len() > 1, "a bundle of one is not a bundle");
+                    if effects.len() > colors.len() {
+                        ridered += 1;
+                    }
+                    if def.faces[face].name == "Azorius Chancery" {
+                        chancery = Some(colors);
+                    }
+                }
+            }
+        }
+        assert!(
+            (20..=30).contains(&bundles),
+            "{bundles} bundles read — the window was 20..=30 and 24 was measured"
+        );
+        assert_eq!(
+            ridered, 0,
+            "{ridered} bundles carry a rider — the doc comment above says none do"
+        );
+        assert_eq!(
+            chancery.as_deref(),
+            Some(&[ManaColor::White, ManaColor::Blue][..]),
+            "the colours arrive in the order the card prints them"
+        );
+    }
+
+    /// What #149 is worth, counted rather than claimed: the cards that had
+    /// **no** readable mana ability at all and now have one.
+    ///
+    /// A card with a clean tap beside a ridered one gains nothing here — the
+    /// dedup keeps one entry per permanent and `priced` gives it to the
+    /// clean one — so Adarkar Wastes is a colourless source before and
+    /// after. The yield is entirely the lands whose *only* mana ability has
+    /// something beside the mana.
+    #[test]
+    fn the_cards_this_makes_visible_are_the_ones_with_no_clean_tap() {
+        let mut gained: Vec<&str> = Vec::new();
+        for def in baylee_cards::all() {
+            for face in 0..def.faces.len() {
+                let (mut strict, mut loose) = (false, false);
+                for ability in def.abilities_for_face(face) {
+                    let (AbilityDef::Activated {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }) = ability
+                    else {
+                        continue;
+                    };
+                    strict |= baylee_cards_dsl::mana_shape(cost, effects).is_some();
+                    loose |= baylee_cards_dsl::mana_with_riders(cost, effects).is_some();
+                }
+                if loose && !strict {
+                    gained.push(def.faces[face].name);
+                }
+            }
+        }
+        gained.sort_unstable();
+        assert!(
+            gained.contains(&"Ancient Tomb"),
+            "the card the change was written for is not among {gained:?}"
+        );
+        // A budget on a known population rather than a target: a card added
+        // with a rider and no clean tap costs nobody a red gate, and a drift
+        // past this says the population moved and wants reading.
+        assert!(
+            (8..=16).contains(&gained.len()),
+            "{} cards gained a source: {gained:?}",
+            gained.len()
         );
     }
 }

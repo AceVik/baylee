@@ -217,6 +217,37 @@ fn tap_only(view: &PlayerView, object: ObjectId, index: u32) -> bool {
     )
 }
 
+/// Whether this printed ability is **already on screen** as this permanent's
+/// mana row.
+///
+/// Two conditions, catching different things. The first is the row this
+/// permanent's tap actually became, whichever ability won it — including a
+/// granted one, which is on no card and which the registry therefore cannot
+/// recognise. The second is the CR 305.6 shortcut wearing a card's clothes: a
+/// Forest prints `{T}: Add {G}` and the engine offers the shortcut for the
+/// same tap, so listing both is listing one button twice.
+///
+/// It carries its own name because it is its own question. It used to ask
+/// [`crate::manasources::printed_source`] — "is this readable as a source at
+/// all" — which is the **planner's** question, and it struck off every ability
+/// the planner *could* read rather than the one already on screen. That was
+/// harmless only while the two questions happened to have the same answer.
+/// They stopped: a priced tap has been read since #165 and a ridered one since
+/// #149, and neither wins the planner's dedup, so Havenwood Battleground's
+/// sacrifice and Yavimaya Coast's coloured half were struck off a menu that
+/// was the last place they were reachable from.
+#[must_use]
+fn already_on_screen(
+    view: &PlayerView,
+    offered_as_mana: Option<Tap>,
+    object: ObjectId,
+    index: u32,
+) -> bool {
+    offered_as_mana == Some(Tap::Ability(index))
+        || (offered_as_mana == Some(Tap::Intrinsic)
+            && crate::manasources::duplicates_intrinsic(view, object, index))
+}
+
 /// Everything `object` is offering right now, in a stable order.
 ///
 /// Stable because the prompt bar draws it as a row of buttons and a list that
@@ -360,14 +391,7 @@ pub fn options_for(
         if source != object {
             continue;
         }
-        // Already offered above, whichever of them won. Two conditions
-        // because they catch different things: a granted ability is on no
-        // card, so `printed_source` has nothing to say about it, and a
-        // printed one may have lost to the CR 305.6 shortcut and still must
-        // not be listed a second time.
-        if offered_as_mana == Some(Tap::Ability(index))
-            || crate::manasources::printed_source(view, object, index).is_some()
-        {
+        if already_on_screen(view, offered_as_mana, object, index) {
             continue;
         }
         let Some(action) = interaction.activate(object, index) else {
@@ -740,8 +764,21 @@ fn makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
 
 /// "Tap for {G}", or "Tap for {U} or {B}" where there is a choice to make —
 /// and "Tap for any color" where there is no choice worth drawing.
+///
+/// A **bundle** is none of those and is drawn as what arrives: "Tap for
+/// {W}{U}". It cannot go through [`mana_choice`], and not merely because the
+/// wording would read oddly. That function answers "any color" as soon as all
+/// five are listed, which is true of a choice among five and false of
+/// Composite Golem, whose sacrifice adds one of each and offers nothing — the
+/// player would be told they may have any colour they like, and then be given
+/// five specific ones.
 fn mana_label(lang: Lang, source: &baylee_client_core::manaplan::Source) -> String {
-    Phrase::TapFor.fill(lang, &[&mana_choice(lang, &source.colors, source.amount)])
+    let made = if source.bundle {
+        source.colors.iter().map(|c| pip(*c)).collect::<String>()
+    } else {
+        mana_choice(lang, &source.colors, source.amount)
+    };
+    Phrase::TapFor.fill(lang, &[&made])
 }
 
 /// A printed ability's label: a planeswalker's loyalty cost, otherwise what
@@ -969,6 +1006,57 @@ mod tests {
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
+
+    /// A bundle is drawn as what arrives, and the five-colour case is the one
+    /// that matters.
+    ///
+    /// `mana_choice` answers "any color" as soon as all five are listed, which
+    /// is true of a choice and false of Composite Golem — it adds one of each
+    /// and offers nothing. The negative assertion is paired with a positive
+    /// one on purpose: "does not say any color" passes just as well on an
+    /// empty string, so the same label is required to carry all five pips.
+    #[test]
+    fn a_bundle_is_drawn_as_what_arrives_and_never_as_a_choice() {
+        let bundle = |colors: Vec<ManaColor>| baylee_client_core::manaplan::Source {
+            id: ObjectId::new(1, 0),
+            tap: Tap::Ability(0),
+            amount: u8::try_from(colors.len()).unwrap_or(u8::MAX),
+            colors,
+            bundle: true,
+        };
+
+        let karoo = bundle(vec![ManaColor::White, ManaColor::Blue]);
+        let label = mana_label(Lang::En, &karoo);
+        assert!(
+            label.contains(pip(ManaColor::White)) && label.contains(pip(ManaColor::Blue)),
+            "a Karoo's label names both colours: {label}"
+        );
+
+        let golem = bundle(vec![
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ]);
+        let label = mana_label(Lang::En, &golem);
+        assert!(
+            !label.contains(Phrase::AnyColor.text(Lang::En)),
+            "Composite Golem adds one of each and offers no choice: {label}"
+        );
+        for color in [
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ] {
+            assert!(
+                label.contains(pip(color)),
+                "every colour it makes is drawn: {label}"
+            );
+        }
+    }
 
     fn offering(abilities: Vec<(ObjectId, u32)>, mana: Vec<ObjectId>) -> Interaction {
         Interaction::new(

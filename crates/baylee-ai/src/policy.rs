@@ -774,6 +774,12 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                     tap: Tap::Ability(index),
                     colors,
                     amount,
+                    // Correct only while `mana_shape`'s one-effect match hides
+                    // every multi-`AddMana` ability from this reader, so nothing
+                    // that reaches here is a bundle. #170 is where that stops
+                    // being true, and it has to decide this per ability rather
+                    // than restate the constant.
+                    bundle: false,
                 },
                 priced,
             ));
