@@ -1771,14 +1771,158 @@ fn windbrisk_heights() -> CardIndex {
     card_index("3589bcfc-42b0-414a-adce-bc690dc631c8")
 }
 
+fn archway_of_innovation() -> CardIndex {
+    card_index("bfa20bc7-4626-4a52-87f4-6e2763cb8ed5")
+}
+
+fn arena_of_glory() -> CardIndex {
+    card_index("63dfe794-5f56-41ec-9883-5523b41cc3e0")
+}
+
+fn balduvian_trading_post() -> CardIndex {
+    card_index("7647940e-c99c-401c-ad1d-9ec730f66b6f")
+}
+
+fn blast_zone() -> CardIndex {
+    card_index("393a254f-be31-431a-9341-a51286f8cbce")
+}
+
+fn branch_of_vitu_ghazi() -> CardIndex {
+    card_index("7a30316b-dcd5-4a4b-b959-eecde7ca92e7")
+}
+
+fn cactus_preserve() -> CardIndex {
+    card_index("8da29533-f389-4bc2-ab9b-b469f893a362")
+}
+
+fn clive_s_hideaway() -> CardIndex {
+    card_index("283f743f-6e79-49de-b7ed-08e6ffb64cc6")
+}
+
+fn country_roads() -> CardIndex {
+    card_index("c5a39f76-dd1b-442c-9f52-08561ecb91ad")
+}
+
+fn dalkovan_encampment() -> CardIndex {
+    card_index("33a90122-7280-4481-9b97-5879194cae40")
+}
+
 fn den_of_the_bugbear() -> CardIndex {
     card_index("f451b8f0-1ff5-4e8d-9f30-9352d83ed687")
+}
+
+fn eclipsed_realms() -> CardIndex {
+    card_index("5715ed43-395c-4877-99a7-8e28e7bf9dce")
+}
+
+fn fertile_thicket() -> CardIndex {
+    card_index("7ba580c9-f933-43d9-b03d-a349faa6c641")
+}
+
+fn foul_roads() -> CardIndex {
+    card_index("d4e4c8a5-e97b-4295-a403-d17834f73502")
+}
+
+fn gallifrey_council_chamber() -> CardIndex {
+    card_index("26e4b49e-77e7-41d9-94c5-924669a82591")
+}
+
+fn hellion_crucible() -> CardIndex {
+    card_index("c238ef51-4b46-43d5-a70b-40270a96a1fd")
 }
 
 fn hive_of_the_eye_tyrant() -> CardIndex {
     card_index("d17163d4-dd43-4de6-b7cf-576448160b7f")
 }
 
+fn lazotep_quarry() -> CardIndex {
+    card_index("0d2fa39a-9cac-4a1f-bb1e-b6162e6d5169")
+}
+
+fn memorial_to_unity() -> CardIndex {
+    card_index("a74494ef-aa35-4830-9b4c-47bff5270efc")
+}
+
+fn minas_morgul_dark_fortress() -> CardIndex {
+    card_index("867dbd5a-c3cf-41ce-980b-c9babc6f30f2")
+}
+
+fn mirrex() -> CardIndex {
+    card_index("5502741a-e3b9-454e-8121-4360a6db6750")
+}
+
+fn mirrorpool() -> CardIndex {
+    card_index("57b86d5c-3269-44bc-a838-3c5439d820d9")
+}
+
+fn opal_palace() -> CardIndex {
+    card_index("aa6723a2-75da-49f5-a1ba-cbfa82c55301")
+}
+
+fn plaza_of_heroes() -> CardIndex {
+    card_index("9c58d241-4d9f-4b46-b8ee-f4587f9acfd6")
+}
+
+fn primal_beyond() -> CardIndex {
+    card_index("541744d9-449d-420a-a5a1-2fffba18450f")
+}
+
+fn reef_roads() -> CardIndex {
+    card_index("32438050-5ae7-4c19-bcaf-5a07a673e0e0")
+}
+
+fn restless_cottage() -> CardIndex {
+    card_index("7e16595f-bdeb-422e-b99a-bfc0ed52e9f8")
+}
+
+fn restless_fortress() -> CardIndex {
+    card_index("8b3726f1-20b8-42ec-8f9b-b361515c3f05")
+}
+
+fn restless_prairie() -> CardIndex {
+    card_index("c071257a-63e7-48d0-a677-0b396a09b624")
+}
+
+fn restless_ridgeline() -> CardIndex {
+    card_index("4c0f4a63-586a-4dde-9621-b0dd9118b2e5")
+}
+
+fn restless_spire() -> CardIndex {
+    card_index("0ca4e80e-c19c-4b74-b531-c5a4dc5a8ba9")
+}
+
+fn restless_vents() -> CardIndex {
+    card_index("696e7ddb-bdc7-40ee-bc5c-59e98f4a7401")
+}
+
+fn restless_vinestalk() -> CardIndex {
+    card_index("0935faa2-fb90-48db-8a92-906ba0f374c7")
+}
+
+fn rocky_roads() -> CardIndex {
+    card_index("a659c29f-aaca-44c5-8426-cdafcb195f86")
+}
+
+fn shifting_woodland() -> CardIndex {
+    card_index("7c2a4fe5-43e8-4e20-bef2-0278d18afc4b")
+}
+
+fn sunken_palace() -> CardIndex {
+    card_index("c098c507-5154-423a-a70b-f6dfd4959cf6")
+}
+
+fn the_biblioplex() -> CardIndex {
+    card_index("86ed6073-c35c-4d29-9911-5fe191dd875f")
+}
+
 fn thran_portal() -> CardIndex {
     card_index("926ce6a2-7bdd-4380-ac65-bc902ba0c284")
+}
+
+fn trenzalore_clocktower() -> CardIndex {
+    card_index("69143645-97b6-4c7c-9fa2-844fb3b99822")
+}
+
+fn wild_roads() -> CardIndex {
+    card_index("36fbc8ba-bb4c-4e5e-9031-78c36e376851")
 }
