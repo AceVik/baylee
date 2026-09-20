@@ -660,19 +660,38 @@ pub fn blockers(
     if profile.lookahead == 0 || options.len() > MAX {
         return crate::combat::choose_blocks(view, options, life);
     }
-    let ids: Vec<_> = view
-        .combat
-        .attackers
-        .iter()
-        .map(|a| a.creature)
-        .filter(|id| options.iter().any(|o| o.attackers.contains(id)))
-        .collect();
+    // Out of the engine's own pairings, not out of the view's combat block:
+    // the offer is the authority on what is attacking this seat, and it is
+    // the one source that survives a view the agent cannot read the attack
+    // out of. In a healthy game the two name the same creatures.
+    let ids: Vec<_> = options.iter().flat_map(|o| o.attackers.iter()).fold(
+        Vec::new(),
+        |mut acc: Vec<ObjectId>, id| {
+            if !acc.contains(id) {
+                acc.push(*id);
+            }
+            acc
+        },
+    );
     let attackers: Vec<_> = ids.iter().filter_map(|&id| Fighter::of(view, id)).collect();
     let defenders: Vec<_> = options
         .iter()
         .filter_map(|o| Fighter::of(view, o.blocker))
         .collect();
-    if ids.len() > MAX || attackers.len() != ids.len() || defenders.len() != options.len() {
+    // The search needs a body for every attacker and needs to know what each
+    // one is aiming at; `position` below reads both. When the view supplies
+    // neither, this is not a smaller search but a different question, and
+    // `choose_blocks` is the half that answers it — which is what the length
+    // compare was always for, and could not do while the fallback shared this
+    // function's blind spot.
+    let described = ids
+        .iter()
+        .all(|id| view.combat.attackers.iter().any(|a| a.creature == *id));
+    if ids.len() > MAX
+        || !described
+        || attackers.len() != ids.len()
+        || defenders.len() != options.len()
+    {
         return crate::combat::choose_blocks(view, options, life);
     }
     let unblockable = view

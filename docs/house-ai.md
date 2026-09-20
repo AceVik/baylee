@@ -86,6 +86,26 @@ both halves of a two-branch effect although only one of them runs, which is
 wrong in the one direction it is allowed to be wrong in: over-counting
 refuses a safe draw, under-counting decks the seat out (CR 704.5b).
 
+**An attacker the view cannot describe is unknown, not absent.** `Fighter::of`
+is three `?` in a row — the object, its power, its toughness — and every
+`None` used to reach the decision as "no such attacker". It reached it twice:
+the creature left the damage sum, so `lethal` was false, and it left every
+blocker's candidate list, so there was nothing to pair with. The seat then
+answered a lethal attack with no blocks at all, which is the one outcome the
+"do not die" rule exists to prevent. The attacker set is now read out of the
+engine's own pairings — `Pending::ChooseBlockers` is the offer, so it is the
+authority on what is attacking this seat, and it is the one source that
+survives a view the attack cannot be read out of. An attacker named there but
+not describable is counted as unknown damage, which makes the position lethal
+by default and is chumped: the seat cannot prove it survives, and a creature
+costs a card while the alternative costs the game. `search::blockers` had a
+guard for exactly this condition — it falls back on
+`attackers.len() != ids.len()`, which *is* "an attacker did not read" — and it
+fell back onto `choose_blocks`, which shared the blind spot. A fallback onto
+the same reader is not a second path. The guard now also requires the view to
+say what each attacker is aiming at, because the search reads that and
+`choose_blocks` does not need it.
+
 `act(&PlayerView, &Pending)` remains available and needs no hidden information.
 Hosted AI seats additionally receive the selected spell/ability effects from
 `Engine::decision_context`, covering cast modes and triggered or copied abilities.

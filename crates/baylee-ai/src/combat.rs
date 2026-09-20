@@ -120,7 +120,9 @@ fn spillover(attacker: Fighter, blocker: Fighter) -> i32 {
 /// 1. **Do not die.** If the unblocked attackers add up to this seat's life
 ///    total, blocks are made until they do not — with whatever is left,
 ///    including a creature that only chumps. A creature kept back is worth
-///    nothing after the game is over.
+///    nothing after the game is over. An attacker the view cannot describe
+///    counts here as well: the engine offered a pairing against it, so it
+///    exists, and what it will deal is unknown rather than nought.
 /// 2. **Take the good exchanges.** A block where the attacker dies and the
 ///    blocker lives is free; one where both die is worth making when the
 ///    attacker is worth at least as much.
@@ -136,18 +138,31 @@ pub fn choose_blocks(
     options: &[BlockOption],
     life: i32,
 ) -> Vec<(ObjectId, ObjectId)> {
-    let attacking: Vec<ObjectId> = view
+    let incoming: i32 = view
         .combat
         .attackers
         .iter()
-        .map(|a| a.creature)
-        .filter(|id| view.object(*id).is_some())
-        .collect();
-    let incoming: i32 = attacking
-        .iter()
-        .filter_map(|id| Fighter::of(view, *id))
+        .filter_map(|a| Fighter::of(view, a.creature))
         .map(|f| f.power)
         .sum();
+    // Every attacker the engine offered a pairing against that the view
+    // cannot describe. `Fighter::of` is three `?` in a row — the object, its
+    // power, its toughness — and each of them reads to a caller as "no such
+    // attacker". Here that is wrong twice over: it is the engine that named
+    // this creature, so it is *there*, and its damage is **unknown** rather
+    // than nought. Counted as nought it left `incoming` short and left every
+    // blocker with nothing to pair with, which is how this decision answered
+    // a lethal attack with no blocks at all.
+    let mut unread = options
+        .iter()
+        .flat_map(|o| o.attackers.iter())
+        .filter(|id| Fighter::of(view, **id).is_none())
+        .fold(Vec::new(), |mut acc: Vec<ObjectId>, id| {
+            if !acc.contains(id) {
+                acc.push(*id);
+            }
+            acc
+        });
     // The engine offers a pairing per blocker; a creature with nothing it
     // may legally block is not a decision.
     let mut free: Vec<&BlockOption> = options.iter().filter(|o| !o.attackers.is_empty()).collect();
@@ -170,6 +185,9 @@ pub fn choose_blocks(
         let Some(blocker) = Fighter::of(view, option.blocker) else {
             continue;
         };
+        // Read before the pairing, because an attacker nobody can describe
+        // is what makes it true in the case this exists for.
+        let lethal = !unread.is_empty() || still_coming >= life;
         // Of the attackers this creature may block, the one where the
         // exchange is best — and among equals, the one that hits hardest.
         let best = option
@@ -191,13 +209,26 @@ pub fn choose_blocks(
                 )
             });
         let Some((attacker_id, attacker)) = best else {
+            // Nothing readable left to pair with. An unreadable attacker is
+            // still an attacker, and a seat that cannot prove it survives
+            // chumps: the creature costs one card, and the alternative is
+            // the game. It is not offered a *choice* between unreadables —
+            // there is nothing to choose on — so it takes the first.
+            if lethal
+                && let Some(i) = unread
+                    .iter()
+                    .position(|id| option.attackers.contains(id) && !taken.contains(id))
+            {
+                let attacker_id = unread.remove(i);
+                pairs.push((option.blocker, attacker_id));
+                taken.push(attacker_id);
+            }
             continue;
         };
         let e = exchange(attacker, blocker);
         // What the block actually saves: the attacker's damage, less
         // whatever tramples through anyway.
         let saved = attacker.power - spillover(attacker, blocker);
-        let lethal = still_coming >= life;
         let worth_it = if lethal {
             // Rule 1. Any block that stops damage is worth making, and a
             // creature that dies for it has done its job.

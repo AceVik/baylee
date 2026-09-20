@@ -1822,6 +1822,154 @@ mod tests {
         );
     }
 
+    /// The five shipped profiles, so a rule is not proved on one of them.
+    const PROFILES: [(&str, AIProfile); 5] = [
+        ("NOVICE", AIProfile::NOVICE),
+        ("CASUAL", AIProfile::CASUAL),
+        ("STEADY", AIProfile::STEADY),
+        ("SHARP", AIProfile::SHARP),
+        ("EXPERT", AIProfile::EXPERT),
+    ];
+
+    /// The position #123 was reported from: one attacker with first strike
+    /// and no evasion, `blockers` untapped creatures that may all legally
+    /// block it, and a life total it beats on its own.
+    ///
+    /// `power` is what the view says about the attacker, so `None` is the
+    /// case where the view carries the attack but cannot describe what is
+    /// in it.
+    fn lethal_attack(
+        power: Option<i16>,
+        in_view: bool,
+        life: i32,
+        blockers: u32,
+    ) -> (PlayerView, Pending) {
+        let defender = PlayerId::new(0);
+        let attacker = PlayerId::new(1);
+        let mut battlefield: Vec<PublicObject> = (0..blockers)
+            .map(|i| permanent(obj(10 + i), defender, 2))
+            .collect();
+        if in_view {
+            let mut a = permanent(obj(1), attacker, power.unwrap_or(75));
+            a.power = power;
+            a.keywords = baylee_cards_dsl::KeywordSet::FIRST_STRIKE.bits();
+            battlefield.push(a);
+        }
+        let mut v = view(0, &[life, 20], battlefield);
+        v.active = attacker;
+        v.step = baylee_view::Step::DeclareBlockers;
+        v.combat.attackers = vec![baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(defender),
+            blocked: false,
+        }];
+        let pending = Pending::ChooseBlockers {
+            player: defender,
+            attacker,
+            blockers: (0..blockers)
+                .map(|i| baylee_engine::choice::BlockOption {
+                    blocker: obj(10 + i),
+                    attackers: vec![obj(1)],
+                })
+                .collect(),
+        };
+        (v, pending)
+    }
+
+    fn blocks(profile: AIProfile, v: &PlayerView, pending: &Pending) -> usize {
+        match HeuristicAgent::new(profile).act(v, pending) {
+            PlayerAction::DeclareBlockers { blockers } => blockers.len(),
+            other => panic!("not a block answer: {other:?}"),
+        }
+    }
+
+    /// #123, the scenario: a lethal attacker is chumped, first strike and
+    /// all. Eight blockers, one attacker — one of them is enough, and
+    /// spending a second on it would be the opposite error.
+    #[test]
+    fn a_lethal_attacker_is_chump_blocked_by_every_profile() {
+        let (v, pending) = lethal_attack(Some(75), true, 20, 8);
+        for (name, profile) in PROFILES {
+            assert_eq!(blocks(profile, &v, &pending), 1, "{name} took the damage");
+        }
+    }
+
+    /// #123, the negative that keeps the rule honest. The same board with
+    /// the attacker below lethal: blocking loses a 2/2 to kill nothing, so
+    /// every profile stays home. Without this, "always block" passes the
+    /// test above wearing rule 1's clothes.
+    #[test]
+    fn a_bad_trade_is_declined_while_the_seat_is_not_dying() {
+        let (mut v, pending) = lethal_attack(Some(4), true, 20, 8);
+        v.battlefield.last_mut().unwrap().toughness = Some(4);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                0,
+                "{name} chumped for nothing"
+            );
+        }
+    }
+
+    /// #123, first strike specifically: it is the one keyword the reported
+    /// attacker carried, and it changes [`combat::exchange`] without
+    /// changing legality (CR 702.7). A 4/4 first striker into a 4/4 is a
+    /// block that kills our creature and nothing of theirs — declined while
+    /// the seat can afford it, and made once the seat cannot.
+    #[test]
+    fn first_strike_changes_the_exchange_and_not_the_legality() {
+        let (mut v, pending) = lethal_attack(Some(4), true, 20, 1);
+        v.battlefield.last_mut().unwrap().toughness = Some(4);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                0,
+                "{name} fed a first striker"
+            );
+        }
+        let (mut v, pending) = lethal_attack(Some(4), true, 4, 1);
+        v.battlefield.last_mut().unwrap().toughness = Some(4);
+        for (name, profile) in PROFILES {
+            assert_eq!(blocks(profile, &v, &pending), 1, "{name} died to a 4/4");
+        }
+    }
+
+    /// #123, the rule this ticket turned out to be about: an attacker the
+    /// view cannot describe is **unknown**, not absent.
+    ///
+    /// `Fighter::of` is three `?` in a row — the object, its power, its
+    /// toughness — and each `None` used to leave the attacker out of the
+    /// damage sum *and* out of every blocker's candidate list. So the seat
+    /// read a lethal attack as no attack at all and declined every block:
+    /// the engine's own pairings said a creature was there, and the agent
+    /// answered as though the board were empty.
+    ///
+    /// Both halves of the decision are pinned, because they fail
+    /// separately: `choose_blocks` reads the attack out of the view, and
+    /// `search::blockers` used to fall back to it on exactly this condition
+    /// — a fallback onto the same blind spot, which is not a fallback.
+    /// `NOVICE`/`CASUAL` take the first, the rest the second.
+    #[test]
+    fn an_attacker_the_view_cannot_describe_is_still_blocked() {
+        // The control: the same position, readable. Without it the two
+        // below would also pass against an agent that blocks with anything.
+        let (v, pending) = lethal_attack(Some(75), true, 20, 8);
+        for (name, profile) in PROFILES {
+            assert_eq!(blocks(profile, &v, &pending), 1, "{name}, readable");
+        }
+        // The view carries the attack and the engine offers the pairings,
+        // but the attacker has no body on it.
+        let (v, pending) = lethal_attack(None, true, 20, 8);
+        for (name, profile) in PROFILES {
+            assert_eq!(blocks(profile, &v, &pending), 1, "{name}, power unread");
+        }
+        // And the attacker is in no zone this seat can see at all.
+        let (v, pending) = lethal_attack(Some(75), false, 20, 8);
+        for (name, profile) in PROFILES {
+            assert_eq!(blocks(profile, &v, &pending), 1, "{name}, attacker unseen");
+        }
+    }
+
     #[test]
     fn the_search_finds_a_menace_gang_block() {
         let mut attacker = permanent(obj(1), PlayerId::new(1), 4);
