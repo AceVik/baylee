@@ -303,12 +303,14 @@ from a stub. Reach for it when the card genuinely needs something the reader
 cannot say — not to get past a transcoding bug, which belongs in the reader
 where it also fixes the cards you have not looked at.
 
-`xtask validate` reports the split, which is the number to watch: **1365
-cards, 590 finished — 207 hand-owned, 383 machine-owned — and 775 stubs.**
+`xtask validate` reports the current ownership split on every run; use that
+output instead of a checked-in card count, which goes stale as the pool grows.
 
 It also holds a card against its **printing** — Scryfall's own payload in
-`data/scryfall-cache`, which is tracked, so a fresh checkout checks exactly
-what CI does. Four comparisons, and each is a mistake a header cannot catch
+`data/scryfall-cache`. The cache is gitignored and is not included in a fresh
+checkout. Fill it with `cargo run -p xtask -- scryfall-cache` (about 26 seconds
+from the bulk feed), or copy the roughly 12 MB cache from another worktree.
+Four comparisons, and each is a mistake a header cannot catch
 because a header is the other thing a person wrote: the front face's cost,
 P/T and starting loyalty; the card's colour identity (CR 903.4, which counts a
 mana symbol in the rules text — a `{4}` artifact that taps for `{U}` is blue);
