@@ -9730,3 +9730,1315 @@ fn winding_canyons_taps_for_colorless_and_omits_creature_flash_ability() {
         "no second ability is offered"
     );
 }
+
+/// Barkchannel Pathway // Tidechannel Pathway: Modal double-faced land.
+/// Front face taps for {G}; back face Tidechannel Pathway taps for {U}.
+/// Playing the card from hand and choosing face 1 puts Tidechannel Pathway onto the battlefield.
+/// The land enters untapped and taps to add {U} to the mana pool.
+#[test]
+fn barkchannel_pathway_back_face_taps_for_blue() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(101, forest())
+        .hand(0, &[barkchannel_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, barkchannel_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, barkchannel_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, barkchannel_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Blighted Fen: "{T}: Add {C}." / "{4}{B}, {T}, Sacrifice this land: Target opponent sacrifices a creature of their choice."
+/// Paid with five Swamps, the sacrifice ability targets the opponent.
+/// On resolution, the opponent chooses and sacrifices Llanowar Elves while Blighted Fen is in its owner's graveyard.
+#[test]
+fn blighted_fen_forces_opponent_to_sacrifice_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(132, forest())
+        .battlefield(
+            0,
+            &[blighted_fen(), swamp(), swamp(), swamp(), swamp(), swamp()],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let fen = on_battlefield(&engine, p0, blighted_fen()).expect("Fen deployed");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("Elves deployed");
+
+    tap_mana_except(&mut engine, p0, fen);
+    activate(&mut engine, p0, blighted_fen(), 1);
+
+    let Pending::ChooseTargets {
+        player,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert!(player_options.contains(&p1));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player: chooser,
+        options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected sacrifice choice, got {:?}", engine.pending());
+    };
+    assert_eq!(chooser, p1);
+    assert!(options.contains(&elves));
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
+    assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, p0, blighted_fen()).is_none());
+    assert!(in_graveyard(&engine, p0, blighted_fen()).is_some());
+}
+
+/// Blighted Steppe: "{T}: Add {C}." / "{3}{W}, {T}, Sacrifice this land: You gain 2 life for each creature you control."
+/// Under `Coverage::Partial`, the scaling life-gain sacrifice ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn blighted_steppe_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(116, forest())
+        .battlefield(0, &[blighted_steppe()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let steppe = on_battlefield(&engine, p0, blighted_steppe()).expect("Steppe deployed");
+    activate(&mut engine, p0, blighted_steppe(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, steppe));
+}
+
+/// Blightstep Pathway // Searstep Pathway: Modal double-faced land.
+/// Front face taps for {B}; back face Searstep Pathway taps for {R}.
+/// Playing the card from hand and choosing face 1 puts Searstep Pathway onto the battlefield.
+/// The land enters untapped and taps to add {R} to the mana pool.
+#[test]
+fn blightstep_pathway_back_face_taps_for_red() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(102, forest())
+        .hand(0, &[blightstep_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, blightstep_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, blightstep_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, blightstep_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Bonders' Enclave: "{T}: Add {C}." / "{3}, {T}: Draw a card. Activate only if you control a creature with power 4 or greater."
+/// Under `Coverage::Partial`, the conditional card draw ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn bonders_enclave_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(130, forest())
+        .battlefield(0, &[bonders_enclave()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let enclave = on_battlefield(&engine, p0, bonders_enclave()).expect("Enclave deployed");
+    activate(&mut engine, p0, bonders_enclave(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, enclave));
+}
+
+/// Branchloft Pathway // Boulderloft Pathway: Modal double-faced land.
+/// Front face taps for {G}; back face Boulderloft Pathway taps for {W}.
+/// Playing the card from hand and choosing face 1 puts Boulderloft Pathway onto the battlefield.
+/// The land enters untapped and taps to add {W} to the mana pool.
+#[test]
+fn branchloft_pathway_back_face_taps_for_white() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(103, forest())
+        .hand(0, &[branchloft_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, branchloft_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, branchloft_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, branchloft_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Command Beacon: "{T}: Add {C}." / "{T}, Sacrifice this land: Put your commander into your hand from the command zone."
+/// Under `Coverage::Partial`, the command-zone return ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn command_beacon_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(119, forest())
+        .battlefield(0, &[command_beacon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let beacon = on_battlefield(&engine, p0, command_beacon()).expect("Beacon deployed");
+    activate(&mut engine, p0, command_beacon(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, beacon));
+}
+
+/// Cragcrown Pathway // Timbercrown Pathway: Modal double-faced land.
+/// Front face taps for {R}; back face Timbercrown Pathway taps for {G}.
+/// Playing the card from hand and choosing face 1 puts Timbercrown Pathway onto the battlefield.
+/// The land enters untapped and taps to add {G} to the mana pool.
+#[test]
+fn cragcrown_pathway_back_face_taps_for_green() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(104, forest())
+        .hand(0, &[cragcrown_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, cragcrown_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, cragcrown_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, cragcrown_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Crypt of Agadeem: "This land enters tapped." / "{T}: Add {B}." / "{2}, {T}: Add {B} for each black creature card in your graveyard."
+/// With two black creature cards in the graveyard and {2} mana available from two Swamps, ability 1 is activated.
+/// The ability counts both black creature cards and adds {B}{B} to the mana pool.
+#[test]
+fn crypt_of_agadeem_adds_black_mana_per_black_creature_in_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(134, sheoldred_the_apocalypse())
+        .battlefield(0, &[crypt_of_agadeem(), swamp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 2);
+    let crypt = on_battlefield(&engine, p0, crypt_of_agadeem()).expect("Crypt deployed");
+
+    tap_mana_except(&mut engine, p0, crypt);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        2
+    );
+
+    activate(&mut engine, p0, crypt_of_agadeem(), 1);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        2,
+        "spent 2 black mana to activate, gained 2 black mana from 2 black creature cards"
+    );
+    assert!(is_tapped(&engine, crypt));
+}
+
+/// Darkbore Pathway // Slitherbore Pathway: Modal double-faced land.
+/// Front face taps for {B}; back face Slitherbore Pathway taps for {G}.
+/// Playing the card from hand and choosing face 1 puts Slitherbore Pathway onto the battlefield.
+/// The land enters untapped and taps to add {G} to the mana pool.
+#[test]
+fn darkbore_pathway_back_face_taps_for_green() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(105, forest())
+        .hand(0, &[darkbore_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, darkbore_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, darkbore_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, darkbore_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Drannith Ruins: "{T}: Add {C}." / "{2}, {T}: Put two +1/+1 counters on target non-Human creature that entered this turn."
+/// Under `Coverage::Partial`, the entering-this-turn condition is omitted and any non-Human creature may be targeted.
+/// Paid with two Forests, activating ability 1 targets Llanowar Elves and places two +1/+1 counters on it.
+#[test]
+fn drannith_ruins_places_counters_on_non_human_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(124, forest())
+        .battlefield(0, &[drannith_ruins(), forest(), forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ruins = on_battlefield(&engine, p0, drannith_ruins()).expect("Ruins deployed");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("Elves deployed");
+    assert_eq!(counters_on(&engine, elves, CounterKind::P1P1), 0);
+    assert_eq!(pt(&engine, elves), (1, 1));
+
+    tap_mana_except(&mut engine, p0, ruins);
+    activate(&mut engine, p0, drannith_ruins(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elves));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(counters_on(&engine, elves, CounterKind::P1P1), 2);
+    assert_eq!(pt(&engine, elves), (3, 3));
+    assert!(is_tapped(&engine, ruins));
+}
+
+/// Dread Statuary: "{T}: Add {C}." / "{4}: This land becomes a 4/2 Golem artifact creature until end of turn. It's still a land."
+/// Paid with four Forests, activating ability 1 animates the land without tapping it.
+/// Upon resolution, the permanent has types Land, Creature, and Artifact, with 4/2 base P/T.
+#[test]
+fn dread_statuary_animates_into_golem_artifact_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(133, forest())
+        .battlefield(
+            0,
+            &[dread_statuary(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let statuary = on_battlefield(&engine, p0, dread_statuary()).expect("Statuary deployed");
+    assert!(!types(&engine, statuary).contains(TypeSet::CREATURE));
+
+    tap_mana_except(&mut engine, p0, statuary);
+    activate(&mut engine, p0, dread_statuary(), 1);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let t = types(&engine, statuary);
+    assert!(t.contains(TypeSet::LAND));
+    assert!(t.contains(TypeSet::CREATURE));
+    assert!(t.contains(TypeSet::ARTIFACT));
+    assert_eq!(pt(&engine, statuary), (4, 2));
+    assert!(!is_tapped(&engine, statuary));
+}
+
+/// Eiganjo Castle: "{T}: Add {W}." / "{W}, {T}: Prevent the next 2 damage that would be dealt to target legendary creature this turn."
+/// Under `Coverage::Partial`, the activated damage-prevention ability is omitted.
+/// The legendary land taps for its base mana ability to add {W} to the mana pool.
+#[test]
+fn eiganjo_castle_taps_for_white_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(139, forest())
+        .battlefield(0, &[eiganjo_castle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let castle = on_battlefield(&engine, p0, eiganjo_castle()).expect("Castle deployed");
+    activate(&mut engine, p0, eiganjo_castle(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert!(is_tapped(&engine, castle));
+}
+
+/// Emergence Zone: "{T}: Add {C}." / "{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash."
+/// Under `Coverage::Partial`, the timing grant applies to sorceries rather than all spell types.
+/// Activating ability 1 sacrifices Emergence Zone, paying {1} from a Forest and sending the land to the graveyard.
+#[test]
+fn emergence_zone_sacrifices_to_grant_flash() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(127, forest())
+        .battlefield(0, &[emergence_zone(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let zone = on_battlefield(&engine, p0, emergence_zone()).expect("Zone deployed");
+    tap_mana_except(&mut engine, p0, zone);
+
+    activate(&mut engine, p0, emergence_zone(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, emergence_zone()).is_none());
+    assert!(in_graveyard(&engine, p0, emergence_zone()).is_some());
+}
+
+/// Ghost Town: "{T}: Add {C}." / "{0}: Return this land to its owner's hand. Activate only if it's not your turn."
+/// Under `Coverage::Partial`, the not-your-turn timing restriction is omitted.
+/// Activating ability 1 for {0} returns Ghost Town from the battlefield to its owner's hand.
+#[test]
+#[ignore = "#147: an effect on TargetSpec::ThisObject does nothing — the land stays on the battlefield"]
+fn ghost_town_returns_to_hand_on_activation() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(113, forest())
+        .battlefield(0, &[ghost_town()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert!(on_battlefield(&engine, p0, ghost_town()).is_some());
+    assert!(in_hand(&engine, p0, ghost_town()).is_none());
+
+    activate(&mut engine, p0, ghost_town(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, ghost_town()).is_none());
+    assert!(in_hand(&engine, p0, ghost_town()).is_some());
+}
+
+/// Hall of Heliod's Generosity: "{T}: Add {C}." / "{1}{W}, {T}: Put target enchantment card from your graveyard on top of your library."
+/// With an enchantment card in the graveyard and mana from two Plains, ability 1 targets the enchantment.
+/// Upon resolution, the enchantment card is moved from the graveyard to the top of the library.
+#[test]
+fn hall_of_heliod_s_generosity_puts_enchantment_on_top_of_library() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(123, luminarch_ascension())
+        .battlefield(0, &[hall_of_heliod_s_generosity(), plains(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let hall = on_battlefield(&engine, p0, hall_of_heliod_s_generosity()).expect("Hall deployed");
+    let gy = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
+    assert_eq!(gy.len(), 1);
+    let target_ench = gy[0];
+
+    tap_mana_except(&mut engine, p0, hall);
+    activate(&mut engine, p0, hall_of_heliod_s_generosity(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&target_ench));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target_ench],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        0,
+        "enchantment left the graveyard"
+    );
+    let lib = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert_eq!(
+        lib.last().copied(),
+        Some(target_ench),
+        "enchantment on top of library"
+    );
+    assert!(is_tapped(&engine, hall));
+}
+
+/// Kessig Wolf Run: "{T}: Add {C}." / "{X}{R}{G}, {T}: Target creature gets +X/+0 and gains trample until end of turn."
+/// With mana from a Forest and a Mountain, the second ability is activated targeting Llanowar Elves with X=0.
+/// Upon resolution, Llanowar Elves gains trample until end of turn and the land is tapped.
+#[test]
+fn kessig_wolf_run_grants_trample_to_target_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(115, forest())
+        .battlefield(
+            0,
+            &[kessig_wolf_run(), forest(), mountain(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wolf_run = on_battlefield(&engine, p0, kessig_wolf_run()).expect("Wolf Run deployed");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("Elves deployed");
+    assert!(!keywords(&engine, elves).contains(KeywordSet::TRAMPLE));
+
+    tap_mana_except(&mut engine, p0, wolf_run);
+    activate(&mut engine, p0, kessig_wolf_run(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(keywords(&engine, elves).contains(KeywordSet::TRAMPLE));
+    assert_eq!(pt(&engine, elves), (1, 1));
+    assert!(is_tapped(&engine, wolf_run));
+}
+
+/// Miren, the Moaning Well: "{T}: Add {C}." / "{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness."
+/// Under `Coverage::Partial`, the toughness-scaled life-gain sacrifice ability is omitted.
+/// The legendary land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn miren_the_moaning_well_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(137, forest())
+        .battlefield(0, &[miren_the_moaning_well()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let well = on_battlefield(&engine, p0, miren_the_moaning_well()).expect("Well deployed");
+    activate(&mut engine, p0, miren_the_moaning_well(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, well));
+}
+
+/// Needleverge Pathway // Pillarverge Pathway: Modal double-faced land.
+/// Front face taps for {R}; back face Pillarverge Pathway taps for {W}.
+/// Playing the card from hand and choosing face 1 puts Pillarverge Pathway onto the battlefield.
+/// The land enters untapped and taps to add {W} to the mana pool.
+#[test]
+fn needleverge_pathway_back_face_taps_for_white() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(106, forest())
+        .hand(0, &[needleverge_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, needleverge_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, needleverge_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, needleverge_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Ominous Cemetery: "{T}: Add {C}." / "{5}, {T}, Exile this land: Target creature's owner shuffles it into their library."
+/// Under `Coverage::Partial`, the exile-and-shuffle creature removal ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn ominous_cemetery_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(120, forest())
+        .battlefield(0, &[ominous_cemetery()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let cemetery = on_battlefield(&engine, p0, ominous_cemetery()).expect("Cemetery deployed");
+    activate(&mut engine, p0, ominous_cemetery(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, cemetery));
+}
+
+/// Petrified Field: "{T}: Add {C}." / "{T}, Sacrifice this land: Return target land card from your graveyard to your hand."
+/// With a Forest card in the graveyard, Petrified Field's sacrifice ability targets the Forest.
+/// Upon resolution, Petrified Field is in the graveyard and the Forest card is returned to hand.
+#[test]
+fn petrified_field_returns_land_from_graveyard_to_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(121, forest())
+        .battlefield(0, &[petrified_field()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let _field = on_battlefield(&engine, p0, petrified_field()).expect("Field deployed");
+    let gy = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
+    assert_eq!(gy.len(), 1);
+    let target_land = gy[0];
+
+    activate(&mut engine, p0, petrified_field(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&target_land));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target_land],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, petrified_field()).is_none());
+    assert!(in_graveyard(&engine, p0, petrified_field()).is_some());
+    assert!(in_hand(&engine, p0, forest()).is_some());
+}
+
+/// Prahv, Spires of Order: "{T}: Add {C}." / "{4}{W}{U}, {T}: Prevent all damage a source of your choice would deal this turn."
+/// Under `Coverage::Partial`, the resolution-time damage prevention choice is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn prahv_spires_of_order_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(117, forest())
+        .battlefield(0, &[prahv_spires_of_order()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let prahv = on_battlefield(&engine, p0, prahv_spires_of_order()).expect("Prahv deployed");
+    activate(&mut engine, p0, prahv_spires_of_order(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, prahv));
+}
+
+/// R&D's Secret Lair: "Play cards as written. Ignore all errata." / "{T}: Add {C}."
+/// Under `Coverage::Partial`, the un-set errata-ignoring rule is omitted.
+/// The legendary land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn r_d_s_secret_lair_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(129, forest())
+        .battlefield(0, &[r_d_s_secret_lair()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lair = on_battlefield(&engine, p0, r_d_s_secret_lair()).expect("Lair deployed");
+    activate(&mut engine, p0, r_d_s_secret_lair(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, lair));
+}
+
+/// Rainbow Vale: "{T}: Add one mana of any color. An opponent gains control of this land at the beginning of the next end step."
+/// Under `Coverage::Partial`, the end-step control change trigger is omitted.
+/// Activating the land prompts for a color choice; selecting Green adds {G} to the mana pool.
+#[test]
+fn rainbow_vale_adds_chosen_color_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(138, forest())
+        .battlefield(0, &[rainbow_vale()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vale = on_battlefield(&engine, p0, rainbow_vale()).expect("Vale deployed");
+    activate(&mut engine, p0, rainbow_vale(), 0);
+
+    let Pending::ChooseColor { player, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert!(is_tapped(&engine, vale));
+}
+
+/// Rhystic Cave: "{T}: Choose a color. Add one mana of that color unless any player pays {1}. Activate only as an instant."
+/// Under `Coverage::Partial`, the payment prevention condition is omitted.
+/// Activating the land prompts for a color choice; selecting Blue adds {U} to the mana pool.
+#[test]
+fn rhystic_cave_adds_chosen_color_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(135, forest())
+        .battlefield(0, &[rhystic_cave()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let cave = on_battlefield(&engine, p0, rhystic_cave()).expect("Cave deployed");
+    activate(&mut engine, p0, rhystic_cave(), 0);
+
+    let Pending::ChooseColor { player, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert!(is_tapped(&engine, cave));
+}
+
+/// Riftstone Portal: "{T}: Add {C}." / "As long as this card is in your graveyard, lands you control have '{T}: Add {G} or {W}.'"
+/// Under `Coverage::Partial`, the graveyard static ability granting mana abilities to lands is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn riftstone_portal_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(131, forest())
+        .battlefield(0, &[riftstone_portal()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let portal = on_battlefield(&engine, p0, riftstone_portal()).expect("Portal deployed");
+    activate(&mut engine, p0, riftstone_portal(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, portal));
+}
+
+/// Riverglide Pathway // Lavaglide Pathway: Modal double-faced land.
+/// Front face taps for {U}; back face Lavaglide Pathway taps for {R}.
+/// Playing the card from hand and choosing face 1 puts Lavaglide Pathway onto the battlefield.
+/// The land enters untapped and taps to add {R} to the mana pool.
+#[test]
+fn riverglide_pathway_back_face_taps_for_red() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(107, forest())
+        .hand(0, &[riverglide_pathway()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, riverglide_pathway()).expect("pathway in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected face choice");
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(1)))
+        .expect("face 1 offered");
+    engine
+        .apply(player, PlayerAction::ChooseMode(slot))
+        .unwrap();
+
+    let land = on_battlefield(&engine, p0, riverglide_pathway()).expect("land deployed");
+    assert_eq!(engine.state().object(land).unwrap().face_index, 1);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, riverglide_pathway(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Sandstorm Verge: "{T}: Add {C}." / "{3}, {T}: Target creature can't block this turn. Activate only as a sorcery."
+/// Under `Coverage::Partial`, the sorcery-speed restriction preventing blocking is omitted.
+/// The Desert taps for colorless mana, adding {C} to the pool and leaving the land tapped.
+#[test]
+fn sandstorm_verge_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(108, forest())
+        .battlefield(0, &[sandstorm_verge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let verge = on_battlefield(&engine, p0, sandstorm_verge()).expect("Verge deployed");
+    activate(&mut engine, p0, sandstorm_verge(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, verge));
+}
+
+/// Smoldering Spires: "This land enters tapped." / "When this land enters, target creature can't block this turn." / "{T}: Add {R}."
+/// Under `Coverage::Partial`, the enters-the-battlefield blocking restriction trigger is omitted.
+/// Playing the land from hand verifies that it enters tapped without triggering, and on the next turn it untaps to add {R}.
+#[test]
+fn smoldering_spires_enters_tapped_and_taps_for_red() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(128, forest())
+        .hand(0, &[smoldering_spires()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let spires = play_land(&mut engine, p0, smoldering_spires());
+    assert!(
+        entered_tapped(&engine, spires),
+        "Smoldering Spires enters tapped"
+    );
+    assert!(stack_is_empty(&engine), "no enters trigger on the stack");
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, spires), "untaps on next turn");
+
+    activate(&mut engine, p0, smoldering_spires(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1
+    );
+    assert!(is_tapped(&engine, spires));
+}
+
+/// Soulstone Sanctuary: "{T}: Add {C}." / "{4}: This land becomes a 3/3 creature with vigilance and all creature types. It's still a land."
+/// Paid with four Forests, activating ability 1 animates the land indefinitely without tapping it.
+/// Upon resolution, the permanent is a 3/3 creature with vigilance and remains an untapped land.
+#[test]
+fn soulstone_sanctuary_animates_into_creature_with_vigilance() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(140, forest())
+        .battlefield(
+            0,
+            &[
+                soulstone_sanctuary(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sanctuary = on_battlefield(&engine, p0, soulstone_sanctuary()).expect("Sanctuary deployed");
+    assert!(!types(&engine, sanctuary).contains(TypeSet::CREATURE));
+
+    tap_mana_except(&mut engine, p0, sanctuary);
+    activate(&mut engine, p0, soulstone_sanctuary(), 1);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let t = types(&engine, sanctuary);
+    assert!(t.contains(TypeSet::LAND));
+    assert!(t.contains(TypeSet::CREATURE));
+    assert_eq!(pt(&engine, sanctuary), (3, 3));
+    assert!(keywords(&engine, sanctuary).contains(KeywordSet::VIGILANCE));
+    assert!(!is_tapped(&engine, sanctuary));
+}
+
+/// Terrain Generator: "{T}: Add {C}." / "{2}, {T}: You may put a basic land card from your hand onto the battlefield tapped."
+/// Under `Coverage::Partial`, the hand-to-battlefield basic land drop ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn terrain_generator_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(122, forest())
+        .battlefield(0, &[terrain_generator()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let generator = on_battlefield(&engine, p0, terrain_generator()).expect("Generator deployed");
+    activate(&mut engine, p0, terrain_generator(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, generator));
+}
+
+/// The Tabernacle at Pendrell Vale: "All creatures have 'At the beginning of your upkeep, destroy this creature unless you pay {1}.'"
+/// The static ability grants an upkeep trigger to every creature on the battlefield.
+/// On turn 1 upkeep, Llanowar Elves' granted trigger resolves; when declining to pay {1}, the creature is destroyed.
+#[test]
+#[ignore = "#147: Destroy on TargetSpec::ThisObject does nothing — the declined tax kills nothing"]
+fn the_tabernacle_at_pendrell_vale_taxes_creatures_on_upkeep() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(118, forest())
+        .battlefield(0, &[the_tabernacle_at_pendrell_vale(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("pass_until matched PayTax");
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, YesNoPrompt::PayTax { mana: 1 });
+
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "creature destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "creature in graveyard"
+    );
+}
+
+/// Thespian's Stage: "{T}: Add {C}." / "{2}, {T}: This land becomes a copy of target land, except it has this ability."
+/// Under `Coverage::Partial`, the target-copying activated ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn thespian_s_stage_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(112, forest())
+        .battlefield(0, &[thespian_s_stage()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let stage = on_battlefield(&engine, p0, thespian_s_stage()).expect("Stage deployed");
+    activate(&mut engine, p0, thespian_s_stage(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, stage));
+}
+
+/// Unholy Grotto: "{T}: Add {C}." / "{B}, {T}: Put target Zombie card from your graveyard on top of your library."
+/// With a Zombie card in the graveyard and {B} mana available from a Swamp, ability 1 is activated.
+/// The targeted Zombie card is returned from the graveyard and placed on top of the library.
+#[test]
+fn unholy_grotto_puts_zombie_from_graveyard_on_top_of_library() {
+    let p0 = PlayerId::new(0);
+    let festering_goblin = card_index("66fb4764-d309-4c30-a2a4-474f9030dc87");
+    let mut engine = Duel::new(109, festering_goblin)
+        .battlefield(0, &[unholy_grotto(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let grotto = on_battlefield(&engine, p0, unholy_grotto()).expect("Grotto deployed");
+    let gy = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
+    assert_eq!(gy.len(), 1);
+    let zombie = gy[0];
+
+    tap_mana_except(&mut engine, p0, grotto);
+    activate(&mut engine, p0, unholy_grotto(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&zombie));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![zombie],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        0,
+        "Zombie left the graveyard"
+    );
+    let lib = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert_eq!(
+        lib.last().copied(),
+        Some(zombie),
+        "Zombie is on top of library"
+    );
+    assert!(is_tapped(&engine, grotto));
+}
+
+/// Unstable Frontier: "{T}: Add {C}." / "{T}: Target land you control becomes the basic land type of your choice until end of turn."
+/// Under `Coverage::Partial`, the basic land type grant ability is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn unstable_frontier_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(136, forest())
+        .battlefield(0, &[unstable_frontier()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let frontier = on_battlefield(&engine, p0, unstable_frontier()).expect("Frontier deployed");
+    activate(&mut engine, p0, unstable_frontier(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, frontier));
+}
+
+/// Untaidake, the Cloud Keeper: "Untaidake enters tapped." / "{T}, Pay 2 life: Add {C}{C}. Spend this mana only to cast legendary spells."
+/// Activating Untaidake deducts 2 life from the controller and produces two restricted colorless mana.
+/// The mana pool receives the restricted mana and the land becomes tapped.
+#[test]
+fn untaidake_the_cloud_keeper_adds_restricted_mana_paying_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(126, forest())
+        .battlefield(0, &[untaidake_the_cloud_keeper()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let untaidake =
+        on_battlefield(&engine, p0, untaidake_the_cloud_keeper()).expect("Untaidake deployed");
+    let life_before = engine.state().players[0].life;
+
+    activate(&mut engine, p0, untaidake_the_cloud_keeper(), 0);
+
+    assert_eq!(engine.state().players[0].life, life_before - 2);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 2);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Colorless);
+    assert!(is_tapped(&engine, untaidake));
+}
+
+/// Urza's Mine: "{T}: Add {C}. If you control an Urza's Power-Plant and an Urza's Tower, add {C}{C} instead."
+/// Under `Coverage::Partial`, the multi-permanent Tron replacement condition is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn urza_s_mine_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(110, forest())
+        .battlefield(0, &[urza_s_mine()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = on_battlefield(&engine, p0, urza_s_mine()).expect("Mine deployed");
+    activate(&mut engine, p0, urza_s_mine(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, mine));
+}
+
+/// Urza's Tower: "{T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead."
+/// Under `Coverage::Partial`, the multi-permanent Tron replacement condition is omitted.
+/// The land taps for its base mana ability to add {C} to the mana pool.
+#[test]
+fn urza_s_tower_taps_for_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(114, forest())
+        .battlefield(0, &[urza_s_tower()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let tower = on_battlefield(&engine, p0, urza_s_tower()).expect("Tower deployed");
+    activate(&mut engine, p0, urza_s_tower(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, tower));
+}
+
+/// Vault of the Archangel: "{T}: Add {C}." / "{2}{W}{B}, {T}: Creatures you control gain deathtouch and lifelink until end of turn."
+/// Paid with four basic lands, the activated ability resolves to grant all controlled creatures both keywords.
+/// Llanowar Elves gains deathtouch and lifelink, and the land remains tapped.
+#[test]
+fn vault_of_the_archangel_grants_deathtouch_and_lifelink_to_creatures() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(125, forest())
+        .battlefield(
+            0,
+            &[
+                vault_of_the_archangel(),
+                plains(),
+                swamp(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vault = on_battlefield(&engine, p0, vault_of_the_archangel()).expect("Vault deployed");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("Elves deployed");
+    assert!(!keywords(&engine, elves).contains(KeywordSet::DEATHTOUCH));
+    assert!(!keywords(&engine, elves).contains(KeywordSet::LIFELINK));
+
+    tap_mana_except(&mut engine, p0, vault);
+    activate(&mut engine, p0, vault_of_the_archangel(), 1);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let kw = keywords(&engine, elves);
+    assert!(kw.contains(KeywordSet::DEATHTOUCH));
+    assert!(kw.contains(KeywordSet::LIFELINK));
+    assert!(is_tapped(&engine, vault));
+}
+
+/// Wintermoon Mesa: "This land enters tapped." / "{T}: Add {C}." / "{2}, {T}, Sacrifice this land: Tap two target lands."
+/// Under `Coverage::Partial`, the two-target sacrifice ability is omitted.
+/// Playing the land from hand verifies that it enters tapped, and on the next turn it untaps and taps for {C}.
+#[test]
+fn wintermoon_mesa_enters_tapped_and_taps_for_colorless() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(111, forest())
+        .hand(0, &[wintermoon_mesa()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mesa = play_land(&mut engine, p0, wintermoon_mesa());
+    assert!(
+        entered_tapped(&engine, mesa),
+        "Wintermoon Mesa enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, mesa), "untaps on next turn");
+
+    activate(&mut engine, p0, wintermoon_mesa(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+    assert!(is_tapped(&engine, mesa));
+}

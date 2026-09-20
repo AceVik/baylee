@@ -1150,3 +1150,163 @@ fn waterveil_cavern() -> CardIndex {
 fn winding_canyons() -> CardIndex {
     card_index("622e2561-48b1-4aca-9abb-9a3c284dcceb")
 }
+
+fn barkchannel_pathway() -> CardIndex {
+    card_index("59d22de5-e310-44d7-89cf-ef3529e40cef")
+}
+
+fn blighted_fen() -> CardIndex {
+    card_index("b8f3da11-7c8f-4846-98a6-204bfd8d572b")
+}
+
+fn blighted_steppe() -> CardIndex {
+    card_index("db16a2fb-dc42-4086-9928-52076043097f")
+}
+
+fn blightstep_pathway() -> CardIndex {
+    card_index("e580a229-e800-4746-9d37-c32fcef8de28")
+}
+
+fn bonders_enclave() -> CardIndex {
+    card_index("f33ce38a-34ec-4b65-a0fc-160484a02007")
+}
+
+fn branchloft_pathway() -> CardIndex {
+    card_index("7c304547-a4b1-46c9-baed-16d2bfbe16eb")
+}
+
+fn command_beacon() -> CardIndex {
+    card_index("7e8c2a18-e404-40ff-a9e0-ec3eeb6d576e")
+}
+
+fn cragcrown_pathway() -> CardIndex {
+    card_index("727ca426-f4cc-4218-8ae5-8c427af2e816")
+}
+
+fn crypt_of_agadeem() -> CardIndex {
+    card_index("4fe8af73-c84a-44bd-9739-ee5c8b027874")
+}
+
+fn darkbore_pathway() -> CardIndex {
+    card_index("868e6e68-4367-4073-a864-235d5961ae56")
+}
+
+fn drannith_ruins() -> CardIndex {
+    card_index("d1f10cca-8dfa-4ea5-b227-4446cd8514a8")
+}
+
+fn dread_statuary() -> CardIndex {
+    card_index("a9789ce4-69cf-435c-b99a-78a21609830c")
+}
+
+fn eiganjo_castle() -> CardIndex {
+    card_index("895a0e00-20a9-44f8-9215-66edcdf016b7")
+}
+
+fn emergence_zone() -> CardIndex {
+    card_index("7536eb66-959d-4dca-9b75-895572ef733c")
+}
+
+fn ghost_town() -> CardIndex {
+    card_index("f2c861d3-b302-4e84-b647-099551007269")
+}
+
+fn hall_of_heliod_s_generosity() -> CardIndex {
+    card_index("2fc070dc-f2f7-4648-8069-31d74790a39c")
+}
+
+fn kessig_wolf_run() -> CardIndex {
+    card_index("c6911265-54ef-4c16-bcf2-1ffb24b7d426")
+}
+
+fn miren_the_moaning_well() -> CardIndex {
+    card_index("03fe19bb-8e22-4030-8299-2ddd2d5a7eb2")
+}
+
+fn needleverge_pathway() -> CardIndex {
+    card_index("a9b8d020-4d72-4934-8942-df29ef19fc1d")
+}
+
+fn ominous_cemetery() -> CardIndex {
+    card_index("d002391f-1dad-4966-ac36-56cc3ec015b2")
+}
+
+fn petrified_field() -> CardIndex {
+    card_index("c4bc5bc4-e589-42c5-91fa-2ebc96448e85")
+}
+
+fn prahv_spires_of_order() -> CardIndex {
+    card_index("37ff5ba6-0763-4c73-85bf-66856e67b8f3")
+}
+
+fn r_d_s_secret_lair() -> CardIndex {
+    card_index("b6be7abe-cee3-418f-bf52-8b5405e3462f")
+}
+
+fn rainbow_vale() -> CardIndex {
+    card_index("76695b15-d0ba-41eb-85f1-52ba5d14b8ba")
+}
+
+fn rhystic_cave() -> CardIndex {
+    card_index("609fbc2c-514a-4feb-aaad-b9e6dcfd335c")
+}
+
+fn riftstone_portal() -> CardIndex {
+    card_index("8d7e05ba-5406-4d5e-bb8f-a4a6f3b0eaa7")
+}
+
+fn riverglide_pathway() -> CardIndex {
+    card_index("4924b3a4-a218-4783-8a4d-82361fdecc78")
+}
+
+fn sandstorm_verge() -> CardIndex {
+    card_index("de417a82-8f03-4d7e-aee7-48f7d7eba61a")
+}
+
+fn smoldering_spires() -> CardIndex {
+    card_index("cfa3288d-e521-4a13-bcb3-7950a94e1746")
+}
+
+fn soulstone_sanctuary() -> CardIndex {
+    card_index("3c0f99b8-0222-4fac-932a-eb5d77826564")
+}
+
+fn terrain_generator() -> CardIndex {
+    card_index("a949c96c-362c-45a3-bd5c-ce5ce153ee9e")
+}
+
+fn the_tabernacle_at_pendrell_vale() -> CardIndex {
+    card_index("69b409b3-fa16-4c79-8b46-215a7036ed46")
+}
+
+fn thespian_s_stage() -> CardIndex {
+    card_index("b01e698b-608a-4fc7-8073-b01d044743ec")
+}
+
+fn unholy_grotto() -> CardIndex {
+    card_index("c28211c6-a5ee-40c3-bb6a-da3e7e73fd95")
+}
+
+fn unstable_frontier() -> CardIndex {
+    card_index("495214b5-2eab-4fe4-8879-a30a57a67163")
+}
+
+fn untaidake_the_cloud_keeper() -> CardIndex {
+    card_index("362f25a6-01ff-4c53-be52-c6346a9b0065")
+}
+
+fn urza_s_mine() -> CardIndex {
+    card_index("33e85a8a-86df-4cdc-a9cc-8cbabe92c3c0")
+}
+
+fn urza_s_tower() -> CardIndex {
+    card_index("32fbb638-ab14-4e8b-a07a-d4c44e3496f2")
+}
+
+fn vault_of_the_archangel() -> CardIndex {
+    card_index("eeaac65a-3480-475a-bb28-e6375d53f487")
+}
+
+fn wintermoon_mesa() -> CardIndex {
+    card_index("a4a6f95e-856c-4eb5-82ba-b2406be22b23")
+}
