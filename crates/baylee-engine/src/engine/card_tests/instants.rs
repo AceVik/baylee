@@ -2636,3 +2636,224 @@ fn strength_of_cedars_pumps_target_creature_by_lands_you_control() {
         "five Forests give +5/+5 to the 1/1 Elves"
     );
 }
+
+// A pump that **counts**. The three below are one reading of the card-script
+// reference — `NumAtt$ ±X` where `X` is a `Count$Valid`, which no reader took
+// until `Amount::Negated` gave the sign somewhere to live — and they are
+// three cards because the reading has three halves that can each be wrong on
+// their own: the direction, whose permanents are counted, and whether "on the
+// battlefield" means anybody's. `amount_sign_tests` carries the pool-wide
+// claim the three of them cannot make.
+
+/// Irradiate: "-1/-1 until end of turn **for each artifact you control**".
+///
+/// Two claims on one board. The sign — a shrink, and `resolve::counters::signed`
+/// is the only thing that decides it, so reverting that call to the
+/// `matches!(a, Amount::NegX | Amount::NegXFixed(_))` it replaced makes this
+/// a 8/8 instead of a 4/4 and the card hands out the opposite of what it
+/// prints. And the count — the opponent's artifact is on the battlefield too,
+/// and `Filter::YOUR_ARTIFACT` is the difference between two and three.
+#[test]
+fn irradiate_shrinks_by_the_artifacts_you_control() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(311, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                chromatic_lantern(),
+                chromatic_lantern(),
+                rootbreaker_wurm(),
+            ],
+        )
+        .hand(0, &[irradiate()])
+        .battlefield(1, &[chromatic_lantern()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the wurm is seated");
+    assert_eq!(pt(&engine, wurm), (6, 6), "the premise: a 6/6");
+
+    cast_from_hand(&mut engine, p0, irradiate());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, wurm),
+        (4, 4),
+        "\"-1/-1 for each artifact you control\" with two of them on your \
+         side and one on theirs: down by two, not up by two and not down by \
+         three"
+    );
+}
+
+/// Feeding Frenzy: "-X/-X, where X is the number of Zombies **on the
+/// battlefield**".
+///
+/// The mirror of the card above, and the reason both are here. `Count$Valid
+/// Zombie` names no controller, and the transcoder writes that as a
+/// `CountOf` over `ZoneSel::Battlefield` — which counts everybody's. A reader
+/// that narrowed it to "you control" would be wrong in the direction nothing
+/// complains about: the spell still shrinks, just by less.
+#[test]
+fn feeding_frenzy_counts_every_zombie_on_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(312, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                festering_goblin(),
+                rootbreaker_wurm(),
+            ],
+        )
+        .hand(0, &[feeding_frenzy()])
+        .battlefield(1, &[festering_goblin(), festering_goblin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the wurm is seated");
+    cast_from_hand(&mut engine, p0, feeding_frenzy());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, wurm),
+        (3, 3),
+        "one Zombie of yours and two of theirs is three Zombies: a 6/6 \
+         becomes a 3/3, and a count that stopped at your own side would \
+         leave a 5/5"
+    );
+}
+
+/// Wirewood Pride: the same reading with no sign in front of it.
+///
+/// The positive side is the larger half of what this transcoder change
+/// reaches — 148 reference scripts against 26 — and it shares every line of
+/// the reader with the two above except the wrapper. A test only of the
+/// negatives would pass with `Amount::Negated` applied unconditionally.
+#[test]
+fn wirewood_pride_pumps_by_the_elves_on_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(313, forest())
+        .battlefield(0, &[forest(), llanowar_elves(), rootbreaker_wurm()])
+        .hand(0, &[wirewood_pride()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the wurm is seated");
+    cast_from_hand(&mut engine, p0, wirewood_pride());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, wurm),
+        (8, 8),
+        "two Elves on the battlefield, one each side: +2/+2 upwards"
+    );
+}
+
+/// CR 608.2f: a counted amount is read **on resolution**, not when the spell
+/// was announced.
+///
+/// The half a fixed number cannot be wrong about, and the one `Amount::CountOf`
+/// makes reachable: `resolve::counters::signed` evaluates through
+/// `eval::amount`, which walks the battlefield the engine has at the moment
+/// the effect runs. Three Zombies are on the board when Feeding Frenzy is
+/// cast and two when it resolves, because the opponent exiled one of their
+/// own in response — so the wurm loses two, not three. A reader that had
+/// evaluated the count at announcement would pass every other test in this
+/// file.
+#[test]
+fn a_counted_pump_is_read_on_resolution_and_not_on_announcement() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(314, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                festering_goblin(),
+                rootbreaker_wurm(),
+            ],
+        )
+        .hand(0, &[feeding_frenzy()])
+        .battlefield(1, &[plains(), festering_goblin(), festering_goblin()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the wurm is seated");
+    cast_from_hand(&mut engine, p0, feeding_frenzy());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .unwrap();
+
+    // Three Zombies are on the battlefield right now. The spell is on the
+    // stack and has counted nothing yet.
+    let theirs = all_on_battlefield(&engine, p1, festering_goblin());
+    assert_eq!(theirs.len(), 2, "two Zombies on their side, one on ours");
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the caster holds priority over their own spell");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    // They answer by exiling one of their own — which is not a Zombie dying,
+    // so nothing else goes on the stack.
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, wurm),
+        (4, 4),
+        "three Zombies when it was cast and two when it resolved: a 6/6 \
+         becomes a 4/4 (CR 608.2f). A count taken at announcement would have \
+         made it a 3/3"
+    );
+}

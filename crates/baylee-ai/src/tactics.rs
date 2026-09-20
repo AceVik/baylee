@@ -36,14 +36,31 @@ impl Meaning {
     }
 }
 
+/// A deliberately partial evaluator: an amount this side of the wire cannot
+/// count answers zero rather than a guess.
+///
+/// The magnitude and the sign are read separately, and the sign is
+/// [`Amount::is_negative`] rather than a list of the negative variants. This
+/// was such a list — `NegX` and `NegXFixed` each with an arm of its own —
+/// and it was the fourth copy of the same question in the workspace. The
+/// next negative amount added to the DSL would have been read here as a
+/// bonus, silently, in a heuristic nobody asserts a sign on.
 fn amount(n: Amount, x: u32) -> i32 {
-    match n {
-        Amount::Fixed(n) => i32::try_from(n).unwrap_or(i32::MAX),
-        Amount::X | Amount::XPlusCommanderCasts => i32::try_from(x).unwrap_or(i32::MAX),
+    if let Amount::Negated(inner) = n {
+        return -amount(*inner, x);
+    }
+    let magnitude = match n {
+        Amount::Fixed(v) | Amount::NegXFixed(v) => i32::try_from(v).unwrap_or(i32::MAX),
+        Amount::X | Amount::NegX | Amount::XPlusCommanderCasts => {
+            i32::try_from(x).unwrap_or(i32::MAX)
+        }
         Amount::DoubleX => i32::try_from(x.saturating_mul(2)).unwrap_or(i32::MAX),
-        Amount::NegX => -i32::try_from(x).unwrap_or(i32::MAX),
-        Amount::NegXFixed(n) => -i32::try_from(n).unwrap_or(i32::MAX),
         _ => 0,
+    };
+    if n.is_negative() {
+        -magnitude
+    } else {
+        magnitude
     }
 }
 

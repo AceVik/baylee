@@ -1144,12 +1144,34 @@ impl Tx<'_> {
     /// write and each means it by a different count, so an entry naming `X`
     /// would rank thirty questions as one.
     fn pump_side(&mut self, raw: &str) -> Option<String> {
-        match pump_amount(raw, self.svars, self.has_x) {
-            Some(a) => Some(a),
-            None => match self.svars.get(raw.trim().trim_start_matches(['+', '-'])) {
-                Some(how) => self.deny(format!("pump amount `{raw}` = `{how}`")),
-                None => self.deny(format!("pump amount `{raw}`")),
-            },
+        if let Some(a) = pump_amount(raw, self.svars, self.has_x) {
+            return Some(a);
+        }
+        let trimmed = raw.trim();
+        let Some(how) = self
+            .svars
+            .get(trimmed.trim_start_matches(['+', '-']))
+            .cloned()
+        else {
+            return self.deny(format!("pump amount `{raw}`"));
+        };
+        // A pump that **counts**. "Add {B} for each Swamp you control" and
+        // "gets -1/-1 for each artifact you control" are one reading with a
+        // sign in front of it, and [`Self::counted_amount`] has been able to
+        // say the first since `Amount::CountOf`. Nothing read the second,
+        // because the letter is not the number and the sign had nowhere to
+        // live: `Amount::Fixed` holds a `u32`, and the two negatives the DSL
+        // had are each a variant of their own magnitude.
+        //
+        // `Amount::Negated` is that sign as a wrapper rather than a negative
+        // twin of every count there is, so the magnitude is said once. The
+        // positive side comes with it and is the larger half by a long way —
+        // 148 reference scripts against 26 — because a pump counting upwards
+        // is what most of them print.
+        match self.count_expr(&how) {
+            Some(inner) if trimmed.starts_with('-') => Some(format!("Amount::Negated(&{inner})")),
+            Some(inner) => Some(inner),
+            None => self.deny(format!("pump amount `{raw}` = `{how}`")),
         }
     }
 
@@ -1611,13 +1633,29 @@ impl Tx<'_> {
         let Some(def) = self.svars.get(raw.trim()).cloned() else {
             return self.deny(format!("mana amount `{}`", raw.trim()));
         };
-        let Some(valid) = def.trim().strip_prefix("Count$Valid ") else {
+        match self.count_expr(&def) {
+            Some(expr) => Some(expr),
             // Named by what it resolves *through* and never by its own
             // spelling: `Amount$ X` is one letter standing for thirty
             // different questions, and the definition is the one of them this
             // card is asking.
-            return self.deny(format!("count `{}`", def.trim()));
-        };
+            None => self.deny(format!("count `{}`", def.trim())),
+        }
+    }
+
+    /// A `Count$Valid …` definition as an [`Amount::CountOf`] expression.
+    ///
+    /// Silent on a definition it cannot read, because its two callers refuse
+    /// in different words and a refusal is a worklist entry.
+    /// [`Self::counted_amount`] is reading a mana line and [`Self::pump_side`]
+    /// a pump; a pump filed under "mana amount" sends whoever reads the
+    /// report to a rule the card never touched, and a wrong reason travels
+    /// further than a wrong reading because nothing downstream can check it.
+    ///
+    /// The definition is passed in rather than the `SVar` name so that the
+    /// caller decides what an *undefined* name is called as well.
+    fn count_expr(&mut self, def: &str) -> Option<String> {
+        let valid = def.trim().strip_prefix("Count$Valid ")?;
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
         Some(format!(
@@ -4754,6 +4792,68 @@ mod tests {
         assert!(text.contains("toughness: Amount::NegXFixed(1)"), "{text}");
     }
 
+    /// A pump that **counts**, both ways round.
+    ///
+    /// The letter is not the number: `NumAtt$ -X` with `SVar:X:Count$xPaid`
+    /// is the X a player announced and reads as `Amount::NegX`, while
+    /// `Count$Valid Artifact.YouCtrl` is a board count and has nothing to do
+    /// with an announced number at all. Both were refused, because a pump
+    /// asked [`amount`] and [`amount`] reads no count; a mana line has asked
+    /// [`Tx::counted_amount`] the whole time.
+    ///
+    /// The positive side is the larger half — 148 reference scripts against
+    /// 26 — and comes from the same fallthrough, so refusing it would have
+    /// been a guard written for no reason a card could state.
+    #[test]
+    fn a_pump_counts_in_either_direction() {
+        // Irradiate: "-1/-1 until end of turn for each artifact you control".
+        let body = read(
+            "Name:Irradiate\nManaCost:3 B\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X | IsCurse$ True\n\
+             SVar:X:Count$Valid Artifact.YouCtrl\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("Effect::PumpTarget"), "{text}");
+        assert_eq!(
+            text.matches("Amount::Negated(&Amount::CountOf {").count(),
+            2,
+            "both sides of the pump negate the same count: {text}"
+        );
+
+        // Wirewood Pride's shape — "+X/+X, where X is the number of Elves" —
+        // over a subtype this fixture's catalog knows. The same reading with
+        // no sign in front of it.
+        let body = read(
+            "Name:Goblin Pride\nManaCost:G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ X | NumDef$ X\n\
+             SVar:X:Count$Valid Goblin\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("power: Amount::CountOf {"), "{text}");
+        assert!(
+            !text.contains("Negated"),
+            "nothing here counts downwards: {text}"
+        );
+
+        // And a count this reader still cannot say is still a refusal, named
+        // by what it resolves *through*. Blood Lust is the card; the
+        // honest-stub rule does not care which side of the sign it is on.
+        assert_eq!(
+            refusal_reason(
+                &parse(
+                    "Name:Blood Lust\nManaCost:B\nTypes:Instant\n\
+                     A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
+                     SVar:X:Count$Compare T GE4.4.T\n"
+                ),
+                &cats(),
+                None
+            )
+            .as_deref(),
+            Some("pump amount `-X` = `Count$Compare T GE4.4.T`"),
+            "a refused pump says what its letter resolves through"
+        );
+    }
+
     /// "Doesn't untap during your untap step" is an `R:` line in the
     /// reference and a **static ability** here, because CR 613.11 makes it a
     /// continuous effect modifying a game rule rather than a replacement of
@@ -5662,6 +5762,12 @@ mod tests {
 
     /// The letter is not the number, and reading it as one gave seven cards
     /// in this pool a pump of nothing.
+    ///
+    /// One of the three cases this pinned has since moved, which is what a
+    /// pinned limitation is for. `Count$Valid …` is read now — see
+    /// [`Self::a_pump_counts_in_either_direction`] — so what is left here is
+    /// the counts that still have no shape in the DSL, and a reader that had
+    /// become a catch-all would fail on them.
     #[test]
     fn a_pump_of_a_counted_x_is_refused_and_not_read_as_the_announced_one() {
         // Gaea's Might: domain, which the DSL cannot count. 207 scripts in
@@ -5672,12 +5778,15 @@ mod tests {
              A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
              SVar:X:Count$Domain\n"
         ));
-        // Irradiate: a count of permanents, and negative, so the sign is not
-        // what makes the difference.
+        // Oboro Envoy: a count of a **zone**, and negative, so the sign is
+        // not what makes the difference. `Count$ValidHand` is one letter away
+        // from the `Count$Valid ` the reader answers and is a different
+        // question; a `strip_prefix` without its trailing space would take
+        // this one and count the battlefield.
         assert!(refused(
             "Name:X\nTypes:Sorcery\n\
              A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
-             SVar:X:Count$Valid Artifact.YouCtrl\n"
+             SVar:X:Count$ValidHand Card.YouOwn\n"
         ));
         // And a **triggered** ability announces no number at all, so even
         // `Count$xPaid` is `x.unwrap_or(0)` there.

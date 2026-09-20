@@ -4,6 +4,26 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 
+/// An amount as a **signed** P/T modifier.
+///
+/// The one place a pump's direction is decided, because it was three: the
+/// `SetPTFilter`, `PumpFilter` and `PumpTarget` arms below each carried a
+/// closure of its own, and each spelled the sign as
+/// `matches!(a, Amount::NegX | Amount::NegXFixed(_))` — a positive list over
+/// an enum, three times over. `Amount::is_negative` is the one answer to that
+/// question and this is the one caller of it here, so a negative amount added
+/// to the DSL cannot be read as a bonus by two arms out of three.
+///
+/// The magnitude is `amount2`'s and is unsigned on purpose. The engine
+/// consumes an evaluated amount at eighteen sites and asks the sign at
+/// exactly one — this one; the other seventeen are counting cards to draw,
+/// tokens to make or life to gain, where a negative number has no meaning to
+/// give.
+fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16 {
+    let v = amount2(a, state, you, res) as i16;
+    if a.is_negative() { -v } else { v }
+}
+
 /// Executes one counter/P-T effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -82,14 +102,6 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             toughness,
             duration,
         } => {
-            let signed = |a: &Amount| -> i16 {
-                let v = amount2(a, state, you, res) as i16;
-                if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
-                    -v
-                } else {
-                    v
-                }
-            };
             // Read before anything is registered: an ability that said
             // "target" and got none sets the power and toughness of nobody.
             let this = if matches!(filter, baylee_cards_dsl::Filter::This) {
@@ -97,8 +109,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             } else {
                 res.source
             };
-            let p = signed(&power);
-            let t = signed(&toughness);
+            let p = signed(&power, state, you, res);
+            let t = signed(&toughness, state, you, res);
             let ts = state.next_timestamp();
             let modifier = baylee_cards_dsl::Modifier::SetPT(p, t);
             // `This` means the target here, exactly as it does in
@@ -139,16 +151,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             keywords,
             duration,
         } => {
-            let signed = |a: &Amount| -> i16 {
-                let v = amount2(a, state, you, res) as i16;
-                if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
-                    -v
-                } else {
-                    v
-                }
-            };
-            let p = signed(&power);
-            let t = signed(&toughness);
+            let p = signed(&power, state, you, res);
+            let t = signed(&toughness, state, you, res);
             // "Creatures target player controls get -2/-2": the seat is
             // read here, where the resolution knows what it chose, and the
             // set is the one it names on the battlefield now — the same
@@ -173,16 +177,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             keywords,
             duration,
         } => {
-            let signed = |a: &Amount| -> i16 {
-                let v = amount2(a, state, you, res) as i16;
-                if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
-                    -v
-                } else {
-                    v
-                }
-            };
-            let p = signed(&power);
-            let t = signed(&toughness);
+            let p = signed(&power, state, you, res);
+            let t = signed(&toughness, state, you, res);
             // Every target, not just the first: a spell that pumps two
             // creatures is one effect per creature, because an
             // `EffectFilter` names exactly one object.

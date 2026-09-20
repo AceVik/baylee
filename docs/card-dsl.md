@@ -1041,6 +1041,39 @@ and/or {U}", where X is what their own `RemoveCounterSelfX` announced, and
 `resolve::mana::add_mana` splits whatever the amount evaluates to into that
 many picks of one.
 
+An amount that counts **downwards** is `Amount::Negated`, wrapping the amount
+it negates:
+
+```rust
+Effect::PumpTarget {
+    power: Amount::Negated(&Amount::CountOf {
+        filter: &Filter::YOUR_ARTIFACT,
+        zone: ZoneSel::Battlefield,
+    }),
+    // …and the same for `toughness`.
+}
+```
+
+`Amount::NegX` and `Amount::NegXFixed` are the two negatives that came before
+it, and each is a variant of its own magnitude; there is one `CountOf`, so a
+card wanting its negative had nothing to write and Irradiate stayed a stub.
+The wrapper says the sign once instead of doubling every amount there is.
+
+Two things follow that a card file has to respect. **The sign is not in the
+number**: `eval::amount` answers a magnitude, because the engine consumes one
+at eighteen sites and seventeen of them are counting cards to draw or tokens
+to make, where a negative has nothing to mean. Whatever reads a signed amount asks
+`Amount::is_negative`, and never `matches!` on the negative variants — three
+places did, and each would have read `Negated` as a bonus. **And it only
+means anything where something asks.** Six of `Effect`'s twenty-two `Amount`
+fields carry a sign anything reads — `SetPTFilter`, `PumpFilter` and
+`PumpTarget`, through `power` and `toughness` — all three through
+`resolve::counters::signed`. A
+`Negated` in `DrawCards`, `GainLife` or `PlayerMayPayOr` compiles, claims
+`Coverage::Implemented`, resolves, and does the *positive* thing:
+`amount_sign_tests::every_negated_amount_in_the_pool_sits_in_a_field_that_reads_the_sign`
+is what turns that into a build failure.
+
 Fetchland (activated with composite cost + filtered search):
 
 ```rust

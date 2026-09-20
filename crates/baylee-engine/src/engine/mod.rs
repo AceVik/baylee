@@ -699,6 +699,8 @@ pub(crate) mod cost_wizard;
 mod progress;
 
 #[cfg(test)]
+mod amount_sign_tests;
+#[cfg(test)]
 mod automation_tests;
 #[cfg(test)]
 mod base_sharing_tests;

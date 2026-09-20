@@ -203,6 +203,45 @@ pub enum Amount {
         /// Where to count.
         zone: ZoneSel,
     },
+    /// The negation of another amount: "-1/-1 for each artifact you control"
+    /// (Irradiate).
+    ///
+    /// [`Amount::NegX`] and [`Amount::NegXFixed`] are the two negatives the
+    /// pool had before this, and they are the two whose magnitude is already
+    /// a variant of its own. A *counted* quantity has no such twin — there is
+    /// one `CountOf`, and a card wanting its negative had nothing to write —
+    /// so this says the negation rather than doubling every amount there is.
+    ///
+    /// The sign is not in the evaluated number: the engine's `eval::amount`
+    /// answers a magnitude, and every reader asks [`Amount::is_negative`] for
+    /// the sign. Ask that function and never `matches!` on the variants: the
+    /// three places that spelled the question out by hand would each have
+    /// read this one as positive, which is a card that prints `-X/-X` and
+    /// hands out `+X/+X`.
+    Negated(&'static Amount),
+}
+
+impl Amount {
+    /// Whether this amount counts **downwards**.
+    ///
+    /// The one place the question is answered, because it was four places
+    /// before: `resolve::counters` spelled `matches!(a, Amount::NegX |
+    /// Amount::NegXFixed(_))` in three separate closures and `baylee-ai`'s
+    /// `tactics` had a fourth arm of its own. Four positive lists over an
+    /// enum is four chances for the next negative amount to be read as a
+    /// bonus, and nothing in a test suite reads a sign as a bug: the card
+    /// resolves, the creature changes size, and only the direction is wrong.
+    ///
+    /// Nesting is answered by parity rather than refused, because that is
+    /// what the word means. No card prints a double negative.
+    #[must_use]
+    pub const fn is_negative(&self) -> bool {
+        match self {
+            Self::NegX | Self::NegXFixed(_) => true,
+            Self::Negated(inner) => !inner.is_negative(),
+            _ => false,
+        }
+    }
 }
 
 /// Zone selectors for amounts/searches.

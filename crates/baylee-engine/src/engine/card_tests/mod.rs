@@ -147,6 +147,30 @@ fn llanowar_elves() -> CardIndex {
     card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
 }
 
+fn festering_goblin() -> CardIndex {
+    card_index("66fb4764-d309-4c30-a2a4-474f9030dc87")
+}
+
+fn aurochs() -> CardIndex {
+    card_index("3961ef7c-4eb4-482e-9cda-d49d6a29c5a9")
+}
+
+fn rootbreaker_wurm() -> CardIndex {
+    card_index("d3edbb47-6892-4853-badc-cc01499d4e55")
+}
+
+fn irradiate() -> CardIndex {
+    card_index("84d45389-a085-44bc-a3fb-1a5f7cc6cbe0")
+}
+
+fn feeding_frenzy() -> CardIndex {
+    card_index("d14fa263-a6ae-4ab4-b391-2f1ff356fa54")
+}
+
+fn wirewood_pride() -> CardIndex {
+    card_index("ff19f10c-777c-4688-b1ab-99e53afaf629")
+}
+
 fn thopter_foundry() -> CardIndex {
     card_index("88bef744-550e-4f33-b1ff-a8ee990ec754")
 }
