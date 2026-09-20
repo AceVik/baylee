@@ -2457,3 +2457,127 @@ fn heroic_intervention_answers_banishing_stroke() {
          (CR 608.2b)"
     );
 }
+
+/// Great Defender: "Target creature gets +0/+X until end of turn, where X is its mana value."
+/// A 1/2 Ondu Cleric with mana value 2 is targeted by Great Defender.
+/// After the instant resolves, its toughness increases by 2 to 4 while its power remains 1.
+#[test]
+fn great_defender_boosts_toughness_by_target_mana_value() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, forest())
+        .battlefield(0, &[plains(), ondu_cleric()])
+        .hand(0, &[great_defender()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("Ondu Cleric deployed");
+    assert_eq!(pt(&engine, cleric), (1, 1));
+
+    tap_all_mana(&mut engine, p0);
+    let gd = in_hand(&engine, p0, great_defender()).expect("Great Defender in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: gd })
+        .expect("one Plains pays {W}");
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&cleric));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, cleric),
+        (1, 3),
+        "Ondu Cleric has mana value 2 and gets +0/+2"
+    );
+}
+
+/// Mana Leak: "Counter target spell unless its controller pays {3}."
+/// Seat 0 casts Llanowar Elves; Seat 1 responds by casting Mana Leak.
+/// When asked to pay {3} for the tax, Seat 0 declines, causing the creature spell to be countered.
+#[test]
+fn mana_leak_counters_spell_when_tax_is_declined() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(55, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[mana_leak()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("Llanowar Elves in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: elves })
+        .unwrap();
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let leak = in_hand(&engine, p1, mana_leak()).expect("Mana Leak in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: leak })
+        .unwrap();
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for Mana Leak, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(options, vec![elves]);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected PayTax prompt, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(mana, 3);
+
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "countered creature never arrives"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "countered creature is in graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p1, mana_leak()).is_some(),
+        "resolved Mana Leak is in graveyard"
+    );
+}

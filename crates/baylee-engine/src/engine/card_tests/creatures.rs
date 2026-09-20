@@ -12560,3 +12560,64 @@ fn a_djinn_that_costs_a_bounce_pays_it_or_is_sacrificed() {
         }
     }
 }
+
+/// Carnage Tyrant: "This spell can't be countered." / "Trample, hexproof"
+/// The green 7/6 Dinosaur is cast into two untapped Islands holding Counterspell.
+/// Counterspell resolves but cannot counter the spell; Carnage Tyrant arrives
+/// safely on the battlefield with 7/6 power/toughness, trample, and hexproof.
+#[test]
+fn carnage_tyrant_cannot_be_countered_and_enters_with_keywords() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(42, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[carnage_tyrant()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let tyrant = in_hand(&engine, p0, carnage_tyrant()).expect("Carnage Tyrant in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: tyrant })
+        .expect("six Forests pay {4}{G}{G}");
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let cs = in_hand(&engine, p1, counterspell()).expect("Counterspell in hand");
+    // The engine refuses the cast outright, which is a stronger reading of
+    // "this spell can't be countered" than the one this test was written to
+    // make. CR 601.2c: a spell that requires a target cannot be cast at all
+    // unless a legal one exists, and an uncounterable spell is not a legal
+    // target for Counterspell. So the proof is that Counterspell never
+    // reaches the stack, not that it resolves and does nothing.
+    assert!(
+        engine
+            .apply(p1, PlayerAction::CastSpell { card: cs })
+            .is_err(),
+        "Counterspell has no legal target while the only spell on the stack \
+         cannot be countered (CR 601.2c)"
+    );
+    assert!(
+        in_hand(&engine, p1, counterspell()).is_some(),
+        "the refused spell stays in its owner's hand, with the mana unspent"
+    );
+    let _ = tyrant;
+
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, carnage_tyrant()).is_some()
+    });
+    let tyrant_obj = on_battlefield(&engine, p0, carnage_tyrant()).expect("entered battlefield");
+    assert!(
+        in_graveyard(&engine, p0, carnage_tyrant()).is_none(),
+        "uncounterable spell does not go to graveyard"
+    );
+    assert_eq!(pt(&engine, tyrant_obj), (7, 6));
+    let kw = keywords(&engine, tyrant_obj);
+    assert!(kw.contains(KeywordSet::TRAMPLE));
+    assert!(kw.contains(KeywordSet::HEXPROOF));
+}

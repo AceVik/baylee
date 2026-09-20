@@ -7883,3 +7883,651 @@ fn a_manland_bound_is_one_lower_and_its_dragon_is_still_a_land() {
     assert!(types.contains(TypeSet::LAND), "\"It's still a land\"");
     assert_eq!(pt(&engine, id), (3, 4), "a 3/4 Dragon");
 }
+
+/// Bazaar of Baghdad: "{T}: Draw two cards, then discard three cards."
+/// Activating Bazaar of Baghdad draws two cards from the library and then requires
+/// discarding three cards, leaving the hand one card smaller and the land tapped.
+#[test]
+fn bazaar_of_baghdad_draws_two_and_discards_three() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(71, forest())
+        .battlefield(0, &[bazaar_of_baghdad()])
+        // Three to discard needs three to discard from: the kit deals no
+        // opening hand, so without this the engine clamps the choice to the
+        // two cards Bazaar itself drew and the test measures the clamp.
+        .hand(0, &[forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let bazaar = on_battlefield(&engine, p0, bazaar_of_baghdad()).expect("Bazaar deployed");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let lib_before = library_size(&engine, p0);
+    let gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+
+    activate(&mut engine, p0, bazaar_of_baghdad(), 0);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected discard choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (3, 3));
+    assert_eq!(prompt, ChoicePrompt::Generic);
+
+    let discards: Vec<ObjectId> = options.into_iter().take(3).collect();
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: discards })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(library_size(&engine, p0), lib_before - 2, "drew two cards");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        gy_before + 3,
+        "discarded three cards"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1,
+        "net hand size decreased by one"
+    );
+    assert!(is_tapped(&engine, bazaar));
+}
+
+/// City of Ass: "This land enters tapped." / "{T}: Add one and one-half mana of any one color."
+/// Under Coverage::Partial, the fractional mana ability is unsupported and omitted from the card.
+/// When played from hand, City of Ass enters tapped and offers no mana abilities.
+#[test]
+fn city_of_ass_enters_tapped_and_omits_unsupported_mana_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(101, forest()).hand(0, &[city_of_ass()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ass = play_land(&mut engine, p0, city_of_ass());
+    assert!(is_tapped(&engine, ass), "City of Ass enters tapped");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.mana_abilities.contains(&ass),
+        "no intrinsic mana ability"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(s, _)| *s == ass),
+        "fractional mana ability is not implemented"
+    );
+}
+
+/// City of Traitors: "When you play another land, sacrifice this land." / "{T}: Add {C}{C}."
+/// City of Traitors produces two colorless mana from its printed mana ability.
+/// When another land enters under its controller's control, its trigger fires and sacrifices it.
+#[test]
+fn city_of_traitors_taps_for_two_colorless_and_sacrifices_on_another_land() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(82, forest())
+        .battlefield(0, &[city_of_traitors()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let city = on_battlefield(&engine, p0, city_of_traitors()).expect("City of Traitors deployed");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0
+    );
+
+    // Ability 0 is the trigger; ability 1 is the mana ability.
+    activate(&mut engine, p0, city_of_traitors(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "City of Traitors adds {{C}}{{C}}"
+    );
+    assert!(is_tapped(&engine, city));
+
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, city_of_traitors()).is_none(),
+        "City of Traitors was sacrificed"
+    );
+    assert!(
+        in_graveyard(&engine, p0, city_of_traitors()).is_some(),
+        "City of Traitors is in graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, forest()).is_some(),
+        "the played Forest remains on battlefield"
+    );
+}
+
+/// Desolate Lighthouse: "{1}{U}{R}, {T}: Draw a card, then discard a card."
+/// An Island, a Mountain, and a Forest pay the {1}{U}{R} cost to loot.
+/// The controller draws one card, selects one card to discard, and the land remains tapped.
+#[test]
+fn desolate_lighthouse_loots_with_mana_and_tap() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(93, forest())
+        .battlefield(0, &[desolate_lighthouse(), island(), mountain(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lighthouse =
+        on_battlefield(&engine, p0, desolate_lighthouse()).expect("Lighthouse deployed");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+
+    tap_mana_except(&mut engine, p0, lighthouse);
+    activate(&mut engine, p0, desolate_lighthouse(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected discard prompt, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::Generic);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "drew one and discarded one: net hand size unchanged"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        gy_before + 1,
+        "discarded card is in graveyard"
+    );
+    assert!(is_tapped(&engine, lighthouse));
+}
+
+/// Elephant Graveyard: "{T}: Add {C}." / "{T}: Regenerate target Elephant."
+/// Under Coverage::Partial, regeneration shields are unsupported and the second ability is omitted.
+/// When played from hand, Elephant Graveyard offers only its colorless mana ability and taps for {C}.
+#[test]
+fn elephant_graveyard_taps_for_colorless_and_omits_regenerate() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(34, forest())
+        .hand(0, &[elephant_graveyard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let eg = play_land(&mut engine, p0, elephant_graveyard());
+    assert!(!is_tapped(&engine, eg));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(eg, 0)),
+        "colorless mana ability is offered"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(s, i)| *s == eg && *i == 1),
+        "unsupported regenerate ability is omitted"
+    );
+
+    activate(&mut engine, p0, elephant_graveyard(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+    assert!(is_tapped(&engine, eg));
+}
+
+/// Geier Reach Sanitarium: "{2}, {T}: Each player draws a card, then discards a card."
+/// Two Forests pay {2} while Geier Reach Sanitarium taps to activate its symmetrical looting ability.
+/// Both players draw a card and are each sequentially prompted to discard a card to their graveyards.
+#[test]
+fn geier_reach_sanitarium_each_player_draws_and_discards() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(47, forest())
+        .battlefield(0, &[geier_reach_sanitarium(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sanitarium =
+        on_battlefield(&engine, p0, geier_reach_sanitarium()).expect("Sanitarium deployed");
+    let p0_gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+    let p1_gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+
+    tap_mana_except(&mut engine, p0, sanitarium);
+    activate(&mut engine, p0, geier_reach_sanitarium(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p0 discard prompt, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+
+    let Pending::ChooseCards {
+        player: p1_player,
+        options: p1_options,
+        min: p1_min,
+        max: p1_max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p1 discard prompt, got {:?}", engine.pending())
+    };
+    assert_eq!(p1_player, p1);
+    assert_eq!((p1_min, p1_max), (1, 1));
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![p1_options[0]],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        p0_gy_before + 1,
+        "p0 discarded one card"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        p1_gy_before + 1,
+        "p1 discarded one card"
+    );
+    assert!(is_tapped(&engine, sanitarium));
+}
+
+/// Oboro, Palace in the Clouds: "{T}: Add {U}." and "{1}: Return Oboro to its owner's hand."
+/// Oboro taps for blue mana, which remains in the pool to pay for its own return ability.
+/// The ability resolves, returning the tapped land back to its owner's hand.
+// Red: the ability resolves and Oboro does not move. `bounce(ThisObject)` has
+// exactly one user in the pool, so this spelling had never resolved before
+// this test existed. Un-ignoring it is what closes #147.
+#[ignore = "#147: a {1}: return-this-to-hand ability leaves the permanent on the battlefield"]
+#[test]
+fn oboro_palace_in_the_clouds_taps_for_blue_and_returns_itself_to_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(14, forest())
+        .battlefield(0, &[oboro_palace_in_the_clouds()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let oboro = on_battlefield(&engine, p0, oboro_palace_in_the_clouds()).expect("Oboro deployed");
+    activate(&mut engine, p0, oboro_palace_in_the_clouds(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "Oboro tapped for {{U}}"
+    );
+    assert!(is_tapped(&engine, oboro));
+
+    activate(&mut engine, p0, oboro_palace_in_the_clouds(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, oboro_palace_in_the_clouds()).is_none(),
+        "Oboro left the battlefield"
+    );
+    assert!(
+        in_hand(&engine, p0, oboro_palace_in_the_clouds()).is_some(),
+        "Oboro returned to owner's hand"
+    );
+}
+
+/// Scavenger Grounds: "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+/// Both players have cards in their graveyards, and two Forests pay the generic cost.
+/// Scavenger Grounds sacrifices itself as the chosen Desert, exiling all graveyards.
+#[test]
+fn scavenger_grounds_sacrifices_a_desert_to_exile_all_graveyards() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(63, forest())
+        .battlefield(0, &[scavenger_grounds(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 2);
+    seed_graveyard(&mut engine, p1, 2);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        2
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        2
+    );
+
+    let sg = on_battlefield(&engine, p0, scavenger_grounds()).expect("Scavenger Grounds deployed");
+    tap_mana_except(&mut engine, p0, sg);
+
+    activate(&mut engine, p0, scavenger_grounds(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected sacrifice cost choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::CostSacrifice);
+    assert!(
+        options.contains(&sg),
+        "Scavenger Grounds is a Desert and can be sacrificed"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![sg] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .is_empty(),
+        "p0 graveyard is completely exiled"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty(),
+        "p1 graveyard is completely exiled"
+    );
+    assert!(on_battlefield(&engine, p0, scavenger_grounds()).is_none());
+}
+
+/// Shivan Gorge: "{T}: Add {C}." / "{2}{R}, {T}: Shivan Gorge deals 1 damage to each opponent."
+/// Under Coverage::Partial, dealing damage to each opponent is unsupported and omitted.
+/// Shivan Gorge is played as a legendary land and taps for {C}, offering no damage activation.
+#[test]
+fn shivan_gorge_taps_for_colorless_and_omits_unsupported_damage_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(28, forest())
+        .hand(0, &[shivan_gorge()])
+        .battlefield(0, &[mountain(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let gorge = play_land(&mut engine, p0, shivan_gorge());
+    assert!(!is_tapped(&engine, gorge));
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(gorge, 0)),
+        "colorless mana ability is offered"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(s, i)| *s == gorge && *i == 1),
+        "unsupported damage ability is omitted"
+    );
+
+    activate(&mut engine, p0, shivan_gorge(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+    assert!(is_tapped(&engine, gorge));
+}
+
+/// Throne of the High City: "{4}, {T}, Sacrifice this land: You become the monarch."
+/// Four Forests pay the generic cost to activate Throne of the High City.
+/// The land is sacrificed as a cost, and upon resolution, its controller becomes the monarch.
+#[test]
+fn throne_of_the_high_city_sacrifices_to_make_controller_monarch() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(66, forest())
+        .battlefield(
+            0,
+            &[
+                throne_of_the_high_city(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert_eq!(engine.state().monarch, None);
+    let throne = on_battlefield(&engine, p0, throne_of_the_high_city()).expect("Throne deployed");
+    tap_mana_except(&mut engine, p0, throne);
+
+    activate(&mut engine, p0, throne_of_the_high_city(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().monarch, Some(p0), "p0 became the monarch");
+    assert!(on_battlefield(&engine, p0, throne_of_the_high_city()).is_none());
+    assert!(in_graveyard(&engine, p0, throne_of_the_high_city()).is_some());
+}
+
+/// Treasure Vault: "{T}: Add {C}." and "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+/// Treasure Vault is played as an artifact land, entering untapped with both types.
+/// Its mana ability is offered and tapped to produce {C}, and its activated sacrifice ability is offered.
+#[test]
+fn treasure_vault_enters_as_artifact_land_and_taps_for_colorless() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(88, forest()).hand(0, &[treasure_vault()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vault = play_land(&mut engine, p0, treasure_vault());
+    let t = types(&engine, vault);
+    assert!(t.contains(TypeSet::ARTIFACT));
+    assert!(t.contains(TypeSet::LAND));
+    assert!(!is_tapped(&engine, vault));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(vault, 0)),
+        "ability 0 is the printed colorless mana ability"
+    );
+    assert!(
+        legal.abilities.contains(&(vault, 1)),
+        "ability 1 is the sacrifice ability"
+    );
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0
+    );
+    activate(&mut engine, p0, treasure_vault(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+    assert!(is_tapped(&engine, vault));
+}
+
+/// Watermarket: "{T}: Add {C}{C}. Spend this mana only to cast spells with watermarks."
+/// Under Coverage::Partial, watermark spend restrictions are unsupported and the mana is made unrestricted.
+/// Activating Watermarket's printed mana ability adds two colorless mana to the pool and taps the land.
+#[test]
+fn watermarket_taps_for_two_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(76, forest())
+        .battlefield(0, &[watermarket()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wm = on_battlefield(&engine, p0, watermarket()).expect("Watermarket deployed");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0
+    );
+
+    activate(&mut engine, p0, watermarket(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "Watermarket produces {{C}}{{C}}"
+    );
+    assert!(is_tapped(&engine, wm));
+}
+
+/// Witch's Clinic: "{T}: Add {C}." / "{2}, {T}: Target commander gains lifelink until end of turn."
+/// Under Coverage::Partial, targeting a commander is unsupported and the lifelink ability is omitted.
+/// Witch's Clinic is played as a land and taps for colorless mana, offering no lifelink activation.
+#[test]
+fn witch_s_clinic_taps_for_colorless_and_omits_unsupported_lifelink() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(99, forest())
+        .hand(0, &[witch_s_clinic()])
+        .battlefield(0, &[forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let clinic = play_land(&mut engine, p0, witch_s_clinic());
+    assert!(!is_tapped(&engine, clinic));
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(clinic, 0)),
+        "colorless mana ability is offered"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(s, i)| *s == clinic && *i == 1),
+        "unsupported commander lifelink ability is omitted"
+    );
+
+    activate(&mut engine, p0, witch_s_clinic(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+    assert!(is_tapped(&engine, clinic));
+}
+
+/// Yavimaya Hollow: "{T}: Add {C}." / "{G}, {T}: Regenerate target creature."
+/// Under Coverage::Partial, regeneration shields are unsupported and the second ability is omitted.
+/// When played from hand, Yavimaya Hollow offers only its colorless mana ability and taps for {C}.
+#[test]
+fn yavimaya_hollow_taps_for_colorless_and_omits_unsupported_regenerate() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(45, forest())
+        .hand(0, &[yavimaya_hollow()])
+        .battlefield(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hollow = play_land(&mut engine, p0, yavimaya_hollow());
+    assert!(!is_tapped(&engine, hollow));
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(hollow, 0)),
+        "colorless mana ability is offered"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(s, i)| *s == hollow && *i == 1),
+        "unsupported regenerate ability is omitted"
+    );
+
+    activate(&mut engine, p0, yavimaya_hollow(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+    assert!(is_tapped(&engine, hollow));
+}
