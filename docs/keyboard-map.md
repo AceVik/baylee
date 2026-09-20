@@ -22,7 +22,7 @@ Two consequences worth knowing before changing anything here:
 | Action | Default | Status |
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
-| Confirm / pass (ticks a row on a sheet holding the question, and toggles nothing else) | `Space` | implemented |
+| Confirm / pass (ticks a row on a sheet holding the question, toggles nothing else, and does not declare an empty attack or block) | `Space` | implemented |
 | Cancel: armed deed, then preview, then the game menu, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
@@ -97,6 +97,19 @@ thing the next declaration will be pointed at.
   calls the declaration off.
 - `Space` sends what stands; `O` sends nothing at all. Both are real answers,
   and the step does not end until one of them is given.
+- **`Space` is refused while nothing stands**, and the prompt bar drops its
+  button with it, so the two answers left are the two that do something.
+  `Space` is *also* "pass priority", which makes it the key a player presses
+  in a rhythm to walk a turn forward — and the attack step arrives inside
+  that rhythm. The next press in it answered the question with "no
+  attackers": the step spent, a 2/1 left untapped against an open opponent,
+  nothing on the prompt bar and nothing on the wire to take back. Declining
+  now costs a key of its own, which is the repair — the press that declines
+  is no longer the press already being made. The refusal is conditional on
+  there being something to lose: a declare-attackers step with no legal
+  attacker answers to `Space` as it always did. It is the same hazard the
+  sheet holding a `ChooseCards { min: 0 }` closed by keeping this key for
+  ticking a row; `input::committed_answer` is the combat half.
 
 ## Automation
 
@@ -366,7 +379,8 @@ Clicking your own permanent activates what it is offering: one ability arms
 straight away (or goes through, if it makes mana), several open the ability
 sheet on the card itself. The prompt bar carries the answers for
 whatever is pending, including combat's "Aim next", "Attack"/"Block" and
-"None". The hand bar scrolls horizontally
+"None" — the middle of those three appearing only once something is
+declared. The hand bar scrolls horizontally
 with the mouse wheel.
 
 ### Nothing a hand does moves the camera

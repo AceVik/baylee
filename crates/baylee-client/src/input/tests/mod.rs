@@ -6,7 +6,8 @@
 //! card tray is `tray`, the ability menu is `menu`, a dialog's own keys are
 //! `dialog_keys`, what the cursor is over is `hover`, what a tap does is
 //! `taps`, arming and what it swallows is `arming`, picking a target is
-//! `targets`, and what reaches the keymap at all is `keyboard`.
+//! `targets`, declaring an attack or a block is `combat`, and what reaches
+//! the keymap at all is `keyboard`.
 //!
 //! # What the harnesses here do not supply
 //!
@@ -34,6 +35,7 @@
 //! silently shadow the glob. An import says which module is meant, once.
 
 mod arming;
+mod combat;
 mod dialog_keys;
 mod hover;
 mod keyboard;
