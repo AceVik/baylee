@@ -136,19 +136,19 @@ impl Params {
         let mut parts = spec.split(" | ");
         let head = parts.next()?.trim();
         // `AB$ DealDamage`, `DB$ …`, `SP$ …`, `ST$ …`, or a bare `Mode$ …`.
-        let api = head
-            .split_once('$')
-            .map_or_else(|| head.to_string(), |(_, v)| v.trim().to_string());
+        // Every one of those has a `$`, and a head without one is none of
+        // them: an `SVar` body is very often a bare number (`SVar:SacMe:1`,
+        // `SVar:X:3`), which this read as an API called "1" with no
+        // parameters and then removed a leading entry that was never
+        // pushed. It panicked rather than refusing, and held only because
+        // nothing walked *every* `SVar` — every caller asked about a body a
+        // rules line had named. `token_stems` walks all of them.
+        let api = head.split_once('$')?.1.trim().to_string();
         let mut entries = Vec::new();
-        if let Some((key, value)) = head.split_once('$') {
-            entries.push((key.trim().to_string(), value.trim().to_string()));
-        }
         for part in parts {
             let (key, value) = part.split_once('$')?;
             entries.push((key.trim().to_string(), value.trim().to_string()));
         }
-        // The leading `AB$ DealDamage` entry is the api, not a parameter.
-        entries.remove(0);
         Some((api, Self { entries }))
     }
 
@@ -6617,6 +6617,45 @@ mod tests {
         assert_eq!(
             why("Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ T", None),
             "`Token` with no token scripts to read it against"
+        );
+    }
+
+    /// A body that is not a rules line at all is refused rather than
+    /// parsed into one.
+    ///
+    /// `SVar:SacMe:1` is a bare number, and this read it as an API named
+    /// "1" and then removed a parameter that had never been pushed. It
+    /// panicked — in a generator, over a corpus, which is a run that stops
+    /// on card 1 of 2716 — and it held for as long as it did only because
+    /// every caller asked about a body some rules line had named.
+    /// [`token_stems`] asks about all of them, and found it on the first
+    /// run.
+    #[test]
+    fn a_body_with_no_api_at_all_is_refused_and_does_not_panic() {
+        for body in ["1", "True", ""] {
+            assert!(
+                Params::parse(body).is_none(),
+                "{body:?} was read as a rules line"
+            );
+        }
+        // A counted `SVar` does have a `$` and so is read — as an API named
+        // `Valid Creature.YouCtrl`, which matches nothing and is refused one
+        // step later. That is the existing contract and not a second bug:
+        // what the head means is the caller's question, and what this
+        // function owes is an answer rather than a panic.
+        assert_eq!(
+            Params::parse("Count$Valid Creature.YouCtrl").map(|(api, _)| api),
+            Some("Valid Creature.YouCtrl".to_string())
+        );
+        // And through the walk that reaches them: a card whose `SVar`s are
+        // bare values is read, not a panic.
+        assert!(
+            token_stems(&parse(
+                "Name:X\nTypes:Artifact\n\
+                 A:AB$ Draw | Cost$ 2 Sac<1/CARDNAME/this token> | NumCards$ 1\n\
+                 SVar:SacMe:1\n"
+            ))
+            .is_empty()
         );
     }
 
