@@ -788,3 +788,183 @@ impl GameObject {
         self.base_controller = player;
     }
 }
+
+#[cfg(test)]
+mod object_tests {
+    use super::{CounterKind, Counters, Status};
+
+    // ---- counters ------------------------------------------------------
+
+    #[test]
+    fn a_counter_nobody_put_there_reads_as_none_of_it() {
+        let counters = Counters::default();
+        assert!(counters.is_empty());
+        assert_eq!(counters.get(CounterKind::Time), 0);
+        assert_eq!(counters.iter().count(), 0);
+    }
+
+    #[test]
+    fn adding_returns_the_new_total_and_accumulates() {
+        let mut counters = Counters::default();
+        assert_eq!(counters.add(CounterKind::Time, 2), 2);
+        assert_eq!(counters.add(CounterKind::Time, 3), 5);
+        assert_eq!(counters.get(CounterKind::Time), 5);
+        assert_eq!(counters.iter().count(), 1, "one kind is one entry");
+    }
+
+    #[test]
+    fn adding_saturates_rather_than_wrapping() {
+        // A wrap here is the worst kind of rules bug: a pile of counters
+        // large enough to matter would read as none at all, and every
+        // check against it would pass for the wrong reason.
+        let mut counters = Counters::default();
+        counters.set(CounterKind::Time, u16::MAX);
+        assert_eq!(counters.add(CounterKind::Time, 1), u16::MAX);
+        assert_eq!(counters.get(CounterKind::Time), u16::MAX);
+    }
+
+    #[test]
+    fn setting_a_kind_to_zero_removes_it_instead_of_storing_a_zero() {
+        // A stored zero would make `is_empty` lie and hand `iter` a pair
+        // that a client would draw as a counter nobody has.
+        let mut counters = Counters::default();
+        counters.add(CounterKind::Time, 4);
+        counters.set(CounterKind::Time, 0);
+        assert!(counters.is_empty());
+        assert_eq!(counters.get(CounterKind::Time), 0);
+        assert_eq!(counters.iter().count(), 0);
+    }
+
+    #[test]
+    fn setting_zero_on_a_kind_that_was_never_there_stores_nothing() {
+        let mut counters = Counters::default();
+        counters.set(CounterKind::Lore, 0);
+        assert!(counters.is_empty());
+    }
+
+    #[test]
+    fn set_overwrites_where_add_accumulates() {
+        let mut counters = Counters::default();
+        counters.add(CounterKind::Lore, 2);
+        counters.set(CounterKind::Lore, 1);
+        assert_eq!(counters.get(CounterKind::Lore), 1);
+    }
+
+    #[test]
+    fn two_kinds_of_counter_are_kept_apart() {
+        let mut counters = Counters::default();
+        counters.add(CounterKind::Time, 1);
+        counters.add(CounterKind::Lore, 3);
+        assert_eq!(counters.get(CounterKind::Time), 1);
+        assert_eq!(counters.get(CounterKind::Lore), 3);
+        assert_eq!(counters.iter().count(), 2);
+        counters.set(CounterKind::Time, 0);
+        assert_eq!(
+            counters.get(CounterKind::Lore),
+            3,
+            "removing one kept the other"
+        );
+        assert!(!counters.is_empty());
+    }
+
+    // ---- status flags --------------------------------------------------
+
+    /// The four flags a permanent can wear, so a test can say "each" and a
+    /// fifth one added to `Status` is one line away from being covered.
+    const FLAGS: [(&str, Status); 4] = [
+        ("tapped", Status::TAPPED),
+        ("face down", Status::FACE_DOWN),
+        ("phased out", Status::PHASED_OUT),
+        ("flipped", Status::FLIPPED),
+    ];
+
+    #[test]
+    fn each_flag_is_a_bit_of_its_own() {
+        // If two of these shared a bit, tapping a permanent would phase it
+        // out, and every test that only ever set one flag would pass.
+        for (name, flag) in FLAGS {
+            assert_eq!(flag.bits().count_ones(), 1, "{name} is not a single bit");
+            for (other_name, other) in FLAGS {
+                if name != other_name {
+                    assert_eq!(
+                        flag.bits() & other.bits(),
+                        0,
+                        "{name} and {other_name} overlap"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nothing_is_set_on_a_fresh_status_and_everything_contains_nothing() {
+        assert_eq!(Status::NONE.bits(), 0);
+        for (name, flag) in FLAGS {
+            assert!(!Status::NONE.contains(flag), "a fresh status is {name}");
+            assert!(flag.contains(Status::NONE), "{name} should contain nothing");
+        }
+    }
+
+    #[test]
+    fn contains_asks_for_all_the_bits_and_not_for_any_of_them() {
+        // The distinction that decides whether "is this tapped *and* face
+        // down" can be asked in one call. An `any` reading would say yes
+        // to a permanent that is merely tapped.
+        let mut tapped = Status::NONE;
+        tapped.insert(Status::TAPPED);
+
+        let mut both = Status::NONE;
+        both.insert(Status::TAPPED);
+        both.insert(Status::FACE_DOWN);
+
+        assert!(tapped.contains(Status::TAPPED));
+        assert!(!tapped.contains(Status::FACE_DOWN));
+        assert!(!tapped.contains(both), "one of two bits is not both");
+        assert!(both.contains(tapped), "both bits include either");
+        assert!(both.contains(Status::FACE_DOWN));
+    }
+
+    #[test]
+    fn inserting_a_flag_twice_is_inserting_it_once() {
+        let mut once = Status::NONE;
+        once.insert(Status::PHASED_OUT);
+        let mut twice = Status::NONE;
+        twice.insert(Status::PHASED_OUT);
+        twice.insert(Status::PHASED_OUT);
+        assert_eq!(once.bits(), twice.bits());
+    }
+
+    #[test]
+    fn removing_one_flag_leaves_the_others_standing() {
+        let mut status = Status::NONE;
+        for (_, flag) in FLAGS {
+            status.insert(flag);
+        }
+        status.remove(Status::FACE_DOWN);
+        assert!(!status.contains(Status::FACE_DOWN));
+        assert!(status.contains(Status::TAPPED));
+        assert!(status.contains(Status::PHASED_OUT));
+        assert!(status.contains(Status::FLIPPED));
+    }
+
+    #[test]
+    fn removing_a_flag_that_was_not_set_changes_nothing() {
+        let mut status = Status::NONE;
+        status.insert(Status::TAPPED);
+        let before = status.bits();
+        status.remove(Status::FLIPPED);
+        assert_eq!(status.bits(), before);
+    }
+
+    #[test]
+    fn removing_everything_returns_to_nothing() {
+        let mut status = Status::NONE;
+        for (_, flag) in FLAGS {
+            status.insert(flag);
+        }
+        for (_, flag) in FLAGS {
+            status.remove(flag);
+        }
+        assert_eq!(status.bits(), Status::NONE.bits());
+    }
+}
