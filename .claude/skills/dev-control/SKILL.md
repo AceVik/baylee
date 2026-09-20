@@ -215,6 +215,20 @@ Check those three before concluding that a handler is unwired. `last_error`
 carries the engine's refusal of the last action, which is the fourth thing that
 looks like silence.
 
+**The card cursor is `WASD`, and nothing else moves it.** `KeyA`/`KeyD`/`KeyW`/
+`KeyS` are `Action::CursorLeft/Right/Up/Down` and they set `/state.hovered`
+with no pointer involved. Until one of them is pressed `hovered` is `None`,
+and then `Enter` — which is "the card under the cursor, else pass" — correctly
+does nothing and `Space` has nothing to confirm. That is the fifth thing that
+looks like silence and it is the one that looks worst, because it does not
+look like a dead key: it looks like a **dead game**. A `DiscardChoice` at
+cleanup with `hovered: None` leaves the turn unfinishable, and the client is
+behaving perfectly. Measured 20.09.2026, offline duel: at `turn=3
+step=Cleanup`, `DiscardChoice{count:1}`, hand 8, ten presses of `Space` left
+`seq` at 54 and four hundred iterations changed nothing — while `KeyD` →
+`Enter` → `Space` took the same game from turn 5's cleanup to turn 7's main
+phase. Walk the cursor before you conclude anything.
+
 **Two questions answer with keys that are not the card cursor's.** An open
 ability chooser owns the keyboard: `KeyA`/`KeyD` step `ability_pick` and not
 the card cursor, `KeyE` or Enter takes the entry, `Escape` closes it. `/state`

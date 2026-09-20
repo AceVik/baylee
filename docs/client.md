@@ -5945,7 +5945,14 @@ unset is the second lock and loopback the third, never the first.
 **Keys are written into `ButtonInput<KeyCode>`, not synthesised as OS events.**
 That is both simpler and *more* faithful: `keys.rs` reads exactly that
 resource, so an injected press travels through the account's `Keymap` like any
-other — and focus stops mattering, which is the whole point.
+other — and focus stops mattering, which is the whole point. What does not
+stop mattering is the **card cursor**: `KeyA`/`KeyD`/`KeyW`/`KeyS` are
+`Action::CursorLeft/Right/Up/Down` and are the only thing that sets `hovered`
+without a pointer. A harness that never presses one leaves `hovered` at
+`None`, where `Enter` ("the card under the cursor, else pass") rightly does
+nothing and `Space` has nothing to confirm — which is indistinguishable from
+a dead screen, and at a cleanup `DiscardChoice` is indistinguishable from a
+hung game.
 
 **A click is five frames, and this is where the first version was wrong.**
 Bevy's picking backend does not read `ButtonInput` at all: it reads
