@@ -14,6 +14,29 @@
 //! themselves. Restricted mana is refused because what a Cavern of Souls'
 //! mana may be spent on is a rules question, and answering it outside the
 //! engine is exactly the guess this exists to avoid.
+//!
+//! **The middle clause keeps a named exception, and it is about the caller
+//! and not about the ability.** It is still the default and it is still
+//! true; what follows is its scope, not its reversal, and the difference
+//! matters to whoever reads this next — a policy that acquires a stated
+//! exception is stronger than one that quietly stops applying.
+//!
+//! Three parts, and all three hold at once. [`mana_shape`] **still refuses**
+//! an ability that does anything besides add; nothing about the strict
+//! reading moved. A label and a mana bubble call it and see exactly what
+//! they saw before, so the sentence above is the whole truth **for them**.
+//! And a planner calls [`mana_with_riders`], because it is the one caller
+//! that can hold the same policy with a weaker reading: it *ranks* what it
+//! accepts and puts a tap with something beside the mana behind every clean
+//! tap it has, so it reaches one **only where nothing else can pay** —
+//! which is the case in which the player would have tapped it by hand
+//! anyway. That is the whole of the exception, and it buys the lands whose
+//! *only* mana ability has a rider, which were not sources at all.
+//!
+//! Where the ranking happens is `manasources::priced`, and it stays there.
+//! A cost part and a rider are both reasons to reach for something else
+//! first, and weighing them is a planner's judgement; this module reports a
+//! shape and never a price.
 
 use crate::cost::Cost;
 use crate::effect::{Amount, Effect, ManaSource};
@@ -107,29 +130,15 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
 /// the *last* tap offered for a colour rather than no tap at all. A reading
 /// that ended at `Amount::Fixed` could serve only the first, and the card
 /// then vanished from the sheet entirely.
+///
+/// It is [`mana_with_riders`] with one clause put back — **nothing beside
+/// the mana** — and it is written that way rather than as its own walk over
+/// the effects, so the two cannot drift into different answers about one
+/// ability.
 #[must_use]
 pub fn mana_shape(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)> {
-    if cost.mana != ManaCost::ZERO {
-        return None;
-    }
-    let [
-        Effect::AddMana {
-            source,
-            amount,
-            restriction,
-            ..
-        },
-    ] = effects
-    else {
-        return None;
-    };
-    let amount = match amount {
-        Amount::Fixed(amount) => Some(u8::try_from(*amount).unwrap_or(u8::MAX)),
-        // `CountOf`, `X`, and the rest: a number this side of the engine has
-        // no board to work out.
-        _ => None,
-    };
-    Some((*source, amount, restriction.is_some()))
+    let read = mana_with_riders(cost, effects)?;
+    (effects.len() == 1).then_some(read)
 }
 
 /// The **colour question** an ability is about to ask, and how much it pours
@@ -220,6 +229,34 @@ pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)
         written = Some((*source, amount, restriction.is_some()));
     }
     written
+}
+
+/// The **planner's** reading: a free cost and one `AddMana`, with whatever
+/// else the ability does reported rather than refused.
+///
+/// The sixth door. Read against [`mana_shape`] it relaxes exactly one
+/// clause — what else the ability does — but the honest description is the
+/// other way round: it is [`mana_written`] with the free-cost clause put
+/// back. The walk over the effects is that one's, and all this adds is the
+/// cost, because a planner does care what a tap charges where a label does
+/// not.
+///
+/// **What it does not relax is the count.** Two `AddMana` in one ability is
+/// still `None`, from [`mana_written`] and for its reason: "adds {G}" about
+/// an ability that adds `{G}` *and* `{U}` is a claim rather than a gap, and
+/// a plan built on it strands a board mid-cast. That is #150 and it needs
+/// `manaplan::Source` to carry bundles, not a looser reading here.
+///
+/// The gap this closes: an ability with something beside the mana was not a
+/// source at all, so a land whose *only* mana ability has a rider counted
+/// for nothing. Ancient Tomb — `{T}: Add {C}{C}`, two damage to you — was
+/// invisible to the plan, and a player tapped it by hand every time.
+#[must_use]
+pub fn mana_with_riders(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)> {
+    if cost.mana != ManaCost::ZERO {
+        return None;
+    }
+    mana_written(effects)
 }
 
 #[cfg(test)]

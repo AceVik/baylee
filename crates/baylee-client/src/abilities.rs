@@ -217,6 +217,37 @@ fn tap_only(view: &PlayerView, object: ObjectId, index: u32) -> bool {
     )
 }
 
+/// Whether this printed ability is **already on screen** as this permanent's
+/// mana row.
+///
+/// Two conditions, catching different things. The first is the row this
+/// permanent's tap actually became, whichever ability won it — including a
+/// granted one, which is on no card and which the registry therefore cannot
+/// recognise. The second is the CR 305.6 shortcut wearing a card's clothes: a
+/// Forest prints `{T}: Add {G}` and the engine offers the shortcut for the
+/// same tap, so listing both is listing one button twice.
+///
+/// It carries its own name because it is its own question. It used to ask
+/// [`crate::manasources::printed_source`] — "is this readable as a source at
+/// all" — which is the **planner's** question, and it struck off every ability
+/// the planner *could* read rather than the one already on screen. That was
+/// harmless only while the two questions happened to have the same answer.
+/// They stopped: a priced tap has been read since #165 and a ridered one since
+/// #149, and neither wins the planner's dedup, so Havenwood Battleground's
+/// sacrifice and Yavimaya Coast's coloured half were struck off a menu that
+/// was the last place they were reachable from.
+#[must_use]
+fn already_on_screen(
+    view: &PlayerView,
+    offered_as_mana: Option<Tap>,
+    object: ObjectId,
+    index: u32,
+) -> bool {
+    offered_as_mana == Some(Tap::Ability(index))
+        || (offered_as_mana == Some(Tap::Intrinsic)
+            && crate::manasources::duplicates_intrinsic(view, object, index))
+}
+
 /// Everything `object` is offering right now, in a stable order.
 ///
 /// Stable because the prompt bar draws it as a row of buttons and a list that
@@ -360,14 +391,7 @@ pub fn options_for(
         if source != object {
             continue;
         }
-        // Already offered above, whichever of them won. Two conditions
-        // because they catch different things: a granted ability is on no
-        // card, so `printed_source` has nothing to say about it, and a
-        // printed one may have lost to the CR 305.6 shortcut and still must
-        // not be listed a second time.
-        if offered_as_mana == Some(Tap::Ability(index))
-            || crate::manasources::printed_source(view, object, index).is_some()
-        {
+        if already_on_screen(view, offered_as_mana, object, index) {
             continue;
         }
         let Some(action) = interaction.activate(object, index) else {
