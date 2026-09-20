@@ -1327,7 +1327,7 @@ fn sylvan_scrying_finds_a_land_in_the_library_and_puts_it_into_hand() {
 }
 
 /// Wheel of Fortune: "Each player discards their hand, then draws seven cards."
-/// Under Coverage::Partial, whole-hand discarding is unsupported, so each player draws seven cards.
+/// Under `Coverage::Partial`, whole-hand discarding is unsupported, so each player draws seven cards.
 /// Three Mountains pay {2}{R} to cast the sorcery; both players draw seven cards from their libraries.
 #[test]
 fn wheel_of_fortune_each_player_draws_seven_cards() {

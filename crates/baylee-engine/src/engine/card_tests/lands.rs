@@ -7946,7 +7946,7 @@ fn bazaar_of_baghdad_draws_two_and_discards_three() {
 }
 
 /// City of Ass: "This land enters tapped." / "{T}: Add one and one-half mana of any one color."
-/// Under Coverage::Partial, the fractional mana ability is unsupported and omitted from the card.
+/// Under `Coverage::Partial`, the fractional mana ability is unsupported and omitted from the card.
 /// When played from hand, City of Ass enters tapped and offers no mana abilities.
 #[test]
 fn city_of_ass_enters_tapped_and_omits_unsupported_mana_ability() {
@@ -8081,7 +8081,7 @@ fn desolate_lighthouse_loots_with_mana_and_tap() {
 }
 
 /// Elephant Graveyard: "{T}: Add {C}." / "{T}: Regenerate target Elephant."
-/// Under Coverage::Partial, regeneration shields are unsupported and the second ability is omitted.
+/// Under `Coverage::Partial`, regeneration shields are unsupported and the second ability is omitted.
 /// When played from hand, Elephant Graveyard offers only its colorless mana ability and taps for {C}.
 #[test]
 fn elephant_graveyard_taps_for_colorless_and_omits_regenerate() {
@@ -8308,7 +8308,7 @@ fn scavenger_grounds_sacrifices_a_desert_to_exile_all_graveyards() {
 }
 
 /// Shivan Gorge: "{T}: Add {C}." / "{2}{R}, {T}: Shivan Gorge deals 1 damage to each opponent."
-/// Under Coverage::Partial, dealing damage to each opponent is unsupported and omitted.
+/// Under `Coverage::Partial`, dealing damage to each opponent is unsupported and omitted.
 /// Shivan Gorge is played as a legendary land and taps for {C}, offering no damage activation.
 #[test]
 fn shivan_gorge_taps_for_colorless_and_omits_unsupported_damage_ability() {
@@ -8424,7 +8424,7 @@ fn treasure_vault_enters_as_artifact_land_and_taps_for_colorless() {
 }
 
 /// Watermarket: "{T}: Add {C}{C}. Spend this mana only to cast spells with watermarks."
-/// Under Coverage::Partial, watermark spend restrictions are unsupported and the mana is made unrestricted.
+/// Under `Coverage::Partial`, watermark spend restrictions are unsupported and the mana is made unrestricted.
 /// Activating Watermarket's printed mana ability adds two colorless mana to the pool and taps the land.
 #[test]
 fn watermarket_taps_for_two_colorless_mana() {
@@ -8455,7 +8455,7 @@ fn watermarket_taps_for_two_colorless_mana() {
 }
 
 /// Witch's Clinic: "{T}: Add {C}." / "{2}, {T}: Target commander gains lifelink until end of turn."
-/// Under Coverage::Partial, targeting a commander is unsupported and the lifelink ability is omitted.
+/// Under `Coverage::Partial`, targeting a commander is unsupported and the lifelink ability is omitted.
 /// Witch's Clinic is played as a land and taps for colorless mana, offering no lifelink activation.
 #[test]
 fn witch_s_clinic_taps_for_colorless_and_omits_unsupported_lifelink() {
@@ -8494,7 +8494,7 @@ fn witch_s_clinic_taps_for_colorless_and_omits_unsupported_lifelink() {
 }
 
 /// Yavimaya Hollow: "{T}: Add {C}." / "{G}, {T}: Regenerate target creature."
-/// Under Coverage::Partial, regeneration shields are unsupported and the second ability is omitted.
+/// Under `Coverage::Partial`, regeneration shields are unsupported and the second ability is omitted.
 /// When played from hand, Yavimaya Hollow offers only its colorless mana ability and taps for {C}.
 #[test]
 fn yavimaya_hollow_taps_for_colorless_and_omits_unsupported_regenerate() {
