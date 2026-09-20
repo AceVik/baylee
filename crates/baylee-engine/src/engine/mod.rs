@@ -738,6 +738,8 @@ mod flashback_tests;
 #[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
+mod investigate_tests;
+#[cfg(test)]
 mod keyword_tests;
 #[cfg(test)]
 mod land_mana_tests;
