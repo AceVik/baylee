@@ -2,7 +2,8 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {2}, {T}: You may put a basic land card from your hand onto the battlefield tapped.
 //! Set: CLB #926 — Commander Legends: Battle for Baldur's Gate | Scryfall ID: f40e9f0f-8c0d-4bfd-9872-370ce3763006 | Oracle ID: a949c96c-362c-45a3-bd5c-ce5ce153ee9e
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — {T}: Add {C} is written; the second ability has no effect that
+// moves a card from a hand onto the battlefield, so it comes off the card.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,6 +12,17 @@ card!(
     oracle_id = "a949c96c-362c-45a3-bd5c-ce5ce153ee9e",
     scryfall_id = "f40e9f0f-8c0d-4bfd-9872-370ce3763006",
     faces = &[face!(name = "Terrain Generator", types = TypeSet::LAND,),],
+    coverage = Coverage::Partial(
+        "the {2}, {T} clause needs a hand-to-battlefield move, and the only zone \
+         changes of that shape reach a library (SearchLibrary, \
+         OptionalBasicLandSearchFor)",
+    ),
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        // NOT SUPPORTED: "{2}, {T}: You may put a basic land card from your
+        // hand onto the battlefield tapped." — no Effect puts a card from a
+        // hand onto the battlefield; SearchLibrary and
+        // OptionalBasicLandSearchFor both look in a library. `MayDo` cannot
+        // wrap an effect that does not exist.
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
