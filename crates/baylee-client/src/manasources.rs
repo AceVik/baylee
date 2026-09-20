@@ -288,6 +288,26 @@ fn mana_ability(
     else {
         return None;
     };
+    // A tap that says "add" more than once is read first, and it is the only
+    // place a `Source` is ever marked a bundle. The two readings are
+    // disjoint rather than ordered — `mana_written` returns `None` on a
+    // second `AddMana`, so nothing below can see a Karoo — but asking the
+    // narrower question first is how this reads as the special case it is.
+    //
+    // `produced_colors` is not consulted: a bundle is `ManaSource::Fixed`
+    // throughout by construction, so its colours are printed on the card and
+    // need no board to resolve. `amount` is the count that arrives, because
+    // the field means what one activation makes and a Karoo makes two.
+    if let Some(colors) = baylee_cards_dsl::mana_bundle(cost, effects) {
+        let amount = u8::try_from(colors.len()).unwrap_or(u8::MAX);
+        return Some(Source {
+            id,
+            tap: Tap::Ability(index),
+            colors,
+            amount,
+            bundle: true,
+        });
+    }
     // The planner's door rather than the strict one: an ability that also
     // does something else is still a source, and `priced` is what keeps it
     // behind every clean tap. See the module header in `manaread.rs` for why
@@ -311,6 +331,7 @@ fn mana_ability(
         tap: Tap::Ability(index),
         colors,
         amount,
+        bundle: false,
     })
 }
 
@@ -507,6 +528,12 @@ pub fn granted_source(
         tap: Tap::Ability(baylee_engine::choice::granted_ability(slot)),
         colors: granted.colors.clone(),
         amount: granted.amount,
+        // Never a bundle, and by construction rather than by observation:
+        // `GrantedMana` is filled from `baylee_cards_dsl::simple_mana`, which
+        // is the strictest reader in the family and refuses a second
+        // `AddMana` outright. A grant that could bundle would have to come
+        // through a different door than this one.
+        bundle: false,
     })
 }
 
@@ -1205,6 +1232,74 @@ mod tests {
         assert!(
             riders > 30,
             "only {riders} ridered abilities found — the walk went blind"
+        );
+    }
+
+    /// Every tap in the pool that says "add" more than once.
+    ///
+    /// **24** when this was written, and the bound is a window rather than a
+    /// floor because both directions are defects and they are different ones.
+    /// Fewer means the reader stopped seeing a family it used to read. More
+    /// means it began admitting something still undecided — a choice, a
+    /// computed amount — and that is the direction that taps a board which
+    /// then cannot pay.
+    ///
+    /// The population is two cycles and three strays: the Karoo/bounce lands,
+    /// the Mirage lands that sacrifice themselves (which is why a bundle may
+    /// carry a non-mana cost part), plus Composite Golem, Morgue Toad and
+    /// Nantuko Elder. **None of the 24 carries a rider**, which is the measured
+    /// answer to a question `mana_bundle` had to settle anyway: it allows one,
+    /// on the family rule that it may relax exactly the clause between it and
+    /// `mana_with_riders`, and this pool cannot currently tell the difference.
+    #[test]
+    fn a_tap_that_says_add_twice_is_read_as_the_pair_it_makes() {
+        let mut bundles = 0usize;
+        let mut ridered = 0usize;
+        let mut chancery = None;
+        for def in baylee_cards::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    let (AbilityDef::Activated {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }) = ability
+                    else {
+                        continue;
+                    };
+                    let Some(colors) = baylee_cards_dsl::mana_bundle(cost, effects) else {
+                        continue;
+                    };
+                    bundles += 1;
+                    assert!(colors.len() > 1, "a bundle of one is not a bundle");
+                    if effects.len() > colors.len() {
+                        ridered += 1;
+                    }
+                    if def.faces[face].name == "Azorius Chancery" {
+                        chancery = Some(colors);
+                    }
+                }
+            }
+        }
+        assert!(
+            (20..=30).contains(&bundles),
+            "{bundles} bundles read — the window was 20..=30 and 24 was measured"
+        );
+        assert_eq!(
+            ridered, 0,
+            "{ridered} bundles carry a rider — the doc comment above says none do"
+        );
+        assert_eq!(
+            chancery.as_deref(),
+            Some(&[ManaColor::White, ManaColor::Blue][..]),
+            "the colours arrive in the order the card prints them"
         );
     }
 

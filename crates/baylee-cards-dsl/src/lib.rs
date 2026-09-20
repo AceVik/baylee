@@ -45,7 +45,8 @@ pub use effect::{
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
-    SimpleMana, mana_made, mana_offer, mana_shape, mana_with_riders, mana_written, simple_mana,
+    SimpleMana, mana_bundle, mana_made, mana_offer, mana_shape, mana_with_riders, mana_written,
+    simple_mana,
 };
 // Re-exported so the authoring macros can name them through `$crate`, and so
 // a card file needs exactly one import (see `build::prelude`).

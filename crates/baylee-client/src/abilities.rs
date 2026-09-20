@@ -764,8 +764,21 @@ fn makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
 
 /// "Tap for {G}", or "Tap for {U} or {B}" where there is a choice to make —
 /// and "Tap for any color" where there is no choice worth drawing.
+///
+/// A **bundle** is none of those and is drawn as what arrives: "Tap for
+/// {W}{U}". It cannot go through [`mana_choice`], and not merely because the
+/// wording would read oddly. That function answers "any color" as soon as all
+/// five are listed, which is true of a choice among five and false of
+/// Composite Golem, whose sacrifice adds one of each and offers nothing — the
+/// player would be told they may have any colour they like, and then be given
+/// five specific ones.
 fn mana_label(lang: Lang, source: &baylee_client_core::manaplan::Source) -> String {
-    Phrase::TapFor.fill(lang, &[&mana_choice(lang, &source.colors, source.amount)])
+    let made = if source.bundle {
+        source.colors.iter().map(|c| pip(*c)).collect::<String>()
+    } else {
+        mana_choice(lang, &source.colors, source.amount)
+    };
+    Phrase::TapFor.fill(lang, &[&made])
 }
 
 /// A printed ability's label: a planeswalker's loyalty cost, otherwise what
@@ -993,6 +1006,57 @@ mod tests {
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
+
+    /// A bundle is drawn as what arrives, and the five-colour case is the one
+    /// that matters.
+    ///
+    /// `mana_choice` answers "any color" as soon as all five are listed, which
+    /// is true of a choice and false of Composite Golem — it adds one of each
+    /// and offers nothing. The negative assertion is paired with a positive
+    /// one on purpose: "does not say any color" passes just as well on an
+    /// empty string, so the same label is required to carry all five pips.
+    #[test]
+    fn a_bundle_is_drawn_as_what_arrives_and_never_as_a_choice() {
+        let bundle = |colors: Vec<ManaColor>| baylee_client_core::manaplan::Source {
+            id: ObjectId::new(1, 0),
+            tap: Tap::Ability(0),
+            amount: u8::try_from(colors.len()).unwrap_or(u8::MAX),
+            colors,
+            bundle: true,
+        };
+
+        let karoo = bundle(vec![ManaColor::White, ManaColor::Blue]);
+        let label = mana_label(Lang::En, &karoo);
+        assert!(
+            label.contains(pip(ManaColor::White)) && label.contains(pip(ManaColor::Blue)),
+            "a Karoo's label names both colours: {label}"
+        );
+
+        let golem = bundle(vec![
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ]);
+        let label = mana_label(Lang::En, &golem);
+        assert!(
+            !label.contains(Phrase::AnyColor.text(Lang::En)),
+            "Composite Golem adds one of each and offers no choice: {label}"
+        );
+        for color in [
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ] {
+            assert!(
+                label.contains(pip(color)),
+                "every colour it makes is drawn: {label}"
+            );
+        }
+    }
 
     fn offering(abilities: Vec<(ObjectId, u32)>, mana: Vec<ObjectId>) -> Interaction {
         Interaction::new(

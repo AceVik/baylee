@@ -33,6 +33,22 @@
 //! anyway. That is the whole of the exception, and it buys the lands whose
 //! *only* mana ability has a rider, which were not sources at all.
 //!
+//! One more door, and it is a different **question** rather than a further
+//! exception. [`mana_bundle`] reads an ability that says "add" more than
+//! once — a Karoo's `{T}: Add {W}{U}` — which every reader above refuses,
+//! and refuses correctly: one triple is a claim about the whole ability, so
+//! two of them would be a gap wearing an answer's shape. Nothing about that
+//! clause moves. What moves is the **type** of the answer: a list of
+//! colours, so nothing has to pretend two manas are one.
+//!
+//! What it will not read is anything still undecided — a choice, a computed
+//! amount, a restriction. A bundle reaches the planner as several units each
+//! of a known colour, so a source that is really a choice arriving here
+//! would be counted once per colour it might have made. That is the
+//! direction of failure rather than taste: over-counting strands a
+//! half-tapped board mid-cast, where under-counting only makes the client
+//! shy.
+//!
 //! Where the ranking happens is `manasources::priced`, and it stays there.
 //! A cost part and a rider are both reasons to reach for something else
 //! first, and weighing them is a planner's judgement; this module reports a
@@ -257,6 +273,54 @@ pub fn mana_with_riders(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, 
         return None;
     }
     mana_written(effects)
+}
+
+/// What a tap that says "add" **more than once** produces, one colour per
+/// `AddMana`, in printed order.
+///
+/// The sixth door relaxed what an ability may *also* do. This one relaxes how
+/// many times it may say "add", and nothing else — [`mana_with_riders`] is its
+/// neighbour and the single clause between them is the count. A rider is
+/// therefore still allowed here, deliberately: a rider cannot change which
+/// mana comes out, so refusing one would move two clauses at once and put this
+/// reader nowhere in the family.
+///
+/// Every `AddMana` must already be decided — a plain [`ManaSource::Fixed`]
+/// colour, `Amount::Fixed(1)`, no restriction, no `combination` — and the cost
+/// must ask for no mana. Each of those would make the *count* wrong rather
+/// than merely vague, which is the one error a player cannot undo: a source
+/// counted once per colour it might have made strands a half-tapped board
+/// mid-cast.
+///
+/// A single `AddMana` returns `None`. That is the point of a separate door
+/// rather than a flag on an existing one: a caller asking "is this several
+/// manas at once" gets an answer about that question alone, and the readers
+/// above keep the single-mana case to themselves.
+#[must_use]
+pub fn mana_bundle(cost: &Cost, effects: &[Effect]) -> Option<Vec<ManaColor>> {
+    if cost.mana != ManaCost::ZERO {
+        return None;
+    }
+    let mut colors = Vec::new();
+    for effect in effects {
+        let Effect::AddMana {
+            source,
+            amount,
+            combination,
+            restriction,
+        } = effect
+        else {
+            continue;
+        };
+        if *combination || restriction.is_some() || !matches!(amount, Amount::Fixed(1)) {
+            return None;
+        }
+        let ManaSource::Fixed(color) = source else {
+            return None;
+        };
+        colors.push(*color);
+    }
+    (colors.len() > 1).then_some(colors)
 }
 
 #[cfg(test)]
