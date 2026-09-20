@@ -22,6 +22,11 @@ fn ondu_cleric() -> baylee_core::ids::CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
 }
 
+/// Badlands — `{T}: Add {B} or {R}`, the cheapest source that *asks*.
+fn badlands() -> baylee_core::ids::CardIndex {
+    card_index("13ff3222-91cb-4796-a34e-899ed817694c")
+}
+
 /// Hands `seat` priority during the *other* seat's first main phase with
 /// every mana source they control tapped, and returns what they may do.
 ///
@@ -349,23 +354,40 @@ fn ward_declined_counters_the_spell_that_targeted_it() {
 fn ward_asks_a_seat_that_has_not_made_its_mana(
     seed: u64,
 ) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
+    ward_asks_a_seat_whose_spare_land_is(seed, plains())
+}
+
+/// The same fixture with the spare land named, because *what that land is*
+/// decides whether making its mana asks a question — which is the whole of
+/// #167. A Plains adds its mana outright; Badlands prints `{T}: Add {B} or
+/// {R}` and suspends a resolution of its own to ask which.
+#[track_caller]
+fn ward_asks_a_seat_whose_spare_land_is(
+    seed: u64,
+    spare: baylee_core::ids::CardIndex,
+) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(seed, plains())
         .battlefield(0, &[twining_twins()])
-        .battlefield(1, &[plains(), plains()])
+        .battlefield(1, &[plains(), spare])
         .hand(1, &[path_to_exile()])
         .start();
     keep_mulligans(&mut engine);
     reach_their_main_phase(&mut engine, p1);
 
     let twins = on_battlefield(&engine, p0, twining_twins()).expect("the warded creature");
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    let one = *legal
-        .mana_abilities
-        .first()
-        .expect("a Plains to tap for the spell");
+    // The Plains by name, not `mana_abilities.first()`: the spare is a
+    // parameter now, so "whichever is first" would tap a different land
+    // depending on what the caller seated — and the point of the fixture is
+    // that the spare is the one still standing when the tax is asked.
+    let one = on_battlefield(&engine, p1, plains()).expect("a Plains to pay for Path");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { legal, .. } if legal
+            .mana_abilities
+            .contains(&one)),
+        "the Plains is offered as the CR 305.6 shortcut it is: {:?}",
+        engine.pending()
+    );
     engine
         .apply(p1, PlayerAction::ActivateManaAbility { source: one })
         .expect("tapping one land is legal");
@@ -470,11 +492,68 @@ fn a_payment_window_is_part_of_the_engine_snapshot() {
         ward_asks_a_seat_that_has_not_made_its_mana(31).0,
         ward_asks_a_seat_that_has_not_made_its_mana(31).0,
     );
-    after.mana_window = Some(PlayerId::new(0));
+    // The window carries the resolution it was opened over (#167), so this
+    // half borrows the one the tax question already suspended rather than
+    // inventing a `Resolution` that no game would produce.
+    let suspended = Box::new(
+        after
+            .resolution
+            .clone()
+            .expect("standing on the tax question, which suspended one"),
+    );
+    after.mana_window = Some(PaymentWindow {
+        player: PlayerId::new(0),
+        suspended,
+    });
     assert_ne!(
         before.snapshot_hash(),
         after.snapshot_hash(),
         "an open window on seat 0 hashes as no window at all"
+    );
+}
+
+/// And the resolution that window is *holding* is part of the state too.
+///
+/// #167 is what makes this need saying rather than assuming. That resolution
+/// used to live in [`Engine::resolution`], which `snapshot_hash` already
+/// folds in; the fix moved it into the window, so a fold written only for
+/// the old home would have stopped hashing it on the day it was repaired —
+/// two engines inside a window over different taxes comparing equal. That is
+/// the failure with the longest fuse in this crate: it breaks a replay weeks
+/// later rather than a test now.
+///
+/// Changes only that one thing, the way its neighbour above changes only the
+/// seat. Advancing `pc` by one is the smallest difference a suspended
+/// resolution can have and still be a different continuation.
+#[test]
+fn the_resolution_a_payment_window_holds_is_part_of_the_engine_snapshot() {
+    let p1 = PlayerId::new(1);
+    let mut before = ward_asks_a_seat_that_has_not_made_its_mana(31).0;
+    let mut after = ward_asks_a_seat_that_has_not_made_its_mana(31).0;
+    for engine in [&mut before, &mut after] {
+        engine
+            .apply(p1, PlayerAction::YesNo(true))
+            .expect("saying they will pay opens the window");
+    }
+    assert_eq!(
+        before.snapshot_hash(),
+        after.snapshot_hash(),
+        "the same fixture at the same step, which is what makes the line \
+         below a statement about one field"
+    );
+
+    after
+        .mana_window
+        .as_mut()
+        .expect("the window is open on both")
+        .suspended
+        .pc += 1;
+    assert_ne!(
+        before.snapshot_hash(),
+        after.snapshot_hash(),
+        "a window holding a resolution one operation further along is a \
+         different engine, and hashing it the same is a divergence that \
+         compares equal"
     );
 }
 
@@ -551,6 +630,122 @@ fn a_taxed_seat_may_make_its_mana_after_the_question() {
         Some(crate::zone::Zone::Battlefield),
         "the tax was paid in the window, so the spell was not countered and \
          Path exiled the creature",
+    );
+}
+
+/// The same window, paid with a land that asks which colour it makes: the
+/// engine has one suspended-resolution slot and a CR 605.3a window needs two
+/// (#167).
+///
+/// A mana ability that resolves outright never touches that slot, which is
+/// why [`a_taxed_seat_may_make_its_mana_after_the_question`] is green on
+/// either side of this fix and is the control for it — same seats, same
+/// spell, same tax, and the only difference is that its spare land is a
+/// Plains. Badlands prints `{T}: Add {B} or {R}`, so making its mana
+/// suspends a resolution of its own to ask; that resolution went into the
+/// slot the *ward* was waiting in, completed, and left the slot empty. The
+/// next pass reached `close_mana_window`, whose `expect` is the only thing
+/// that noticed — without it the ward's payment is silently lost, because
+/// the mana is in the pool and the resolution that was going to spend it is
+/// gone.
+///
+/// The card in the wild was not this one. ai-ec found it in a self-play
+/// game at seed 1337 as **Storm of Saruman's ward {3}**, reached through
+/// `AbilityRef::SYNTHETIC` rather than any printed ability, and the three
+/// `Effect::PlayerMayPayOr` cards in those decks opened no window at all —
+/// they were declined ten times out of eleven, because declining Rhystic
+/// Study costs a card and declining a ward costs the spell. The mechanism
+/// is the tax, not the card that charges it, and Twining Twins is the
+/// cheapest way to reach it from a fixture that already exists.
+#[test]
+fn a_colour_asking_source_pays_the_tax_it_was_tapped_for() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, twins) = ward_asks_a_seat_whose_spare_land_is(31, badlands());
+
+    engine
+        .apply(p1, PlayerAction::YesNo(true))
+        .expect("saying they will pay opens the window");
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!(
+            "saying yes with an empty pool opens a window, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p1, "the window belongs to the seat being taxed");
+    let land = on_battlefield(&engine, p1, badlands()).expect("the dual is still untapped");
+    // A nonbasic that prints its own `{T}: Add …` is an ordinary entry in
+    // `abilities` and not the CR 305.6 shortcut, which is what
+    // `narrow_to_mana_window` keeps rather than clears.
+    let (source, ability_index) = *legal
+        .abilities
+        .iter()
+        .find(|(s, _)| *s == land)
+        .expect("the window offers the dual's own mana ability");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("making mana is what the window is for");
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "a dual asks which of its two colours, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p1, "their land, their choice");
+    assert_eq!(
+        options.len(),
+        2,
+        "Badlands prints two colours and nothing has granted it a third: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Black),
+        )
+        .expect("black is one of the two on offer");
+
+    engine.apply(p1, PlayerAction::PassPriority).expect(
+        "passing says the mana is made — and used to panic here, \
+                 because the colour question had taken the ward's slot",
+    );
+
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        0,
+        "closing the window spends the mana on the tax it was opened for",
+    );
+
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseCards { player, .. } => engine
+                .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                .expect("Path offers its controller a basic-land search"),
+            Pending::Priority { player, .. } => {
+                if engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Stack)
+                    .is_empty()
+                {
+                    break;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the spell resolves: {other:?}"),
+        }
+    }
+    assert_ne!(
+        engine.state().object(twins).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "the tax was paid out of a land that asked a question first, so the \
+         spell was not countered",
     );
 }
 

@@ -282,6 +282,21 @@ fn layer_fault(ability: &AbilityDef) -> Option<(Layer, Layer, Modifier)> {
         .map(|(declared, modifier)| (declared, modifier.layer(), modifier))
 }
 
+/// The `(flag, effects)` of an activated ability a modifier **grants**.
+///
+/// [`None`] for every other modifier, so a caller may hand it whatever a
+/// walk turned up without asking twice.
+fn as_granted_activated(modifier: &Modifier) -> Option<(bool, &'static [Effect])> {
+    match modifier {
+        Modifier::GrantActivated {
+            effects,
+            mana_ability,
+            ..
+        } => Some((*mana_ability, effects)),
+        _ => None,
+    }
+}
+
 /// Whether an effect adds mana.
 fn makes_mana(effect: &Effect) -> bool {
     matches!(effect, Effect::AddMana { .. })
@@ -315,6 +330,26 @@ fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
         } => (*mana_ability, *effects, *target),
         _ => return None,
     };
+    mana_ability_fault_of(claimed, effects, target)
+}
+
+/// The CR 605.1 question itself, over the three things it reads.
+///
+/// Split out from [`mana_ability_fault`] so that an ability a card *grants*
+/// is held to the same rule rather than to a copy of it: a
+/// [`Modifier::GrantActivated`] is not an [`AbilityDef`] and cannot reach
+/// the match above, but it carries a `mana_ability` flag that means exactly
+/// what the flag on a printed ability means.
+///
+/// `target` is [`None`] for a grant and structurally so — `GrantActivated`
+/// has no such field — which is why one of the three faults below cannot
+/// fire for one. That is a thing this signature can say and a second copy of
+/// the rule could not.
+fn mana_ability_fault_of(
+    claimed: bool,
+    effects: &'static [Effect],
+    target: Option<TargetSpec>,
+) -> Option<&'static str> {
     let makes_any = effects.iter().any(makes_mana);
     if claimed && !makes_any {
         return Some("claims a mana ability that makes no mana");
@@ -919,6 +954,99 @@ mod tests {
         assert!(
             seen > 300,
             "only {seen} activated abilities were looked at; the sweep is not reaching the pool"
+        );
+    }
+
+    /// CR 605.1 over the activated abilities no card *prints*: the ones a
+    /// permanent is **granted**.
+    ///
+    /// [`mana_ability_fault`] opens on a match over `Activated |
+    /// ActivatedConditional` and returns [`None`] for everything else, so a
+    /// [`Modifier::GrantActivated`] — which carries a `mana_ability` flag of
+    /// its own — is outside it, and outside both sweeps that call it: those
+    /// walk `AbilityDef`s, and a grant is not one.
+    ///
+    /// The flag means the same thing there. A granted mana ability is
+    /// offered in the engine's `legal.mana_abilities` and skips the stack
+    /// like any other (CR 605.1), and it is what `PublicObject::granted_mana`
+    /// projects to a client through `effects::granted_activated` and
+    /// [`baylee_cards_dsl::simple_mana`]. So a wrong flag here is the failure
+    /// `docs/protocol.md` §"Granted mana" names from the other side — a land
+    /// the mana planner counts on and the engine then refuses — and the next
+    /// person to touch it will be arriving from the client.
+    ///
+    /// Two of the three faults reach a grant and the third **cannot**:
+    /// `GrantActivated` has no `target` field, so "claims a mana ability that
+    /// targets" is structurally impossible rather than unchecked. The [`None`]
+    /// passed below is that sentence, not an omission.
+    ///
+    /// # The floor is the two doors, not the four grants
+    ///
+    /// A grant is written one of two ways — an [`AbilityDef::Static`], or an
+    /// [`Effect::CreateContinuousEffect`] inside an effect list. Chromatic
+    /// Lantern and Great Divide Guide are the first; both of Urza's Saga's
+    /// are the second. A count over the pool would clear a floor of four the
+    /// moment four grants of *one* shape existed, so it stops separating
+    /// anything as soon as the population grows past it. Each door is counted
+    /// on its own instead: that is anchored on the structure the walk has to
+    /// reach, which cannot drift with the pool.
+    #[test]
+    fn no_granted_ability_breaks_the_rule_a_printed_one_is_held_to() {
+        let mut wrong = Vec::new();
+        let (mut by_static, mut by_effect) = (0_usize, 0_usize);
+        // What `Effect::walk` counts, kept because its own doc says why: a
+        // door reporting nought is only news once the walk says how much it
+        // read to get there.
+        let mut effects_read = 0_usize;
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                let mut found: Vec<(bool, &'static [Effect])> = Vec::new();
+                // The first door: the modifier is the ability.
+                let on_a_static = match ability {
+                    AbilityDef::Static(rule) => as_granted_activated(&rule.modifier),
+                    _ => None,
+                };
+                if let Some(grant) = on_a_static {
+                    by_static += 1;
+                    found.push(grant);
+                }
+                // The second: it is created by an effect that resolves. The
+                // branches are `branches`' to enumerate rather than this
+                // sweep's — a saga chapter is one, which is where Urza's
+                // Saga's two live.
+                for branch in branches(ability) {
+                    Effect::walk(branch.effects, &mut effects_read, &mut |effect| {
+                        let Effect::CreateContinuousEffect { modifier, .. } = effect else {
+                            return;
+                        };
+                        if let Some(grant) = as_granted_activated(modifier) {
+                            by_effect += 1;
+                            found.push(grant);
+                        }
+                    });
+                }
+                for (claimed, effects) in found {
+                    if let Some(fault) = mana_ability_fault_of(claimed, effects, None) {
+                        wrong.push(format!("{} grants an ability that {fault}", def.name()));
+                    }
+                }
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "{} granted ability/abilities disagree with CR 605.1:\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+        // See the doc comment: doors, not a population.
+        assert!(
+            by_static >= 1 && by_effect >= 1,
+            "the walk found {by_static} grant(s) written as a static and \
+             {by_effect} written inside an effect list, over {effects_read} \
+             effects read, and this pool has both shapes. A nought is a door \
+             the sweep stopped descending into, which is how a clean report \
+             comes to be written over half a population"
         );
     }
 

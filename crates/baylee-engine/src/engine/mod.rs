@@ -56,6 +56,36 @@ enum CombatDeclared {
     Blockers,
 }
 
+/// A CR 605.3a payment window, and the resolution it was opened over.
+///
+/// The resolution travels *with* the window rather than staying in
+/// [`Engine::resolution`], because that slot belongs to whatever is resolving
+/// **now** — and a window is precisely the moment when something else can be.
+/// A seat told to make mana may activate a mana ability that asks a question:
+/// Badlands asks which of its two colours, and such an ability suspends a
+/// resolution of its own. Sharing one slot, it overwrote the tax it was being
+/// made for and then completed, leaving nothing for `close_mana_window` to
+/// settle. The `expect` there is the only thing that noticed (#167) — without
+/// it the payment is silently lost, with the mana still floating and the
+/// spell escaping a ward that was paid for.
+///
+/// Holding the two together is what makes that unrepresentable rather than
+/// merely repaired: there is no window without its resolution, and no way to
+/// lose one while the other stands.
+///
+/// It nests exactly once. A window is opened only by a tax, only a mana
+/// ability may be activated inside one, and no mana ability in this pool
+/// charges a tax — which is a claim about all of the cards rather than about
+/// this struct, so it is a scan and not this sentence:
+/// `offer_tests::no_mana_ability_in_the_pool_opens_a_payment_window`.
+#[derive(Clone, Debug)]
+struct PaymentWindow {
+    /// The seat that said it would pay.
+    player: PlayerId,
+    /// The resolution waiting for that payment.
+    suspended: Box<crate::resolve::Resolution>,
+}
+
 /// A deterministic, self-contained game of Magic.
 // The driver genuinely is a set of independent latches (a pending answer,
 // a queued resolution, an agreed draw, a broken loop); folding them into an
@@ -126,10 +156,11 @@ pub struct Engine<L: CardLookup> {
     /// else, and passing closes the window instead of counting toward the
     /// round.
     ///
-    /// It carries the player and not the price. The price is already in the
-    /// suspended `AwaitingOp::PlayerMayPay`, and a second copy of it here
-    /// would be a number that could disagree with the one actually charged.
-    mana_window: Option<PlayerId>,
+    /// It carries the player and the resolution the window was opened over,
+    /// and not the price. The price is already in that resolution's
+    /// `AwaitingOp::PlayerMayPay`, and a second copy of it here would be a
+    /// number that could disagree with the one actually charged.
+    mana_window: Option<PaymentWindow>,
     /// Journal sequence number up to which triggers were collected.
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
@@ -483,24 +514,26 @@ impl<L: CardLookup> Engine<L> {
     /// to, and without it the only readings available are "there is nothing
     /// to do here" and a guess.
     ///
-    /// Gated on the window and not on the suspended operation, which is the
-    /// half that is easy to get wrong: the resolution is suspended with
-    /// `PlayerMayPay` for the whole of the yes-or-no question too, before any
-    /// window exists, so reading the operation alone would report a debt
-    /// while the seat is still being asked whether it wants one.
+    /// The price is read back out of the operation the window is holding
+    /// rather than stored beside it, for the reason written on the field: a
+    /// second copy is a number that can disagree with the one actually
+    /// charged.
     ///
-    /// The price is read back out of that operation rather than stored beside
-    /// [`Self::mana_window`], for the reason written there: a second copy is a
-    /// number that can disagree with the one actually charged.
+    /// It used to have to be *gated* on the window as well, because the
+    /// shared resolution slot is suspended with `PlayerMayPay` for the whole
+    /// of the yes-or-no question too — so reading the operation alone
+    /// reported a debt while the seat was still being asked whether it wanted
+    /// one. There is no such moment to confuse this with any more: a
+    /// resolution only reaches this field once the seat has said yes (#167).
     #[must_use]
     pub fn payment_window(&self) -> Option<(PlayerId, u16)> {
-        let player = self.mana_window?;
-        match self.resolution.as_ref()?.awaiting {
+        let window = self.mana_window.as_ref()?;
+        match window.suspended.awaiting {
             Some(crate::resolve::AwaitingOp::PlayerMayPay {
                 player: payer,
                 mana,
                 ..
-            }) if payer == player => Some((player, mana)),
+            }) if payer == window.player => Some((window.player, mana)),
             _ => None,
         }
     }
@@ -587,9 +620,24 @@ impl<L: CardLookup> Engine<L> {
         // `+ 1` rather than the bare seat number: a window on **seat 0**
         // would otherwise fold in as zero and be indistinguishable from no
         // window at all, which is the one seat a test is least likely to use.
-        extra = extra
-            .wrapping_mul(31)
-            .wrapping_add(self.mana_window.map_or(0, |p| u64::from(p.get()) + 1));
+        extra = extra.wrapping_mul(31).wrapping_add(
+            self.mana_window
+                .as_ref()
+                .map_or(0, |w| u64::from(w.player.get()) + 1),
+        );
+        // And the resolution that window is holding, for exactly the reason
+        // `self.resolution` is folded in above. It *moved* out of that slot
+        // in #167, so without this line it would have stopped being hashed
+        // the day it was fixed — two engines inside a window over different
+        // taxes comparing equal, which is the divergence with the longest
+        // fuse here: it breaks a replay rather than a test.
+        if let Some(w) = &self.mana_window {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(w.suspended.pc as u64)
+                .wrapping_add(u64::from(w.suspended.on_stack.slot()))
+                .wrapping_add(u64::from(w.suspended.controller.get()));
+        }
         // Automation decides which decisions the engine takes on a seat's
         // behalf, and how many loops it has already broken decides whether
         // the next one is broken or drawn. Two engines that differ in

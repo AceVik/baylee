@@ -1,7 +1,8 @@
 use super::{
     AbilityDef, AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
-    LossReason, ObjectId, ObjectKind, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Status,
-    Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve, sba,
+    LossReason, ObjectId, ObjectKind, PaymentWindow, Pending, PlanKind, PlayerAction, PlayerId,
+    SmallVec, Status, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
+    resolve, sba,
 };
 use crate::choice::CastModeKind;
 
@@ -164,7 +165,11 @@ impl<L: CardLookup> Engine<L> {
             // resolution that asked for this payment is still suspended
             // underneath it.
             (Pending::Priority { player: p, .. }, PlayerAction::PassPriority)
-                if *p == player && self.mana_window == Some(player) =>
+                if *p == player
+                    && self
+                        .mana_window
+                        .as_ref()
+                        .is_some_and(|w| w.player == player) =>
             {
                 self.close_mana_window();
                 Ok(())
@@ -916,9 +921,22 @@ impl<L: CardLookup> Engine<L> {
                     {
                         let pool = self.state.players[player.get() as usize].mana_pool.total();
                         if pool < u32::from(mana) {
-                            self.mana_window = Some(player);
-                            let legal = self.compute_legal(player);
+                            // Narrowed before any window exists, so the
+                            // resolution is never lifted out of its slot for a
+                            // window that then turns out not to be worth
+                            // opening — a state that cannot be entered needs
+                            // no way back out of it.
+                            let mut legal = self.compute_legal(player);
+                            self.narrow_to_mana(&mut legal);
                             if legal.has_mana_source() {
+                                let suspended = self
+                                    .resolution
+                                    .take()
+                                    .expect("the arm above matched on it being suspended");
+                                self.mana_window = Some(PaymentWindow {
+                                    player,
+                                    suspended: Box::new(suspended),
+                                });
                                 self.pending = Pending::Priority {
                                     player,
                                     legal: Box::new(legal),
@@ -926,9 +944,8 @@ impl<L: CardLookup> Engine<L> {
                                 self.awaiting_answer = true;
                                 return Ok(());
                             }
-                            // Nothing to press: take the window back down and
-                            // let the payment fail the way it always has.
-                            self.mana_window = None;
+                            // Nothing to press: no window is opened at all, and
+                            // the payment fails the way it always has.
                         }
                     }
                     let mut res = self.resolution.take().expect("resolution suspended");
@@ -1229,11 +1246,16 @@ impl<L: CardLookup> Engine<L> {
     /// branch, which is the same outcome as declining and is what the card
     /// prints.
     fn close_mana_window(&mut self) {
-        self.mana_window = None;
-        let mut res = self
-            .resolution
-            .take()
-            .expect("a payment window is only opened over a suspended resolution");
+        // Total rather than asserted. The only caller is the pass arm, which
+        // has already matched on this window standing open, and a window with
+        // no resolution in it is now unrepresentable — so there is nothing
+        // here left to be wrong about. The `expect` this replaces was not
+        // decoration: it is what caught #167, where a mana ability that asked
+        // a colour had taken the slot this resolution was waiting in.
+        let Some(window) = self.mana_window.take() else {
+            return;
+        };
+        let mut res = *window.suspended;
         let paid = self.can_settle_tax(&res);
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Wait(pending) => {

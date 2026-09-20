@@ -1041,3 +1041,117 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
         )
         .expect("what the engine offers, the engine accepts");
 }
+
+/// A CR 605.3a payment window nests exactly once, and this is what says so.
+///
+/// `PaymentWindow` carries the resolution it was opened over so that
+/// [`Engine::resolution`] stays free for whatever is resolving now (#167).
+/// One spare slot is enough only while a *mana* ability cannot open a window
+/// of its own — and inside a window nothing else may be activated
+/// (`narrow_to_mana`), so a mana ability is the only door to a second level.
+/// A window is opened by `Effect::PlayerMayPayOr` and by nothing else.
+///
+/// "A mana ability" is **two** populations and the second is easy to miss. A
+/// granted one carries its own `mana_ability` flag on
+/// `Modifier::GrantActivated`, and it lives in `legal.mana_abilities`, which
+/// `narrow_to_mana` does not clear — so it is activatable inside a window
+/// exactly like a printed one, and it is a door to the same second level.
+/// Both are scanned, and the granted half carries its own floor because a
+/// population of nought agrees with everything just as loudly as an empty
+/// pool does.
+///
+/// Ward is not scanned because it cannot be the offender by construction:
+/// `AbilityDef::Ward` is its own variant and reaches the same effect
+/// synthetically, so it is never an ability with `mana_ability: true`.
+///
+/// Read off `{:?}` rather than a hand-written walk over `Effect`. An effect
+/// tree nests through a dozen variants, and a walker that does not know one
+/// of them reports "no offenders" for a card it never looked into — which is
+/// the shape this repository keeps finding in its own readers. A derived
+/// `Debug` cannot go blind on a variant nobody taught it, and a false match
+/// here is a finding rather than a silence.
+///
+/// The floor is what stops it passing over a pool with no taxes in it at
+/// all: a scan whose population is nought agrees with everything. Measured
+/// at 13 on 2026-09-20 — Rhystic Study, Esper Sentinel and Smothering Tithe,
+/// the three Karoo-style bounce lands, Mystic Remora, Mana Leak,
+/// Flusterstorm and the rest — and the floor is set well under that rather
+/// than at it, because a card leaving the pool is not a reason for this
+/// claim to go red.
+#[test]
+fn no_mana_ability_in_the_pool_opens_a_payment_window() {
+    let mut carried = Vec::new();
+    let mut grants = Vec::new();
+    let mut offenders = Vec::new();
+    let mut check = |who: &str, ability: &AbilityDef| {
+        let rendered = format!("{ability:?}");
+        // The second door, and it is the one a reader forgets. A mana
+        // ability need not be printed: `Modifier::GrantActivated` carries
+        // its own `mana_ability` flag, and a granted one is offered in
+        // `legal.mana_abilities`, which `narrow_to_mana` does **not** clear
+        // — so it is activatable inside a window exactly like a printed one.
+        // It hides in two shapes, an `AbilityDef::Static` and an
+        // `Effect::CreateContinuousEffect` inside an ordinary effect list,
+        // which is why this asks the rendering rather than a walk: a walk
+        // that knew one shape would report a clean pool having looked at
+        // half of it. ai-ec found that exact blind spot in the neighbouring
+        // scan in `ai_coverage_guards.rs`.
+        if rendered.contains("GrantActivated") {
+            grants.push(who.to_string());
+        }
+        if !rendered.contains("PlayerMayPayOr") {
+            return;
+        }
+        carried.push(who.to_string());
+        let printed_mana_ability = matches!(
+            ability,
+            AbilityDef::Activated {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                ..
+            }
+        );
+        // Deliberately conservative on the granted half: an ability that
+        // both grants something and mentions the tax is reported without
+        // asking which of its parts carries which, because this rendering
+        // cannot tell. Over-reporting is the safe direction for a claim
+        // that says a thing *cannot* happen, and the failure hands over the
+        // card to look at rather than a silence to trust.
+        if printed_mana_ability || rendered.contains("GrantActivated") {
+            offenders.push(who.to_string());
+        }
+    };
+    for def in baylee_cards::all() {
+        for face in 0..def.faces.len() {
+            for ability in def.abilities_for_face(face) {
+                check(def.name(), ability);
+            }
+        }
+    }
+    for token in baylee_cards::tokens::ALL {
+        for ability in token.abilities {
+            check(token.name, ability);
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "a mana ability that charges a tax opens a payment window from \
+         inside one, and `PaymentWindow` holds exactly one suspended \
+         resolution — the second would overwrite the first, which is the \
+         defect #167 was: {offenders:?}"
+    );
+    assert!(
+        grants.len() >= 3,
+        "only {} abilities in the pool grant an activated ability, so the \
+         granted half of this scan is agreeing with nothing: {grants:?}",
+        grants.len()
+    );
+    assert!(
+        carried.len() >= 8,
+        "only {} abilities in the pool charge a tax at all, so this scan is \
+         close to agreeing with an empty pool: {carried:?}",
+        carried.len()
+    );
+}

@@ -955,7 +955,23 @@ opponent can no longer respond to it. That is no longer unwatched:
 add mana, no target, not a loyalty ability — and refuses a flag claiming a
 mana ability that makes no mana, or one that targets (CR 605.1a). The macro
 is still the right shape, because a lint says a card is wrong and a macro
-means nobody had to decide. Fields with no
+means nobody had to decide.
+
+The flag a card does not *print* is watched beside it, and it had to be:
+`Modifier::GrantActivated` carries its own `mana_ability` and is not an
+`AbilityDef`, so it reached neither arm of that match and no sweep that calls
+it. A grant is written two ways — an `AbilityDef::Static`, or an
+`Effect::CreateContinuousEffect` inside an effect list, which is where both of
+Urza's Saga's live — and a walk knowing one of them reports a clean pool
+having read half of it. So `mana_ability_fault_of` is the rule itself, called
+from both sides rather than copied, and its floor counts the two **doors**
+instead of the grants: a population floor clears itself the moment the pool
+holds enough of one shape. One of the three faults cannot fire for a grant at
+all — `GrantActivated` has no `target` field — and the check says that rather
+than leaving it unchecked. The same blind spot was in the engine's
+`offer_tests::no_mana_ability_in_the_pool_opens_a_payment_window` and in the
+AI's coverage guards, found there first: three readers, one shape, and the
+question is worth asking of the fourth. Fields with no
 rules answer (a trigger, an effect list) are positional arguments, so they
 cannot be forgotten.
 
