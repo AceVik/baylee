@@ -303,7 +303,7 @@ fn deserted_beach() -> CardIndex {
 /// Both bounds over `Filter::YOUR_LAND` are in it, and they are what the
 /// list is for: a slow land wants two other lands and a fast land wants at
 /// most two, so one count that included the entering land would turn one
-/// cycle on a land early and the other off a land early. Twenty-one cards
+/// cycle on a land early and the other off a land early. Twenty-two cards
 /// ride on the skip in `Engine::controls_count`, and Cave of the Frost
 /// Dragon rides on it printing the bound as its complement.
 const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
@@ -317,6 +317,7 @@ const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Deathcap Glade",
     "Deserted Beach",
     "Dreamroot Cascade",
+    "Hall of Storm Giants",
     "Haunted Ridge",
     "Inspiring Vantage",
     "Overgrown Farmland",
@@ -1613,4 +1614,132 @@ fn wanderwine_hub() -> CardIndex {
 
 fn zoetic_cavern() -> CardIndex {
     card_index("3763de30-28e1-4689-a71c-07d2fea3a466")
+}
+
+fn adagia_windswept_bastion() -> CardIndex {
+    card_index("70d35dbd-1d91-4a2a-a643-6870d168f4f5")
+}
+
+fn avengers_tower() -> CardIndex {
+    card_index("c5fc8e7c-a87e-4586-a13c-d30e0a3aafbf")
+}
+
+fn ba_sing_se() -> CardIndex {
+    card_index("de1ae205-ca5b-4d26-8194-ca85f1406e53")
+}
+
+fn balamb_garden_see_d_academy() -> CardIndex {
+    card_index("8b84fec5-617c-4088-8250-2ba1f1f9479a")
+}
+
+fn bucolic_ranch() -> CardIndex {
+    card_index("8f5902bf-4bc4-4d0c-84ea-a425307a4eb2")
+}
+
+fn chocobo_camp() -> CardIndex {
+    card_index("ed77fdf2-59c0-4310-9b12-80d28beeaeef")
+}
+
+fn demolition_field() -> CardIndex {
+    card_index("93953926-a644-49bb-9b5a-4c8f19114c7e")
+}
+
+fn diamond_city() -> CardIndex {
+    card_index("88e29d50-1680-495d-be84-b92b4c9e636f")
+}
+
+fn forsaken_crossroads() -> CardIndex {
+    card_index("c70598e1-30c6-4f92-a265-34a7a73bc2b8")
+}
+
+fn frostwalk_bastion() -> CardIndex {
+    card_index("ae4a18ec-70a3-4d21-b9e5-b13ab4901600")
+}
+
+fn glacial_chasm() -> CardIndex {
+    card_index("73e7a2ad-d11c-4867-b97d-f971809da778")
+}
+
+fn great_hall_of_the_biblioplex() -> CardIndex {
+    card_index("a8c70dab-1e27-4a9c-bd2d-910d5720d02d")
+}
+
+fn hall_of_storm_giants() -> CardIndex {
+    card_index("087c8c0e-a91c-4e3c-8387-9312db01f343")
+}
+
+fn havengul_laboratory() -> CardIndex {
+    card_index("e71ac446-02a4-4468-8d29-f28b21617665")
+}
+
+fn hidden_cataract() -> CardIndex {
+    card_index("927979d7-9b5c-4448-aef0-baf2907a89f1")
+}
+
+fn hidden_courtyard() -> CardIndex {
+    card_index("e19d5071-4ea1-4883-b067-a21e553f96e0")
+}
+
+fn hidden_necropolis() -> CardIndex {
+    card_index("f780ee53-62b0-4c32-b5b7-047651f48e5f")
+}
+
+fn hidden_nursery() -> CardIndex {
+    card_index("1a26e2d6-6bfc-4cdc-9bd6-8b37a9be2961")
+}
+
+fn hidden_volcano() -> CardIndex {
+    card_index("a1c7cd7a-0795-4135-b787-effeb981d95b")
+}
+
+fn hostile_hostel() -> CardIndex {
+    card_index("1b340f71-502f-48e9-85ed-9af62f356115")
+}
+
+fn kavaron_memorial_world() -> CardIndex {
+    card_index("4fa826ca-d361-4391-ad0d-989ebcfa4a91")
+}
+
+fn lupinflower_village() -> CardIndex {
+    card_index("b6c7c708-5212-4100-b954-b77855b27915")
+}
+
+fn monumental_henge() -> CardIndex {
+    card_index("c48df45c-3513-4d56-aed6-30c2f3a759cd")
+}
+
+fn mosswort_bridge() -> CardIndex {
+    card_index("7cb9e29f-835f-4155-a2a5-4b778866c773")
+}
+
+fn shelldock_isle() -> CardIndex {
+    card_index("f748b2fb-6c2a-400a-8e96-fa4e4a1dfe80")
+}
+
+fn spawning_pool() -> CardIndex {
+    card_index("f3bf22cf-0a6f-4fb6-ba82-63ce290308d6")
+}
+
+fn spymaster_s_vault() -> CardIndex {
+    card_index("69ddca4b-5cc0-45f3-b2e6-a047c8d601be")
+}
+
+fn susur_secundi_void_altar() -> CardIndex {
+    card_index("50d6cadc-07e4-479e-90f4-e3a20f769bab")
+}
+
+fn the_world_tree() -> CardIndex {
+    card_index("3437d504-bf62-4c27-b15f-f6330182ff7e")
+}
+
+fn villainous_hideout() -> CardIndex {
+    card_index("cd2888aa-71f3-47ee-ba33-7bb95d5bc836")
+}
+
+fn voldaren_estate() -> CardIndex {
+    card_index("fb0c0426-f1a6-4e52-9242-627786d3119a")
+}
+
+fn windbrisk_heights() -> CardIndex {
+    card_index("3589bcfc-42b0-414a-adce-bc690dc631c8")
 }
