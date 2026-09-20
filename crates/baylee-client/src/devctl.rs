@@ -61,6 +61,7 @@
 
 use crate::Duel;
 use crate::settings::ClientSettings;
+use baylee_client_core::Interaction;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput, NativeKeyCode};
 use bevy::input::mouse::MouseButtonInput;
@@ -1163,6 +1164,49 @@ struct Believed<'w, 's> {
     >,
 }
 
+/// Every mana source the client can see, and what it believes each one makes.
+///
+/// The half of the hand's indigo offer that leaves no other trace.
+/// `"reachable": 3` says three cards could be paid for by tapping; it does
+/// not say what the client thinks it may tap, so a disagreement between the
+/// engine's enumeration and the client's reading of it is invisible from
+/// outside — and both of those have been the answer at different times.
+///
+/// Built through [`crate::manasources::sources`] and not by a second
+/// reading, or the endpoint would photograph a list nothing acts on.
+fn sources_json(duel: &Duel) -> String {
+    let Some(view) = duel.view.as_ref() else {
+        return "null".to_string();
+    };
+    let Some(legal) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+    else {
+        // Not an empty list: no priority question is standing, so the client
+        // is not offering anything and has not decided that it cannot.
+        return "null".to_string();
+    };
+    let rows: Vec<String> = crate::manasources::sources(view, legal)
+        .into_iter()
+        .map(|source| {
+            let colors: Vec<String> = source
+                .colors
+                .iter()
+                .map(|color| quoted(&format!("{color:?}")))
+                .collect();
+            format!(
+                "{{\"object\":{},\"tap\":{},\"colors\":[{}],\"amount\":{}}}",
+                source.id.slot(),
+                quoted(&format!("{:?}", source.tap)),
+                colors.join(","),
+                source.amount
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
 /// What the client believes, as JSON.
 ///
 /// Deliberately the *client's* answer and not the engine's: this is the thing
@@ -1246,7 +1290,8 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
     format!(
         "{{\"view\":{view},\"interaction\":{interaction},\"hovered\":{hovered},\
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
-         \"reachable\":{reachable},\"activatable\":{activatable},\"armed\":{armed},\
+         \"reachable\":{reachable},\"sources\":{sources},\
+         \"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
@@ -1264,6 +1309,14 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
             .autopilot
             .map_or_else(|| "null".to_string(), |a| quoted(&format!("{a:?}"))),
         reachable = duel.reachable.len(),
+        // And *which lands it could tap*, which is the one thing the count
+        // above could never be compared against. `reachable` is a number
+        // derived from this list, so a caller reading only the number can
+        // tell that the client offered fewer cards than it should have and
+        // cannot tell whether the planner refused them or never saw a source
+        // to pay with — a measurement that can refuse nothing. It cost three
+        // round trips to establish that on #127; it is one line to answer.
+        sources = sources_json(duel),
         activatable = duel.activatable.len(),
         // Four states that answer silently and are all but invisible in a
         // screenshot: an action queued but never sent, a mana run that owns

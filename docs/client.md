@@ -6062,6 +6062,27 @@ withdrawn. `Y` and `N` answer one. What did not answer was `POST /key
 either way, and the story is kept because the next tool built to get past a
 wall is worth asking that question about first.
 
+`sources` is the newest, and it is here because the field beside it was a
+number that could refuse nothing. `reachable` is a *count* — how many cards in
+hand this client is offering to tap lands for — and when it comes back lower
+than the board says it should, the count cannot tell you whether the planner
+refused the costs or never saw a land to pay with. Those are two different
+faults in two different crates, and on #127 the pair cost three round trips
+and four probe arms to separate. `sources` is the list the count is derived
+from: one row per permanent the client believes it may tap, with the object,
+which action taps it (`Intrinsic` for the engine's CR 305.6 shortcut,
+`Ability(n)` for a printed one), the colours it may make and how much. It is
+built through `manasources::sources`, the same call `fn reachable` makes, so
+the endpoint cannot photograph a list nothing acts on.
+
+It is `null` rather than `[]` when no priority question is standing, and the
+difference is the whole point: an empty list is the client saying it has
+nothing to tap, and `null` is the client not having been asked. Read beside
+`interaction.pending.Priority.legal`, the two answer the question this route
+exists for in one read — the engine's enumeration on one side, what this
+client made of it on the other, and a shortfall attributable to exactly one
+of them.
+
 `armed` and `interaction.assignments` are the last two, and both answer a
 question that looks like silence. `armed` is the tap that has been made and
 not sent: there is no undo in the engine, so the first tap on anything
