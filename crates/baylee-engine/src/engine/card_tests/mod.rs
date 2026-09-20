@@ -1014,3 +1014,139 @@ fn witch_s_clinic() -> CardIndex {
 fn yavimaya_hollow() -> CardIndex {
     card_index("53d6113d-acdb-4754-9641-f7991a96c7b9")
 }
+
+fn access_tunnel() -> CardIndex {
+    card_index("ed9cc560-f30b-4b60-a094-ccf93ed656a7")
+}
+
+fn alchemist_s_refuge() -> CardIndex {
+    card_index("357ed28b-899f-404b-94ff-6fb2ef81d87b")
+}
+
+fn auriok_bladewarden() -> CardIndex {
+    card_index("2884e332-707c-4a97-adc1-e1317a513ff4")
+}
+
+fn bloom_tender() -> CardIndex {
+    card_index("0c23fefe-9891-4dd8-9bb1-eebdb3274e31")
+}
+
+fn cinder_marsh() -> CardIndex {
+    card_index("6f8cc374-e76c-4bfa-bf20-28dea0bfefbe")
+}
+
+fn cloudcrest_lake() -> CardIndex {
+    card_index("8df14d53-472c-416e-93c6-6c0b7f9b614e")
+}
+
+fn drownyard_temple() -> CardIndex {
+    card_index("c30f9be4-c274-4ad0-b5d7-7d3421aa4277")
+}
+
+fn forgotten_monument() -> CardIndex {
+    card_index("71393988-ad6f-43fd-9978-c0de15ae8e87")
+}
+
+fn gavony_township() -> CardIndex {
+    card_index("8a44e4e7-dfa2-427b-bbff-11c398fa60bb")
+}
+
+fn hammerheim() -> CardIndex {
+    card_index("c7476beb-7923-4994-8476-bc69187ecb72")
+}
+
+fn hunger_of_the_nim() -> CardIndex {
+    card_index("1af3c6ff-2884-4d8c-a01f-6f74d8ea10cc")
+}
+
+fn imperial_seal() -> CardIndex {
+    card_index("16cd0b90-f70c-4efa-b252-8de8784ef9a3")
+}
+
+fn labyrinth_of_skophos() -> CardIndex {
+    card_index("9ec5a487-d8ed-459a-8f58-56f6e9a2dfe8")
+}
+
+fn lantern_lit_graveyard() -> CardIndex {
+    card_index("73a39a1b-2fb7-4328-8718-18569ae28e9e")
+}
+
+fn library_of_alexandria() -> CardIndex {
+    card_index("2111588d-9af5-4a33-989e-b074d83f0463")
+}
+
+fn mogg_hollows() -> CardIndex {
+    card_index("1745fd57-467c-45f9-a46e-b9a2af87ec87")
+}
+
+fn novijen_heart_of_progress() -> CardIndex {
+    card_index("b3b5137d-0225-4dba-9231-d235ab0f137c")
+}
+
+fn pillar_of_the_paruns() -> CardIndex {
+    card_index("677b8ce7-f922-4ee3-b311-f199da9b352b")
+}
+
+fn pinecrest_ridge() -> CardIndex {
+    card_index("d8ef7c7b-0201-4978-ac73-fd376a19830f")
+}
+
+fn rix_maadi_dungeon_palace() -> CardIndex {
+    card_index("a1bee68d-135b-4e30-8830-48a3315d13a9")
+}
+
+fn rootwater_depths() -> CardIndex {
+    card_index("2d28c83a-7415-4eb0-95a6-6245f2169d17")
+}
+
+fn stensia_bloodhall() -> CardIndex {
+    card_index("8220c5fa-28dc-40d0-a38a-d8eefc2795d6")
+}
+
+fn strength_of_cedars() -> CardIndex {
+    card_index("61b29c75-00d0-4ddb-9e27-cfd47302830e")
+}
+
+fn sunscorched_desert() -> CardIndex {
+    card_index("256b8c23-589e-429d-9e6e-433d55079eb4")
+}
+
+fn thalakos_lowlands() -> CardIndex {
+    card_index("5a54d6a3-b1d0-42fe-9531-604b34d197f1")
+}
+
+fn tomb_of_the_spirit_dragon() -> CardIndex {
+    card_index("22f6391e-2634-440f-af1b-9581d1bff818")
+}
+
+fn tranquil_garden() -> CardIndex {
+    card_index("d9dfef08-b824-4d56-a0e9-3dcefb7e4612")
+}
+
+fn trenchpost() -> CardIndex {
+    card_index("42f1ccb8-eda0-4828-ac07-82d4e950d7e1")
+}
+
+fn underdome() -> CardIndex {
+    card_index("8375aaaa-edc2-4a0c-98f6-af07d61ebd0a")
+}
+
+fn urborg() -> CardIndex {
+    card_index("b6114962-035e-4e7f-9009-4739bf83a05a")
+}
+
+fn urza_s_power_plant() -> CardIndex {
+    card_index("e11966cd-2ee3-4df4-b099-abf42dcdf0db")
+}
+
+fn vec_townships() -> CardIndex {
+    card_index("b0a4680f-9707-431c-b5d5-7d4424783602")
+}
+
+fn waterveil_cavern() -> CardIndex {
+    card_index("3debfa0d-9945-4a85-a714-7c3d3d74de4e")
+}
+
+fn winding_canyons() -> CardIndex {
+    card_index("622e2561-48b1-4aca-9abb-9a3c284dcceb")
+}

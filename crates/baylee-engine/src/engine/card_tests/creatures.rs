@@ -12621,3 +12621,85 @@ fn carnage_tyrant_cannot_be_countered_and_enters_with_keywords() {
     assert!(kw.contains(KeywordSet::TRAMPLE));
     assert!(kw.contains(KeywordSet::HEXPROOF));
 }
+
+/// Auriok Bladewarden: "{T}: Target creature gets +X/+X until end of turn, where X is this creature's power."
+/// Starting as a 1/1 on the battlefield, its activated ability targets another 1/1 creature.
+/// Upon resolution, the target creature receives +1/+1 based on the Bladewarden's power and becomes a 2/2.
+#[test]
+fn auriok_bladewarden_pumps_target_creature_by_its_own_power() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(101, forest())
+        .battlefield(0, &[auriok_bladewarden(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let warden = on_battlefield(&engine, p0, auriok_bladewarden()).expect("Bladewarden deployed");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("Elves deployed");
+    assert_eq!(pt(&engine, elves), (1, 1));
+
+    activate(&mut engine, p0, auriok_bladewarden(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elves), "Elves is a legal target creature");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, elves), (2, 2), "Elves received +1/+1");
+    assert!(is_tapped(&engine, warden), "Bladewarden tapped to pay cost");
+}
+
+/// Bloom Tender: "{T}: For each color among permanents you control, add one mana of that color."
+/// Controlled alongside Baleful Strix (blue and black), permanents you control exhibit three distinct colors.
+/// Activating Bloom Tender prompts for three color choices, producing one mana of each color into the pool.
+#[test]
+fn bloom_tender_adds_one_mana_per_distinct_color_among_permanents() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(102, forest())
+        .battlefield(0, &[bloom_tender(), baleful_strix()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let tender = on_battlefield(&engine, p0, bloom_tender()).expect("Bloom Tender deployed");
+
+    activate(&mut engine, p0, bloom_tender(), 0);
+
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("expected first color choice, got {:?}", engine.pending());
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("expected second color choice, got {:?}", engine.pending());
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("expected third color choice, got {:?}", engine.pending());
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 3, "three distinct colors produce 3 mana");
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, tender));
+}

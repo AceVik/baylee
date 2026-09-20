@@ -1377,3 +1377,100 @@ fn wheel_of_fortune_each_player_draws_seven_cards() {
         "Wheel of Fortune went to graveyard upon resolution"
     );
 }
+
+/// Hunger of the Nim: "Target creature gets +1/+0 until end of turn for each artifact you control."
+/// Cast with two artifacts on the battlefield targeting a 1/1 Llanowar Elves, the pump counts both artifacts.
+/// Upon resolution, the creature receives +2/+0 and its power and toughness become 3/1.
+#[test]
+fn hunger_of_the_nim_pumps_target_creature_per_artifact_you_control() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(135, forest())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                myr_retriever(),
+                myr_retriever(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[hunger_of_the_nim()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("Elves deployed");
+    assert_eq!(pt(&engine, elves), (1, 1));
+
+    tap_all_mana(&mut engine, p0);
+    let spell = in_hand(&engine, p0, hunger_of_the_nim()).expect("Hunger of the Nim in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elves), "Elves is a legal target creature");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, elves), (3, 1), "two artifacts give +2/+0");
+}
+
+/// Imperial Seal: "Search your library for a card, then shuffle and put that card on top. You lose 2 life."
+/// Cast off a Swamp, the sorcery prompts a search of the library and places the chosen card on top.
+/// Upon resolution, the player's life total is reduced by two from 20 to 18.
+#[test]
+fn imperial_seal_tutors_card_to_top_and_costs_two_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(134, forest())
+        .battlefield(0, &[swamp()])
+        .hand(0, &[imperial_seal()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, imperial_seal());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected search choice, got {:?}", engine.pending());
+    };
+    let found = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(p0))
+            .last()
+            .copied(),
+        Some(found),
+        "chosen card was placed on top of library"
+    );
+    assert_eq!(engine.state().players[0].life, 18, "player lost 2 life");
+}
