@@ -28,6 +28,23 @@
 //! the same space, and what still does not fit is *counted* on a last line
 //! rather than silently cut off.
 //!
+//! **That 113 is a floor and the panel is full at it**, which is worth having
+//! written down, because the obvious answer to "the queue says too little" is
+//! to give a queued row another line and there is nowhere to take it from.
+//! 113 is the *card*; a full row carrying a two-line name, a subtitle and a
+//! four-line sentence is 12 padding + 42.2 + 3 + 15.8 + 3 + 63.4 ≈ 139. A
+//! compact row is 8 padding + [`STACK_QUEUED_H`] ≈ 72. At 1052 logical
+//! pixels the panel's content box is 0.62 × 1052 − 20 ≈ 632, and a head, a
+//! full row, six compact rows and the seven 6-pixel gaps between them come
+//! to about 634 — before the "+N more" line. So the queue is drawn at its
+//! budget already: one more line on each compact row is ~95 px that do not
+//! exist, and dropping [`STACK_COMPACT_ROWS`] to five to pay for it buys 78
+//! and still does not cover it. #132 asks for the queue to say more; the
+//! room for it has to come from saying something *else* on the line a
+//! compact row already has, not from another line. These are modelled from
+//! the constants rather than measured off a screenshot, so they are the
+//! right order of magnitude and not a promise to the pixel.
+//!
 //! # Arriving, and resolving
 //!
 //! A row eases in: it lifts into place, grows the last few percent, and its
@@ -1709,8 +1726,10 @@ pub(super) fn spans_of(blocks: &[TextBlock], room: Option<usize>) -> Vec<Piece> 
                     pieces.push((mark.to_string(), true));
                 }
                 manapip::Inline::Text(run) => {
+                    // Prose, so the cut is [`cut_words`] — see its doc for
+                    // why a name and a sentence are cut differently.
                     let run = match room_for {
-                        Some(room) => cut(&run, room),
+                        Some(room) => cut_words(&run, room),
                         None => run,
                     };
                     room_for = room_for.map(|room| room - run.chars().count());
@@ -1761,13 +1780,25 @@ pub(super) const CHAR_WIDTH: f32 = 0.52;
 /// at the old 187-pixel column it both cut names that would have fitted and
 /// passed names that then clipped. (In `Inter.ttf`, which this replaced, the
 /// spread was 0.41 to 0.70 and the widest name set 227 px against Faustina's
-/// 202.) The only caller left is the
+/// 202.) The only caller of `fit` is the
 /// **queued** row, whose column is now 267 px at 14: over all 1475 faces in
 /// the pool the budget is 36 characters, nothing clips and nothing is cut
 /// that would have fitted — the estimator is exercised and wrong about
 /// nothing. The full row does not call it at all; it wraps. If a name column
 /// is ever narrowed again, this is the thing to replace with a real
 /// measurement rather than to re-tune.
+///
+/// **[`budget`] has a second consumer, and the sentence it serves is the one
+/// this estimate is worst for.** That paragraph above said "the only caller
+/// left" and meant `fit`; [`spawn_stack_sentence`] calls `budget` directly
+/// for a *wrapped* run of prose, where a per-character average is not the
+/// quantity wanted at all. Wrapping breaks at words, so each break gives up
+/// part of a line — a German compound gives up most of one — and the
+/// character count that fits in four lines of prose is well under four times
+/// the character count that fits in one. #132 reports the consequence from
+/// the drawing: a sentence cut mid-word with room still in the panel. The
+/// mid-word half is fixed ([`cut_words`]); the budget itself is not, because
+/// choosing it needs the measurement the report has and this file does not.
 ///
 /// The ellipsis replaces characters rather than joining them, so the result
 /// never grows past the budget, and the cut is on `char` boundaries because a
@@ -1800,6 +1831,39 @@ pub(super) fn cut(text: &str, budget: usize) -> String {
     let mut cut: String = text.chars().take(budget.saturating_sub(1)).collect();
     cut.push('…');
     cut
+}
+
+/// The same, cut at the last **word** boundary that fits.
+///
+/// A card name is cut mid-word without anybody minding — a name is one thing
+/// and half of it still points at the card. A *sentence* is not: a rules line
+/// that stops at `…kannst du eine +1/+1-Marke auf den Klin…` reads as a
+/// rendering fault rather than as text that goes on, and the fragment is
+/// worth nothing. Which is why this is a second function and not a change to
+/// [`cut`]: the two callers want different things, and a name cut to its last
+/// whole word would lose most of `Asmoranomardicadaistinaculdacar`.
+///
+/// **A word longer than the whole budget falls back to the character cut.**
+/// Backing off to the previous boundary would then be backing off to nothing
+/// and returning a bare ellipsis, which says less than a cut word does — and
+/// it is a real case, because the budget shrinks as spans are spent and the
+/// last span can be handed four characters.
+///
+/// Trailing space goes before the ellipsis rather than after the cut, so the
+/// mark sits against the word it follows.
+pub(super) fn cut_words(text: &str, budget: usize) -> String {
+    if text.chars().count() <= budget {
+        return text.to_string();
+    }
+    let head: String = text.chars().take(budget.saturating_sub(1)).collect();
+    let Some(at) = head.rfind(char::is_whitespace) else {
+        return cut(text, budget);
+    };
+    let kept = head[..at].trim_end();
+    if kept.is_empty() {
+        return cut(text, budget);
+    }
+    format!("{kept}…")
 }
 
 #[cfg(test)]
@@ -1844,6 +1908,52 @@ mod tests {
             "{cut} is {} chars, over the {budget} it had",
             cut.chars().count()
         );
+    }
+
+    /// A sentence is cut at a word, and the report's own line is the case.
+    ///
+    /// Fails against the old code, which cut `…auf den Klin…` — the fragment
+    /// #132 was written from. A name may be cut mid-word and is; prose may
+    /// not, which is why the two have different functions.
+    #[test]
+    fn a_sentence_is_cut_at_a_word() {
+        let line = "kannst du eine +1/+1-Marke auf den Klingenmeister legen";
+        let cut = cut_words(line, 34);
+        assert_eq!(cut, "kannst du eine +1/+1-Marke auf…");
+        assert!(
+            cut.chars().count() <= 34,
+            "{cut} is over the budget it was given"
+        );
+    }
+
+    /// A word that does not fit at all is cut through rather than dropped.
+    ///
+    /// The budget shrinks as spans are spent, so the last span of a sentence
+    /// can be handed four characters — and backing off to the previous word
+    /// boundary there means backing off to nothing. A bare `…` says less
+    /// than a cut word does, and the same holds for one long compound with
+    /// no space in it anywhere.
+    #[test]
+    fn a_word_longer_than_the_budget_falls_back_to_the_character_cut() {
+        assert_eq!(
+            cut_words("Verzauberungskreatur", 8),
+            cut("Verzauberungskreatur", 8)
+        );
+        assert!(cut_words("Verzauberungskreatur", 8).chars().count() <= 8);
+        // And the same when the first word alone overruns: there is a space
+        // in the string, but none of it is inside the budget.
+        assert_eq!(
+            cut_words("Verzauberungskreatur legen", 8),
+            cut("Verzauberungskreatur", 8)
+        );
+    }
+
+    /// Prose that fits is left exactly as printed, ellipsis and all absent.
+    #[test]
+    fn a_sentence_that_fits_is_not_cut() {
+        assert_eq!(cut_words("Ziehe eine Karte.", 40), "Ziehe eine Karte.");
+        // Exactly at the budget is not over it.
+        assert_eq!(cut_words("Ziehe eine Karte.", 17), "Ziehe eine Karte.");
     }
 
     /// The cut lands on character boundaries. A byte-wise slice of a name
