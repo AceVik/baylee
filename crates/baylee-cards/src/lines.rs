@@ -345,6 +345,16 @@ mod tests {
     /// second, a tenth, a hundredth card turns up whose back face puts an
     /// ability on the stack, the caller supplying the face is no longer
     /// obviously the cheaper answer and this should be read again.
+    ///
+    /// Read again on 20.09.2026, at **three**: one card batch added Hostile
+    /// Hostel and Balamb Garden in a single round, which is the part that
+    /// matters more than the number. One was a curiosity; three arriving two
+    /// at a time from a generator says the population grows with the pool
+    /// rather than with the years. Still not enough to pay for a face on
+    /// every `AbilityRef` — the cost is on the wire and on every caller —
+    /// so the answer stands and the trigger is now the rate, not the count.
+    /// #162 carries the decision so it is scheduled rather than rediscovered
+    /// by whoever this test stops next.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -357,7 +367,11 @@ mod tests {
                     .then(|| def.map_or("<retired>", |d| d.name()))
             })
             .collect();
-        assert_eq!(named, ["Sheoldred"], "the back faces that reach the stack");
+        assert_eq!(
+            named,
+            ["Hostile Hostel", "Sheoldred", "Balamb Garden, SeeD Academy"],
+            "the back faces that reach the stack"
+        );
     }
 
     /// The table is indexed by `CardIndex`, so a row that is not the card
