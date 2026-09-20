@@ -226,11 +226,11 @@ pub fn play_report<L: CardLookup>(
     );
     let mut engine = Engine::new(preset, lookup).expect("preset builds");
     let decks = crate::scouting::decks(preset);
-    let seats: Vec<_> = agents
-        .iter()
-        .cloned()
-        .map(|a| crate::SeatKind::Ai(a.with_seed(preset.seed)))
-        .collect();
+    // The caller's agents are seated as they were built. This used to
+    // overwrite every one of them with `preset.seed` — the stream that dealt
+    // the hands — which is the leak #87 is about, and an offline fixture that
+    // wants its chairs to differ says so itself with `with_seed`.
+    let seats: Vec<_> = agents.iter().cloned().map(crate::SeatKind::Ai).collect();
     // The first index a key was seen at, and how many times it has come
     // round. Both, because the report wants the first and the halt wants the
     // count — see the comment on the check below.

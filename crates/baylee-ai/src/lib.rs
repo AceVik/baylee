@@ -536,6 +536,47 @@ fn board_pressure(view: &PlayerView, player: PlayerId) -> i32 {
 }
 
 /// Mana floating in the acting seat's pool (cmc units).
+/// Which version of the policy-seed derivation this is.
+///
+/// Inside the hash rather than beside it, so a change to the recipe changes
+/// every seed it produces: a seed is *recorded* — a replay has to reproduce
+/// the chair as well as the shuffle — and two recipes agreeing on a value by
+/// accident would be a replay that silently plays a different game.
+pub const POLICY_SEED_VERSION: u64 = 1;
+
+/// The randomness an AI chair plays with, derived from what the whole table
+/// can already see.
+///
+/// Not the game's seed. That stream dealt the hands and shuffled the
+/// libraries, and an agent drawing from it is correlated with the hidden
+/// state it is supposed to be guessing at — a leak no seat boundary catches,
+/// because nothing crosses one (#87). For a heuristic that only breaks ties
+/// it is untidy; for anything that samples a belief it is the whole problem.
+/// The invariant this exists to make true: with the same authorized
+/// observations, the same policy seed and the same budget, changing the real
+/// hidden state or the real RNG cannot change the answer.
+///
+/// `game` is the **public** identifier a host already tells every seat, so
+/// two tables differ and two runs of one table do not. The seat goes in as a
+/// fixed one-byte suffix, which is what makes `game ‖ seat` unambiguous
+/// without a length or a separator: every byte before the last belongs to
+/// the identifier, so no two pairs can write the same input. FNV-1a and not
+/// `DefaultHasher`: the latter's algorithm is stable only within a process,
+/// so a recorded seed would drift on a toolchain bump.
+#[must_use]
+pub fn policy_seed(game: &str, seat: u8) -> u64 {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    POLICY_SEED_VERSION
+        .to_le_bytes()
+        .iter()
+        .chain(game.as_bytes())
+        .chain(std::iter::once(&seat))
+        .fold(OFFSET, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(PRIME)
+        })
+}
+
 /// The player who must answer a pending choice.
 #[must_use]
 pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
@@ -1022,6 +1063,39 @@ mod tests {
                 objects: vec![],
                 players: vec![PlayerId::new(1)]
             }
+        );
+    }
+
+    /// #87. The policy seed is a recorded derivation, not a hash of the day.
+    ///
+    /// Four things at once, because they fail separately: it is stable
+    /// across runs and toolchains (the pinned value is the whole point of
+    /// calling a seed *recorded* — a replay has to reproduce the chair as
+    /// well as the shuffle), two tables differ, two seats at one table
+    /// differ, and the length is part of the input so one table's chair
+    /// cannot collide with another's by the two strings running together.
+    #[test]
+    fn a_policy_seed_is_recorded_and_belongs_to_one_seat_at_one_table() {
+        assert_eq!(
+            policy_seed("g1", 0),
+            0xa485_49e4_7ab1_f0a8,
+            "the derivation changed without POLICY_SEED_VERSION changing \
+             with it, so every recorded game replays a different chair"
+        );
+        assert_eq!(policy_seed("g1", 0), policy_seed("g1", 0), "not stable");
+        // Every pair of a small grid is its own value, which is the property
+        // the one-byte suffix buys: no table's chair is another's.
+        let grid: Vec<u64> = ["", "g1", "g2", "a game with spaces"]
+            .iter()
+            .flat_map(|game| (0..8u8).map(move |seat| policy_seed(game, seat)))
+            .collect();
+        let mut seen = grid.clone();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(
+            seen.len(),
+            grid.len(),
+            "two seats or two tables were handed one stream of randomness"
         );
     }
 

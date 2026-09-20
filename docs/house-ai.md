@@ -200,9 +200,33 @@ creature, and known empty threats release reserved mana. These are heuristic
 adjustments, not a learned classifier or a complete combo planner. Reports carry
 card identities without actionable hidden object handles.
 
-Randomness is keyed by the game seed, seat, choice sequence and object. The
-same complete input replays identically. Sharp and expert use narrow spell-score
-bands so equal options vary between games; proven combat lethal is not randomized.
+Randomness is keyed by a **policy seed**, seat, choice sequence and object.
+The same complete input replays identically. Sharp and expert use narrow
+spell-score bands so equal options vary between games; proven combat lethal is
+not randomized.
+
+**The policy seed is not the game seed** (#87). It used to be: `Session::new`
+and the harness both handed every chair `preset.seed` — the stream that dealt
+the hands and shuffled the libraries — and this file wrote it down as the
+rule. For a heuristic that only breaks ties that is untidy; for anything that
+samples a belief it is a leak that no seat boundary catches, because nothing
+crosses one. A sampler drawing from the stream that produced the hidden state
+is correlated with the answer it is supposed to be guessing at. The invariant
+is the clean form of it: *with the same authorized observations, the same
+policy seed and the same budget, changing the real hidden state or the real
+RNG cannot change the agent's answer.*
+
+So `baylee_ai::policy_seed(game, seat)` derives it from what the whole table
+can already see — the **public** game identifier a host tells every seat, plus
+the seat number, under an explicit `POLICY_SEED_VERSION` that is hashed with
+them rather than written beside them. It is FNV-1a and not `DefaultHasher`,
+whose algorithm is stable only within one process: a recorded seed has to
+survive a toolchain bump, because a replay reproduces the chair as well as the
+shuffle. `Session::describe` is where the identifier arrives, once, before the
+first socket, so that is where a chair stops playing with the no-identifier
+derivation and starts playing with its own. The offline harness seats the
+agents it was handed exactly as they were built; a fixture that wants its
+chairs to differ says so with `with_seed`.
 See [the coverage TODO ledger](ai-coverage-todo.md) for concrete tests to add as
 new rules and complete deck families become available. Unsupported cards are
 not counted as successful end-to-end coverage.
@@ -267,6 +291,13 @@ Use the development profile: the workspace's release profile aborts on panic,
 whereas the scorer needs unwinding to record a broken game and continue.
 Report unfinished games beside every win rate. The two decks and paired seeds
 do not establish a universal ordering of playing strength.
+
+Those seeds are the **shuffle's**, and since #87 they are no longer the
+chair's: the harness seats the agents it is handed rather than overwriting
+them, so a scoreboard run varies the deal and not the tie-breaking. That is
+the correct direction — a chair keyed to the deal is the leak — but it does
+narrow what the scoreboard samples, and a run that wants both dimensions
+supplies an independent policy seed per game at the call site.
 
 Regression tests prove different decisions between every adjacent profile,
 repeatability, bounded search work, coloured payments, mana reservation,
