@@ -824,3 +824,82 @@ the card's whole `Debug` rendering instead of a list of places to look
   is `ChooseCastMode` — and only when more than one mode is affordable.
 - When striking a `Coverage::Partial` gap, pick a control that cannot
   produce the asserted outcome for any other reason.
+
+## Rounds E and F, 20.09.2026 — 70 lands, and the refusals started clustering
+
+Two rounds back to back over the land stubs, ranked by oracle length
+descending with the refusal shelf subtracted first. E: 40 picked, 38 written
+(9 `Implemented`, 29 `Partial`), 2 refused. F: 40 picked, 32 written (all
+`Partial`), 8 refused. Stubs 550 → 480.
+
+### The budget was refusing cards, and it looked like the model
+
+Five of round E's forty came back with no text at all, and round C had lost
+six the same way. They were `max_tokens`, and nobody could see it: the lane
+returned an empty answer as an empty answer. `lane.py` now raises with
+`stop_reason` and the output token count in the message, and every one of the
+eleven was written **unchanged** on a retry with a bigger budget — no prompt
+change, no different model.
+
+The number itself was a sibling asymmetry of the kind this repo keeps finding:
+`tests_deepseek.py` had asked for 32000 since it was written and
+`cards_deepseek.py` for 16000, with nothing deciding the difference. The cap
+is not a price — DeepSeek bills the tokens generated — so the smaller number
+bought nothing. One card (Great Hall of the Biblioplex) needed 60000 even
+after the raise, so the retry-with-more-budget step stays.
+
+### The lane writes Rust that compiles and that rustfmt disagrees with
+
+A `Coverage::Partial` reason too long for its line is the usual shape.
+`cargo check` accepts it without a word, so round E reached a commit with
+seven unformatted files and the *gate's* fmt step found them. `cargo fmt
+--all` now runs **before** `cargo check`, as the fourth rule in
+`scripts/llm/README.md`.
+
+### A refusal cluster is worth more than a refusal
+
+Round F's eight refusals were not eight problems. **Five** were banding —
+the entire printed text of those cards — and **two** were hideaway. Each
+became one ticket naming every card behind it (#164, #163), which is the
+output a batch should produce when the DSL runs out: not "eight cards
+failed" but "two sentences the DSL cannot say, worth twelve cards between
+them".
+
+Reading them together also showed the lane is inconsistent about the choice
+it has: three hideaway lands were written as an honest `Partial` carrying
+the mana ability, two were refused outright. Both are honest and the
+`Partial` is strictly more useful, since only `Implemented` cards reach the
+deckbuilder.
+
+### A generated constant is not a guessable one
+
+One card arrived naming `generated_tokens::ROBOT_2_2_COLORLESS`. The real
+constant is `ROBOT_ARTIFACT_2_2`, and the model had described the token
+correctly and then spelled its handle the way the oracle text reads. A
+generated table's names come from the generator, not from the card.
+
+### What the test lane taught, which was about the kit
+
+Both of round E's two test failures were the harness rather than a card, and
+the second outlived its test. `tap_mana_except` iterates
+`legal.mana_abilities`, which is documented as **only** the CR 305.6
+shortcut, so a nonbasic printing `{T}: Add {C}` is never tapped and a test
+floats fewer mana than it thinks (#159). That surfaced only because the test
+expected a success; one expecting a *refusal* would have passed on "not
+enough mana" instead of the rule it names.
+
+### Prompt rules these batches earn
+
+- Never invent a `generated_tokens::` constant. Grep
+  `crates/baylee-cards/src/generated_tokens.rs` for the shape you want and
+  copy the name; the fields are `&TokenDef`, so it is borrowed.
+- `activate(&mut engine, seat, card, index)` finds the **first** object with
+  that card index. A test that seats two copies, or whose preset already
+  places one, must address the object it means directly with
+  `PlayerAction::ActivateAbility`.
+- `tap_mana_except` and `tap_all_mana` reach the basic lands and nothing
+  else. Tap a nonbasic's printed mana ability by hand.
+- `Duel::start` deals **no** opening hand. A test that needs one says so.
+- Prefer an honest `Partial` carrying whatever the card *can* do over a
+  refusal, when one clause is unreadable and the rest is a plain mana
+  ability.
