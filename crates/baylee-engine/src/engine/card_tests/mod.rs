@@ -14,7 +14,7 @@
 //! # What stays here, and why it has to
 //!
 //! Every non-test item — the card handles, `activate`, `keywords`,
-//! `tap_all_mana`, `library_size` — stays in this file. That is not tidiness
+//! `tap_all_mana_but`, `library_size` — stays in this file. That is not tidiness
 //! but visibility: a child module reaches its parent's private items through
 //! `use super::*`, and a **sibling** reaches nothing at all. A helper moved
 //! into `creatures` would be invisible to `lands`, and the twenty of them
@@ -259,20 +259,6 @@ fn keywords(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_d
         .keywords
 }
 
-/// Taps everything that makes mana for `seat`, which is what a player does
-/// before casting.
-#[track_caller]
-fn tap_all_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
-}
-
 fn rogue_s_passage() -> CardIndex {
     card_index("f29dc596-2121-4421-8463-15f6c2e8b9b3")
 }
@@ -416,27 +402,35 @@ fn bleachbone_verge() -> CardIndex {
     card_index("2b8144a0-08d2-4c28-9fd7-5d90f90105e4")
 }
 
-/// Taps every mana source `seat` has, except the ones printed `skip`.
+/// Taps every mana source `seat` has that taps for its mana, except the
+/// ones printed `skip`.
 ///
 /// [`tap_mana_except`] keeps one object; this keeps a whole printing, which
 /// is how a test says "leave the Plains for the instant I am holding".
 fn tap_all_mana_but(engine: &mut Engine<RegistryLookup>, seat: PlayerId, skip: Option<CardIndex>) {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities {
-        let printed = engine
-            .state()
-            .object(source)
-            .and_then(|o| o.card)
-            .map(|c| c.index);
-        if skip.is_some() && printed == skip {
-            continue;
-        }
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
+    let printed: Vec<(ObjectId, Option<CardIndex>)> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .map(|id| {
+            (
+                *id,
+                engine
+                    .state()
+                    .object(*id)
+                    .and_then(|o| o.card)
+                    .map(|c| c.index),
+            )
+        })
+        .collect();
+    tap_mana_where(engine, seat, |id| {
+        skip.is_none()
+            || printed
+                .iter()
+                .find(|(other, _)| *other == id)
+                .is_none_or(|(_, index)| *index != skip)
+    });
 }
 
 fn baleful_strix() -> CardIndex {

@@ -29,7 +29,7 @@
 //! `castable_from_hand` and nothing else would offer the adventure out of
 //! the exile its own resolution had just put the card in.
 
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, pass_until};
+use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, pass_until, tap_all_mana};
 use super::*;
 use baylee_core::ids::{CardIndex, ObjectId};
 
@@ -62,19 +62,6 @@ fn damn() -> CardIndex {
 /// The quietest creature there is, here only as something to destroy.
 fn llanowar_elves() -> CardIndex {
     card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
-}
-
-/// Taps everything `seat` can tap for mana right now.
-#[track_caller]
-fn tap_all_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
 }
 
 /// Taps `n` of the mana sources `seat` still has, in the engine's own order.

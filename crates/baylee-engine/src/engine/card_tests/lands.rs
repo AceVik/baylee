@@ -228,9 +228,13 @@ fn rogue_s_passage_takes_its_target_out_of_the_blockers_offer() {
         "nothing has been activated yet"
     );
 
-    // Four Forests: the Passage itself is not a basic land, so the CR 305.6
-    // shortcut leaves it untapped to pay its own {T}.
-    tap_all_mana(&mut engine, p0);
+    // Four Forests, and two things kept back by name: the Passage, which has
+    // to pay its own {T} below, and the Elf, which has to be untapped to
+    // attack. This used to read "the Passage is not a basic land, so the
+    // CR 305.6 shortcut leaves it untapped" — the helper's defect written
+    // down as a feature (#159).
+    let passage = on_battlefield(&engine, p0, rogue_s_passage()).expect("the Passage is out");
+    tap_mana_where(&mut engine, p0, |id| id != passage && id != elves);
     activate(&mut engine, p0, rogue_s_passage(), 1);
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("the ability targets a creature, got {:?}", engine.pending())
@@ -4303,8 +4307,10 @@ fn the_fifth_land_is_what_turns_a_count_of_five_true() {
     // The mana comes first, and that ordering is the test: an ability whose
     // `{1}` nobody can pay is missing from the offer for a reason that has
     // nothing to do with its clause, and asserting on the difference would
-    // then prove only that the Forests were untapped.
-    tap_all_mana(&mut engine, p0);
+    // then prove only that the Forests were untapped. The Caves is kept back
+    // because its `{1}, {T}, Sacrifice` is the offer under test and
+    // `tap_all_mana` would spend the `{T}` half on mana (#159).
+    tap_all_mana_but(&mut engine, p0, Some(cryptic_caves()));
     assert!(
         !offered(&engine, cryptic_caves(), 1),
         "four lands is not five"
@@ -4392,7 +4398,7 @@ fn a_clause_may_ask_about_an_artifact_or_a_legend_instead() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-    tap_all_mana(&mut engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(rivendell()));
     assert!(
         !offered(&engine, rivendell(), 1),
         "no legendary creature, no scry"
@@ -4403,7 +4409,9 @@ fn a_clause_may_ask_about_an_artifact_or_a_legend_instead() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-    tap_all_mana(&mut engine, p0);
+    // Rivendell's own `{T}` is what its second ability costs, so it is kept
+    // back from the tap (#159).
+    tap_all_mana_but(&mut engine, p0, Some(rivendell()));
     assert!(
         offered(&engine, rivendell(), 1),
         "Jin-Gitaxias is a legendary creature"
@@ -8324,7 +8332,10 @@ fn shivan_gorge_taps_for_colorless_and_omits_unsupported_damage_ability() {
     let gorge = play_land(&mut engine, p0, shivan_gorge());
     assert!(!is_tapped(&engine, gorge));
 
-    tap_all_mana(&mut engine, p0);
+    // Everything but the land under test: `tap_all_mana` takes printed mana
+    // abilities as well as the CR 305.6 shortcut (#159), so tapping it would
+    // remove the very offer this asserts on.
+    tap_mana_except(&mut engine, p0, gorge);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -8471,7 +8482,10 @@ fn witch_s_clinic_taps_for_colorless_and_omits_unsupported_lifelink() {
     let clinic = play_land(&mut engine, p0, witch_s_clinic());
     assert!(!is_tapped(&engine, clinic));
 
-    tap_all_mana(&mut engine, p0);
+    // Everything but the land under test: `tap_all_mana` takes printed mana
+    // abilities as well as the CR 305.6 shortcut (#159), so tapping it would
+    // remove the very offer this asserts on.
+    tap_mana_except(&mut engine, p0, clinic);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -8510,7 +8524,10 @@ fn yavimaya_hollow_taps_for_colorless_and_omits_unsupported_regenerate() {
     let hollow = play_land(&mut engine, p0, yavimaya_hollow());
     assert!(!is_tapped(&engine, hollow));
 
-    tap_all_mana(&mut engine, p0);
+    // Everything but the land under test: `tap_all_mana` takes printed mana
+    // abilities as well as the CR 305.6 shortcut (#159), so tapping it would
+    // remove the very offer this asserts on.
+    tap_mana_except(&mut engine, p0, hollow);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -12725,20 +12742,13 @@ fn mouth_of_ronom_sacrifices_to_deal_damage_to_creature() {
     let (mouth, spare) = (mouths[0], mouths[1]);
     let elf = on_battlefield(&engine, p1, quiet_creature()).expect("elf deployed");
 
-    // The four Forests. `tap_mana_except` reaches the CR 305.6 intrinsic
-    // sources and nothing else, so the second Mouth is tapped by hand below
-    // — a nonbasic that prints its own `{T}: Add {C}` is an ordinary entry in
-    // `legal.abilities` (#159).
-    tap_mana_except(&mut engine, p0, mouth);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: spare,
-                ability_index: 0,
-            },
-        )
-        .expect("the spare Mouth taps for {C}");
+    // The four Forests and the spare Mouth, which `tap_mana_except` reaches
+    // now that it reads both lists: a nonbasic printing its own `{T}: Add
+    // {C}` is an ordinary `(source, index)` entry in `legal.abilities`
+    // (#159). The Mouth under test is the one kept back.
+    let taken = tap_mana_except(&mut engine, p0, mouth);
+    assert_eq!(taken, 5, "four Forests and the spare Mouth");
+    assert!(is_tapped(&engine, spare), "the spare Mouth paid for itself");
 
     activate(&mut engine, p0, mouth_of_ronom(), 1);
 
@@ -13326,7 +13336,9 @@ fn ba_sing_se_enters_untapped_and_animates_land() {
     let land = play_land(&mut engine, p0, ba_sing_se());
     assert!(!entered_tapped(&engine, land));
 
-    tap_all_mana(&mut engine, p0);
+    // The Forests pay; Ba Sing Se stays up, because `tap_all_mana` takes its
+    // printed `{T}: Add` too (#159) and the animation is its other ability.
+    tap_mana_except(&mut engine, p0, land);
     activate(&mut engine, p0, ba_sing_se(), 1);
 
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
@@ -13620,20 +13632,15 @@ fn frostwalk_bastion_animates_into_artifact_creature() {
     // `{1}{S}` wants a colorless mana and the Forest cannot make one; the
     // Bastion could, but its animation cost has no `{T}`, so paying with
     // itself would leave it tapped and the last assertion below is that it
-    // is not. The Mouth is the snow source, tapped by hand because
-    // `tap_mana_except` reaches only the CR 305.6 lands (#159), and it stays
-    // the right board once `{S}` means "from a snow source" (#158).
+    // is not. The Mouth is the snow source and `tap_mana_except` now taps it
+    // with the rest (#159) — it stays the right board once `{S}` means
+    // "from a snow source" (#158).
     let mouth = on_battlefield(&engine, p0, mouth_of_ronom()).expect("the Mouth stands");
     tap_mana_except(&mut engine, p0, bastion);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: mouth,
-                ability_index: 0,
-            },
-        )
-        .expect("the Mouth taps for {C}");
+    assert!(
+        is_tapped(&engine, mouth),
+        "the Mouth made the colorless mana"
+    );
     activate(&mut engine, p0, frostwalk_bastion(), 1);
 
     pass_until(&mut engine, stack_is_empty);

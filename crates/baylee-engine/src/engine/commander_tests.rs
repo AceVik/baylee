@@ -48,17 +48,6 @@ fn swords_to_plowshares() -> CardIndex {
     card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }
 
-fn tap_all_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
-}
-
 /// True once `seat` has `card` on the battlefield *and* holds priority
 /// again.
 ///
@@ -251,10 +240,12 @@ fn arcane_signet_still_reads_the_commander_once_it_has_been_cast() {
     let card = commander_of(&engine, p0);
     let signet = on_battlefield(&engine, p0, arcane_signet()).expect("signet deployed");
 
-    // `tap_all_mana` takes only `legal.mana_abilities`, which is the CR
-    // 305.6 intrinsic-land shortcut — the Signet's printed ability is an
-    // ordinary activated one and is untouched by it.
-    tap_all_mana(&mut engine, p0);
+    // `tap_all_mana` takes both lists, so the Signet's printed ability would
+    // go with the lands: it is a mana ability in the rules (CR 605.1) and an
+    // ordinary `(source, index)` entry in the offer (#159). It is named as
+    // the one thing kept back, because the whole question below is what that
+    // entry offers *after* the commander has left the command zone.
+    tap_mana_except(&mut engine, p0, signet);
     engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
     pass_until(&mut engine, |e| resolved_and_back_to(e, p0, katara()));
 

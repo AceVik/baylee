@@ -9,7 +9,9 @@
 //! driving a real game to the moment the rider matters. If a rider ever
 //! regresses, the header stops being a lie and starts being a test failure.
 
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, pt, reach_main_phase};
+use super::testkit::{
+    Duel, RegistryLookup, card_index, keep_mulligans, pt, reach_main_phase, tap_all_mana,
+};
 use super::*;
 use crate::zone::ZoneLocation;
 use baylee_core::ids::{CardIndex, ObjectId};
@@ -144,17 +146,11 @@ fn tap_for(
     }
 }
 
-/// Taps every mana ability the seat currently has.
+/// Taps every mana ability the seat can pay for with that permanent's own
+/// tap, which is what `testkit::tap_all_mana` means by "everything".
 #[track_caller]
 fn tap_everything(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .expect("mana ability activates");
-    }
+    tap_all_mana(engine, seat);
 }
 
 /// Casts the one copy of `card` in the seat's hand.

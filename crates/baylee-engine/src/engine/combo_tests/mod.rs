@@ -248,7 +248,7 @@ fn a_table_under_a_privileged_position() -> Engine<RegistryLookup> {
     engine
 }
 
-/// Taps everything that makes mana for `seat` and casts `card` from its
+/// Taps everything that taps for mana for `seat` and casts `card` from its
 /// hand, leaving the engine on the spell's target choice.
 #[track_caller]
 fn cast_from_hand(
@@ -257,14 +257,7 @@ fn cast_from_hand(
     card: baylee_core::ids::CardIndex,
 ) {
     let spell = in_hand(engine, seat, card).expect("the spell is in hand");
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
+    tap_all_mana(engine, seat);
     engine
         .apply(seat, PlayerAction::CastSpell { card: spell })
         .unwrap();

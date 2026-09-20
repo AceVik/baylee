@@ -24,7 +24,7 @@
 
 use super::testkit::{
     Duel, RegistryLookup, SEED, basic_forest, basics, card_index, in_graveyard, in_hand,
-    keep_mulligans, pass_until, reach_main_phase, stack_is_empty,
+    keep_mulligans, pass_until, reach_main_phase, stack_is_empty, tap_mana_except,
 };
 use super::*;
 use baylee_cards_dsl::{AbilityDef, ActivationZone};
@@ -94,8 +94,9 @@ fn cycling_colors(card: CardIndex) -> ColorSet {
         .expect("the card prints an ability activated from hand")
 }
 
-/// Taps every mana source the seat has, and answers what its hand ability
-/// is offered as — `None` where the offer was not made at all.
+/// Taps every mana source the seat has that taps for its mana, and answers
+/// what its hand ability is offered as — `None` where the offer was not made
+/// at all.
 ///
 /// The tap comes first because affordability is read off the **pool**
 /// (`Engine::can_pay_mana`), not off what is still untapped: an ability
@@ -106,14 +107,9 @@ fn offer_after_tapping(
     seat: PlayerId,
     object: ObjectId,
 ) -> Option<u32> {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
+    // Everything *but* the object under test: a cycler's own land would
+    // otherwise be spent on the price this is about to read.
+    tap_mana_except(engine, seat, object);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };

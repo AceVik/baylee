@@ -423,14 +423,13 @@ fn a_rally_trigger_fires_once_for_every_ally_that_entered() {
     assert!(tokens_of(&engine, p0).is_empty(), "no tokens yet");
 
     // Tapping everything for mana is what sets X. The lands go through
-    // `mana_abilities` and the Sol Rings do not — an intrinsic land tap
-    // and a printed mana ability are two different offers — so both halves
-    // are pressed, and only the three artifacts are what Aang and Katara
-    // counts.
+    // `mana_abilities` and the Sol Rings through `abilities` — an intrinsic
+    // land tap and a printed mana ability are two different offers — and
+    // `tap_all_mana` takes both (#159), so the three artifacts are tapped by
+    // the same call that taps the lands. The Protestors is a creature with
+    // no mana ability and stays untapped, which is why X is three and not
+    // four.
     tap_all_mana(&mut engine, p0);
-    for _ in 0..3 {
-        activate(&mut engine, p0, quiet_artifact(), 0);
-    }
     let spell = in_hand(&engine, p0, aang_and_katara()).expect("the spell is in hand");
     engine
         .apply(p0, PlayerAction::CastSpell { card: spell })
@@ -2125,8 +2124,10 @@ fn delighted_halflings_mana_pays_only_for_the_legend_and_makes_it_uncounterable(
     );
 
     // Three Swamps is one mana short of either four-drop. Neither is
-    // castable yet, which is what makes the comparison below a comparison.
-    tap_all_mana(&mut engine, p0);
+    // castable yet, which is what makes the comparison below a comparison —
+    // so the Halfling is named as the one source kept back, since it is the
+    // fourth mana and this test is about which spell that mana may pay for.
+    tap_mana_except(&mut engine, p0, halfling);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -2135,7 +2136,7 @@ fn delighted_halflings_mana_pays_only_for_the_legend_and_makes_it_uncounterable(
             .mana_pool
             .available(ManaColor::Black),
         3,
-        "three Swamps; the Halfling is a creature and taps for nothing on its own"
+        "three Swamps, and the Halfling held back"
     );
     assert!(
         !legal.castable.contains(&legend) && !legal.castable.contains(&commoner),
@@ -7766,12 +7767,11 @@ fn quirion_ranger_bounces_a_tapped_forest_and_only_once_a_turn() {
     let ranger = on_battlefield(&engine, p0, quirion_ranger()).expect("the Ranger is on the table");
     let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are with it");
 
-    // Both lands and then the mana creature — `mana_abilities` carries the
-    // CR 305.6 land shortcut and nothing else, so an Elf is activated like
-    // any other ability. What it leaves is the board this card was printed
-    // for: everything tapped, and a Forest that is still a legal cost.
+    // Both lands and the mana creature: `mana_abilities` carries the CR 305.6
+    // land shortcut and the Elf's {T} is a printed ability, and `tap_all_mana`
+    // takes both lists (#159). What it leaves is the board this card was
+    // printed for: everything tapped, and a Forest that is still a legal cost.
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, llanowar_elves(), 0);
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -9285,7 +9285,11 @@ fn kess_resolves_as_a_flying_three_four_and_grants_flying_to_nobody_else() {
         "the ground-bound bystander flies before she lands"
     );
 
-    cast_from_hand(&mut engine, p0, kess_dissident_mage());
+    // The four lands pay {1}{U}{B}{R} exactly. The Elf is kept back so that
+    // "exactly" stays true: it makes a fifth mana that would still be
+    // floating at the assertion below.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, kess_dissident_mage());
     pass_until(&mut engine, stack_is_empty);
 
     let kess = on_battlefield(&engine, p0, kess_dissident_mage()).expect("she resolved");
@@ -10355,8 +10359,11 @@ fn ranger_captain_of_eos_searches_up_a_one_mana_creature_and_is_never_offered_it
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
     // {1}{W}{W} off the three Plains, and the creature's one trigger is the
-    // only thing the board has to resolve.
-    cast_from_hand(&mut engine, p0, ranger_captain_of_eos());
+    // only thing the board has to resolve. The Sol Ring is kept back: it is
+    // the control below for "this board does offer activations", and a
+    // tapped one is offered nothing.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_artifact()));
+    cast_with_floating(&mut engine, p0, ranger_captain_of_eos());
     // "You may search" is **one** question here and not two: an optional
     // `Effect::SearchLibrary` is offered as the search itself with `min: 0`,
     // so declining is answering it with nothing. There is no `YesNo` in
@@ -10949,7 +10956,11 @@ fn scryb_ranger_trades_a_forest_for_one_untap_and_then_its_limit_bites() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, scryb_ranger());
+    // The Elf is kept back: tapping it is the deliberate move below, and an
+    // untap aimed at a creature something else already tapped would prove
+    // nothing about this card.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, scryb_ranger());
     pass_until(&mut engine, stack_is_empty);
     let ranger = on_battlefield(&engine, p0, scryb_ranger()).expect("the Ranger resolved");
     assert!(
@@ -11232,7 +11243,11 @@ fn urza_builds_a_construct_that_counts_your_artifacts_and_taps_one_for_blue() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, urza_lord_high_artificer());
+    // Four Islands pay {2}{U}{U}. The Sol Ring is kept back through both
+    // taps below: it is the "untapped artifact you control" Urza's own mana
+    // ability charges, and it is what the Construct counts.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_artifact()));
+    cast_with_floating(&mut engine, p0, urza_lord_high_artificer());
     pass_until(&mut engine, |e| {
         stack_is_empty(e) && !tokens_of(e, p0).is_empty()
     });
@@ -11260,11 +11275,11 @@ fn urza_builds_a_construct_that_counts_your_artifacts_and_taps_one_for_blue() {
     );
 
     // "Tap an untapped artifact you control: Add {U}". Tapping everything
-    // first settles the pool: a mana ability needs no mana, but the offer is
-    // read once nothing else is floating.
+    // else first settles the pool: a mana ability needs no mana, but the
+    // offer is read once nothing else is floating.
     let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring stands");
     let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring stands");
-    tap_all_mana(&mut engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(quiet_artifact()));
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };

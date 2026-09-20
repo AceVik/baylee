@@ -1444,7 +1444,9 @@ fn basalt_monolith_stays_tapped_while_the_lands_beside_it_untap() {
         .collect();
     assert_eq!(forests.len(), 3, "three Forests were dealt");
 
-    tap_all_mana(&mut engine, p0);
+    // The three Forests, and the Monolith kept back: its {T} is the ability
+    // this test presses by index, and `tap_all_mana` would have spent it.
+    tap_all_mana_but(&mut engine, p0, Some(basalt_monolith()));
     // Index 1: the static ability is index 0 and takes no activation.
     activate(&mut engine, p0, basalt_monolith(), 1);
     assert_eq!(
@@ -1784,10 +1786,11 @@ fn mana_vault_taps_for_three_never_untaps_and_bites_its_controller_on_the_draw_s
     let forests = all_on_battlefield(&engine, p0, forest());
     assert_eq!(forests.len(), 3, "three Forests were dealt beside it");
 
-    // `tap_all_mana` is the *intrinsic* list — the basic land types of
-    // CR 305.6 — so it taps the three Forests and never the Vault, whose
-    // {T} is a printed ability like any other and is activated by index.
-    tap_all_mana(&mut engine, p0);
+    // `tap_all_mana` takes both lists (#159), so the Vault has to be named
+    // as the one thing kept back — its {T} is the printed ability this test
+    // activates by index, and it is the permanent that must still be tapped
+    // on the draw step below.
+    tap_all_mana_but(&mut engine, p0, Some(mana_vault()));
     activate(&mut engine, p0, mana_vault(), 1);
     assert_eq!(
         engine.state().players[0]
@@ -2007,8 +2010,11 @@ fn nim_deathmantle_equips_for_four_and_clamps_only_the_creature_it_holds() {
     assert_eq!(pt(&engine, host), (1, 1), "nothing is equipped yet");
 
     // The artifact has to arrive, not merely be believed in: six tapped
-    // Forests pay the {2} and leave exactly the {4} the equip asks for.
-    cast_from_hand(&mut engine, p0, nim_deathmantle());
+    // Forests pay the {2} and leave exactly the {4} the equip asks for. The
+    // Elf is kept back so that "exactly" is the six Forests and not seven
+    // sources — it is the creature the Equipment is about to hold.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, nim_deathmantle());
     pass_until(&mut engine, stack_is_empty);
     let mantle = on_battlefield(&engine, p0, nim_deathmantle()).expect("the Deathmantle resolved");
     assert!(
@@ -2097,9 +2103,11 @@ fn smugglers_copter_lands_as_a_flying_three_three_the_combat_step_never_offers()
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    // {2} off two Forests. The Elf is a *printed* mana ability, so
-    // `cast_from_hand` taps the lands and leaves the creature standing.
-    cast_from_hand(&mut engine, p0, smugglers_copter());
+    // {2} off two Forests, with the Elf named as the thing kept back: it is
+    // this test's control in the attack declaration below, and a creature
+    // tapped for mana may not attack.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_creature()));
+    cast_with_floating(&mut engine, p0, smugglers_copter());
     pass_until(&mut engine, stack_is_empty);
     let copter = on_battlefield(&engine, p0, smugglers_copter()).expect("the Copter resolved");
     let elves = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is on the table");
@@ -2274,7 +2282,9 @@ fn thopter_foundry_sacrifices_an_artifact_for_one_mana_and_gains_one_life() {
     let fodder = on_battlefield(&engine, p0, quiet_artifact()).expect("the fodder artifact is out");
     let land = on_battlefield(&engine, p0, forest()).expect("forest is on the table");
 
-    tap_all_mana(&mut engine, p0);
+    // Only the Forest: the Sol Ring is the fodder this ability sacrifices,
+    // and a {1} paid out of its own {C}{C} would prove nothing about the {1}.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_artifact()));
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         1,

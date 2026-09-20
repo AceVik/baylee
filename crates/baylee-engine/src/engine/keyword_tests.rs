@@ -23,7 +23,11 @@ fn ondu_cleric() -> baylee_core::ids::CardIndex {
 }
 
 /// Hands `seat` priority during the *other* seat's first main phase with
-/// every land they control tapped for mana, and returns what they may do.
+/// every mana source they control tapped, and returns what they may do.
+///
+/// "Every land" until #159, which is what it said and what it did; the kit
+/// takes both offer lists now, so an artifact or a mana creature on this
+/// board is tapped too.
 #[track_caller]
 fn legal_on_the_opponents_turn(
     engine: &mut Engine<RegistryLookup>,
@@ -34,15 +38,11 @@ fn legal_on_the_opponents_turn(
     engine
         .apply(active, PlayerAction::PassPriority)
         .expect("the active seat passes");
-    let Pending::Priority { player, legal } = engine.pending().clone() else {
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
     assert_eq!(player, seat, "priority did not reach the non-active seat");
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .expect("lands tap for mana");
-    }
+    tap_all_mana(engine, seat);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!(
             "expected priority after tapping, got {:?}",

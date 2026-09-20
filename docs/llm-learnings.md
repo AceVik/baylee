@@ -769,10 +769,12 @@ writes a plausible test, and plausible is not the same as right.
 Each is now a comment in the test where the next reader will need it, and
 each belongs in the next batch's prompt:
 
-1. **`tap_all_mana` is the intrinsic list.** It taps what CR 305.6 gives a
-   basic land type, so it taps a Forest and never Mana Vault, whose `{T}` is
-   a printed ability activated by index. Three of the 27 assumed it meant
-   "tap everything that makes mana".
+1. **`tap_all_mana` was the intrinsic list.** It tapped what CR 305.6 gives
+   a basic land type, so it tapped a Forest and never Mana Vault, whose
+   `{T}` is a printed ability activated by index. Three of the 27 assumed it
+   meant "tap everything that makes mana" — and on 20.09.2026 #159 decided
+   the three were right and the kit was wrong. It takes both lists now; the
+   prompt rule below is the current one.
 2. **Affordability is read off the mana *pool*, not off what could still be
    tapped.** This one cost three tests in three different disguises:
    Endurance's printed `{1}{G}{G}` was not an option beside its evoke cost,
@@ -817,7 +819,12 @@ the card's whole `Debug` rendering instead of a list of places to look
 - Before asserting that an ability is offered or a spell castable, put the
   mana in the pool: `tap_all_mana` first, and add lands until the pool
   covers the cost twice over if a tax is to be *asked* rather than skipped.
-- `tap_all_mana` does not tap a nonland permanent's printed mana ability.
+- `tap_all_mana` taps every mana ability whose whole price is `{T}`, on a
+  land or not — so a Sol Ring and a Llanowar Elves go with the Forests. If
+  the test needs one of them left standing, name it:
+  `tap_all_mana_but(&mut engine, seat, Some(sol_ring()))` keeps a printing
+  back and `tap_mana_except(&mut engine, seat, object)` keeps one object,
+  and `cast_with_floating` then casts off what is floating.
 - Read the question shape off `choice.rs` rather than assuming
   `ChooseTargets`: a player-only requirement is `ChoosePlayer`, a cost
   sacrifice is `ChooseCards { prompt: CostSacrifice }`, an alternative cost
@@ -888,6 +895,14 @@ floats fewer mana than it thinks (#159). That surfaced only because the test
 expected a success; one expecting a *refusal* would have passed on "not
 enough mana" instead of the rule it names.
 
+Closed the same day. One primitive taps for the whole crate now, it reads
+both lists, and it refuses to return while a land it should have tapped is
+still standing — so the next time either list stops carrying something, the
+kit goes red instead of quietly floating less. What it deliberately does not
+press is a mana ability whose price is something other than its own tap:
+Wall of Roots would be a smaller creature afterwards and Ashnod's Altar
+would have eaten one.
+
 ### Prompt rules these batches earn
 
 - Never invent a `generated_tokens::` constant. Grep
@@ -897,8 +912,10 @@ enough mana" instead of the rule it names.
   that card index. A test that seats two copies, or whose preset already
   places one, must address the object it means directly with
   `PlayerAction::ActivateAbility`.
-- `tap_mana_except` and `tap_all_mana` reach the basic lands and nothing
-  else. Tap a nonbasic's printed mana ability by hand.
+- `tap_mana_except` and `tap_all_mana` reach **every** source whose mana
+  ability costs exactly `{T}` — basics, nonbasics, artifacts, mana
+  creatures. A test that needs one of them untapped afterwards names it, and
+  says in a comment why.
 - `Duel::start` deals **no** opening hand. A test that needs one says so.
 - Prefer an honest `Partial` carrying whatever the card *can* do over a
   refusal, when one clause is unreadable and the rest is a plain mana

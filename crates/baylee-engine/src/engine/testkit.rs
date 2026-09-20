@@ -442,6 +442,236 @@ pub fn on_stack(
         })
 }
 
+/// Every mana route on offer right now that `want` accepts, as the action
+/// that takes it.
+///
+/// **Two lists, and reading one of them is the defect this exists to close.**
+/// `LegalActions::mana_abilities` is the CR 305.6 shortcut alone — a land
+/// with exactly one basic type, or a permanent a continuous effect granted a
+/// mana ability, neither of which has a printed index to name. A nonbasic
+/// that prints its own `{T}: Add {C}` is a mana ability in the rules
+/// (CR 605.1) and an ordinary `(source, index)` entry in
+/// `LegalActions::abilities`. Both lists say so in their own doc comments and
+/// `abilities::narrow_to_mana_window` says it a third time; ten helpers in
+/// this crate read the first one and wrote "everything" above themselves
+/// anyway (#159).
+///
+/// The asymmetry is why it mattered. A test that expects an action to
+/// *succeed* fails loudly on the missing mana, which is how it was found. A
+/// test that expects a **refusal** passes — for "not enough mana" instead of
+/// the restriction it names — and nothing outside the engine can tell those
+/// two apart.
+/// Whether an ability's whole price is tapping the permanent that prints it.
+///
+/// Both activated twins, because `ActivatedConditional` is the one a reader
+/// forgets. `Cost::TAP` exactly, and not "a cost that contains a `TapSelf`":
+/// a price with anything else in it is a decision this kit has no business
+/// making for a test that asked for mana. Wall of Roots pays a -0/-1 counter
+/// and Ashnod's Altar pays a creature — both are mana abilities in the rules
+/// (CR 605.1) and neither is something "tap everything" may press. A filter
+/// land's `{1}, {T}` is out for the same reason and for a second one: it
+/// spends the mana the lands beside it just made.
+fn costs_only_its_own_tap(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    matches!(
+        ability,
+        baylee_cards_dsl::AbilityDef::Activated {
+            mana_ability: true,
+            cost,
+            ..
+        } | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+            mana_ability: true,
+            cost,
+            ..
+        } if *cost == baylee_cards_dsl::Cost::TAP
+    )
+}
+
+fn mana_routes(
+    engine: &Engine<RegistryLookup>,
+    want: &impl Fn(baylee_core::ids::ObjectId) -> bool,
+) -> Vec<PlayerAction> {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return Vec::new();
+    };
+    let mut out: Vec<PlayerAction> = legal
+        .mana_abilities
+        .iter()
+        .copied()
+        .filter(|source| want(*source))
+        .map(|source| PlayerAction::ActivateManaAbility { source })
+        .collect();
+    out.extend(
+        legal
+            .abilities
+            .iter()
+            .copied()
+            .filter(|(source, index)| {
+                want(*source)
+                    && engine
+                        .state()
+                        .object(*source)
+                        .and_then(|o| o.card)
+                        .and_then(|c| baylee_cards::by_index(c.index))
+                        .and_then(|def| def.abilities.get(*index as usize))
+                        .is_some_and(costs_only_its_own_tap)
+            })
+            .map(|(source, ability_index)| PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            }),
+    );
+    out
+}
+
+/// A permanent that should have been tapped and was not.
+///
+/// The bound [`tap_mana_where`] holds itself to, read off the **board**
+/// rather than off the offer — an offer that stopped listing something would
+/// otherwise make the loop exit happily and prove nothing. It is deliberately
+/// narrow so that it can never be wrong: a land, because only a creature has
+/// summoning sickness (CR 302.6) and an animated manland is both; untapped;
+/// and either a CR 305.6 source by the engine's own reading
+/// (`casting::intrinsic_mana`) or a card printing an unconditional mana
+/// ability that costs exactly `{T}`. A filter land's `{1}, {T}` and a
+/// conditional ability are out, because either can be legally unavailable
+/// while its land stands untapped.
+///
+/// It therefore spells the unconditional arm out rather than sharing
+/// [`costs_only_its_own_tap`] with [`mana_routes`], and the asymmetry is the
+/// point: in the offer both twins are correct, because the engine has
+/// already decided the condition holds by listing it. Here only
+/// `AbilityDef::Activated` is, because Temple of the False God's
+/// `ActivatedConditional` stands untapped and unoffered on a four-land board
+/// and is not a defect this may report.
+fn untapped_mana_land(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    want: &impl Fn(baylee_core::ids::ObjectId) -> bool,
+) -> Option<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            if !want(*id) {
+                return false;
+            }
+            let Some(obj) = engine.state().object(*id) else {
+                return false;
+            };
+            let chars = obj.characteristics();
+            if obj.controller != seat
+                || obj.status.contains(crate::object::Status::TAPPED)
+                || !chars.types.contains(TypeSet::LAND)
+                || chars.types.contains(TypeSet::CREATURE)
+            {
+                return false;
+            }
+            crate::casting::intrinsic_mana(engine.state(), *id).is_some()
+                || obj
+                    .card
+                    .and_then(|c| baylee_cards::by_index(c.index))
+                    .is_some_and(|def| {
+                        def.abilities.iter().any(|a| {
+                            matches!(
+                                a,
+                                baylee_cards_dsl::AbilityDef::Activated {
+                                    mana_ability: true,
+                                    cost,
+                                    ..
+                                } if *cost == baylee_cards_dsl::Cost::TAP
+                            )
+                        })
+                    })
+        })
+}
+
+/// How many times a mana route may be taken before this is a loop and not a
+/// board. [`costs_only_its_own_tap`] already makes the loop terminate — every
+/// route taps its own source, so each one leaves the board with one fewer —
+/// and the cap is what says so out loud if that predicate ever widens.
+const MANA_ROUTE_CAP: usize = 64;
+
+/// Taps every mana source `seat` has that `want` accepts, and says how many
+/// it took.
+///
+/// The one place this crate's tests tap for mana, because it was ten helpers
+/// and nine of them tapped the basics while their own name or doc comment
+/// said "everything" (#159). The tenth,
+/// `keyword_tests::legal_on_the_opponents_turn`, said "every land they
+/// control" and was telling the truth — it is the one whose behaviour this
+/// changes rather than whose sentence it corrects. (Some fifty *inline*
+/// loops over `legal.mana_abilities` remain in individual tests; they are a
+/// test's own setup, usually over basics, and are out of scope here.)
+/// What it takes is [`mana_routes`] — both lists — and
+/// it re-reads the offer between every activation rather than walking a
+/// snapshot, since one tap changes what the next one may be: the machine
+/// re-publishes priority after each mana ability, and a permanent with two
+/// of them has only one left after the first.
+///
+/// It also answers whatever the ability asks on the way. A mana ability never
+/// uses the stack (CR 605.1), but "add one mana of any color" still stops to
+/// ask which, and a helper that left the engine holding a `ChooseColor` would
+/// panic in the next line of every test with a Chromatic Lantern on the board.
+///
+/// **It refuses to return with work left**, which is the bound the ticket
+/// asked for and the reason the loop is the shape it is:
+/// [`untapped_mana_land`] is read off the board, so the day either list stops
+/// carrying something this goes red instead of quietly floating less.
+#[track_caller]
+pub fn tap_mana_where(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    want: impl Fn(baylee_core::ids::ObjectId) -> bool,
+) -> usize {
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "expected priority, got {:?}",
+        engine.pending()
+    );
+    let mut taken = 0;
+    while let Some(route) = mana_routes(engine, &want).into_iter().next() {
+        assert!(
+            taken < MANA_ROUTE_CAP,
+            "{MANA_ROUTE_CAP} mana routes taken and {route:?} is still offered — \
+             this is an ability whose cost does not tap its permanent, not a board"
+        );
+        engine
+            .apply(seat, route.clone())
+            .unwrap_or_else(|e| panic!("the offer listed {route:?} and refused it: {e:?}"));
+        while !matches!(engine.pending(), Pending::Priority { .. }) {
+            let (player, action) = answer_one(engine)
+                .unwrap_or_else(|rest| panic!("{route:?} asked something unanswerable: {rest:?}"));
+            engine
+                .apply(player, action)
+                .expect("the answer came out of the question");
+        }
+        taken += 1;
+    }
+    if let Some(left) = untapped_mana_land(engine, seat, &want) {
+        let name = engine
+            .state()
+            .object(left)
+            .and_then(|o| o.card)
+            .and_then(|c| baylee_cards::by_index(c.index))
+            .map_or("?", baylee_cards_dsl::CardDef::name);
+        panic!(
+            "tapped {taken} mana route(s) and {name} is still standing untapped with a \
+             mana ability. Either the offer stopped carrying it or this stopped reading \
+             one of the two lists (#159)"
+        );
+    }
+    taken
+}
+
+/// Taps everything that makes mana for `seat`.
+#[track_caller]
+pub fn tap_all_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    tap_mana_where(engine, seat, |_| true)
+}
+
 /// Taps everything that makes mana for `seat` except `keep`.
 ///
 /// The exception is the point: a land whose *other* ability the test is
@@ -452,18 +682,8 @@ pub fn tap_mana_except(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     keep: baylee_core::ids::ObjectId,
-) {
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        if source == keep {
-            continue;
-        }
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
+) -> usize {
+    tap_mana_where(engine, seat, |id| id != keep)
 }
 
 /// Taps everything `seat` can tap for mana, then casts `card` from their hand.
@@ -474,15 +694,19 @@ pub fn tap_mana_except(
 /// was written to prove.
 #[track_caller]
 pub fn cast_from_hand(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
+    tap_all_mana(engine, seat);
+    cast_with_floating(engine, seat, card);
+}
+
+/// Casts `card` out of `seat`'s hand off mana that is already floating.
+///
+/// The other half of [`cast_from_hand`], for the tests that may not tap
+/// everything: a board where the Elf beside the spell has to still be
+/// untapped afterwards taps with [`tap_mana_except`] or `tap_all_mana_but`
+/// and then casts with this.
+#[track_caller]
+pub fn cast_with_floating(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
     let spell = in_hand(engine, seat, card).expect("the spell is in hand");
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    for source in legal.mana_abilities.clone() {
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .unwrap();
-    }
     engine
         .apply(seat, PlayerAction::CastSpell { card: spell })
         .unwrap();
@@ -1209,4 +1433,152 @@ pub fn mine(
                 .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
         })
         .collect()
+}
+
+/// The kit's own tests. `mod.rs` already declares this module `#[cfg(test)]`,
+/// so there is nothing to gate here a second time.
+mod tests {
+    use super::*;
+    use baylee_cards_dsl::CounterKind;
+    use baylee_core::mana::ManaColor;
+
+    /// Mouth of Ronom: a nonbasic printing its own `{T}: Add {C}`.
+    fn mouth_of_ronom() -> CardIndex {
+        card_index("7c05d239-39fc-4d34-a853-e3d591f4a235")
+    }
+
+    fn forest() -> CardIndex {
+        card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+    }
+
+    /// Wall of Roots: "Put a -0/-1 counter on this creature: Add {G}".
+    fn wall_of_roots() -> CardIndex {
+        card_index("3a21a6ae-b2f2-4f0c-acfd-5f3e8d63fd2f")
+    }
+
+    /// The kit taps **both** lists, which is the whole of #159.
+    ///
+    /// Four Forests and a Mouth of Ronom. The Forests are the CR 305.6
+    /// shortcut and land in `LegalActions::mana_abilities`; the Mouth prints
+    /// its own `{T}: Add {C}` and is an ordinary `(source, index)` entry in
+    /// `LegalActions::abilities`, because a printed mana ability is still a
+    /// mana ability (CR 605.1) and has an index to name. Ten helpers in this
+    /// crate read the first list alone, nine of them saying "everything" over
+    /// themselves, so a board like this floated four mana and the test written
+    /// on it was refused for a reason it had never been about.
+    ///
+    /// The board is the smallest one that can tell the two readings apart:
+    /// over basics they agree, which is why this went unnoticed for as long
+    /// as the tests that needed mana were written on basics.
+    #[test]
+    fn tapping_everything_takes_the_printed_mana_abilities_too() {
+        let p0 = PlayerId::new(0);
+        let mut engine = Duel::new(901, forest())
+            .battlefield(
+                0,
+                &[forest(), forest(), forest(), forest(), mouth_of_ronom()],
+            )
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let taken = tap_all_mana(&mut engine, p0);
+        assert_eq!(taken, 5, "four Forests and one Mouth is five routes");
+        let pool = &engine.state().players[0].mana_pool;
+        assert_eq!(pool.total(), 5, "and five mana, not four");
+        assert_eq!(pool.available(ManaColor::Green), 4, "the Forests");
+        assert_eq!(
+            pool.available(ManaColor::Colorless),
+            1,
+            "and the {{C}} the Mouth prints — the half the shortcut cannot see"
+        );
+    }
+
+    /// The exception is an object and not a printing, and the bound respects
+    /// it.
+    ///
+    /// `tap_mana_except` keeps one permanent back so that a test can activate
+    /// its *other* ability, and [`untapped_mana_land`] has to leave that one
+    /// alone or every caller would panic on the thing it asked for. The Mouth
+    /// is the right one to keep: it is the nonbasic, so a kept object the
+    /// helper never looked at in the first place could not pass this by
+    /// accident.
+    #[test]
+    fn keeping_one_source_back_leaves_that_one_and_nothing_else() {
+        let p0 = PlayerId::new(0);
+        let mut engine = Duel::new(902, forest())
+            .battlefield(
+                0,
+                &[forest(), forest(), forest(), forest(), mouth_of_ronom()],
+            )
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let mouth = on_battlefield(&engine, p0, mouth_of_ronom()).expect("the Mouth is seated");
+        let taken = tap_mana_except(&mut engine, p0, mouth);
+        assert_eq!(taken, 4, "four Forests, and the Mouth kept back");
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            4,
+            "the kept source made nothing"
+        );
+        assert!(
+            !engine
+                .state()
+                .object(mouth)
+                .expect("the Mouth is still there")
+                .status
+                .contains(crate::object::Status::TAPPED),
+            "the one it was told to keep is still standing"
+        );
+    }
+
+    /// "Tap everything" is not "activate every mana ability".
+    ///
+    /// Wall of Roots pays a −0/−1 counter and no tap, which is a mana ability
+    /// in the rules (CR 605.1) and a price this kit may not pay on a test's
+    /// behalf: the Wall is smaller afterwards, and a test that asked for two
+    /// green got a 0/4 it never mentioned. [`costs_only_its_own_tap`] is that
+    /// line, and this is the board that draws it — the same argument covers
+    /// Ashnod's Altar, which would have eaten a creature for the same reason.
+    ///
+    /// It is also what makes the loop terminate: an ability whose cost is not
+    /// its own tap is still offered the moment after it is taken, so this
+    /// board would have run into `MANA_ROUTE_CAP` rather than the Wall's
+    /// once-a-turn limit being what stopped it.
+    #[test]
+    fn a_mana_ability_whose_price_is_not_a_tap_is_left_alone() {
+        let p0 = PlayerId::new(0);
+        let mut engine = Duel::new(903, forest())
+            .battlefield(0, &[forest(), forest(), wall_of_roots()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let wall = on_battlefield(&engine, p0, wall_of_roots()).expect("the Wall is seated");
+        assert_eq!(pt(&engine, wall), (0, 5), "a 0/5 before anything is asked");
+
+        let taken = tap_all_mana(&mut engine, p0);
+        assert_eq!(taken, 2, "the two Forests, and the Wall is not a route");
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            2,
+            "two green and nothing bought with a counter"
+        );
+        assert_eq!(
+            engine
+                .state()
+                .object(wall)
+                .expect("the Wall is still there")
+                .counters
+                .get(CounterKind::Minus {
+                    power: 0,
+                    toughness: 1
+                }),
+            0,
+            "the price was never paid"
+        );
+        assert_eq!(pt(&engine, wall), (0, 5), "so the body is untouched");
+    }
 }
