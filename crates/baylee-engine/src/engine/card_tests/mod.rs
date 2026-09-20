@@ -1462,3 +1462,155 @@ fn training_compound() -> CardIndex {
 fn war_room() -> CardIndex {
     card_index("71c52bf5-2a5d-488e-8b15-7ef290e4b77d")
 }
+
+fn arcane_lighthouse() -> CardIndex {
+    card_index("30ac68e6-160a-41f9-9f0f-0e0eef383150")
+}
+
+fn boseiju_who_shelters_all() -> CardIndex {
+    card_index("36937483-30cb-449a-8028-75017a124922")
+}
+
+fn castle_embereth() -> CardIndex {
+    card_index("91fbb25b-8521-483f-88b0-77778d25f7fd")
+}
+
+fn cathedral_of_war() -> CardIndex {
+    card_index("5ff647e4-730a-498f-8f2c-5bd64d5a9780")
+}
+
+fn choked_estuary() -> CardIndex {
+    card_index("d473b507-8c33-4118-bc10-b0a268776074")
+}
+
+fn corrupted_crossroads() -> CardIndex {
+    card_index("6276a985-7630-476d-a94f-6c6adc88f6c4")
+}
+
+fn eldrazi_temple() -> CardIndex {
+    card_index("7fab8d65-af51-47d3-8f10-2676bf6e8ba3")
+}
+
+fn forbidden_orchard() -> CardIndex {
+    card_index("cfd60d1f-9832-4408-b84e-0fd3018b015b")
+}
+
+fn foreboding_ruins() -> CardIndex {
+    card_index("5c87e2fa-77f1-4978-b25f-f14d227301d1")
+}
+
+fn fortified_village() -> CardIndex {
+    card_index("56f1a16a-9f41-41fb-b580-c200bca27cd6")
+}
+
+fn frostboil_snarl() -> CardIndex {
+    card_index("7137aae6-260d-41de-8b4e-42a8cf752697")
+}
+
+fn furycalm_snarl() -> CardIndex {
+    card_index("651dea9c-2375-4e44-8e65-ba8e40f0c0ef")
+}
+
+fn game_trail() -> CardIndex {
+    card_index("00de57d2-7cb6-4337-9bc6-f6711e4dfabf")
+}
+
+fn halimar_depths() -> CardIndex {
+    card_index("42d121a2-5266-483a-ab16-e0a8073cd6a3")
+}
+
+fn hostile_desert() -> CardIndex {
+    card_index("41459587-7509-404e-bd7d-fb8831dee789")
+}
+
+fn leechridden_swamp() -> CardIndex {
+    card_index("d83c86c1-126d-49e9-9b13-9e55784c49c5")
+}
+
+fn madblind_mountain() -> CardIndex {
+    card_index("0ee0b090-3f1e-49d6-bcad-91e0cf1d12ae")
+}
+
+fn memorial_to_folly() -> CardIndex {
+    card_index("2bc38f14-0314-4351-8138-e2b8bf041404")
+}
+
+fn mortuary_mire() -> CardIndex {
+    card_index("1b3fb20a-e090-4286-9c03-6b71c27c45be")
+}
+
+fn mouth_of_ronom() -> CardIndex {
+    card_index("7c05d239-39fc-4d34-a853-e3d591f4a235")
+}
+
+fn necroblossom_snarl() -> CardIndex {
+    card_index("761ee6f9-b0fa-43c9-8d1f-9591ea18e52d")
+}
+
+fn nesting_grounds() -> CardIndex {
+    card_index("d27bb97d-286b-4947-8d7b-443e4df93319")
+}
+
+fn port_town() -> CardIndex {
+    card_index("458d2b12-f578-4392-98d3-c3bc83f316c4")
+}
+
+fn roadside_reliquary() -> CardIndex {
+    card_index("2fb13687-0518-4ba0-a5ae-dd609464b026")
+}
+
+fn secret_tunnel() -> CardIndex {
+    card_index("632e2979-d88a-482e-9bb8-57b683c5310f")
+}
+
+fn sequestered_stash() -> CardIndex {
+    card_index("b6fe779f-b20d-49cc-96dd-54f1ffb312e1")
+}
+
+fn shineshadow_snarl() -> CardIndex {
+    card_index("c9fc13d6-bd10-47bc-b2b6-7f67a1f3371e")
+}
+
+fn shrine_of_the_forsaken_gods() -> CardIndex {
+    card_index("8ea46945-d5ab-4209-b473-4769e7b8b962")
+}
+
+fn springjack_pasture() -> CardIndex {
+    card_index("9eaadbbc-818b-4c21-9d4b-1bba48504d38")
+}
+
+fn starting_town() -> CardIndex {
+    card_index("d04e0975-f401-41b8-a9db-9bcf9cbbce66")
+}
+
+fn tectonic_edge() -> CardIndex {
+    card_index("4927150d-7ff6-4232-b20e-d2ea245ac710")
+}
+
+fn the_gold_saucer() -> CardIndex {
+    card_index("93e38650-ce22-4ab9-b79d-cc7b6477c075")
+}
+
+fn the_grey_havens() -> CardIndex {
+    card_index("a1a9695e-073b-4a65-b3ec-2cfddc23202a")
+}
+
+fn undiscovered_paradise() -> CardIndex {
+    card_index("76c33d54-ce55-400e-bec5-79d33a5a20fb")
+}
+
+fn urza_s_workshop() -> CardIndex {
+    card_index("71099427-e110-488f-ab29-7867241fc7f0")
+}
+
+fn vineglimmer_snarl() -> CardIndex {
+    card_index("33f52df8-4b44-4422-8b0a-37fead9c894b")
+}
+
+fn wanderwine_hub() -> CardIndex {
+    card_index("c3b46bd6-b3ef-452d-a916-995c44f1da07")
+}
+
+fn zoetic_cavern() -> CardIndex {
+    card_index("3763de30-28e1-4689-a71c-07d2fea3a466")
+}
