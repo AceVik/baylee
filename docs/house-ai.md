@@ -21,8 +21,12 @@ keys on `ObjectId`, so the dedup in `policy::sources` is the only thing
 enforcing that a land taps once — which makes the entry that survives it the
 only mode the agent will ever use for that permanent. The key ranked on mana
 made, then colours reached, and on nothing else, so a permanent printing a
-free tap beside a priced one kept the priced one: **26 of the 34 in this pool
-that print both**, measured on 20.09.2026 (#168). Havenwood Battleground sold itself for a green it
+free tap beside a priced one kept the priced one: **26 of the 33 faces in this
+pool that print both**, measured on 20.09.2026 (#168). The population is
+counted per **face** and not per card, which is not pedantry: Havengul
+Laboratory prints the free tap on one face and the priced one on the other,
+and a card-level count reads that as a permanent choosing between them when
+no permanent ever can. Havenwood Battleground sold itself for a green it
 already had; Spire of Industry paid a life whenever colourless was the whole
 of what the plan asked for; the five Vivid lands removed a charge
 counter even when the colour asked for was the one their free tap makes. `priced` now sorts ahead of the
