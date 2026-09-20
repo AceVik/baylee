@@ -15,6 +15,7 @@ cargo clippy --workspace --all-targets -- -D warnings    # lint (pedantic, CI-en
 cargo fmt --all                                          # format
 
 ./scripts/gate-rules.sh                                  # the rules half only, while working
+DATABASE_URL=… ./scripts/gate-features.sh                # the six features --workspace never builds
 ```
 
 `gate-rules.sh` is fmt + `cargo lint-rules` + `cargo test-rules`, the last two
@@ -29,6 +30,29 @@ that crate), so a new variant on a public enum would have broken both with
 the rules gate green. A hand-written list also goes stale the moment a crate
 is added. It is a **filter, not a replacement**: it says nothing about the
 client, so the full gate still runs before a push.
+
+And the full gate is itself a filter, which is what `gate-features.sh`
+closes. `--workspace --all-targets` builds every crate with its **default**
+features, and six non-default ones are declared here — `dev-control`,
+`dev-reload`, `dev-dylink` on the client, `dev-control` on the Android shim,
+`dev-table` on the gateway, `test-support` on client-core — so six pieces of
+this workspace were compiled by nobody. It fails in **both** directions: a
+feature adds code the default build never sees (`devctl.rs` broke on
+`Option<Refusal>` with the whole gate green, and #121 had to be pulled out of
+a push), and a feature makes other code live that the default build reads as
+dead, so `-D warnings` fires on an unused import only with the feature on.
+738 client tests by default against 758 under `dev-control` — twenty tests
+that existed on no build anything made. CI runs the same script as its
+`features` job, so a developer and the runner cannot drift.
+
+`--all-features` is the wrong shortcut and the script says so in place:
+`dev-dylink` changes linking and `dev-reload` changes asset loading, so
+all-on measures a configuration nobody runs. Each feature gets the shape of
+check it earns instead — the two client ones share one invocation because
+`dev-reload` forwards a *bevy* feature and every distinct feature set is a
+separate bevy compile; `dev-dylink` gets `cargo tree` rather than a build
+because it gates no source at all; `test-support` gets `--lib`, because
+`--all-targets` compiles it through `cfg(test)` anyway and proves nothing.
 
 Single tests. Most engine tests are inline `#[cfg(test)]` modules under
 `crates/baylee-engine/src/engine/*_tests.rs`, so the module path is the filter:
@@ -393,7 +417,8 @@ CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
 test suite **also in `--release`** (a `debug_assert!` once hid mana payment
 from every release build), `validate`, a
 `wasm32-unknown-unknown` check of the five crates that must keep compiling
-for it, benches, an MSRV check against
+for it, `scripts/gate-features.sh` as the `features` job, benches, an MSRV
+check against
 the `rust-version` this workspace declares, `cargo-deny`, and `cargo-audit`.
 
 `--tables` is the way past that on a machine with no corpus. Stages 1–4

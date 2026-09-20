@@ -269,6 +269,61 @@ jobs:
           -p baylee-client
           --target wasm32-unknown-unknown
 
+  # The six features `--workspace` never builds.
+  #
+  # The clippy job above, `cargo test --workspace --all-targets`, and every
+  # local gate compile each crate with its **default** features. This
+  # workspace declares six non-default ones — `dev-control`, `dev-reload` and
+  # `dev-dylink` on the client, `dev-control` on the Android shim, `dev-table`
+  # on the gateway, `test-support` on client-core — so six pieces of it were
+  # compiled by nobody.
+  #
+  # The hole is real and it runs in **both** directions. `devctl.rs` broke on
+  # `Option<Refusal>` while every job here was green, and the commit had to be
+  # pulled back out of a push (#121). And a feature also makes *other* code
+  # live that the default build reads as dead, so `-D warnings` fires on an
+  # unused import only once the feature is on. Measured on 20.09.2026: 738
+  # client tests on the default build, **758** under `dev-control` — twenty
+  # tests that existed on no build this workflow had ever made.
+  #
+  # `--all-features` is deliberately not the shortcut. `dev-dylink` changes
+  # how the binary links and `dev-reload` changes how assets are loaded, so
+  # everything-on measures a configuration nobody runs while hiding the two
+  # that matter. The matrix lives in `scripts/gate-features.sh` rather than
+  # here, so a developer and this runner cannot drift apart, and that file
+  # says per feature what shape of check it gets and why it is that shape.
+  #
+  # PostgreSQL is here for one of the six: `dev-table` is a gateway feature
+  # and a gateway with no database refuses to start.
+  features:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: baylee
+          POSTGRES_PASSWORD: baylee
+          POSTGRES_DB: baylee
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U baylee -d baylee"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - run: ./scripts/gate-features.sh
+
   # Benches run in CI so they never silently rot; the numbers land in the
   # job log for comparison against docs/perf-baseline.md (manual check —
   # runner timing is too noisy for a hard 10% gate).
