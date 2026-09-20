@@ -3059,11 +3059,20 @@ engine reads `card.is_none()`: in a view that second test is also true of a
 permanent nobody is entitled to see, which is a different fact wearing the
 same shape.
 
-Measured over the 208 spells in this pool that require at least one target,
-189 carry a filter every arm can read; the remaining 19 are `AnyTarget`,
-`AnyOpponent` and `Player`, which can never be targetless because a player is
-always there. The proof is refused for those by construction rather than by a
-gap, so the population is closed.
+The population is measured in `targeting`'s own test rather than written down
+here, because three frozen numbers stood in this paragraph until a card batch
+moved the pool under them inside a week. Two sentences differ by exactly one
+condition and only the second is the feature: *this filter is readable* asks
+whether every arm of `matches` can read the filter tree, while *this spell can
+be proved targetable or not* asks that **and** that `legal_targets` has an arm
+for the spec. Reanimate sat in the first set and outside the second for as
+long as `CardInGraveyard` fell to the wildcard — `Filter::CREATURE` is
+trivially readable and the spec had no arm at all — which is how "the
+population is closed" survived being written down. Every target-requiring
+spell ability is provable, never-targetless (a spec naming a player, or naming
+something the spell already holds, refused by construction rather than by a
+gap), or blind; a blind one is offered and never withheld, and the test puts a
+floor under the population and a ceiling over the blind bucket.
 
 ### Which way to cast it is asked before anything is tapped
 
