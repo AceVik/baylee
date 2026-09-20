@@ -1051,6 +1051,15 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
 /// (`narrow_to_mana`), so a mana ability is the only door to a second level.
 /// A window is opened by `Effect::PlayerMayPayOr` and by nothing else.
 ///
+/// "A mana ability" is **two** populations and the second is easy to miss. A
+/// granted one carries its own `mana_ability` flag on
+/// `Modifier::GrantActivated`, and it lives in `legal.mana_abilities`, which
+/// `narrow_to_mana` does not clear — so it is activatable inside a window
+/// exactly like a printed one, and it is a door to the same second level.
+/// Both are scanned, and the granted half carries its own floor because a
+/// population of nought agrees with everything just as loudly as an empty
+/// pool does.
+///
 /// Ward is not scanned because it cannot be the offender by construction:
 /// `AbilityDef::Ward` is its own variant and reaches the same effect
 /// synthetically, so it is never an ability with `mana_ability: true`.
@@ -1072,13 +1081,29 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
 #[test]
 fn no_mana_ability_in_the_pool_opens_a_payment_window() {
     let mut carried = Vec::new();
+    let mut grants = Vec::new();
     let mut offenders = Vec::new();
     let mut check = |who: &str, ability: &AbilityDef| {
-        if !format!("{ability:?}").contains("PlayerMayPayOr") {
+        let rendered = format!("{ability:?}");
+        // The second door, and it is the one a reader forgets. A mana
+        // ability need not be printed: `Modifier::GrantActivated` carries
+        // its own `mana_ability` flag, and a granted one is offered in
+        // `legal.mana_abilities`, which `narrow_to_mana` does **not** clear
+        // — so it is activatable inside a window exactly like a printed one.
+        // It hides in two shapes, an `AbilityDef::Static` and an
+        // `Effect::CreateContinuousEffect` inside an ordinary effect list,
+        // which is why this asks the rendering rather than a walk: a walk
+        // that knew one shape would report a clean pool having looked at
+        // half of it. ai-ec found that exact blind spot in the neighbouring
+        // scan in `ai_coverage_guards.rs`.
+        if rendered.contains("GrantActivated") {
+            grants.push(who.to_string());
+        }
+        if !rendered.contains("PlayerMayPayOr") {
             return;
         }
         carried.push(who.to_string());
-        if matches!(
+        let printed_mana_ability = matches!(
             ability,
             AbilityDef::Activated {
                 mana_ability: true,
@@ -1087,7 +1112,14 @@ fn no_mana_ability_in_the_pool_opens_a_payment_window() {
                 mana_ability: true,
                 ..
             }
-        ) {
+        );
+        // Deliberately conservative on the granted half: an ability that
+        // both grants something and mentions the tax is reported without
+        // asking which of its parts carries which, because this rendering
+        // cannot tell. Over-reporting is the safe direction for a claim
+        // that says a thing *cannot* happen, and the failure hands over the
+        // card to look at rather than a silence to trust.
+        if printed_mana_ability || rendered.contains("GrantActivated") {
             offenders.push(who.to_string());
         }
     };
@@ -1109,6 +1141,12 @@ fn no_mana_ability_in_the_pool_opens_a_payment_window() {
          inside one, and `PaymentWindow` holds exactly one suspended \
          resolution — the second would overwrite the first, which is the \
          defect #167 was: {offenders:?}"
+    );
+    assert!(
+        grants.len() >= 3,
+        "only {} abilities in the pool grant an activated ability, so the \
+         granted half of this scan is agreeing with nothing: {grants:?}",
+        grants.len()
     );
     assert!(
         carried.len() >= 8,
