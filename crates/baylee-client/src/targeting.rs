@@ -306,6 +306,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_cards_dsl::KeywordSet;
     use baylee_client_core::test_support::{ViewBuilder, printed};
     use baylee_core::ids::{ObjectId, PrintRef};
     use baylee_core::types::TypeSet;
@@ -456,6 +457,49 @@ mod tests {
             Filter::Not(f) => unreadable_leaf(view, probe, f),
             leaf => matches(view, probe, leaf).is_none().then_some(leaf),
         }
+    }
+
+    /// The ceiling below is a bound over a measured zero, so no card in this
+    /// pool fires it. These two do, and in **both** directions: an injection
+    /// that only went red would show the assert runs, not that it
+    /// discriminates.
+    ///
+    /// The unreadable one is deliberately hidden *behind a leaf that does not
+    /// match*, which is the case an object-fed census misses. The third
+    /// assertion is why this test is not paranoia: it shows [`matches`]
+    /// answering that same filter `Some(false)` without complaint, because
+    /// [`Filter::And`] returns at the first false part and never reaches the
+    /// keyword. Quicksand carries this shape in the pool today, on an
+    /// activated ability rather than a spell.
+    #[test]
+    fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
+        // Both first in the body, where clippy wants an item, and where they
+        // read as the two cases this test is about.
+        static READABLE: Filter =
+            Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
+
+        static BLIND: Filter = Filter::And(&[
+            // False for the probe, so a short-circuiting reader stops here
+            // and never asks about the keyword behind it.
+            Filter::HasType(TypeSet::LAND),
+            Filter::HasKeyword(KeywordSet::FLYING),
+        ]);
+
+        let probe = printed(1, 0, "Grizzly Bears", 0);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![probe.clone()])
+            .build();
+
+        assert!(unreadable_leaf(&view, &probe, &READABLE).is_none());
+
+        assert!(matches!(
+            unreadable_leaf(&view, &probe, &BLIND),
+            Some(Filter::HasKeyword(_))
+        ));
+
+        // The hazard is real and not hypothetical: asking `matches` alone
+        // reads the same filter as a clean `false`.
+        assert_eq!(matches(&view, &probe, &BLIND), Some(false));
     }
 
     /// How much of the pool [`provably_targetless`] can actually reach.
