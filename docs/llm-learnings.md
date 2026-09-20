@@ -888,10 +888,10 @@ generated table's names come from the generator, not from the card.
 ### What the test lane taught, which was about the kit
 
 Both of round E's two test failures were the harness rather than a card, and
-the second outlived its test. `tap_mana_except` iterates
+the second outlived its test. `tap_mana_except` **iterated**
 `legal.mana_abilities`, which is documented as **only** the CR 305.6
-shortcut, so a nonbasic printing `{T}: Add {C}` is never tapped and a test
-floats fewer mana than it thinks (#159). That surfaced only because the test
+shortcut, so a nonbasic printing `{T}: Add {C}` was never tapped and a test
+floated fewer mana than it thought (#159). That surfaced only because the test
 expected a success; one expecting a *refusal* would have passed on "not
 enough mana" instead of the rule it names.
 

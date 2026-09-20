@@ -1,6 +1,7 @@
 Du schreibst **einen** Engine-Test für die Karte unten. Oben steht
 alles, was du dafür brauchst: das Testkit (`Duel`, `keep_mulligans`,
-`reach_main_phase`, `play_land`, `cast_from_hand`, `activate`, `tap_all_mana`,
+`reach_main_phase`, `play_land`, `cast_from_hand`, `cast_with_floating`,
+`activate`, `tap_all_mana`, `tap_all_mana_but`, `tap_mana_except`,
 `card_index`, …), die geteilten Helfer aus `card_tests/mod.rs`, die
 Frage-Taxonomie (`Pending`, `LegalActions`, `PlayerAction`) und eine ganze
 fertige Testdatei als Vorbild.
@@ -27,10 +28,18 @@ Regeln:
    solchen Behauptung — und wenn eine Steuer wirklich *gefragt* werden
    soll (`PlayerMayPayOr`), genug Länder, dass der Pool sie deckt: einem
    Spieler, der nicht zahlen kann, wird gar nicht erst die Frage gestellt.
-7. **`tap_all_mana` ist die Liste der Grundland-Typen** (CR 305.6). Die
-   gedruckte `{T}`-Fähigkeit einer Nicht-Land-Karte (Mana Vault, ein Mox)
-   tappt sie *nicht*; die wird mit `activate(&mut engine, seat, card, i)`
-   aktiviert.
+7. **`tap_all_mana` tappt jede Mana-Fähigkeit, deren ganzer Preis ihr
+   eigenes `{T}` ist** (#159) — die Grundlandtypen aus CR 305.6 *und* das
+   gedruckte `{T}: Add …` eines Mana Vault, eines Mox, eines Sol Rings,
+   einer Mana-Kreatur. Nicht gedrückt wird ein **größerer** Preis: Wall of
+   Roots zahlt eine −0/−1-Marke, ein Filterland `{1}, {T}`; die aktivierst
+   du von Hand mit `activate(&mut engine, seat, card, i)`. Tappe
+   **nach** einem `tap_all_mana` nichts mehr von Hand — die Quelle ist
+   schon getappt und das `apply` wird abgelehnt, was sich wie ein
+   Kartendefekt liest und keiner ist. Soll eine Quelle stehen bleiben,
+   nenne sie: `tap_mana_except(&mut engine, seat, object)` für ein Objekt,
+   `tap_all_mana_but(&mut engine, seat, Some(<slug>()))` für eine Karte,
+   danach `cast_with_floating`.
 8. **Die Frageform steht in `choice.rs`, rate sie nicht.** Ein Ziel, das
    nur ein Spieler ist, kommt als `Pending::ChoosePlayer`; eine Opfergabe
    als Kosten als `ChooseCards { prompt: CostSacrifice }`; eine
