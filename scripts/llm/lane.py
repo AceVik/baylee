@@ -183,7 +183,20 @@ def ask_deepseek(prefix: str, rules: str, body_text: str, max_tokens: int) -> st
         raise RuntimeError(f"HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:200]}") from exc
     if "error" in answer:
         raise RuntimeError(json.dumps(answer["error"])[:200])
-    return "".join(b.get("text", "") for b in answer["content"] if b["type"] == "text")
+    text = "".join(b.get("text", "") for b in answer["content"] if b["type"] == "text")
+    if not text.strip():
+        # A 200 with no text block at all, which a caller cannot tell apart
+        # from an answer it failed to parse. It is almost always a card the
+        # model thought about until it ran out of room, and `stop_reason`
+        # says so — two cards in one batch reported "unreadable answer:" with
+        # nothing after the colon, and the retry that followed was blind.
+        usage = answer.get("usage", {})
+        raise RuntimeError(
+            f"no text in the answer (stop_reason={answer.get('stop_reason')!r}, "
+            f"output {usage.get('output_tokens')} tokens); "
+            f"raise DS_MAX_TOKENS if that is max_tokens"
+        )
+    return text
 
 
 # ----------------------------------------------------------------- Gemini
