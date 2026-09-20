@@ -238,6 +238,16 @@ pub fn play_report<L: CardLookup>(
         std::collections::HashMap::new();
     let mut tally = vec![Tally::default(); preset.seats.len()];
     let mut trail: Vec<String> = Vec::with_capacity(TRAIL);
+    // A trail that only lives in the returned `Report` cannot explain a
+    // **panic**: the unwind takes the `Vec` with it, and a run that catches
+    // the unwind has already lost the thing it was catching for. That is
+    // what #167 cost — a reproduced crash whose last twenty actions existed
+    // only inside a frame that was gone. With `BAYLEE_HARNESS_TRACE` set the
+    // same line is written to stderr as it is recorded, so the run that dies
+    // leaves its trail behind it. It is read once rather than per action,
+    // and it changes no decision: a traced game and an untraced one play the
+    // same moves.
+    let trace = std::env::var_os("BAYLEE_HARNESS_TRACE").is_some();
     for i in 0..max_actions {
         let pending = engine.pending().clone();
         if let Pending::GameOver(result) = pending {
@@ -309,6 +319,9 @@ pub fn play_report<L: CardLookup>(
             trail.remove(0);
         }
         trail.push(format!("{i}: {} → {action:?}", short(&pending)));
+        if trace {
+            eprintln!("{}", annotate(trail.last().expect("just pushed"), &engine));
+        }
         // Counted before it is applied, and only for the shapes that say
         // something about how the game is being *played*: an answer to a
         // trigger is not a decision anybody watches for.
@@ -398,6 +411,57 @@ fn short(pending: &Pending) -> String {
         Pending::Priority { player, .. } => format!("Priority({})", player.get()),
         other => format!("{other:?}").chars().take(200).collect(),
     }
+}
+
+/// A traced line with every `ObjectId` it mentions given its card's name.
+///
+/// The trail is written in `{action:?}`, and an id is the one thing a
+/// person cannot look up after the fact — least of all after a panic, where
+/// there is no state left to ask. The printed name is `base.name` rather
+/// than the projected one because a trace has to work on an object mid-flight,
+/// and a clone's layer projection is not what a reader is trying to find.
+fn annotate<L: CardLookup>(line: &str, engine: &Engine<L>) -> String {
+    const OPEN: &str = "ObjectId(";
+    let state = engine.state();
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(at) = rest.find(OPEN) {
+        let (head, tail) = rest.split_at(at + OPEN.len());
+        out.push_str(head);
+        let Some(end) = tail.find(')') else {
+            rest = tail;
+            continue;
+        };
+        let body = &tail[..end];
+        out.push_str(body);
+        if let Some(name) = body
+            .split_once('#')
+            .and_then(|(slot, generation)| {
+                Some(baylee_core::ids::ObjectId::new(
+                    slot.parse().ok()?,
+                    generation.parse().ok()?,
+                ))
+            })
+            .and_then(|id| state.object(id))
+            .map(|o| (state.names.get(o.base.name), o.controller))
+        {
+            let (card, controller) = name;
+            out.push(' ');
+            out.push_str(card);
+            // The controller and not just the name, because half of what a
+            // trail is read for is *whose* permanent it was: "an opponent's
+            // spell targets this" is a rules condition, and a line naming
+            // only the card cannot say whether it held. That is not a
+            // hypothetical: #167's trail was read twice, once without this
+            // and once with, and the first reading had the seats crossed.
+            out.push_str("@p");
+            out.push_str(&controller.get().to_string());
+        }
+        out.push(')');
+        rest = &tail[end + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The end state, as one line per seat.
