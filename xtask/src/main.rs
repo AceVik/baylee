@@ -742,7 +742,7 @@ fn cards(
     // limiter's 60-second backoffs come from. It writes what it can and
     // returns; whatever the feed did not carry is fetched one at a time below,
     // which is what makes the pair self-healing.
-    scryfall::fill_from_bulk(names, agent, cache, false);
+    refresh_payload_cache(names, agent, cache);
 
     let mut stubs = Vec::with_capacity(names.len());
     for name in names {
@@ -3812,6 +3812,47 @@ fn strip_reminders(text: &str) -> String {
 /// a scheduled job can keep the cache warm without the card-script corpus,
 /// and without failing on the stale files a pool change legitimately leaves
 /// behind.
+/// Brings the payload cache up to the shape the readers ask of it, then says
+/// so on disk.
+///
+/// Two conditions, one repair. A **missing** payload is the cold-cache case
+/// and has always been handled: one bulk download instead of one request per
+/// card. A payload that is present and **predates what a reader now reads**
+/// is the other, and it is the one that hid — it is not missing, so a fill
+/// that looks for missing files finds nothing to do and reports success. That
+/// is #146: every session that touched a card was stopped by
+/// `ScryfallCard::sides`, and the command its message named could not repair
+/// it.
+///
+/// The stamp is written **after** the rewrite and only if the rewrite wrote
+/// something, so a download that dies halfway leaves the cache stale and the
+/// next run repairs it. It is not written when nothing was stale, because
+/// then it is already there.
+fn refresh_payload_cache(names: &[String], agent: &ureq::Agent, cache: &Path) {
+    let stale = scryfall::schema_stale(cache);
+    if stale && cache.exists() {
+        eprintln!(
+            "scryfall: {} holds payloads older than what this reader asks of them, rewriting",
+            cache.display()
+        );
+    }
+    let written = scryfall::fill_from_bulk(names, agent, cache, stale);
+    if !stale {
+        return;
+    }
+    if written > 0 {
+        scryfall::write_schema_stamp(cache);
+    } else if cache.exists() {
+        // The bulk path declines under its own threshold, so a pool this
+        // small cannot be rewritten wholesale — say it once rather than
+        // print the line above on every run and change nothing.
+        eprintln!(
+            "scryfall: nothing was rewritten; delete {} and run again to refill it from scratch",
+            cache.display()
+        );
+    }
+}
+
 fn scryfall_cache(root: &Path, cache: &Path, refetch: bool) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
@@ -3835,7 +3876,17 @@ fn scryfall_cache(root: &Path, cache: &Path, refetch: bool) -> anyhow::Result<()
         cache.display()
     );
     let agent = ureq::Agent::new_with_defaults();
-    scryfall::fill_from_bulk(&names, &agent, &cache, refetch);
+    if refetch {
+        // Asked for explicitly, so no stamp is consulted: the flag exists for
+        // the case where a person knows the held files are wrong and nothing
+        // on disk says so yet.
+        let written = scryfall::fill_from_bulk(&names, &agent, &cache, true);
+        if written > 0 {
+            scryfall::write_schema_stamp(&cache);
+        }
+    } else {
+        refresh_payload_cache(&names, &agent, &cache);
+    }
     // Whatever the bulk feed did not carry, one at a time — the same call
     // codegen makes, so a card fetched here is byte-identical to one fetched
     // there. A card Scryfall does not know is fatal, as it is in codegen: a

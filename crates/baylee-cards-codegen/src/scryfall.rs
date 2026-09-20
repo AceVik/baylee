@@ -211,7 +211,9 @@ impl ScryfallCard {
                     return Err(format!(
                         "{}: this cache file predates image_uris and image_status. Answering it \
                          would write \"no back\" for every double-faced card in the pool, so run \
-                         `cargo run -p xtask -- scryfall-cache` to refill the cache first.",
+                         `cargo run -p xtask -- scryfall-cache --refetch` to rewrite the cache \
+                         first. The flag is the whole cure: a plain run fills what is *missing*, \
+                         and a payload of the wrong shape is not missing.",
                         self.name
                     ));
                 }
@@ -460,6 +462,74 @@ const BULK_FEED: &str = "oracle_cards";
 /// requests it saves.
 const BULK_THRESHOLD: usize = 50;
 
+/// What shape a held payload has to be in for the readers above to answer.
+///
+/// The cache is a **typed projection** of Scryfall's rows and not a copy of
+/// them: what lands on disk is whatever [`ScryfallCard`] declares, so teaching
+/// that struct a field the readers then depend on leaves every held file
+/// unreadable while looking perfectly present. That is not hypothetical — the
+/// whole cache went that way the day [`ScryfallCard::sides`] started reading
+/// `image_uris`, and 3052 of 3052 payloads carried none of it.
+///
+/// **Bump this whenever a reader starts depending on a field the payloads may
+/// not carry.** The number is the only thing that turns "I am missing a field"
+/// into a repair somebody's machine performs by itself.
+///
+/// | version | what it added |
+/// |---|---|
+/// | 1 | `image_uris` / `image_status`, which [`ScryfallCard::sides`] reads |
+pub const PAYLOAD_SCHEMA: u32 = 1;
+
+/// Where the stamp sits. A leading dot, because [`slug`] never writes one, so
+/// this name can never collide with a card called "Schema".
+const STAMP_FILE: &str = ".schema";
+
+/// Whether a stamp's contents promise payloads *this* reader can answer.
+///
+/// Older than the code is stale; **newer than the code is not**. Serde ignores
+/// a field this version does not know, so a cache written by a later branch
+/// reads perfectly here — and treating it as stale would make two branches
+/// sharing one cache rewrite it past each other on every switch.
+fn stamp_is_current(text: &str) -> bool {
+    let first = text.lines().next().unwrap_or_default().trim();
+    matches!(first.parse::<u32>(), Ok(held) if held >= PAYLOAD_SCHEMA)
+}
+
+/// Whether the held payloads predate what the readers now ask of them.
+///
+/// Missing, unparsable and too old all answer the same way, because all three
+/// mean the same thing: nothing has promised these files carry today's fields.
+/// A cache directory that does not exist yet is stale for free, which costs
+/// nothing — everything in it is missing anyway.
+///
+/// The limit worth knowing: the stamp speaks for the last *full* rewrite. A
+/// single payload fetched one at a time by an older branch lands in a stamped
+/// cache without lowering the stamp, so a shared cache across branches is
+/// approximate. Rewriting is one bulk download, so when in doubt, `--refetch`.
+#[must_use]
+pub fn schema_stale(cache_dir: &Path) -> bool {
+    !fs::read_to_string(cache_dir.join(STAMP_FILE)).is_ok_and(|text| stamp_is_current(&text))
+}
+
+/// Records that every payload here was written by this version of the reader.
+///
+/// Written **after** a fill rather than before, so a run that dies halfway
+/// leaves the cache stale and the next run repairs it. Exactly
+/// [`PAYLOAD_SCHEMA`] and never the higher of the two: an older branch that
+/// rewrites the cache has genuinely made it older, and saying so is what makes
+/// the next run on the newer branch repair it.
+pub fn write_schema_stamp(cache_dir: &Path) {
+    let path = cache_dir.join(STAMP_FILE);
+    let body = format!(
+        "{PAYLOAD_SCHEMA}\n\n\
+         The payload schema every file beside this one was written with.\n\
+         Written by `xtask scryfall-cache`; see `scryfall::PAYLOAD_SCHEMA`.\n"
+    );
+    if let Err(message) = fs::write(&path, body) {
+        eprintln!("scryfall: cannot stamp {}: {message}", path.display());
+    }
+}
+
 /// Fills the cache from one bulk download instead of one request per card.
 ///
 /// The cold cache is the expensive case and it was expensive for a reason
@@ -645,7 +715,55 @@ fn write_payload(card: &ScryfallCard, name: &str, cache_dir: &Path) -> Result<()
 
 #[cfg(test)]
 mod tests {
+    use super::{PAYLOAD_SCHEMA, ScryfallCard, stamp_is_current};
     use std::collections::HashMap;
+
+    /// The stamp is read from its **first line**, because the file it is read
+    /// out of carries prose under the number — a person who opens the cache
+    /// directory should find out what the file is for without going to the
+    /// source. A reader that parsed the whole body would call every stamp it
+    /// ever wrote unparsable, which fails in the safe direction and would
+    /// therefore have gone unnoticed as one bulk download per run, forever.
+    #[test]
+    fn a_stamp_is_read_out_of_its_first_line() {
+        assert!(stamp_is_current(&format!("{PAYLOAD_SCHEMA}")));
+        assert!(stamp_is_current(&format!(
+            "{PAYLOAD_SCHEMA}\n\nprose under it\n"
+        )));
+        assert!(stamp_is_current(&format!("  {PAYLOAD_SCHEMA}  \n")));
+    }
+
+    /// Older is stale, **newer is not**. Two worktrees share one cache here,
+    /// and a `!=` comparison would have each of them rewrite it on every
+    /// switch: serde drops a field this version does not know, so a payload
+    /// from a later branch answers every question this one asks.
+    #[test]
+    fn a_newer_stamp_is_not_stale_and_an_older_one_is() {
+        assert!(stamp_is_current(&format!("{}", PAYLOAD_SCHEMA + 1)));
+        assert!(!stamp_is_current(""));
+        assert!(!stamp_is_current("no number here"));
+        if PAYLOAD_SCHEMA > 0 {
+            assert!(!stamp_is_current(&format!("{}", PAYLOAD_SCHEMA - 1)));
+        }
+    }
+
+    /// The error a pre-schema payload raises has to name the flag, because the
+    /// command without it fills what is *missing* and nothing is missing. This
+    /// is the whole of #146: the cure was reachable and the message sent every
+    /// session that hit it to a no-op.
+    #[test]
+    fn the_stale_payload_error_names_the_flag_that_repairs_it() {
+        let card: ScryfallCard =
+            serde_json::from_str(r#"{"id":"x","name":"A.I.M. Labs","layout":"normal"}"#)
+                .expect("a payload from before the fields existed still parses");
+        let message = card
+            .sides()
+            .expect_err("a payload with no image_status stops the run");
+        assert!(
+            message.contains("scryfall-cache --refetch"),
+            "the error has to name the flag, not just the command: {message}"
+        );
+    }
 
     /// [`super::fill_from_bulk`] looks a pool name up in the ledger twice — the
     /// whole name, then the front face of a multi-part one — and hands the
