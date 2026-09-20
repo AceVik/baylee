@@ -942,3 +942,75 @@ fn grim_tutor() -> CardIndex {
 fn sylvan_scrying() -> CardIndex {
     card_index("ee24bf27-484d-4e1c-998e-6a74e3d3f6c4")
 }
+
+fn bazaar_of_baghdad() -> CardIndex {
+    card_index("54022a10-c9f0-458d-a0ed-228843cd9a40")
+}
+
+fn carnage_tyrant() -> CardIndex {
+    card_index("8c411f4e-a091-447c-9450-d895b10b4985")
+}
+
+fn city_of_ass() -> CardIndex {
+    card_index("e043a795-6936-4d7e-9a77-e0175a27c8f5")
+}
+
+fn city_of_traitors() -> CardIndex {
+    card_index("f161111d-9747-47b3-bb10-3c8bded32e21")
+}
+
+fn desolate_lighthouse() -> CardIndex {
+    card_index("aa6dbdf2-2379-4ff5-8a6c-70258784dc35")
+}
+
+fn elephant_graveyard() -> CardIndex {
+    card_index("8ada7388-fd8b-434c-a17a-bce19cf3e615")
+}
+
+fn geier_reach_sanitarium() -> CardIndex {
+    card_index("7b9fafe7-d26a-4ed5-b4c4-ce13763770b5")
+}
+
+fn great_defender() -> CardIndex {
+    card_index("c84496bc-6421-4930-a118-b0f9ee7e13f6")
+}
+
+fn mana_leak() -> CardIndex {
+    card_index("c61fe162-2202-4e56-9ba0-393547f9875f")
+}
+
+fn oboro_palace_in_the_clouds() -> CardIndex {
+    card_index("645fb11b-d684-4bec-8532-8fa97e8f7b28")
+}
+
+fn scavenger_grounds() -> CardIndex {
+    card_index("5ece7d03-9ee7-4953-a06e-9d8e41874903")
+}
+
+fn shivan_gorge() -> CardIndex {
+    card_index("e90a1381-c9c1-4f57-928c-5d19dc065274")
+}
+
+fn throne_of_the_high_city() -> CardIndex {
+    card_index("9684447a-5955-4bc7-8ad0-8bb8b316873b")
+}
+
+fn treasure_vault() -> CardIndex {
+    card_index("3c43efd6-b1a8-452c-ae20-9a936c3340ab")
+}
+
+fn watermarket() -> CardIndex {
+    card_index("84d89a3d-4b28-4e19-8298-737ec6a06238")
+}
+
+fn wheel_of_fortune() -> CardIndex {
+    card_index("a8abd966-de7b-46a3-8ac7-8747ab35653a")
+}
+
+fn witch_s_clinic() -> CardIndex {
+    card_index("05899372-9784-4bdb-9c28-504c71fed906")
+}
+
+fn yavimaya_hollow() -> CardIndex {
+    card_index("53d6113d-acdb-4754-9641-f7991a96c7b9")
+}
