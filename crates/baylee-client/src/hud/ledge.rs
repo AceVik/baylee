@@ -523,8 +523,19 @@ pub struct LedgeRevision {
     pub(super) over: bool,
     /// The question, as the sentence says it.
     pub(super) prompt: Option<String>,
-    /// The engine's refusal, which replaces that sentence.
-    pub(super) error: Option<String>,
+    /// A refusal, which replaces that sentence.
+    ///
+    /// A [`Refusal`] rather than a rendered `String` for the reason
+    /// `Duel::last_error` carries one: the slot takes this client's own
+    /// sentences *and* another process's prose, and only the first of those
+    /// can be translated.
+    ///
+    /// Held **unrendered**, like the `link_note` beside it and unlike
+    /// `prompt`. That costs nothing here, because `lang` is a field of this
+    /// revision: a player changing language mid-game rebuilds the shelf
+    /// whichever form this takes, and comparing the refusal itself is the
+    /// narrower question of the two.
+    pub(super) error: Option<baylee_client_core::i18n::Refusal>,
     /// What the connection has to say, which replaces it first.
     pub(super) link_note: Option<baylee_client_core::i18n::Phrase>,
     /// Whether this seat is being asked at all — the sentence's weight, and
@@ -932,7 +943,12 @@ pub fn sync_ledge(
     let sentence = revision
         .link_note
         .map(|note| (note.text(lang).to_string(), true))
-        .or_else(|| revision.error.clone().map(|text| (text, true)))
+        .or_else(|| {
+            revision
+                .error
+                .as_ref()
+                .map(|refusal| (refusal.text(lang), true))
+        })
         // An armed card says what it is about to do on the button itself, so
         // the question above it would be the same sentence a second time —
         // §6: the shelf never shows two sentences, and the armed row is the

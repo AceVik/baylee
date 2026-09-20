@@ -62,6 +62,7 @@
 use crate::Duel;
 use crate::settings::ClientSettings;
 use baylee_client_core::Interaction;
+use baylee_client_core::i18n::{Lang, Refusal};
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput, NativeKeyCode};
 use bevy::input::mouse::MouseButtonInput;
@@ -1207,6 +1208,36 @@ fn sources_json(duel: &Duel) -> String {
     format!("[{}]", rows.join(","))
 }
 
+/// The refusal in the prompt bar's one slot, as **who wrote it** and **what
+/// it says**.
+///
+/// Two fields and not a string, for the reason [`sources_json`] is a list
+/// and not a count. Since #121 that slot holds a [`Refusal`] —
+/// `Said(Phrase)` for a sentence this client owns and translates, `Verbatim`
+/// for prose another process sent and nobody may translate — and that is
+/// *the distinction the bug was about*.
+/// A probe printing only the rendered sentence could not tell a translated
+/// phrase from untranslated prose, so it could not refuse a regression of the
+/// very fault it would be watching.
+///
+/// So `said` names the `Phrase` when this client owns the sentence and is
+/// `null` when it does not, and `text` is what the player actually reads, in
+/// the language the client is set to. The whole field is `null` when nothing
+/// has been refused.
+fn refusal_json(refusal: Option<&Refusal>, lang: Lang) -> String {
+    let Some(refusal) = refusal else {
+        return "null".to_string();
+    };
+    let said = match refusal {
+        Refusal::Said(phrase) => quoted(&format!("{phrase:?}")),
+        Refusal::Verbatim(_) => "null".to_string(),
+    };
+    format!(
+        "{{\"said\":{said},\"text\":{}}}",
+        quoted(&refusal.text(lang))
+    )
+}
+
 /// What the client believes, as JSON.
 ///
 /// Deliberately the *client's* answer and not the engine's: this is the thing
@@ -1282,11 +1313,11 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
             )
         },
     );
-    let error = duel
-        .last_error
-        .as_deref()
-        .map_or_else(|| "null".to_string(), quoted);
     let lang = settings.map_or_else(|| "null".to_string(), |s| quoted(&s.lang));
+    let error = refusal_json(
+        duel.last_error.as_ref(),
+        settings.map_or(Lang::En, |s| Lang::of(&s.lang)),
+    );
     format!(
         "{{\"view\":{view},\"interaction\":{interaction},\"hovered\":{hovered},\
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
@@ -1707,6 +1738,51 @@ mod tests {
         // Still no logical key where there is none to report.
         assert!(matches!(logical_key("F5"), Key::Unidentified(_)));
         assert!(matches!(logical_key("ShiftLeft"), Key::Unidentified(_)));
+    }
+
+    /// The probe can tell who wrote a refusal, and not merely what it says.
+    ///
+    /// The case that matters is the third one: a `Verbatim` carrying the
+    /// *same words* a `Said` renders. In English those two are one string,
+    /// so a probe reporting only the sentence calls them equal — and the
+    /// difference between them is the whole of #121. A caller watching for
+    /// a regression of that bug would have had nothing to watch.
+    #[test]
+    fn a_refusal_says_who_wrote_it_and_not_only_what_it_says() {
+        use baylee_client_core::i18n::Phrase;
+
+        assert_eq!(refusal_json(None, Lang::De), "null", "nothing refused");
+
+        let mine = Refusal::Said(Phrase::DeedWithdrawn);
+        assert_eq!(
+            refusal_json(Some(&mine), Lang::De),
+            r#"{"said":"DeedWithdrawn","text":"Die Engine bietet das nicht mehr an"}"#,
+            "a sentence this client owns is named and translated"
+        );
+
+        let theirs = Refusal::Verbatim("illegal action for your seat".to_string());
+        assert_eq!(
+            refusal_json(Some(&theirs), Lang::De),
+            r#"{"said":null,"text":"illegal action for your seat"}"#,
+            "another process's prose is neither named nor translated"
+        );
+
+        // The two that a one-field probe could not separate.
+        let echo = Refusal::Verbatim(Phrase::DeedWithdrawn.text(Lang::En).to_string());
+        assert_eq!(
+            refusal_json(Some(&echo), Lang::En),
+            r#"{"said":null,"text":"The engine no longer offers that"}"#,
+        );
+        assert_eq!(
+            refusal_json(Some(&mine), Lang::En),
+            r#"{"said":"DeedWithdrawn","text":"The engine no longer offers that"}"#,
+        );
+        assert_ne!(
+            refusal_json(Some(&mine), Lang::En),
+            refusal_json(Some(&echo), Lang::En),
+            "same words, different authors — the probe has to say so, or it \
+             cannot refuse a regression of the bug it is watching"
+        );
     }
 
     #[test]

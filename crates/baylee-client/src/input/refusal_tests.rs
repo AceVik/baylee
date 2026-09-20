@@ -25,7 +25,11 @@ fn a_refusal_outlives_the_question_it_answered() {
             priority(),
             PlayerId::new(0),
         )),
-        last_error: Some("illegal action for your seat".to_string()),
+        // The engine's own sentence, which arrives as prose and stays as
+        // prose — the arm that is not going away.
+        last_error: Some(baylee_client_core::i18n::Refusal::Verbatim(
+            "illegal action for your seat".to_string(),
+        )),
         ..crate::Duel::default()
     };
 
@@ -34,8 +38,10 @@ fn a_refusal_outlives_the_question_it_answered() {
     // only be testing that writing one field leaves another alone.
     duel.receive_choice(priority());
     assert_eq!(
-        duel.last_error.as_deref(),
-        Some("illegal action for your seat"),
+        duel.last_error
+            .as_ref()
+            .map(|r| r.text(baylee_client_core::Lang::En)),
+        Some("illegal action for your seat".to_string()),
         "a re-sent question is not this player doing anything"
     );
 
@@ -62,5 +68,11 @@ fn a_stale_deed_reports_instead_of_firing() {
     };
     super::fire_armed(&mut duel);
     assert!(duel.outbox().is_empty(), "nothing goes on the wire");
-    assert_eq!(duel.last_error.as_deref(), Some(super::STALE));
+    assert_eq!(
+        duel.last_error,
+        Some(baylee_client_core::i18n::Refusal::Said(
+            baylee_client_core::i18n::Phrase::DeedWithdrawn
+        )),
+        "the stale-deed line is this client's own sentence, so it is a phrase"
+    );
 }

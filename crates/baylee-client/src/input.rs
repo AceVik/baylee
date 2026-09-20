@@ -28,6 +28,7 @@ use baylee_client_core::abilitysheet;
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::browser::Placement;
 use baylee_client_core::filterdialog::FilterPanel;
+use baylee_client_core::i18n::{Phrase, Refusal};
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
 use baylee_client_core::prefs::Action;
 use baylee_client_core::touch::Answer;
@@ -606,7 +607,7 @@ pub fn fire_armed(duel: &mut Duel) {
                 .and_then(|i| i.play_card(armed.object))
             {
                 Some(action) => duel.submit(action),
-                None => duel.last_error = Some(STALE.to_string()),
+                None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
             }
         }
         Deed::Ability(action) => {
@@ -615,7 +616,7 @@ pub fn fire_armed(duel: &mut Duel) {
             if still_offered {
                 duel.submit(action);
             } else {
-                duel.last_error = Some(STALE.to_string());
+                duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
             }
         }
         // The plan itself is not re-planned: `ManaRun` re-checks every one of
@@ -632,7 +633,7 @@ pub fn fire_armed(duel: &mut Duel) {
                 .and_then(|i| i.suspend(armed.object))
             {
                 Some(action) => duel.submit(action),
-                None => duel.last_error = Some(STALE.to_string()),
+                None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
             }
         }
         Deed::Run {
@@ -663,7 +664,7 @@ pub fn fire_armed(duel: &mut Duel) {
                 duel.last_error = None;
                 duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, crate::RunEnd::Cast));
             } else {
-                duel.last_error = Some(STALE.to_string());
+                duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
             }
         }
         // The same shape for the other end, and the same short-circuit: the
@@ -688,7 +689,7 @@ pub fn fire_armed(duel: &mut Duel) {
                     crate::RunEnd::Suspend,
                 ));
             } else {
-                duel.last_error = Some(STALE.to_string());
+                duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
             }
         }
         // A pour is never armed — [`arm_ability`] starts its run on the press
@@ -710,13 +711,6 @@ pub fn fire_armed(duel: &mut Duel) {
         }
     }
 }
-
-/// What the bar says when an armed deed no longer exists.
-///
-/// English here, like the mana run's own abort lines beside it: `last_error`
-/// is one channel carrying the gateway's words as well as the client's, and
-/// translating half of it would be worse than translating none.
-const STALE: &str = "the engine no longer offers that";
 
 /// What `object` is offering, if anything.
 /// English deliberately: only the `action` on each option is read here —
@@ -2396,7 +2390,7 @@ fn take_cast_row(duel: &mut Duel, at: usize) {
         // The card has stopped offering that many ways. Close rather than
         // guess: the player is looking at a list that is no longer true.
         duel.cast_menu = None;
-        duel.last_error = Some(STALE.to_string());
+        duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
         return;
     };
     duel.cast_menu = None;

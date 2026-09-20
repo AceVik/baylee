@@ -88,7 +88,7 @@ pub mod touch;
 use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;
 use baylee_client_core::browser::Placement;
-use baylee_client_core::i18n::Phrase;
+use baylee_client_core::i18n::{Phrase, Refusal};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::{Seat, TableLayout};
 use baylee_client_core::reconnect::{Retry, Window};
@@ -639,7 +639,14 @@ pub struct Duel {
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
-    pub last_error: Option<String>,
+    ///
+    /// A [`Refusal`] and not a `String`, because two different authorities
+    /// write here: this client, whose sentences are its own and are
+    /// translated, and the engine process, whose sentence is a fact about
+    /// the game and arrives as prose. A `String` could hold only the second
+    /// and so made the first English — #121. `Refusal`'s own doc has the
+    /// argument and names `link_note` four fields down as the precedent.
+    pub last_error: Option<Refusal>,
     /// What the connection to the table is doing, when that is worth saying.
     ///
     /// A phrase rather than a rendered string so the decision stays in
@@ -1531,7 +1538,7 @@ fn poll_host(
                 if duel.ending().is_none() {
                     duel.cues.note_refusal();
                 }
-                duel.last_error = Some(reason.clone());
+                duel.last_error = Some(Refusal::Verbatim(reason.clone()));
                 reports.write(DuelReport::Failed(reason));
             }
         }
@@ -1688,7 +1695,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                         run.asking = None;
                     }
                 }
-                None => abort = Some("that source cannot make the colour the plan wanted"),
+                None => abort = Some(Phrase::PlanColourGone),
             }
         }
         Pending::Priority { player, legal } if *player == seat => {
@@ -1696,7 +1703,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
             if let Some(step) = step {
                 action = tap_action(&step, legal);
                 if action.is_none() {
-                    abort = Some("a land the plan counted on can no longer be tapped");
+                    abort = Some(Phrase::PlanLandGone);
                 } else if let Some(run) = duel.mana_run.as_mut() {
                     run.asking = step.color;
                 }
@@ -1719,12 +1726,12 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     // is a thing the player can see and spend.
                     Some((_, RunEnd::Float)) => {}
                     Some((_, RunEnd::Cast)) => {
-                        abort = Some("the mana is up but the spell is not castable");
+                        abort = Some(Phrase::PlanSpellRefused);
                     }
                     Some((_, RunEnd::Suspend)) => {
-                        abort = Some("the mana is up but the card cannot be suspended");
+                        abort = Some(Phrase::PlanSuspendRefused);
                     }
-                    None => abort = Some("the run lost the card it was paying for"),
+                    None => abort = Some(Phrase::PlanCardGone),
                 }
                 finished = true;
             }
@@ -1732,11 +1739,11 @@ pub fn advance_mana_run(duel: &mut Duel) {
         // Mana abilities do not use the stack, so priority never leaves the
         // seat in the middle of a plan. Anything else means the game moved on
         // without us and the plan is void.
-        _ => abort = Some("the game asked something else"),
+        _ => abort = Some(Phrase::PlanQuestionChanged),
     }
 
     if let Some(reason) = abort {
-        duel.last_error = Some(reason.to_string());
+        duel.last_error = Some(Refusal::Said(reason));
         duel.mana_run = None;
         return;
     }
@@ -1815,7 +1822,7 @@ pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
     let at = options.iter().position(|option| option.kind == kind);
     duel.cast_answer = None;
     let Some(at) = at else {
-        duel.last_error = Some(NO_SUCH_WAY.to_string());
+        duel.last_error = Some(Refusal::Said(Phrase::CastModeWithdrawn));
         return;
     };
     // Through `choose_index` and `confirm` rather than building the action
@@ -1830,15 +1837,6 @@ pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
         duel.submit(action);
     }
 }
-
-/// What the bar says when the chosen way is not among the ones the engine
-/// went on to offer.
-///
-/// English, beside the stale-deed line and the mana run's own abort lines and
-/// for the reason given there: `last_error` is one channel that also carries
-/// the gateway's words, and translating half of it would be worse than
-/// translating none.
-const NO_SUCH_WAY: &str = "the engine no longer offers that way of casting it";
 
 /// The taps that would make `card` castable, if any.
 ///

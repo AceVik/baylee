@@ -1141,7 +1141,7 @@ pub struct HudRevision {
     /// Separate from `prompt` because it no longer replaces it: a refusal
     /// happens while a question is standing, and the two lines are drawn
     /// together.
-    error: Option<String>,
+    error: Option<baylee_client_core::i18n::Refusal>,
     /// What the connection is doing, so losing or regaining it redraws.
     ///
     /// The one thing in this struct that changes without the game changing at

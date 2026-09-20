@@ -5678,7 +5678,33 @@ Who says what:
 - The gateway's refusals (`{"error":"…"}`) are shown in the words the gateway
   sent. It is the gateway that knows why it said no, and translating those
   means a code beside the prose — a protocol change, and deliberately separate
-  work.
+  work. That is about the **lobby**, and it is the whole of what this bullet
+  ever said: `ErrorBody` in `crates/baylee-gateway/src/main.rs` is one `error`
+  field, so the code really is a field that does not exist.
+- **A duel's refusals are a different channel, and eight of them are this
+  client's own sentences.** Nothing the gateway says reaches the prompt bar —
+  it forwards `SeatFrame` bytes it never decodes. Two writers reach that slot
+  and they are shaped differently, which is the argument for the type having
+  two arms. This client's half is a **closed set of eight**: one stale-deed
+  line at six call sites, one cast-mode line, and the six a mana run gives up
+  with. They were English on a German screen for as long as
+  `Duel::last_error` was a `String`, which is a type that can hold prose and
+  nothing else. The engine's half **cannot be enumerated** — three fixed
+  lines, and four call sites of `error(reason)` forwarding whatever the rules
+  kernel refused with — so there is no list there to translate.
+  `i18n::Refusal` is the pair instead: `Said(Phrase)` for a sentence this
+  client owns, translated like every other word on the screen, and
+  `Verbatim(String)` for one another process sent, drawn as it came.
+  `LedgeRevision::error` carries the `Refusal` unrendered and `sync_ledge`
+  renders it, which is the shape `link_note` beside it already had.
+  `Verbatim` is not a deficiency to drive to zero: an engine refusing for a
+  reason this client has never heard of renders its English rather than
+  nothing, so the two sides need no lockstep deploy. And should a *named*
+  engine refusal ever want translating, that is not a protocol change either —
+  `v1::Error` has carried a `code` field the whole time, hard-coded to `1` by
+  both writers, so the wire is already there and what is missing is a
+  taxonomy. The two claims are independent and both are written down, because
+  either one alone leaves "it is a protocol change" available to be re-argued.
 - Values that are also identifiers stay identifiers. A house AI's difficulty is
   `"sharp"` on the wire and in `SeatSpec`; only its label is translated, by
   `lobby::ui::ai_name`.

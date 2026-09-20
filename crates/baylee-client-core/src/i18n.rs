@@ -30,10 +30,36 @@
 //!
 //! # What is not here
 //!
-//! The gateway's own refusals (`{"error":"…"}`) are shown in the words the
-//! gateway sent, because it is the gateway that knows why it said no. Making
-//! those translatable is a protocol change — a code beside the prose — and is
-//! deliberately a separate piece of work.
+//! A refusal that arrived as **prose from another process** is shown in the
+//! words that process sent, because it is the one that knows why it said no.
+//! [`Refusal`] is the pair — a phrase this client owns, or somebody else's
+//! sentence — and the prompt bar renders either.
+//!
+//! This used to say only that *the gateway's* refusals (`{"error":"…"}`) are
+//! shown in the gateway's words, and that translating them is "a protocol
+//! change — a code beside the prose". That is still true, and it is about the
+//! **lobby**: `ErrorBody` in the gateway is one `error` field and nothing
+//! else, so a code there is a field that does not exist yet.
+//!
+//! What it was silent about is the **duel's** refusal slot, and #121 is that
+//! measurement. Nothing the gateway says reaches it: the gateway forwards
+//! `SeatFrame` bytes it never decodes. Two writers reach it, and they are
+//! shaped differently, which is the whole argument for [`Refusal`] having two
+//! arms:
+//!
+//! - **This client wrote eight** of the sentences there, a closed set that
+//!   was English for no better reason than that `Duel::last_error` was a
+//!   `String` — one stale-deed line at six call sites, one cast-mode line,
+//!   and the six a mana run gives up with. They are phrases now.
+//! - **The engine's half cannot be enumerated.** Three of its lines are
+//!   fixed, and the other four call sites are `error(reason)`, forwarding
+//!   whatever the rules kernel refused with. There is no list to translate,
+//!   which is why `Verbatim` is the design and not the backlog.
+//!
+//! Should a *named* engine refusal ever want translating, that is still not a
+//! protocol change: `v1::Error` has carried a `code` field the whole time,
+//! hard-coded to `1` by both writers, so the wire is already there and what
+//! is missing is a taxonomy.
 
 use baylee_core::ids::PlayerId;
 use baylee_view::GameStatic;
@@ -1328,6 +1354,73 @@ messages! {
     },
 
 
+    // ---- refusals this client owns
+    //
+    // Everything here is a sentence the *client* decided, not one an engine
+    // sent, and that is the whole reason it can be a phrase at all. They are
+    // drawn in the one slot `Refusal` feeds, beside refusals that arrived as
+    // prose — see [`Refusal`] for why that slot takes both.
+    /// The engine no longer offers that.
+    ///
+    /// An armed deed re-checked against the current `LegalActions` and gone:
+    /// the question moved on between the tap that armed it and the tap that
+    /// would have sent it. Deliberately not an apology and not a diagnosis —
+    /// the player's next action is to look at what is offered now.
+    DeedWithdrawn {
+        en: "The engine no longer offers that",
+        de: "Die Engine bietet das nicht mehr an",
+    },
+    /// The engine no longer offers that way of casting it.
+    ///
+    /// The same, one level in: the card is still castable and the *mode*
+    /// picked out of `ChooseCastMode` is not, which is a different sentence
+    /// because the card is still worth looking at.
+    CastModeWithdrawn {
+        en: "The engine no longer offers that way of casting it",
+        de: "Die Engine bietet diese Art, sie zu wirken, nicht mehr an",
+    },
+    /// A land the plan counted on can no longer be tapped.
+    ///
+    /// One of six a mana run gives up with. They are six sentences and not
+    /// one, because each names a different thing to do next, which is the
+    /// only justification a refusal has for existing: a land that went away
+    /// means tap something else, a spell that is no longer castable means
+    /// the mana is floating and the turn is not lost.
+    PlanLandGone {
+        en: "A land the plan counted on can no longer be tapped",
+        de: "Ein Land, mit dem der Plan gerechnet hat, lässt sich nicht mehr tappen",
+    },
+    /// That source cannot make the colour the plan wanted.
+    PlanColourGone {
+        en: "That source cannot make the colour the plan wanted",
+        de: "Diese Quelle kann die Farbe nicht erzeugen, die der Plan wollte",
+    },
+    /// The mana is up but the spell is not castable.
+    PlanSpellRefused {
+        en: "The mana is up but the spell is not castable",
+        de: "Das Mana steht bereit, aber der Zauberspruch lässt sich nicht wirken",
+    },
+    /// The mana is up but the card cannot be suspended.
+    PlanSuspendRefused {
+        en: "The mana is up but the card cannot be suspended",
+        de: "Das Mana steht bereit, aber die Karte lässt sich nicht aussetzen",
+    },
+    /// The run lost the card it was paying for.
+    PlanCardGone {
+        en: "The run lost the card it was paying for",
+        de: "Der Ablauf hat die Karte verloren, für die er bezahlt hat",
+    },
+    /// The game asked something else.
+    ///
+    /// A mana ability does not use the stack, so priority never leaves the
+    /// seat in the middle of a plan (CR 605.3a); a different question means
+    /// the game moved on without this client and the plan is void.
+    PlanQuestionChanged {
+        en: "The game asked something else",
+        de: "Das Spiel hat etwas anderes gefragt",
+    },
+
+
     // ---- the mana pool
     /// Mana pool
     ManaPool { en: "Mana pool", de: "Manavorrat" },
@@ -1798,6 +1891,44 @@ pub fn own_seat_name(lang: Lang, name: &str) -> String {
         pronoun.to_string()
     } else {
         Phrase::YouNamed.fill(lang, &[name])
+    }
+}
+
+/// A refusal the prompt bar has to draw, in whichever form it arrived.
+///
+/// One slot, two kinds of thing, and the pair is the point. A refusal this
+/// client decided is a [`Phrase`] and is translated like every other word on
+/// the screen; a refusal another process sent is its sentence and is drawn as
+/// it came, because the process that said no is the one that knows why. A
+/// field typed `String` could only ever hold the second, which is how nine
+/// client-owned sentences came to be English in a German interface (#121).
+///
+/// This is the shape `crate::Duel::link_note` already had for the same
+/// reason — *"a phrase rather than a rendered string so the decision stays
+/// where a test can read it, and the words stay in the overlay, which is the
+/// only thing that knows the language"* — with one arm added for the case
+/// `link_note` never has.
+///
+/// [`Self::Verbatim`] is **not** a deficiency to be driven to zero. It is
+/// what keeps the pair forward-compatible: an engine that refuses for a
+/// reason this client has never heard of renders its English sentence rather
+/// than nothing, so the two sides need no lockstep deploy.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Refusal {
+    /// A sentence this client owns.
+    Said(Phrase),
+    /// A sentence another process sent, in its own words.
+    Verbatim(String),
+}
+
+impl Refusal {
+    /// The sentence, in `lang` where this client has a say in it.
+    #[must_use]
+    pub fn text(&self, lang: Lang) -> String {
+        match self {
+            Self::Said(phrase) => phrase.text(lang).to_string(),
+            Self::Verbatim(prose) => prose.clone(),
+        }
     }
 }
 

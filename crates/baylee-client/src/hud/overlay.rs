@@ -1506,7 +1506,9 @@ mod tests {
                 pending,
                 PlayerId::new(0),
             )),
-            last_error: Some(REFUSED.to_string()),
+            last_error: Some(baylee_client_core::i18n::Refusal::Verbatim(
+                REFUSED.to_string(),
+            )),
             link_note: unreachable.then_some(Phrase::LinkLost),
             ..Duel::default()
         };
@@ -1782,6 +1784,74 @@ mod tests {
         assert!(
             lines.iter().any(|l| l.contains(baylee_build::short())),
             "and says which baylee it is: {lines:?}"
+        );
+    }
+
+    /// A refusal this client wrote is read in the player's language, and one
+    /// another process sent is read in its own.
+    ///
+    /// The joint, and it had no test: `Phrase` was checked for having a
+    /// German arm (`i18n`'s two suite-wide tests) and the shelf was checked
+    /// for drawing *a* refusal (`a_game_still_being_played_is_offered_all_
+    /// four`), and the line between them — that the sentence reaching the
+    /// player is the translated one — was asserted by nothing. That is the
+    /// "declared but never wired" shape this crate keeps finding, and here
+    /// it had shipped: `Duel::last_error` was a `String`, so nine sentences
+    /// this client writes were English on a German screen (#121).
+    ///
+    /// Both arms in one test on purpose. Asserting only the German half
+    /// would pass on a client that translated *everything* in that slot,
+    /// which is the opposite defect and the one that would silently rewrite
+    /// an engine's refusal into a sentence this client made up.
+    #[test]
+    fn a_refusal_is_read_in_the_language_of_whoever_wrote_it() {
+        // `mine` and not `said`, which is the function three lines down that
+        // reads the screen.
+        for (lang, mine) in [
+            (Lang::De, Phrase::DeedWithdrawn.text(Lang::De)),
+            (Lang::En, Phrase::DeedWithdrawn.text(Lang::En)),
+        ] {
+            // `duel_saying(_, false)` and never `duel_with`: a lost socket
+            // takes the one sentence the shelf draws (AX §6), and this test
+            // is about what is written in it.
+            let mut duel = duel_saying(false, false);
+            duel.last_error = Some(baylee_client_core::i18n::Refusal::Said(
+                Phrase::DeedWithdrawn,
+            ));
+            let mut app = bar_of(duel);
+            app.world_mut()
+                .resource_mut::<crate::settings::ClientSettings>()
+                .lang = lang.code().to_string();
+            app.update();
+            let lines = said(&mut app);
+            assert!(
+                lines.iter().any(|l| l.contains(mine)),
+                "a sentence this client wrote is read in {lang:?}: {lines:?}"
+            );
+            let other = Phrase::DeedWithdrawn.text(match lang {
+                Lang::De => Lang::En,
+                Lang::En => Lang::De,
+            });
+            assert!(
+                !lines.iter().any(|l| l.contains(other)),
+                "and only in {lang:?} — the other language is on the shelf \
+                 too: {lines:?}"
+            );
+        }
+
+        // The other arm, unchanged and staying that way: prose another
+        // process sent is drawn as it came, in a German interface, because
+        // the process that said no is the one that knows why.
+        let mut app = bar_of(duel_saying(false, false));
+        app.world_mut()
+            .resource_mut::<crate::settings::ClientSettings>()
+            .lang = Lang::De.code().to_string();
+        app.update();
+        let lines = said(&mut app);
+        assert!(
+            lines.iter().any(|l| l.contains(REFUSED)),
+            "another process's refusal is not this client's to translate or \
+             to drop: {lines:?}"
         );
     }
 
@@ -3301,7 +3371,9 @@ mod tests {
     /// premise the retained strip exists to survive.
     fn pool_of(green: u16, prompt: &str) -> Duel {
         let mut duel = duel_watching();
-        duel.last_error = Some(prompt.to_string());
+        duel.last_error = Some(baylee_client_core::i18n::Refusal::Verbatim(
+            prompt.to_string(),
+        ));
         {
             let view = duel.view.as_mut().expect("the seat has a view");
             let seat = view.seat;
