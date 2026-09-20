@@ -80,6 +80,7 @@ pub mod softkeys;
 pub mod sound;
 pub mod standalone;
 pub mod table;
+pub mod targeting;
 pub mod textures;
 pub mod tokenart;
 pub mod touch;
@@ -2178,6 +2179,14 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             manasources::hand_cost(card).is_some_and(|cost| cost.symbols().next().is_some())
         })
         .filter(|card| manasources::hand_cost(card).is_some_and(&affordable))
+        // And there has to be something to point it at (CR 601.2c). Last in
+        // the chain because it is the only filter here that walks the
+        // battlefield, so it is asked only about a card the rest already
+        // agreed on. `targeting` withholds the offer solely when it can
+        // *prove* no legal target exists and offers whenever it cannot tell,
+        // which is the opposite default from `castmodes::parts_payable` and
+        // deliberately so — the reasoning is in that module's header.
+        .filter(|card| !targeting::provably_targetless(view, card))
         .map(|card| card.id)
         // The command zone is castable from too (CR 903.8), and leaving it
         // out is why a commander could not be played. A card the engine has

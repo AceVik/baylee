@@ -673,3 +673,134 @@ fn a_spell_whose_only_target_was_exiled_goes_dark_and_says_nothing() {
          it learns to say why, this assertion is the one that fails."
     );
 }
+
+/// The client stops offering to tap lands for a spell with nothing to point
+/// at — and still offers when there is something (#139).
+///
+/// Both halves in one test on purpose. The claim is a *negative*, and a
+/// negative about a card in hand has a dozen ways to be true by accident: the
+/// mana might not reach, the window might be shut, the card might not be read
+/// at all. The second board is the premise made assertable — same seat, same
+/// two Plains, same card, one creature added — so the first board's silence
+/// can only be about the target.
+///
+/// What it costs when it is wrong is why it is a P0: the offer is taken by a
+/// click, the click arms a mana run, the run taps the lands, and *then* the
+/// engine refuses the cast. The turn's mana is gone and the card is still in
+/// hand.
+#[test]
+fn a_spell_with_nothing_to_point_at_is_not_offered_the_lands() {
+    let bare = the_table_with(&[]);
+    let swords = bare
+        .1
+        .view
+        .as_ref()
+        .and_then(|v| v.hand.iter().find(|c| c.name == "Swords to Plowshares"))
+        .map(|c| c.id)
+        .expect("the seat is holding it");
+    assert!(
+        !bare.1.reachable.contains(&swords),
+        "there is no creature on the table, so tapping for it spends the turn \
+         on a cast the engine will refuse"
+    );
+
+    let (_host, duel) = the_table_with(&["Llanowar Elves"]);
+    let swords = duel
+        .view
+        .as_ref()
+        .and_then(|v| v.hand.iter().find(|c| c.name == "Swords to Plowshares"))
+        .map(|c| c.id)
+        .expect("the seat is holding it");
+    assert!(
+        duel.reachable.contains(&swords),
+        "with a creature to point at, the two Plains do reach {{W}} — which \
+         is what makes the first half of this test a claim about targets and \
+         not about mana"
+    );
+}
+
+/// Seat 0 in its own main phase, holding Swords to Plowshares over two
+/// Plains, with `creatures` on the opposing battlefield.
+fn the_table_with(creatures: &[&str]) -> (LocalHost, crate::Duel) {
+    use baylee_core::ids::PrintRef;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo,
+        SeatCapabilities, SeatController, SeatSpec,
+    };
+
+    let entry = |name: &str| DeckEntry {
+        card: baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("`{name}` in the pool")),
+        print: PrintRef::new(0),
+    };
+    // Islands, so neither seat can ever draw a creature and make the bare
+    // board stop being bare halfway through the walk.
+    let filler: Vec<DeckEntry> = (0..40).map(|_| entry("Island")).collect();
+    let seat = |ai: bool, hand: Vec<DeckEntry>, field: Vec<DeckEntry>| SeatSpec {
+        controller: if ai {
+            SeatController::Ai(AIProfile::default())
+        } else {
+            SeatController::Open
+        },
+        capabilities: SeatCapabilities::default(),
+        deck: filler.clone(),
+        sideboard: vec![],
+        commanders: vec![],
+        starting_life: None,
+        starting_hand: Some(hand),
+        starting_battlefield: field,
+        emblems: vec![],
+        team: None,
+    };
+    let preset = GamePreset {
+        format: FormatId::Freeform,
+        seed: 11,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints: vec![PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        }],
+        seats: vec![
+            seat(
+                false,
+                vec![entry("Swords to Plowshares")],
+                vec![entry("Plains"), entry("Plains")],
+            ),
+            seat(
+                true,
+                vec![],
+                creatures.iter().map(|name| entry(name)).collect(),
+            ),
+        ],
+    };
+
+    let mut host =
+        LocalHost::new(&preset, PlayerId::new(0), &["You", "House"]).expect("the duel starts");
+    let mut duel = crate::Duel::default();
+    for _ in 0..400 {
+        pump(&mut host, &mut duel);
+        let Some(pending) = duel.interaction.as_ref().map(|i| i.pending().clone()) else {
+            continue;
+        };
+        let open = duel.view.as_ref().is_some_and(|v| {
+            v.active == v.seat
+                && v.stack.is_empty()
+                && matches!(
+                    v.phase,
+                    baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
+                )
+        });
+        match &pending {
+            Pending::Priority { player, .. } if *player == PlayerId::new(0) && open => break,
+            Pending::Mulligan { player, .. } if *player == PlayerId::new(0) => {
+                host.submit(PlayerAction::MulliganKeep);
+            }
+            Pending::Priority { player, .. } if *player == PlayerId::new(0) => {
+                host.submit(PlayerAction::PassPriority);
+            }
+            _ => {}
+        }
+    }
+    (host, duel)
+}

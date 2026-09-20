@@ -3016,6 +3016,55 @@ rather than one set, because they are different claims — gold is the engine
 saying yes, indigo is this client offering to tap lands first. Clicking either
 casts; the difference is what happens in between.
 
+#### An offer has to be one the engine will accept
+
+Indigo is a promise this client makes on the engine's behalf, and the promise
+is expensive to break: taking it taps the lands **first**, and the engine then
+refuses the cast with the turn's mana already spent and the card still in
+hand. So every rule the engine will apply to that cast has to be applied here
+first, and the two that were missing cost a turn each. The timing rule is
+`baylee-client-core/src/timing.rs` — a sorcery was lit on an opponent's turn
+and over an unresolved stack — and the target rule is
+`baylee-client/src/targeting.rs`, because a spell with no legal target cannot
+be cast at all (CR 601.2c) and Swords to Plowshares lit up with every creature
+already exiled.
+
+The two are written to **opposite defaults**, and that is deliberate rather
+than untidy. `timing` errs towards offering, because the two effects it cannot
+see are rare and a sorcery withheld for one of them is only a hand the player
+taps themselves. `targeting` errs towards offering *too*, but it gets there
+from the other side: it withholds **only when it can positively prove that no
+legal target exists**, and offers whenever it cannot tell. Written as a
+symmetric check — refuse whatever cannot be read — it would darken a card for
+a reason the player cannot see, which is the fault this client has already
+been reported for; written as a proof, the worst it can do is fail to catch a
+case.
+
+`castmodes::parts_payable` takes the genuinely opposite default and is the
+useful contrast: anything it cannot answer from the view is refused, because a
+refused *alternative* cost costs nothing at all — the card falls back to the
+price printed on it. What decides the direction each time is the consequence
+of being wrong, not a house style.
+
+`targeting::matches` is a mirror of `baylee_engine::eval::matches_projected`
+held to the stricter rule every mirror here is held to: the engine may answer
+from the `GameState`, and what the **view** cannot answer returns `None` and
+abandons the proof. Three details carry their own reasons. One unreadable
+candidate abandons the whole count, because the claim is a negative and "none
+of these matches" is only true if every one of them was looked at. A permanent
+this seat may not look at abandons it too, since a face-down permanent is a
+2/2 creature and a perfectly legal target (CR 708.2) while its view fields say
+almost nothing. And `Filter::IsToken` reads `PublicObject::token` where the
+engine reads `card.is_none()`: in a view that second test is also true of a
+permanent nobody is entitled to see, which is a different fact wearing the
+same shape.
+
+Measured over the 208 spells in this pool that require at least one target,
+189 carry a filter every arm can read; the remaining 19 are `AnyTarget`,
+`AnyOpponent` and `Player`, which can never be targetless because a player is
+always there. The proof is refused for those by construction rather than by a
+gap, so the population is closed.
+
 ### Which way to cast it is asked before anything is tapped
 
 `Engine::cast_options` counts a spell's ways against the mana that is

@@ -578,6 +578,19 @@ out halfway through. In hand this is a third state: `Openings { playable,
 reachable }`, gold for what the engine offered and indigo for what this client
 is offering to do about it.
 
+Indigo is a promise made on the engine's behalf and it is expensive to break —
+the click taps the lands *first* — so every rule the engine will apply to that
+cast is applied before the offer. `baylee-client-core/src/timing.rs` is the
+timing half (and reads `PlayerView::sorcery_lock`, so Teferi is a fact rather
+than a guess); `baylee-client/src/targeting.rs` is the target half, because a
+spell with no legal target cannot be cast at all (CR 601.2c). The rule that
+holds the second one, and the one a later "simplification" will want to
+undo: **it withholds only when it can positively prove no legal target
+exists, and offers whenever it cannot tell.** `castmodes::parts_payable` takes
+the opposite default on purpose — a refused *alternative* cost costs nothing,
+a refused cast darkens the card — so what decides the direction is the
+consequence of being wrong, never a house style.
+
 The same planner answers a cost **nobody picked**. A CR 605.3a payment window
 is an ordinary `Pending::Priority` offering mana abilities and no plays —
 shaped like every quiet window in the game, which is why the house agent
