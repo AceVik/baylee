@@ -1310,3 +1310,155 @@ fn vault_of_the_archangel() -> CardIndex {
 fn wintermoon_mesa() -> CardIndex {
     card_index("a4a6f95e-856c-4eb5-82ba-b2406be22b23")
 }
+
+fn aether_hub() -> CardIndex {
+    card_index("61c89b11-65c9-4fda-bbcd-d84de25df801")
+}
+
+fn agna_qel_a() -> CardIndex {
+    card_index("22d0a848-2126-48f0-9050-38daaf93b1d0")
+}
+
+fn ancient_amphitheater() -> CardIndex {
+    card_index("7211221d-d4d8-4bbe-9d2a-b82e005bfe8a")
+}
+
+fn auntie_s_hovel() -> CardIndex {
+    card_index("245469ff-72b6-4846-8a82-a1d29f4d09bb")
+}
+
+fn cradle_of_the_accursed() -> CardIndex {
+    card_index("36d06c91-5080-4f97-8e4c-ca8ac390e808")
+}
+
+fn crucible_of_worlds() -> CardIndex {
+    card_index("33c722cf-b4bf-431f-aefd-ee96241a7fbf")
+}
+
+fn dark_fortress() -> CardIndex {
+    card_index("40760bfa-a423-487c-ba29-043b2d00c736")
+}
+
+fn desert() -> CardIndex {
+    card_index("195107ad-879d-4b02-a44a-a3ba70fedf88")
+}
+
+fn dunes_of_the_dead() -> CardIndex {
+    card_index("c761f71c-785c-4533-a2b7-2da3667688b8")
+}
+
+fn exploration() -> CardIndex {
+    card_index("0c2841bb-038c-4fbf-8360-bc0a1522b58d")
+}
+
+fn gathering_place() -> CardIndex {
+    card_index("36b58705-c5a5-4547-8d8b-a7c35e1f69ae")
+}
+
+fn gilt_leaf_palace() -> CardIndex {
+    card_index("85573a3d-2993-491a-8f8d-bbdb844fa84e")
+}
+
+fn gleaming_bastion() -> CardIndex {
+    card_index("7785ffd4-f169-475d-9558-ce4877b3378a")
+}
+
+fn glimmervoid() -> CardIndex {
+    card_index("b92e9854-4527-4133-8615-e282a213e7e3")
+}
+
+fn gods_eye_gate_to_the_reikai() -> CardIndex {
+    card_index("a66008c9-1ede-4dcf-8d35-6c0ed2390996")
+}
+
+fn gond_gate() -> CardIndex {
+    card_index("4306938b-c0db-4e63-a4fb-61628e5ff41f")
+}
+
+fn grasping_dunes() -> CardIndex {
+    card_index("47d16c11-3033-44f3-9a12-2daf3453cc5b")
+}
+
+fn great_hall_of_the_citadel() -> CardIndex {
+    card_index("b3e28bcf-0ed0-4406-b615-68ddc55b349a")
+}
+
+fn hall_of_the_bandit_lord() -> CardIndex {
+    card_index("32fe7ac4-86f5-44af-9f73-ee8f6a9ce2ba")
+}
+
+fn haunted_fengraf() -> CardIndex {
+    card_index("7c6143f3-ad2c-4d7f-9041-aa59f01d8fb7")
+}
+
+fn hidden_lair() -> CardIndex {
+    card_index("7069d241-4e66-40bf-afd1-551a4a5457f0")
+}
+
+fn lotus_field() -> CardIndex {
+    card_index("134d5b82-7940-4b33-a922-7f9d1f403e50")
+}
+
+fn moorland_haunt() -> CardIndex {
+    card_index("5324192b-6687-41e4-8e56-326b21a5dbf3")
+}
+
+fn mutavault() -> CardIndex {
+    card_index("6b3cc59a-7ea5-4eb5-9bf9-5a9c07f80e2b")
+}
+
+fn oran_rief_the_vastwood() -> CardIndex {
+    card_index("e88027a6-24cc-4a8b-86db-734f26149ea8")
+}
+
+fn quicksand() -> CardIndex {
+    card_index("ef2bb4fa-f292-4d19-aaa4-cfbe445caf45")
+}
+
+fn ramunap_excavator() -> CardIndex {
+    card_index("4f819ba4-52ef-4fdd-8e4c-5ae3b2f44db5")
+}
+
+fn ramunap_ruins() -> CardIndex {
+    card_index("d0d35864-1edc-4af1-9b89-3d7e94908011")
+}
+
+fn sanctum_of_eternity() -> CardIndex {
+    card_index("c7d9ff27-f1fc-42e4-a47b-d2e6d68e4035")
+}
+
+fn sapseep_forest() -> CardIndex {
+    card_index("8d4dcab0-86e5-4ff8-a90f-78a062664e16")
+}
+
+fn sea_gate_wreckage() -> CardIndex {
+    card_index("91f34686-cb96-49c0-b4a7-49dd1fd076e2")
+}
+
+fn secluded_glen() -> CardIndex {
+    card_index("09f52275-99e6-45e0-b2db-cafe26d5fb91")
+}
+
+fn secret_base() -> CardIndex {
+    card_index("1017088c-08a3-45d9-a7f7-01fb2f309717")
+}
+
+fn skycoach_waypoint() -> CardIndex {
+    card_index("2ac2b815-2d72-48e6-b43a-18884a74bf95")
+}
+
+fn stalking_stones() -> CardIndex {
+    card_index("f3658894-3d3d-4cd4-b0ac-c53e1d08747c")
+}
+
+fn thran_quarry() -> CardIndex {
+    card_index("57b4da3f-361a-4cbe-b77f-190ec33eefd8")
+}
+
+fn training_compound() -> CardIndex {
+    card_index("99c70f4e-de8a-426d-99aa-17b2f87625ba")
+}
+
+fn war_room() -> CardIndex {
+    card_index("71c52bf5-2a5d-488e-8b15-7ef290e4b77d")
+}
