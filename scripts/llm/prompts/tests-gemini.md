@@ -63,6 +63,21 @@ Inhalt: der Kartengriff
 im `//! `-Kopf der Kartendatei) und **eine** `#[test]`-Funktion. Kein `mod`,
 kein `use`, kein weiterer Text in der Datei.
 
+Im Doc-Kommentar **jeden Rust-Namen in Backticks** setzen, besonders
+`Coverage::Partial` und `Coverage::Implemented`. Clippys `doc_markdown` ist
+im Gate ein Fehler, nicht eine Warnung, und ein blanker Name dort hat jede
+bisherige Runde denselben Nachlauf gekostet — zuletzt 25 Zeilen in einer.
+
+Mana mit einer Ausgabebeschränkung ("spend this mana only to …") landet
+**nicht** in `pool.available(color)`, sondern in `pool.restricted()`. Eine
+Zusicherung über `available` ist dort nicht bloß falsch, sie ginge auch für
+eine Karte durch, die die Beschränkung verloren hat.
+
+Der Index in `activate(engine, seat, card, i)` zählt **alle** Fähigkeiten
+der Karte in der Reihenfolge, in der sie im `abilities`-Feld stehen —
+ausgelöste mitgezählt. Steht ein `triggered!` an Position 0, hat die erste
+aktivierbare Fähigkeit den Index 1.
+
 Führe **kein** `cargo` aus — der Build gehört dem Koordinator. Am Ende gibst
 du eine Tabelle aus, eine Zeile pro Karte:
 
