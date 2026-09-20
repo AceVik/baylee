@@ -2272,6 +2272,15 @@ fn check_player_targets_match_the_printing(
 /// - "you may play those cards … and you may spend mana as though" —
 ///   `SearchTakeover`. A permission is not a decision: playing a card is
 ///   optional already, and there is nothing to ask.
+/// - "you may play lands from your graveyard" / "you may play an additional
+///   land on each of your turns" — `PlayLandsFromGraveyard` and
+///   `ExtraLandDrops`, the same argument one rule further on. These widen
+///   what CR 305.1 and CR 305.2 allow; the land drop itself is already the
+///   player's to make or not, and a permission that asked would be a prompt
+///   nobody could answer "no" to usefully. Crucible of Worlds, Ramunap
+///   Excavator and Exploration are the three, and they were the first cards
+///   through a modifier family that had none when it landed — which is why
+///   this bullet exists rather than the list quietly growing.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2308,6 +2317,8 @@ fn check_optional_clauses_are_offered(
         "PutFromHandOnTop",
         "ReorderTopLibrary",
         "SearchTakeover",
+        "PlayLandsFromGraveyard",
+        "ExtraLandDrops",
     ];
     if !def.is_implemented() {
         return;
