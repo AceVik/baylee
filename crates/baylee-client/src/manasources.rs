@@ -15,7 +15,7 @@ use baylee_core::mana::ManaCost;
 use baylee_engine::choice::LegalActions;
 use baylee_view::PlayerView;
 
-use baylee_cards_dsl::AbilityDef;
+use baylee_cards_dsl::{AbilityDef, CostPart};
 
 /// Every mana source the seat may tap right now.
 ///
@@ -25,6 +25,22 @@ use baylee_cards_dsl::AbilityDef;
 /// — and it can still only be tapped once. Two entries would let the planner
 /// pay `{G}{G}` with one Forest, which is a plan the engine refuses after the
 /// land is already tapped.
+///
+/// **The consequence is that the expensive mode of a permanent offering two
+/// is out of reach**, and that is a bargain rather than an oversight. One
+/// entry per permanent means the comparator picks a mode and the planner
+/// never sees the other, so a card printing a free tap beside a priced one is
+/// planned as the free one only: Havenwood Battleground is never planned for
+/// `{G}{G}`, and Vivid Crag is a red source and never a blue one. **Twenty-five
+/// faces in the pool are in that position**, 7 losing an amount and 18 a
+/// colour. Before #165 the same one-entry rule pointed the other way and was
+/// worse — all 25 *always* paid — and the two are not symmetric: a shy
+/// planner costs a player some clicks, an over-eager one strands a
+/// half-tapped board mid-cast with no way back. Choosing per cost instead of
+/// per permanent needs `Source` to carry modes and `manaplan::assign` to pick
+/// one of them, and
+/// `the_expensive_mode_is_out_of_reach_and_that_is_the_bargain` is the test
+/// that goes red the day it can.
 #[must_use]
 pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     let mut sources = Vec::new();
@@ -53,18 +69,78 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
         }
     }
 
-    // A permanent taps once, so it is one source: the best of whatever it
-    // offered. "Best" is the one that leaves the planner the most room — more
-    // mana first, then more colours — and the intrinsic shortcut wins a tie
-    // because it costs one fewer round trip and is never asked for a colour.
-    sources.sort_by(|a, b| {
+    // A permanent taps once, so it is one source: the cheapest of what it
+    // offered, and the roomiest of those.
+    //
+    // **Price outranks everything else**, which is the whole of #165. "Best"
+    // used to mean more mana and then more colours, and what the tap *cost*
+    // was not in the comparison at all — `mana_shape` reads `cost.mana` and
+    // never looks at `cost.parts`, so `{T}, Sacrifice this land: Add {G}{G}`
+    // is a shape this client accepts, and it also wins on amount. The
+    // planner sacrificed Havenwood Battleground every time it tapped it.
+    // Measured over the pool on 20.09.2026: 61 readable mana abilities carry
+    // a cost part beyond the tap, 32 faces offer both a free and a priced
+    // one, and on 25 of those the priced one won.
+    //
+    // Below it the old order stands unchanged: more mana, then more colours,
+    // and the intrinsic shortcut wins a tie because it costs one fewer round
+    // trip and is never asked for a colour.
+    let mut ranked: Vec<(bool, Source)> = sources
+        .into_iter()
+        .map(|source| (priced(view, &source), source))
+        .collect();
+    ranked.sort_by(|(a_priced, a), (b_priced, b)| {
         a.id.cmp(&b.id)
+            .then_with(|| a_priced.cmp(b_priced))
             .then_with(|| b.amount.cmp(&a.amount))
             .then_with(|| b.colors.len().cmp(&a.colors.len()))
             .then_with(|| matches!(a.tap, Tap::Ability(_)).cmp(&matches!(b.tap, Tap::Ability(_))))
     });
-    sources.dedup_by(|a, b| a.id == b.id);
-    sources
+    ranked.dedup_by(|(_, a), (_, b)| a.id == b.id);
+    ranked.into_iter().map(|(_, source)| source).collect()
+}
+
+/// Whether tapping this source costs anything **beyond** the tap.
+///
+/// Deliberately not a sixth reader in [`baylee_cards_dsl`]'s family: all five
+/// of those answer what comes *out* of an ability and every one of them is
+/// about the `AddMana`. This asks what goes *in*, and it is a planner's
+/// question — a label and a mana bubble do not care what a tap costs. It is
+/// in this module for the reason the module exists: reading a cost off a card
+/// takes the compiled registry.
+///
+/// **A positive list of exactly one.** Anything that is not
+/// [`CostPart::TapSelf`] is a price, so a `CostPart` added tomorrow is priced
+/// without anyone remembering this function. Listing what counts as expensive
+/// instead would go silent on the next variant, and silent here means free.
+fn priced(view: &PlayerView, source: &Source) -> bool {
+    let Tap::Ability(index) = source.tap else {
+        // The CR 305.6 shortcut. Tapping is the whole of it.
+        return false;
+    };
+    if baylee_engine::choice::granted_slot(index).is_some() {
+        // An ability a continuous effect granted is printed on no card, and
+        // `GrantedMana` carries colours and an amount and **no cost** — so
+        // free is the only thing this can say, and it is right for the card
+        // that grants them: a Chromatic Lantern's is `{T}` and nothing more.
+        // Saying otherwise would be worse than imprecise. A Lantern'd
+        // Mountain offers the intrinsic tap *and* the grant, and calling the
+        // grant priced would hand the dedup to the intrinsic and leave the
+        // land making red only, which is the Lantern's whole point undone.
+        return false;
+    }
+    let Some(AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }) =
+        ability_at(view, source.id, index)
+    else {
+        // Unreadable, so assume it costs something. That sorts it behind any
+        // tap this client can read, and where it is the only offer the dedup
+        // keeps it regardless — so the guess is never the reason a source
+        // disappears.
+        return true;
+    };
+    cost.parts
+        .iter()
+        .any(|part| !matches!(part, CostPart::TapSelf))
 }
 
 /// Ability `index` of `object`, out of the registry.
@@ -802,6 +878,119 @@ mod tests {
             sources[0].tap,
             Tap::Ability(0),
             "tapped through the handle the engine offered it under"
+        );
+    }
+
+    /// A land offering both of its printed mana abilities, which is the
+    /// shape #165 is about.
+    fn both_modes(name: &str) -> (PlayerView, LegalActions) {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [card(1, 0, name)])
+            .build();
+        let legal = LegalActions {
+            abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
+            ..LegalActions::default()
+        };
+        (view, legal)
+    }
+
+    fn mana_cost(src: &str) -> baylee_core::mana::ManaCost {
+        baylee_core::mana::ManaCost::try_parse(src).expect("a valid cost")
+    }
+
+    /// #165. Havenwood Battleground prints `{T}: Add {G}` beside `{T},
+    /// Sacrifice this land: Add {G}{G}`, and the second makes more mana — so
+    /// the comparator that ranked on amount alone kept the sacrifice and
+    /// threw the free tap away. A player who asked the client for one green
+    /// was handed a plan that gave up the land.
+    #[test]
+    fn havenwood_is_tapped_for_its_printed_green_and_not_sacrificed() {
+        let (view, legal) = both_modes("Havenwood Battleground");
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "one permanent is one source");
+        assert_eq!(
+            sources[0].tap,
+            Tap::Ability(0),
+            "kept the sacrifice over the free tap"
+        );
+        assert_eq!(sources[0].amount, 1, "one green, which is what was asked");
+
+        // And the half a player would actually see.
+        let plan = baylee_client_core::manaplan::plan(
+            &mana_cost("{G}"),
+            &baylee_view::ManaPoolView::default(),
+            &sources,
+        )
+        .expect("a land that taps for green pays {G}");
+        assert_eq!(plan.steps.len(), 1);
+        assert_eq!(
+            plan.steps[0].tap,
+            Tap::Ability(0),
+            "the plan sacrifices the land for one green"
+        );
+    }
+
+    /// The same defect wearing its other face, and the commoner one: 18 of
+    /// the 25 lose a **colour** rather than an amount. Vivid Crag prints
+    /// `{T}: Add {R}` beside `{T}, Remove a charge counter: Add one mana of
+    /// any color`, equal amounts, and the second offers five colours — so it
+    /// won on breadth and the land burned a counter to make the red it
+    /// prints.
+    #[test]
+    fn a_vivid_land_is_planned_as_the_colour_it_prints_and_keeps_its_counter() {
+        let (view, legal) = both_modes("Vivid Crag");
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "one permanent is one source");
+        assert_eq!(
+            sources[0].tap,
+            Tap::Ability(0),
+            "spent a charge counter for the colour already printed on the land"
+        );
+        assert_eq!(
+            sources[0].colors,
+            vec![ManaColor::Red],
+            "the printed red and nothing else"
+        );
+    }
+
+    /// **A pinned limitation, not an assertion of correctness.**
+    ///
+    /// `{G}{G}` off a lone Havenwood Battleground is payable at the table —
+    /// the card prints exactly that — and this client will not offer it,
+    /// because one entry per permanent means the comparator chose the free
+    /// mode and the planner never learns the other exists. That is the price
+    /// of #165 and it is the right way round: a shy planner costs a player
+    /// some clicks, an over-eager one strands a half-tapped board mid-cast
+    /// with no way back.
+    ///
+    /// **It is a schedule.** It goes red the day `manaplan::Source` carries
+    /// modes and `assign` picks one per permanent, and that redness is the
+    /// success. A limitation test deleted when the limitation lifts was never
+    /// a test.
+    #[test]
+    fn the_expensive_mode_is_out_of_reach_and_that_is_the_bargain() {
+        let (view, legal) = both_modes("Havenwood Battleground");
+        let sources = sources(&view, &legal);
+        assert!(
+            baylee_client_core::manaplan::plan(
+                &mana_cost("{G}{G}"),
+                &baylee_view::ManaPoolView::default(),
+                &sources,
+            )
+            .is_none(),
+            "the second mode became reachable — see the doc on this test"
+        );
+        // The counter-proof that the assertion above is about the *mode* and
+        // not about the land being unreadable: one green is planned, so the
+        // source is there and it is the cheap one.
+        assert!(
+            baylee_client_core::manaplan::plan(
+                &mana_cost("{G}"),
+                &baylee_view::ManaPoolView::default(),
+                &sources,
+            )
+            .is_some(),
+            "the land pays no mana at all, so the test above proves nothing"
         );
     }
 }
