@@ -78,6 +78,22 @@ der Karte in der Reihenfolge, in der sie im `abilities`-Feld stehen —
 ausgelöste mitgezählt. Steht ein `triggered!` an Position 0, hat die erste
 aktivierbare Fähigkeit den Index 1.
 
+Die Frage einer **ausgelösten** Fähigkeit kommt an, wenn der Trigger
+*abgearbeitet* wird, nicht wenn die Karte ankommt. Nach
+`PlayerAction::PlayLand` steht der Trigger auf dem Stack und
+`engine.pending()` ist Priorität. Also nicht in der nächsten Zeile
+`Pending::ChooseCards` erwarten, sondern erst
+`pass_until(&mut engine, |e| matches!(e.pending(), Pending::ChooseCards { .. }))`.
+Und `pass_until` bricht mit „unexpected while passing" ab, sobald irgendeine
+Frage ungeantwortet dazwischensteht — ein `pass_until(.., stack_is_empty)`
+über einen Scry oder Surveil hinweg ist deshalb immer ein Fehlschlag.
+
+Mana für einen Aktivierungspreis muss **vor** dem `activate` im Pool
+liegen, und `tap_mana_except` / `tap_all_mana` tappen nur die Länder mit
+Grundland-Typ (CR 305.6). Ein Nichtgrundland, das sein eigenes
+`{T}: Add {C}` druckt, tappst du von Hand mit
+`PlayerAction::ActivateAbility { source, ability_index: 0 }`.
+
 Führe **kein** `cargo` aus — der Build gehört dem Koordinator. Am Ende gibst
 du eine Tabelle aus, eine Zeile pro Karte:
 
