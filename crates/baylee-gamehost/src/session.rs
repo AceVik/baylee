@@ -2,7 +2,7 @@
 //! tests and both servers (engine-server dev harness, gateway) drive it
 //! directly; transport lives with the callers.
 
-use baylee_ai::{HeuristicAgent, pending_player};
+use baylee_ai::{HeuristicAgent, pending_player, policy_seed};
 use baylee_cards::dsl::CardDef;
 use baylee_core::ids::{CardIndex, PlayerId};
 use baylee_core::preset::{AIProfile, GamePreset, HouseRules, PrintInfo, SeatController};
@@ -148,6 +148,15 @@ pub struct Session {
     names: Vec<String>,
 }
 
+/// A seat's number as the policy-seed derivation takes it.
+///
+/// A preset carries at most eight seats and [`PlayerId`] is a `u8`, so this
+/// cannot lose anything; it is written as a saturating conversion rather
+/// than a cast so that nothing silently wraps if that ever stops being true.
+fn seat_byte(index: usize) -> u8 {
+    u8::try_from(index).unwrap_or(u8::MAX)
+}
+
 impl Session {
     /// Starts a game from a preset; Open seats become humans, AI seats
     /// get a heuristic agent.
@@ -156,10 +165,15 @@ impl Session {
         let seats: Vec<SeatKind> = preset
             .seats
             .iter()
-            .map(|s| match &s.controller {
+            .enumerate()
+            .map(|(i, s)| match &s.controller {
                 SeatController::Ai(profile) => Some(SeatKind::Ai(
                     HeuristicAgent::new(*profile)
-                        .with_seed(preset.seed)
+                        // Not `preset.seed`: that stream dealt the hands.
+                        // A table nobody has named yet gets the derivation
+                        // with no identifier, which is still independent of
+                        // the shuffle; `describe` supplies the real one.
+                        .with_seed(policy_seed("", seat_byte(i)))
                         .with_teams(preset.seats.iter().map(|s| s.team).collect()),
                 )),
                 _ => Some(SeatKind::Human),
@@ -338,6 +352,21 @@ impl Session {
     /// once, after building the session and before the first socket. A seat
     /// nobody names falls back to its number rather than to an empty chair.
     pub fn describe(&mut self, game_id: String, names: Vec<String>) {
+        // The public game identifier arrives exactly here, once, before the
+        // first socket — so this is where an AI chair stops playing with the
+        // no-identifier derivation and starts playing with its own (#87).
+        // Every chair that holds an agent is reseeded, including the two that
+        // are not currently answering: a seat handed back by `release` or
+        // `hand_back` plays on with the agent it kept.
+        for (i, kind) in self.seats.iter_mut().enumerate() {
+            let seed = policy_seed(&game_id, seat_byte(i));
+            match kind {
+                SeatKind::Ai(agent) | SeatKind::Driven(agent) | SeatKind::StandIn(agent) => {
+                    *agent = agent.clone().with_seed(seed);
+                }
+                SeatKind::Human => {}
+            }
+        }
         self.game_id = game_id;
         self.names = names;
     }

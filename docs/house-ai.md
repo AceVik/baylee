@@ -14,6 +14,26 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell.
+
+**One source per permanent is a rule with a consequence**, and it is the
+reason a tap's *price* is part of the ranking. Nothing under `manaplan::plan`
+keys on `ObjectId`, so the dedup in `policy::sources` is the only thing
+enforcing that a land taps once — which makes the entry that survives it the
+only mode the agent will ever use for that permanent. The key ranked on mana
+made, then colours reached, and on nothing else, so a permanent printing a
+free tap beside a priced one kept the priced one: **26 of the 33 faces in this
+pool that print both**, measured on 20.09.2026 (#168). The population is
+counted per **face** and not per card, which is not pedantry: Havengul
+Laboratory prints the free tap on one face and the priced one on the other,
+and a card-level count reads that as a permanent choosing between them when
+no permanent ever can. Havenwood Battleground sold itself for a green it
+already had; Spire of Industry paid a life whenever colourless was the whole
+of what the plan asked for; the five Vivid lands removed a charge
+counter even when the colour asked for was the one their free tap makes. `priced` now sorts ahead of the
+amount, so free wins first and the old order decides between free modes. A
+permanent whose *only* mana ability is priced is untouched, because the dedup
+keeps one entry per permanent whatever the key says: this changes which mode
+survives and never how many.
 Command-zone commanders participate in these plans, including their public
 cast-count tax. Steady and harder levels choose a mana colour by the casts it
 can complete with the
@@ -132,9 +152,32 @@ which is a 2/6 against a 6/6 and a 2/2 and not the 4/4 that first suggests
 itself. That precondition is gone: #156 landed, `combat::can_block` no longer
 asks a question it answers before anything is recorded, and the offer now names
 a menace attacker wherever two creatures could legally block it. So all of this
-is reachable, and the pass above is load-bearing rather than defensive. This
-paragraph records the fact; what these profiles do once that rule decides a
-game is #157's owner's to write over it.
+is reachable, and the pass above is load-bearing rather than defensive.
+
+What it is worth is **the table, not a point of evaluation**. A refused
+`DeclareBlockers` is not a worse block; it is no answer at all, and for an AI
+chair there is nothing behind it: `Session::pump` passes priority when the
+engine refuses an action at a `Pending::Priority`, and a `ChooseBlockers` is
+not one, so it takes the other branch and returns without advancing that
+question. No clock expires either — the decision clock is for seats that
+answer over a socket (`answers_over_socket`), and an AI seat has none, so
+nothing answers on the chair's behalf the way a timeout would. Whether a
+later `pump` recovers or meets the same refusal is **unmeasured** and is
+#180's to settle; either way the pass above is what keeps the table off
+that path. Three
+of the five profiles reached that in every shape tried, and the seat it costs
+is the one that was trying to block. The
+deeper two were never at risk, so the pass is what makes the shallow
+profiles' answers *arrive*, and the search's own rule is what makes them
+good.
+
+One position in `no_profile_answers_a_menace_attacker_with_one_blocker` is no
+longer a board a game reaches: `combat::menace_satisfiable` drops a menace
+attacker from the offer entirely where only one creature could legally block
+it, so the single-blocker scene arrives from no real table. It is kept, and
+its comment says why — `choose_blocks` computes an answer to that shape
+whether or not anything presents it, and a pass tested only on offers the
+engine has already filtered is a pass nothing tests.
 
 **A card in hand is what any of its faces can be.** A `CardIdentity` in hand
 names the face that is *up*, which for a modal double-faced card is the
@@ -200,9 +243,33 @@ creature, and known empty threats release reserved mana. These are heuristic
 adjustments, not a learned classifier or a complete combo planner. Reports carry
 card identities without actionable hidden object handles.
 
-Randomness is keyed by the game seed, seat, choice sequence and object. The
-same complete input replays identically. Sharp and expert use narrow spell-score
-bands so equal options vary between games; proven combat lethal is not randomized.
+Randomness is keyed by a **policy seed**, seat, choice sequence and object.
+The same complete input replays identically. Sharp and expert use narrow
+spell-score bands so equal options vary between games; proven combat lethal is
+not randomized.
+
+**The policy seed is not the game seed** (#87). It used to be: `Session::new`
+and the harness both handed every chair `preset.seed` — the stream that dealt
+the hands and shuffled the libraries — and this file wrote it down as the
+rule. For a heuristic that only breaks ties that is untidy; for anything that
+samples a belief it is a leak that no seat boundary catches, because nothing
+crosses one. A sampler drawing from the stream that produced the hidden state
+is correlated with the answer it is supposed to be guessing at. The invariant
+is the clean form of it: *with the same authorized observations, the same
+policy seed and the same budget, changing the real hidden state or the real
+RNG cannot change the agent's answer.*
+
+So `baylee_ai::policy_seed(game, seat)` derives it from what the whole table
+can already see — the **public** game identifier a host tells every seat, plus
+the seat number, under an explicit `POLICY_SEED_VERSION` that is hashed with
+them rather than written beside them. It is FNV-1a and not `DefaultHasher`,
+whose algorithm is stable only within one process: a recorded seed has to
+survive a toolchain bump, because a replay reproduces the chair as well as the
+shuffle. `Session::describe` is where the identifier arrives, once, before the
+first socket, so that is where a chair stops playing with the no-identifier
+derivation and starts playing with its own. The offline harness seats the
+agents it was handed exactly as they were built; a fixture that wants its
+chairs to differ says so with `with_seed`.
 See [the coverage TODO ledger](ai-coverage-todo.md) for concrete tests to add as
 new rules and complete deck families become available. Unsupported cards are
 not counted as successful end-to-end coverage.
@@ -267,6 +334,13 @@ Use the development profile: the workspace's release profile aborts on panic,
 whereas the scorer needs unwinding to record a broken game and continue.
 Report unfinished games beside every win rate. The two decks and paired seeds
 do not establish a universal ordering of playing strength.
+
+Those seeds are the **shuffle's**, and since #87 they are no longer the
+chair's: the harness seats the agents it is handed rather than overwriting
+them, so a scoreboard run varies the deal and not the tie-breaking. That is
+the correct direction — a chair keyed to the deal is the leak — but it does
+narrow what the scoreboard samples, and a run that wants both dimensions
+supplies an independent policy seed per game at the call site.
 
 Regression tests prove different decisions between every adjacent profile,
 repeatability, bounded search work, coloured payments, mana reservation,

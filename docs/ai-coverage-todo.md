@@ -32,7 +32,7 @@ Two rows are part-answered, and they say so in their own cell.
 | Full deck families | not a card shape | Paired seeds for aggro, control, ramp, combo, tokens, artifacts, enchantments, graveyard, mill and prison using complete implemented lists; report caps and refusals beside wins. |
 | Commander pair rules | 1 plain Partner; 0 other pairings | Real Partner, Partner With, Friends Forever, Background, Doctor's Companion and other legal pairings as their rules land; each commander's tax and damage remain separate. |
 | Commander identity changes | 3 controller changes, 4 token copies | Copy/control/zone changes preserve per-commander damage identity; a partner's damage never contributes to the other's 21. |
-| Contextual counters | 2 Sagas, 2 suspend | Lore and suspend are done (#73): `tactics::clock_score` reads the sign off the card the counter lands on, proved by `a_lore_counter_goes_on_my_own_saga_and_never_the_opponents` and `a_time_counter_delays_the_suspended_card_that_is_about_to_cast`. Three cases stay open and are scored 0 rather than guessed: vanishing, where a time counter runs the opposite way from suspend and which no card here prints; the lore counter that would reach a Saga's final chapter, which is that chapter and the Saga's death at once; and custom counters, which mean whatever their own card says. Neither clock is reachable from an effect a player targets — both are advanced by the engine — so there is no real-engine game to write until a card prints one, which `no_pool_card_puts_a_lore_or_time_counter_on_anything` waits for. |
+| Contextual counters | 2 Sagas, 2 suspend | Lore and suspend are done (#73): `tactics::clock_score` reads the sign off the card the counter lands on, proved by `a_lore_counter_goes_on_my_own_saga_and_never_the_opponents` and `a_time_counter_delays_the_suspended_card_that_is_about_to_cast`. Three cases stay open and are scored 0 rather than guessed: vanishing, where a time counter runs the opposite way from suspend and which no card here prints; the lore counter that would reach a Saga's final chapter, which is that chapter and the Saga's death at once; and custom counters, which mean whatever their own card says. Neither clock is reachable from an effect a player **targets** — both are advanced by the engine — so there is no real-engine game to write until a card prints one, which `only_the_named_cards_put_a_lore_or_time_counter_on_anything` waits for. **Trenzalore Clocktower arrived on 20.09.2026 and does not change that sentence** (#166). Its counter is inside `{T}: Add {U}. Put a time counter on Trenzalore Clocktower.` — one mana ability, no target — so nothing ever asks `clock_score` about it, and the worry the ticket was opened on does not hold either: the `Time` arm answers 0 for this card because it asks whether the card prints `Suspend` before it reads the count, which `a_time_counter_is_not_a_delay_on_a_card_that_is_not_counting_down` pins with the Clocktower's three counters losing to a suspended card's four. What the card did expose is **#170** — `mana_shape` matches a one-element `[Effect::AddMana]`, so a mana ability with a second sentence is invisible to the planner and the agent never taps this land at all (`a_mana_land_that_also_counts_is_invisible_to_the_planner`). |
 | Proliferate and replacement effects | 0 infect/wither; 6 replacement abilities | Select friendly benefits and hostile poison; account for counter doublers, prevention and replacement ordering. |
 | Planeswalker survival | 10 loyalty faces | Split attacks across players and walkers, loyalty-based prevention, static walker abilities, team blocks and multicolor protection. |
 | Modal and multi-target effects | 10 modal cards | Choosing the mode is done (#93): a modal spell whose every effect sits under a mode is offered no normal cast (CR 700.2a), so the agent used to take the first printed one at every table. `filter::cast_mode` ranks the offered modes by what they reach, proved by `a_modal_spell_takes_the_mode_that_reaches_something` against Sheoldred's Edict and pinned the other way by `a_normal_cast_is_not_traded_for_a_mode`. It reads only what the engine has not already decided — a mode that needs targets was offered because they exist (CR 700.2a, CR 700.2b) — and only the three untargeted board sentences (`SacrificeFilter`, `DestroyChosenForPlayers`, `DestroyAll`); everything else is `None` and keeps the printed order. Open: different targets serving different clauses, and sacrifice and reanimation ownership. |
@@ -91,6 +91,26 @@ them is a missing test:
   strictly dominates, is the scene that separates them. #157 carries it,
   together with the finding beside it: `combat::choose_blocks`, the
   `lookahead == 0` path, has no menace rule at all.
+
+  That sentence is as true after #156 as before it, and what changed is the
+  **cost**. `combat::can_block` used to ask `state.combat.blockers_of(attacker)`
+  before anything was recorded, so menace read as plain unblockable and the
+  engine offered such an attacker to nobody — the missing rule was dormant,
+  and an injection removing it stayed green because no game reached it.
+  `cef30070` fixed that reading, and the offer now names a menace attacker
+  wherever two creatures could legally block it. The same missing rule is
+  now three of the five profiles (`NOVICE`, `CASUAL`, `STEADY`) answering
+  with one blocker, which `Engine::declare_blockers` refuses **whole** rather
+  than per pair: every other block in that declaration is lost with it, and
+  for an AI chair nothing answers on its behalf — `Session::pump` passes
+  priority only when the refusal came at a `Pending::Priority`, and a
+  `ChooseBlockers` is not one, so it returns without advancing that question.
+  No clock expires either; that one is for seats answering over a socket.
+  Whether a later `pump` recovers is unmeasured (#180). #157's
+  `enforce_menace` is what stands between that and a stalled table, and it is
+  load-bearing rather than defensive as of that commit — a statement about
+  code that exists, since the shallow path already reads menace off the
+  view's projected keywords at `combat.rs:315`.
 
 So a row that survives its injection has three readings and they point
 opposite ways — the rule is dead, the test is missing, or nobody ever built

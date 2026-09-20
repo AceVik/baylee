@@ -2,10 +2,10 @@
 
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
 use baylee_core::ids::PlayerId;
-use baylee_core::preset::{DeckEntry, GamePreset};
+use baylee_core::preset::{DeckEntry, GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
-use baylee_gamehost::{PlayerView, RegistryLookup, SeatContext, player_view};
+use baylee_gamehost::{PlayerView, RegistryLookup, SeatContext, SeatKind, Session, player_view};
 
 /// The view a seat gets at a decision point, as every fixture in this file
 /// wants it: the seat being asked is the seat the table is waiting for, and
@@ -44,6 +44,264 @@ fn position(hand: &[&str], board: &[&str]) -> GamePreset {
     preset.seats[0].starting_hand = Some(hand.iter().map(|name| entry(name)).collect());
     preset.seats[0].starting_battlefield = board.iter().map(|name| entry(name)).collect();
     preset
+}
+
+/// #87. The chair a `Session` seats is not keyed to the shuffle.
+///
+/// `Session::new` handed every AI seat `preset.seed` — the same stream that
+/// dealt the hands and shuffled the libraries — and `docs/house-ai.md` wrote
+/// it down as the rule. For a heuristic that only breaks ties that is
+/// merely untidy; for anything that *samples* it is a leak no seat boundary
+/// catches, because nothing crosses one: a sampler drawn from the stream
+/// that produced the hidden state is correlated with the answer it is
+/// supposed to be guessing at.
+///
+/// So the question is asked of chairs from games that differ in **nothing but
+/// the seed**, over a fixture whose hand and battlefield are written into the
+/// preset and therefore do not move with it. Every answer must match. The tie
+/// is two identical Brainstorms, which is the shape the noise exists to
+/// break — without one the assertion would be satisfied by an agent that has
+/// no randomness to leak, which is what the test below holds separately.
+#[test]
+fn a_session_agent_does_not_inherit_the_seed_that_dealt_the_hands() {
+    let base = position(&["Brainstorm", "Brainstorm"], &["Island", "Island"]);
+    let seated = |seed: u64| {
+        let mut preset = base.clone();
+        preset.seed = seed;
+        preset.seats[0].controller = SeatController::Ai(AIProfile::EXPERT);
+        preset
+    };
+    let chair = |preset: &GamePreset| match Session::new(preset)
+        .expect("the fixture builds a session")
+        .seat_kind(PlayerId::new(0))
+        .expect("seat zero is at the table")
+    {
+        SeatKind::Ai(agent) => agent.clone(),
+        seat => panic!("seat zero is not an AI chair: {seat:?}"),
+    };
+
+    let dealt = seated(41);
+    let here = chair(&dealt);
+    // One other seed would almost always agree by luck: the noise only
+    // decides when two scores are equal, and when it does it still has to
+    // land on the other side. The unit test for the same tie sweeps 32
+    // seeds for that reason, and so does this.
+    let elsewhere: Vec<HeuristicAgent> = (0..32).map(|s| chair(&seated(s))).collect();
+
+    let mut engine = Engine::new(&dealt, RegistryLookup).unwrap();
+    let mut asked = 0usize;
+    for seq in 0..120 {
+        let Some(seat) = pending_player(engine.pending()) else {
+            break;
+        };
+        let view = asked_view(engine.state(), seat, seq, engine.pending());
+        if view.turn > 2 {
+            break;
+        }
+        let action = match engine.pending() {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            _ if seat == PlayerId::new(0) => {
+                let mine = here.act(&view, engine.pending());
+                for (seed, chair) in elsewhere.iter().enumerate() {
+                    assert_eq!(
+                        mine,
+                        chair.act(&view, engine.pending()),
+                        "the same question, answered differently by a chair from \
+                         a game that differs only in the seed its cards were \
+                         dealt from (seed {seed}, question {asked}, seq {seq})"
+                    );
+                }
+                asked += 1;
+                mine
+            }
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            // The opponent is a post, not a player: it swings with nothing
+            // and blocks with nothing, so the only thing moving between the
+            // two runs is the chair under test.
+            Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
+                attackers: Vec::new(),
+            },
+            Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers {
+                blockers: Vec::new(),
+            },
+            other => panic!("unexpected opposing question: {other:?}"),
+        };
+        engine
+            .apply(seat, action)
+            .expect("every answer came out of the offer");
+    }
+    assert!(
+        asked >= 8,
+        "the premise: this fixture has to reach the tie often enough to be \
+         able to disagree, and it asked only {asked} questions"
+    );
+}
+
+/// #87, the other half: the chair still *has* randomness, and it is the
+/// table's own.
+///
+/// The test above is satisfied by an agent with no randomness at all, and by
+/// a `describe` that does nothing — every chair would share the
+/// no-identifier derivation and agree for that reason instead of the right
+/// one. So the same tie is asked of chairs from one preset described under
+/// thirty-two different public game identifiers, and they must not all
+/// answer alike. That is the counter-test for the assertion above and the
+/// only thing that says the identifier reaches the chair at all.
+#[test]
+fn a_described_table_breaks_its_ties_with_its_own_randomness() {
+    let mut preset = position(&["Brainstorm", "Brainstorm"], &["Island", "Island"]);
+    preset.seats[0].controller = SeatController::Ai(AIProfile::EXPERT);
+    let chair = |game: &str| {
+        let mut session = Session::new(&preset).expect("the fixture builds a session");
+        session.describe(game.to_string(), Vec::new());
+        match session
+            .seat_kind(PlayerId::new(0))
+            .expect("seat zero is at the table")
+        {
+            SeatKind::Ai(agent) => agent.clone(),
+            seat => panic!("seat zero is not an AI chair: {seat:?}"),
+        }
+    };
+    let tables: Vec<HeuristicAgent> = (0..32).map(|i| chair(&format!("game-{i}"))).collect();
+
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let mut differed = false;
+    let mut asked = 0usize;
+    for seq in 0..120 {
+        let Some(seat) = pending_player(engine.pending()) else {
+            break;
+        };
+        let view = asked_view(engine.state(), seat, seq, engine.pending());
+        if view.turn > 2 {
+            break;
+        }
+        let action = match engine.pending() {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            _ if seat == PlayerId::new(0) => {
+                let answers: Vec<PlayerAction> = tables
+                    .iter()
+                    .map(|t| t.act(&view, engine.pending()))
+                    .collect();
+                differed |= answers.iter().any(|a| *a != answers[0]);
+                asked += 1;
+                answers[0].clone()
+            }
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
+                attackers: Vec::new(),
+            },
+            Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers {
+                blockers: Vec::new(),
+            },
+            other => panic!("unexpected opposing question: {other:?}"),
+        };
+        engine
+            .apply(seat, action)
+            .expect("every answer came out of the offer");
+    }
+    assert!(asked >= 8, "the premise: only {asked} questions were asked");
+    assert!(
+        differed,
+        "thirty-two tables, one tie, and every chair answered it the same \
+         way: either the identifier never reaches the chair or the chair has \
+         no randomness left for the test above to be about"
+    );
+}
+
+/// #166 / #170. The pool's first card to put a time counter on anything is
+/// a land the agent cannot see as a land.
+///
+/// Trenzalore Clocktower is `{T}: Add {U}. Put a time counter on Trenzalore
+/// Clocktower.`, and #166 was opened on the worry that the counter would be
+/// *scored* backwards — a time counter is a delay on a suspended card, and
+/// this one is a private count to twelve that its controller wants. It is
+/// not scored at all, backwards or otherwise: the `AddCounter` sits inside
+/// the mana ability with no target, so nothing ever asks `clock_score` about
+/// it. The unit test beside `a_time_counter_delays_the_suspended_card_that_is_about_to_cast`
+/// holds the scoring half.
+///
+/// What the card actually does is worse and is **#170**: `mana_shape` matches
+/// a one-element `[Effect::AddMana { .. }]`, so a mana ability with any second
+/// sentence is invisible to the planner. The Clocktower is one of 92 such
+/// faces — every painland, every Karoo, every Odyssey filter land, the
+/// Talismans and Signets, Ancient Tomb.
+///
+/// So this is a **pinned limitation** and it is written to fail the day it is
+/// fixed. The first assertion is the one that keeps it honest: the engine
+/// *does* offer the ability, so what follows is the agent declining an offer
+/// rather than a board that never had one. Without it, deleting the
+/// Clocktower from the fixture would leave the other two assertions green.
+#[test]
+fn a_mana_land_that_also_counts_is_invisible_to_the_planner() {
+    let mut offered = false;
+    let mut pressed = false;
+    let mut cast = false;
+    let mut control_cast = false;
+    for land in ["Trenzalore Clocktower", "Island"] {
+        let preset = position(&["Brainstorm", "Brainstorm"], &[land, land]);
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        for seq in 0..100 {
+            let Some(seat) = pending_player(engine.pending()) else {
+                break;
+            };
+            let view = asked_view(engine.state(), seat, seq, engine.pending());
+            if view.turn > 1 {
+                break;
+            }
+            let ours = |id| {
+                view.object(id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == entry(land).card)
+            };
+            if let Pending::Priority { legal, .. } = engine.pending()
+                && seat == PlayerId::new(0)
+                && legal.abilities.iter().any(|(id, _)| ours(*id))
+                && land == "Trenzalore Clocktower"
+            {
+                offered = true;
+            }
+            let action = match engine.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                _ if seat == PlayerId::new(0) => agent.act(&view, engine.pending()),
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                other => panic!("unexpected opposing question: {other:?}"),
+            };
+            if seat == PlayerId::new(0) {
+                match &action {
+                    PlayerAction::ActivateManaAbility { source, .. }
+                    | PlayerAction::ActivateAbility { source, .. }
+                        if ours(*source) && land == "Trenzalore Clocktower" =>
+                    {
+                        pressed = true;
+                    }
+                    PlayerAction::CastSpell { .. } if land == "Trenzalore Clocktower" => {
+                        cast = true;
+                    }
+                    PlayerAction::CastSpell { .. } => control_cast = true,
+                    _ => {}
+                }
+            }
+            engine
+                .apply(seat, action)
+                .expect("every planned action is legal");
+        }
+    }
+    assert!(
+        control_cast,
+        "the control is the measurement: two Islands and two Brainstorms must \
+         produce a cast, or this test says nothing about the Clocktower"
+    );
+    assert!(
+        offered,
+        "the engine must offer the Clocktower's mana ability, or what follows \
+         is a board with nothing to press rather than an agent declining"
+    );
+    assert!(
+        !pressed && !cast,
+        "#170 is fixed: the planner now reads a mana ability that has a second \
+         sentence. Delete this test and assert the cast instead."
+    );
 }
 
 #[test]
@@ -87,6 +345,101 @@ fn a_planned_multicolour_cast_survives_the_mana_choice_round_trip() {
         assert!(
             cast,
             "{profile:?}: two untapped sources must cast Strix despite the white-heavy hand"
+        );
+    }
+}
+
+/// #168. A permanent that prints a free tap and a priced one is ranked by
+/// what the mana **costs**, not only by how much of it there is.
+///
+/// `policy::sources` collapses one permanent to one `manaplan::Source`,
+/// because nothing under `manaplan::plan` keys on `ObjectId` and two entries
+/// with one id would let the solver tap the same land twice. So the entry
+/// that survives the dedup is the *only* mode the agent will ever use for
+/// that permanent — and the key ranked on mana made, then colours reached,
+/// and never on the price.
+///
+/// Two shapes, one per column of that key:
+///
+/// - **Havenwood Battleground** — `{T}: Add {G}` beside `{T}, Sacrifice this
+///   land: Add {G}{G}`. More mana won, so the agent sold the land for a
+///   green it already had.
+/// - **Spire of Industry** — `{T}: Add {C}` beside `{T}, Pay 1 life: Add one
+///   mana of any color`. Equal amounts, five colours against one, so it paid
+///   the life even when colourless was the whole of what the plan asked for.
+///
+/// The assertion is the **ability index** rather than the board, because a
+/// board says what survived and an index says which button was pressed: a
+/// Havenwood still in play could equally mean the agent never tapped it.
+/// `pressed` being non-empty is what rules that out, and it is the assertion
+/// that would catch a fixture whose land came in tapped.
+#[test]
+fn a_permanent_with_a_free_and_a_priced_tap_is_ranked_by_what_it_costs() {
+    for (board, spell, land) in [
+        (
+            vec!["Havenwood Battleground"],
+            "Llanowar Elves",
+            "Havenwood Battleground",
+        ),
+        (
+            vec!["Spire of Industry", "Mox Opal"],
+            "Sol Ring",
+            "Spire of Industry",
+        ),
+    ] {
+        let preset = position(&[spell], &board);
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let mut pressed: Vec<u32> = Vec::new();
+        let mut cast = false;
+        for seq in 0..100 {
+            let Some(seat) = pending_player(engine.pending()) else {
+                break;
+            };
+            let view = asked_view(engine.state(), seat, seq, engine.pending());
+            if view.turn > 1 {
+                break;
+            }
+            let is_land = |id| {
+                view.object(id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == entry(land).card)
+            };
+            let action = match engine.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                _ if seat == PlayerId::new(0) => agent.act(&view, engine.pending()),
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                other => panic!("unexpected opposing question: {other:?}"),
+            };
+            if seat == PlayerId::new(0) {
+                match &action {
+                    PlayerAction::ActivateAbility {
+                        source,
+                        ability_index,
+                    } if is_land(*source) => pressed.push(*ability_index),
+                    PlayerAction::CastSpell { .. } => cast = true,
+                    _ => {}
+                }
+            }
+            engine
+                .apply(seat, action)
+                .expect("every planned action is legal");
+        }
+        assert!(
+            cast,
+            "{land}: the agent never cast {spell}, so the plan this \
+             test is about was never made"
+        );
+        assert!(
+            !pressed.is_empty(),
+            "{land}: the agent never tapped it at all, so the ranking below \
+             is being read off an empty list"
+        );
+        assert!(
+            pressed.iter().all(|index| *index == 0),
+            "{land}: the agent pressed {pressed:?}, and index 0 is the free \
+             mode. A priced mode that wins the dedup is the only mode there \
+             is for that permanent"
         );
     }
 }

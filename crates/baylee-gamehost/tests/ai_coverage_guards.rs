@@ -51,7 +51,7 @@
 //! says nothing about.
 
 use baylee_cards::dsl::{
-    AbilityDef, CardDef, CostPart, CounterKind, Effect, KeywordSet, PartnerKind,
+    AbilityDef, CardDef, CostPart, CounterKind, Effect, KeywordSet, Modifier, PartnerKind,
 };
 use baylee_core::types::TypeSet;
 
@@ -472,6 +472,96 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
     }
 }
 
+/// A granted mana ability charges the tap and nothing else, in this pool.
+///
+/// `simple_mana`'s doc — and `mana_shape` under it — says it reads a
+/// **free** mana ability, and what it actually checks is `cost.mana ==
+/// ZERO`. Free of *mana* is not free: `cost.parts` may still ask for a life
+/// payment, a counter or the permanent itself, and nothing in that family
+/// looks. For the AI's planner that was #168, and the fix is a price column
+/// in `policy::sources` rather than a change to the reader, because the
+/// reader answers what comes *out* of an ability and the price is what goes
+/// in.
+///
+/// For `PublicObject::granted_mana` it is a different question with the same
+/// hole, and the answer today is that the hole is unreachable — which is a
+/// fact about this pool and not about the code, so it is written here where
+/// a card can break it rather than in a comment where it cannot. Every
+/// `Modifier::GrantActivated` that grants a *mana* ability costs
+/// `Cost::TAP`, so the projection and the offer agree by accident of what is
+/// printed. The day one does not, `docs/protocol.md` §"Granted mana" is the
+/// paragraph that breaks: a land the planner counts on and the engine
+/// refuses.
+///
+/// The population bound is the load-bearing half. A grant hides in **two**
+/// shapes — `AbilityDef::Static`, which `ability_effects` deliberately
+/// returns nothing for, and `Effect::CreateContinuousEffect` inside an
+/// ordinary effect list — and a walk that found only one of them would
+/// report a clean zero over a third of the sites. Chromatic Lantern and
+/// Great Divide Guide are statics; Urza's Saga writes both of its through
+/// chapters.
+#[test]
+fn no_granted_mana_ability_charges_more_than_the_tap() {
+    let mut sites = 0;
+    let mut mana_sites = 0;
+    let mut priced: Vec<&str> = Vec::new();
+    for def in baylee_cards::all() {
+        let mut modifiers: Vec<&'static Modifier> = Vec::new();
+        for ability in abilities(def) {
+            if let AbilityDef::Static(statics) = ability {
+                modifiers.push(&statics.modifier);
+            }
+        }
+        for effects in abilities(def).flat_map(ability_effects) {
+            let mut seen = 0;
+            Effect::walk(effects, &mut seen, &mut |effect| {
+                if let Effect::CreateContinuousEffect { modifier, .. } = effect {
+                    modifiers.push(modifier);
+                }
+            });
+        }
+        for modifier in modifiers {
+            let Modifier::GrantActivated {
+                cost, mana_ability, ..
+            } = modifier
+            else {
+                continue;
+            };
+            sites += 1;
+            if !*mana_ability {
+                continue;
+            }
+            mana_sites += 1;
+            if cost.mana != baylee_core::mana::ManaCost::ZERO
+                || cost.parts.iter().any(|p| !matches!(p, CostPart::TapSelf))
+            {
+                priced.push(def.faces[0].name);
+            }
+        }
+    }
+    // Four on 20.09.2026 — Chromatic Lantern, Great Divide Guide and both of
+    // Urza's Saga's — of which three grant mana. Bounds and not equalities,
+    // because a card added is not news and a walk that stopped descending is.
+    assert!(
+        sites >= 4,
+        "the walk found {sites} `GrantActivated` sites and there were four: \
+         it is reaching only one of the two shapes a grant is written in"
+    );
+    assert!(
+        mana_sites >= 3,
+        "the walk found {mana_sites} granted *mana* abilities and there were \
+         three, so the assertion below is over a list too short to fail"
+    );
+    assert!(
+        priced.is_empty(),
+        "{priced:?} grants a mana ability that charges more than `{{T}}`, and \
+         `simple_mana` reads it as free. `PublicObject::granted_mana` would \
+         project mana the engine will not hand over for nothing — see #168 \
+         for the same hole on the planner's side, and `docs/protocol.md` \
+         §\"Granted mana\" for why an offer and a projection may not disagree"
+    );
+}
+
 /// **The tripwire fired on 20.09.2026 and this is what is left of it.**
 ///
 /// It used to assert a zero. The counter-clock rows of #73 were answered by
@@ -483,17 +573,39 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
 /// test.
 ///
 /// Trenzalore Clocktower is that card: `{T}: Add {U}. Put a time counter on
-/// Trenzalore Clocktower.` The game is owed and is **#166**, which is also
-/// where the harder half is written down — `clock_score`'s `Time` arm is
-/// written for suspend, and a private count to twelve on a land runs the
-/// other way, so the rule is not merely untested on a board but likely to
-/// score this card backwards.
+/// Trenzalore Clocktower.` **#166 was opened on the prediction that
+/// `clock_score` would score it backwards, and that prediction is wrong.**
+/// The `Time` arm is written for suspend, and it says so before it reads
+/// anything: it asks whether the card underneath prints `Suspend` and
+/// answers 0 when it does not, which is the same refusal it already gives
+/// vanishing. `a_time_counter_is_not_a_delay_on_a_card_that_is_not_counting_down`
+/// pins it with the deciding shape — the Clocktower carrying **three**
+/// counters against a suspended card's **four**, so a rule reading the count
+/// alone would take the Clocktower and this one does not.
 ///
-/// So the zero is a **pinned list** now, the same shape as
+/// It is not reached at all, either. The counter is inside the mana ability
+/// and has no target, so `targets` — the only caller of `clock_score` — is
+/// never consulted about it. Both halves had to be measured, because either
+/// one alone would have been the wrong reason.
+///
+/// **So the list stays, and deleting it is no longer part of closing #166.**
+/// The ticket said to delete it once the game was written, on the premise
+/// that this card made the decision reachable; it does not, and a tripwire
+/// that has not yet caught what it watches for is not one to take down. What
+/// it is now waiting for is narrower and worth saying: a lore or time
+/// counter effect that **targets**, which is the only shape that reaches the
+/// rule. The played game the ticket asked for exists —
+/// `a_mana_land_that_also_counts_is_invisible_to_the_planner` in
+/// `ai_decisions.rs` — and it pins the real consequence of this card, which
+/// is **#170**: the planner cannot read a mana ability that has a second
+/// sentence, so the agent never taps this land.
+///
+/// The zero is a **pinned list** now, the same shape as
 /// `LANDS_THAT_WOULD_COUNT_THEMSELVES`: it names what is reachable, it is
-/// red the day a second card joins, and it carries the ticket. Deleting it
-/// is part of closing #166. Relaxing it further is not, and neither is
-/// adding a name to the list without the game that name now owes.
+/// red the day a second card joins, and it carries the ticket. Relaxing it
+/// is not on the table, and neither is adding a name to the list without
+/// reading, for that name, the two questions asked above — does anything
+/// target it, and what does the arm answer.
 ///
 /// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the

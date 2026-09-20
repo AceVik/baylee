@@ -536,6 +536,47 @@ fn board_pressure(view: &PlayerView, player: PlayerId) -> i32 {
 }
 
 /// Mana floating in the acting seat's pool (cmc units).
+/// Which version of the policy-seed derivation this is.
+///
+/// Inside the hash rather than beside it, so a change to the recipe changes
+/// every seed it produces: a seed is *recorded* — a replay has to reproduce
+/// the chair as well as the shuffle — and two recipes agreeing on a value by
+/// accident would be a replay that silently plays a different game.
+pub const POLICY_SEED_VERSION: u64 = 1;
+
+/// The randomness an AI chair plays with, derived from what the whole table
+/// can already see.
+///
+/// Not the game's seed. That stream dealt the hands and shuffled the
+/// libraries, and an agent drawing from it is correlated with the hidden
+/// state it is supposed to be guessing at — a leak no seat boundary catches,
+/// because nothing crosses one (#87). For a heuristic that only breaks ties
+/// it is untidy; for anything that samples a belief it is the whole problem.
+/// The invariant this exists to make true: with the same authorized
+/// observations, the same policy seed and the same budget, changing the real
+/// hidden state or the real RNG cannot change the answer.
+///
+/// `game` is the **public** identifier a host already tells every seat, so
+/// two tables differ and two runs of one table do not. The seat goes in as a
+/// fixed one-byte suffix, which is what makes `game ‖ seat` unambiguous
+/// without a length or a separator: every byte before the last belongs to
+/// the identifier, so no two pairs can write the same input. FNV-1a and not
+/// `DefaultHasher`: the latter's algorithm is stable only within a process,
+/// so a recorded seed would drift on a toolchain bump.
+#[must_use]
+pub fn policy_seed(game: &str, seat: u8) -> u64 {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    POLICY_SEED_VERSION
+        .to_le_bytes()
+        .iter()
+        .chain(game.as_bytes())
+        .chain(std::iter::once(&seat))
+        .fold(OFFSET, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(PRIME)
+        })
+}
+
 /// The player who must answer a pending choice.
 #[must_use]
 pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
@@ -996,6 +1037,69 @@ mod tests {
         );
     }
 
+    /// #166. A time counter is only a *delay* on a card that is counting
+    /// down, and the rule asks the card rather than the counter.
+    ///
+    /// Trenzalore Clocktower is the pool's first card that puts a time
+    /// counter on anything — `{T}: Add {U}. Put a time counter on Trenzalore
+    /// Clocktower.` — and its counters run the other way from suspend: a
+    /// private count to twelve on a land, where more is better for the
+    /// controller. The worry that came with it was that `clock_score` would
+    /// score it backwards, since its `Time` arm is written for suspend.
+    ///
+    /// It does not. The arm asks whether the card underneath prints
+    /// `Suspend` and answers 0 when it does not, which is the same refusal
+    /// it already gives vanishing. The counters are the deciding part of
+    /// this fixture: the Clocktower carries **three** and the suspended card
+    /// **four**, so a rule that read the count alone — one upkeep sooner is
+    /// worth more — would take the Clocktower. Taking Ancestral Vision is
+    /// what says the card is being read and not just its counters.
+    #[test]
+    fn a_time_counter_is_not_a_delay_on_a_card_that_is_not_counting_down() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};
+        use baylee_engine::engine::DecisionContext;
+        let enemy = PlayerId::new(1);
+        let mut clocktower = carded(
+            permanent(obj(1), enemy, 0),
+            "Trenzalore Clocktower",
+            TypeSet::LAND,
+        );
+        clocktower.name = "Trenzalore Clocktower".into();
+        clocktower.power = None;
+        clocktower.toughness = None;
+        clocktower.counters = vec![CounterEntry {
+            kind: CounterKind::Time,
+            count: 3,
+        }];
+        let mut v = view(0, &[20, 20], vec![clocktower]);
+        v.exile[1] = vec![suspended(obj(2), enemy, 4)];
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::AddCounter {
+            kind: Counter::Time,
+            amount: Amount::Fixed(1),
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "the Clocktower was read as a clock running out, and it is a \
+             clock the land's controller is winding up"
+        );
+    }
+
     #[test]
     fn third_iteration_burn_finishes_the_player_before_killing_a_creature() {
         use baylee_cards_dsl::{Amount, Effect, TargetSpec};
@@ -1022,6 +1126,39 @@ mod tests {
                 objects: vec![],
                 players: vec![PlayerId::new(1)]
             }
+        );
+    }
+
+    /// #87. The policy seed is a recorded derivation, not a hash of the day.
+    ///
+    /// Four things at once, because they fail separately: it is stable
+    /// across runs and toolchains (the pinned value is the whole point of
+    /// calling a seed *recorded* — a replay has to reproduce the chair as
+    /// well as the shuffle), two tables differ, two seats at one table
+    /// differ, and the length is part of the input so one table's chair
+    /// cannot collide with another's by the two strings running together.
+    #[test]
+    fn a_policy_seed_is_recorded_and_belongs_to_one_seat_at_one_table() {
+        assert_eq!(
+            policy_seed("g1", 0),
+            0xa485_49e4_7ab1_f0a8,
+            "the derivation changed without POLICY_SEED_VERSION changing \
+             with it, so every recorded game replays a different chair"
+        );
+        assert_eq!(policy_seed("g1", 0), policy_seed("g1", 0), "not stable");
+        // Every pair of a small grid is its own value, which is the property
+        // the one-byte suffix buys: no table's chair is another's.
+        let grid: Vec<u64> = ["", "g1", "g2", "a game with spaces"]
+            .iter()
+            .flat_map(|game| (0..8u8).map(move |seat| policy_seed(game, seat)))
+            .collect();
+        let mut seen = grid.clone();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(
+            seen.len(),
+            grid.len(),
+            "two seats or two tables were handed one stream of randomness"
         );
     }
 
@@ -2069,8 +2206,13 @@ mod tests {
     /// before anything is recorded: the offer now names a menace attacker
     /// wherever two creatures could legally block it, so the day this pass
     /// stands between three of five profiles and a stalled seat has arrived.
-    /// Provisional — what the pass is worth once it decides a game is this
-    /// test's owner's to state.
+    /// It is worth the **table**, not a point of evaluation: a refused
+    /// declaration is not a worse block, it is no answer at all, and for an
+    /// AI chair nothing is behind it. `Session::pump` passes priority when
+    /// the engine refuses at a `Pending::Priority`; a `ChooseBlockers` is not
+    /// one, so it returns without advancing that question. No clock expires
+    /// either — that one is for seats answering over a socket, which an AI
+    /// chair is not. Stall or livelock is #180's to settle.
     ///
     /// The third position is the one that measures `search`'s own rule
     /// rather than the pass added for the shallow profiles. A menace
@@ -2096,8 +2238,19 @@ mod tests {
             );
         }
 
-        // The same attack with one creature to block with: there is no legal
-        // block, and taking four at four life is what the rules leave.
+        // The same attack with one creature to block with. **The engine no
+        // longer offers this**: since #156 `combat::menace_satisfiable` drops
+        // a menace attacker from the *offer* entirely where only one creature
+        // could legally block it, so a `ChooseBlockers` naming this pairing
+        // cannot arrive from a real game.
+        //
+        // It is kept because it measures the AI's own arithmetic, which is a
+        // different question from what the engine hands over: `choose_blocks`
+        // computes an answer to this shape whether or not anything presents
+        // it, and a pass that only worked on offers the engine had already
+        // filtered would be one nothing tested. What had to stop being
+        // claimed is that this is a position a game reaches — the line above
+        // said "what the rules leave", which read as a board and was one.
         let (v, pending) = menace_attack((4, 4), &[2], 4);
         for (name, profile) in PROFILES {
             assert_eq!(
