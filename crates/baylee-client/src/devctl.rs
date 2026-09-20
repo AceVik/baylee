@@ -1066,6 +1066,38 @@ fn write_screenshot(
 struct Believed<'w, 's> {
     duel: Option<Res<'w, Duel>>,
     settings: Option<Res<'w, ClientSettings>>,
+    /// Which screen the client is on, which nothing here could say before.
+    ///
+    /// The sharper half of what #135 cost a reporter. *"The state was never
+    /// entered"* and *"the state was entered and the input was ignored"* are
+    /// different bugs with different fixes, and a probe that cannot separate
+    /// them turns whoever is holding it into a guesser — #135's own honest
+    /// limit, *"I did not photograph whatever was up during those 280
+    /// seconds"*, was forced by this absence and not by the reporter.
+    ///
+    /// Never `null`: there is always a phase, so a missing one would be a
+    /// fault in the probe rather than an answer from it.
+    phase: Option<Res<'w, State<crate::DuelPhase>>>,
+    /// Every way out of a finished game, and which of them the keyboard can
+    /// see.
+    ///
+    /// `Press` is the component both readers of the end screen's buttons
+    /// agree on; `DuelExit` is the marker only one of them filters by
+    /// (`lobby::systems::leave_keys`), while `leave_clicks` walks the clicked
+    /// entity's ancestry instead. Reporting the pair is what lets a caller
+    /// tell a control the keyboard cannot reach from one that is simply
+    /// absent — the live question in #135, and one no count could answer.
+    exits: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static crate::lobby::Press,
+            Option<&'static crate::lobby::DuelExit>,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
     /// Cards playing their way off the table; only the count is reported.
     leaving: Query<'w, 's, &'static crate::table::Departing>,
     shelves: Option<Res<'w, crate::hud::Shelves>>,
@@ -1208,6 +1240,57 @@ fn sources_json(duel: &Duel) -> String {
     format!("[{}]", rows.join(","))
 }
 
+/// Every way out of a finished game, and which of them the keyboard sees.
+///
+/// `null` outside [`crate::DuelPhase::Finished`] and **not** `[]`: no end
+/// screen is standing, so the question is being asked at the wrong moment,
+/// and "nothing to report" and "not applicable" are different answers that a
+/// bare empty list would merge. Inside `Finished` an empty list is itself
+/// worth reading — it says the sheet has no way out at all.
+///
+/// `duel_exit` is the point of the row rather than a detail of it. The two
+/// readers of these buttons do not ask the same question:
+///
+/// ```text
+/// leave_clicks: presses: Query<&Press>                  // walks the ancestry
+/// leave_keys:   exits:   Query<&Press, With<DuelExit>>  // filtered
+/// ```
+///
+/// so a working click proves only that a `Press` sits *somewhere* in the
+/// clicked entity's lineage, and says nothing about whether the filtered
+/// query finds one. A list of ways out that did not carry this would be a
+/// longer list answering the same unanswerable question.
+fn exits_json(believed: &Believed) -> String {
+    let finished = believed
+        .phase
+        .as_ref()
+        .is_some_and(|phase| *phase.get() == crate::DuelPhase::Finished);
+    if !finished {
+        return "null".to_string();
+    }
+    let rows: Vec<String> = believed
+        .exits
+        .iter()
+        .map(|(entity, press, marked, node, place)| {
+            let scale = node.inverse_scale_factor;
+            let size = node.size() * scale;
+            let mid = place.translation * scale;
+            format!(
+                "{{\"press\":{press},\"entity\":{entity},\"duel_exit\":{marked},\
+                 \"at_x\":{x:.1},\"at_y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}}}",
+                press = quoted(&format!("{press:?}")),
+                entity = entity.index(),
+                marked = marked.is_some(),
+                x = mid.x,
+                y = mid.y,
+                w = size.x,
+                h = size.y,
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
 /// The refusal in the prompt bar's one slot, as **who wrote it** and **what
 /// it says**.
 ///
@@ -1326,7 +1409,18 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
-         \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves}}}",
+         \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves},\
+         \"phase\":{phase},\"exits\":{exits}}}",
+        // Which screen this is, and — on the end screen only — the ways off
+        // it with `duel_exit` saying which the keyboard can see. See
+        // [`exits_json`] for why that flag is the row rather than a detail
+        // of it, and `Believed::phase` for what a probe that cannot name its
+        // own screen costs a reporter.
+        phase = believed
+            .phase
+            .as_ref()
+            .map_or_else(|| "null".to_string(), |p| quoted(&format!("{:?}", p.get()))),
+        exits = exits_json(believed),
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),
         shelves = shelves_json(

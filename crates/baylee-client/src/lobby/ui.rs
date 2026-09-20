@@ -29,8 +29,14 @@ pub(super) struct LeaveButton;
 ///
 /// The "are these already placed" question, asked of the buttons rather than
 /// of their holder for the same reason: the holder may be the duel's.
+///
+/// `pub(crate)` for the probe alone: `devctl`'s `exits` row reports whether
+/// each on-screen `Press` also carries this, because
+/// `systems::leave_keys` filters by it while `leave_clicks`
+/// walks the clicked entity's ancestry, and a caller cannot otherwise tell a
+/// way out the keyboard is blind to from one that is not there (#135).
 #[derive(Component)]
-pub(super) struct DuelExit;
+pub(crate) struct DuelExit;
 
 /// How much room there is, in three sizes.
 ///

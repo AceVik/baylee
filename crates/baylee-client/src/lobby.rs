@@ -301,6 +301,27 @@ mod preview;
 mod systems;
 mod ui;
 
+/// The end screen's keyboard marker, for the probe and for nothing else.
+///
+/// A re-export rather than `pub(crate) mod ui`, because what `devctl` needs
+/// is this one component and none of the several hundred items beside it.
+/// `Press` is already re-exported below with the rest of the lobby's
+/// vocabulary; this is the half that was private, and it is the half that
+/// matters: `devctl`'s `exits` row reports, for every on-screen `Press`,
+/// whether it *also* carries `DuelExit`. The two readers of these buttons
+/// disagree about which entity is the control — `systems::leave_keys`
+/// filters by this marker while `systems::leave_clicks` walks the clicked
+/// entity's ancestry — so without the pair a caller cannot tell a way out
+/// the keyboard is blind to from one that does not exist (#135).
+///
+/// Carries `devctl`'s own `cfg` and not a narrower one: the marker is
+/// exported for the probe, so it is exported exactly when the probe is
+/// compiled. Without this the default build fails on an unused import —
+/// which is the same fault as the one that put this commit here, in the
+/// other direction, and it was found the same way: by compiling both.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub(crate) use ui::DuelExit;
+
 #[cfg(test)]
 mod tests;
 
