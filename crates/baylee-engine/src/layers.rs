@@ -288,7 +288,7 @@ fn applies(
     projected: &Characteristics,
 ) -> bool {
     match &fx.filter {
-        EffectFilter::ObjectIs(id) => *id == obj.id,
+        EffectFilter::ObjectIs(..) => fx.filter.names(obj),
         EffectFilter::Dsl(filter) => eval::matches_projected(
             filter,
             state,

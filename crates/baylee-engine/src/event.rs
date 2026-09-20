@@ -183,12 +183,14 @@ pub enum GameEvent {
     },
     /// A spell or ability left the stack **without resolving**.
     ///
-    /// Today that is one rule: a triggered ability whose intervening-`if`
-    /// clause has stopped being true "is removed from the stack and does
-    /// nothing" (CR 603.4). The rule this shares a door with is CR 608.2b,
-    /// where a spell or ability all of whose targets have become illegal
-    /// does not resolve either — a check this engine does not make yet, and
-    /// which is named in `docs/engine-gaps.md`.
+    /// Two rules, through one door. A triggered ability whose
+    /// intervening-`if` clause has stopped being true "is removed from the
+    /// stack and does nothing" (CR 603.4); and a spell or ability all of
+    /// whose targets have become illegal "doesn't resolve" and is removed
+    /// the same way (CR 608.2b). The second one arrived after this comment
+    /// said it had not, which is why it is worth saying that the event was
+    /// already the right shape for it: the difference between the two is
+    /// what left the stack and where it went, not how it is recorded.
     ///
     /// It is deliberately not [`GameEvent::SpellCountered`]: nothing
     /// countered this, and a card that cares about being countered would

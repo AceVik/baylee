@@ -539,18 +539,28 @@ fn deal_damage_to_object(
 }
 
 /// True if the source object may not deal damage (`PreventDamageFromIt`).
+///
+/// `EffectFilter::names` and not an id compare written out here: a shield
+/// registered against the object that *was* at this id is not a shield on
+/// the object that is there now (CR 400.7). These two were the last pair of
+/// copies of that compare, which is the whole reason the predicate is one
+/// function.
 fn prevent_from(state: &GameState, source: ObjectId) -> bool {
-    state.effects.iter().any(|fx| {
-        matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageFromIt)
-            && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == source)
+    state.object(source).is_some_and(|obj| {
+        state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageFromIt)
+                && fx.filter.names(obj)
+        })
     })
 }
 
 /// True if the target object may not be dealt damage (`PreventDamageToIt`).
 fn prevent_to(state: &GameState, target: ObjectId) -> bool {
-    state.effects.iter().any(|fx| {
-        matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageToIt)
-            && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == target)
+    state.object(target).is_some_and(|obj| {
+        state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageToIt)
+                && fx.filter.names(obj)
+        })
     })
 }
 
