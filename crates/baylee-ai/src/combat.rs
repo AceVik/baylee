@@ -113,6 +113,38 @@ fn spillover(attacker: Fighter, blocker: Fighter) -> i32 {
     }
 }
 
+/// Every id in `ids`, once each, in the order they first appear.
+///
+/// A `Vec` scan rather than a set: these lists are a combat's worth of
+/// creatures, and an ordering that depends on a hash is an ordering the
+/// agent would replay differently.
+pub(crate) fn deduped(ids: impl Iterator<Item = ObjectId>) -> Vec<ObjectId> {
+    ids.fold(Vec::new(), |mut acc: Vec<ObjectId>, id| {
+        if !acc.contains(&id) {
+            acc.push(id);
+        }
+        acc
+    })
+}
+
+/// Every creature attacking that this seat may have to survive.
+///
+/// Two sources, because they fail in different ways. `view.combat.attackers`
+/// is the whole attack, including what this seat may not block; the engine's
+/// pairings are the authority on what is attacking *this* seat and are the
+/// one source that survives a view the attack cannot be read out of. In a
+/// healthy game the second is a subset of the first and the union is the
+/// first, so nothing moves.
+fn attacking(view: &PlayerView, options: &[BlockOption]) -> Vec<ObjectId> {
+    deduped(
+        view.combat
+            .attackers
+            .iter()
+            .map(|a| a.creature)
+            .chain(options.iter().flat_map(|o| o.attackers.iter().copied())),
+    )
+}
+
 /// Which creatures to block with, and what each of them blocks.
 ///
 /// Three rules, in the order a player applies them:
@@ -138,11 +170,10 @@ pub fn choose_blocks(
     options: &[BlockOption],
     life: i32,
 ) -> Vec<(ObjectId, ObjectId)> {
-    let incoming: i32 = view
-        .combat
-        .attackers
+    let attacking = attacking(view, options);
+    let incoming: i32 = attacking
         .iter()
-        .filter_map(|a| Fighter::of(view, a.creature))
+        .filter_map(|id| Fighter::of(view, *id))
         .map(|f| f.power)
         .sum();
     // Every attacker the engine offered a pairing against that the view
@@ -153,16 +184,15 @@ pub fn choose_blocks(
     // than nought. Counted as nought it left `incoming` short and left every
     // blocker with nothing to pair with, which is how this decision answered
     // a lethal attack with no blocks at all.
-    let mut unread = options
+    let mut unread: Vec<ObjectId> = attacking
         .iter()
-        .flat_map(|o| o.attackers.iter())
-        .filter(|id| Fighter::of(view, **id).is_none())
-        .fold(Vec::new(), |mut acc: Vec<ObjectId>, id| {
-            if !acc.contains(id) {
-                acc.push(*id);
-            }
-            acc
-        });
+        .copied()
+        // Only what the engine offered a pairing against. An id the view
+        // still names but nothing can be blocked against is an attacker
+        // that has left the battlefield, and that one really is absent.
+        .filter(|id| options.iter().any(|o| o.attackers.contains(id)))
+        .filter(|id| Fighter::of(view, *id).is_none())
+        .collect();
     // The engine offers a pairing per blocker; a creature with nothing it
     // may legally block is not a decision.
     let mut free: Vec<&BlockOption> = options.iter().filter(|o| !o.attackers.is_empty()).collect();

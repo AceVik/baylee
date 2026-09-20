@@ -1913,13 +1913,28 @@ mod tests {
 
     /// #123, first strike specifically: it is the one keyword the reported
     /// attacker carried, and it changes [`combat::exchange`] without
-    /// changing legality (CR 702.7). A 4/4 first striker into a 4/4 is a
-    /// block that kills our creature and nothing of theirs — declined while
-    /// the seat can afford it, and made once the seat cannot.
+    /// changing legality (CR 702.7).
+    ///
+    /// A 4/4 into a **4/4** is the exchange it decides, and the size is not
+    /// incidental: against a 2/2 the first striker kills and survives either
+    /// way, so the test would have moved the blocker's toughness and called
+    /// it a keyword. Here the keyword is the only thing that moves.
     #[test]
     fn first_strike_changes_the_exchange_and_not_the_legality() {
-        let (mut v, pending) = lethal_attack(Some(4), true, 20, 1);
-        v.battlefield.last_mut().unwrap().toughness = Some(4);
+        let board = |first_strike: bool, life: i32| {
+            let (mut v, pending) = lethal_attack(Some(4), true, life, 1);
+            let attacker = v.battlefield.last_mut().unwrap();
+            attacker.toughness = Some(4);
+            if !first_strike {
+                attacker.keywords = 0;
+            }
+            v.battlefield[0].power = Some(4);
+            v.battlefield[0].toughness = Some(4);
+            (v, pending)
+        };
+        // Ours dies and theirs walks away: not a trade, and the seat can
+        // afford to decline it.
+        let (v, pending) = board(true, 20);
         for (name, profile) in PROFILES {
             assert_eq!(
                 blocks(profile, &v, &pending),
@@ -1927,10 +1942,44 @@ mod tests {
                 "{name} fed a first striker"
             );
         }
-        let (mut v, pending) = lethal_attack(Some(4), true, 4, 1);
-        v.battlefield.last_mut().unwrap().toughness = Some(4);
+        // The same board with the keyword gone and nothing else changed:
+        // now both die, the trade is even, and it is taken.
+        let (v, pending) = board(false, 20);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                1,
+                "{name} refused an even trade"
+            );
+        }
+        // And first strike does not stop a chump block, because a creature
+        // kept back is worth nothing after the game is over.
+        let (v, pending) = board(true, 4);
         for (name, profile) in PROFILES {
             assert_eq!(blocks(profile, &v, &pending), 1, "{name} died to a 4/4");
+        }
+    }
+
+    /// #123, the other half of the same sentence: the attack itself can be
+    /// missing from the view while the engine is offering pairings against
+    /// it. The creature reads perfectly — it is on the battlefield with a
+    /// power and a toughness — and `view.combat.attackers` does not name it,
+    /// so the damage sum was nought and the position read as safe.
+    ///
+    /// `Pending::ChooseBlockers` names it, and that is the offer the seat is
+    /// being made, so it is the authority on what is attacking. The two
+    /// sources are unioned rather than one replacing the other: the view
+    /// carries the whole attack, including what this seat may not block.
+    #[test]
+    fn an_attack_the_view_does_not_carry_is_read_off_the_pairings() {
+        let (mut v, pending) = lethal_attack(Some(75), true, 20, 8);
+        v.combat.attackers = vec![];
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                1,
+                "{name} read a 75/75 as nothing"
+            );
         }
     }
 

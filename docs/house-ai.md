@@ -92,13 +92,20 @@ is three `?` in a row — the object, its power, its toughness — and every
 the creature left the damage sum, so `lethal` was false, and it left every
 blocker's candidate list, so there was nothing to pair with. The seat then
 answered a lethal attack with no blocks at all, which is the one outcome the
-"do not die" rule exists to prevent. The attacker set is now read out of the
-engine's own pairings — `Pending::ChooseBlockers` is the offer, so it is the
-authority on what is attacking this seat, and it is the one source that
-survives a view the attack cannot be read out of. An attacker named there but
-not describable is counted as unknown damage, which makes the position lethal
-by default and is chumped: the seat cannot prove it survives, and a creature
-costs a card while the alternative costs the game. `search::blockers` had a
+"do not die" rule exists to prevent. The attack is now read out of **both**
+sources at once: `view.combat.attackers`, which carries the whole attack
+including what this seat may not block, and the engine's pairings, which are
+the authority on what is attacking *this* seat and the one source that
+survives a view the attack cannot be read out of. In a healthy game the
+second is a subset of the first and the union is the first, so nothing moves;
+where they disagree, each covers the other's silence. That matters in both
+directions, and the second is the easier one to miss — a creature that reads
+perfectly, on the battlefield with a power and a toughness, that
+`view.combat.attackers` does not name, used to contribute nought to the
+damage sum and leave the position reading as safe. An attacker named in the
+pairings that cannot be described is counted as unknown damage, which makes
+the position lethal by default and is chumped: the seat cannot prove it
+survives, and a creature costs a card while the alternative costs the game. `search::blockers` had a
 guard for exactly this condition — it falls back on
 `attackers.len() != ids.len()`, which *is* "an attacker did not read" — and it
 fell back onto `choose_blocks`, which shared the blind spot. A fallback onto

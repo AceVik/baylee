@@ -664,15 +664,7 @@ pub fn blockers(
     // the offer is the authority on what is attacking this seat, and it is
     // the one source that survives a view the agent cannot read the attack
     // out of. In a healthy game the two name the same creatures.
-    let ids: Vec<_> = options.iter().flat_map(|o| o.attackers.iter()).fold(
-        Vec::new(),
-        |mut acc: Vec<ObjectId>, id| {
-            if !acc.contains(id) {
-                acc.push(*id);
-            }
-            acc
-        },
-    );
+    let ids = crate::combat::deduped(options.iter().flat_map(|o| o.attackers.iter().copied()));
     let attackers: Vec<_> = ids.iter().filter_map(|&id| Fighter::of(view, id)).collect();
     let defenders: Vec<_> = options
         .iter()
