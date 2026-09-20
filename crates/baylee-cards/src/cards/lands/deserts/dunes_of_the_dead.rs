@@ -2,8 +2,10 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: When this land is put into a graveyard from the battlefield, create a 2/2 black Zombie creature token.
 //! Set: OTC #291 — Outlaws of Thunder Junction Commander | Scryfall ID: cd86b0af-9c26-4c3a-8e1e-74a28263bd83 | Oracle ID: c761f71c-785c-4533-a2b7-2da3667688b8
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — {T}: Add {C}, and the battlefield-to-graveyard trigger
+// (Trigger::Dies, CR 700.4) creates a 2/2 black Zombie token.
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -16,6 +18,14 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::DESERT],
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        triggered!(
+            Trigger::Dies(&Filter::This),
+            &[Effect::CreateToken {
+                token: &generated_tokens::ZOMBIE_2_2_BLACK,
+            }]
+        ),
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

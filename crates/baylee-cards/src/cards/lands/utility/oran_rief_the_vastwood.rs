@@ -3,7 +3,8 @@
 //! Oracle: {T}: Add {G}.
 //! Oracle: {T}: Put a +1/+1 counter on each green creature that entered this turn.
 //! Set: SOC #391 — Secrets of Strixhaven Commander | Scryfall ID: d46d3ef7-b81f-42f4-9c1b-fa53f11eae65 | Oracle ID: e88027a6-24cc-4a8b-86db-734f26149ea8
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — enters tapped, and taps for {G}. The third ability is refused
+// rather than approximated: nothing in `Filter` says "entered this turn".
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,7 +16,17 @@ card!(
     faces = &[face!(
         name = "Oran-Rief, the Vastwood",
         types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
     ),],
+    coverage = Coverage::Partial(
+        "{T}: Put a +1/+1 counter on each green creature that entered this turn — no Filter variant says \"entered this turn\""
+    ),
+    abilities = &[
+        // NOT SUPPORTED: "{T}: Put a +1/+1 counter on each green creature that
+        // entered this turn." The counter half is Effect::AddCounterFilter and
+        // the green half is a two-clause filter, but "entered this turn" is a
+        // history predicate no Filter carries — written as a plain green
+        // creature it would counter the whole board, so the ability comes off.
+        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

@@ -1,7 +1,7 @@
 //! Exploration — {G} — Enchantment
 //! Oracle: You may play an additional land on each of your turns.
 //! Set: DMR #159 — Dominaria Remastered | Scryfall ID: 5b372045-a4a0-44c8-96ec-1e201d61ed26 | Oracle ID: 0c2841bb-038c-4fbf-8360-bc0a1522b58d
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — one extra land drop each turn (Modifier::ExtraLandDrops(1)).
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,6 +15,6 @@ card!(
         mana_cost = mana!("{G}"),
         types = TypeSet::ENCHANTMENT,
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[static_ability!(Filter::Any, Modifier::ExtraLandDrops(1))],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
