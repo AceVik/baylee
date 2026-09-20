@@ -978,8 +978,10 @@ mod choice_tests {
     fn a_seat_is_default_until_it_holds_or_remembers_something() {
         assert!(SeatAutomation::default().is_default());
 
-        let mut holds = SeatAutomation::default();
-        holds.hold = PriorityHold::UntilEndOfTurn { turn: 1 };
+        let holds = SeatAutomation {
+            hold: PriorityHold::UntilEndOfTurn { turn: 1 },
+            ..Default::default()
+        };
         assert!(!holds.is_default());
 
         let mut remembers = SeatAutomation::default();
