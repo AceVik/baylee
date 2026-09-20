@@ -34,9 +34,16 @@ Kartendatei.
    daran, was man noch tappen könnte: also `tap_all_mana` davor. Soll eine
    Steuer wirklich *gefragt* werden, braucht der Gegner genug Länder, dass
    sein Pool sie deckt.
-5. **`tap_all_mana` ist die Liste der Grundland-Typen** (CR 305.6). Die
-   gedruckte `{T}`-Fähigkeit einer Nicht-Land-Karte tappt sie nicht; die
-   aktivierst du mit `activate(&mut engine, seat, card, index)`.
+5. **`tap_all_mana` tappt jede Mana-Fähigkeit, deren ganzer Preis ihr
+   eigenes `{T}` ist** — die Grundlandtypen aus CR 305.6 *und* das gedruckte
+   `{T}: Add …` eines Nichtgrundlands, eines Sol Rings, einer Mana-Kreatur.
+   Nicht gedrückt wird eine Mana-Fähigkeit mit einem **größeren** Preis:
+   Wall of Roots zahlt eine −0/−1-Marke, Ashnod's Altar eine Kreatur, ein
+   Filterland `{1}, {T}`. Die aktivierst du von Hand mit
+   `activate(&mut engine, seat, card, index)` — beim Filterland erst, wenn
+   das Mana dafür schon schwebt. Eine `{T}`-Fähigkeit, die **kein** Mana
+   macht (Riptide Laboratory holt einen Wizard zurück), rührt der Helfer
+   ohnehin nicht an.
 6. **Eine aktivierte Fähigkeit geht über den Stack, und die Reihenfolge
    ist: erst das Ziel, dann die Kosten.** Ziele werden beim Ankündigen
    gewählt (CR 601.2c), die Kosten sind der *letzte* Schritt der
@@ -89,10 +96,15 @@ Frage ungeantwortet dazwischensteht — ein `pass_until(.., stack_is_empty)`
 über einen Scry oder Surveil hinweg ist deshalb immer ein Fehlschlag.
 
 Mana für einen Aktivierungspreis muss **vor** dem `activate` im Pool
-liegen, und `tap_mana_except` / `tap_all_mana` tappen nur die Länder mit
-Grundland-Typ (CR 305.6). Ein Nichtgrundland, das sein eigenes
-`{T}: Add {C}` druckt, tappst du von Hand mit
-`PlayerAction::ActivateAbility { source, ability_index: 0 }`.
+liegen, und `tap_all_mana` holt dafür jede Quelle, deren Mana-Fähigkeit
+genau `{T}` kostet. Tappe deshalb **nach** einem `tap_all_mana` nichts mehr
+von Hand: das Land ist schon getappt, und das `apply` wird abgelehnt — das
+ist derselbe Fehlschlag, den eine nicht angebotene Fähigkeit erzeugt, und
+er liest sich wie ein Kartendefekt. Soll eine Quelle stehen bleiben, nenne
+sie: `tap_mana_except(&mut engine, seat, object)` für ein Objekt,
+`tap_all_mana_but(&mut engine, seat, Some(<slug>()))` für eine Karte — und
+schreibe in einem Kommentar, warum. `cast_with_floating` zaubert dann aus
+dem, was schwebt.
 
 Führe **kein** `cargo` aus — der Build gehört dem Koordinator. Am Ende gibst
 du eine Tabelle aus, eine Zeile pro Karte:
