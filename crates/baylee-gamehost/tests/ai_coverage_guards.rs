@@ -472,23 +472,38 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
     }
 }
 
-/// The counter-clock rows of #73 are answered by two `baylee-ai` unit tests
-/// and by no game, because no card in this pool can be *made* to put a lore
-/// or a time counter anywhere: both clocks are advanced by the engine itself
-/// (`progress.rs`), never by an effect a player targets.
+/// **The tripwire fired on 20.09.2026 and this is what is left of it.**
 ///
-/// So the agent's rule is proven against a constructed view, and this is the
-/// tripwire for the day that stops being the whole story: when a card arrives
-/// that prints "put a lore counter on target Saga" or "put a time counter on
-/// target suspended card", the same decision becomes reachable in a real
-/// game and that game is owed as a test.
+/// It used to assert a zero. The counter-clock rows of #73 were answered by
+/// two `baylee-ai` unit tests and by no game, because no card in this pool
+/// could be *made* to put a lore or a time counter anywhere: both clocks
+/// were advanced by the engine itself (`progress.rs`), never by an effect a
+/// player activates. Its own message said what the day a card arrived would
+/// owe — the same decision reachable in a real game, and that game as a
+/// test.
 ///
-/// The two assertions above the count are what make the zero mean something.
+/// Trenzalore Clocktower is that card: `{T}: Add {U}. Put a time counter on
+/// Trenzalore Clocktower.` The game is owed and is **#166**, which is also
+/// where the harder half is written down — `clock_score`'s `Time` arm is
+/// written for suspend, and a private count to twelve on a land runs the
+/// other way, so the rule is not merely untested on a board but likely to
+/// score this card backwards.
+///
+/// So the zero is a **pinned list** now, the same shape as
+/// `LANDS_THAT_WOULD_COUNT_THEMSELVES`: it names what is reachable, it is
+/// red the day a second card joins, and it carries the ticket. Deleting it
+/// is part of closing #166. Relaxing it further is not, and neither is
+/// adding a name to the list without the game that name now owes.
+///
+/// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the
 /// pool is full of +1/+1 — and `seen` is the population it read, so a walker
 /// blinded by a refactor fails here instead of reporting a quiet nought.
 #[test]
-fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
+fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
+    // Named by the card that puts them, so a second arrival is a name in a
+    // failure message and not a number to bump.
+    const REACHABLE_CLOCKS: &[&str] = &["Trenzalore Clocktower"];
     let mut seen = 0;
     let mut kinds = Vec::new();
     for def in baylee_cards::all() {
@@ -496,10 +511,22 @@ fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
             counters_put(effects, &mut seen, &mut kinds);
         }
     }
-    let clocks = kinds
-        .iter()
-        .filter(|kind| matches!(kind, CounterKind::Lore | CounterKind::Time))
-        .count();
+    let mut clocks: Vec<&str> = Vec::new();
+    for def in baylee_cards::all() {
+        for effects in abilities(def).flat_map(ability_effects) {
+            let mut here = 0;
+            let mut mine = Vec::new();
+            counters_put(effects, &mut here, &mut mine);
+            if mine
+                .iter()
+                .any(|kind| matches!(kind, CounterKind::Lore | CounterKind::Time))
+            {
+                clocks.push(def.faces[0].name);
+            }
+        }
+    }
+    clocks.sort_unstable();
+    clocks.dedup();
     let signed = kinds
         .iter()
         .filter(|kind| matches!(kind, CounterKind::Plus { .. } | CounterKind::Minus { .. }))
@@ -519,11 +546,11 @@ fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
          is not reaching `AddCounter` at all and the zero below is empty"
     );
     assert_eq!(
-        clocks, 0,
-        "{clocks} effect(s) in the pool now put a lore or time counter on \
-         something. The counter-clock rule in `tactics::clock_score` is \
-         reachable in a real game: write the game, put it beside the two \
-         `baylee-ai` unit tests, and delete this test."
+        clocks, REACHABLE_CLOCKS,
+        "the set of pool cards that put a lore or time counter on something \
+         has changed. `tactics::clock_score` is reachable in a real game \
+         through each of them and #166 owes that game as a test — so a new \
+         name here is a game to write, not a list to extend."
     );
 }
 
