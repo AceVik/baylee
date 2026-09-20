@@ -949,8 +949,13 @@ What is load-bearing about the ability macros is that their defaults are
 *rules* defaults, not merely common ones: instant speed is CR 117.1b, the
 battlefield is CR 113.6, and `mana_ability = false` is CR 605.1 making a mana
 ability the exception. That last one is why a mana ability has its own macro
-instead of a flag — an ability wrongly marked `true` would silently skip the
-stack, and nothing in the test suite reads that as a rules bug. Fields with no
+instead of a flag — an ability wrongly marked `true` skips the stack, where an
+opponent can no longer respond to it. That is no longer unwatched:
+`lints::mana_ability_fault` reads CR 605.1 the way it is written — **could**
+add mana, no target, not a loyalty ability — and refuses a flag claiming a
+mana ability that makes no mana, or one that targets (CR 605.1a). The macro
+is still the right shape, because a lint says a card is wrong and a macro
+means nobody had to decide. Fields with no
 rules answer (a trigger, an effect list) are positional arguments, so they
 cannot be forgotten.
 
