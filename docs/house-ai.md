@@ -152,9 +152,28 @@ which is a 2/6 against a 6/6 and a 2/2 and not the 4/4 that first suggests
 itself. That precondition is gone: #156 landed, `combat::can_block` no longer
 asks a question it answers before anything is recorded, and the offer now names
 a menace attacker wherever two creatures could legally block it. So all of this
-is reachable, and the pass above is load-bearing rather than defensive. This
-paragraph records the fact; what these profiles do once that rule decides a
-game is #157's owner's to write over it.
+is reachable, and the pass above is load-bearing rather than defensive.
+
+What it is worth is **the table, not a point of evaluation**. A refused
+`DeclareBlockers` is not a worse block; it is no answer at all, and for an AI
+chair there is nothing behind it: `Session::pump` passes priority when the
+engine refuses an action at a `Pending::Priority`, and a `ChooseBlockers` is
+not one, so it takes the other branch and returns without advancing. Nothing
+re-asks, and no clock expires either — the decision clock is for seats that
+answer over a socket (`answers_over_socket`), and an AI seat has none. Three
+of the five profiles reached that in every shape tried, and the seat it costs
+is the one that was trying to block. The
+deeper two were never at risk, so the pass is what makes the shallow
+profiles' answers *arrive*, and the search's own rule is what makes them
+good.
+
+One position in `no_profile_answers_a_menace_attacker_with_one_blocker` is no
+longer a board a game reaches: `combat::menace_satisfiable` drops a menace
+attacker from the offer entirely where only one creature could legally block
+it, so the single-blocker scene arrives from no real table. It is kept, and
+its comment says why — `choose_blocks` computes an answer to that shape
+whether or not anything presents it, and a pass tested only on offers the
+engine has already filtered is a pass nothing tests.
 
 **A card in hand is what any of its faces can be.** A `CardIdentity` in hand
 names the face that is *up*, which for a modal double-faced card is the

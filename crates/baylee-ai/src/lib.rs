@@ -2206,8 +2206,12 @@ mod tests {
     /// before anything is recorded: the offer now names a menace attacker
     /// wherever two creatures could legally block it, so the day this pass
     /// stands between three of five profiles and a stalled seat has arrived.
-    /// Provisional — what the pass is worth once it decides a game is this
-    /// test's owner's to state.
+    /// It is worth the **table**, not a point of evaluation: a refused
+    /// declaration is not a worse block, it is no answer at all, and for an
+    /// AI chair nothing is behind it. `Session::pump` passes priority when
+    /// the engine refuses at a `Pending::Priority`; a `ChooseBlockers` is not
+    /// one, so it returns without advancing and nothing re-asks. No clock
+    /// expires either — that one is for seats answering over a socket.
     ///
     /// The third position is the one that measures `search`'s own rule
     /// rather than the pass added for the shallow profiles. A menace
@@ -2233,8 +2237,19 @@ mod tests {
             );
         }
 
-        // The same attack with one creature to block with: there is no legal
-        // block, and taking four at four life is what the rules leave.
+        // The same attack with one creature to block with. **The engine no
+        // longer offers this**: since #156 `combat::menace_satisfiable` drops
+        // a menace attacker from the *offer* entirely where only one creature
+        // could legally block it, so a `ChooseBlockers` naming this pairing
+        // cannot arrive from a real game.
+        //
+        // It is kept because it measures the AI's own arithmetic, which is a
+        // different question from what the engine hands over: `choose_blocks`
+        // computes an answer to this shape whether or not anything presents
+        // it, and a pass that only worked on offers the engine had already
+        // filtered would be one nothing tested. What had to stop being
+        // claimed is that this is a position a game reaches — the line above
+        // said "what the rules leave", which read as a board and was one.
         let (v, pending) = menace_attack((4, 4), &[2], 4);
         for (name, profile) in PROFILES {
             assert_eq!(

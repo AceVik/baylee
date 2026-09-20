@@ -92,6 +92,25 @@ them is a missing test:
   together with the finding beside it: `combat::choose_blocks`, the
   `lookahead == 0` path, has no menace rule at all.
 
+  That sentence is as true after #156 as before it, and what changed is the
+  **cost**. `combat::can_block` used to ask `state.combat.blockers_of(attacker)`
+  before anything was recorded, so menace read as plain unblockable and the
+  engine offered such an attacker to nobody — the missing rule was dormant,
+  and an injection removing it stayed green because no game reached it.
+  `cef30070` fixed that reading, and the offer now names a menace attacker
+  wherever two creatures could legally block it. The same missing rule is
+  now three of the five profiles (`NOVICE`, `CASUAL`, `STEADY`) answering
+  with one blocker, which `Engine::declare_blockers` refuses **whole** rather
+  than per pair: every other block in that declaration is lost with it, and
+  for an AI chair nothing picks the question back up — `Session::pump` passes
+  priority only when the refusal came at a `Pending::Priority`, and a
+  `ChooseBlockers` is not one, so it returns without advancing. No clock
+  expires either; that one is for seats answering over a socket. #157's
+  `enforce_menace` is what stands between that and a stalled table, and it is
+  load-bearing rather than defensive as of that commit — a statement about
+  code that exists, since the shallow path already reads menace off the
+  view's projected keywords at `combat.rs:315`.
+
 So a row that survives its injection has three readings and they point
 opposite ways — the rule is dead, the test is missing, or nobody ever built
 the scene where the rule decides. Name which one before writing anything.
