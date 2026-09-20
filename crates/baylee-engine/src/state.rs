@@ -2263,6 +2263,11 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::SearchTakeover => h.u8(34),
         M::DoesNotUntap => h.u8(36),
         M::MayChooseNotToUntap => h.u8(37),
+        M::PlayLandsFromGraveyard => h.u8(38),
+        M::ExtraLandDrops(n) => {
+            h.u8(39);
+            h.u8(*n);
+        }
         M::AddTypeIfCountersAtLeast { at_least, .. } => {
             h.u8(32);
             h.u8(*at_least);

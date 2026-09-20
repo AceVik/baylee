@@ -532,6 +532,8 @@ fn apply(
         Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
+        | Modifier::PlayLandsFromGraveyard
+        | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
         | Modifier::PlayersCantLose

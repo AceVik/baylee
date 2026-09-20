@@ -117,6 +117,14 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // them — it is about its controller's spells, and a set of objects
         // fixed at resolution would mean the cards in hand at that moment.
         Modifier::LegendRuleOff
+        // Two permissions, and CR 611.2c locks a set only for an effect
+        // that changes characteristics or control. These change what their
+        // controller may do, so there is no set of objects to lock: a land
+        // drawn after Exploration resolved is as playable as one already in
+        // hand, and a land milled after Crucible entered is as playable as
+        // one already in the graveyard.
+        | Modifier::PlayLandsFromGraveyard
+        | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
         | Modifier::PlayersCantLose

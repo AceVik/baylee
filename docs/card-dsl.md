@@ -917,7 +917,7 @@ Modal/sequence: `Sequence(&[..])`.
 `CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
-`MayChooseNotToUntap`.
+`MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`.
 
 `DoesNotUntap` is Basalt Monolith's whole special clause and needs neither a
 filter beyond `Filter::This` nor a duration. It changes a **rule** and not a
@@ -946,9 +946,33 @@ Act of Treason; with `WhileSourceOnBattlefield` it is Mind Control. Use it
 rather than `Effect::ChangeController` whenever the control comes back:
 the one-shot effect never returns the permanent.
 
-New `Modifier` variants must be added to THREE places: the
-"handled elsewhere" arm in `layers.rs`, the modifier hash in
-`state.rs`, and whatever system enforces them (SBAs, combat, casting).
+`PlayLandsFromGraveyard` and `ExtraLandDrops` are the two halves of a land
+drop and are deliberately not one variant. CR 305.1 says where a land may be
+played from and CR 305.2 says how many, and a card prints one without the
+other: Crucible of Worlds and Ramunap Excavator grant the zone and no extra
+drop, Exploration grants the drop and no zone. Merging them would make
+Crucible a second land drop, which CR 305.2b forbids in those words — "a
+player can't play a land, for any reason, if the number of lands the player
+can play this turn is equal to or less than the number they have already
+played." `ExtraLandDrops` carries a `u8` because the rule is written to be
+modified, and two of them add up (Exploration beside Azusa) rather than the
+larger winning. Both take `Filter::Any`: they are about their controller and
+about no object, which is how every player-scoped modifier here is read.
+
+Note that `PlayLandsFromGraveyard` is **not** `GrantsFlashback` with a wider
+filter. Flashback grants *casting* a card from a graveyard; playing a land is
+not casting anything at all (CR 305.1), and the two sentences share no code —
+one goes through `casting::can_cast` and the stack, the other through
+`casting::play_land` and no stack.
+
+New `Modifier` variants must be added to FIVE places, and the compiler names
+four of them because those matches are exhaustive on purpose: `Modifier::layer`
+in `baylee-cards-dsl`, `effects::locks_its_set`, the "handled elsewhere" arm
+in `layers.rs`, and the modifier hash in `state.rs`. The fifth is the one
+nothing will ask for — whatever system enforces the rule (SBAs, combat,
+casting) — and a variant with no enforcer is a static ability that compiles,
+hashes, layers and does nothing. This paragraph said THREE until
+`PlayLandsFromGraveyard` was added and the compiler named two more.
 
 ## Worked examples
 

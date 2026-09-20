@@ -742,6 +742,8 @@ mod keyword_tests;
 #[cfg(test)]
 mod land_mana_tests;
 #[cfg(test)]
+mod land_play_tests;
+#[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
 mod m2_tests;

@@ -111,7 +111,28 @@ impl<L: CardLookup> Engine<L> {
         let main_phase = matches!(self.state.turn.phase, Phase::FirstMain | Phase::SecondMain);
         let sorcery_timing =
             main_phase && self.state.turn.active == player && self.state.zones.stack_is_empty();
-        for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
+        // The graveyard is walked beside the hand, and only for the lands
+        // in it: Crucible of Worlds is a permission to *play a land* from
+        // there and says nothing about casting anything, so the loop below
+        // asks `can_cast` of a hand card and never of this one. Which zones
+        // are open is `casting::land_zone_open`, the same reader
+        // `casting::play_land` refuses with — an offer and a refusal that
+        // disagreed would be a land this engine lists and then will not
+        // let go of.
+        let graveyard: &[ObjectId] =
+            if casting::land_zone_open(&self.state, player, Zone::Graveyard) {
+                self.state.zones.list(ZoneLocation::Graveyard(player))
+            } else {
+                &[]
+            };
+        for (&card, from_hand) in self
+            .state
+            .zones
+            .list(ZoneLocation::Hand(player))
+            .iter()
+            .map(|c| (c, true))
+            .chain(graveyard.iter().map(|c| (c, false)))
+        {
             let Some(obj) = self.state.object(card) else {
                 continue;
             };
@@ -125,9 +146,12 @@ impl<L: CardLookup> Engine<L> {
             };
             if any_face_is_land
                 && sorcery_timing
-                && self.state.players[player.get() as usize].lands_played_this_turn == 0
+                && casting::has_a_land_drop_left(&self.state, player)
             {
                 legal.lands.push(card);
+            }
+            if !from_hand {
+                continue;
             }
             if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
                 && self.has_a_legal_target(player, card)

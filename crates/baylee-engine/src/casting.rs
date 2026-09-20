@@ -733,6 +733,67 @@ pub fn can_cast(
     Ok(())
 }
 
+/// How many lands `player` may play this turn (CR 305.2).
+///
+/// One, "however, continuous effects may increase this number" — which the
+/// rule says in those words, so the number is read off the effect table
+/// rather than being a constant with an exception bolted to it. Two such
+/// effects add up: nothing in CR 305.2 makes them redundant with each other
+/// the way two copies of a keyword are.
+///
+/// Saturating, because the sum is a `u8` and what it feeds is "may I play
+/// one more": a table holding 255 extra land drops is a player who may play
+/// lands all day either way, and wrapping to nought is the one answer that
+/// would be wrong.
+#[must_use]
+pub fn land_drops_allowed(state: &GameState, player: PlayerId) -> u8 {
+    state
+        .effects
+        .iter()
+        .filter(|fx| fx.controller == player)
+        .fold(1u8, |total, fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::ExtraLandDrops(n) => total.saturating_add(n),
+            _ => total,
+        })
+}
+
+/// Whether `player` has a land drop left this turn (CR 305.2a).
+///
+/// One predicate with two ends asking it: the offer in
+/// `abilities::compute_legal`, which decides whether a land is in
+/// `legal.lands` at all, and [`play_land`], which refuses an answer nobody
+/// offered. Written out they were `== 0` and `>= 1` — the same sentence
+/// exactly once, so the moment the limit stopped being one, one of the two
+/// would have gone on reading the old rule and the difference would show as
+/// a land the engine offers and then refuses.
+#[must_use]
+pub fn has_a_land_drop_left(state: &GameState, player: PlayerId) -> bool {
+    state.players[player.get() as usize].lands_played_this_turn < land_drops_allowed(state, player)
+}
+
+/// Whether a land sitting in `zone` is one `player` may play (CR 305.1, and
+/// the permissions that widen it).
+///
+/// The hand is the rules' own answer and needs no effect. The graveyard is
+/// Crucible of Worlds and Ramunap Excavator, and it is a **permission**
+/// rather than a second way of casting: `Modifier::GrantsFlashback` is the
+/// neighbouring sentence about a graveyard and says nothing at all here,
+/// because playing a land is not casting a spell (CR 305.1).
+#[must_use]
+pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
+    match zone {
+        Zone::Hand => true,
+        Zone::Graveyard => state.effects.iter().any(|fx| {
+            fx.controller == player
+                && matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
+                )
+        }),
+        _ => false,
+    }
+}
+
 /// Plays a land (special action, no stack).
 ///
 /// # Errors
@@ -746,7 +807,7 @@ pub fn play_land(
     card: ObjectId,
 ) -> Result<(), CastFailure> {
     let obj = state.object(card).ok_or(CastFailure::NoSuchObject)?;
-    if obj.zone != Zone::Hand || obj.zone_owner != Some(player) {
+    if !land_zone_open(state, player, obj.zone) || obj.zone_owner != Some(player) {
         return Err(CastFailure::Legality(CastError::NotInHand));
     }
     if !obj.characteristics().types.contains(TypeSet::LAND) {
@@ -756,7 +817,7 @@ pub fn play_land(
     if !main_phase || state.turn.active != player || !state.zones.stack_is_empty() {
         return Err(CastFailure::Legality(CastError::BadTiming));
     }
-    if state.players[player.get() as usize].lands_played_this_turn >= 1 {
+    if !has_a_land_drop_left(state, player) {
         return Err(CastFailure::Legality(CastError::BadTiming));
     }
     state.players[player.get() as usize].lands_played_this_turn += 1;

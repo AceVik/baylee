@@ -79,6 +79,30 @@ pub enum Modifier {
     LoseKeywords,
     /// The legend rule doesn't apply to the effect's controller (Sakashima).
     LegendRuleOff,
+    /// The effect's controller may play lands from their graveyard
+    /// (Crucible of Worlds, Ramunap Excavator).
+    ///
+    /// A **permission**, and that is why it is a modifier of its own rather
+    /// than a second reading of [`Self::GrantsFlashback`]: flashback grants
+    /// *casting* a spell from a graveyard, and playing a land is not casting
+    /// anything at all (CR 305.1 — "a player can't cast a land card"). The
+    /// two sentences meet nothing in common in the engine, either: one goes
+    /// through `casting::can_cast` and the stack, the other through
+    /// `casting::play_land` and no stack.
+    ///
+    /// It says nothing about *how many*: the land drop is
+    /// [`Self::ExtraLandDrops`], and a player with this and no land drop
+    /// left may play nothing, from their graveyard or anywhere else
+    /// (CR 305.2b).
+    PlayLandsFromGraveyard,
+    /// The effect's controller may play this many lands beyond the one the
+    /// rules allow (Exploration: 1; Azusa: 2).
+    ///
+    /// CR 305.2 is written to be modified — "a player can normally play one
+    /// land during their turn; however, continuous effects may increase this
+    /// number" — so the number is the payload and not the variant, and two
+    /// such effects on one player add up rather than one of them winning.
+    ExtraLandDrops(u8),
     /// Activated abilities of artifacts the effect's opponents control
     /// can't be activated (Karn).
     CantActivateArtifacts,
@@ -334,6 +358,8 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::LegendRuleOff
+            | Self::PlayLandsFromGraveyard
+            | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::PlayersCantLose
             | Self::CantLoseLife
