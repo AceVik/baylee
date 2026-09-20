@@ -1160,16 +1160,17 @@ fn host_note(lang: Lang, game: &GameSummary) -> String {
 /// A house AI's difficulty, in the player's own language.
 ///
 /// The name itself stays the gateway's word — it is what `Press::SeatAi`
-/// sends and what `SeatSpec` stores; only the label is translated.
-fn ai_name(lang: Lang, name: &str) -> &'static str {
-    match name {
-        "novice" => Phrase::AiNovice,
-        "casual" => Phrase::AiCasual,
-        "expert" => Phrase::AiExpert,
-        "sharp" => Phrase::AiSharp,
-        _ => Phrase::AiSteady,
-    }
-    .text(lang)
+/// sends and what `SeatSpec` stores; only the label is translated. The
+/// lookup is [`baylee_client_core::i18n::ai_name`] rather than a `match`
+/// here, because the *table* needs the same answer this list gives and did
+/// not have it: a chair arranged here as "Solide" sat down called
+/// `steady 1`.
+///
+/// An unknown spelling keeps this list's own long-standing answer — the
+/// middle difficulty — because a row in a lobby always draws something and
+/// the caller above already defaults a missing value to `"steady"`.
+pub(super) fn ai_name(lang: Lang, name: &str) -> &'static str {
+    baylee_client_core::i18n::ai_name(lang, name).unwrap_or_else(|| Phrase::AiSteady.text(lang))
 }
 
 /// One row per chair: who is in it, what they brought, and — for the host —

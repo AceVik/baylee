@@ -695,15 +695,34 @@ fn profile(name: &str) -> AIProfile {
 /// chair is named for its difficulty and its seat number, which is the only
 /// thing about it a player chose.
 ///
-/// **The player's chair is named in the player's language**, and that is why
-/// this takes a [`Lang`] at all. These strings become
+/// **Every chair is named in the player's language**, and that is why this
+/// takes a [`Lang`] at all. These strings become
 /// `GameStatic::seats[].display_name`, which is drawn wherever a seat is
 /// named — the seat's own bar, the roster, the line over a stack entry — so
 /// an English `"You"` here is an English word on a German table, in a client
-/// where a phrase with no German is a compilation error. The AI's difficulty
-/// keeps its wire spelling for the reason every identifier-that-is-also-a-
-/// label does: `"sharp"` is what the preset says, and translating it would
-/// make the name disagree with the chair it describes.
+/// where a phrase with no German is a compilation error.
+///
+/// **The AI's difficulty is translated too, and it used not to be.** The rule
+/// the root contract states is that a value which is also an identifier keeps
+/// its wire spelling and *the label* is translated; `"steady"` is what the
+/// preset holds and what an HTTP route takes, and
+/// [`baylee_client_core::i18n::ai_name`] is the label. This function had the
+/// identifier and printed it, so a chair the player arranged in the lobby as
+/// "Solide" — `lobby::ui::ai_name` has translated that list for as long as it
+/// has existed — sat down at the table called `steady 1`. The old note here
+/// said translating it "would make the name disagree with the chair it
+/// describes", and the lobby is what shows that inverted: not translating it
+/// is what made the two disagree.
+///
+/// The seat number stays a number. It is what tells two chairs of one
+/// difficulty apart, it is the only other thing about an AI chair a player
+/// chose, and it reads the same in every language.
+///
+/// A profile that is in no named tier keeps an untranslated `"AI"`, which is
+/// unreachable today — [`AIProfile::NAMED`] covers every profile the preset
+/// can hold — and is left visible rather than folded into the middle
+/// difficulty, because a chair drawn confidently as the wrong strength is
+/// worse than one drawn as none.
 pub(crate) fn seat_names(preset: &GamePreset, lang: Lang) -> Vec<String> {
     preset
         .seats
@@ -714,7 +733,8 @@ pub(crate) fn seat_names(preset: &GamePreset, lang: Lang) -> Vec<String> {
                 let level = AIProfile::NAMED
                     .iter()
                     .find(|(_, known)| known == profile)
-                    .map_or("AI", |(name, _)| *name);
+                    .and_then(|(name, _)| baylee_client_core::i18n::ai_name(lang, name))
+                    .unwrap_or("AI");
                 format!("{level} {at}")
             }
             _ => Phrase::You.text(lang).to_string(),
@@ -1043,8 +1063,15 @@ mod tests {
     /// English word in every one of those places for the whole duel — in a
     /// client where a phrase with no German is a compilation error.
     ///
-    /// The difficulty keeps its wire spelling on purpose: `"sharp"` is what
-    /// the chair was set to and what the preset holds.
+    /// **Every** chair, including the house's.
+    ///
+    /// This assertion used to read the other way — `De[1] == En[1]`, "an AI
+    /// chair is named for the difficulty the preset holds" — and pinned the
+    /// defect: the table printed the wire spelling, so a chair the lobby list
+    /// shows as "Solide" sat down called `steady 1`. The preset still holds
+    /// `"steady"`; what is drawn is the label, which
+    /// `baylee_client_core::i18n::ai_name` has supplied to the lobby all
+    /// along. The seat number is deliberately still a number.
     #[test]
     fn the_players_own_chair_is_named_in_the_players_language() {
         let mut offline = with_a_room(2);
@@ -1058,11 +1085,44 @@ mod tests {
         let preset = offline.take_started().expect("started");
         assert_eq!(seat_names(&preset, Lang::De)[0], "Du");
         assert_eq!(seat_names(&preset, Lang::En)[0], "You");
-        assert_eq!(
+        assert_eq!(seat_names(&preset, Lang::De)[1], "Solide 1");
+        assert_eq!(seat_names(&preset, Lang::En)[1], "steady 1");
+        assert_ne!(
             seat_names(&preset, Lang::De)[1],
             seat_names(&preset, Lang::En)[1],
-            "an AI chair is named for the difficulty the preset holds"
+            "the difficulty is a label, and a label is translated"
         );
+    }
+
+    /// The table and the lobby list call one chair one thing.
+    ///
+    /// The whole defect was two readers of a single value, only one of which
+    /// translated it. This is the join, and it is asserted rather than
+    /// arranged: `lobby::ui::ai_name` and this function now ask the same
+    /// lookup, so a difficulty added to `Phrase` in one place cannot reach
+    /// only one of them.
+    #[test]
+    fn the_table_calls_a_chair_what_the_lobby_list_calls_it() {
+        let mut offline = with_a_room(2);
+        offline.ask(LobbyRequest::SetReady {
+            game_id: ROOM.to_string(),
+            ready: true,
+        });
+        offline.ask(LobbyRequest::StartGame {
+            game_id: ROOM.to_string(),
+        });
+        let mut preset = offline.take_started().expect("started");
+        for (wire, profile) in AIProfile::NAMED {
+            preset.seats[1].controller = SeatController::Ai(profile);
+            for lang in [Lang::En, Lang::De] {
+                let listed = super::ui::ai_name(lang, wire);
+                assert_eq!(
+                    seat_names(&preset, lang)[1],
+                    format!("{listed} 1"),
+                    "the table and the list disagree about {wire} in {lang:?}"
+                );
+            }
+        }
     }
 
     /// And the same word on the screen the table is arranged on.

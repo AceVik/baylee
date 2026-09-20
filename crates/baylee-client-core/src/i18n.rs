@@ -1801,6 +1801,32 @@ pub fn own_seat_name(lang: Lang, name: &str) -> String {
     }
 }
 
+/// What a house AI's difficulty is called, from its wire spelling.
+///
+/// The wire value is an identifier — `"sharp"` is what a `GamePreset` holds
+/// and what an HTTP route takes — and the root contract keeps it: *values
+/// that are also identifiers keep their wire spelling and translate only the
+/// label*. This is the label half, and it had only one caller, so the table
+/// went on printing the identifier. A chair arranged in the lobby as
+/// "Solide" sat down at the table called `steady 1`.
+///
+/// Unknown spellings are [`None`] rather than the middle difficulty, because
+/// a caller that has a value the client does not know is in a different
+/// situation from one that has none — and a wrong difficulty drawn
+/// confidently is worse than no difficulty at all.
+#[must_use]
+pub fn ai_name(lang: Lang, wire: &str) -> Option<&'static str> {
+    let phrase = match wire {
+        "novice" => Phrase::AiNovice,
+        "casual" => Phrase::AiCasual,
+        "steady" => Phrase::AiSteady,
+        "sharp" => Phrase::AiSharp,
+        "expert" => Phrase::AiExpert,
+        _ => return None,
+    };
+    Some(phrase.text(lang))
+}
+
 /// What to call a seat inside a sentence.
 ///
 /// Every line that talks *about* another chair needs this, and four of them
