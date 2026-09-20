@@ -37,8 +37,8 @@ Two rows are part-answered, and they say so in their own cell.
 | Planeswalker survival | 10 loyalty faces | Split attacks across players and walkers, loyalty-based prevention, static walker abilities, team blocks and multicolor protection. |
 | Modal and multi-target effects | 10 modal cards | Choosing the mode is done (#93): a modal spell whose every effect sits under a mode is offered no normal cast (CR 700.2a), so the agent used to take the first printed one at every table. `filter::cast_mode` ranks the offered modes by what they reach, proved by `a_modal_spell_takes_the_mode_that_reaches_something` against Sheoldred's Edict and pinned the other way by `a_normal_cast_is_not_traded_for_a_mode`. It reads only what the engine has not already decided — a mode that needs targets was offered because they exist (CR 700.2a, CR 700.2b) — and only the three untargeted board sentences (`SacrificeFilter`, `DestroyChosenForPlayers`, `DestroyAll`); everything else is `None` and keeps the printed order. Open: different targets serving different clauses, and sacrifice and reanimation ownership. |
 | Alternate resource engines | 6 treasure, 12 restricted mana, 11 alternative costs, 361 cards with a sacrifice or discard activation cost | Sacrifice/discard/exile/counter costs with beneficial payoffs; mana loops, restricted mana, treasure, life payments and untap engines. Prove progress and prohibit zero-cost repetitions. |
-| Variable costs | 26 X costs, 1 cost reduction, 4 convoke/delve | Multiple X symbols, variable target counts, cost reductions, convoke/delve, life-X sweeps and draw-X near deck-out. |
-| Stack strategy | 35 counterspells, 5 copy, 3 redirect, 3 ward | Counter wars, ward/taxes, uncounterable spells, protecting a combo, redirect/copy effects and stack-value assessment. |
+| Variable costs | 26 X costs, 1 cost reduction, 4 convoke/delve | Convoke and delve are done (#74), and each half was checked by removing it rather than by reading it. Convoke is answered from the engine's own offer (`convoke_pays_with_the_offered_permanents_instead_of_targeting_one`); delve is a **price** before it is a question, and `policy::spell_cost` subtracts the graveyard the same way `casting::can_cast` does (CR 702.66a) so the agent reaches for the spell at all — that subtraction had no assertion and now has `a_delve_spell_is_priced_with_the_graveyard_before_the_first_tap`. Open: multiple X symbols, variable target counts, printed cost reductions, life-X sweeps and draw-X near deck-out. |
+| Stack strategy | 35 counterspells, 5 copy, 3 redirect, 3 ward | Ward is done (#74), in all three places it arrives. It is **not** `Effect::PayCostOrLoseLater` — that variant is Pact of Negation, and the refusal beside it has nothing to do with ward; ward is synthesised as a keyword trigger carrying `Effect::PlayerMayPayOr` (`trigger.rs`, CR 702.21). So it is priced when a target is chosen (`tactics::ward_priced`), answered by what refusing it would do (`policy::pays_tax`), and paid inside the window the yes opens (`policy::pay_owed`, CR 605.3a), with `ai_ward.rs` walking all three in a real game. Open: counter wars, uncounterable spells, protecting a combo, redirect/copy effects and stack-value assessment. |
 | Hidden-zone decisions | 87 library searches, 1 wish | Scout refresh after shuffle, reveal, wish and sideboarding; never reuse a prior hidden object handle to issue an action. |
 | Transformation and alternate zones | 120 compiled two-face cards (see #115), of which 82 print a land behind a non-land front; 2 adventure, 1 disturb; 3 granting flashback, 10 entering as a copy | Part-answered (#76). The **land** face is read: `policy::plays_as_land` asks every face rather than the one that is up, which is the engine's own rule for the land drop (CR 712.12), so a hand of modal double-faced cards is no longer mulliganed as landless and one is no longer discarded as a spare spell. The **cast** faces are not: `filter::cast_mode` takes the `Normal` option whenever one is offered, so an adventure or an MDFC back is cast only when the engine offers nothing else — pinned by `an_adventure_is_offered_and_the_agent_takes_the_printed_front`, because choosing between them needs a value model this crate has not got. Open: each playable face chosen on purpose, disturb, flashback, madness, meld and copied abilities, once available in the relevant deck. |
 | Full-game lookahead | not a card shape | Responses, combat triggers, replacements, alternative wins and combo sequencing. The current bounded combat search does not simulate these. |
@@ -55,6 +55,17 @@ Infect and wither are the opposite case and worth keeping apart from them:
 the DSL can say both, this pool prints neither, and that nought **is** a
 finding, asserted in
 `a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write`.
+
+**A row closes by injection, not by reading.** #74 was five behaviours that
+all looked covered. Each was removed in turn and the suite re-run, and four of
+the five were caught by a named test within seconds. The fifth — the delve
+discount in `policy::spell_cost` — was removed and **the whole suite stayed
+green**: the spell was priced at its printed eight, no mana plan existed for
+it over two Islands, and the agent passed a turn it could have dug on, with
+nothing to say so. The test beside it, `the_delve_question_is_a_cost_and_the
+_agent_pays_it`, covers the *answer* and reads as though it covered the price.
+That is the shape to expect here: a green row where one clause of it is
+load-bearing and unasserted, hidden behind a neighbour with a similar name.
 
 **Every cell names its instrument, and that is the harder half.** A figure
 here answers whatever the probe behind it asks, which is not always the

@@ -2758,6 +2758,72 @@ mod tests {
     /// well if the arm had been widened for every prompt at once, and an
     /// agent that bottomed its whole hand to a scry would be a worse player
     /// than one that never delved.
+    /// #74. Delve is a price before it is a question, and the price is what
+    /// decides whether the agent reaches for the spell at all.
+    ///
+    /// `the_delve_question_is_a_cost_and_the_agent_pays_it` proves the
+    /// *answer*: asked to exile, the agent exiles the whole reduction. It
+    /// says nothing about `policy::spell_cost`, which subtracts the
+    /// graveyard before any question is asked — and that subtraction was
+    /// unasserted. Removed, the whole suite stayed green: Dig Through Time
+    /// was priced at its printed eight, `manaplan::plan` found no way to
+    /// make eight out of two Islands, and the agent passed a turn it could
+    /// have dug on. It is the same subtraction `casting::can_cast` makes
+    /// (CR 702.66a), so a seat that did not make it disagrees with the offer
+    /// it is being shown.
+    ///
+    /// Written at the *tap*, which is where it is visible: the spell is not
+    /// castable yet — the mana is still in the lands — so the agent has to
+    /// price it to decide the first Island is worth turning sideways.
+    #[test]
+    fn a_delve_spell_is_priced_with_the_graveyard_before_the_first_tap() {
+        let island = |slot: u32| {
+            let mut o = permanent(obj(slot), PlayerId::new(0), 0);
+            o.types = TypeSet::LAND;
+            o.subtypes = {
+                let mut set = SubtypeSet::EMPTY;
+                set.insert(baylee_core::generated::subtypes::land::ISLAND);
+                set
+            };
+            o.power = None;
+            o.toughness = None;
+            o
+        };
+        let mut v = view(0, &[20, 20], vec![island(20), island(21)]);
+        v.hand = vec![hand_card(1, "Dig Through Time")];
+        // Six cards in the graveyard, which is what turns {6}{U}{U} into
+        // {U}{U} — exactly the two Islands beside it.
+        v.graveyards[0] = (30..36)
+            .map(|i| permanent(obj(i), PlayerId::new(0), 1))
+            .collect();
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                mana_abilities: vec![obj(20), obj(21)],
+                ..Default::default()
+            }),
+        };
+        for (name, profile) in PROFILES {
+            let action = HeuristicAgent::new(profile).act(&v, &pending);
+            assert!(
+                matches!(action, PlayerAction::ActivateManaAbility { .. }),
+                "{name} would not tap toward a delve spell it can afford: {action:?}",
+            );
+        }
+        // The counter-test: empty the graveyard and the same spell is out of
+        // reach, so the agent must *not* tap for it. Without this the
+        // assertion above would pass against an agent that taps for anything.
+        v.graveyards[0].clear();
+        for (name, profile) in PROFILES {
+            let action = HeuristicAgent::new(profile).act(&v, &pending);
+            assert!(
+                !matches!(action, PlayerAction::ActivateManaAbility { .. }),
+                "{name} tapped toward an eight-drop with two lands: {action:?}",
+            );
+        }
+    }
+
     #[test]
     fn the_delve_question_is_a_cost_and_the_agent_pays_it() {
         let graveyard: Vec<ObjectId> = (10..17).map(obj).collect();
