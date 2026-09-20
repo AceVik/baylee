@@ -815,6 +815,7 @@ impl Tx<'_> {
                 vec![format!("Effect::destroy({aimed})")]
             }
             "Token" => self.token_effect(p, target)?,
+            "Investigate" => self.investigate_effect(p, target)?,
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
             "ChangeZone" => self.change_zone(p, target)?,
@@ -930,9 +931,6 @@ impl Tx<'_> {
     /// read by [`crate::tokengen`] from the token script and never from this
     /// line, which carries none of it.
     fn token_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
-        let Some(tokens) = self.tokens else {
-            return self.deny("`Token` with no token scripts to read it against".to_string());
-        };
         // Who gets it. The corpus writes `TokenOwner$ You` on 2220 of its
         // 3610 token lines and leaves the key off on 1154 — and absence is
         // **not** a synonym for you: Rootcast Apprenticeship says "target
@@ -952,7 +950,24 @@ impl Tx<'_> {
         let Some(stem) = p.take("TokenScript") else {
             return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
         };
-        let Some(body) = tokens.body(&stem, self.cats) else {
+        self.create_tokens(&stem, p.take("TokenAmount").as_deref())
+    }
+
+    /// The half of a token effect that is about the token rather than about
+    /// the line that asked for it: which script, and how many.
+    ///
+    /// Its own function because [`Self::investigate_effect`] is the same
+    /// question asked in different words, and a second copy of it is a
+    /// second chance to answer "how many" differently — which is the whole
+    /// argument `effects::applies_to` already makes about a predicate with
+    /// three readers. The keys are read by the caller, because the corpus
+    /// spells them differently (`TokenAmount$` against `Num$`) and that is
+    /// the only difference between the two.
+    fn create_tokens(&mut self, stem: &str, raw_amount: Option<&str>) -> Option<Vec<String>> {
+        let Some(tokens) = self.tokens else {
+            return self.deny("`Token` with no token scripts to read it against".to_string());
+        };
+        let Some(body) = tokens.body(stem, self.cats) else {
             return self.deny(format!("token script `{stem}`"));
         };
         // `generated_tokens` and not `tokens`: the ledger is the one door,
@@ -960,15 +975,15 @@ impl Tx<'_> {
         // business — a hand-written token is re-exported from there under
         // the same name.
         let token = format!("&generated_tokens::{}", body.constant);
-        let amount = match p.take("TokenAmount") {
+        let amount = match raw_amount {
             None => None,
-            Some(raw) => match amount(&raw, self.svars, self.has_x) {
+            Some(raw) => match amount(raw, self.svars, self.has_x) {
                 // A refusal names the `SVar` the amount resolves *through*
                 // and not merely the letter, because `X` is what 356 scripts
                 // write and each of them means it by a different count —
                 // the letter alone ranks one entry that is really thirty.
                 None => {
-                    return match self.svars.get(&raw) {
+                    return match self.svars.get(raw) {
                         Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
                         None => self.deny(format!("token amount `{raw}`")),
                     };
@@ -987,6 +1002,45 @@ impl Tx<'_> {
                 "Effect::CreateTokenN {{ token: {token}, amount: {n} }}"
             )],
         })
+    }
+
+    /// CR 701.16a: "'Investigate' means 'Create a Clue token.'"
+    ///
+    /// One sentence in the rules, and nothing in the DSL was missing —
+    /// `Effect::CreateToken` has been able to say it since tokens existed,
+    /// and `tokens::CLUE` is already in the ledger. What was missing is the
+    /// *word*: the corpus writes every other token as `Token` with a
+    /// `TokenScript$` and writes this one as its own API, because Magic
+    /// gives the action a keyword name. That is the fifth time an entry on
+    /// the report turned out to be a sentence the DSL could already spell.
+    ///
+    /// Who investigates is read from **two** keys, because the corpus writes
+    /// both: `Defined$ You` on five lines and `ValidPlayer$ You` on two.
+    /// Every other value there names somebody else — `Opponent`,
+    /// `TargetedController`, `Player.withMostTypeCreature` — and is refused
+    /// for the reason [`Self::token_effect`] refuses a token under another
+    /// player's control: `Effect::CreateToken` has no room for an owner.
+    ///
+    /// `Optional$ True` is on two lines and is claimed by nothing here, so
+    /// those two refuse themselves. That is the honest-stub rule paying for
+    /// itself rather than a case being handled: "you may investigate" is a
+    /// question this DSL cannot ask, and reading the key as its absence
+    /// would be an inference wearing a reading's clothes.
+    fn investigate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        let who = match (p.take("Defined"), p.take("ValidPlayer")) {
+            // Both keys on one line would be two answers to one question.
+            // No line in the corpus writes both, which is what makes this a
+            // refusal rather than a precedence rule nobody can check.
+            (Some(_), Some(_)) => {
+                return self.deny("`Investigate` naming its player twice".to_string());
+            }
+            (Some(d), None) | (None, Some(d)) => Self::player_rel(Some(&d)),
+            (None, None) => Self::player_rel_of(None, target),
+        };
+        if who != Some("PlayerRel::You") {
+            return self.deny("somebody other than you investigating".to_string());
+        }
+        self.create_tokens(CLUE_TOKEN_SCRIPT, p.take("Num").as_deref())
     }
 
     /// `Animate`: the manland sentence — "until end of turn, this land
@@ -3393,6 +3447,18 @@ pub fn refusal_reason(
     None
 }
 
+/// The reference's name for the Clue token, which CR 701.16a makes the whole
+/// definition of investigating.
+///
+/// Named here rather than written into [`Scriptgen::investigate_effect`]
+/// because it is a fact about the *corpus* and not about the rule: the rule
+/// says "a Clue token" and this is the file that happens to hold one. It
+/// goes through the same `TokenLookup` every `TokenScript$` goes through, so
+/// a run with no token corpus refuses investigating for the same stated
+/// reason it refuses every other token, instead of emitting a constant that
+/// the ledger may not have assigned.
+const CLUE_TOKEN_SCRIPT: &str = "c_a_clue_draw";
+
 /// The effect APIs [`transcode`] knows how to write.
 ///
 /// Kept beside the match in [`Tx::chain`] so a report of what the corpus
@@ -3415,6 +3481,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Pump",
     "ChangeZone",
     "Token",
+    "Investigate",
 ];
 
 /// A cost token that names an object, split into its kind and its body.
@@ -3540,6 +3607,24 @@ pub fn token_stems(script: &CardScript) -> Vec<String> {
                 out.push(stem);
             }
         }
+        // The token a line names by not naming it. `Investigate` writes no
+        // `TokenScript$` at all — CR 701.16a supplies which token it is —
+        // so a scan for that key alone tells the ledger the card needs no
+        // token, while [`Tx::investigate_effect`] is about to emit the
+        // constant the ledger was never asked to assign. The emitter and
+        // the ledger have to name the same tokens or one of them is wrong,
+        // and today it survives only because another card happens to name
+        // the Clue outright.
+        //
+        // Read through [`Params::parse`] and never for the word: every one
+        // of these lines also *prints* it, and `SpellDescription$
+        // Investigate. (Create a Clue token…)` is on 21 of the corpus's
+        // 112.
+        if Params::parse(body).is_some_and(|(api, _)| api == "Investigate")
+            && !out.iter().any(|stem| stem == CLUE_TOKEN_SCRIPT)
+        {
+            out.push(CLUE_TOKEN_SCRIPT.to_string());
+        }
     }
     out
 }
@@ -3608,6 +3693,9 @@ mod tests {
     fn cats() -> SubtypeCatalogs {
         let mut c = SubtypeCatalogs {
             creature: vec!["Goblin".into(), "Wizard".into()],
+            // The Clue is here because a token's own type line is read
+            // against this catalog, and investigating reaches one.
+            artifact: vec!["Clue".into()],
             land: vec!["Forest".into(), "Island".into(), "Mountain".into()],
             ..SubtypeCatalogs::default()
         };
@@ -3769,6 +3857,14 @@ mod tests {
                 "r_1_1_goblin_maker",
                 "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1\n\
                  A:AB$ Token | Cost$ T | TokenScript$ r_1_1_goblin | TokenOwner$ You",
+            ),
+            // The Clue, in the reference's own shape, because CR 701.16a
+            // makes it the whole definition of investigating and the rule
+            // reaches it through this same lookup.
+            (
+                CLUE_TOKEN_SCRIPT,
+                "Name:Clue Token\nTypes:Artifact Clue\n\
+                 A:AB$ Draw | Cost$ 2 Sac<1/CARDNAME/this token> | NumCards$ 1",
             ),
         ])
     }
@@ -6416,6 +6512,162 @@ mod tests {
                 "and the refusal names the line it stopped on: {script}"
             );
         }
+    }
+
+    /// CR 701.16a: "'Investigate' means 'Create a Clue token.'"
+    ///
+    /// The entry on the report said `effect Investigate`, ten pool stubs
+    /// deep, and the DSL turned out to be able to say all of it already —
+    /// the fifth time that has been true. So what is asserted here is the
+    /// *spelling*: that the word reaches `Effect::CreateToken` with the
+    /// Clue in it, and that it goes through the same token lookup every
+    /// `TokenScript$` goes through rather than naming a constant of its own.
+    #[test]
+    fn investigating_is_creating_a_clue_token() {
+        let land = read_with_tokens(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Investigate | Cost$ 4 T | SpellDescription$ Investigate.",
+        );
+        assert_eq!(
+            land.abilities,
+            [
+                "activated!(cost!(\"{4}\", TapSelf), &[Effect::CreateToken { token: &generated_tokens::CLUE }])"
+            ]
+        );
+
+        // `Num$` is the same question `TokenAmount$` asks, and reaches the
+        // same two spellings through the same reader — one is `CreateToken`
+        // and more is `CreateTokenN`, so the commonest token effect there is
+        // does not acquire a second way of being written.
+        let twice = read_with_tokens(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Investigate | Cost$ T | Num$ 2",
+        );
+        assert_eq!(
+            twice.abilities,
+            [
+                "activated!(Cost::TAP, &[Effect::CreateTokenN { token: &generated_tokens::CLUE, amount: Amount::Fixed(2) }])"
+            ]
+        );
+    }
+
+    /// Each way of refusing to investigate, named by the reason it gives.
+    ///
+    /// `refused()` alone would pass on any of them for any reason at all,
+    /// including one from a different rule entirely — which is the failure
+    /// this file's own `refusal_reason` exists to make impossible. The
+    /// player check is asserted to fire **before** the token lookup, so a
+    /// machine with no token corpus still reports what is wrong with the
+    /// *card* rather than what is missing from the machine.
+    #[test]
+    fn who_investigates_is_refused_before_anything_about_this_machine_is() {
+        let why = |text: &str, tokens: Option<&TokenLookup>| {
+            refusal_reason(&parse(text), &cats(), tokens).expect("a reason is recorded")
+        };
+        let held = tokens();
+
+        // Somebody else investigating: `Effect::CreateToken` has no room
+        // for an owner, exactly as a `Token` line under another player's
+        // control has none.
+        for who in [
+            "Defined$ Opponent",
+            "ValidPlayer$ Player",
+            "Defined$ TargetedController",
+        ] {
+            let text = format!("Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ T | {who}");
+            assert_eq!(
+                why(&text, Some(&held)),
+                "somebody other than you investigating",
+                "for {who}"
+            );
+            // And with no token corpus it still says that, because the
+            // question about the card comes first.
+            assert_eq!(why(&text, None), "somebody other than you investigating");
+        }
+
+        // Two keys for one question. No line in the corpus writes both,
+        // which is what makes this a refusal rather than a precedence rule
+        // nobody could check against anything.
+        assert_eq!(
+            why(
+                "Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ T | Defined$ You | ValidPlayer$ You",
+                Some(&held)
+            ),
+            "`Investigate` naming its player twice"
+        );
+
+        // "You may investigate" is a question this DSL cannot ask, and the
+        // key is claimed by nothing, so the card refuses itself rather than
+        // being read as the mandatory sentence beside it.
+        assert!(
+            why(
+                "Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ T | Optional$ True",
+                Some(&held)
+            )
+            .contains("Optional"),
+            "the optional clause is named, not swallowed: got {:?}",
+            why(
+                "Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ T | Optional$ True",
+                Some(&held)
+            )
+        );
+
+        // And without the corpus the token half refuses in the same words
+        // every other token refuses in.
+        assert_eq!(
+            why("Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ T", None),
+            "`Token` with no token scripts to read it against"
+        );
+    }
+
+    /// The ledger is told about the token a line does not name.
+    ///
+    /// The emitter and the ledger have to agree about which tokens a card
+    /// needs: [`Tx::investigate_effect`] writes `generated_tokens::CLUE`,
+    /// and if [`token_stems`] does not report the Clue then nothing ever
+    /// asked the ledger to assign it. Today that survives only because
+    /// another card in the pool names the Clue outright — which is luck,
+    /// not a rule, and luck of exactly the kind that holds until the card
+    /// naming it is cut.
+    #[test]
+    fn a_card_that_only_investigates_still_names_the_clue() {
+        assert_eq!(
+            token_stems(&parse("Name:X\nTypes:Land\nA:AB$ Investigate | Cost$ 4 T")),
+            [CLUE_TOKEN_SCRIPT]
+        );
+        // Through an `SVar` chain as well, which is where the corpus puts
+        // most of its token effects.
+        assert_eq!(
+            token_stems(&parse(
+                "Name:X\nTypes:Creature\n\
+                 T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+                 Execute$ Trig | TriggerDescription$ x\n\
+                 SVar:Trig:DB$ Investigate"
+            )),
+            [CLUE_TOKEN_SCRIPT]
+        );
+        // Named once when the card investigates twice, since the list feeds
+        // an append-only ledger where a repeat is a second id for one
+        // permanent.
+        assert_eq!(
+            token_stems(&parse(
+                "Name:X\nTypes:Land\n\
+                 A:AB$ Investigate | Cost$ 4 T\n\
+                 A:AB$ Investigate | Cost$ 6 T"
+            )),
+            [CLUE_TOKEN_SCRIPT]
+        );
+        // And the word in prose is not a line that makes one: this is the
+        // reason the reading goes through `Params::parse` and not a search
+        // for the word, which 21 of the corpus's 112 lines would fool.
+        assert!(
+            token_stems(&parse(
+                "Name:X\nTypes:Land\n\
+                 A:AB$ Mana | Cost$ T | Produced$ W | \
+                 SpellDescription$ Add {W}. Investigate. (Create a Clue token.)"
+            ))
+            .is_empty()
+        );
     }
 }
 
