@@ -5,6 +5,40 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 
+/// The object an effect's own [`TargetSpec`] names at resolution.
+///
+/// Every spec but one is chosen at CR 601.2c and read back out of
+/// `res.targets`; the field on the effect is then only a record of what was
+/// asked for. [`TargetSpec::ThisObject`] is the exception, because it names
+/// the source and **nothing is chosen** — which is the whole difference
+/// between "return Oboro to its owner's hand" and "return target land": no
+/// question is asked, and hexproof has nothing to answer.
+///
+/// `res.source` and `res.on_stack` are separate fields, so this is the
+/// source permanent and never the ability object resolving above it.
+///
+/// Three cards in the pool spell it, across two effects, and all three were
+/// silently doing nothing before this existed (#147): Oboro, Palace in the
+/// Clouds and Ghost Town through `ReturnToHand`, and The Tabernacle at
+/// Pendrell Vale through `Destroy`. Each of those arms read an empty
+/// `res.targets`, and a `None` there is how every one of them says "nothing
+/// to move" — so the failure was silent by construction, and `xtask
+/// validate` and the pool lints could not see it either, because all three
+/// cards say the right thing.
+///
+/// The Tabernacle is the one that says which object `res.source` has to be.
+/// Its sentence is granted to every creature (`Modifier::GrantTriggered`),
+/// and `trigger.rs` pushes the granted trigger with `source: permanent` —
+/// the creature the ability was granted *to*, not the land that granted it.
+/// So "destroy this creature" destroys the creature, which is both the
+/// printed sentence and what a granted ability's source means.
+fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
+    match target {
+        TargetSpec::ThisObject => Some(res.source),
+        _ => res.targets.first().copied(),
+    }
+}
+
 /// Executes one zone-movement effect.
 #[allow(clippy::too_many_lines)] // the zone vocabulary is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -53,8 +87,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::ReturnToHand { .. } => {
-            if let Some(&target_id) = res.targets.first() {
+        Effect::ReturnToHand { target } => {
+            if let Some(target_id) = spec_object(res, target) {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 // CR 903.9b, before the kind flips below: this operation
                 // re-runs from the top once every owner has answered.
@@ -416,8 +450,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Destroy { .. } => {
-            if let Some(&target_id) = res.targets.first() {
+        Effect::Destroy { target } => {
+            if let Some(target_id) = spec_object(res, target) {
                 sba::destroy(state, target_id);
             }
             None

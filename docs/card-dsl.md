@@ -714,6 +714,27 @@ answer is `PlayerAction::ChooseTargets { objects, players }`. The players
 picked ride on the spell as a `SeatSet` — a bitmask, because CR 601.2c makes
 targets distinct and a game object is copied once per AI ply.
 
+`ThisObject` names the **source** and is not a target: nothing is chosen, no
+`Pending::ChooseTargets` opens, and hexproof, shroud and protection have
+nothing to answer (CR 115.6). That is what a card printing "return **Oboro**
+to its owner's hand" says, as against "return **target** land". It is the one
+spec the resolver reads off the effect rather than off the answer, and only
+where an arm has been written to — today `Effect::ReturnToHand` and
+`Effect::Destroy`, both through `resolve::zones::spec_object`. Any other
+effect given a `ThisObject` compiles, claims `Coverage::Implemented`,
+resolves, and does **nothing**: three cards sat that way until #147, and
+neither `xtask validate` nor the pool lints could see it, because all three
+say exactly the right thing. `engine::this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads`
+is the guard, so a card that reaches for a new one fails the build rather
+than a player; the fix is to read the spec in that arm, not to work around
+it in the card.
+
+Where an effect exists that acts on the source by name, prefer it:
+`SacrificeSelf`, `ExileSource`, `PutSourceOnTopOfLibrary`, `UntapSelf`. And
+do **not** reach for `targets = Some(TargetReq::one(TargetSpec::ThisObject))`
+to make a `ThisObject` effect work — it does work, and it turns a sentence
+that does not target into one that does.
+
 `AnyPlayer` and `AnyOpponent` are targeting *requirements*, not effect
 targets: the choice resolves into the spell or ability's `chosen_player`, and
 the effect reads it back as `Player(PlayerRel::Chosen)`. Handing the

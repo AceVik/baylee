@@ -8201,10 +8201,11 @@ fn geier_reach_sanitarium_each_player_draws_and_discards() {
 /// Oboro, Palace in the Clouds: "{T}: Add {U}." and "{1}: Return Oboro to its owner's hand."
 /// Oboro taps for blue mana, which remains in the pool to pay for its own return ability.
 /// The ability resolves, returning the tapped land back to its owner's hand.
-// Red: the ability resolves and Oboro does not move. `bounce(ThisObject)` has
-// exactly one user in the pool, so this spelling had never resolved before
-// this test existed. Un-ignoring it is what closes #147.
-#[ignore = "#147: a {1}: return-this-to-hand ability leaves the permanent on the battlefield"]
+// Was red: the ability resolved and Oboro did not move, because
+// `Effect::ReturnToHand` threw its own `TargetSpec` away and read the targets
+// chosen at activation — of which there are none, since naming your own
+// source chooses nothing. `resolve::zones::spec_object` reads the spec; the
+// rule's own tests are in `engine::this_object_tests` (#147).
 #[test]
 fn oboro_palace_in_the_clouds_taps_for_blue_and_returns_itself_to_hand() {
     let p0 = PlayerId::new(0);
@@ -10242,7 +10243,6 @@ fn emergence_zone_sacrifices_to_grant_flash() {
 /// Under `Coverage::Partial`, the not-your-turn timing restriction is omitted.
 /// Activating ability 1 for {0} returns Ghost Town from the battlefield to its owner's hand.
 #[test]
-#[ignore = "#147: an effect on TargetSpec::ThisObject does nothing — the land stays on the battlefield"]
 fn ghost_town_returns_to_hand_on_activation() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(113, forest())
@@ -10770,7 +10770,6 @@ fn terrain_generator_taps_for_colorless_mana() {
 /// The static ability grants an upkeep trigger to every creature on the battlefield.
 /// On turn 1 upkeep, Llanowar Elves' granted trigger resolves; when declining to pay {1}, the creature is destroyed.
 #[test]
-#[ignore = "#147: Destroy on TargetSpec::ThisObject does nothing — the declined tax kills nothing"]
 fn the_tabernacle_at_pendrell_vale_taxes_creatures_on_upkeep() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(118, forest())
@@ -10803,6 +10802,15 @@ fn the_tabernacle_at_pendrell_vale_taxes_creatures_on_upkeep() {
     assert!(
         in_graveyard(&engine, p0, llanowar_elves()).is_some(),
         "creature in graveyard"
+    );
+    // Which object died, said out loud. The sentence is granted to the
+    // creature, so `TargetSpec::ThisObject` is the creature and never the
+    // land that granted it — and a reading that took the granting permanent
+    // instead produced the same visible outcome as the broken one, because
+    // both destroyed nothing (#147).
+    assert!(
+        on_battlefield(&engine, p0, the_tabernacle_at_pendrell_vale()).is_some(),
+        "the land that granted the ability destroyed itself"
     );
 }
 

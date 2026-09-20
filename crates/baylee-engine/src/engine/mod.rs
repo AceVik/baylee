@@ -792,6 +792,8 @@ pub(crate) mod testkit;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod this_object_tests;
+#[cfg(test)]
 mod token_tests;
 #[cfg(test)]
 mod untap_tests;
