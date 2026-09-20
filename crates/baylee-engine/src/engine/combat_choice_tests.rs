@@ -207,3 +207,189 @@ fn declaring_no_attackers_skips_the_blockers_step_entirely() {
         "and the phase still ends properly: {steps:?}"
     );
 }
+
+/// 3/2 whose whole printed text is menace.
+fn viashino_runner() -> CardIndex {
+    card_index("ac7e317b-387c-403f-bcf1-403f96302f21")
+}
+
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// Every creature `seat` controls on the battlefield, in zone order.
+fn creatures_of(
+    engine: &Engine<super::testkit::RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .collect()
+}
+
+/// Attacks with seat 0's only creature and stops on the blockers question.
+#[track_caller]
+fn attack_and_reach_blockers(
+    engine: &mut Engine<super::testkit::RegistryLookup>,
+    p0: PlayerId,
+    p1: PlayerId,
+) -> Vec<crate::choice::BlockOption> {
+    let attackers = loop {
+        let Pending::ChooseAttackers {
+            player, attackers, ..
+        } = reach_attackers(engine)
+        else {
+            unreachable!()
+        };
+        if player == p0 && !attackers.is_empty() {
+            break attackers;
+        }
+        engine
+            .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .unwrap();
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attackers[0], baylee_core::ids::Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    loop {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => break blockers,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+}
+
+/// Menace is a restriction on the **declaration** and not on a pair
+/// (CR 702.111b, checked where CR 509.1b puts it), and this is the test that
+/// says so from all three sides at once: the offer names the attacker to
+/// each blocker, one blocker is refused, and two are taken.
+///
+/// It fails against the code before #156 on its *first* assertion, and that
+/// is the point. `combat::can_block` asked `state.combat.blockers_of(attacker)`
+/// and answered `false` while that list was empty — which it always was,
+/// because both callers ask before anything is recorded: `progress_step`
+/// while it builds this offer, and `declare_blockers` in a per-pair loop that
+/// runs to completion before the first `declare_block`. So the offer was
+/// empty, a pair was refused along with a lone blocker, and menace read as
+/// plain unblockable. The declaration-wide count had been written with the
+/// rest of the rule and was unreachable by any legal answer.
+#[test]
+fn a_menace_attacker_takes_two_blockers_or_none() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(31, mountain())
+        .battlefield(0, &[viashino_runner()])
+        .battlefield(1, &[halimar_excavator(), halimar_excavator()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let guards = creatures_of(&engine, p1, halimar_excavator());
+    assert_eq!(guards.len(), 2, "two creatures are there to block with");
+
+    let blockers = attack_and_reach_blockers(&mut engine, p0, p1);
+    let runner = engine.state().combat.attackers[0].creature;
+    assert_eq!(
+        blockers.len(),
+        2,
+        "both 1/2s are offered — neither flying nor protection nor a tap is \
+         in the way, and menace is not a pairing question: {blockers:?}"
+    );
+    assert!(
+        blockers.iter().all(|o| o.attackers.contains(&runner)),
+        "each of them is paired with the menace attacker, because either may \
+         be one of the two CR 702.111b asks for: {blockers:?}"
+    );
+
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(guards[0], runner)],
+                },
+            )
+            .is_err(),
+        "\"can't be blocked except by two or more creatures\": one is not two"
+    );
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(guards[0], runner), (guards[1], runner)],
+            },
+        )
+        .expect("two is exactly what the sentence's escape clause names");
+    let declared = engine.state().combat.blockers_of(runner);
+    assert_eq!(
+        declared.len(),
+        2,
+        "and both of them are recorded as blockers: {declared:?}"
+    );
+}
+
+/// The half of menace that *is* answerable one attacker at a time.
+///
+/// A defender with one legal blocker has no legal declaration that blocks a
+/// menace attacker at all, so naming that pairing in the offer would name a
+/// block `declare_blockers` must refuse — and this engine's contract is that
+/// a client cannot name an option the engine did not offer.
+///
+/// The two boards are one test because the empty half proves nothing alone:
+/// before #156 the offer was empty for *every* menace attacker, so "one
+/// blocker is not offered" was green for the wrong reason. The two-blocker
+/// board beside it is what makes the assertion mean the rule rather than the
+/// defect.
+#[test]
+fn a_menace_attacker_is_offered_only_where_two_could_block_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+
+    let mut lonely = Duel::new(32, mountain())
+        .battlefield(0, &[viashino_runner()])
+        .battlefield(1, &[halimar_excavator()])
+        .start();
+    keep_mulligans(&mut lonely);
+    assert_eq!(
+        creatures_of(&lonely, p1, halimar_excavator()).len(),
+        1,
+        "one creature, which is one short of the restriction's escape clause"
+    );
+    let offered = attack_and_reach_blockers(&mut lonely, p0, p1);
+    assert!(
+        offered.is_empty(),
+        "the lone 1/2 is offered nothing: it may block, and no declaration \
+         containing it is legal, so the pairing is not published: {offered:?}"
+    );
+
+    let mut paired = Duel::new(32, mountain())
+        .battlefield(0, &[viashino_runner()])
+        .battlefield(1, &[halimar_excavator(), halimar_excavator()])
+        .start();
+    keep_mulligans(&mut paired);
+    let offered = attack_and_reach_blockers(&mut paired, p0, p1);
+    assert_eq!(
+        offered.len(),
+        2,
+        "the same attacker over the same board plus one creature is offered \
+         to both of them — which is what makes the empty offer above a \
+         statement about the count and not about menace: {offered:?}"
+    );
+}

@@ -1649,9 +1649,12 @@ fn walk_the_game_until(
 ///
 /// Then the other half of `Coverage::Partial`, and the reason the card
 /// carries it. "This creature can block only creatures with flying" is not
-/// enforced: `combat::can_block` reads the attacker's flying, menace and
+/// enforced: `combat::can_block` reads the attacker's flying and
 /// unblockable and the blocker's flying and reach, and nothing in the
-/// engine names the attackers a given blocker may be paired with. So a 1/1
+/// engine names the attackers a given blocker may be paired with. (Menace
+/// is not in that list and was never a pairing question: CR 702.111b
+/// restricts the whole declaration, so it is counted in
+/// `Engine::declare_blockers` — #156.) So a 1/1
 /// ground Elf attacks and the Borrower is offered against it, which the
 /// printed line forbids. The assertion is written to say so and to break
 /// the day it stops being true — a blocker with no legal attacker is
@@ -1887,8 +1890,8 @@ fn the_borrower_flashes_out_of_its_own_adventure_and_then_blocks_a_ground_creatu
         offered.attackers.contains(&theirs),
         "the printed line is `This creature can block only creatures with flying` \
          and the attacker on offer is a ground Elf. `combat::can_block` reads the \
-         attacker's flying, menace and unblockable and the blocker's flying and \
-         reach, and no `Modifier` names the attackers one blocker may be paired \
+         attacker's flying and unblockable and the blocker's flying and reach, \
+         and no `Modifier` names the attackers one blocker may be paired \
          with — which is exactly what `Coverage::Partial` promises a player here. \
          The day this fires, the pairing has learned to say it and the card is no \
          longer Partial: {blockers:?}"
@@ -5026,27 +5029,27 @@ fn a_blackbloom_rogue_stays_a_two_three_though_their_graveyard_holds_eight() {
 /// means anything.
 ///
 /// Two untapped Elves stand across the table, so the sentence's own escape
-/// clause is available: two or more creatures *may* block. The engine offers
-/// neither of them, and refuses the pair when it is named anyway.
-/// `combat::can_block` asks `state.combat.blockers_of(attacker)` and answers
-/// `false` while that list is empty — and it is empty both when
-/// `progress_step` builds the `ChooseBlockers` offer and when
-/// `declare_blockers` validates every pair *before* recording any of them. So
-/// the restriction's first half is enforced (a lone blocker is illegal) and
-/// its second half is not (a pair is illegal too), which makes menace read as
-/// plain unblockable.
+/// clause is available: two or more creatures *may* block. Both halves of it
+/// are asked here — the Rogue is on the offer that each Elf gets, and a lone
+/// Elf is still refused.
 ///
-/// The two `is_err()` assertions are therefore not the same claim. The
-/// one-blocker one is the printed line holding and should stay green forever.
-/// The two-blocker one is an **engine** gap and not this card's: when the
-/// pairing learns to count declared blockers, that assertion is the one to
-/// delete, together with the offer assertion above it — and this card stays
-/// `Coverage::Partial`, because what that flag names is the +3/+0 and not
-/// menace. The Brazen Borrower test in this same file holds the other end of
-/// the same missing pairing rule.
+/// This test used to say the opposite, and said it at length: the offer
+/// named the Rogue to nobody and a *pair* was refused too, because
+/// `combat::can_block` asked `state.combat.blockers_of(attacker)` while that
+/// list was necessarily empty — both callers ask before anything is
+/// recorded. Menace read as plain unblockable (#156). The assertion that
+/// moved is the offer one; the one-blocker refusal is the printed line
+/// holding and was green through both readings, which is why it is the one
+/// that says nothing new.
+///
+/// That a pair is now *accepted* is a rules claim rather than a claim about
+/// this card, so it lives beside the rule in `combat_choice_tests`. What
+/// stays here is the card: the unblocked Rogue deals the 2 its type line
+/// prints, and this card stays `Coverage::Partial` because what that flag
+/// names is the +3/+0 and not menace.
 #[test]
 #[allow(clippy::too_many_lines)] // one attack, played step by step
-fn a_blackbloom_rogue_s_menace_is_offered_to_no_blocker_at_all() {
+fn a_blackbloom_rogue_s_menace_is_offered_to_both_blockers_and_refuses_one() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(47, forest())
         .battlefield(0, &[blackbloom_rogue(), swamp()])
@@ -5106,31 +5109,19 @@ fn a_blackbloom_rogue_s_menace_is_offered_to_no_blocker_at_all() {
         unreachable!("the pass waited for exactly this")
     };
     assert_eq!(player, p1, "the attack is aimed at them, so they block");
+    assert_eq!(
+        blockers.len(),
+        2,
+        "both untapped Elves are on the offer: {blockers:?}"
+    );
     assert!(
-        blockers.iter().all(|o| !o.attackers.contains(&rogue)),
-        "neither untapped Elf is paired with the Rogue in the offer, because \
-         `can_block` refuses a menace attacker that nothing is blocking yet — \
-         and a blocker with no legal attacker is dropped from the offer \
-         entirely. When this fires the offer has learned to say `two of these, \
-         together` and the `is_err` below it is the next line to go: \
-         {blockers:?}"
+        blockers.iter().all(|o| o.attackers.contains(&rogue)),
+        "each Elf is paired with the Rogue, because either of them may be one \
+         of the two CR 702.111b asks for — the restriction is on the whole \
+         declaration (CR 509.1b) and the offer is per pair: {blockers:?}"
     );
 
-    // Two blockers is what the card allows, and the engine says no.
-    assert!(
-        engine
-            .apply(
-                p1,
-                PlayerAction::DeclareBlockers {
-                    blockers: vec![(elves[0], rogue), (elves[1], rogue)],
-                },
-            )
-            .is_err(),
-        "`except by two or more creatures` names exactly this block, and it is \
-         refused: every pair is validated against `can_block` before any of \
-         them is recorded, so the second Elf is never counted for the first"
-    );
-    // One blocker is refused too, and that half is the printed line holding.
+    // One blocker is refused, and that is the printed line holding.
     assert!(
         engine
             .apply(

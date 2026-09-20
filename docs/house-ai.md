@@ -129,8 +129,12 @@ block is dropped. The deeper profiles never needed the pass, because `search`
 evaluates the two-blocker leaf on its own merits and refuses the one-blocker
 one; what they needed was a scenario in which that refusal decides anything,
 which is a 2/6 against a 6/6 and a 2/2 and not the 4/4 that first suggests
-itself. None of this is reachable while the engine offers a menace attacker to
-nobody (#156) — which is the argument for doing it first, not later.
+itself. That precondition is gone: #156 landed, `combat::can_block` no longer
+asks a question it answers before anything is recorded, and the offer now names
+a menace attacker wherever two creatures could legally block it. So all of this
+is reachable, and the pass above is load-bearing rather than defensive. This
+paragraph records the fact; what these profiles do once that rule decides a
+game is #157's owner's to write over it.
 
 **A card in hand is what any of its faces can be.** A `CardIdentity` in hand
 names the face that is *up*, which for a modal double-faced card is the

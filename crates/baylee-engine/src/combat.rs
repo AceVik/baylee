@@ -247,14 +247,17 @@ pub fn can_block(
     if kw(a, K::FLYING) && !kw(b, K::FLYING) && !kw(b, K::REACH) {
         return false;
     }
-    // Menace requires two or more blockers (checked at declaration: a
-    // single blocker is never legal).
-    if kw(a, K::MENACE) {
-        let blockers = state.combat.blockers_of(attacker).len();
-        if blockers == 0 {
-            return false;
-        }
-    }
+    // Menace is deliberately *not* asked here. CR 702.111b restricts the
+    // whole declaration and CR 509.1b is where that is checked, so a
+    // function that sees one pair cannot answer it — and asking it here
+    // answered "no" every time, because both callers ask before anything is
+    // recorded: `progress_step` while it builds the offer, and
+    // `declare_blockers` in a per-pair loop that runs to completion before
+    // the first `declare_block`. `state.combat.blockers_of(attacker)` was
+    // therefore always empty, which made menace read as plain unblockable
+    // (#156). The count lives in `Engine::declare_blockers`, and
+    // [`menace_satisfiable`] is what keeps the offer from naming a pairing
+    // that count must refuse.
     // Unblockable.
     if kw(a, K::UNBLOCKABLE) {
         return false;
@@ -264,6 +267,41 @@ pub fn can_block(
         return false;
     }
     true
+}
+
+/// Whether `defending` could field the two blockers CR 702.111b demands.
+///
+/// The half of menace that *is* answerable one attacker at a time. The
+/// restriction itself is on the whole declaration, so [`can_block`] does not
+/// try — but a defender who has only one creature that may legally block a
+/// menace attacker has no legal declaration that blocks it at all, and an
+/// offer naming that pairing would name a block `declare_blockers` must
+/// refuse. The engine publishes only what a player may actually answer.
+///
+/// The count is over distinct blockers and never over blocks: CR 702.111b
+/// asks for two or more *creatures*, so a single creature that may block an
+/// additional creature still answers it once. `take(2)` walks the
+/// battlefield, which holds each permanent once.
+///
+/// `true` for an attacker without menace, so callers may ask it of every
+/// attacker without asking twice.
+#[must_use]
+pub fn menace_satisfiable(state: &GameState, defending: PlayerId, attacker: ObjectId) -> bool {
+    let Some(a) = state.object(attacker) else {
+        return false;
+    };
+    if !a.characteristics().keywords.contains(K::MENACE) {
+        return true;
+    }
+    state
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|blocker| can_block(state, defending, *blocker, attacker))
+        .take(2)
+        .count()
+        == 2
 }
 
 /// Whether a creature deals its combat damage in the given step

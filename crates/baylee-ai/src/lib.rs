@@ -2064,12 +2064,13 @@ mod tests {
     /// exactly the declaration the rules forbid — and
     /// `Engine::declare_blockers` refuses the whole answer rather than the
     /// offending pair, so one illegal block costs every other block beside
-    /// it and the seat stops at the question. It is unreachable today only
-    /// because `combat::can_block` asks `blockers_of(attacker)` before
-    /// anything is recorded and therefore offers a menace attacker to
-    /// nobody at all; that is #156, and this is the half that has to land
-    /// first, because the day the offer learns to say "two of these,
-    /// together" is the day three of five profiles start stalling seats.
+    /// it and the seat stops at the question. That was unreachable until
+    /// #156, which stopped `combat::can_block` asking `blockers_of(attacker)`
+    /// before anything is recorded: the offer now names a menace attacker
+    /// wherever two creatures could legally block it, so the day this pass
+    /// stands between three of five profiles and a stalled seat has arrived.
+    /// Provisional — what the pass is worth once it decides a game is this
+    /// test's owner's to state.
     ///
     /// The third position is the one that measures `search`'s own rule
     /// rather than the pass added for the shallow profiles. A menace

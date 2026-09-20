@@ -416,6 +416,18 @@ impl<L: CardLookup> Engine<L> {
                     .iter()
                     .map(|a| a.creature)
                     .collect();
+                // CR 702.111b restricts the declaration and not the pair, so
+                // `can_block` cannot answer it — but an attacker this
+                // defender could never field two legal blockers against is
+                // one no legal declaration blocks, and offering that pairing
+                // would name a block `declare_blockers` has to refuse (#156).
+                // Asked once per attacker rather than once per pair, because
+                // the answer is the same for every blocker.
+                let blockable: Vec<ObjectId> = attacking
+                    .iter()
+                    .copied()
+                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a))
+                    .collect();
                 let blockers: Vec<crate::choice::BlockOption> = self
                     .state
                     .zones
@@ -423,7 +435,7 @@ impl<L: CardLookup> Engine<L> {
                     .iter()
                     .copied()
                     .filter_map(|blocker| {
-                        let attackers: Vec<ObjectId> = attacking
+                        let attackers: Vec<ObjectId> = blockable
                             .iter()
                             .copied()
                             .filter(|a| combat::can_block(&self.state, defending, blocker, *a))

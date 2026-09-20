@@ -10,8 +10,10 @@
 // permanent an opponent controls and exiles the card on an adventure
 // (CR 715), from where the Borrower itself may be cast later.
 // NOT SUPPORTED: "This creature can block only creatures with flying."
-// `combat::can_block` reads the attacker's flying/menace/unblockable, the
-// blocker's flying/reach and `eval::protected_from`, and nothing else; no
+// `combat::can_block` reads the attacker's flying/unblockable, the
+// blocker's flying/reach and `eval::protected_from`, and nothing else
+// (menace restricts the declaration and is counted in `declare_blockers`,
+// CR 702.111b); no
 // `Modifier` names the attackers a given blocker may be paired with, so
 // `Filter::HasKeyword(KeywordSet::FLYING)` — the half of the sentence that
 // *is* sayable — has nothing to be consumed by. The card plays as though

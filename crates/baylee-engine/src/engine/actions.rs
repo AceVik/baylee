@@ -1366,7 +1366,18 @@ impl<L: CardLookup> Engine<L> {
             }
             seen.push(*blocker);
         }
-        // Menace: needs two blockers per attacker (CR 702.111b).
+        // Menace: needs two blockers per attacker (CR 702.111b), checked
+        // against the whole declaration because that is where CR 509.1b puts
+        // it — and because it cannot be checked anywhere else. This loop was
+        // written with the rest of the rule and was unreachable until #156:
+        // `combat::can_block` asked `blockers_of(attacker)` in the per-pair
+        // loop above, which runs to completion before the first
+        // `declare_block`, so every menace pair was refused one line earlier
+        // and no declaration ever arrived here with a count to take. It is
+        // now the only place menace is enforced.
+        //
+        // Zero is legal and one is not: "can't be blocked except by two or
+        // more creatures" says nothing about a creature nobody blocks.
         for attacker in &self.state.combat.attackers {
             let has_menace = self.state.object(attacker.creature).is_some_and(|o| {
                 o.characteristics()
