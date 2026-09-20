@@ -1176,6 +1176,36 @@ pub(super) enum Says {
 ///
 /// What did not come from `sync_overlay` is the middle button of a priority,
 /// which had no button at all before the shelf: see [`Says`].
+/// The three answers to a combat declaration, with `commit` named for the
+/// side of it this seat is on.
+///
+/// Its own function because both arms of [`answers_for`] need the same
+/// guard and differ only in one word. The guard is
+/// [`crate::input::empty_combat_declaration`] rather than a second reading
+/// of the same two fields, so the button and the key cannot disagree about
+/// when the answer exists.
+fn combat_row(duel: &Duel, lang: Lang, commit: Phrase) -> Vec<(Says, String)> {
+    let mut row = vec![(
+        Says::Answer(PromptAction::AimNext),
+        Phrase::AimNext.text(lang).to_string(),
+    )];
+    if !duel
+        .interaction
+        .as_ref()
+        .is_some_and(crate::input::empty_combat_declaration)
+    {
+        row.push((
+            Says::Answer(PromptAction::Confirm),
+            commit.text(lang).to_string(),
+        ));
+    }
+    row.push((
+        Says::Answer(PromptAction::DeclareNothing),
+        Phrase::DeclareNone.text(lang).to_string(),
+    ));
+    row
+}
+
 fn answers_for(
     duel: &Duel,
     lang: Lang,
@@ -1233,18 +1263,18 @@ fn answers_for(
             row.push(say(PromptAction::SkipTurn, Phrase::SkipTheTurn));
             row
         }
-        // Combat always offers all three, including with nothing declared:
-        // "none" is a real answer, and the step does not end without one.
-        Some(Pending::ChooseAttackers { .. }) => vec![
-            say(PromptAction::AimNext, Phrase::AimNext),
-            say(PromptAction::Confirm, Phrase::Attack),
-            say(PromptAction::DeclareNothing, Phrase::DeclareNone),
-        ],
-        Some(Pending::ChooseBlockers { .. }) => vec![
-            say(PromptAction::AimNext, Phrase::AimNext),
-            say(PromptAction::Confirm, Phrase::Block),
-            say(PromptAction::DeclareNothing, Phrase::DeclareNone),
-        ],
+        // Combat offers three answers and shows the middle one only once
+        // there is something to send. "None" is a real answer and the step
+        // does not end without one, so both of the others stand whatever is
+        // declared — but the confirm key is the key a player is already
+        // pressing to walk the turn forward, and while nothing is declared
+        // "Attack" and "None" do the same thing by two different names, one
+        // of them wearing that key. A row that offered both was the legend
+        // that taught the mistake; `crate::input::committed_answer` is the
+        // half that stops the key, and this is the half that stops
+        // advertising it.
+        Some(Pending::ChooseAttackers { .. }) => combat_row(duel, lang, Phrase::Attack),
+        Some(Pending::ChooseBlockers { .. }) => combat_row(duel, lang, Phrase::Block),
         Some(Pending::DiscardChoice { count, .. })
             if duel
                 .interaction
@@ -2243,6 +2273,73 @@ mod tests {
             cap_width("Space") - square > 17.0,
             "the design's arithmetic was out by {}",
             cap_width("Space") - square
+        );
+    }
+
+    /// The prompt bar stops advertising the confirm key at the moment it
+    /// stops working.
+    ///
+    /// The other half of the combat guard. `crate::input::committed_answer`
+    /// refuses an empty declaration, and a row that went on drawing
+    /// `[Space] Attack` beside it would be a legend for a key that does
+    /// nothing — which is the defect this client already has elsewhere and
+    /// must not add one of. It is also the legend that *taught* the mistake:
+    /// with nothing declared, "Attack" and "None" did the same thing under
+    /// two names, and the one wearing the key was the one a player was
+    /// already pressing.
+    ///
+    /// Both directions, because a row that offered the confirm answer to
+    /// nobody would pass a one-sided version of this.
+    #[test]
+    fn the_combat_row_offers_the_commit_only_once_something_is_declared() {
+        use baylee_core::ids::Defender;
+        use baylee_engine::choice::Pending;
+
+        let question = || Pending::ChooseAttackers {
+            player: baylee_core::ids::PlayerId::new(0),
+            attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
+            defenders: vec![Defender::Player(baylee_core::ids::PlayerId::new(1))],
+        };
+        let says = |duel: &Duel| -> Vec<Says> {
+            answers_for(duel, Lang::En, false, false, false)
+                .into_iter()
+                .map(|(says, _)| says)
+                .collect()
+        };
+
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                question(),
+                baylee_core::ids::PlayerId::new(0),
+            )),
+            ..Duel::default()
+        };
+        assert_eq!(
+            says(&duel),
+            vec![
+                Says::Answer(PromptAction::AimNext),
+                Says::Answer(PromptAction::DeclareNothing),
+            ],
+            "with nothing declared the bar offers aiming and declining, and no key for a third"
+        );
+
+        assert!(
+            duel.interaction
+                .as_mut()
+                .is_some_and(|i| i.declare_attacker(
+                    baylee_core::ids::ObjectId::new(3, 0),
+                    Defender::Player(baylee_core::ids::PlayerId::new(1))
+                )),
+            "the candidate the question offered is declarable"
+        );
+        assert_eq!(
+            says(&duel),
+            vec![
+                Says::Answer(PromptAction::AimNext),
+                Says::Answer(PromptAction::Confirm),
+                Says::Answer(PromptAction::DeclareNothing),
+            ],
+            "a declaration standing is what the commit button is for"
         );
     }
 

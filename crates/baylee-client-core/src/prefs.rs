@@ -34,7 +34,16 @@ pub enum Action {
     /// The one-key "do the obvious thing": the card under the cursor, then
     /// the selected rail button, then confirm.
     Primary,
-    /// Confirm the answer being built, or pass priority.
+    /// Confirm the answer being built, or pass priority — with two windows
+    /// where it does neither, both of them for the same reason.
+    ///
+    /// Carrying both meanings is what makes it the key a player presses in a
+    /// rhythm to walk a turn forward, and a question that arrives inside that
+    /// rhythm is answered by the next press without being read. A
+    /// `ChooseCards { min: 0 }` was answered "nothing found" that way, and a
+    /// combat declaration was answered "no attacks". So the sheet holding a
+    /// choice keeps this key for ticking a row, and an *empty* combat
+    /// declaration is sent only by [`Action::CombatNone`].
     Confirm,
     /// Take back the answer being built, close a preview, drop a selection.
     Cancel,

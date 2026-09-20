@@ -1665,11 +1665,14 @@ fn aim_and_declare(fired: Fired, duel: &mut Duel) -> bool {
 /// something else.
 ///
 /// [`Action::Confirm`] means "I am done here" *and* "pass priority", which is
-/// right everywhere but here: a `ChooseCards { min: 0 }` arrives while a
-/// player is passing priority through a stack of triggers, and the next press
-/// in that rhythm answered it with "nothing found" — silently, with no trace
-/// and no undo on the wire. A Solemn Simulacrum's search for a basic land was
-/// thrown away that way twice, and the land count never moved.
+/// right in every window but two, and this is the first of them: a
+/// `ChooseCards { min: 0 }` arrives while a player is passing priority through
+/// a stack of triggers, and the next press in that rhythm answered it with
+/// "nothing found" — silently, with no trace and no undo on the wire. A Solemn
+/// Simulacrum's search for a basic land was thrown away that way twice, and
+/// the land count never moved. The second window is the combat declaration,
+/// which is not a sheet and so is guarded where the key is read instead; see
+/// [`committed_answer`].
 ///
 /// [`Action::Primary`] is Enter, and it did reach confirm — but only as
 /// [`the_click`]'s *third* branch, behind the card under the pointer. A card
@@ -1697,7 +1700,7 @@ fn browser_answer_keys(fired: Fired, duel: &mut Duel) -> bool {
         // falling through to the hovered card, which is the defect this
         // branch exists to close, and it would fire on exactly the presses a
         // player makes while still building the answer.
-        if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
+        if let Some(action) = committed_answer(duel) {
             duel.submit(action);
         }
         return true;
@@ -1729,11 +1732,75 @@ fn the_click(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::Prefs) -> 
         prefs.edit().orders.toggle(side, row);
         return true;
     }
-    if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
+    if let Some(action) = committed_answer(duel) {
         duel.submit(action);
         return true;
     }
     false
+}
+
+/// Whether the question standing is a combat declaration with nothing
+/// declared **and** something that could still be declared.
+///
+/// The second half is what keeps this from being a nuisance. A
+/// `ChooseAttackers` whose `attackers` list is empty is a question with one
+/// possible answer, and refusing the confirm key there would stop a player
+/// walking a turn forward at a combat step that was never going to hold
+/// anything. What the guard is for is the case where an attack exists and is
+/// about to be thrown away.
+///
+/// Read off [`Interaction::pending`] and [`Interaction::declared`], both of
+/// which this crate already had: the predicate is a client policy about which
+/// *key* may send an answer, not a claim about which answers are legal, so it
+/// deliberately does not live next to [`Interaction::can_confirm`] — which is
+/// right as it stands, because declaring nothing **is** legal.
+#[must_use]
+pub(crate) fn empty_combat_declaration(interaction: &Interaction) -> bool {
+    use baylee_engine::choice::Pending;
+    if interaction.declared() > 0 {
+        return false;
+    }
+    match interaction.pending() {
+        Pending::ChooseAttackers { attackers, .. } => !attackers.is_empty(),
+        Pending::ChooseBlockers { blockers, .. } => !blockers.is_empty(),
+        _ => false,
+    }
+}
+
+/// The answer a *confirm* key or button may send, which is not quite
+/// [`Interaction::confirm`].
+///
+/// One exception, and it is the same one [`browser_answer_keys`] closed a
+/// window over. [`Action::Confirm`] means "I am done here" *and* "pass
+/// priority", so a player walking a turn forward presses it in a rhythm — and
+/// a combat declaration arrives inside that rhythm. The next press in it
+/// answered the question with `DeclareAttackers { attackers: [] }`: the attack
+/// step spent, a 2/1 left untapped against an open opponent, nothing said on
+/// the prompt bar and nothing on the wire to take back. It was found by
+/// playing, not by reading, which is why it survived a `ChooseCards { min: 0 }`
+/// being fixed for the same reason one window over.
+///
+/// So an **empty** combat declaration no longer reaches the engine through a
+/// confirm key. It is still a real answer, and `O` — [`Action::CombatNone`],
+/// [`PromptAction::DeclareNothing`] — is what sends it, through
+/// [`declare_nothing`], which calls [`Interaction::confirm`] directly and is
+/// deliberately *not* routed through here. Declining therefore costs a key of
+/// its own, which is the whole repair: the press that declines is no longer
+/// the press that was already being made.
+///
+/// Nothing is written to [`Duel::last_error`] on a refused press. Every
+/// client-side refusal there is an English constant in an otherwise translated
+/// interface, and adding a fourth is work this client owes once, not five
+/// times. The feedback this refusal needs is drawn instead:
+/// `hud::ledge::answers_for` takes the confirm answer off the prompt bar for
+/// exactly the state this function refuses, so the key is unadvertised at the
+/// moment it stops working, with the two answers that do something beside it.
+fn committed_answer(duel: &Duel) -> Option<PlayerAction> {
+    let interaction = duel.interaction.as_ref()?;
+    if empty_combat_declaration(interaction) {
+        return None;
+    }
+    interaction.confirm()
 }
 
 /// Every straight answer to a pending choice.
@@ -1743,9 +1810,10 @@ fn the_click(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::Prefs) -> 
 /// combat, without this function knowing what combat is.
 fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::Prefs) {
     // Confirm / pass priority. Never toggles anything else, so it is the one
-    // key that always means "I am done here".
+    // key that always means "I am done here" — with the one exception
+    // [`committed_answer`] names.
     if fired.has(Action::Confirm)
-        && let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm)
+        && let Some(action) = committed_answer(duel)
     {
         duel.submit(action);
         return;
@@ -2900,7 +2968,7 @@ pub fn pointer(
                     .interaction
                     .as_ref()
                     .and_then(|i| i.answer_mulligan(false)),
-                PromptAction::Confirm => duel.interaction.as_ref().and_then(Interaction::confirm),
+                PromptAction::Confirm => committed_answer(&duel),
                 // Aiming changes nothing the engine can hear; it moves the
                 // focus the next declaration will use.
                 PromptAction::AimNext => {
