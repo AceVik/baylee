@@ -113,6 +113,25 @@ the same reader is not a second path. The guard now also requires the view to
 say what each attacker is aiming at, because the search reads that and
 `choose_blocks` does not need it.
 
+**One illegal pair costs the whole declaration, so legality is checked
+against the finished answer.** Menace is two blockers or none (CR 702.111b),
+and the shallow path pairs one blocker with one attacker by construction — so
+`NOVICE`, `CASUAL` and `STEADY` answered a menace attacker with exactly the
+declaration the rules forbid, in every shape tried, whatever the search's own
+guard was doing. `Engine::declare_blockers` refuses the *whole*
+`DeclareBlockers`, not the offending pair, which is why `combat::choose_blocks`
+now takes a pass over the list it is about to send rather than judging each
+attacker as it goes: a block that is illegal in isolation takes every other
+block down with it, and the seat stops at the question. Where a second blocker
+may legally be paired it is added — the cheapest one, since it is being spent
+to satisfy a rule and not to win an exchange — and where none can be, the
+block is dropped. The deeper profiles never needed the pass, because `search`
+evaluates the two-blocker leaf on its own merits and refuses the one-blocker
+one; what they needed was a scenario in which that refusal decides anything,
+which is a 2/6 against a 6/6 and a 2/2 and not the 4/4 that first suggests
+itself. None of this is reachable while the engine offers a menace attacker to
+nobody (#156) — which is the argument for doing it first, not later.
+
 **A card in hand is what any of its faces can be.** A `CardIdentity` in hand
 names the face that is *up*, which for a modal double-faced card is the
 spell: Shatterskull Smashing is a sorcery with a land on its back, and every

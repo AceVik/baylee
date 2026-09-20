@@ -163,7 +163,10 @@ fn attacking(view: &PlayerView, options: &[BlockOption]) -> Vec<ObjectId> {
 ///
 /// Each blocker is assigned to at most one attacker and each attacker gets
 /// at most one blocker: multi-blocking is a real option and needs damage
-/// *assignment* to be worth anything, which the engine asks separately.
+/// *assignment* to be worth anything, which the engine asks separately. The
+/// one exception is not a judgement but a legality — menace takes two
+/// blockers or none, and [`enforce_menace`] settles that against the finished
+/// declaration rather than while it is being built.
 #[must_use]
 pub fn choose_blocks(
     view: &PlayerView,
@@ -276,7 +279,64 @@ pub fn choose_blocks(
             still_coming -= saved;
         }
     }
+    enforce_menace(view, options, &mut pairs);
     pairs
+}
+
+/// Menace (CR 702.111b): two blockers or none, never one.
+///
+/// The loop above pairs one blocker with one attacker by construction, so
+/// left alone it answers a menace attacker with exactly the declaration the
+/// rules forbid — and `Engine::declare_blockers` refuses the **whole**
+/// answer, not the offending pair. One illegal block therefore costs every
+/// other block in the same declaration, which is why this is a pass over the
+/// finished list rather than a judgement made per attacker: it can see the
+/// answer that is actually going to be sent.
+///
+/// Where a second blocker exists it is added, because the alternative is
+/// dropping a block the loop already decided was worth making, and in the
+/// lethal case that is the game. The one added is the *cheapest* that may
+/// legally be paired, since it is being spent to satisfy a rule rather than
+/// to win an exchange — the deeper profiles reach this through `search`,
+/// which evaluates the two-blocker leaf on its own merits instead.
+///
+/// It reads menace off the view's projected keywords, so a granted or
+/// removed one counts (CR 613.1). An attacker the view cannot describe at
+/// all is the one case it cannot answer: `Fighter::of` is `None` there, so
+/// nothing can be read about it, menace included — see the chump-block
+/// branch above, which is the same gap seen from the other side.
+fn enforce_menace(
+    view: &PlayerView,
+    options: &[BlockOption],
+    pairs: &mut Vec<(ObjectId, ObjectId)>,
+) {
+    let menacing = deduped(pairs.iter().map(|(_, attacker)| *attacker));
+    for attacker in menacing {
+        if !Fighter::of(view, attacker).is_some_and(|f| f.has(KeywordSet::MENACE)) {
+            continue;
+        }
+        if pairs.iter().filter(|(_, a)| *a == attacker).count() != 1 {
+            continue;
+        }
+        let mut spare: Vec<&BlockOption> = options
+            .iter()
+            .filter(|o| o.attackers.contains(&attacker))
+            .filter(|o| !pairs.iter().any(|(blocker, _)| *blocker == o.blocker))
+            .collect();
+        spare.sort_by_key(|o| {
+            let f = Fighter::of(view, o.blocker);
+            (
+                f.map_or(0, |f| f.power),
+                f.map_or(0, |f| f.toughness),
+                o.blocker.slot(),
+            )
+        });
+        if let Some(second) = spare.first() {
+            pairs.push((second.blocker, attacker));
+        } else {
+            pairs.retain(|(_, a)| *a != attacker);
+        }
+    }
 }
 
 /// Whether `blocker` could plausibly be paired with `attacker`.

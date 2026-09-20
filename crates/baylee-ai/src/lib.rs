@@ -1876,6 +1876,43 @@ mod tests {
         (v, pending)
     }
 
+    /// A menace attacker, and `blockers` untapped creatures the engine has
+    /// offered a pairing with. `attacker` is its printed size; a blocker is
+    /// an `n/n`.
+    fn menace_attack(attacker: (i16, i16), blockers: &[i16], life: i32) -> (PlayerView, Pending) {
+        let defender = PlayerId::new(0);
+        let attacking = PlayerId::new(1);
+        let slot = |i: usize| obj(10 + u32::try_from(i).unwrap_or(0));
+        let mut battlefield: Vec<PublicObject> = blockers
+            .iter()
+            .enumerate()
+            .map(|(i, size)| permanent(slot(i), defender, *size))
+            .collect();
+        let mut a = permanent(obj(1), attacking, attacker.0);
+        a.toughness = Some(attacker.1);
+        a.keywords = baylee_cards_dsl::KeywordSet::MENACE.bits();
+        battlefield.push(a);
+        let mut v = view(0, &[life, 20], battlefield);
+        v.active = attacking;
+        v.step = baylee_view::Step::DeclareBlockers;
+        v.combat.attackers = vec![baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(defender),
+            blocked: false,
+        }];
+        let pending = Pending::ChooseBlockers {
+            player: defender,
+            attacker: attacking,
+            blockers: (0..blockers.len())
+                .map(|i| baylee_engine::choice::BlockOption {
+                    blocker: slot(i),
+                    attackers: vec![obj(1)],
+                })
+                .collect(),
+        };
+        (v, pending)
+    }
+
     fn blocks(profile: AIProfile, v: &PlayerView, pending: &Pending) -> usize {
         match HeuristicAgent::new(profile).act(v, pending) {
             PlayerAction::DeclareBlockers { blockers } => blockers.len(),
@@ -2016,6 +2053,69 @@ mod tests {
         let (v, pending) = lethal_attack(Some(75), false, 20, 8);
         for (name, profile) in PROFILES {
             assert_eq!(blocks(profile, &v, &pending), 1, "{name}, attacker unseen");
+        }
+    }
+
+    /// #157. Menace is two blockers or none, and one is never an answer
+    /// (CR 702.111b).
+    ///
+    /// The shallow path assigns one blocker per attacker by construction, so
+    /// `NOVICE`, `CASUAL` and `STEADY` answered a menace attacker with
+    /// exactly the declaration the rules forbid — and
+    /// `Engine::declare_blockers` refuses the whole answer rather than the
+    /// offending pair, so one illegal block costs every other block beside
+    /// it and the seat stops at the question. It is unreachable today only
+    /// because `combat::can_block` asks `blockers_of(attacker)` before
+    /// anything is recorded and therefore offers a menace attacker to
+    /// nobody at all; that is #156, and this is the half that has to land
+    /// first, because the day the offer learns to say "two of these,
+    /// together" is the day three of five profiles start stalling seats.
+    ///
+    /// The third position is the one that measures `search`'s own rule
+    /// rather than the pass added for the shallow profiles. A menace
+    /// rejection stayed green through an injection sweep because no
+    /// scenario in the suite put it in the position of *deciding*: against
+    /// a 4/4 with two 2/2s the search picks the gang block on its own
+    /// merits with the rule removed. A 2/6 against a 6/6 and a 2/2 is the
+    /// scene where one blocker strictly dominates — our 6/6 kills it and
+    /// survives, and the second creature is spent for nothing — so the
+    /// answer is 2 only because the leaf is refused.
+    #[test]
+    fn no_profile_answers_a_menace_attacker_with_one_blocker() {
+        // Lethal, and two creatures that may block it. Blocking is not
+        // optional here, so this also says the pass did not simply learn to
+        // decline everything.
+        let (v, pending) = menace_attack((4, 4), &[2, 2], 4);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                2,
+                "{name} answered a lethal menace attacker with the wrong \
+                 number of blockers"
+            );
+        }
+
+        // The same attack with one creature to block with: there is no legal
+        // block, and taking four at four life is what the rules leave.
+        let (v, pending) = menace_attack((4, 4), &[2], 4);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                0,
+                "{name} declared a block menace makes illegal, which costs \
+                 the whole declaration and not just this pair"
+            );
+        }
+
+        // Not lethal, and one blocker is the better exchange on its own.
+        let (v, pending) = menace_attack((2, 6), &[6, 2], 20);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                blocks(profile, &v, &pending),
+                2,
+                "{name} took the single block that dominates the two-blocker \
+                 one, and it is not a legal answer"
+            );
         }
     }
 
