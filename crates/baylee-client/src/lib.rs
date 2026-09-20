@@ -860,11 +860,19 @@ impl Duel {
         &self.outbox
     }
 
-    /// Takes the queued actions, the way `flush_outbox` does on a frame.
+    /// Takes the queued actions, as `flush_outbox` does on a frame.
     ///
     /// The `pub` half of the same seam, for a test that drives more than one
     /// round trip: reading [`Self::outbox`] and never emptying it makes the
     /// second step of a run look like the first one repeated.
+    ///
+    /// **It is not the whole of what a frame does, and the remainder is not
+    /// bookkeeping.** `flush_outbox` drops [`Self::interaction`] after
+    /// sending, because the answer is on its way and the next choice replaces
+    /// it — so between a send and that choice the seat has no legal actions
+    /// at all, and every card in hand is neither `playable` nor offered. A
+    /// harness that calls this and stops has closed that window, which is the
+    /// one a player is looking at while they wait.
     pub fn take_outbox(&mut self) -> Vec<PlayerAction> {
         std::mem::take(&mut self.outbox)
     }

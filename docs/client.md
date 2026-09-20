@@ -1607,6 +1607,13 @@ separation is the whole grammar:
   it on the border would make it read as one. The bit is set only for
   creatures, because summoning sickness is visible on nothing else.
 
+  **Two kinds of thing live in this register, and they are not the same kind.**
+  Summoning sickness is true until end of turn; defender is true for the
+  creature's whole life. Until September 2026 only a temporary one sat here,
+  so nothing in the drawing had to say which kind it was — and that is exactly
+  the distinction the wall below had to be designed around, because a
+  summoning-sick defender wears one of each at the same time.
+
   What "asleep" is drawn as is a **white balance and a blanket** (`SLEEP_*`,
   written out in both card shaders and compared by a test). The face goes
   slightly cool under a moon, and a soft veil lies heavier at the foot of the card than
@@ -1640,6 +1647,82 @@ separation is the whole grammar:
   untapped-neighbour control moves 0, and the change varies by 36 levels
   *within a single row* — which is the ring rather than the blanket, since a
   blanket is constant along x.
+- **And the face says what the creature *is*, when what it is, is a wall.**
+  Defender (`glow::DEFENDER`, CR 702.3) is drawn as a translucent yellowish
+  brick wall travelling across the card — courses of running bond under a
+  warm band that arrives as an edge and leaves as a wash, with the card still
+  readable through it. It is the first permanent occupant of this register,
+  and the ticket that chose it (#23) asked a narrower question: the request
+  was "animate every keyword symbol", and the obvious animation for the one
+  keyword that means *does not attack* is none at all. The answer was neither
+  option — not a still mark among breathing ones, but a different drawing
+  entirely.
+
+  Two numbers decided the shape, and both are in `card.wgsl` beside the
+  constants they argue for. **The term is added in display space, not in
+  linear**: measured on four constructed cards, one constant linear add is
+  worth 72 display levels over dark art and 1.5 over a white card's title bar
+  — fifty to one within one card — so a mark that has to be worth the same
+  amount wherever it lands cannot be light, and is applied after the transfer.
+  It costs one transfer pair per fragment and no second sample, which keeps it
+  inside the uniforms-only budget the WebGL2 fallback depends on. And **the
+  wall is drawn by its joints rather than by a wash over its faces**: five
+  candidates that lit the brick faces produced a warm diagonal haze and no
+  wall at all, which the eye and the measurement agreed about — a rarer thing
+  than it sounds, since usually one of the two catches what the other misses.
+  A joint is worth 20.9 to 48.5 display levels beside the brick next to it,
+  measured over twelve phases and both regions of four cards, against a
+  control with the joint term at zero that reads −0.3 to 0.6.
+
+  Two further constraints are not about how it looks but about what it could
+  be confused with. **The bond is 5×13 and not 7×18**, although 7×18 measured
+  better: at the size the table draws a card, 7×18's joints are 0.51 px and a
+  point-sampled render reports 36.9 where an antialiased one reports 25.7, so
+  a third of that number is where the sample happened to land. 5×13's joints
+  are 1.8 px and the two readings agree to 3%. **And the band never travels
+  vertically**, because the sickness blanket's hem already owns that axis; a
+  summoning-sick defender is the composite case, and a wall moving with the
+  hem would make one gesture out of two facts that expire at very different
+  times. The wall is composited *before* the night for the same reason: the
+  blanket is this turn's weather and has to lie over the masonry, not under
+  it.
+
+  **A register may be the sole carrier of a claim only with margin, and this
+  is the first register where that needed measuring.** Hexproof and
+  indestructible could be left off the rail without anyone measuring anything,
+  because a border sheath is drawn on the card's own frame and is as strong on
+  one card as on another. A face register is not: it is composited over
+  whatever the art and the layout put under it, so its strength is a property
+  of the card as much as of the drawing. Measured over twelve phases of a full
+  sweep on four constructed cards, the wall is worth 27 to 48 display levels
+  over an art box and 21 to 24 over a text box — and the weakest of those, a
+  basic Plains' cream text box, clears the floor of 20 by **0.9**. That is not
+  margin, it is the floor with a rounding error on top, and it is why the rail
+  still carries a defender mark.
+
+  The margin was buyable and was **not** bought. At a joint of 0.42 the same
+  drawing reaches 27.2 over that text box, and the price is the colour rather
+  than the wall: pale joints cost 18.7 degrees of art hue there, yellow ones
+  66.7. `WALL_JOINT` stays at 0.30 and the joints stay yellow, which is a
+  decision taken with 20.9 against a floor of 20 in front of it rather than in
+  ignorance of it — the weakest case named above is the one the choice was put
+  on.
+
+  So defender is carried in **two** registers, a wall and a rail mark, which
+  is what the face rule otherwise forbids. Hexproof and indestructible were
+  dropped from the rail when the border became a material for them, on the
+  rule that a mark repeating a sheath is the same claim twice in two
+  languages; defender keeps both, because 0.9 display levels is not margin —
+  it is the floor with a rounding error on top, and a sole carrier that weak
+  is a claim the weakest card does not make. The alternative stays on record
+  rather than being argued again: `cardrail::MARK_ORDER` appends a slot and
+  never moves one, so dropping defender from the middle would move prowess on
+  every card in every screenshot, and leaving a hole instead is a change to
+  the array's type.
+  `a_defender_wears_a_wall_and_a_sick_one_wears_the_night_as_well` asserts
+  both bits, so whichever register is ever dropped, it cannot be dropped
+  quietly.
+
 - **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
   same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
   `LegalActions` rather than from the card, and is drawn as a warm light
