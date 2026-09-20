@@ -698,6 +698,16 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // `manaplan::Source`: the price is what goes *in*, and the solver only
     // ever asks what comes out. `baylee-client-7e` reached the same split
     // from the client's side in #165.
+    //
+    // **`bundle` on `Source` is not this flag** and the two will sit three
+    // lines apart once #150 lands. `priced` is what the tap *costs*; `bundle`
+    // is how `colors` is *read* — one of each, or a choice of one. Folding
+    // them, or moving `bundle` into this tuple, compiles and passes every
+    // test on either side, because the client's tests build a `Source`
+    // directly and never come through here. Three readers currently agree
+    // about the same family of lands from three directions — `mana_bundle`,
+    // `duplicates_intrinsic` and this column — and one flag doing two jobs
+    // would silently make that one reader wearing three names.
     let mut result: Vec<(Source, bool)> = Vec::new();
     for &id in &legal.mana_abilities {
         if let Some(color) = view

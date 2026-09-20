@@ -2210,8 +2210,9 @@ mod tests {
     /// declaration is not a worse block, it is no answer at all, and for an
     /// AI chair nothing is behind it. `Session::pump` passes priority when
     /// the engine refuses at a `Pending::Priority`; a `ChooseBlockers` is not
-    /// one, so it returns without advancing and nothing re-asks. No clock
-    /// expires either — that one is for seats answering over a socket.
+    /// one, so it returns without advancing that question. No clock expires
+    /// either — that one is for seats answering over a socket, which an AI
+    /// chair is not. Stall or livelock is #180's to settle.
     ///
     /// The third position is the one that measures `search`'s own rule
     /// rather than the pass added for the shallow profiles. A menace

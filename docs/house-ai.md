@@ -158,9 +158,13 @@ What it is worth is **the table, not a point of evaluation**. A refused
 `DeclareBlockers` is not a worse block; it is no answer at all, and for an AI
 chair there is nothing behind it: `Session::pump` passes priority when the
 engine refuses an action at a `Pending::Priority`, and a `ChooseBlockers` is
-not one, so it takes the other branch and returns without advancing. Nothing
-re-asks, and no clock expires either — the decision clock is for seats that
-answer over a socket (`answers_over_socket`), and an AI seat has none. Three
+not one, so it takes the other branch and returns without advancing that
+question. No clock expires either — the decision clock is for seats that
+answer over a socket (`answers_over_socket`), and an AI seat has none, so
+nothing answers on the chair's behalf the way a timeout would. Whether a
+later `pump` recovers or meets the same refusal is **unmeasured** and is
+#180's to settle; either way the pass above is what keeps the table off
+that path. Three
 of the five profiles reached that in every shape tried, and the seat it costs
 is the one that was trying to block. The
 deeper two were never at risk, so the pass is what makes the shallow

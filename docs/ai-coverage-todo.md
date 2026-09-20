@@ -102,10 +102,11 @@ them is a missing test:
   now three of the five profiles (`NOVICE`, `CASUAL`, `STEADY`) answering
   with one blocker, which `Engine::declare_blockers` refuses **whole** rather
   than per pair: every other block in that declaration is lost with it, and
-  for an AI chair nothing picks the question back up — `Session::pump` passes
+  for an AI chair nothing answers on its behalf — `Session::pump` passes
   priority only when the refusal came at a `Pending::Priority`, and a
-  `ChooseBlockers` is not one, so it returns without advancing. No clock
-  expires either; that one is for seats answering over a socket. #157's
+  `ChooseBlockers` is not one, so it returns without advancing that question.
+  No clock expires either; that one is for seats answering over a socket.
+  Whether a later `pump` recovers is unmeasured (#180). #157's
   `enforce_menace` is what stands between that and a stalled table, and it is
   load-bearing rather than defensive as of that commit — a statement about
   code that exists, since the shallow path already reads menace off the
