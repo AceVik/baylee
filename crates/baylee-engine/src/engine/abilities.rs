@@ -482,9 +482,21 @@ impl<L: CardLookup> Engine<L> {
     /// for the very payment Rupture Spire is asking for, and would put every
     /// filter land in this pool out of reach of its own window.
     fn narrow_to_mana_window(&self, player: PlayerId, legal: &mut LegalActions) {
-        if self.mana_window != Some(player) {
+        if self.mana_window.as_ref().map(|w| w.player) != Some(player) {
             return;
         }
+        self.narrow_to_mana(legal);
+    }
+
+    /// The narrowing itself, with no window to ask about.
+    ///
+    /// Split out because the opener has to know what a window *would* offer
+    /// before deciding to open one — a window with nothing in it to press is
+    /// not worth opening — and that question cannot be put to the un-narrowed
+    /// list, where `abilities` is every activation this seat could make and
+    /// not the mana ones. Idempotent, so narrowing an already narrowed list
+    /// on the regrant path costs a `retain` over what is left.
+    pub(crate) fn narrow_to_mana(&self, legal: &mut LegalActions) {
         legal.lands.clear();
         legal.castable.clear();
         legal.suspendable.clear();

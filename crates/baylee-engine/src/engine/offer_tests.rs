@@ -1041,3 +1041,79 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
         )
         .expect("what the engine offers, the engine accepts");
 }
+
+/// A CR 605.3a payment window nests exactly once, and this is what says so.
+///
+/// `PaymentWindow` carries the resolution it was opened over so that
+/// [`Engine::resolution`] stays free for whatever is resolving now (#167).
+/// One spare slot is enough only while a *mana* ability cannot open a window
+/// of its own — and inside a window nothing else may be activated
+/// (`narrow_to_mana`), so a mana ability is the only door to a second level.
+/// A window is opened by `Effect::PlayerMayPayOr` and by nothing else.
+///
+/// Ward is not scanned because it cannot be the offender by construction:
+/// `AbilityDef::Ward` is its own variant and reaches the same effect
+/// synthetically, so it is never an ability with `mana_ability: true`.
+///
+/// Read off `{:?}` rather than a hand-written walk over `Effect`. An effect
+/// tree nests through a dozen variants, and a walker that does not know one
+/// of them reports "no offenders" for a card it never looked into — which is
+/// the shape this repository keeps finding in its own readers. A derived
+/// `Debug` cannot go blind on a variant nobody taught it, and a false match
+/// here is a finding rather than a silence.
+///
+/// The floor is what stops it passing over a pool with no taxes in it at
+/// all: a scan whose population is nought agrees with everything. Measured
+/// at 13 on 2026-09-20 — Rhystic Study, Esper Sentinel and Smothering Tithe,
+/// the three Karoo-style bounce lands, Mystic Remora, Mana Leak,
+/// Flusterstorm and the rest — and the floor is set well under that rather
+/// than at it, because a card leaving the pool is not a reason for this
+/// claim to go red.
+#[test]
+fn no_mana_ability_in_the_pool_opens_a_payment_window() {
+    let mut carried = Vec::new();
+    let mut offenders = Vec::new();
+    let mut check = |who: &str, ability: &AbilityDef| {
+        if !format!("{ability:?}").contains("PlayerMayPayOr") {
+            return;
+        }
+        carried.push(who.to_string());
+        if matches!(
+            ability,
+            AbilityDef::Activated {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                ..
+            }
+        ) {
+            offenders.push(who.to_string());
+        }
+    };
+    for def in baylee_cards::all() {
+        for face in 0..def.faces.len() {
+            for ability in def.abilities_for_face(face) {
+                check(def.name(), ability);
+            }
+        }
+    }
+    for token in baylee_cards::tokens::ALL {
+        for ability in token.abilities {
+            check(token.name, ability);
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "a mana ability that charges a tax opens a payment window from \
+         inside one, and `PaymentWindow` holds exactly one suspended \
+         resolution — the second would overwrite the first, which is the \
+         defect #167 was: {offenders:?}"
+    );
+    assert!(
+        carried.len() >= 8,
+        "only {} abilities in the pool charge a tax at all, so this scan is \
+         close to agreeing with an empty pool: {carried:?}",
+        carried.len()
+    );
+}
