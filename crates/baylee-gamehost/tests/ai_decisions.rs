@@ -349,6 +349,101 @@ fn a_planned_multicolour_cast_survives_the_mana_choice_round_trip() {
     }
 }
 
+/// #168. A permanent that prints a free tap and a priced one is ranked by
+/// what the mana **costs**, not only by how much of it there is.
+///
+/// `policy::sources` collapses one permanent to one `manaplan::Source`,
+/// because nothing under `manaplan::plan` keys on `ObjectId` and two entries
+/// with one id would let the solver tap the same land twice. So the entry
+/// that survives the dedup is the *only* mode the agent will ever use for
+/// that permanent — and the key ranked on mana made, then colours reached,
+/// and never on the price.
+///
+/// Two shapes, one per column of that key:
+///
+/// - **Havenwood Battleground** — `{T}: Add {G}` beside `{T}, Sacrifice this
+///   land: Add {G}{G}`. More mana won, so the agent sold the land for a
+///   green it already had.
+/// - **Spire of Industry** — `{T}: Add {C}` beside `{T}, Pay 1 life: Add one
+///   mana of any color`. Equal amounts, five colours against one, so it paid
+///   the life even when colourless was the whole of what the plan asked for.
+///
+/// The assertion is the **ability index** rather than the board, because a
+/// board says what survived and an index says which button was pressed: a
+/// Havenwood still in play could equally mean the agent never tapped it.
+/// `pressed` being non-empty is what rules that out, and it is the assertion
+/// that would catch a fixture whose land came in tapped.
+#[test]
+fn a_permanent_with_a_free_and_a_priced_tap_is_ranked_by_what_it_costs() {
+    for (board, spell, land) in [
+        (
+            vec!["Havenwood Battleground"],
+            "Llanowar Elves",
+            "Havenwood Battleground",
+        ),
+        (
+            vec!["Spire of Industry", "Mox Opal"],
+            "Sol Ring",
+            "Spire of Industry",
+        ),
+    ] {
+        let preset = position(&[spell], &board);
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let mut pressed: Vec<u32> = Vec::new();
+        let mut cast = false;
+        for seq in 0..100 {
+            let Some(seat) = pending_player(engine.pending()) else {
+                break;
+            };
+            let view = asked_view(engine.state(), seat, seq, engine.pending());
+            if view.turn > 1 {
+                break;
+            }
+            let is_land = |id| {
+                view.object(id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == entry(land).card)
+            };
+            let action = match engine.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                _ if seat == PlayerId::new(0) => agent.act(&view, engine.pending()),
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                other => panic!("unexpected opposing question: {other:?}"),
+            };
+            if seat == PlayerId::new(0) {
+                match &action {
+                    PlayerAction::ActivateAbility {
+                        source,
+                        ability_index,
+                    } if is_land(*source) => pressed.push(*ability_index),
+                    PlayerAction::CastSpell { .. } => cast = true,
+                    _ => {}
+                }
+            }
+            engine
+                .apply(seat, action)
+                .expect("every planned action is legal");
+        }
+        assert!(
+            cast,
+            "{land}: the agent never cast {spell}, so the plan this \
+             test is about was never made"
+        );
+        assert!(
+            !pressed.is_empty(),
+            "{land}: the agent never tapped it at all, so the ranking below \
+             is being read off an empty list"
+        );
+        assert!(
+            pressed.iter().all(|index| *index == 0),
+            "{land}: the agent pressed {pressed:?}, and index 0 is the free \
+             mode. A priced mode that wins the dedup is the only mode there \
+             is for that permanent"
+        );
+    }
+}
+
 #[test]
 fn the_ai_casts_both_commanders_with_independent_cast_counts() {
     // Freeform setup exercises the multi-commander engine path without

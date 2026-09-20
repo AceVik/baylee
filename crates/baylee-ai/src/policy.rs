@@ -658,16 +658,55 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
     })
 }
 
+/// Whether an ability charges anything beyond tapping the permanent.
+///
+/// `mana_shape` has already refused a **mana** price (`cost.mana` must be
+/// `ZERO`), so what is left is `cost.parts` — the half it never looks at, and
+/// the half that sells the land. `{T}` is the only part a mana source may
+/// carry for free, so this is a `matches!` on that one variant rather than a
+/// list of the expensive ones: a `CostPart` added tomorrow is priced by
+/// default, which is the direction that cannot go quiet. `{Q}` is not on the
+/// free side either — untapping a permanent is a different button from
+/// tapping it, whatever mana comes out.
+fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
+    cost.parts
+        .iter()
+        .any(|part| !matches!(part, baylee_cards_dsl::CostPart::TapSelf))
+}
+
 /// Read only offered, simple mana taps. One permanent is one source even
 /// when its intrinsic and printed abilities both appear in the offer.
+///
+/// **What a tap costs is part of the ranking**, and it was not. The dedup
+/// below is the only thing in either planner enforcing "one permanent taps
+/// once" — nothing under `manaplan::plan` keys on `ObjectId` — so the entry
+/// that survives it is the only mode the agent will ever use for that
+/// permanent, and the key decided that on mana made and colours reached.
+/// Havenwood Battleground prints `{T}: Add {G}` beside `{T}, Sacrifice this
+/// land: Add {G}{G}`, so `Reverse(amount)` kept the sacrifice and threw the
+/// free tap away: the agent sold the land for a mana it already had. Spire of
+/// Industry is the same shape one column later — equal amounts, five colours
+/// against one — and paid the life whenever colourless was what the plan
+/// asked for.
+///
+/// So `priced` sorts **before** the amount. Free first, and among free modes
+/// the old order is untouched. A permanent whose *only* mana ability is
+/// priced is unaffected: the dedup keeps one entry per permanent whatever the
+/// key says, so this changes which mode survives and never how many.
 fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
-    let mut result = Vec::new();
+    // Paired with its price until the dedup has run, rather than carried on
+    // `manaplan::Source`: the price is what goes *in*, and the solver only
+    // ever asks what comes out. `baylee-client-7e` reached the same split
+    // from the client's side in #165.
+    let mut result: Vec<(Source, bool)> = Vec::new();
     for &id in &legal.mana_abilities {
         if let Some(color) = view
             .object(id)
             .and_then(|o| manaplan::basic_land_color(&o.subtypes))
         {
-            result.push(Source::fixed(id, Tap::Intrinsic, color));
+            // CR 305.6: the intrinsic tap of a basic land type costs the tap
+            // and nothing else.
+            result.push((Source::fixed(id, Tap::Intrinsic, color), false));
         }
     }
     for &(id, index) in &legal.abilities {
@@ -679,7 +718,11 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 .granted_mana
                 .as_ref()
                 .filter(|m| m.slot == slot)
-                .map(|m| (m.colors.clone(), m.amount))
+                // A granted ability is free by construction: `GrantedMana`
+                // carries colours and an amount and no cost at all, and the
+                // registry lookup below would be reaching for a printed
+                // ability that has nothing to do with the grant.
+                .map(|m| (m.colors.clone(), m.amount, false))
         } else {
             crate::activate::printed(view, id, index).and_then(|a| {
                 let (AbilityDef::Activated {
@@ -711,28 +754,32 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                         .colors
                         .clone(),
                 };
-                Some((colors, amount?))
+                Some((colors, amount?, priced(cost)))
             })
         };
-        if let Some((colors, amount)) = source {
-            result.push(Source {
-                id,
-                tap: Tap::Ability(index),
-                colors,
-                amount,
-            });
+        if let Some((colors, amount, priced)) = source {
+            result.push((
+                Source {
+                    id,
+                    tap: Tap::Ability(index),
+                    colors,
+                    amount,
+                },
+                priced,
+            ));
         }
     }
-    result.sort_by_key(|s| {
+    result.sort_by_key(|(s, priced)| {
         (
             s.id,
+            *priced,
             std::cmp::Reverse(s.amount),
             std::cmp::Reverse(s.colors.len()),
             matches!(s.tap, Tap::Ability(_)),
         )
     });
-    result.dedup_by_key(|s| s.id);
-    result
+    result.dedup_by_key(|(s, _)| s.id);
+    result.into_iter().map(|(source, _)| source).collect()
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.

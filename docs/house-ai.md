@@ -14,6 +14,22 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell.
+
+**One source per permanent is a rule with a consequence**, and it is the
+reason a tap's *price* is part of the ranking. Nothing under `manaplan::plan`
+keys on `ObjectId`, so the dedup in `policy::sources` is the only thing
+enforcing that a land taps once — which makes the entry that survives it the
+only mode the agent will ever use for that permanent. The key ranked on mana
+made, then colours reached, and on nothing else, so a permanent printing a
+free tap beside a priced one kept the priced one: **26 of the 34 in this pool
+that print both**, measured on 20.09.2026 (#168). Havenwood Battleground sold itself for a green it
+already had; Spire of Industry paid a life whenever colourless was the whole
+of what the plan asked for; the five Vivid lands removed a charge
+counter even when the colour asked for was the one their free tap makes. `priced` now sorts ahead of the
+amount, so free wins first and the old order decides between free modes. A
+permanent whose *only* mana ability is priced is untouched, because the dedup
+keeps one entry per permanent whatever the key says: this changes which mode
+survives and never how many.
 Command-zone commanders participate in these plans, including their public
 cast-count tax. Steady and harder levels choose a mana colour by the casts it
 can complete with the
