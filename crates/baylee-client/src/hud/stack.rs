@@ -10,9 +10,16 @@
 //! a **full** row — a card an inch across, the spell's name at reading size,
 //! the printed sentence an ability came from, an arrow and a picture of
 //! everything it points at — and everything under it is a **compact** row: a
-//! smaller card, one line of name, smaller thumbnails, no sentence and no
-//! arrow. That is the whole hierarchy, and it is one decision rather than
-//! two, because the size ramp *is* the depth cue.
+//! smaller card, one line, smaller thumbnails, no second line for a sentence
+//! and no arrow. That is the whole hierarchy, and it is one decision rather
+//! than two, because the size ramp *is* the depth cue.
+//!
+//! What goes *on* that one line is the row's name — except for an ability,
+//! which has no name of its own and was borrowing its source's. Two triggers
+//! off one permanent were then the same row twice, which is what #132
+//! reported from a stack of five. A queued ability is headed by its own
+//! printed clause instead ([`heading`]); the picture beside it already says
+//! which permanent it came from, and it is the line the row already had.
 //!
 //! The sentence is the clearest case of what that ramp buys. It runs to
 //! [`STACK_SENTENCE_LINES`] lines and answers "what is about to happen",
@@ -1087,6 +1094,7 @@ fn spawn_stack_entry(
         || item.name.clone(),
         |o| crate::face::name_of(o, view, faces.texts),
     );
+    let title = heading(item, full, title, view, faces);
     let mut name = commands.spawn((
         // A card's name is set in the card's face, not the interface's:
         // Faustina carries every printed word this client draws, wherever
@@ -1668,6 +1676,82 @@ pub(super) fn stack_sentence(
     baylee_client_core::card_face::sentence_blocks(&card.oracle_text, text.line, text.of)
 }
 
+/// What a **queued** ability row is headed, which is not its source's name.
+///
+/// A queued row answers "what else is coming", and for an ability the
+/// source's name answers it badly: #132 was reported off a stack of five
+/// where two rows read `Sheoldred, the Apocalypse` and nothing told them
+/// apart. This file already makes that argument for the full row —
+/// *"a stack of three triggers that all read `Ability · Ondu Cleric` tells
+/// them less"* — and the queue was simply not held to it.
+///
+/// An ability has no name of its own, so the printed sentence *is* its
+/// identity, and the picture beside the row already says which permanent it
+/// came from. That is also why this costs no height: it is the line the row
+/// already had, carrying something that distinguishes it.
+///
+/// Reminder text is dropped. It is parenthetical by definition (CR 207.2)
+/// and this is one line — the reminder would be the half a player does not
+/// need, taking the room from the half they do. Mana marks go in as their
+/// printed source (`{T}`) rather than as glyphs, because a queued row is a
+/// single `Text` and not the span chain a full row builds.
+///
+/// [`None`] whenever the sentence is not *known*, and the caller then draws
+/// the name as before: the host sends no line index for some abilities, and
+/// the catalog's text arrives over a socket that a client playing offline
+/// against the house may not have at all. A row must never come out blank
+/// because a lookup missed.
+fn queued_ability_line(
+    item: &baylee_client_core::board::StackItem,
+    view: &PlayerView,
+    faces: &FaceCtx<'_>,
+) -> Option<String> {
+    ability_line(&stack_sentence(item, view, faces)?)
+}
+
+/// What a row is headed, given the `name` its object is drawn under.
+///
+/// The **full** row keeps the name whatever it is: it carries the printed
+/// sentence on its own line underneath, so the name is the one thing there
+/// that is not already said. A **queued ability** does not, and its name is
+/// its *source's* — two triggers off one permanent were the same row twice.
+///
+/// The fallback is the name, not an empty line: see [`queued_ability_line`]
+/// for the two ordinary ways the sentence is simply not known yet.
+fn heading(
+    item: &baylee_client_core::board::StackItem,
+    full: bool,
+    name: String,
+    view: &PlayerView,
+    faces: &FaceCtx<'_>,
+) -> String {
+    if full {
+        return name;
+    }
+    queued_ability_line(item, view, faces).unwrap_or(name)
+}
+
+/// The prose half of [`queued_ability_line`], with the two lookups taken
+/// out — which is what makes the rule testable without a print table and a
+/// catalog behind it.
+///
+/// Re-joining on whitespace rather than concatenating is doing work: a
+/// reminder cut out of the middle of a sentence leaves the space that was in
+/// front of it and the space that was behind it, and two spaces in the
+/// middle of a one-line heading read as a missing word.
+fn ability_line(blocks: &[TextBlock]) -> Option<String> {
+    let joined = blocks
+        .iter()
+        .filter_map(|block| match block {
+            TextBlock::Rules(text) => Some(text.as_str()),
+            TextBlock::Reminder(_) => None,
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let line = joined.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!line.is_empty()).then_some(line)
+}
+
 /// One run of a sentence as it is drawn: prose, or a single mana mark.
 ///
 /// A mark is its own piece because it is set in a different font at a
@@ -1962,6 +2046,184 @@ mod tests {
     fn a_name_that_is_not_ascii_survives_the_cut() {
         let cut = fit("Æther Vial of Márton Stromgald’s Æther", 60.0, 13.0);
         assert!(cut.chars().count() < 20, "{cut} was not cut at all");
+    }
+
+    /// A printing whose text is two printed **lines**, which is what
+    /// `baylee_core::oracle::sentences` splits on and what
+    /// `StackText::line` indexes into — not two sentences of prose.
+    fn two_line_printing() -> crate::cardtext::CardTexts {
+        use baylee_client_core::card_face::{CardTextEntry, FaceText};
+        crate::cardtext::CardTexts::filed(
+            baylee_core::ids::PrintRef::new(7),
+            CardTextEntry {
+                scryfall_id: "abc".to_string(),
+                lang: "de".to_string(),
+                faces: vec![FaceText {
+                    name: "Sheoldred".to_string(),
+                    english_name: "Sheoldred".to_string(),
+                    type_line: "Kreatur".to_string(),
+                    oracle_text: "Immer wenn ein Spieler eine Karte zieht, \
+                                  erhältst du 2 Lebenspunkte.\n\
+                                  Immer wenn ein Gegner eine Karte zieht, \
+                                  verliert er 2 Lebenspunkte."
+                        .to_string(),
+                    mana_cost: String::new(),
+                }],
+            },
+        )
+    }
+
+    /// One permanent, and one stack ability per entry of `lines` — `None`
+    /// for an ability the host sent no line index for.
+    fn a_stack_of(lines: &[Option<u8>]) -> (baylee_client_core::BoardModel, PlayerView) {
+        use baylee_client_core::board::Openings;
+        use baylee_client_core::test_support::{ViewBuilder, printed, token};
+
+        let on_stack: Vec<_> = lines
+            .iter()
+            .enumerate()
+            .map(|(at, line)| {
+                let mut ability = token(30 + at as u32, 0, "Sheoldred", 0, 0);
+                ability.card = None;
+                ability.stack_item = Some(baylee_view::StackItem::Ability {
+                    source: ObjectId::new(7, 0),
+                    ability: None,
+                    text: line.map(|line| baylee_view::StackText {
+                        face: 0,
+                        line,
+                        of: 2,
+                    }),
+                });
+                ability
+            })
+            .collect();
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![printed(7, 0, "Sheoldred", 7)])
+            .with_stack(on_stack)
+            .build();
+        let board = baylee_client_core::BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| 800.0,
+            &[],
+            crate::cardart::registry(),
+        );
+        (board, view)
+    }
+
+    /// Two abilities of one permanent are two different rows in the queue.
+    ///
+    /// The defect #132 was reported from, run: a stack of five where two
+    /// rows read `Sheoldred, the Apocalypse` and nothing told them apart.
+    /// The test carries its own evidence — [`crate::face::name_of`] is what
+    /// the queue used to head these rows with, and it is asserted to give
+    /// one string for both, so the old behaviour fails beside the new one
+    /// passing. It goes through [`heading`], the door the row calls, rather
+    /// than through the lookup underneath it.
+    #[test]
+    fn two_abilities_of_one_permanent_are_two_different_queued_rows() {
+        let texts = two_line_printing();
+        let (board, view) = a_stack_of(&[Some(0), Some(1)]);
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let faces = FaceCtx {
+            texts: &texts,
+            mode: &mode,
+            settings: &settings,
+            view: Some(&view),
+        };
+        assert_eq!(board.stack.len(), 2, "two abilities are on the stack");
+
+        let named = |item: &baylee_client_core::board::StackItem| {
+            view.object(item.id).map_or_else(
+                || item.name.clone(),
+                |o| crate::face::name_of(o, &view, faces.texts),
+            )
+        };
+        let headings: Vec<String> = board
+            .stack
+            .iter()
+            .map(|item| heading(item, false, named(item), &view, &faces))
+            .collect();
+
+        assert_ne!(
+            headings[0], headings[1],
+            "two triggers of one permanent must not be the same row twice"
+        );
+        // On the set, not on the order: `BoardModel` walks the stack top
+        // first, and which end that is has nothing to do with this claim.
+        for clause in ["Immer wenn ein Spieler", "Immer wenn ein Gegner"] {
+            assert!(
+                headings.iter().any(|h| h.starts_with(clause)),
+                "a row is headed by its own clause: {headings:?}"
+            );
+        }
+
+        // The old heading, run: one string for both rows.
+        assert_eq!(
+            named(&board.stack[0]),
+            named(&board.stack[1]),
+            "the name the queue used to draw cannot tell these two apart"
+        );
+        // And the full row keeps that name, because it carries the sentence
+        // already and the name is the one thing it does not otherwise say.
+        for item in &board.stack {
+            assert_eq!(
+                heading(item, true, named(item), &view, &faces),
+                named(item),
+                "a full row is headed by its name"
+            );
+        }
+    }
+
+    /// A row never comes out blank because a lookup missed.
+    ///
+    /// The host sends no line index for some abilities, and the catalog's
+    /// text arrives over a socket a client playing the house offline may not
+    /// have at all — so the heading falls back to the name.
+    #[test]
+    fn an_ability_with_no_sentence_keeps_the_name() {
+        let texts = crate::cardtext::CardTexts::default();
+        let (board, view) = a_stack_of(&[None]);
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let faces = FaceCtx {
+            texts: &texts,
+            mode: &mode,
+            settings: &settings,
+            view: Some(&view),
+        };
+        assert!(queued_ability_line(&board.stack[0], &view, &faces).is_none());
+        assert_eq!(
+            heading(
+                &board.stack[0],
+                false,
+                "Sheoldred".to_string(),
+                &view,
+                &faces
+            ),
+            "Sheoldred"
+        );
+    }
+
+    /// A reminder is not what the one line is spent on, and the runs it is
+    /// cut out of do not leave a double space behind.
+    #[test]
+    fn a_queued_line_drops_the_reminder_and_the_gap_it_left() {
+        let blocks = vec![
+            TextBlock::Rules("Fliegend".to_string()),
+            TextBlock::Reminder("kann nur von Kreaturen geblockt werden".to_string()),
+            TextBlock::Rules("und Wachsamkeit".to_string()),
+        ];
+        assert_eq!(
+            ability_line(&blocks).as_deref(),
+            Some("Fliegend und Wachsamkeit")
+        );
+        assert_eq!(
+            ability_line(&[TextBlock::Reminder("nur dies".to_string())]),
+            None,
+            "a sentence that is nothing but a reminder heads no row"
+        );
     }
 
     /// A queued row is the same object as the full row it will be promoted
