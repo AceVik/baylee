@@ -842,7 +842,15 @@ it — every phrase answers in every language, and a phrase's `{0}`/`{1}` set is
 the same in all of them. The lobby's own lines go through `Lobby::note`, the
 shell's through `Lobby::tell`/`unseat_because`; the gateway's `{"error":…}`
 stays in the gateway's words, because translating those means a code beside
-the prose and that is a protocol change. Values that are also identifiers
+the prose and that is a protocol change. That split carries a **type** rather
+than a convention, which is the half a convention kept getting wrong:
+`i18n::Refusal` is `Said(Phrase)` for a sentence this client owns and
+`Verbatim(String)` for one another process sent, so a refusal cannot be stored
+without saying which it is. A field typed `String` can hold only the second,
+and that is how nine client-owned sentences reached a German screen in English
+(#121). `Verbatim` is not a deficiency to drive to zero — it is what lets an
+engine refuse for a reason this client has never heard of and still say
+something, so the two sides need no lockstep deploy. Values that are also identifiers
 (`"sharp"` for a house AI) keep their wire spelling and translate only the
 label. `ClientSettings.lang` feeds both readers — the catalog's `lang=` and,
 through `Lang::of`, the interface itself — and the picker in `settingsui.rs`
