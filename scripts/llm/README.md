@@ -111,7 +111,7 @@ key goes in a header through `urllib`, never into a process argument, which
 is what a `curl` call would have done — arguments are world-readable on this
 machine for as long as the request lasts.
 
-## Three rules the coordinator keeps
+## Four rules the coordinator keeps
 
 1. **No lane runs cargo.** The build belongs to the coordinator; a model
    that cannot run it must not be the last reader of what it wrote. Two
@@ -123,6 +123,12 @@ machine for as long as the request lasts.
    reaches nothing, so every non-test item lives there) and the test into the
    door its card sits behind. Then it compiles, then it runs, and only then
    is it evidence.
+4. **`cargo fmt --all` before `cargo check`, every time.** A lane writes
+   Rust that compiles and that rustfmt disagrees with — a `Coverage::Partial`
+   reason too long for its line is the usual one — and `cargo check` says
+   nothing about it. Round E committed seven such files and the formatting
+   step of the gate was what found them, one rewritten history later. Format
+   first and the question never reaches the gate.
 
 ## Feeding a prompt back
 
