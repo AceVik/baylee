@@ -25,9 +25,14 @@ Regeln:
 6. **Erst Mana in den Pool, dann behaupten.** Ob eine Fähigkeit angeboten
    oder ein Zauber spielbar ist, liest die Engine am *Mana-Pool* ab und
    nicht daran, was man noch tappen könnte. Also `tap_all_mana` vor jeder
-   solchen Behauptung — und wenn eine Steuer wirklich *gefragt* werden
-   soll (`PlayerMayPayOr`), genug Länder, dass der Pool sie deckt: einem
-   Spieler, der nicht zahlen kann, wird gar nicht erst die Frage gestellt.
+   solchen Behauptung. Eine **Steuer** ist davon die Ausnahme:
+   `PlayerMayPayOr` (Ward, Esper Sentinel) stellt die Frage, ob Mana
+   schwebt oder nicht — CR 605.3a lässt den Spieler es noch in der Frage
+   machen —, und ob der Pool sie deckt, entscheidet erst die Antwort. Dem
+   Gegner dafür extra Länder hinzustellen war der alte Workaround und
+   prüft die Karte nicht mehr. Der Zwilling `PlayerMayPayCostOr` (die
+   Karoo-Länder) antwortet umgekehrt: gibt es keinen bezahlbaren Preis,
+   wird gar nicht gefragt.
 7. **`tap_all_mana` tappt jede Mana-Fähigkeit, deren ganzer Preis ihr
    eigenes `{T}` ist** (#159) — die Grundlandtypen aus CR 305.6 *und* das
    gedruckte `{T}: Add …` eines Mana Vault, eines Mox, eines Sol Rings,

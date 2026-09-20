@@ -819,6 +819,12 @@ the card's whole `Debug` rendering instead of a list of places to look
 - Before asserting that an ability is offered or a spell castable, put the
   mana in the pool: `tap_all_mana` first, and add lands until the pool
   covers the cost twice over if a tax is to be *asked* rather than skipped.
+  *(Superseded 20.09.2026: the second half was a workaround for a defect.
+  `Effect::PlayerMayPayOr` puts the question whether or not the mana is
+  floating — CR 605.3a lets the player make it inside the question — and
+  `resolve/mod.rs` says so where it asks. The extra lands now test nothing.
+  Its sibling `PlayerMayPayCostOr` does skip a question nobody can answer,
+  which is where this sentence is still true.)*
 - `tap_all_mana` taps every mana ability whose whole price is `{T}`, on a
   land or not — so a Sol Ring and a Llanowar Elves go with the Forests. If
   the test needs one of them left standing, name it:
