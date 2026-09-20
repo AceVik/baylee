@@ -170,6 +170,93 @@ fn coming_back_from_an_offline_duel_leaves_no_table_and_no_refusal() {
     );
 }
 
+/// What the lobby says about the game it just came back from (#155).
+///
+/// The wording is `Lobby::stand_up_after`'s and is tested in client-core.
+/// What is tested here is the **join** — that `came_back` reaches for it at
+/// all — because a method nobody calls is this client's own recurring
+/// defect, and the sibling test below is the reason it could go unnoticed:
+/// with no `Duel` in the app, every path through `came_back` looks the same.
+///
+/// So both halves are asserted, and the second is not a formality. If
+/// `came_back` took a plain `Res<Duel>` instead of an `Option`, Bevy would
+/// skip the system outright in an app that has none — no failure, one
+/// warning — and every other test in this file would keep passing while
+/// `came_back` did nothing at all.
+#[test]
+fn the_lobby_says_which_way_the_game_went_and_not_only_that_it_is_over() {
+    let result = baylee_engine::win::GameResult {
+        winner: Some(baylee_engine::win::Victor::Player(PlayerId::new(1))),
+        reason: baylee_engine::win::EndReason::LastPlayerStanding,
+    };
+
+    // With the duel the shell would be holding: the two fields `came_back`
+    // reads, and nothing else. `DuelPlugin` is not in this app, so the
+    // resource is inserted by hand — seat 1 outlived seat 0, so seat 0 lost.
+    let mut app = came_back_from_a_duel(Some(crate::Duel {
+        statics: Some(baylee_view::GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: "g".into(),
+            your_seat: PlayerId::new(0),
+            seats: vec![baylee_view::SeatIdentity {
+                player: PlayerId::new(0),
+                display_name: "me".into(),
+                is_ai: false,
+                away: false,
+                team: None,
+            }],
+            prints: vec![],
+        }),
+        interaction: Some(baylee_client_core::Interaction::new(
+            baylee_engine::choice::Pending::GameOver(result),
+            PlayerId::new(0),
+        )),
+        ..crate::Duel::default()
+    }));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.status(),
+        "You lost. Only one player left in the game",
+    );
+
+    // And with no duel to ask, which is an embedder with its own, and every
+    // other test in this file. The old sentence is the fallback and not a
+    // bug — what would be a bug is silence, or `came_back` not running.
+    app = came_back_from_a_duel(None);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.status(), "the game ended");
+    assert_eq!(
+        *state.lobby.screen(),
+        Screen::Table,
+        "and it still stood up, which is the half a skipped system would lose",
+    );
+}
+
+/// Seats at an offline table, optionally installs a `Duel`, and comes back.
+///
+/// The phase is moved by hand for the reason the rest of this file gives:
+/// `DuelPlugin` is not here, so nothing else writes `DuelPhase`.
+fn came_back_from_a_duel(duel: Option<crate::Duel>) -> App {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "play the house", |p| {
+        *p == Press::Host(GameMode::Ai)
+    });
+    if let Some(duel) = duel {
+        app.world_mut().insert_resource(duel);
+    }
+    for phase in [DuelPhase::Playing, DuelPhase::Closed] {
+        app.world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(phase);
+        app.update();
+    }
+    app
+}
+
 /// A duel against the house offers one way out, and it is the lead answer.
 ///
 /// Found live rather than reasoned about: a conceded offline duel drew a

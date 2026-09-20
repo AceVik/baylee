@@ -14,6 +14,8 @@
 use crate::deckbuilder::DeckBuilder;
 use crate::i18n::{Lang, Phrase};
 use crate::textbuf::{Dir, Step as Reach, TextBuffer};
+use baylee_core::ids::PlayerId;
+use baylee_engine::win::GameResult;
 use serde::{Deserialize, Serialize};
 
 /// Which screen the lobby is showing.
@@ -1647,6 +1649,35 @@ impl Lobby {
     /// had gone wrong; the player had won.
     pub fn stand_up(&mut self, phrase: Phrase, args: &[&str]) {
         let why = phrase.fill(self.lang, args);
+        self.leave_the_seat(why, Tone::Note);
+    }
+
+    /// The same, saying how the game ended rather than that it ended.
+    ///
+    /// [`Self::stand_up`] writes `Phrase::GameEnded` — "das Spiel ist
+    /// vorbei" — which is true of every game ever played here and says
+    /// nothing about the one just finished (#155). The verdict is not
+    /// missing information: the end screen has been drawing it all along
+    /// from this same `GameResult`.
+    ///
+    /// So it is worded here through the same [`crate::interaction::verdict`]
+    /// the sheet uses, rather than by a second reader of `GameResult` that
+    /// could come to disagree with it about who won. The reason is appended
+    /// where there is one; [`crate::interaction::ending_reason`] answers
+    /// `None` for a draw, because the only thing it could say there is the
+    /// verdict again.
+    ///
+    /// The two are joined with a full stop and not with the em dash this
+    /// repository reaches for by habit, because one of the verdicts already
+    /// contains one: `Phrase::YourTeamWon` is "Team {0} gewinnt \u{2014} deins",
+    /// and a dash joiner would render "Team 2 gewinnt \u{2014} deins \u{2014} Nur noch
+    /// ein Team im Spiel". A full stop cannot collide with any of the five.
+    pub fn stand_up_after(&mut self, result: &GameResult, seat: PlayerId, team: Option<u8>) {
+        let verdict = crate::interaction::verdict(self.lang, result, seat, team);
+        let why = match crate::interaction::ending_reason(self.lang, result) {
+            Some(reason) => format!("{verdict}. {reason}"),
+            None => verdict,
+        };
         self.leave_the_seat(why, Tone::Note);
     }
 

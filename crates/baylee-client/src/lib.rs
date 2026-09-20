@@ -159,8 +159,14 @@ pub struct InstalledHost(pub Box<dyn DuelHost>);
 ///
 /// A resource rather than a field on [`Duel`] because it survives what `Duel`
 /// does not: `Duel::default()` is written over the whole struct when a duel
-/// closes, and a schedule that reset there would forget how long it had been
-/// trying every time anything else about the duel changed.
+/// **opens**, and a schedule that reset there would forget how long it had
+/// been trying every time anything else about the duel changed.
+///
+/// It said "closes" until 20.09.2026 and the code has always said `Open`
+/// (`handle_commands`). The difference is load-bearing now rather than
+/// pedantic: `lobby::systems::came_back` reads the finished game's verdict
+/// off `Duel` *after* the close, which is only sound because nothing clears
+/// it there.
 #[derive(Resource, Default)]
 pub struct Reconnect {
     /// When to dial next.

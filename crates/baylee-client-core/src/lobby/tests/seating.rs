@@ -2,6 +2,10 @@
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
+// Named here and not in `lobby.rs`: only the end-of-game test builds a
+// `GameResult`, and importing its two halves into the module itself would
+// be two unused imports in every non-test build.
+use baylee_engine::win::{EndReason, Victor};
 
 #[test]
 fn a_granted_seat_ends_on_the_seated_screen() {
@@ -294,6 +298,62 @@ fn the_press_to_play_again_outlives_leaving_the_table() {
     );
     assert!(lobby.busy(), "and it is a request, not a note");
     assert_eq!(lobby.take_rematch(), None, "spent exactly once");
+}
+
+/// What the lobby says about the game that just ended (#155).
+///
+/// `stand_up(Phrase::GameEnded)` wrote "the game ended" — true of every game
+/// ever played here, and the whole of the lobby's record of this one. The
+/// verdict was never missing: the end screen draws it from the same
+/// `GameResult`, and `stand_up_after` words it through the same
+/// `interaction::verdict`, so the two cannot come to disagree about who won.
+///
+/// Asserted on the sentence being **there**, in both languages, rather than
+/// on `GameEnded` being gone: a test that only refuses the old phrase is
+/// satisfied by a lobby that says nothing at all.
+#[test]
+fn the_lobby_says_how_the_game_ended_and_not_that_it_ended() {
+    // Seat 0 is the local one, and seat 1 outlived it.
+    let lost = GameResult {
+        winner: Some(Victor::Player(PlayerId::new(1))),
+        reason: EndReason::LastPlayerStanding,
+    };
+    for (lang, want) in [
+        (Lang::En, "You lost. Only one player left in the game"),
+        (Lang::De, "Du hast verloren. Nur noch ein Spieler im Spiel"),
+    ] {
+        let mut lobby = seated_lobby();
+        lobby.set_lang(lang);
+        lobby.stand_up_after(&lost, PlayerId::new(0), None);
+        assert_eq!(lobby.status(), want, "{lang:?}");
+    }
+
+    // The verdict alone where there is nothing else to say: `ending_reason`
+    // refuses a draw, because the only thing it could add is the verdict
+    // again — so this is the arm that must not acquire a trailing stop.
+    let drawn = GameResult {
+        winner: None,
+        reason: EndReason::Draw,
+    };
+    let mut lobby = seated_lobby();
+    lobby.stand_up_after(&drawn, PlayerId::new(0), None);
+    assert_eq!(lobby.status(), "The game is a draw");
+
+    // And the join is a full stop rather than the em dash this repository
+    // reaches for by habit, because `YourTeamWon` already contains one.
+    // Reading it back is what stops somebody tidying the separator into a
+    // dash and shipping "Team 2 wins — yours — Only one team left in the
+    // game".
+    let team_won = GameResult {
+        winner: Some(Victor::Team(2)),
+        reason: EndReason::LastTeamStanding,
+    };
+    let mut lobby = seated_lobby();
+    lobby.stand_up_after(&team_won, PlayerId::new(0), Some(2));
+    assert_eq!(
+        lobby.status(),
+        "Team 2 wins — yours. Only one team left in the game"
+    );
 }
 
 /// Leaving without pressing it asks for nothing, which is what lets the

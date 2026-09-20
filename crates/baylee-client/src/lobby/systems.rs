@@ -1117,6 +1117,7 @@ pub(super) fn came_back(
     mut commands: Commands,
     mut state: ResMut<LobbyState>,
     mailbox: Res<Mailbox>,
+    duel: Option<Res<crate::Duel>>,
 ) {
     // Drops the socket (or the in-process engine) with it: a stale host would
     // keep a dead table's messages queued behind the next game's.
@@ -1125,7 +1126,22 @@ pub(super) fn came_back(
     if !matches!(state.lobby.screen(), Screen::Seated(_)) {
         return;
     }
-    state.lobby.stand_up(Phrase::GameEnded, &[]);
+    // The verdict rather than the bare fact of an ending (#155). The duel
+    // still has it: `Duel::default()` is written on `DuelCommand::Open` and
+    // not on `Close`, so the `Pending::GameOver` that drew the end screen is
+    // still in place while this runs, and stays until the next game opens.
+    //
+    // `Option<Res<_>>` and not `Res<_>`, which is the difference between a
+    // fallback and a silently dead system: every test in `tests::end_screen`
+    // installs `LobbyPlugin` without `DuelPlugin` and so has no `Duel` at
+    // all, and Bevy answers a missing plain `Res` by skipping the system with
+    // a warning. That would not fail those tests — it would hollow them out,
+    // since what they assert on is what this function does. An embedder with
+    // its own duel is the same case in production.
+    match ended_as(duel.as_deref()) {
+        Some((result, seat, team)) => state.lobby.stand_up_after(&result, seat, team),
+        None => state.lobby.stand_up(Phrase::GameEnded, &[]),
+    }
     // The host that has just been dropped *was* the offline table, so this is
     // where it stops existing. Before the refresh below rather than after, so
     // the listing that comes back is the one without it — a row still saying
@@ -1139,6 +1155,20 @@ pub(super) fn came_back(
     // table list on the way — the answer puts them straight back in a seat.
     let request = state.lobby.take_rematch().or_else(|| state.lobby.refresh());
     dispatch(&mut state, &mailbox, request);
+}
+
+/// How the game ended, for whoever is about to say so.
+///
+/// All three values or none: a `GameResult` with no roster behind it cannot
+/// be worded, because `verdict` needs the seat to know whether "won" means
+/// this player. That is the same refusal `hud::finish::spawn_finish` makes
+/// for the same reason — a game that never really started says nothing
+/// rather than telling a player who never sat down that they lost.
+fn ended_as(duel: Option<&crate::Duel>) -> Option<(GameResult, PlayerId, Option<u8>)> {
+    let duel = duel?;
+    let result = *duel.ending()?;
+    let statics = duel.statics.as_ref()?;
+    Some((result, statics.your_seat, duel.my_team()))
 }
 
 /// A component whose click means something.
