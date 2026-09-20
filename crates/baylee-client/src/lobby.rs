@@ -35,6 +35,7 @@ use baylee_client_core::lobby::{
 use baylee_client_core::textbuf::{Dir, Step as Reach, TextBuffer};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;
+use baylee_engine::win::GameResult;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::prelude::*;
