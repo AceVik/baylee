@@ -812,3 +812,229 @@ impl PlayerAction {
         )
     }
 }
+
+#[cfg(test)]
+mod choice_tests {
+    use super::*;
+    use baylee_core::ids::{AbilityRef, CardIndex, ObjectId};
+
+    fn ability(n: u32) -> AbilityRef {
+        AbilityRef::new(CardIndex::new(n), n)
+    }
+
+    fn object() -> ObjectId {
+        ObjectId::new(1, 0)
+    }
+
+    // ---- the reserved index block -------------------------------------
+
+    #[test]
+    fn every_granted_slot_decodes_to_the_slot_it_was_encoded_from() {
+        // The one property that matters about this partition: it is written
+        // in two places, an encoder and a decoder, and an engine that
+        // decoded a slot differently from how the offer encoded it would
+        // run a different ability than the player pressed.
+        for n in 0..GRANTED_SLOTS {
+            assert_eq!(
+                granted_slot(granted_ability(n)),
+                Some(n),
+                "slot {n} does not survive the round trip"
+            );
+        }
+    }
+
+    #[test]
+    fn slot_zero_is_still_the_constant_that_was_there_before_the_block() {
+        // Urza's Saga grants itself two abilities; the block grew from one
+        // index to eight and slot 0 had to keep its value, or every stored
+        // offer of the first granted ability would have moved.
+        assert_eq!(GRANTED_ABILITY, granted_ability(0));
+        assert_eq!(granted_slot(GRANTED_ABILITY), Some(0));
+    }
+
+    #[test]
+    fn an_ordinary_ability_index_names_no_granted_slot() {
+        // A printed ability is numbered by its position in a list, which is
+        // why the reserved block counts down from the other end.
+        for index in [0, 1, 2, 7, 100, 65_535] {
+            assert_eq!(granted_slot(index), None, "index {index} decoded as a slot");
+        }
+    }
+
+    #[test]
+    fn the_block_holds_exactly_its_own_slots_and_stops() {
+        // The first index below the block must not decode, or the bound is
+        // decoration: `GRANTED_SLOTS` would name a size nothing enforces.
+        assert_eq!(
+            granted_slot(granted_ability(GRANTED_SLOTS - 1)),
+            Some(GRANTED_SLOTS - 1)
+        );
+        assert_eq!(granted_slot(granted_ability(GRANTED_SLOTS)), None);
+    }
+
+    #[test]
+    fn the_prepared_cast_sits_below_the_granted_block_and_not_inside_it() {
+        // Emeritus of Woe's linked cast is not an ability the card prints
+        // either, so it is carved out of the same end — and it moved when
+        // the block grew. Two reserved indices that collided would offer
+        // one thing and activate the other.
+        assert_eq!(granted_slot(PREPARED_CAST), None);
+        assert!(PREPARED_CAST < granted_ability(GRANTED_SLOTS - 1));
+        for n in 0..GRANTED_SLOTS {
+            assert_ne!(PREPARED_CAST, granted_ability(n));
+        }
+    }
+
+    // ---- priority holds ------------------------------------------------
+
+    #[test]
+    fn a_hold_withholds_exactly_when_it_has_something_to_expire_from() {
+        // Written as an exhaustive `match` rather than a list, so a new
+        // variant is a compile error here instead of silently inheriting
+        // one side of the answer. `PassWhenNothingToDo` is the interesting
+        // one: it answers only where passing was the sole legal action, so
+        // it withholds nothing and an indicator must not call it a hold.
+        fn expected(hold: PriorityHold) -> bool {
+            match hold {
+                PriorityHold::Always | PriorityHold::PassWhenNothingToDo => false,
+                PriorityHold::UntilStackEmpty { .. }
+                | PriorityHold::UntilTopOfStack { .. }
+                | PriorityHold::UntilEndOfTurn { .. } => true,
+            }
+        }
+        for hold in [
+            PriorityHold::Always,
+            PriorityHold::PassWhenNothingToDo,
+            PriorityHold::UntilStackEmpty { depth: 0 },
+            PriorityHold::UntilTopOfStack { object: object() },
+            PriorityHold::UntilEndOfTurn { turn: 3 },
+        ] {
+            assert_eq!(hold.suppresses(), expected(hold), "{hold:?}");
+        }
+    }
+
+    #[test]
+    fn the_default_hold_is_the_one_that_asks_every_time() {
+        assert_eq!(PriorityHold::default(), PriorityHold::Always);
+        assert!(!PriorityHold::default().suppresses());
+    }
+
+    // ---- standing answers ----------------------------------------------
+
+    #[test]
+    fn a_standing_answer_is_the_boolean_it_stands_for() {
+        assert!(StandingAnswer::Yes.as_bool());
+        assert!(!StandingAnswer::No.as_bool());
+    }
+
+    #[test]
+    fn an_answer_is_found_under_its_own_ability_and_no_other() {
+        let mut seat = SeatAutomation::default();
+        seat.set_standing_answer(ability(2), Some(StandingAnswer::Yes));
+        assert_eq!(seat.standing_answer(ability(2)), Some(StandingAnswer::Yes));
+        assert_eq!(seat.standing_answer(ability(3)), None);
+    }
+
+    #[test]
+    fn answering_the_same_ability_twice_replaces_rather_than_duplicates() {
+        let mut seat = SeatAutomation::default();
+        seat.set_standing_answer(ability(1), Some(StandingAnswer::Yes));
+        seat.set_standing_answer(ability(1), Some(StandingAnswer::No));
+        assert_eq!(seat.standing_answer(ability(1)), Some(StandingAnswer::No));
+        assert_eq!(seat.standing_answers().count(), 1);
+    }
+
+    #[test]
+    fn forgetting_removes_the_answer_and_forgetting_nothing_changes_nothing() {
+        let mut seat = SeatAutomation::default();
+        seat.set_standing_answer(ability(1), Some(StandingAnswer::Yes));
+        seat.set_standing_answer(ability(1), None);
+        assert_eq!(seat.standing_answer(ability(1)), None);
+        assert_eq!(seat.standing_answers().count(), 0);
+
+        // Forgetting one that was never remembered must not insert a hole.
+        seat.set_standing_answer(ability(9), None);
+        assert_eq!(seat.standing_answers().count(), 0);
+        assert!(seat.is_default());
+    }
+
+    #[test]
+    fn remembered_answers_come_back_in_ability_order() {
+        // Iteration order is part of the determinism contract — this list
+        // is cloned with the engine on every AI lookahead ply — so an
+        // insertion out of order must still read back sorted.
+        let mut seat = SeatAutomation::default();
+        for n in [5, 1, 4, 2] {
+            seat.set_standing_answer(ability(n), Some(StandingAnswer::Yes));
+        }
+        let order: Vec<AbilityRef> = seat.standing_answers().map(|(a, _)| a).collect();
+        let mut sorted = order.clone();
+        sorted.sort();
+        assert_eq!(order, sorted);
+        assert_eq!(order.len(), 4);
+    }
+
+    #[test]
+    fn a_seat_is_default_until_it_holds_or_remembers_something() {
+        assert!(SeatAutomation::default().is_default());
+
+        let mut holds = SeatAutomation::default();
+        holds.hold = PriorityHold::UntilEndOfTurn { turn: 1 };
+        assert!(!holds.is_default());
+
+        let mut remembers = SeatAutomation::default();
+        remembers.set_standing_answer(ability(1), Some(StandingAnswer::No));
+        assert!(!remembers.is_default());
+    }
+
+    // ---- what a standing answer may be kept for -------------------------
+
+    #[test]
+    fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
+        // Exhaustive for the same reason as the hold test. The pair worth
+        // reading is `CommanderZone` (automatable — "always put Katara
+        // back", and the `{2}` is a tax on a later cast) against
+        // `CommanderReplace` (not — the right answer depends on where the
+        // commander was going, which a stored `Yes` cannot see).
+        fn expected(prompt: YesNoPrompt) -> bool {
+            match prompt {
+                YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
+                YesNoPrompt::PayLifeOrEnterTapped { .. }
+                | YesNoPrompt::Kicker
+                | YesNoPrompt::PayTax { .. }
+                | YesNoPrompt::Miracle { .. }
+                | YesNoPrompt::DrawOffer { .. }
+                | YesNoPrompt::CommanderReplace { .. }
+                | YesNoPrompt::Generic => false,
+            }
+        }
+        for prompt in [
+            YesNoPrompt::MayDo,
+            YesNoPrompt::Generic,
+            YesNoPrompt::Kicker,
+            YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
+            YesNoPrompt::PayTax { mana: 2 },
+            YesNoPrompt::Miracle { card: object() },
+            YesNoPrompt::CommanderZone { card: object() },
+            YesNoPrompt::CommanderReplace {
+                card: object(),
+                to_library: true,
+            },
+            YesNoPrompt::CommanderReplace {
+                card: object(),
+                to_library: false,
+            },
+        ] {
+            assert_eq!(prompt.automatable(), expected(prompt), "{prompt:?}");
+        }
+    }
+
+    // ---- what a seat may do --------------------------------------------
+
+    #[test]
+    fn a_seat_offered_nothing_can_only_pass_and_has_no_mana_to_make() {
+        let nothing = LegalActions::default();
+        assert!(nothing.nothing_but_passing());
+        assert!(!nothing.has_mana_source());
+    }
+}
