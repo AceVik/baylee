@@ -1037,6 +1037,69 @@ mod tests {
         );
     }
 
+    /// #166. A time counter is only a *delay* on a card that is counting
+    /// down, and the rule asks the card rather than the counter.
+    ///
+    /// Trenzalore Clocktower is the pool's first card that puts a time
+    /// counter on anything — `{T}: Add {U}. Put a time counter on Trenzalore
+    /// Clocktower.` — and its counters run the other way from suspend: a
+    /// private count to twelve on a land, where more is better for the
+    /// controller. The worry that came with it was that `clock_score` would
+    /// score it backwards, since its `Time` arm is written for suspend.
+    ///
+    /// It does not. The arm asks whether the card underneath prints
+    /// `Suspend` and answers 0 when it does not, which is the same refusal
+    /// it already gives vanishing. The counters are the deciding part of
+    /// this fixture: the Clocktower carries **three** and the suspended card
+    /// **four**, so a rule that read the count alone — one upkeep sooner is
+    /// worth more — would take the Clocktower. Taking Ancestral Vision is
+    /// what says the card is being read and not just its counters.
+    #[test]
+    fn a_time_counter_is_not_a_delay_on_a_card_that_is_not_counting_down() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};
+        use baylee_engine::engine::DecisionContext;
+        let enemy = PlayerId::new(1);
+        let mut clocktower = carded(
+            permanent(obj(1), enemy, 0),
+            "Trenzalore Clocktower",
+            TypeSet::LAND,
+        );
+        clocktower.name = "Trenzalore Clocktower".into();
+        clocktower.power = None;
+        clocktower.toughness = None;
+        clocktower.counters = vec![CounterEntry {
+            kind: CounterKind::Time,
+            count: 3,
+        }];
+        let mut v = view(0, &[20, 20], vec![clocktower]);
+        v.exile[1] = vec![suspended(obj(2), enemy, 4)];
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::AddCounter {
+            kind: Counter::Time,
+            amount: Amount::Fixed(1),
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "the Clocktower was read as a clock running out, and it is a \
+             clock the land's controller is winding up"
+        );
+    }
+
     #[test]
     fn third_iteration_burn_finishes_the_player_before_killing_a_creature() {
         use baylee_cards_dsl::{Amount, Effect, TargetSpec};

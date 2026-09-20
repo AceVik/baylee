@@ -483,17 +483,39 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
 /// test.
 ///
 /// Trenzalore Clocktower is that card: `{T}: Add {U}. Put a time counter on
-/// Trenzalore Clocktower.` The game is owed and is **#166**, which is also
-/// where the harder half is written down — `clock_score`'s `Time` arm is
-/// written for suspend, and a private count to twelve on a land runs the
-/// other way, so the rule is not merely untested on a board but likely to
-/// score this card backwards.
+/// Trenzalore Clocktower.` **#166 was opened on the prediction that
+/// `clock_score` would score it backwards, and that prediction is wrong.**
+/// The `Time` arm is written for suspend, and it says so before it reads
+/// anything: it asks whether the card underneath prints `Suspend` and
+/// answers 0 when it does not, which is the same refusal it already gives
+/// vanishing. `a_time_counter_is_not_a_delay_on_a_card_that_is_not_counting_down`
+/// pins it with the deciding shape — the Clocktower carrying **three**
+/// counters against a suspended card's **four**, so a rule reading the count
+/// alone would take the Clocktower and this one does not.
 ///
-/// So the zero is a **pinned list** now, the same shape as
+/// It is not reached at all, either. The counter is inside the mana ability
+/// and has no target, so `targets` — the only caller of `clock_score` — is
+/// never consulted about it. Both halves had to be measured, because either
+/// one alone would have been the wrong reason.
+///
+/// **So the list stays, and deleting it is no longer part of closing #166.**
+/// The ticket said to delete it once the game was written, on the premise
+/// that this card made the decision reachable; it does not, and a tripwire
+/// that has not yet caught what it watches for is not one to take down. What
+/// it is now waiting for is narrower and worth saying: a lore or time
+/// counter effect that **targets**, which is the only shape that reaches the
+/// rule. The played game the ticket asked for exists —
+/// `a_mana_land_that_also_counts_is_invisible_to_the_planner` in
+/// `ai_decisions.rs` — and it pins the real consequence of this card, which
+/// is **#170**: the planner cannot read a mana ability that has a second
+/// sentence, so the agent never taps this land.
+///
+/// The zero is a **pinned list** now, the same shape as
 /// `LANDS_THAT_WOULD_COUNT_THEMSELVES`: it names what is reachable, it is
-/// red the day a second card joins, and it carries the ticket. Deleting it
-/// is part of closing #166. Relaxing it further is not, and neither is
-/// adding a name to the list without the game that name now owes.
+/// red the day a second card joins, and it carries the ticket. Relaxing it
+/// is not on the table, and neither is adding a name to the list without
+/// reading, for that name, the two questions asked above — does anything
+/// target it, and what does the arm answer.
 ///
 /// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the

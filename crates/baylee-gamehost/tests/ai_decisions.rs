@@ -208,6 +208,102 @@ fn a_described_table_breaks_its_ties_with_its_own_randomness() {
     );
 }
 
+/// #166 / #170. The pool's first card to put a time counter on anything is
+/// a land the agent cannot see as a land.
+///
+/// Trenzalore Clocktower is `{T}: Add {U}. Put a time counter on Trenzalore
+/// Clocktower.`, and #166 was opened on the worry that the counter would be
+/// *scored* backwards — a time counter is a delay on a suspended card, and
+/// this one is a private count to twelve that its controller wants. It is
+/// not scored at all, backwards or otherwise: the `AddCounter` sits inside
+/// the mana ability with no target, so nothing ever asks `clock_score` about
+/// it. The unit test beside `a_time_counter_delays_the_suspended_card_that_is_about_to_cast`
+/// holds the scoring half.
+///
+/// What the card actually does is worse and is **#170**: `mana_shape` matches
+/// a one-element `[Effect::AddMana { .. }]`, so a mana ability with any second
+/// sentence is invisible to the planner. The Clocktower is one of 92 such
+/// faces — every painland, every Karoo, every Odyssey filter land, the
+/// Talismans and Signets, Ancient Tomb.
+///
+/// So this is a **pinned limitation** and it is written to fail the day it is
+/// fixed. The first assertion is the one that keeps it honest: the engine
+/// *does* offer the ability, so what follows is the agent declining an offer
+/// rather than a board that never had one. Without it, deleting the
+/// Clocktower from the fixture would leave the other two assertions green.
+#[test]
+fn a_mana_land_that_also_counts_is_invisible_to_the_planner() {
+    let mut offered = false;
+    let mut pressed = false;
+    let mut cast = false;
+    let mut control_cast = false;
+    for land in ["Trenzalore Clocktower", "Island"] {
+        let preset = position(&["Brainstorm", "Brainstorm"], &[land, land]);
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        for seq in 0..100 {
+            let Some(seat) = pending_player(engine.pending()) else {
+                break;
+            };
+            let view = asked_view(engine.state(), seat, seq, engine.pending());
+            if view.turn > 1 {
+                break;
+            }
+            let ours = |id| {
+                view.object(id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == entry(land).card)
+            };
+            if let Pending::Priority { legal, .. } = engine.pending()
+                && seat == PlayerId::new(0)
+                && legal.abilities.iter().any(|(id, _)| ours(*id))
+                && land == "Trenzalore Clocktower"
+            {
+                offered = true;
+            }
+            let action = match engine.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                _ if seat == PlayerId::new(0) => agent.act(&view, engine.pending()),
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                other => panic!("unexpected opposing question: {other:?}"),
+            };
+            if seat == PlayerId::new(0) {
+                match &action {
+                    PlayerAction::ActivateManaAbility { source, .. }
+                    | PlayerAction::ActivateAbility { source, .. }
+                        if ours(*source) && land == "Trenzalore Clocktower" =>
+                    {
+                        pressed = true;
+                    }
+                    PlayerAction::CastSpell { .. } if land == "Trenzalore Clocktower" => {
+                        cast = true;
+                    }
+                    PlayerAction::CastSpell { .. } => control_cast = true,
+                    _ => {}
+                }
+            }
+            engine
+                .apply(seat, action)
+                .expect("every planned action is legal");
+        }
+    }
+    assert!(
+        control_cast,
+        "the control is the measurement: two Islands and two Brainstorms must \
+         produce a cast, or this test says nothing about the Clocktower"
+    );
+    assert!(
+        offered,
+        "the engine must offer the Clocktower's mana ability, or what follows \
+         is a board with nothing to press rather than an agent declining"
+    );
+    assert!(
+        !pressed && !cast,
+        "#170 is fixed: the planner now reads a mana ability that has a second \
+         sentence. Delete this test and assert the cast instead."
+    );
+}
+
 #[test]
 fn a_planned_multicolour_cast_survives_the_mana_choice_round_trip() {
     let preset = position(
