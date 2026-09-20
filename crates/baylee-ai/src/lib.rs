@@ -3225,6 +3225,91 @@ mod tests {
         );
     }
 
+    /// A mana ability a continuous effect granted is one source, read the
+    /// same way at both ends of the planner.
+    ///
+    /// The ability is printed on no card: a Chromatic Lantern's grant reaches
+    /// the seat as `PublicObject::granted_mana` plus a synthetic index
+    /// (`choice::granted_ability`), and `baylee-ai` decodes that in two
+    /// places. `policy::sources` turns the engine's own offer into taps, and
+    /// `policy::remaining_sources` manufactures the same offer out of the
+    /// battlefield so a colour response can be priced before anything is
+    /// tapped. Neither is the defect on its own — the defect is the pair
+    /// *disagreeing*, which is a land the planner counts on and the engine
+    /// then refuses, or a colour the seat could have had and never asks for.
+    ///
+    /// So one board and one question, asked from both ends, twice: with the
+    /// grant both must say yes, and without it both must say no. Two
+    /// independent assertions would each stay green while drifting apart,
+    /// which is the one failure they exist to catch. The second half is also
+    /// the premise — this permanent has no card, no basic land type and no
+    /// printed ability, so the grant is the only mana on the table and a
+    /// green first half cannot be coming from anywhere else.
+    #[test]
+    fn a_granted_mana_ability_is_read_the_same_by_the_estimate_and_the_offer() {
+        use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
+        use baylee_engine::choice::granted_ability;
+        use baylee_view::GrantedMana;
+
+        let seat = PlayerId::new(0);
+        let land = obj(1);
+        let board = |granted: bool| {
+            let mut object = permanent(land, seat, 0);
+            object.types = TypeSet::LAND;
+            object.power = None;
+            object.toughness = None;
+            object.granted_mana = granted.then(|| GrantedMana {
+                slot: 0,
+                colors: vec![ManaColor::Green],
+                amount: 1,
+            });
+            let mut v = view(0, &[20, 20], vec![object]);
+            v.awaiting = Some(v.seat);
+            v.owed = Some(ManaCost::from_symbol(ManaSymbol::Green));
+            v
+        };
+        let pending = || Pending::Priority {
+            player: seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                abilities: vec![(land, granted_ability(0))],
+                ..Default::default()
+            }),
+        };
+        let green = ManaCost::from_symbol(ManaSymbol::Green);
+
+        // With the grant: the estimate counts it, and the offer taps it.
+        let granted = board(true);
+        assert!(
+            policy::can_pay(&granted, &green),
+            "the estimate priced {{G}} as unpayable over a land that was \
+             granted a green mana ability: a colour response the seat can \
+             afford is one it will never reach for"
+        );
+        assert_eq!(
+            agent().act(&granted, &pending()),
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: granted_ability(0),
+            },
+            "the engine offered the granted ability and owed {{G}}, and the \
+             agent passed over it"
+        );
+
+        // Without it: both ends say no, which is what makes the pair above a
+        // reading of the grant and not of anything else on the board.
+        let bare = board(false);
+        assert!(
+            !policy::can_pay(&bare, &green),
+            "the premise: with no grant this permanent makes no mana at all"
+        );
+        assert_eq!(
+            agent().act(&bare, &pending()),
+            PlayerAction::PassPriority,
+            "nothing on this board can make green, so there is nothing to tap"
+        );
+    }
+
     /// A counterspell printed behind "unless you pay" is a counterspell.
     ///
     /// Flusterstorm and Malevolent Hermit both spell their text as

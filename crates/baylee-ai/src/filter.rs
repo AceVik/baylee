@@ -241,7 +241,16 @@ impl HeuristicAgent {
     /// as two `modal_triggered!` over the same `TAP_OR_UNTAP` modes, and
     /// naming that shared list is unambiguous however the trigger arrived.
     /// Two *different* lists is the ambiguity, it is refused, and
-    /// `no_pool_face_states_two_mode_lists` holds the pool to it.
+    /// `no_pool_face_states_two_mode_lists` (`baylee-gamehost`'s
+    /// `tests/ai_coverage_guards.rs`) holds the pool to it.
+    ///
+    /// Which makes the refusal **unreachable rather than untested**, and it
+    /// is worth saying so here because an injection sweep cannot tell the two
+    /// apart: delete the `found.all(…)` comparison and the whole suite stays
+    /// green, because no card reaches it and none can — the lookup goes
+    /// through `baylee_cards::by_index`, so there is no synthetic card to
+    /// build one with either. The day that lint goes red is the day this
+    /// branch starts running, and the lint is the test that says so.
     fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
         let card = view
             .hand

@@ -67,6 +67,35 @@ _agent_pays_it`, covers the *answer* and reads as though it covered the price.
 That is the shape to expect here: a green row where one clause of it is
 load-bearing and unasserted, hidden behind a neighbour with a similar name.
 
+The sweep that followed took the rest of the rows the same way: 17 injections
+over two batches, 3 of them controls with a known answer so that "nothing went
+red" could not be a broken harness, and all 3 fired. Ten of the fourteen
+behaviours were caught by a named test. The four that were not are worth
+keeping written down, because they are three different things and only one of
+them is a missing test:
+
+- `filter::modal_modes`' refusal of two mode lists is **unreachable**, held
+  by `no_pool_face_states_two_mode_lists`, and its own header now says so.
+- The granted mana ability is read in **two** places — `policy::sources`
+  turns the engine's offer into a tap, `policy::remaining_sources`
+  manufactures that offer out of the battlefield so a colour can be priced
+  before anything is tapped — and neither read was asserted. They are now one
+  test asked from both ends, because two independent assertions both stay
+  green while drifting apart, and the drift is the defect: a land the planner
+  counts on and the engine then refuses.
+- `search`'s refusal of a menace block with exactly one creature stayed green
+  for a third reason again: the rule is live and no test, and no obvious hand
+  scenario, puts it in the position of *deciding*. Against a 4/4 menace with
+  two 2/2 blockers the search picks the gang block on its own merits with the
+  rule removed. A 2/6 menace against a 6/6 and a 2/2, where one blocker
+  strictly dominates, is the scene that separates them. #157 carries it,
+  together with the finding beside it: `combat::choose_blocks`, the
+  `lookahead == 0` path, has no menace rule at all.
+
+So a row that survives its injection has three readings and they point
+opposite ways — the rule is dead, the test is missing, or nobody ever built
+the scene where the rule decides. Name which one before writing anything.
+
 **Every cell names its instrument, and that is the harder half.** A figure
 here answers whatever the probe behind it asks, which is not always the
 question the row's own sentence asks — and a wrong answer of that kind
