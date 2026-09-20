@@ -41,6 +41,11 @@ PACK_FILES = [
 
 EXAMPLES = [
     "crates/baylee-cards/src/cards/lands/restricted/bleachbone_verge.rs",
+    # The only two-faced example, and the reason it is here: a card with a
+    # back face puts that face's abilities on the `face!`, not in the card's
+    # own `abilities` list, and no amount of vocabulary says that as clearly
+    # as one card that does it.
+    "crates/baylee-cards/src/cards/lands/pathway/hengegate_pathway.rs",
     "crates/baylee-cards/src/cards/artifacts/equipment/mv_1/skullclamp.rs",
     "crates/baylee-cards/src/cards/instants/mv_1/swords_to_plowshares.rs",
     "crates/baylee-cards/src/cards/creatures/mv_1/llanowar_elves.rs",
