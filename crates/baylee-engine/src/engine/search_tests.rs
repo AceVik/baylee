@@ -179,8 +179,13 @@ fn windswept_heath() -> CardIndex {
     card_index("29737a60-3ebd-40d9-b935-c4f54b90d45d")
 }
 
-/// Taps everything, casts the one card in hand and passes until the search
-/// asks; returns what it offers.
+/// Taps what the CR 305.6 shortcut offers, casts the one card in hand and
+/// passes until the search asks; returns what it offers.
+///
+/// `legal.mana_abilities` alone, which is the basics: every board below is
+/// basics and fetchlands, and a fetchland has no mana ability to leave
+/// standing. `testkit::tap_all_mana` is the helper that takes both lists
+/// (#159).
 #[track_caller]
 fn cast_and_search(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {

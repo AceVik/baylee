@@ -672,8 +672,13 @@ fn keywords_of(engine: &Engine<TestLookup>, id: ObjectId) -> KeywordSet {
         .keywords
 }
 
-/// Walks to seat 0's first main, taps everything for mana and casts the
-/// single card in hand at `target`.
+/// Walks to seat 0's first main, taps the CR 305.6 shortcut for mana and
+/// casts the single card in hand at `target`.
+///
+/// `legal.mana_abilities` and not `legal.abilities`: a printed `{T}: Add …`
+/// is left standing, which is right for this module's synthetic boards and
+/// would be wrong on a board with one. `testkit::tap_all_mana` is the helper
+/// that takes both lists (#159).
 fn cast_at(engine: &mut Engine<TestLookup>, target: ObjectId) {
     let p0 = PlayerId::new(0);
     let mut guard = 0;

@@ -1015,7 +1015,7 @@ fn in_graveyard(
 ///
 /// [`tap_mana_except`] empties the board but one, which is the wrong shape
 /// for a test that has to float mana twice in one game: the second half
-/// would find every land already tapped and read "no mana" as the answer it
+/// would find every source already tapped and read "no mana" as the answer it
 /// was looking for.
 #[track_caller]
 fn tap_mana_count(engine: &mut Engine<RegistryLookup>, seat: PlayerId, count: usize) {
