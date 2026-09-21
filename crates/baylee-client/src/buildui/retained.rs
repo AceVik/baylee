@@ -143,6 +143,7 @@ impl Retained {
                     picker,
                     assets,
                     cards,
+                    scrolled,
                 );
                 commands.entity(self.root).add_child(dialog);
                 self.picker = Some(dialog);

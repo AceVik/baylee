@@ -368,7 +368,7 @@ fn provenance_bit(object: &baylee_view::PublicObject) -> u32 {
 /// What the shader needs to know about one card.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct CardParams {
-    /// 0 plain, 1 foil, 2 etched.
+    /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
     pub finish: u32,
     /// Keyword glows, from [`glow_bits`].
     pub glow: u32,
@@ -962,6 +962,9 @@ pub fn finish_code(finish: FinishTreatment) -> u32 {
         FinishTreatment::Plain => 0,
         FinishTreatment::Foil => 1,
         FinishTreatment::Etched => 2,
+        FinishTreatment::Holographic => 3,
+        FinishTreatment::Glitter => 4,
+        FinishTreatment::Galaxy => 5,
     }
 }
 
@@ -1026,7 +1029,15 @@ impl Plugin for CardMaterialPlugin {
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
             .init_resource::<UiCardMaterials>()
-            .add_systems(Update, (track_motion, dress_the_card_backs));
+            .add_systems(
+                Update,
+                (
+                    track_motion,
+                    dress_the_card_backs,
+                    crate::card_loading::images,
+                    crate::card_loading::spin,
+                ),
+            );
     }
 }
 

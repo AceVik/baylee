@@ -48,12 +48,20 @@ fn the_printing_picker_offers_every_control_it_needs() {
         Press::PickerFinish(Finish::Foil),
         Press::PickerRefresh,
         Press::PickerForceFinish,
-        Press::PickerSet(Some(1)),
+        Press::FocusBuild(BuildField::PickerSet),
         Press::PickerConfirm,
         Press::PickerClose,
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
+    assert!(!found.contains(&Press::PickerSet(Some(1))));
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .focus_on(BuildField::PickerSet);
+    app.update();
+    assert!(presses(&mut app).contains(&Press::PickerSet(Some(1))));
 }
 
 /// The row the pool draws is the one that opens the picker; without it

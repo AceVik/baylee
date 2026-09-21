@@ -239,6 +239,11 @@ fn reference_printing(card: &PoolCard) -> baylee_catalog::Printing {
         border_color: String::new(),
         promo: false,
         name: card.english_name.clone(),
+        layout: if card.has_back_image {
+            "transform".to_string()
+        } else {
+            String::new()
+        },
     }
 }
 

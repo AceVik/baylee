@@ -1964,6 +1964,7 @@ pub struct OverlayTree<'w, 's> {
 /// that out rather than be told.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TrayTree<'w, 's> {
+    pub(crate) scroll: Query<'w, 's, &'static ScrollPosition, With<tray::TrayScroll>>,
     /// The overlay's root, which both nodes are children of.
     pub(crate) root: Query<'w, 's, Entity, With<HudRoot>>,
     /// The veil, at [`Z_VEIL`] — **this dialog's**, and not the end screen's.

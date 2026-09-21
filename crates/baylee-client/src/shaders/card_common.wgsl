@@ -87,15 +87,48 @@ fn print_finish(
             * (0.35 + 0.45 * chroma + 0.20 * contour);
         light = tint * amount + sheen * edge_light * 0.32;
     } else if finish == 2u {
-        // Fine metal follows image contours. Antialias the engraving as the
-        // card shrinks, avoiding shimmering stripes in scrolling previews.
-        let phase = (uv.x - uv.y) * 180.0 + luma * 9.0;
-        let grain = 0.5 + 0.5 * sin(phase)
+        // Engraved facets follow pigment boundaries, with a warm/cool metallic
+        // reflection and antialiased hairlines rather than a flat silver wash.
+        let phase = (uv.x - uv.y) * 240.0 + luma * 12.0;
+        let grain = (0.5 + 0.5 * sin(phase))
             * (1.0 - smoothstep(0.7, 2.5, fwidth(phase)));
-        let metal = mix(vec3<f32>(0.70, 0.75, 0.78), rgb, 0.18);
-        let amount = (0.035 + 0.10 * glint + 0.24 * band) * response
-            * (0.16 + 0.64 * contour + 0.20 * grain);
-        light = metal * amount + metal * edge_light * 0.46;
+        let tilt = 0.5 + 0.5 * sin(time * 0.38 + uv.y * 5.0 + angle * 3.0);
+        let metal = mix(vec3<f32>(0.40, 0.67, 0.82), vec3<f32>(0.96, 0.77, 0.43), tilt);
+        let facet = pow(0.5 + 0.5 * sin(luma * 22.0 + uv.x * 8.0 - time * 0.7), 6.0);
+        light = metal * response * (0.045 + 0.27 * band + 0.15 * facet)
+            * (0.28 + 0.62 * contour + 0.22 * grain) + metal * edge_light * 0.65;
+    } else if finish == 3u {
+        // Curved diffraction rings bend through the actual pigment values.
+        let radius = length((uv - vec2<f32>(0.35, 0.4)) * vec2<f32>(1.0, 1.4));
+        let phase = radius * 3.4 + luma * 0.65 - time * 0.10 + angle;
+        let spectrum = 0.5 + 0.5 * cos(6.283185 *
+            (vec3<f32>(phase) + vec3<f32>(0.0, 0.3333, 0.6667)));
+        light = spectrum * response * (0.10 + 0.32 * band) * (0.5 + chroma)
+            + spectrum * edge_light * 0.5;
+    } else if finish == 4u || finish == 5u {
+        // Stable cells twinkle gradually: no frame-random noise or strobing.
+        let density = select(115.0, 38.0, finish == 5u);
+        let point = uv * vec2<f32>(density, density / CARD_ASPECT);
+        let cell = floor(point);
+        let seed = fract(sin(dot(cell, vec2<f32>(127.1, 311.7))) * 43758.5453);
+        let offset = vec2<f32>(seed, fract(seed * 17.13)) * 0.6 + 0.2;
+        let delta = abs(fract(point) - offset);
+        let aa = max(length(fwidth(point)) * 0.4, 0.04);
+        let dot_light = 1.0 - smoothstep(0.03, 0.12 + aa, length(delta));
+        let twinkle = pow(0.5 + 0.5 * sin(time * 1.15 + seed * 31.0 + angle * 4.0), 8.0);
+        let tint = mix(vec3<f32>(0.38, 0.70, 1.0), vec3<f32>(1.0, 0.74, 0.38), seed);
+        var sparkle = dot_light * twinkle * smoothstep(0.36, 0.8, seed);
+        if finish == 5u {
+            let cross = exp(-delta.x * 65.0) * exp(-delta.y * 9.0)
+                + exp(-delta.y * 65.0) * exp(-delta.x * 9.0);
+            sparkle = (dot_light + cross * 0.65) * twinkle * smoothstep(0.70, 0.95, seed);
+            let cloud = 0.5 + 0.5 * sin(uv.x * 8.0 + uv.y * 5.0 + luma * 6.0 + time * 0.22);
+            light = mix(vec3<f32>(0.24, 0.12, 0.55), vec3<f32>(0.10, 0.45, 0.52), cloud)
+                * response * band * 0.18;
+        }
+        light += tint * response * (sparkle * 0.85 + band * 0.055)
+            + mix(vec3<f32>(0.35, 0.55, 0.90), vec3<f32>(0.90, 0.65, 0.35),
+                0.5 + 0.5 * sin(uv.y * 4.0 + time * 0.4)) * edge_light * 0.40;
     }
     return vec4<f32>(printed.rgb + (vec3<f32>(1.0) - rgb) * light, printed.a);
 }

@@ -231,6 +231,12 @@ pub enum FinishTreatment {
     Foil,
     /// Etched foil: a duller, engraved sheen.
     Etched,
+    /// Cosmetic holographic treatment.
+    Holographic,
+    /// Cosmetic glitter treatment.
+    Glitter,
+    /// Cosmetic galaxy treatment.
+    Galaxy,
 }
 
 impl From<Finish> for FinishTreatment {
@@ -239,6 +245,9 @@ impl From<Finish> for FinishTreatment {
             Finish::Normal => Self::Plain,
             Finish::Foil => Self::Foil,
             Finish::Etched => Self::Etched,
+            Finish::Holographic => Self::Holographic,
+            Finish::Glitter => Self::Glitter,
+            Finish::Galaxy => Self::Galaxy,
         }
     }
 }

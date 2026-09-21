@@ -23,7 +23,7 @@ pub enum FormatId {
     Custom,
 }
 
-/// Physical finish of a printing (presentation-only).
+/// Physical or cosmetic finish of a printing (presentation-only).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub enum Finish {
     /// Non-foil.
@@ -33,6 +33,12 @@ pub enum Finish {
     Foil,
     /// Etched foil.
     Etched,
+    /// Cosmetic holographic treatment.
+    Holographic,
+    /// Cosmetic glitter treatment.
+    Glitter,
+    /// Cosmetic galaxy treatment.
+    Galaxy,
 }
 
 /// Presentation info for one physical printing used in a game.

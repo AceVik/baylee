@@ -17,19 +17,50 @@ pub(super) fn builder_keys(
     mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
     paste: &mut Option<Paste>,
 ) -> bool {
-    if state.lobby.builder().picker().is_some() {
-        keys.clear();
+    let picking = state.lobby.builder().picker().is_some();
+    if picking {
+        let searching = state
+            .lobby
+            .builder()
+            .picker()
+            .is_some_and(baylee_client_core::deckbuilder::Picker::set_open);
         if codes.just_pressed(KeyCode::Escape) {
-            state.lobby.builder_mut().close_picker();
-        } else if codes.just_pressed(KeyCode::ArrowLeft) {
-            state.lobby.builder_mut().picker_step(-1);
-        } else if codes.just_pressed(KeyCode::ArrowRight) {
-            state.lobby.builder_mut().picker_step(1);
+            if searching {
+                state.lobby.builder_mut().picker_close_sets();
+            } else {
+                state.lobby.builder_mut().close_picker();
+            }
+            keys.clear();
+            return false;
         }
-        return false;
+        if searching
+            && (codes.just_pressed(KeyCode::ArrowDown) || codes.just_pressed(KeyCode::ArrowUp))
+        {
+            state
+                .lobby
+                .builder_mut()
+                .picker_move_set(codes.just_pressed(KeyCode::ArrowDown));
+            keys.clear();
+            return false;
+        }
+        if searching && codes.just_pressed(KeyCode::Enter) {
+            state.lobby.builder_mut().picker_choose_set();
+            keys.clear();
+            return false;
+        }
+        if !searching {
+            if codes.just_pressed(KeyCode::ArrowLeft) {
+                state.lobby.builder_mut().picker_step(-1);
+            }
+            if codes.just_pressed(KeyCode::ArrowRight) {
+                state.lobby.builder_mut().picker_step(1);
+            }
+            keys.clear();
+            return false;
+        }
     }
     let suggestions = crate::buildui::autocomplete::suggestions(state);
-    if !suggestions.is_empty() {
+    if !picking && !suggestions.is_empty() {
         if codes.just_pressed(KeyCode::ArrowDown) || codes.just_pressed(KeyCode::ArrowUp) {
             let n = suggestions.len();
             state.completion = Some(match state.completion {
@@ -177,7 +208,9 @@ pub(super) fn builder_keys(
         state.completion = None;
         state.completion_hidden = false;
     }
-    if tab {
+    if tab && picking {
+        state.lobby.builder_mut().picker_close_sets();
+    } else if tab {
         state.lobby.builder_mut().cycle_focus();
     }
     if enter && field == BuildField::Search {
@@ -186,5 +219,5 @@ pub(super) fn builder_keys(
             builder.add(slot, builder.zone());
         }
     }
-    save
+    save && !picking
 }

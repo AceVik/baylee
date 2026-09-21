@@ -523,6 +523,9 @@ const TRAY_CHROME_H: f32 =
 #[cfg(test)]
 const TRAY_ROWS: f32 = 8.5;
 
+#[derive(Component)]
+pub(crate) struct TrayScroll;
+
 /// What the dialog was last drawn from.
 ///
 /// The **sixth** retained tree in this client and the fifth revision counter
@@ -561,8 +564,7 @@ pub struct TrayRevision {
     /// [`baylee_client_core::Interaction::focus_position`] rather than `aim`
     /// itself, because the two read the same `focus` and this one is `Copy`.
     aim: Option<(usize, usize)>,
-    /// Card art that has arrived since the last build.
-    arrivals: u64,
+
     /// The text-face latch, which turns every thumbnail over at once.
     faces: bool,
     /// How many card texts have been fetched.
@@ -616,6 +618,7 @@ impl TrayRevision {
 /// below come back empty, and the gate rebuilds from the first frame there is
 /// a root again.
 #[allow(clippy::too_many_arguments)] // a panel, a view, and the stores
+#[allow(clippy::too_many_lines)] // One retained dialog lifecycle, including viewport preservation.
 pub fn sync_tray(
     mut commands: Commands,
     duel: Res<crate::Duel>,
@@ -688,7 +691,6 @@ pub fn sync_tray(
         && revision.seq == seq
         && revision.selected == selected
         && revision.aim == aim
-        && revision.arrivals == textures.epoch()
         && revision.faces == faces_always
         && revision.texts == texts.len()
         && revision.window == canvas
@@ -697,12 +699,24 @@ pub fn sync_tray(
     {
         return;
     }
+    // Image handles become drawable in place; their arrival must not tear
+    // down the list. Preserve the viewport on selection and snapshot updates.
+    let scroll_y = if revision.browser.sheet == browser.sheet
+        && revision.browser.ticked == browser.ticked
+        && revision.browser.filter.text() == browser.filter.text()
+        && revision.browser.sort == browser.sort
+        && revision.browser.descending == browser.descending
+        && revision.browser.view == browser.view
+    {
+        tree.scroll.iter().next().map_or(0.0, |p| p.y)
+    } else {
+        0.0
+    };
     revision.stale = false;
     revision.browser = browser.clone();
     revision.seq = seq;
     revision.selected.clone_from(&selected);
     revision.aim = aim;
-    revision.arrivals = textures.epoch();
     revision.faces = faces_always;
     revision.texts = texts.len();
     revision.window = canvas;
@@ -771,6 +785,7 @@ pub fn sync_tray(
         place,
         place.is_maximised(band),
         settings.zone_view,
+        scroll_y,
     );
     commands.entity(root).add_child(tray);
 }
@@ -1157,6 +1172,7 @@ pub(super) fn spawn_tray(
     place: Placement,
     maximised: bool,
     mode: ViewMode,
+    scroll_y: f32,
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
     // `Browser` cannot do for itself: it decides in `baylee-client-core`,
@@ -1663,7 +1679,8 @@ pub(super) fn spawn_tray(
             // of the sheet with the rest of the library behind it, and the
             // wheel that should have reached it zoomed the table.
             super::Scrolls,
-            ScrollPosition::default(),
+            TrayScroll,
+            ScrollPosition(Vec2::new(0.0, scroll_y)),
         ))
         .id();
     if rows.is_empty() {

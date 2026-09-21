@@ -39,6 +39,7 @@ pub mod abilities;
 pub mod ambience;
 pub mod arrowmat;
 pub mod buildui;
+mod card_loading;
 pub mod cardart;
 pub mod cardmat;
 pub mod cardtext;

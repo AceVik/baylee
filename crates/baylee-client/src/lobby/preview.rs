@@ -223,9 +223,10 @@ pub(super) fn preview(
         commands.entity(frame).add_child(node);
     };
     face(&url, crate::flip::Side::Front);
-    if let Some(back) = card.back_url.as_deref() {
-        face(back, crate::flip::Side::Back);
-    }
+    let back = card.back_url.clone().unwrap_or_else(|| {
+        baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
+    });
+    face(&back, crate::flip::Side::Back);
 }
 
 /// Takes the preview down when the builder does.
@@ -280,6 +281,9 @@ pub(crate) fn hover_of_entry(
         finish: match finish {
             Finish::Foil => baylee_view::Finish::Foil,
             Finish::Etched => baylee_view::Finish::Etched,
+            Finish::Holographic => baylee_view::Finish::Holographic,
+            Finish::Glitter => baylee_view::Finish::Glitter,
+            Finish::Galaxy => baylee_view::Finish::Galaxy,
             Finish::Normal => baylee_view::Finish::Normal,
         },
     };

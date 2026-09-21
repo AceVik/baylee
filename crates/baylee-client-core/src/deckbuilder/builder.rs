@@ -519,6 +519,11 @@ impl DeckBuilder {
             oracle_id: card.oracle_id.clone(),
             lang: "en".to_string(),
             name: card.english_name.clone(),
+            layout: if card.has_back_image {
+                "transform".into()
+            } else {
+                String::new()
+            },
             ..Printing::default()
         };
         let index = card.index;
@@ -573,17 +578,56 @@ impl DeckBuilder {
         }
     }
 
-    /// Filter by a set from the current language's set list.
+    /// Filter by a set from the multilingual set list.
     pub fn picker_set_set(&mut self, at: Option<usize>) {
         if let Some(picker) = &mut self.picker {
             picker.set = at.and_then(|i| picker.sets().get(i).map(|(s, _)| (*s).to_string()));
+            if picker.set.as_ref().is_some_and(|set| {
+                !picker.printings.iter().any(|p| {
+                    p.set == *set && picker.lang.as_ref().is_none_or(|lang| *lang == p.lang)
+                })
+            }) {
+                picker.lang = None;
+            }
+            picker.set_open = false;
+            picker.set_query = crate::textbuf::TextBuffer::default();
             picker.at = 0;
             picker.settle();
         }
     }
 
+    /// Close the autocomplete without changing the selected set.
+    pub fn picker_close_sets(&mut self) {
+        if let Some(picker) = &mut self.picker {
+            picker.set_open = false;
+            picker.set_query = crate::textbuf::TextBuffer::default();
+        }
+    }
+
+    /// Keyboard navigation of the set suggestions.
+    pub fn picker_move_set(&mut self, forward: bool) {
+        if let Some(p) = &mut self.picker {
+            let n = p.matching_sets().len();
+            if n > 0 {
+                p.set_cursor = (p.set_cursor + if forward { 1 } else { n - 1 }) % n;
+            }
+        }
+    }
+
+    /// Accept the highlighted set result.
+    pub fn picker_choose_set(&mut self) {
+        let at = self
+            .picker
+            .as_ref()
+            .and_then(|p| p.matching_sets().get(p.set_cursor).copied());
+        if at.is_some() {
+            self.picker_set_set(at);
+        }
+    }
+
     /// Closes the picker without adding anything.
     pub fn close_picker(&mut self) {
+        self.focus_on(BuildField::Search);
         self.picker = None;
     }
 
@@ -950,6 +994,13 @@ impl DeckBuilder {
     /// Puts the caret in a box.
     pub fn focus_on(&mut self, field: BuildField) {
         self.focus = field;
+        if field == BuildField::PickerSet
+            && let Some(p) = &mut self.picker
+        {
+            p.set_open = true;
+            p.set_query.clear();
+            p.set_cursor = 0;
+        }
         self.focus_epoch = self.focus_epoch.wrapping_add(1);
     }
 
@@ -957,7 +1008,7 @@ impl DeckBuilder {
     pub fn cycle_focus(&mut self) {
         self.focus_on(match self.focus {
             BuildField::Search => BuildField::Name,
-            BuildField::Name => BuildField::Search,
+            BuildField::Name | BuildField::PickerSet => BuildField::Search,
         });
     }
 
@@ -967,6 +1018,7 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.text.text(),
             BuildField::Name => self.name.text(),
+            BuildField::PickerSet => self.buffer(BuildField::PickerSet).text(),
         }
     }
 
@@ -975,6 +1027,10 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.set_text(value),
             BuildField::Name => self.set_name(value),
+            BuildField::PickerSet => self.edit_buffer(BuildField::PickerSet, |b| {
+                b.clear();
+                b.insert(value);
+            }),
         }
     }
 
@@ -984,6 +1040,7 @@ impl DeckBuilder {
         match field {
             BuildField::Search => &self.text,
             BuildField::Name => &self.name,
+            BuildField::PickerSet => self.picker.as_ref().map_or(&self.text, |p| &p.set_query),
         }
     }
 
@@ -996,6 +1053,12 @@ impl DeckBuilder {
         let buffer = match field {
             BuildField::Search => &mut self.text,
             BuildField::Name => &mut self.name,
+            BuildField::PickerSet => {
+                let Some(p) = &mut self.picker else {
+                    return;
+                };
+                &mut p.set_query
+            }
         };
         let before = buffer.text().to_owned();
         edit(buffer);
@@ -1005,6 +1068,12 @@ impl DeckBuilder {
         match field {
             BuildField::Search => self.retext(),
             BuildField::Name => self.dirty = true,
+            BuildField::PickerSet => {
+                if let Some(p) = &mut self.picker {
+                    p.set_cursor = 0;
+                    p.set_open = true;
+                }
+            }
         }
     }
 
@@ -1013,6 +1082,9 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.type_char(ch),
             BuildField::Name => self.type_name(ch),
+            BuildField::PickerSet => {
+                self.edit_buffer(BuildField::PickerSet, |b| b.insert(&ch.to_string()));
+            }
         }
     }
 
@@ -1021,6 +1093,9 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.backspace(),
             BuildField::Name => self.backspace_name(),
+            BuildField::PickerSet => self.edit_buffer(BuildField::PickerSet, |b| {
+                b.delete_back();
+            }),
         }
     }
 
@@ -1545,6 +1620,9 @@ fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
             Finish::Normal => 0,
             Finish::Foil => 1,
             Finish::Etched => 2,
+            Finish::Holographic => 3,
+            Finish::Glitter => 4,
+            Finish::Galaxy => 5,
         },
     )
 }

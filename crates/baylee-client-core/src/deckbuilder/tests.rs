@@ -1486,7 +1486,7 @@ fn set_and_language_filters_compose_and_language_change_clears_set() {
     b.picker_set_lang(Some("de"));
     assert_eq!(b.picker().unwrap().len(), 1);
     assert_eq!(b.picker().unwrap().set(), None);
-    assert_eq!(b.picker().unwrap().sets().len(), 1);
+    assert_eq!(b.picker().unwrap().sets().len(), 2);
 }
 
 #[test]
@@ -1525,4 +1525,47 @@ fn refreshing_metadata_preserves_the_selected_art_and_cosmetic_finish() {
     assert_eq!(p.current().unwrap().set, "b");
     assert_eq!(p.finish(), Finish::Etched);
     assert!(p.force_finish());
+}
+
+#[test]
+fn set_autocomplete_searches_codes_and_names_across_languages() {
+    let mut b = picking();
+    let mut en = printing("abc", "1", "en", &["nonfoil"]);
+    en.set_name = "English title".into();
+    let mut de = printing("abc", "1", "de", &["nonfoil"]);
+    de.set_name = "Deutscher Titel".into();
+    b.set_printings(
+        7,
+        vec![en, de, printing("xyz", "2", "en", &["nonfoil"])],
+        true,
+    );
+    b.picker_set_lang(Some("de"));
+    b.focus_on(BuildField::PickerSet);
+    assert_eq!(b.picker().unwrap().matching_sets(), vec![0, 1]);
+    for query in ["ABC", "English", "DEUTSCHER"] {
+        b.set_focused(query);
+        assert_eq!(b.picker().unwrap().matching_sets(), vec![0]);
+    }
+    b.set_focused("xyz");
+    b.picker_choose_set();
+    assert_eq!(b.picker().unwrap().set(), Some("xyz"));
+    assert_eq!(b.picker().unwrap().lang(), None);
+    assert!(!b.picker().unwrap().set_open());
+    b.focus_on(BuildField::PickerSet);
+    assert_eq!(b.picker().unwrap().matching_sets(), vec![0, 1]);
+}
+
+#[test]
+fn cosmetic_finishes_roundtrip_through_the_deck_picker() {
+    for finish in [Finish::Holographic, Finish::Glitter, Finish::Galaxy] {
+        let mut b = picking();
+        b.set_printings(7, vec![printing("a", "1", "en", &["nonfoil"])], true);
+        b.picker_force_finish();
+        b.picker_set_finish(finish);
+        assert_eq!(b.picker().unwrap().finish(), finish);
+        b.picker_confirm();
+        b.open_row_picker(0, Zone::Main);
+        assert_eq!(b.picker().unwrap().finish(), finish);
+        assert!(b.picker().unwrap().force_finish());
+    }
 }

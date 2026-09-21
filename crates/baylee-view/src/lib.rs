@@ -81,7 +81,8 @@ use serde::{Deserialize, Serialize};
 /// and disagree on what a number means. That is why subtype ids became
 /// append-only in the same commit rather than trusting this number to carry
 /// it.
-pub const VIEW_VERSION: u32 = 26;
+/// 27 adds cosmetic holographic, glitter and galaxy print finishes.
+pub const VIEW_VERSION: u32 = 27;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -364,6 +365,12 @@ pub enum Finish {
     Foil,
     /// Etched foil.
     Etched,
+    /// Cosmetic holographic treatment.
+    Holographic,
+    /// Cosmetic glitter treatment.
+    Glitter,
+    /// Cosmetic galaxy treatment.
+    Galaxy,
 }
 
 /// One entry of the game's print table.
@@ -2074,7 +2081,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (26, 0xbb40_b1b8_f639_b4a1);
+        const RECORDED: (u32, u64) = (27, 0xd974_2f5d_7c86_f276);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

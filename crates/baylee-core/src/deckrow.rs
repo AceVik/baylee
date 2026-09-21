@@ -168,6 +168,9 @@ fn finish_marker(finish: Finish) -> Option<&'static str> {
         Finish::Normal => None,
         Finish::Foil => Some("F"),
         Finish::Etched => Some("E"),
+        Finish::Holographic => Some("H"),
+        Finish::Glitter => Some("G"),
+        Finish::Galaxy => Some("S"),
     }
 }
 
@@ -176,6 +179,9 @@ fn parse_finish(marker: &str) -> Result<Finish, RowError> {
     match marker.to_ascii_uppercase().as_str() {
         "F" | "FOIL" => Ok(Finish::Foil),
         "E" | "ETCHED" => Ok(Finish::Etched),
+        "H" | "HOLOGRAPHIC" => Ok(Finish::Holographic),
+        "G" | "GLITTER" => Ok(Finish::Glitter),
+        "S" | "GALAXY" => Ok(Finish::Galaxy),
         "N" | "NONFOIL" => Ok(Finish::Normal),
         _ => Err(RowError::Finish),
     }
@@ -554,6 +560,20 @@ mod tests {
     #[test]
     fn the_fence_is_what_the_ledger_is_held_against() {
         assert_eq!(NOTE_FENCE, " #");
+    }
+
+    #[test]
+    fn cosmetic_finishes_survive_export_and_import() {
+        for (marker, finish) in [
+            ("H", Finish::Holographic),
+            ("G", Finish::Glitter),
+            ("S", Finish::Galaxy),
+        ] {
+            let text = format!("1 Forest *{marker}*");
+            let row = parse(&text).unwrap();
+            assert_eq!(row.print.finish, Some(finish));
+            assert_eq!(row.to_string(), text);
+        }
     }
 
     #[test]

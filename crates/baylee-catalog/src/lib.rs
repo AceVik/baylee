@@ -136,6 +136,9 @@ pub struct Printing {
     pub promo: bool,
     /// Front-face name in this printing's language.
     pub name: String,
+    /// Printed layout, used to distinguish true back images from split faces.
+    #[serde(default)]
+    pub layout: String,
 }
 
 /// A card's name in one language.
@@ -773,7 +776,7 @@ impl Catalog {
                    coalesce(c.artist, '') AS artist, \
                    coalesce(c.finishes, 'nonfoil') AS finishes, \
                    coalesce(c.frame_effects, '') AS frame_effects, \
-                   coalesce(c.border_color, '') AS border_color, \
+                   coalesce(c.border_color, '') AS border_color, coalesce(c.layout, '') AS layout, \
                    c.promo AS promo, \
                    coalesce(f.printed_name, f.name) AS name \
             FROM cards c \
@@ -802,6 +805,7 @@ impl Catalog {
                     lang: row.try_get("", "lang")?,
                     set: row.try_get("", "set_code")?,
                     set_name: row.try_get("", "set_name")?,
+                    layout: row.try_get("", "layout")?,
                     collector_number: row.try_get("", "collector_number")?,
                     rarity: row.try_get("", "rarity")?,
                     released_at: row.try_get("", "released_at")?,
@@ -2145,10 +2149,11 @@ mod tests {
             border_color: "black".to_string(),
             promo: false,
             name: "御守り".to_string(),
+            layout: "transform".to_string(),
         };
         assert_eq!(
             serde_json::to_string(&printing).expect("serializes"),
-            r#"{"scryfall_id":"id","oracle_id":"oid","lang":"ja","set":"neo","set_name":"Kamigawa: Neon Dynasty","collector_number":"123","rarity":"rare","released_at":"2022-02-18","artist":"Someone","finishes":["nonfoil","foil"],"frame_effects":["showcase"],"border_color":"black","promo":false,"name":"御守り"}"#
+            r#"{"scryfall_id":"id","oracle_id":"oid","lang":"ja","set":"neo","set_name":"Kamigawa: Neon Dynasty","collector_number":"123","rarity":"rare","released_at":"2022-02-18","artist":"Someone","finishes":["nonfoil","foil"],"frame_effects":["showcase"],"border_color":"black","promo":false,"name":"御守り","layout":"transform"}"#
         );
     }
 }

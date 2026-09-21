@@ -809,6 +809,11 @@ pub fn game_static(
                         finish: match p.finish {
                             baylee_core::preset::Finish::Foil => baylee_view::Finish::Foil,
                             baylee_core::preset::Finish::Etched => baylee_view::Finish::Etched,
+                            baylee_core::preset::Finish::Holographic => {
+                                baylee_view::Finish::Holographic
+                            }
+                            baylee_core::preset::Finish::Glitter => baylee_view::Finish::Glitter,
+                            baylee_core::preset::Finish::Galaxy => baylee_view::Finish::Galaxy,
                             baylee_core::preset::Finish::Normal => baylee_view::Finish::Normal,
                         },
                     })

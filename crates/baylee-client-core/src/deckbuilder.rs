@@ -257,9 +257,21 @@ pub struct Printing {
     /// Whether it is a promo.
     #[serde(default)]
     pub promo: bool,
+    /// Scryfall layout; split/adventure cards do not have a separate back scan.
+    #[serde(default)]
+    pub layout: String,
 }
 
 impl Printing {
+    /// Layouts whose second face has its own image.
+    #[must_use]
+    pub fn has_back_image(&self) -> bool {
+        matches!(
+            self.layout.as_str(),
+            "transform" | "modal_dfc" | "double_faced_token" | "reversible_card" | "art_series"
+        )
+    }
+
     /// The finishes this printing was sold in, in the order a picker shows
     /// them, and never empty.
     ///
@@ -466,6 +478,7 @@ struct Held {
 /// one answer, not one per set it appeared in. The picker is where the other
 /// question is asked, and it is only ever open for one card at a time.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // Independent catalog, finish, and autocomplete states.
 pub struct Picker {
     /// The pool slot being picked for.
     slot: usize,
@@ -490,6 +503,9 @@ pub struct Picker {
     force_finish: bool,
     refresh_selection: Option<(String, Finish, bool)>,
     set: Option<String>,
+    set_query: crate::textbuf::TextBuffer,
+    set_open: bool,
+    set_cursor: usize,
     /// Whether the answer is still in flight.
     loading: bool,
     /// Whether these came from a catalog, or are the one printing this build
@@ -547,19 +563,48 @@ impl Picker {
         self.force_finish
     }
 
-    /// Set codes and names in catalog order, limited to the chosen language.
+    /// Set codes and names in catalog order, including all languages.
     #[must_use]
     pub fn sets(&self) -> Vec<(&str, &str)> {
         let mut sets = Vec::new();
         for p in &self.printings {
-            if !p.set.is_empty()
-                && self.lang.as_ref().is_none_or(|l| *l == p.lang)
-                && !sets.iter().any(|(code, _)| *code == p.set)
-            {
+            if !p.set.is_empty() && !sets.iter().any(|(code, _)| *code == p.set) {
                 sets.push((p.set.as_str(), p.set_name.as_str()));
             }
         }
         sets
+    }
+
+    /// Set search includes every language, even when the artwork is filtered.
+    #[must_use]
+    pub fn matching_sets(&self) -> Vec<usize> {
+        let query = self.set_query.text().trim().to_lowercase();
+        self.sets()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (code, _))| {
+                self.printings
+                    .iter()
+                    .any(|p| {
+                        p.set == *code
+                            && (p.set.to_lowercase().contains(&query)
+                                || p.set_name.to_lowercase().contains(&query))
+                    })
+                    .then_some(i)
+            })
+            .collect()
+    }
+
+    /// Whether the set autocomplete is open.
+    #[must_use]
+    pub fn set_open(&self) -> bool {
+        self.set_open
+    }
+
+    /// Highlighted result within the autocomplete.
+    #[must_use]
+    pub fn set_cursor(&self) -> usize {
+        self.set_cursor
     }
 
     /// Active set filter.
@@ -620,7 +665,14 @@ impl Picker {
     #[must_use]
     pub fn finishes(&self) -> Vec<Finish> {
         if self.force_finish {
-            return vec![Finish::Normal, Finish::Foil, Finish::Etched];
+            return vec![
+                Finish::Normal,
+                Finish::Foil,
+                Finish::Etched,
+                Finish::Holographic,
+                Finish::Glitter,
+                Finish::Galaxy,
+            ];
         }
         self.current().map(Printing::offered).unwrap_or_default()
     }
@@ -722,6 +774,8 @@ pub enum BuildField {
     Search,
     /// The deck's name.
     Name,
+    /// Printing picker set autocomplete.
+    PickerSet,
 }
 
 impl BuildField {

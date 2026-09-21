@@ -1468,6 +1468,90 @@ mod tests {
     /// `TextSpan` and not `Text`: `slip_text` splits a line into runs so a
     /// bracketed aside can be greyed, which leaves the `Text` itself empty
     /// and every word in a child.
+    #[test]
+    fn combat_commit_buttons_update_without_a_new_game_snapshot() {
+        use baylee_core::ids::Defender;
+        use baylee_engine::choice::Pending;
+        for blocking in [false, true] {
+            let creature = ObjectId::new(3, 0);
+            let attacker = ObjectId::new(4, 0);
+            let pending = if blocking {
+                Pending::ChooseBlockers {
+                    player: PlayerId::new(0),
+                    attacker: PlayerId::new(1),
+                    blockers: vec![baylee_engine::choice::BlockOption {
+                        blocker: creature,
+                        attackers: vec![attacker],
+                    }],
+                }
+            } else {
+                Pending::ChooseAttackers {
+                    player: PlayerId::new(0),
+                    attackers: vec![creature],
+                    defenders: vec![Defender::Player(PlayerId::new(1))],
+                }
+            };
+            let mut duel = duel_with(false);
+            duel.receive_choice(pending);
+            let mut app = bar_of(duel);
+            let label = if blocking {
+                Phrase::Block
+            } else {
+                Phrase::Attack
+            }
+            .text(Lang::En);
+            assert!(!said(&mut app).iter().any(|s| s == label));
+            {
+                let mut duel = app.world_mut().resource_mut::<Duel>();
+                let i = duel.interaction.as_mut().unwrap();
+                if blocking {
+                    assert!(i.declare_blocker(creature, attacker));
+                } else {
+                    assert!(i.declare_attacker(creature, Defender::Player(PlayerId::new(1))));
+                }
+            }
+            app.update();
+            assert!(said(&mut app).iter().any(|s| s == label), "missing {label}");
+        }
+    }
+
+    #[test]
+    fn tray_image_arrivals_preserve_entities_and_scroll_and_relayout_keeps_offset() {
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        duel.browser.open();
+        let mut app = bar_of(duel);
+        let list = app
+            .world_mut()
+            .query_filtered::<Entity, With<tray::TrayScroll>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut()
+            .entity_mut(list)
+            .get_mut::<ScrollPosition>()
+            .unwrap()
+            .y = 160.0;
+        app.world_mut().resource_mut::<CardTextures>().mark_arrived(
+            baylee_client_core::images::ImageKey::new(
+                baylee_core::ids::PrintRef::new(55),
+                0,
+                baylee_client_core::images::ArtSize::Small,
+            ),
+        );
+        app.update();
+        assert!((app.world().get::<ScrollPosition>(list).unwrap().y - 160.0).abs() < f32::EPSILON);
+        app.world_mut()
+            .resource_mut::<tray::TrayRevision>()
+            .relayout();
+        app.update();
+        let scroll = app
+            .world_mut()
+            .query_filtered::<&ScrollPosition, With<tray::TrayScroll>>()
+            .single(app.world())
+            .unwrap();
+        assert!((scroll.y - 160.0).abs() < f32::EPSILON);
+    }
+
     fn said(app: &mut App) -> Vec<String> {
         let mut roots = app.world_mut().query::<&Text>();
         let mut lines: Vec<String> = roots.iter(app.world()).map(|t| t.0.clone()).collect();

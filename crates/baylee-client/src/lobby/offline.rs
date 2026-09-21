@@ -728,6 +728,14 @@ fn reference_printing(card: u32) -> Option<client_core::deckbuilder::Printing> {
     Some(client_core::deckbuilder::Printing {
         scryfall_id: def.scryfall_id.to_string(),
         oracle_id: def.oracle_id.to_string(),
+        layout: if baylee_cards::pool::rows()
+            .iter()
+            .any(|c| c.index == card && c.has_back_image)
+        {
+            "transform".to_string()
+        } else {
+            String::new()
+        },
         lang: "en".to_string(),
         ..Default::default()
     })

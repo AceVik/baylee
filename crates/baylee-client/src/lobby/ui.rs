@@ -2221,6 +2221,9 @@ pub(crate) fn print_mark(print: &baylee_core::deckrow::PrintChoice) -> String {
     match print.finish {
         Some(Finish::Foil) => parts.push("foil".to_string()),
         Some(Finish::Etched) => parts.push("etched".to_string()),
+        Some(Finish::Holographic) => parts.push("holographic".to_string()),
+        Some(Finish::Glitter) => parts.push("glitter".to_string()),
+        Some(Finish::Galaxy) => parts.push("galaxy".to_string()),
         Some(Finish::Normal) | None => {}
     }
     parts.join(" \u{b7} ")

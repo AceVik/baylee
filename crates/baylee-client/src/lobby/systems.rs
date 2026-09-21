@@ -281,7 +281,16 @@ pub(super) fn softkeys(
                 }
                 // Nothing to submit: a deck is saved from the bar, and
                 // closing the keyboard is what "done" means here.
-                SoftKey::Submit | SoftKey::Dismiss => keys.close(),
+                SoftKey::Submit => {
+                    if state.lobby.builder().focus() == BuildField::PickerSet {
+                        state.lobby.builder_mut().picker_choose_set();
+                    }
+                    keys.close();
+                }
+                SoftKey::Dismiss => {
+                    state.lobby.builder_mut().picker_close_sets();
+                    keys.close();
+                }
             }
         }
         return;
@@ -945,11 +954,10 @@ pub(super) fn clicks(
                 let request = state.lobby.play_offline();
                 dispatch(&mut state, &mailbox, request);
             }
-            // `Leave` and `PlayAgain` are only ever spawned on the finished
-            // screen, where `leave_clicks` reads them, and `PickerNothing`
-            // exists to stop a tap inside the picker reaching the shade
-            // behind it. None of the three does anything here.
-            Press::Leave | Press::PlayAgain | Press::PickerNothing => {}
+            // Game-over actions are handled by `leave_clicks`. An empty
+            // part of the artwork dialog dismisses its set autocomplete.
+            Press::Leave | Press::PlayAgain => {}
+            Press::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
             Press::NewDeck => {
                 state.commander_pick = None;
                 state.pane = Pane::Deck;
@@ -1000,16 +1008,21 @@ pub(super) fn clicks(
                 deck.focus_on(field);
             }
             Press::PickRowPrint(at) => {
+                scrolled.set(List::PickerPanel, 0.0);
                 let zone = state.lobby.builder().zone();
                 let request = state.lobby.builder_mut().open_row_picker(at, zone);
                 dispatch(&mut state, &mailbox, request);
             }
             Press::PickPrint(slot) => {
+                scrolled.set(List::PickerPanel, 0.0);
                 let zone = state.lobby.builder().zone();
                 let request = state.lobby.builder_mut().open_picker(slot, zone);
                 dispatch(&mut state, &mailbox, request);
             }
-            Press::PickerStep(by) => state.lobby.builder_mut().picker_step(by),
+            Press::PickerStep(by) => {
+                state.lobby.builder_mut().picker_close_sets();
+                state.lobby.builder_mut().picker_step(by);
+            }
             Press::PickerGo(at) => state.lobby.builder_mut().picker_go(at),
             Press::PickerLang(which) => {
                 // The list the index came from is the one being read here, so
@@ -1193,6 +1206,7 @@ pub(crate) struct Scrolled {
     deck: f32,
     table: f32,
     library: f32,
+    picker_panel: f32,
 }
 
 impl Scrolled {
@@ -1202,7 +1216,8 @@ impl Scrolled {
             List::Deck => self.deck,
             List::Table => self.table,
             List::Library => self.library,
-            List::PickerSets | List::PickerPanel => 0.0,
+            List::PickerSets => 0.0,
+            List::PickerPanel => self.picker_panel,
         }
     }
 
@@ -1212,7 +1227,8 @@ impl Scrolled {
             List::Deck => self.deck = at,
             List::Table => self.table = at,
             List::Library => self.library = at,
-            List::PickerSets | List::PickerPanel => {}
+            List::PickerSets => {}
+            List::PickerPanel => self.picker_panel = at,
         }
     }
 }

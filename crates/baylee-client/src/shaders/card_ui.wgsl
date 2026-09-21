@@ -16,7 +16,7 @@
 #import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
-    /// 0 plain, 1 foil, 2 etched.
+    /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
     finish: u32,
     /// What the rules have made this card, plus what this client is
     /// offering to do with it. The bits are `cardmat::glow`, never the
