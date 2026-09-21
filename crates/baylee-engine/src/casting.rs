@@ -1082,3 +1082,267 @@ pub enum CastFailure {
     #[error("state error: {0}")]
     State(#[from] StateError),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::effects::{ContinuousEffect, EffectFilter};
+    use crate::state::{CardLookup, Commander};
+    use baylee_cards_dsl::{Duration, Filter, Modifier};
+    use baylee_core::ids::{CardIndex, EffectId, ObjectId, SubtypeId};
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let entry = DeckEntry {
+            card: forest,
+            print: baylee_core::ids::PrintRef::new(0),
+        };
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 13,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    fn permanent(state: &mut GameState, owner: PlayerId, name: &str) -> ObjectId {
+        let name = state.names.intern(name);
+        state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        )
+    }
+
+    /// A land with the given basic types and nothing else.
+    fn basic_land(state: &mut GameState, name: &str, types: &[SubtypeId]) -> ObjectId {
+        let id = permanent(state, me(), name);
+        let base = state.object_mut(id).expect("just made it").base_mut();
+        base.types = TypeSet::LAND;
+        for t in types {
+            base.subtypes.insert(*t);
+        }
+        id
+    }
+
+    fn register(state: &mut GameState, controller: PlayerId, modifier: Modifier) {
+        state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: None,
+            controller,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: Duration::Indefinitely,
+            filter: EffectFilter::Dsl(&Filter::This),
+            modifier,
+        });
+    }
+
+    /// CR 305.6 gives a land one mana ability **per** basic type, so this
+    /// shortcut answers only where there is nothing to choose. Answering on
+    /// the player's behalf is worse than not answering: Godless Shrine used
+    /// to tap for white and never for black, whatever the player needed.
+    #[test]
+    fn a_land_with_two_basic_types_is_not_answered_for_the_player() {
+        let mut state = state();
+        let plains = basic_land(&mut state, "Plains", &[land::PLAINS]);
+        let shrine = basic_land(&mut state, "Godless Shrine", &[land::PLAINS, land::SWAMP]);
+        let waste = basic_land(&mut state, "Wastes", &[]);
+        let bear = permanent(&mut state, me(), "Bear");
+
+        assert_eq!(intrinsic_mana(&state, plains), Some(ManaColor::White));
+        assert_eq!(
+            intrinsic_mana(&state, shrine),
+            None,
+            "the dual is left to the printed ability that asks"
+        );
+        assert_eq!(intrinsic_mana(&state, waste), None, "no basic type");
+        assert_eq!(intrinsic_mana(&state, bear), None, "not a land at all");
+    }
+
+    /// CR 903.8: `{2}` for each previous cast of *this* commander from the
+    /// command zone, and nothing at all while the card is somewhere else —
+    /// a commander cast from a hand it was bounced to pays no tax.
+    #[test]
+    fn the_commander_tax_is_per_commander_and_only_in_the_command_zone() {
+        let mut state = state();
+        let name = state.names.intern("General");
+        let general = state.create_bare(
+            me(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Command(me()),
+        );
+        let name = state.names.intern("Partner");
+        let partner = state.create_bare(
+            me(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Command(me()),
+        );
+        state.commanders[me().get() as usize].push(Commander {
+            object: general,
+            casts: 2,
+            answered: 0,
+        });
+        state.commanders[me().get() as usize].push(Commander {
+            object: partner,
+            casts: 0,
+            answered: 0,
+        });
+
+        assert_eq!(commander_tax(&state, me(), general), 4);
+        assert_eq!(
+            commander_tax(&state, me(), partner),
+            0,
+            "a partner deck taxes its two independently"
+        );
+        assert_eq!(
+            commander_tax(&state, them(), general),
+            0,
+            "and it is the caster's own list that is read"
+        );
+
+        state
+            .move_object(
+                general,
+                ZoneLocation::Hand(me()),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("it is bounced to hand");
+        assert_eq!(
+            commander_tax(&state, me(), general),
+            0,
+            "the tax is on casting it from the command zone"
+        );
+    }
+
+    /// "If you control a commander" is card text rather than a rule, and it
+    /// reads the marker list: a commander on the battlefield has left the
+    /// command zone by definition, so asking the zone answers no for exactly
+    /// the board the card is printed about.
+    #[test]
+    fn controlling_a_commander_is_asked_of_the_marker_list() {
+        let mut state = state();
+        let general = permanent(&mut state, me(), "General");
+
+        assert!(!controls_a_commander(&state, me()), "no commander yet");
+
+        state.commanders[me().get() as usize].push(Commander {
+            object: general,
+            casts: 0,
+            answered: 0,
+        });
+        assert!(controls_a_commander(&state, me()));
+        assert!(
+            !controls_a_commander(&state, them()),
+            "theirs, not the table's"
+        );
+
+        state
+            .move_object(
+                general,
+                ZoneLocation::Graveyard(me()),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("it dies");
+        assert!(
+            !controls_a_commander(&state, me()),
+            "a commander in the graveyard is not one you control"
+        );
+    }
+
+    /// One land a turn (CR 305.2a), and the extra drops are a fold rather
+    /// than a flag. The predicate beside it is the one both ends ask — the
+    /// offer that puts a land in `legal.lands` and the play that refuses an
+    /// answer nobody offered — so that a limit which stops being one cannot
+    /// be read two ways.
+    #[test]
+    fn a_land_drop_is_counted_in_one_place_for_both_ends() {
+        let mut state = state();
+        assert_eq!(land_drops_allowed(&state, me()), 1);
+        assert!(has_a_land_drop_left(&state, me()));
+
+        state.players[me().get() as usize].lands_played_this_turn = 1;
+        assert!(!has_a_land_drop_left(&state, me()));
+
+        register(&mut state, me(), Modifier::ExtraLandDrops(1));
+        assert_eq!(land_drops_allowed(&state, me()), 2);
+        assert!(has_a_land_drop_left(&state, me()), "Exploration");
+        assert_eq!(
+            land_drops_allowed(&state, them()),
+            1,
+            "an extra drop is its controller's"
+        );
+
+        register(&mut state, me(), Modifier::ExtraLandDrops(2));
+        assert_eq!(land_drops_allowed(&state, me()), 4, "they add up");
+    }
+
+    /// CR 305.1: the hand needs no permission, and the graveyard is one —
+    /// Crucible of Worlds. `GrantsFlashback` is the neighbouring sentence
+    /// about a graveyard and says nothing here, because playing a land is
+    /// not casting a spell.
+    #[test]
+    fn a_land_is_played_from_the_hand_and_from_a_graveyard_only_by_permission() {
+        let mut state = state();
+        assert!(land_zone_open(&state, me(), Zone::Hand));
+        assert!(!land_zone_open(&state, me(), Zone::Graveyard));
+        assert!(!land_zone_open(&state, me(), Zone::Exile));
+
+        register(&mut state, me(), Modifier::GrantsFlashback);
+        assert!(
+            !land_zone_open(&state, me(), Zone::Graveyard),
+            "flashback is about casting a spell"
+        );
+
+        register(&mut state, me(), Modifier::PlayLandsFromGraveyard);
+        assert!(land_zone_open(&state, me(), Zone::Graveyard));
+        assert!(
+            !land_zone_open(&state, them(), Zone::Graveyard),
+            "the permission is its controller's"
+        );
+    }
+}
