@@ -40,18 +40,19 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::prelude::*;
 
-use crate::hud::{UiFonts, btn_radius, palette, soft_shadow, tf, tf_bold};
+use crate::hud::{UiFonts, btn_radius, palette, soft_shadow, tf};
 use crate::net::{NetworkHost, SeatTicket};
 use crate::softkeys::{SoftKey, SoftKeyboard};
 use crate::{DuelCommand, DuelPhase, InstalledHost};
 
 /// The ground the lobby sits on — dark enough that the felt never flashes
 /// through on the way into a duel.
-const BACKDROP: Color = palette::DOCK_GROUND;
+const BACKDROP: Color = Color::srgb(0.018, 0.035, 0.09);
 
 /// The starter deck's name, and the section of the acceptance deck file it is
 /// copied from. There is no deck builder yet; without this button a fresh
 /// account cannot sit down anywhere.
+#[cfg(test)]
 const STARTER: &str = "Allytifact";
 
 /// The lobby, as a plugin.
@@ -91,6 +92,9 @@ impl Plugin for LobbyPlugin {
                     ui::blink,
                     dock::materialize,
                     preview,
+                    crate::buildui::virtual_rows::update,
+                    thumbnails::load,
+                    thumbnails::quantities,
                     waiting,
                 )
                     .chain()
@@ -141,11 +145,13 @@ pub struct LobbyState {
     /// unsaved changes. Leaving is one tap away from the busiest corner of
     /// the screen, and a deck is half an hour of work.
     pub(crate) confirm_leave: bool,
-    pub(crate) confirm_delete: Option<usize>,
+    pub(super) confirmation: Option<confirm::Destructive>,
     /// Whether a phone is showing the filter chips. They are three wrapped
     /// rows, which on a phone is most of the screen — the list they filter
     /// would be four rows tall underneath them.
     pub(crate) filters_open: bool,
+    pub(crate) stats_open: bool,
+    pub(crate) commander_pick: Option<bool>, // false: primary; true: compatible partner
     /// Which half of the builder a phone is showing. Purely a matter of how
     /// much room there is, so it lives here and not in the state machine:
     /// every wider frame shows both halves and never reads it.
@@ -260,8 +266,10 @@ impl LobbyState {
             lang,
             connected: false,
             confirm_leave: false,
-            confirm_delete: None,
+            confirmation: None,
             filters_open: false,
+            stats_open: false,
+            commander_pick: None,
             pane: Pane::Cards,
             hub: Hub::Play,
             room_chairs: MIN_CHAIRS,
@@ -290,6 +298,8 @@ enum Reply {
     Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].
     Event(LobbyEvent),
+    /// Public catalog completion; never starts a second fallback lookup.
+    PrintingCatalog(LobbyEvent),
     /// `GET /auth/config` said whether sign-ups are open.
     Registration { enabled: bool, art_cache: bool },
     /// The gateway no longer honours the account token we hold.
@@ -328,14 +338,18 @@ enum Expect {
     Left,
 }
 
+mod confirm;
 pub(crate) mod dock;
+mod editing;
 mod feed;
 mod gateway;
 mod http;
 mod library_ui;
 pub(crate) mod offline;
 mod preview;
+mod print_catalog;
 mod systems;
+pub(crate) mod thumbnails;
 mod ui;
 
 /// The end screen's keyboard marker, for the probe and for nothing else.
@@ -373,7 +387,7 @@ use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 // `settingsui` build their screens out of. Re-exported here so the split
 // into files stays an internal matter: every other module still says
 // `crate::lobby::button`.
-use preview::starter_rows;
+
 pub(crate) use preview::{hover_of_card, hover_of_entry};
 use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};

@@ -232,7 +232,7 @@ impl Offline {
     /// account names.
     pub(crate) fn perform(&mut self, request: LobbyRequest, lang: Lang) -> LobbyEvent {
         match request {
-            LobbyRequest::Library(_) => LobbyEvent::Failed("Account required".to_string()),
+            LobbyRequest::Library(request) => self.library(request, lang),
             LobbyRequest::ListDecks => LobbyEvent::Decks(
                 self.decks
                     .iter()
@@ -382,7 +382,7 @@ impl Offline {
         // there — which is worse than plainly making a copy.
         let existing = deck_id.filter(|id| !id.starts_with(BUILTIN));
         let fresh = existing.is_none();
-        let id = existing.unwrap_or_else(|| format!("local-{:016x}", crate::host::fresh_seed()));
+        let id = existing.unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
         let deck = StoredDeck {
             id: id.clone(),
             account_id: "offline".to_string(),
@@ -404,6 +404,54 @@ impl Offline {
             // nothing for an edit, because the editor already has one.
             deck_id: fresh.then_some(id),
         }
+    }
+
+    fn library(&mut self, request: client_core::lobby::library::Request, lang: Lang) -> LobbyEvent {
+        use client_core::lobby::library::{HouseDeck, Reply, Request, Snapshot};
+        let reply = match request {
+            Request::House => Reply::House(
+                self.decks
+                    .iter()
+                    .filter(|d| d.id.starts_with(BUILTIN))
+                    .map(|d| HouseDeck {
+                        id: d.id.clone(),
+                        name: d.name.clone(),
+                        format: String::new(),
+                        description: String::new(),
+                        version: 1,
+                        cards: d.cards.len(),
+                        sideboard: d.sideboard.len(),
+                        commanders: d.commanders.clone(),
+                    })
+                    .collect(),
+            ),
+            Request::Version(id, 1) if id.starts_with(BUILTIN) => self.deck(&id).map_or_else(
+                || Reply::Failed(Phrase::LibraryReadFailed.text(lang).into()),
+                |d| {
+                    Reply::Version(
+                        id.clone(),
+                        Snapshot {
+                            version: 1,
+                            cards: d.cards.clone(),
+                            sideboard: d.sideboard.clone(),
+                            commanders: d.commanders.clone(),
+                        },
+                    )
+                },
+            ),
+            Request::Copy(id) if id.starts_with(BUILTIN) => {
+                if let Some(d) = self.deck(&id).cloned() {
+                    match self.save_deck(None, d.name, d.cards, d.sideboard, d.commanders) {
+                        LobbyEvent::DeckSaved { deck_id: Some(id) } => Reply::Copied(id),
+                        _ => Reply::Failed(Phrase::LibraryReadFailed.text(lang).into()),
+                    }
+                } else {
+                    Reply::Failed(Phrase::LibraryReadFailed.text(lang).into())
+                }
+            }
+            _ => Reply::Failed(Phrase::HistoryAccountHint.text(lang).into()),
+        };
+        LobbyEvent::Library(reply)
     }
 
     /// Opens the offline room and sits the player in chair zero.
@@ -659,6 +707,7 @@ fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deckbuilder::Po
         },
         note: card.note.map(str::to_string),
         commander: card.commander,
+        partners: card.partners.clone(),
         basic_land: card.basic_land,
         has_back_image: card.has_back_image,
         double_faced: card.double_faced,
@@ -776,6 +825,33 @@ mod tests {
     /// An offline lobby with the built-in decks and nothing written back.
     fn offline() -> Offline {
         Offline::without_a_file()
+    }
+
+    #[test]
+    fn issue_190_house_copy_is_independent_and_keeps_both_zones() {
+        use client_core::lobby::library::{Reply, Request};
+        let mut offline = offline();
+        let original = offline.decks[0].clone();
+        let LobbyEvent::Library(Reply::House(house)) = offline.library(Request::House, Lang::En)
+        else {
+            panic!("house list");
+        };
+        assert!(house.iter().any(|d| d.id == original.id));
+        let LobbyEvent::Library(Reply::Copied(id)) =
+            offline.library(Request::Copy(original.id.clone()), Lang::En)
+        else {
+            panic!("copy");
+        };
+        assert_eq!(uuid::Uuid::parse_str(&id).unwrap().get_version_num(), 7);
+        assert_ne!(id, original.id);
+        let copied = offline.deck(&id).unwrap();
+        assert_eq!(copied.cards, original.cards);
+        assert_eq!(copied.sideboard, original.sideboard);
+        assert_eq!(copied.commanders, original.commanders);
+        assert!(matches!(
+            offline.library(Request::History(id), Lang::En),
+            LobbyEvent::Library(Reply::Failed(_))
+        ));
     }
 
     /// One unreadable deck costs that deck and nothing else.

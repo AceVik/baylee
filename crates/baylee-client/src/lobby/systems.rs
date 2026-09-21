@@ -10,6 +10,7 @@ use super::*;
 // --------------------------------------------------------------- systems
 
 /// Drains the mailbox, advances the lobby, and takes the seat it is granted.
+#[allow(clippy::too_many_lines)] // request outcomes and seat handover share the mailbox
 pub(super) fn poll(
     mut commands: Commands,
     mut state: ResMut<LobbyState>,
@@ -34,9 +35,49 @@ pub(super) fn poll(
             Reply::Remote(_, _) => continue,
             reply => reply,
         };
+        if let Reply::Event(LobbyEvent::Printings {
+            card,
+            printings,
+            from_catalog: false,
+        }) = &reply
+        {
+            let oracle = state
+                .lobby
+                .builder()
+                .pool()
+                .iter()
+                .find(|c| c.index == *card)
+                .map(|c| c.oracle_id.as_str());
+            if let Some(oracle) =
+                oracle.filter(|id| !cfg!(test) && uuid::Uuid::parse_str(id).is_ok())
+            {
+                super::print_catalog::fetch(
+                    *card,
+                    oracle,
+                    printings.clone(),
+                    state.gateway_epoch,
+                    &mailbox,
+                );
+                continue;
+            }
+        }
+        let reply = match reply {
+            Reply::PrintingCatalog(event) => Reply::Event(event),
+            other => other,
+        };
         match reply {
-            Reply::Remote(_, _) => {}
+            Reply::Remote(_, _) | Reply::PrintingCatalog(_) => {}
             Reply::Event(event) => {
+                if let LobbyEvent::Games(listing) = &event
+                    && !state.lobby.busy()
+                    && state.lobby.awaiting().is_none()
+                    && listing.games == state.lobby.games()
+                    && listing.total == state.lobby.total()
+                    && listing.offset == state.lobby.offset()
+                {
+                    continue;
+                }
+
                 // A sign-in that worked is the one moment this client knows
                 // an address is a real one, so it is the only moment worth
                 // writing it down. Read off the field rather than out of the
@@ -72,8 +113,12 @@ pub(super) fn poll(
     // idempotent, which is why this can simply follow the token every frame
     // the mailbox delivers something.
     match state.lobby.token() {
-        Some(token) => prefs.attach(&state.gateway, token),
-        None => prefs.detach(),
+        // Account attachment changes transport bookkeeping, not visible preferences.
+        // Their asynchronous arrival is marked changed by prefs::sync.
+        Some(token) => prefs
+            .bypass_change_detection()
+            .attach(&state.gateway, token),
+        None => prefs.bypass_change_detection().detach(),
     }
     let Screen::Seated(handover) = state.lobby.screen().clone() else {
         return;
@@ -192,7 +237,7 @@ pub(super) fn softkeys(
     if !SoftKeyboard::owns_typing() {
         return;
     }
-    if state.lobby.library().page.is_some() {
+    if state.lobby.library().page.is_some() || state.confirmation.is_some() {
         keys.close();
         drop(keys.drain());
         return;
@@ -208,18 +253,28 @@ pub(super) fn softkeys(
         }
         for key in keys.drain() {
             match key {
-                SoftKey::Text { value, .. } => {
-                    let searching = state.lobby.builder().focus() == BuildField::Search;
-                    state.lobby.builder_mut().set_focused(&value);
-                    if searching {
+                SoftKey::Text {
+                    value,
+                    cursor,
+                    anchor,
+                } => {
+                    let field = state.lobby.builder().focus();
+                    let changed = state.lobby.builder().focused_text() != value;
+                    state
+                        .lobby
+                        .builder_mut()
+                        .edit_buffer(field, |buf| buf.set(&value, cursor, anchor));
+                    if changed && field == BuildField::Search {
                         scrolled.set(List::Pool, 0.0);
                     }
                 }
-                // The builder's boxes are strings and the browser draws no
-                // caret in them, so there is nothing here a moved caret
-                // changes. Answering it by writing the value back would
-                // scroll the pool home on every arrow key.
-                SoftKey::Caret { .. } => {}
+                SoftKey::Caret { cursor, anchor } => {
+                    let field = state.lobby.builder().focus();
+                    state
+                        .lobby
+                        .builder_mut()
+                        .edit_buffer(field, |buf| buf.place(cursor, anchor));
+                }
                 // Nothing to submit: a deck is saved from the bar, and
                 // closing the keyboard is what "done" means here.
                 SoftKey::Submit | SoftKey::Dismiss => keys.close(),
@@ -296,7 +351,7 @@ pub(super) fn softkeys(
 // Three screens' worth of chords in one function, each a flat `match` read top
 // to bottom. Splitting it by screen would mean three copies of the modifier
 // arithmetic above them, which is the thing that must not drift.
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub(super) fn keyboard(
     mut keys: MessageReader<KeyboardInput>,
     codes: Res<ButtonInput<KeyCode>>,
@@ -304,7 +359,16 @@ pub(super) fn keyboard(
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut scrolled: ResMut<Scrolled>,
     mailbox: Res<Mailbox>,
+    mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
+    mut paste: Local<Option<super::editing::Paste>>,
 ) {
+    if state.confirmation.is_some() {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) {
+            state.confirmation = None;
+        }
+        return;
+    }
     // A rebinding in progress takes every key, including the ones that mean
     // something everywhere else — a player who wants `Esc` on some other
     // action has to be able to press it. Escape and backspace are the two
@@ -410,53 +474,16 @@ pub(super) fn keyboard(
             }
             return;
         }
-        // The panel is open but no row of it holds the caret: the search box
-        // must not quietly take the keys instead, or a letter typed here
-        // would change the string under a builder still showing the rows it
-        // was opened on. The deck's name box is a different field and keeps
-        // working.
-        let box_is_shut = state.lobby.builder().panel().is_some();
-        for key in keys.read() {
-            if !key.state.is_pressed() {
-                continue;
-            }
-            let builder = state.lobby.builder_mut();
-            let searching = builder.focus() == BuildField::Search;
-            if box_is_shut && searching && !matches!(key.logical_key, Key::Tab) {
-                continue;
-            }
-            let mut narrowed = false;
-            match &key.logical_key {
-                Key::Backspace => {
-                    builder.backspace_focused();
-                    narrowed = searching;
-                }
-                Key::Tab => builder.cycle_focus(),
-                // Enter in the search box adds the first result: the fastest
-                // way to type a deck is name, return, name, return.
-                Key::Enter => {
-                    if builder.focus() == BuildField::Search {
-                        let first = builder.results().first().copied();
-                        let zone = builder.zone();
-                        if let Some(slot) = first {
-                            builder.add(slot, zone);
-                        }
-                    }
-                }
-                _ => {
-                    if let Some(text) = key.text.as_ref() {
-                        for ch in text.chars() {
-                            builder.type_focused(ch);
-                            narrowed = searching;
-                        }
-                    }
-                }
-            }
-            // A different search is a different list; the row that was
-            // halfway down it is not in this one.
-            if narrowed {
-                scrolled.set(List::Pool, 0.0);
-            }
+        if super::editing::builder_keys(
+            &mut keys,
+            &codes,
+            &mut state,
+            &mut scrolled,
+            clipboard.as_deref_mut(),
+            &mut paste,
+        ) {
+            let request = state.lobby.save_deck();
+            dispatch(&mut state, &mailbox, request);
         }
         return;
     }
@@ -607,6 +634,11 @@ pub(super) fn clicks(
         let Some(press) = in_lineage(click.entity, &presses, &parents) else {
             continue;
         };
+        if state.confirmation.is_some()
+            && !matches!(press, Press::ConfirmDestructive | Press::CancelDestructive)
+        {
+            continue;
+        }
         // Any other control answers the question the back button asked.
         if *press != Press::CloseBuilder {
             state.confirm_leave = false;
@@ -630,9 +662,6 @@ pub(super) fn clicks(
         // pressed anywhere lands on whichever row was last tapped.
         if state.settings.is_open() && !matches!(*press, Press::Rebind(_)) {
             state.settings = SettingsPane::Open;
-        }
-        if !matches!(*press, Press::DeleteDeck(_)) {
-            state.confirm_delete = None;
         }
         match *press {
             Press::Hub(hub) => {
@@ -669,11 +698,23 @@ pub(super) fn clicks(
                             Some(client_core::lobby::library::Page::History(_))
                         ));
                 let request = if history {
-                    state.lobby.browse_history()
+                    if let Some(client_core::lobby::library::Page::History(id)) =
+                        state.lobby.library().page.clone()
+                    {
+                        state.lobby.browse_deck_history(&id)
+                    } else {
+                        state.lobby.browse_history()
+                    }
                 } else {
                     state.lobby.browse_house()
                 };
                 dispatch(&mut state, &mailbox, request);
+            }
+            Press::DeckHistory(index) => {
+                if let Some(id) = state.lobby.decks().get(index).map(|d| d.id.clone()) {
+                    let request = state.lobby.browse_deck_history(&id);
+                    dispatch(&mut state, &mailbox, request);
+                }
             }
             Press::CloseLibrary => state.lobby.close_library(),
             Press::PreviewHouse(index) => {
@@ -773,11 +814,6 @@ pub(super) fn clicks(
             }
             Press::Page(forwards) => {
                 let request = state.lobby.page(forwards);
-                dispatch(&mut state, &mailbox, request);
-            }
-            Press::StarterDeck => {
-                let rows = starter_rows();
-                let request = state.lobby.create_deck(STARTER, rows);
                 dispatch(&mut state, &mailbox, request);
             }
             Press::SelectDeck(index) => state.lobby.select_deck(index),
@@ -896,24 +932,27 @@ pub(super) fn clicks(
             // behind it. None of the three does anything here.
             Press::Leave | Press::PlayAgain | Press::PickerNothing => {}
             Press::NewDeck => {
+                state.commander_pick = None;
                 state.pane = Pane::Deck;
                 let request = state.lobby.build_deck();
                 dispatch(&mut state, &mailbox, request);
             }
             Press::EditDeck(index) => {
+                state.commander_pick = None;
                 state.pane = Pane::Deck;
                 let request = state.lobby.edit_deck(index);
                 dispatch(&mut state, &mailbox, request);
             }
             Press::DeleteDeck(index) => {
-                if state.confirm_delete == Some(index) {
-                    let request = state.lobby.delete_deck(index);
-                    state.confirm_delete = None;
-                    dispatch(&mut state, &mailbox, request);
-                } else {
-                    state.confirm_delete = Some(index);
+                if let Some(deck) = state.lobby.decks().get(index) {
+                    state.confirmation = Some(confirm::Destructive::Delete(deck.id.clone()));
                 }
             }
+            Press::ConfirmDestructive => {
+                let request = confirm::accept(&mut state);
+                dispatch(&mut state, &mailbox, request);
+            }
+            Press::CancelDestructive => state.confirmation = None,
             Press::CloseBuilder => {
                 if state.lobby.builder().dirty() && !state.confirm_leave {
                     state.confirm_leave = true;
@@ -939,11 +978,10 @@ pub(super) fn clicks(
                 }
                 deck.focus_on(field);
             }
-            Press::AddCard(slot) => {
+            Press::PickRowPrint(at) => {
                 let zone = state.lobby.builder().zone();
-                if !state.lobby.builder_mut().add(slot, zone) {
-                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
-                }
+                let request = state.lobby.builder_mut().open_row_picker(at, zone);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::PickPrint(slot) => {
                 let zone = state.lobby.builder().zone();
@@ -971,6 +1009,17 @@ pub(super) fn clicks(
                 }
             }
             Press::PickerClose => state.lobby.builder_mut().close_picker(),
+            Press::AddRow(at) => {
+                let zone = state.lobby.builder().zone();
+                if let Some(entry) = state.lobby.builder().entries(zone).get(at).cloned()
+                    && !state
+                        .lobby
+                        .builder_mut()
+                        .add_print(entry.slot, zone, entry.print)
+                {
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
+                }
+            }
             Press::RemoveRow(at) => {
                 let zone = state.lobby.builder().zone();
                 state.lobby.builder_mut().remove_at(at, zone);
@@ -986,9 +1035,32 @@ pub(super) fn clicks(
             Press::AddCardTo(slot, zone) => {
                 state.lobby.builder_mut().add(slot, zone);
             }
-            Press::SetCommander(slot) => {
-                state.lobby.builder_mut().set_commander(slot);
+            Press::ChooseCommander(partner) => {
+                state.commander_pick = Some(partner);
+                state.pane = Pane::Cards;
+                state.lobby.builder_mut().clear_filters();
+                state.lobby.builder_mut().set_text("is:commander");
+                state.lobby.builder_mut().focus_on(BuildField::Search);
+                scrolled.set(List::Pool, 0.0);
             }
+            Press::CancelCommanderPick => {
+                state.commander_pick = None;
+                state.lobby.builder_mut().set_text("");
+            }
+            Press::SetCommander(slot) | Press::AddPartner(slot) => {
+                let accepted = if matches!(press, Press::AddPartner(_)) {
+                    state.lobby.builder_mut().add_partner(slot)
+                } else {
+                    state.lobby.builder_mut().set_commander(slot)
+                };
+                if accepted {
+                    state.commander_pick = None;
+                    state.pane = Pane::Deck;
+                    state.lobby.builder_mut().set_text("");
+                }
+            }
+            Press::RemoveCommander(slot) => state.lobby.builder_mut().remove_commander(slot),
+            Press::ToggleStatistics => state.stats_open = !state.stats_open,
             Press::ClearCommander => state.lobby.builder_mut().clear_commander(),
             Press::SetZone(zone) => state.lobby.builder_mut().set_zone(zone),
             Press::ToggleColor(color) => state.lobby.builder_mut().toggle_color(color),
@@ -1003,7 +1075,11 @@ pub(super) fn clicks(
             Press::TogglePlayable => state.lobby.builder_mut().toggle_playable_only(),
             Press::CycleSort => state.lobby.builder_mut().cycle_sort(),
             Press::ClearFilters => state.lobby.builder_mut().clear_filters(),
-            Press::ClearDeck => state.lobby.builder_mut().clear_deck(),
+            Press::ClearDeck => {
+                state.confirmation = Some(confirm::Destructive::Clear(
+                    state.lobby.builder().editing().map(str::to_owned),
+                ));
+            }
             Press::ShowPane(pane) => state.pane = pane,
             Press::Inspect(slot) => state.lobby.builder_mut().inspect(slot),
             Press::CloseCard => state.lobby.builder_mut().stop_inspecting(),
@@ -1297,6 +1373,7 @@ pub(crate) enum Press {
     SelectGateway(usize),
     BrowseHouse,
     BrowseHistory,
+    DeckHistory(usize),
     CloseLibrary,
     RetryLibrary,
     PreviewHouse(usize),
@@ -1321,8 +1398,6 @@ pub(crate) enum Press {
     Search,
     /// Step one page through the table list. `true` is forwards.
     Page(bool),
-    /// Save the starter deck.
-    StarterDeck,
     /// Pick a deck by its index in the list.
     SelectDeck(usize),
     /// Open a new table.
@@ -1397,8 +1472,6 @@ pub(crate) enum Press {
     SaveDeck,
     /// Put the caret in one of the builder's boxes.
     FocusBuild(BuildField),
-    /// Add one copy of a pool card, by its slot, to the open zone.
-    AddCard(usize),
     /// Build into the main deck or the sideboard.
     SetZone(Zone),
     /// Turn one colour of the identity filter on or off.
@@ -1416,12 +1489,15 @@ pub(crate) enum Press {
     ClearFilters,
     /// Empty both zones.
     ClearDeck,
+    ConfirmDestructive,
+    CancelDestructive,
     /// Show the pool or the deck, on a screen with room for one.
     ShowPane(Pane),
     /// Read a card in full, by its slot in the pool.
     Inspect(usize),
     /// Open the printing picker on a pool card, by its slot.
     PickPrint(usize),
+    PickRowPrint(usize),
     /// Move the picker's carousel.
     PickerStep(i32),
     /// Jump the carousel to one printing, by its place in the visible list.
@@ -1441,6 +1517,7 @@ pub(crate) enum Press {
     PickerNothing,
     /// Take one copy out of a named row of the deck list.
     RemoveRow(usize),
+    AddRow(usize),
     /// Move one copy of a named row to the other list — deck to sideboard,
     /// or back. The row keeps the printing it was chosen with.
     MoveRow(usize),
@@ -1448,6 +1525,11 @@ pub(crate) enum Press {
     AddCardTo(usize, Zone),
     /// Make a pool card the deck's commander.
     SetCommander(usize),
+    ChooseCommander(bool),
+    CancelCommanderPick,
+    AddPartner(usize),
+    RemoveCommander(usize),
+    ToggleStatistics,
     /// Take the commander mark off, leaving the card in the deck.
     ClearCommander,
     /// Put it away again.

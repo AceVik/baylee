@@ -14,7 +14,7 @@ use super::*;
 /// The URL is worked out when the row is spawned rather than when it is
 /// hovered: the row already knows which printing it is showing, and a hover
 /// that had to go looking would be doing it on the pointer's schedule.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, PartialEq)]
 pub struct HoverCard {
     /// The card's art, if there is a printing to fetch.
     pub url: Option<String>,
@@ -35,6 +35,7 @@ pub struct HoverCard {
 pub(super) struct Hovered {
     /// What to draw, or `None` when the pointer is over nothing.
     card: Option<HoverCard>,
+    source: Option<Entity>,
     /// Where to draw it, in logical pixels.
     at: Vec2,
     /// Bumped whenever either changes, so the preview knows to redraw
@@ -56,19 +57,44 @@ pub(super) fn hovers(
     cards: Query<&HoverCard>,
     parents: Query<&ChildOf>,
     mut hovered: ResMut<Hovered>,
+    state: Res<LobbyState>,
 ) {
+    if state.confirmation.is_some()
+        || state.lobby.builder().picker().is_some()
+        || state.lobby.library().page.is_some()
+    {
+        overs.clear();
+        outs.clear();
+        if hovered.card.take().is_some() {
+            hovered.epoch = hovered.epoch.wrapping_add(1);
+        }
+        return;
+    }
+    let mut next = hovered.card.clone();
+    let mut source = hovered.source;
+    if source.is_some_and(|entity| cards.get(entity).is_err()) {
+        next = None;
+        source = None;
+    }
+    let mut at = hovered.at;
     for out in outs.read() {
         if lineage_card(out.entity, &cards, &parents).is_some() {
-            hovered.card = None;
-            hovered.epoch = hovered.epoch.wrapping_add(1);
+            next = None;
+            source = None;
         }
     }
     for over in overs.read() {
-        if let Some(card) = lineage_card(over.entity, &cards, &parents) {
-            hovered.card = Some(card.clone());
-            hovered.at = over.pointer_location.position;
-            hovered.epoch = hovered.epoch.wrapping_add(1);
+        if let Some((entity, card)) = lineage_card(over.entity, &cards, &parents) {
+            source = Some(entity);
+            next = Some(card.clone());
+            at = over.pointer_location.position;
         }
+    }
+    hovered.source = source;
+    if next != hovered.card {
+        hovered.card = next;
+        hovered.at = at;
+        hovered.epoch = hovered.epoch.wrapping_add(1);
     }
 }
 
@@ -77,12 +103,12 @@ fn lineage_card<'a>(
     entity: Entity,
     cards: &'a Query<&HoverCard>,
     parents: &Query<&ChildOf>,
-) -> Option<&'a HoverCard> {
+) -> Option<(Entity, &'a HoverCard)> {
     let mut current = Some(entity);
     for _ in 0..6 {
         let e = current?;
         if let Ok(found) = cards.get(e) {
-            return Some(found);
+            return Some((e, found));
         }
         current = parents.get(e).ok().map(ChildOf::parent);
     }
@@ -125,10 +151,11 @@ pub(super) fn preview(
     };
 
     // Big enough to read the art, small enough to leave the list visible.
-    let height = 340.0_f32;
-    let width = height * baylee_client_core::layout::CARD_ASPECT;
+
     let window = windows.iter().next();
     let (w, h) = window.map_or((1280.0, 800.0), |win| (win.width(), win.height()));
+    let height = (h * 0.65).clamp(280.0, 520.0).min((h - 32.0).max(100.0));
+    let width = height * baylee_client_core::layout::CARD_ASPECT;
     // Beside the pointer, flipped to the other side when there is no room
     // and clamped so a row near the bottom does not push it off screen.
     let left = if hovered.at.x + width + 32.0 < w {
@@ -155,6 +182,13 @@ pub(super) fn preview(
                 height: px(height),
                 ..default()
             },
+            BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.65),
+                px(0),
+                px(12),
+                px(3),
+                px(28),
+            ),
             GlobalZIndex(600),
             // A preview must never eat the click that would add the card.
             Pickable::IGNORE,
@@ -270,6 +304,7 @@ pub(crate) fn hover_of_entry(
 }
 
 /// The starter deck's rows, in the `"N Card Name"` form `POST /decks` takes.
+#[cfg(test)]
 pub(super) fn starter_rows() -> Vec<String> {
     use baylee_core::acceptance::Zone;
 

@@ -19,7 +19,6 @@ use baylee_client_core::deckbuilder::{
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
-use baylee_client_core::textbuf::TextBuffer;
 use baylee_core::preset::Finish;
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
@@ -32,6 +31,8 @@ use bevy::ui::{percent, px};
 /// UI nodes, rebuilt on every letter typed. This is a drawing budget, not a
 /// filter — the line above the list always names the real total.
 const SHOWN_RESULTS: usize = 60;
+
+pub(crate) mod virtual_rows;
 
 /// The tallest a mana-curve bar gets, in logical pixels.
 const CURVE_HEIGHT: f32 = 54.0;
@@ -106,6 +107,10 @@ fn chips_in_words(deck: &DeckBuilder, lang: Lang) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(", "))
 }
 
+mod commanders;
+mod retained;
+pub(crate) use retained::Retained;
+
 /// The deck builder: the pool on one side, the deck on the other.
 #[allow(clippy::too_many_arguments)] // one screen: the tree, the state, the stores
 pub(crate) fn builder(
@@ -117,7 +122,7 @@ pub(crate) fn builder(
     scrolled_to: &Scrolled,
     assets: Option<&AssetServer>,
     cards: Option<&mut UiCards<'_>>,
-) {
+) -> Retained {
     let deck = state.lobby.builder();
     let lang = state.lobby.lang();
     let phone = metrics.frame == Frame::Phone;
@@ -163,6 +168,7 @@ pub(crate) fn builder(
             width: percent(100),
             column_gap: px(metrics.gap),
             padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.4)),
+            flex_shrink: 0.0,
             ..default()
         });
         commands.entity(root).add_child(switch);
@@ -173,6 +179,7 @@ pub(crate) fn builder(
             Node {
                 width: percent(100),
                 flex_grow: 1.0,
+                flex_basis: px(0),
                 min_height: px(0),
                 flex_direction: FlexDirection::Row,
                 column_gap: px(metrics.pad),
@@ -184,23 +191,31 @@ pub(crate) fn builder(
         .id();
     commands.entity(root).add_child(body);
 
+    let mut deck_node = None;
+    let mut pool_node = None;
+    let mut picker_node = None;
     if !phone || state.pane == Pane::Deck {
         let list = deck_panel(commands, state, fonts, metrics, scrolled_to);
         commands.entity(body).add_child(list);
+        deck_node = Some(list);
     }
     if !phone || state.pane == Pane::Cards {
         let pool = pool_panel(commands, state, fonts, metrics, scrolled_to);
         commands.entity(body).add_child(pool);
+        pool_node = Some(pool);
     }
 
     // Last, so it sits over both halves whatever the frame is.
     if let Some(picker) = deck.picker() {
         let dialog = printing_picker(commands, fonts, metrics, lang, deck, picker, assets, cards);
         commands.entity(root).add_child(dialog);
+        picker_node = Some(dialog);
     }
+    Retained::new(state, root, body, bar, deck_node, pool_node, picker_node)
 }
 
 /// The builder's top bar: out, what is being built, and save.
+#[allow(clippy::too_many_lines)] // editor navigation, history and save state
 fn build_bar(
     commands: &mut Commands,
     state: &LobbyState,
@@ -214,6 +229,7 @@ fn build_bar(
             Node {
                 width: percent(100),
                 min_height: px(metrics.tap + metrics.pad),
+                flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 column_gap: px(metrics.gap),
                 row_gap: px(6),
@@ -259,7 +275,8 @@ fn build_bar(
     }
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     commands.entity(bar).add_child(gap);
-    if state.lobby.token().is_some() && deck.editing().is_some() {
+    let mut history_hint = None;
+    {
         let history = button(
             commands,
             fonts,
@@ -267,9 +284,23 @@ fn build_bar(
             Phrase::DeckHistory.text(lang),
             Press::BrowseHistory,
             palette::PANEL_LIT,
-            !state.lobby.busy(),
+            !state.lobby.busy() && state.lobby.token().is_some() && deck.editing().is_some(),
         );
         commands.entity(bar).add_child(history);
+        if state.lobby.token().is_none() || deck.editing().is_none() {
+            let hint = note(
+                commands,
+                fonts,
+                metrics,
+                if state.lobby.offline() {
+                    Phrase::HistoryAccountHint
+                } else {
+                    Phrase::HistorySaveHint
+                }
+                .text(lang),
+            );
+            history_hint = Some(hint);
+        }
     }
     if !state.lobby.status().is_empty() {
         let status = commands
@@ -300,6 +331,9 @@ fn build_bar(
         live,
     );
     commands.entity(bar).add_child(save);
+    if let Some(hint) = history_hint {
+        commands.entity(bar).add_child(hint);
+    }
     bar
 }
 
@@ -317,18 +351,13 @@ fn pool_panel(
     let panel = build_panel(commands, metrics, percent(100), 1.0);
     commands.entity(panel).insert(crate::lobby::dock::Dock(6));
 
-    // The builder's boxes are plain strings, so the caret is always after
-    // what is in them — which is where it was drawn before there was a real
-    // one to draw, and all a box with no arrow keys of its own can honestly
-    // say.
-    let typed = TextBuffer::new(deck.text());
     let search = text_field(
         commands,
         fonts,
         metrics,
         Phrase::Search.text(lang),
         &FieldLook {
-            buffer: &typed,
+            buffer: deck.buffer(BuildField::Search),
             // Not while the builder is open. The two are editors of one
             // string and only one may show a caret — a box the player cannot
             // type into while a bar blinks in it is the worse half of that.
@@ -514,7 +543,39 @@ fn pool_panel(
     }
 
     // ---- the results
-    let shown = deck.results().len().min(SHOWN_RESULTS);
+    if let Some(partner) = state.commander_pick {
+        let hint = note(
+            commands,
+            fonts,
+            metrics,
+            if partner {
+                Phrase::PartnerHint
+            } else {
+                Phrase::CommanderHint
+            }
+            .text(lang),
+        );
+        let done = chip(
+            commands,
+            fonts,
+            metrics,
+            Phrase::DoneChoosing.text(lang),
+            Press::CancelCommanderPick,
+            false,
+        );
+        commands.entity(panel).add_children(&[hint, done]);
+    }
+    let results: Vec<_> = deck
+        .results()
+        .iter()
+        .copied()
+        .filter(|slot| match state.commander_pick {
+            Some(true) => deck.can_partner(*slot),
+            Some(false) => deck.card(*slot).is_some_and(|card| card.commander),
+            None => true,
+        })
+        .collect();
+    let shown = results.len().min(SHOWN_RESULTS);
     let tally = note(
         commands,
         fonts,
@@ -540,120 +601,18 @@ fn pool_panel(
 
     let list = scroller(commands, metrics, List::Pool, scrolled_to.get(List::Pool));
     commands.entity(panel).add_child(list);
-    for &slot in deck.results().iter().take(shown) {
-        let Some(card) = deck.card(slot) else {
-            continue;
-        };
-        let held = deck.count_of(slot, deck.zone());
-        let entry = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    min_height: px(metrics.tap),
-                    align_items: AlignItems::Center,
-                    column_gap: px(metrics.gap * 0.8),
-                    padding: UiRect::axes(px(metrics.pad * 0.6), px(metrics.pad * 0.3)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(if held > 0 {
-                    palette::PANEL_LIT
-                } else {
-                    Color::NONE
-                }),
-                Press::AddCard(slot),
-                hover_of_card(card),
-            ))
-            .id();
-        if held > 0 {
-            let badge = commands
-                .spawn((
-                    Text::new(format!("{held}×")),
-                    tf(fonts, metrics.small),
-                    TextColor(palette::ACCENT),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(entry).add_child(badge);
-        }
-        let name = commands
-            .spawn((
-                Text::new(card.name.clone()),
-                tf(fonts, metrics.text),
-                TextColor(if card.coverage.trustworthy() {
-                    palette::INK
-                } else {
-                    palette::MUTED
-                }),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(entry).add_child(name);
-        if metrics.frame != Frame::Phone {
-            let kind = commands
-                .spawn((
-                    Text::new(card.type_line.clone()),
-                    tf(fonts, metrics.small * 0.9),
-                    TextColor(palette::MUTED),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(entry).add_child(kind);
-        }
-        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-        commands.entity(entry).add_child(gap);
-        if let Some(mark) = coverage_mark(card.coverage) {
-            let flag = commands
-                .spawn((
-                    Text::new(mark.0.text(lang)),
-                    tf(fonts, metrics.small * 0.85),
-                    TextColor(mark.1),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(entry).add_child(flag);
-        }
-        // A spell shows its cost as symbols; a land has none, and its power
-        // and toughness is the more useful thing to put in that column.
-        let cost = if card.mana_cost.is_empty() {
-            let stats = card.stats.clone().unwrap_or_default();
-            (!stats.is_empty()).then(|| {
-                commands
-                    .spawn((
-                        Text::new(stats),
-                        tf(fonts, metrics.small),
-                        TextColor(palette::MUTED),
-                        Pickable::IGNORE,
-                    ))
-                    .id()
-            })
-        } else {
-            crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small)
-        };
-        if let Some(cost) = cost {
-            commands.entity(entry).add_child(cost);
-        }
-        // Reading a card is its own target. There is no hover on a touch
-        // screen to read one with, and the row itself has to stay the fast
-        // way to add — a builder is mostly typing a name and tapping once.
-        let read = chip(commands, fonts, metrics, "?", Press::Inspect(slot), false);
-        commands.entity(entry).add_child(read);
-        // And so is choosing which printing. Adding a card is the common
-        // action and stays one tap on the row; wanting a particular piece of
-        // cardboard is the rarer one and gets its own button rather than a
-        // long-press nobody would find.
-        let pick = chip(
+    for (at, &slot) in results.iter().take(shown).enumerate() {
+        let row = virtual_rows::spawn(
             commands,
+            state,
             fonts,
             metrics,
-            Phrase::ChoosePrintShort.text(lang),
-            Press::PickPrint(slot),
-            false,
+            virtual_rows::Row::Pool(slot),
+            at < 10,
         );
-        commands.entity(entry).add_child(pick);
-        commands.entity(list).add_child(entry);
+        commands.entity(list).add_child(row);
     }
-    if deck.loaded() && deck.results().is_empty() {
+    if deck.loaded() && results.is_empty() {
         let empty = note(commands, fonts, metrics, Phrase::NothingMatches.text(lang));
         commands.entity(list).add_child(empty);
     }
@@ -715,10 +674,13 @@ fn printing_picker(
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap),
                 padding: UiRect::all(px(metrics.pad)),
+                border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(14)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
+            BackgroundColor(palette::PANEL.with_alpha(0.98)),
+            BorderColor::all(palette::DOCK_EDGE),
+            crate::hud::soft_shadow(),
             // Swallows the tap so a press inside the dialog is not also a
             // press on the shade behind it.
             Press::PickerNothing,
@@ -886,19 +848,25 @@ fn printing_picker(
         (Finish::Etched, Phrase::FinishEtched),
     ] {
         let sold = offered.contains(&finish);
-        let c = chip(
+        let c = button(
             commands,
             fonts,
             metrics,
             label.text(lang),
             Press::PickerFinish(finish),
-            sold && picker.finish() == finish,
+            if sold && picker.finish() == finish {
+                palette::ACCENT
+            } else {
+                palette::PANEL_LIT
+            },
+            sold,
         );
         // A finish this printing was never sold in is shown dead rather than
         // hidden: which finishes exist is part of what a player is choosing
         // between, and a row of buttons that changes length as the carousel
         // moves is harder to read than one that greys out.
         if !sold {
+            commands.entity(c).remove::<Press>();
             commands.entity(c).insert(Pickable::IGNORE);
             commands.entity(c).insert(BackgroundColor(Color::NONE));
         }
@@ -929,7 +897,12 @@ fn printing_picker(
         commands,
         fonts,
         metrics,
-        Phrase::AddPrinting.text(lang),
+        if picker.replacing() {
+            Phrase::ApplyPrinting
+        } else {
+            Phrase::AddPrinting
+        }
+        .text(lang),
         Press::PickerConfirm,
         true,
     );
@@ -938,6 +911,7 @@ fn printing_picker(
         align_items: AlignItems::Center,
         justify_content: JustifyContent::Center,
         padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.4)),
+        flex_shrink: 0.0,
         border_radius: btn_radius(),
         ..default()
     });
@@ -1261,7 +1235,7 @@ fn deck_panel(
     let width = match metrics.frame {
         Frame::Phone => percent(100),
         Frame::Tablet => percent(54),
-        Frame::Desktop => percent(62),
+        Frame::Desktop => percent(52),
     };
     let grow = f32::from(u8::from(metrics.frame == Frame::Phone));
     let panel = build_panel(commands, metrics, width, grow);
@@ -1269,14 +1243,13 @@ fn deck_panel(
 
     let overview = heading(commands, fonts, metrics, Phrase::Composition.text(lang));
     commands.entity(panel).add_child(overview);
-    let typed = TextBuffer::new(deck.name());
     let name = text_field(
         commands,
         fonts,
         metrics,
         Phrase::DeckNameLabel.text(lang),
         &FieldLook {
-            buffer: &typed,
+            buffer: deck.buffer(BuildField::Name),
             focused: deck.focus() == BuildField::Name,
             mask: None,
             press: Press::FocusBuild(BuildField::Name),
@@ -1286,6 +1259,8 @@ fn deck_panel(
         },
     );
     commands.entity(panel).add_child(name);
+    let leaders = commanders::draw(commands, fonts, metrics, lang, deck);
+    commands.entity(panel).add_child(leaders);
 
     // ---- which list is being filled
     let zones = row(commands, metrics, false);
@@ -1309,7 +1284,8 @@ fn deck_panel(
         );
         commands.entity(tab).insert(Node {
             flex_grow: 1.0,
-            min_height: px(metrics.tap * 0.9),
+            min_height: px(metrics.tap),
+            flex_shrink: 0.0,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             border_radius: btn_radius(),
@@ -1339,55 +1315,66 @@ fn deck_panel(
     );
     commands.entity(panel).add_child(summary);
 
-    let statistics = row(commands, metrics, true);
-    for (label, value) in [
-        (Phrase::UniqueCards, stats.unique.to_string()),
-        (
-            Phrase::AverageMana,
-            stats
-                .average_mana
-                .map_or_else(|| "—".into(), |v| format!("{v:.2}")),
-        ),
-        (
-            Phrase::LandShare,
-            stats
-                .land_share
-                .map_or_else(|| "—".into(), |v| format!("{:.0}%", v * 100.0)),
-        ),
-        (
-            Phrase::OpeningLand,
-            stats
-                .opening_land
-                .map_or_else(|| "—".into(), |v| format!("{:.1}%", v * 100.0)),
-        ),
-    ] {
-        let stat = commands
-            .spawn((
-                Node {
-                    flex_grow: 1.0,
-                    min_width: px(130),
-                    flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(px(metrics.gap)),
-                    row_gap: px(4),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL_LIT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let value = heading(commands, fonts, metrics, &value);
-        commands.entity(value).insert(TextColor(palette::DOCK_INK));
-        let label = note(commands, fonts, metrics, label.text(lang));
-        commands.entity(stat).add_children(&[value, label]);
-        commands.entity(statistics).add_child(stat);
-    }
-    commands.entity(panel).add_child(statistics);
-    let curve = curve_bars(commands, fonts, metrics, deck);
-    commands.entity(panel).add_child(curve);
+    let toggle = chip(
+        commands,
+        fonts,
+        metrics,
+        Phrase::DeckStatistics.text(lang),
+        Press::ToggleStatistics,
+        state.stats_open,
+    );
+    commands.entity(panel).add_child(toggle);
+    if state.stats_open {
+        let statistics = row(commands, metrics, true);
+        for (label, value) in [
+            (Phrase::UniqueCards, stats.unique.to_string()),
+            (
+                Phrase::AverageMana,
+                stats
+                    .average_mana
+                    .map_or_else(|| "—".into(), |v| format!("{v:.2}")),
+            ),
+            (
+                Phrase::LandShare,
+                stats
+                    .land_share
+                    .map_or_else(|| "—".into(), |v| format!("{:.0}%", v * 100.0)),
+            ),
+            (
+                Phrase::OpeningLand,
+                stats
+                    .opening_land
+                    .map_or_else(|| "—".into(), |v| format!("{:.1}%", v * 100.0)),
+            ),
+        ] {
+            let stat = commands
+                .spawn((
+                    Node {
+                        flex_grow: 1.0,
+                        min_width: px(130),
+                        flex_direction: FlexDirection::Column,
+                        padding: UiRect::all(px(metrics.gap)),
+                        row_gap: px(4),
+                        border_radius: btn_radius(),
+                        ..default()
+                    },
+                    BackgroundColor(palette::PANEL_LIT),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let value = heading(commands, fonts, metrics, &value);
+            commands.entity(value).insert(TextColor(palette::DOCK_INK));
+            let label = note(commands, fonts, metrics, label.text(lang));
+            commands.entity(stat).add_children(&[value, label]);
+            commands.entity(statistics).add_child(stat);
+        }
+        commands.entity(panel).add_child(statistics);
+        let curve = curve_bars(commands, fonts, metrics, deck);
+        commands.entity(panel).add_child(curve);
 
-    let pips = pip_row(commands, fonts, metrics, deck);
-    commands.entity(panel).add_child(pips);
+        let pips = pip_row(commands, fonts, metrics, deck);
+        commands.entity(panel).add_child(pips);
+    }
 
     for problem in deck.problems(lang) {
         let line = commands
@@ -1434,91 +1421,14 @@ fn deck_panel(
                 .id();
             commands.entity(list).add_child(heading);
         }
-        let row_id = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    min_height: px(metrics.tap * 0.9),
-                    align_items: AlignItems::Center,
-                    column_gap: px(metrics.gap * 0.6),
-                    padding: UiRect::axes(px(metrics.pad * 0.5), px(metrics.pad * 0.25)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL_LIT),
-                // Clicking a row in the deck reads the card, the same as
-                // clicking one in the pool — and a row that reports nothing
-                // could not be hovered for a preview either.
-                Press::Inspect(entry.slot),
-                hover_of_entry(card, &entry.print),
-            ))
-            .id();
-        let count = commands
-            .spawn((
-                Text::new(format!("{}×", entry.count)),
-                tf(fonts, metrics.small),
-                TextColor(palette::ACCENT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let title = commands
-            .spawn((
-                Text::new(card.name.clone()),
-                tf(fonts, metrics.text),
-                TextColor(if card.coverage.trustworthy() {
-                    palette::INK
-                } else {
-                    palette::MUTED
-                }),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-        let cost =
-            crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small);
-        for child in [Some(count), Some(title), Some(gap), cost]
-            .into_iter()
-            .flatten()
-        {
-            commands.entity(row_id).add_child(child);
-        }
-        // A row that names a printing has to show it, or two lines of the
-        // same card would look like a bug in the list.
-        let chosen = print_mark(&entry.print);
-        if !chosen.is_empty() {
-            let mark = commands
-                .spawn((
-                    Text::new(chosen),
-                    tf(fonts, metrics.small * 0.9),
-                    TextColor(palette::ACCENT),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(row_id).add_child(mark);
-        }
-        // Two targets rather than "click removes": a deck list is read far
-        // more often than it is edited, and a stray tap that silently took a
-        // card out would be found much later, if at all.
-        for (label, press) in [
-            // Removal is by *row*, not by card: two printings of one card are
-            // two lines, and a tap on one of them means that one.
-            ("−", Press::RemoveRow(at)),
-            ("+", Press::AddCard(entry.slot)),
-            // One tap to send a copy the other way. The builder shows one
-            // list at a time, so without this a card has to be removed here
-            // and found again over there.
-            (
-                if deck.zone() == Zone::Main {
-                    "SB"
-                } else {
-                    "Main"
-                },
-                Press::MoveRow(at),
-            ),
-        ] {
-            let step = chip(commands, fonts, metrics, label, press, false);
-            commands.entity(row_id).add_child(step);
-        }
+        let row_id = virtual_rows::spawn(
+            commands,
+            state,
+            fonts,
+            metrics,
+            virtual_rows::Row::Deck(at),
+            at < 10,
+        );
         commands.entity(list).add_child(row_id);
     }
 
@@ -1667,6 +1577,10 @@ fn pip_row(
         // Symbol then count, as a decklist prints it — the letter this used
         // to show was the placeholder for exactly this.
         let pair = row(commands, metrics, false);
+        commands
+            .entity(pair)
+            .entry::<Node>()
+            .and_modify(|mut n| n.width = Val::Auto);
         let symbol = crate::manaui::spawn_pip(
             commands,
             fonts,
@@ -1735,4 +1649,280 @@ fn build_panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32)
             Pickable::IGNORE,
         ))
         .id()
+}
+
+#[allow(clippy::too_many_lines)] // One catalog row with its explicit zone and role controls.
+fn pool_row(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    slot: usize,
+) -> Option<Entity> {
+    let deck = state.lobby.builder();
+    let lang = state.lobby.lang();
+    let card = deck.card(slot)?;
+    let hover = hover_of_card(card);
+    let entry = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                min_height: px(80),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                column_gap: px(metrics.gap),
+                padding: UiRect::all(px(6)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            crate::ambience::Feel::tinting_to(palette::PANEL_LIT, palette::PANEL_LIT.lighter(0.06)),
+            Press::Inspect(slot),
+            hover.clone(),
+        ))
+        .id();
+    let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
+    let info = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+                row_gap: px(4),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(entry).add_children(&[thumb, info]);
+    let name = commands
+        .spawn((
+            Text::new(card.name.clone()),
+            tf(fonts, metrics.text),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(info).add_child(name);
+    if metrics.frame != Frame::Phone {
+        let kind = commands
+            .spawn((
+                Text::new(card.type_line.clone()),
+                tf(fonts, metrics.small * 0.9),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(info).add_child(kind);
+    }
+
+    if let Some(mark) = coverage_mark(card.coverage) {
+        let flag = commands
+            .spawn((
+                Text::new(mark.0.text(lang)),
+                tf(fonts, metrics.small * 0.85),
+                TextColor(mark.1),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(entry).add_child(flag);
+    }
+    // A spell shows its cost as symbols; a land has none, and its power
+    // and toughness is the more useful thing to put in that column.
+    let cost = if card.mana_cost.is_empty() {
+        let stats = card.stats.clone().unwrap_or_default();
+        (!stats.is_empty()).then(|| {
+            commands
+                .spawn((
+                    Text::new(stats),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                    Pickable::IGNORE,
+                ))
+                .id()
+        })
+    } else {
+        crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small)
+    };
+    if let Some(cost) = cost {
+        commands.entity(entry).add_child(cost);
+    }
+    let actions = row(commands, metrics, true);
+    let quantity = commands
+        .spawn((
+            crate::lobby::thumbnails::Quantity(slot),
+            Text::new(format!(
+                "{} / {}",
+                deck.count_of(slot, Zone::Main),
+                deck.count_of(slot, Zone::Side)
+            )),
+            tf(fonts, metrics.small),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(actions).add_child(quantity);
+    for (label, press) in [
+        (
+            Phrase::AddMainShort.text(lang),
+            Press::AddCardTo(slot, Zone::Main),
+        ),
+        (
+            Phrase::AddSideShort.text(lang),
+            Press::AddCardTo(slot, Zone::Side),
+        ),
+        (Phrase::ChoosePrintShort.text(lang), Press::PickPrint(slot)),
+    ] {
+        let action = chip(commands, fonts, metrics, label, press, false);
+        commands.entity(actions).add_child(action);
+    }
+    if card.commander {
+        let partner = state.commander_pick == Some(true);
+        let leader = chip(
+            commands,
+            fonts,
+            metrics,
+            if partner {
+                Phrase::ChoosePartner
+            } else {
+                Phrase::SetCommander
+            }
+            .text(lang),
+            if partner {
+                Press::AddPartner(slot)
+            } else {
+                Press::SetCommander(slot)
+            },
+            deck.is_commander(slot),
+        );
+        commands.entity(actions).add_child(leader);
+    }
+    commands.entity(info).add_child(actions);
+    Some(entry)
+}
+
+#[allow(clippy::too_many_lines)] // One deck row, including its printing and quantity controls.
+fn deck_row(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    at: usize,
+) -> Option<Entity> {
+    let deck = state.lobby.builder();
+    let lang = state.lobby.lang();
+    let entry = deck.entries(deck.zone()).get(at)?;
+    let card = deck.card(entry.slot)?;
+    let row_id = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                min_height: px(76),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                column_gap: px(metrics.gap * 0.6),
+                padding: UiRect::axes(px(metrics.pad * 0.5), px(metrics.pad * 0.25)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            // Clicking a row in the deck reads the card, the same as
+            // clicking one in the pool — and a row that reports nothing
+            // could not be hovered for a preview either.
+            Press::Inspect(entry.slot),
+            hover_of_entry(card, &entry.print),
+        ))
+        .id();
+    commands
+        .entity(row_id)
+        .insert(crate::ambience::Feel::tinting_to(
+            palette::PANEL_LIT,
+            palette::PANEL_LIT.lighter(0.06),
+        ));
+    let thumb = crate::lobby::thumbnails::spawn(commands, &hover_of_entry(card, &entry.print));
+    let details = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_width: px(0),
+                flex_basis: px(0),
+                row_gap: px(4),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title_row = row(commands, metrics, true);
+    let actions = row(commands, metrics, true);
+    commands.entity(details).add_children(&[title_row, actions]);
+    commands.entity(row_id).add_children(&[thumb, details]);
+    let count = commands
+        .spawn((
+            Text::new(format!("{}×", entry.count)),
+            tf(fonts, metrics.small),
+            TextColor(palette::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(card.name.clone()),
+            tf(fonts, metrics.text),
+            TextColor(if card.coverage.trustworthy() {
+                palette::INK
+            } else {
+                palette::MUTED
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    let cost = crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small);
+    for child in [Some(count), Some(title), Some(gap), cost]
+        .into_iter()
+        .flatten()
+    {
+        commands.entity(title_row).add_child(child);
+    }
+    // A row that names a printing has to show it, or two lines of the
+    // same card would look like a bug in the list.
+    let chosen = print_mark(&entry.print);
+    if !chosen.is_empty() {
+        let mark = commands
+            .spawn((
+                Text::new(chosen),
+                tf(fonts, metrics.small * 0.9),
+                TextColor(palette::ACCENT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(title_row).add_child(mark);
+    }
+    // Two targets rather than "click removes": a deck list is read far
+    // more often than it is edited, and a stray tap that silently took a
+    // card out would be found much later, if at all.
+    for (label, press) in [
+        // Removal is by *row*, not by card: two printings of one card are
+        // two lines, and a tap on one of them means that one.
+        ("−", Press::RemoveRow(at)),
+        ("+", Press::AddRow(at)),
+        (Phrase::ChoosePrintShort.text(lang), Press::PickRowPrint(at)),
+        // One tap to send a copy the other way. The builder shows one
+        // list at a time, so without this a card has to be removed here
+        // and found again over there.
+        (
+            if deck.zone() == Zone::Main {
+                Phrase::MoveToSideboard.text(lang)
+            } else {
+                Phrase::MoveToDeck.text(lang)
+            },
+            Press::MoveRow(at),
+        ),
+    ] {
+        let step = chip(commands, fonts, metrics, label, press, false);
+        commands.entity(actions).add_child(step);
+    }
+    Some(row_id)
 }

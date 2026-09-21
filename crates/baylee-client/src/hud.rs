@@ -2014,6 +2014,7 @@ pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{
     DecisionClockLabel, LedgeLayout, LedgeRevision, LedgeShelf, count_down_the_decision, sync_ledge,
 };
+pub(crate) use ledge::{Weight as ButtonWeight, answer_sized};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;

@@ -132,6 +132,9 @@ pub struct PoolCard {
     /// Whether it may lead a commander deck.
     #[serde(default)]
     pub commander: bool,
+    /// Compatible partner registry indices, validated by the server's shared rules.
+    #[serde(default)]
+    pub partners: Vec<u32>,
     /// Basic lands are the one card a deck may hold any number of.
     #[serde(default)]
     pub basic_land: bool,
@@ -213,7 +216,7 @@ impl PoolCard {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Printing {
     /// Printing id — the art key, and the deck row's `scryfall=` form.
-    #[serde(default)]
+    #[serde(default, alias = "id")]
     pub scryfall_id: String,
     /// Rules identity, shared with every other printing of this card.
     #[serde(default)]
@@ -462,10 +465,12 @@ struct Held {
 /// The pool shows one row per *card* — a player asking "do I own this" wants
 /// one answer, not one per set it appeared in. The picker is where the other
 /// question is asked, and it is only ever open for one card at a time.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Picker {
     /// The pool slot being picked for.
     slot: usize,
+    /// Existing row to restyle; absent when adding from the catalog.
+    replacing: Option<Entry>,
     /// Which list the confirmed pick lands in.
     zone: Zone,
     /// Registry index, so an answer that arrives after the dialog was closed
@@ -490,6 +495,12 @@ pub struct Picker {
 }
 
 impl Picker {
+    /// Whether confirmation restyles an existing row instead of adding a copy.
+    #[must_use]
+    pub fn replacing(&self) -> bool {
+        self.replacing.is_some()
+    }
+
     /// The pool slot being picked for.
     #[must_use]
     pub fn slot(&self) -> usize {
@@ -573,6 +584,37 @@ impl Picker {
         self.current().map(Printing::offered).unwrap_or_default()
     }
 
+    fn select_original(&mut self) {
+        let Some(entry) = &self.replacing else {
+            return;
+        };
+        self.at = self
+            .printings
+            .iter()
+            .position(|p| {
+                entry.print.scryfall_id.as_ref().map_or_else(
+                    || {
+                        entry
+                            .print
+                            .set
+                            .as_ref()
+                            .is_some_and(|set| set.eq_ignore_ascii_case(&p.set))
+                            && entry
+                                .print
+                                .collector_number
+                                .as_ref()
+                                .is_none_or(|n| *n == p.collector_number)
+                    },
+                    |id| *id == p.scryfall_id,
+                )
+            })
+            .unwrap_or(0);
+        self.finish = entry.print.finish_or_default();
+        if !self.loading {
+            self.settle();
+        }
+    }
+
     /// Keeps the carousel and the finish inside what the current filter
     /// admits. Called after anything that changes either.
     fn settle(&mut self) {
@@ -589,7 +631,7 @@ impl Picker {
         if let Some(printing) = self.current()
             && !printing.has(self.finish)
         {
-            self.finish = Finish::Normal;
+            self.finish = printing.offered()[0];
         }
     }
 }
@@ -648,6 +690,7 @@ impl BuildField {
 /// The deck builder's whole state.
 #[derive(Clone, Debug, Default)]
 pub struct DeckBuilder {
+    pool_revision: u64,
     pool: Vec<PoolCard>,
     /// Indices into `pool`, filtered and sorted. Rebuilt whenever a filter
     /// changes rather than on every draw: the shell redraws far more often
@@ -660,7 +703,7 @@ pub struct DeckBuilder {
     /// name does not change after it arrives and folding inside the
     /// comparator would fold each name the dozen times a sort reads it.
     keys: Vec<String>,
-    text: String,
+    text: crate::textbuf::TextBuffer,
     /// [`Self::text`], read as a query.
     ///
     /// Held beside the string rather than parsed where it is used, because
@@ -692,7 +735,7 @@ pub struct DeckBuilder {
     main: Vec<Entry>,
     side: Vec<Entry>,
     zone: Zone,
-    name: String,
+    name: crate::textbuf::TextBuffer,
     editing: Option<String>,
     /// Rows a loaded deck named that the pool cannot resolve *yet*, because
     /// the pool has not arrived. Held rather than dropped; see
@@ -727,6 +770,7 @@ pub struct DeckBuilder {
     stale_commander: Option<String>,
     /// The open printing picker, if a card is being picked for.
     picker: Option<Picker>,
+    printings_cache: std::collections::BTreeMap<u32, (Vec<Printing>, bool)>,
     focus: BuildField,
     /// Bumped on every placement of the caret, including onto the box it is
     /// already in — a shell that raises a keyboard needs the tap, not the

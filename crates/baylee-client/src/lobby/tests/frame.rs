@@ -85,7 +85,9 @@ fn a_phone_drops_what_it_has_no_room_for() {
          information"
     );
     assert!(
-        narrow.iter().any(|l| l == "Your decks"),
+        narrow
+            .iter()
+            .any(|l| l == Phrase::SelectedDeck.text(Lang::En)),
         "everything that matters is still there: {narrow:?}"
     );
 }
@@ -118,7 +120,10 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
         .build_deck();
     app.update();
     let cards = presses(&mut app);
-    assert!(cards.contains(&Press::AddCard(0)), "the pool is showing");
+    assert!(
+        cards.contains(&Press::AddCardTo(0, Zone::Main)),
+        "the pool is showing"
+    );
     assert!(
         !cards.contains(&Press::SetZone(Zone::Side)),
         "and the deck is not: {cards:?}"
@@ -146,13 +151,16 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
     app.update();
     let list = presses(&mut app);
     assert!(list.contains(&Press::SetZone(Zone::Side)), "{list:?}");
-    assert!(!list.contains(&Press::AddCard(0)), "{list:?}");
+    assert!(!list.contains(&Press::AddCardTo(0, Zone::Main)), "{list:?}");
 
     // Both halves are reachable on a desktop at once.
     sized(&mut app, 1400.0);
     app.update();
     let both = presses(&mut app);
-    assert!(both.contains(&Press::AddCard(0)) && both.contains(&Press::SetZone(Zone::Side)));
+    assert!(
+        both.contains(&Press::AddCardTo(0, Zone::Main))
+            && both.contains(&Press::SetZone(Zone::Side))
+    );
 }
 
 #[test]

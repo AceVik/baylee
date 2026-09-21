@@ -10,6 +10,7 @@ description = "Bevy 2.5D duel client: table renderer, HUD, input, and card image
 workspace = true
 
 [dependencies]
+uuid.workspace = true
 url = "2.5.8"
 time.workspace = true
 baylee-ai.workspace = true
@@ -24,7 +25,7 @@ baylee-engine.workspace = true
 baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
 baylee-view.workspace = true
-bevy.workspace = true
+bevy = { workspace = true, features = ["bevy_clipboard"] }
 getrandom.workspace = true
 # The keyword rail's marks, baked from the Mana font at startup; see
 # `markatlas.rs`.
@@ -44,7 +45,6 @@ web-time.workspace = true
 # The same crate as above, with its view builders switched on. A test target
 # only; `cargo build` of the client never sees the feature.
 baylee-client-core = { workspace = true, features = ["test-support"] }
-uuid.workspace = true
 naga.workspace = true
 # The networked host is tested against a real websocket server built from a
 # real `Session` — the transport is the part that cannot be unit-tested.

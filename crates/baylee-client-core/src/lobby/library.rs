@@ -85,6 +85,8 @@ pub struct Library {
     pub house: Vec<HouseDeck>,
     /// History of the open account deck.
     pub history: Option<History>,
+    /// Current saved version, retained as the comparison base while browsing older saves.
+    pub current: Option<Snapshot>,
     /// Selected saved contents.
     pub preview: Option<(String, Snapshot)>,
     /// Whether an operation is in flight.
@@ -136,7 +138,7 @@ impl Lobby {
 
     /// Browse the published starting decks.
     pub fn browse_house(&mut self) -> Option<LobbyRequest> {
-        if self.token().is_none() || self.library.loading {
+        if !self.has_a_performer() || self.library.loading {
             return None;
         }
         self.library = Library {
@@ -149,10 +151,16 @@ impl Lobby {
 
     /// History belongs only to this account's saved decks.
     pub fn browse_history(&mut self) -> Option<LobbyRequest> {
+        let id = self.builder.editing()?.to_string();
+        self.browse_deck_history(&id)
+    }
+
+    /// Open history directly from an account deck in the collection.
+    pub fn browse_deck_history(&mut self, id: &str) -> Option<LobbyRequest> {
         if self.token().is_none() || self.library.loading || self.busy {
             return None;
         }
-        let id = self.builder.editing()?.to_string();
+        let id = id.to_string();
         if !self.decks.iter().any(|deck| deck.id == id) {
             return None;
         }
@@ -171,7 +179,7 @@ impl Lobby {
 
     /// Inspect a house deck or a historical version without editing it.
     pub fn preview_version(&mut self, id: &str, version: i32) -> Option<LobbyRequest> {
-        if self.library.loading || self.token().is_none() {
+        if self.library.loading || !self.has_a_performer() {
             return None;
         }
         let allowed = match &self.library.page {
@@ -199,7 +207,7 @@ impl Lobby {
 
     /// Make a private copy; shared originals have no edit/delete path.
     pub fn copy_house(&mut self, index: usize) -> Option<LobbyRequest> {
-        if self.library.loading || self.token().is_none() || self.library.page != Some(Page::House)
+        if self.library.loading || !self.has_a_performer() || self.library.page != Some(Page::House)
         {
             return None;
         }
@@ -237,7 +245,7 @@ impl Lobby {
 
     pub(super) fn library_reply(&mut self, reply: Reply) -> Option<LobbyRequest> {
         // A closed page or signed-out account cannot be reopened by a late reply.
-        if self.library.page.is_none() || self.token().is_none() {
+        if self.library.page.is_none() || !self.has_a_performer() {
             return None;
         }
         let matches_request = match (&self.library.pending, &reply) {
@@ -265,7 +273,17 @@ impl Lobby {
                 self.library.history = Some(history);
                 return self.preview_version(&id, version);
             }
-            Reply::Version(id, snapshot) => self.library.preview = Some((id, snapshot)),
+            Reply::Version(id, snapshot) => {
+                if self
+                    .library
+                    .history
+                    .as_ref()
+                    .is_some_and(|h| h.version == snapshot.version)
+                {
+                    self.library.current = Some(snapshot.clone());
+                }
+                self.library.preview = Some((id, snapshot));
+            }
             Reply::Copied(id) => {
                 self.close_library();
                 self.screen = Screen::Build;
@@ -276,6 +294,7 @@ impl Lobby {
             }
             Reply::Restored(id) if self.library.page == Some(Page::History(id.clone())) => {
                 self.close_library();
+                self.screen = Screen::Build;
                 self.busy = true;
                 return Some(LobbyRequest::LoadDeck { deck_id: id });
             }

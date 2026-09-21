@@ -269,6 +269,8 @@ pub fn sync(mut prefs: ResMut<Prefs>, time: Res<Time>) {
     if !prefs.dirty {
         return;
     }
+    // A save timer is not a visible preference change (#188).
+    let prefs = prefs.bypass_change_detection();
     prefs.save_in -= time.delta_secs();
     if prefs.save_in > 0.0 {
         return;

@@ -72,6 +72,9 @@ pub struct PoolCard {
     pub note: Option<&'static str>,
     /// Whether the card may lead a commander deck.
     pub commander: bool,
+    /// Registry identities this card may legally partner with, from the shared rules.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub partners: Vec<u32>,
     /// Basic lands are the one card a deck may hold any number of.
     pub basic_land: bool,
     /// Whether there is a second picture to show.
@@ -144,6 +147,33 @@ pub fn rows() -> &'static [PoolCard] {
     ROWS.get_or_init(|| crate::all().map(row).collect())
 }
 
+fn partners(index: baylee_core::ids::CardIndex) -> Vec<u32> {
+    static PAIRS: OnceLock<std::collections::BTreeMap<u32, Vec<u32>>> = OnceLock::new();
+    PAIRS
+        .get_or_init(|| {
+            let leaders: Vec<_> = crate::all()
+                .filter_map(|d| crate::decks::leader_of(d.index))
+                .filter(|l| l.eligible)
+                .collect();
+            leaders
+                .iter()
+                .map(|a| {
+                    (
+                        a.index.get(),
+                        leaders
+                            .iter()
+                            .filter(|b| a.index != b.index && crate::decks::may_lead_together(a, b))
+                            .map(|b| b.index.get())
+                            .collect(),
+                    )
+                })
+                .collect()
+        })
+        .get(&index.get())
+        .cloned()
+        .unwrap_or_default()
+}
+
 /// One card's row, from the registry alone.
 #[must_use]
 pub fn row(def: &'static CardDef) -> PoolCard {
@@ -170,6 +200,7 @@ pub fn row(def: &'static CardDef) -> PoolCard {
         coverage,
         note,
         commander: !matches!(def.commander, baylee_cards_dsl::CommanderRule::NotEligible),
+        partners: partners(def.index),
         basic_land: face.is_some_and(|f| {
             f.supertypes.contains(SupertypeSet::BASIC) && f.types.contains(TypeSet::LAND)
         }),

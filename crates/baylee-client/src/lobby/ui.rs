@@ -147,7 +147,6 @@ const AMBIENT_ENERGY: f32 = 0.35;
 pub(super) fn spawn_camera(
     mut commands: Commands,
     ambience: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
-    adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
 ) {
     commands.spawn((
         LobbyScreen,
@@ -156,13 +155,9 @@ pub(super) fn spawn_camera(
             clear_color: ClearColorConfig::Custom(BACKDROP),
             ..default()
         },
-        // Bevy's own `Sample4` on nearly every GPU, and off on the one that
-        // cannot resolve it — `crate::gpu::msaa` names the driver and carries
-        // the measurement. Asked of the *adapter* rather than of the
-        // operating system, because a GPU family is what has the defect: a
-        // blanket `cfg(target_os = "android")` took a Mali phone's
-        // antialiasing away to work around a PowerVR bug it does not have.
-        crate::gpu::msaa(adapter.as_deref()),
+        // UI glyphs and rounded borders already carry coverage antialiasing.
+        // Avoid a multisample resolve across two full-screen shader surfaces.
+        Msaa::Off,
     ));
     // Spawned here rather than in `ui`, and this is the whole reason it is a
     // separate entity: the node tree is despawned and rebuilt on every state
@@ -177,7 +172,7 @@ pub(super) fn spawn_camera(
             &mut commands,
             &mut ambience,
             BACKDROP,
-            palette::DOCK_EDGE,
+            Color::srgb(0.28, 0.49, 0.9),
             AMBIENT_ENERGY,
             0.0,
         );
@@ -228,15 +223,8 @@ pub(super) fn ui(
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Res<crate::prefs::Prefs>,
     mut drawn: Local<Option<Frame>>,
+    mut builder_drawn: Local<Option<crate::buildui::Retained>>,
 ) {
-    let mut cards = match (ui_materials, material_assets) {
-        (Some(cache), Some(assets)) => Some((cache, assets)),
-        _ => None,
-    };
-    let mut cards = cards.as_mut().map(|(cache, assets)| UiCards {
-        cache: cache.as_mut(),
-        assets: assets.as_mut(),
-    });
     let width = windows
         .iter()
         .next()
@@ -249,12 +237,42 @@ pub(super) fn ui(
     {
         return;
     }
+    let mut cards = match (ui_materials, material_assets) {
+        (Some(cache), Some(assets)) => Some((cache, assets)),
+        _ => None,
+    };
+    let mut cards = cards.as_mut().map(|(cache, assets)| UiCards {
+        cache: cache.as_mut(),
+        assets: assets.as_mut(),
+    });
     // The fonts are inserted by the duel plugin's startup system, so the first
     // frame or two has none. Leaving the tree empty until then is correct; the
     // `root.is_empty()` arm above brings us back.
     let Some(fonts) = fonts else {
         return;
     };
+    if state.lobby.screen() == &Screen::Build
+        && !state.settings.is_open()
+        && state.lobby.library().page.is_none()
+        && state.confirmation.is_none()
+        && !prefs.is_changed()
+        && *drawn == Some(metrics.frame)
+        && metrics.frame != Frame::Phone
+        && !root.is_empty()
+        && let Some(cached) = builder_drawn.as_mut()
+    {
+        cached.patch(
+            &mut commands,
+            &state,
+            &fonts,
+            metrics,
+            &scrolled_to,
+            assets.as_deref(),
+            cards.as_mut(),
+        );
+        return;
+    }
+    *builder_drawn = None;
     for entity in &root {
         commands.entity(entity).despawn();
     }
@@ -331,16 +349,18 @@ pub(super) fn ui(
             front_door(&mut commands, root, &state, &fonts, metrics, *registering);
         }
         Screen::Table => table(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
-        Screen::Build => crate::buildui::builder(
-            &mut commands,
-            root,
-            &state,
-            &fonts,
-            metrics,
-            &scrolled_to,
-            assets.as_deref(),
-            cards.as_mut(),
-        ),
+        Screen::Build => {
+            *builder_drawn = Some(crate::buildui::builder(
+                &mut commands,
+                root,
+                &state,
+                &fonts,
+                metrics,
+                &scrolled_to,
+                assets.as_deref(),
+                cards.as_mut(),
+            ));
+        }
         Screen::Seated(_) => {
             let note = commands
                 .spawn((
@@ -351,6 +371,10 @@ pub(super) fn ui(
                 .id();
             commands.entity(root).add_child(note);
         }
+    }
+    super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
+    if state.confirmation.is_some() {
+        *builder_drawn = None;
     }
 }
 
@@ -675,19 +699,6 @@ fn table(
         commands.entity(root).add_child(banner);
     }
 
-    let intro = surface(commands, metrics);
-    let guide = heading(commands, fonts, metrics, Phrase::LobbyGuide.text(lang));
-    let stats = note(
-        commands,
-        fonts,
-        metrics,
-        &Phrase::LobbyCounts.fill(
-            lang,
-            &[&lobby.decks().len().to_string(), &lobby.total().to_string()],
-        ),
-    );
-    commands.entity(intro).add_children(&[guide, stats]);
-    commands.entity(root).add_child(intro);
     let navigation = row(commands, metrics, true);
     commands.entity(navigation).insert(Node {
         width: percent(100),
@@ -707,6 +718,27 @@ fn table(
         );
         commands.entity(navigation).add_child(tab);
     }
+    let house = chip(
+        commands,
+        fonts,
+        metrics,
+        Phrase::HouseDecks.text(lang),
+        Press::BrowseHouse,
+        false,
+    );
+    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    let stats = note(
+        commands,
+        fonts,
+        metrics,
+        &Phrase::LobbyCounts.fill(
+            lang,
+            &[&lobby.decks().len().to_string(), &lobby.total().to_string()],
+        ),
+    );
+    commands
+        .entity(navigation)
+        .add_children(&[house, gap, stats]);
     commands.entity(root).add_child(navigation);
     // ---- body
     let body = commands
@@ -745,7 +777,17 @@ fn table(
         if state.hub == Hub::Decks { 1.0 } else { 0.0 },
     );
     commands.entity(decks).insert(super::dock::Dock(3));
-    let decks_head = heading(commands, fonts, metrics, Phrase::YourDecks.text(lang));
+    let decks_head = heading(
+        commands,
+        fonts,
+        metrics,
+        if state.hub == Hub::Play {
+            Phrase::SelectedDeck
+        } else {
+            Phrase::YourDecks
+        }
+        .text(lang),
+    );
     commands.entity(decks).add_child(decks_head);
     let deck_tools = row(commands, metrics, true);
     let new_deck = button(
@@ -757,26 +799,7 @@ fn table(
         palette::ACCENT,
         true,
     );
-    let starter = button(
-        commands,
-        fonts,
-        metrics,
-        if lobby.offline() {
-            Phrase::AddStarterDeck
-        } else {
-            Phrase::HouseDecks
-        }
-        .text(lang),
-        if lobby.offline() {
-            Press::StarterDeck
-        } else {
-            Press::BrowseHouse
-        },
-        palette::PANEL_LIT,
-        !lobby.busy(),
-    );
     commands.entity(deck_tools).add_child(new_deck);
-    commands.entity(deck_tools).add_child(starter);
     commands.entity(decks).add_child(deck_tools);
     let deck_grid = row(commands, metrics, true);
     commands.entity(decks).add_child(deck_grid);
@@ -798,12 +821,12 @@ fn table(
                     },
                     flex_grow: 1.0,
                     min_width: px(0),
-                    flex_wrap: FlexWrap::Wrap,
+                    flex_direction: FlexDirection::Column,
                     row_gap: px(metrics.gap),
                     min_height: px(metrics.tap),
-                    align_items: AlignItems::Center,
+                    align_items: AlignItems::Stretch,
                     column_gap: px(metrics.gap),
-                    padding: UiRect::axes(px(metrics.pad * 0.7), px(metrics.pad * 0.4)),
+                    padding: UiRect::all(px(metrics.pad)),
                     border: UiRect::all(px(1)),
                     border_radius: btn_radius(),
                     ..default()
@@ -834,7 +857,6 @@ fn table(
                 Pickable::IGNORE,
             ))
             .id();
-        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
         let size = commands
             .spawn((
                 Text::new(Phrase::DeckRows.fill(
@@ -846,25 +868,31 @@ fn table(
                 Pickable::IGNORE,
             ))
             .id();
-        for child in [name, gap, size] {
+        for child in [name, size] {
             commands.entity(row).add_child(child);
         }
+        let actions = self::row(commands, metrics, true);
+        commands.entity(row).add_child(actions);
         // Nested inside a row that is itself a `Press`: `in_lineage` takes the
         // nearest one, so these win over selecting the deck.
         for (label, press) in [
             (Phrase::Edit.text(lang), Press::EditDeck(index)),
-            (
-                if state.confirm_delete == Some(index) {
-                    Phrase::ConfirmDeleteDeck
-                } else {
-                    Phrase::Delete
-                }
-                .text(lang),
-                Press::DeleteDeck(index),
-            ),
+            (Phrase::Delete.text(lang), Press::DeleteDeck(index)),
         ] {
             let tool = chip(commands, fonts, metrics, label, press, false);
-            commands.entity(row).add_child(tool);
+            commands.entity(actions).add_child(tool);
+        }
+        if state.hub == Hub::Decks {
+            let history = button(
+                commands,
+                fonts,
+                metrics,
+                Phrase::DeckHistory.text(lang),
+                Press::DeckHistory(index),
+                palette::PANEL_LIT,
+                lobby.token().is_some() && !lobby.busy(),
+            );
+            commands.entity(actions).add_child(history);
         }
         commands.entity(deck_grid).add_child(row);
     }
@@ -1528,41 +1556,25 @@ pub(crate) fn chip(
     press: Press,
     on: bool,
 ) -> Entity {
-    let text = commands
-        .spawn((
-            Text::new(label),
-            tf_bold(fonts, metrics.small),
-            TextColor(if on { palette::INK } else { palette::MUTED }),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let id = commands
-        .spawn((
-            Node {
-                // Still a finger target on a phone: the chips are the busiest
-                // controls on the screen, and a 30px one is a mis-tap.
-                min_height: px(metrics.tap * 0.8),
-                min_width: px(metrics.tap * 0.8),
-                padding: UiRect::axes(px(metrics.pad * 0.6), px(2)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(if on {
-                palette::ACCENT
-            } else {
-                palette::PANEL_LIT
-            }),
-            press,
-            crate::ambience::Feel::new(if on {
-                palette::ACCENT
-            } else {
-                palette::PANEL_LIT
-            }),
-        ))
-        .id();
-    commands.entity(id).add_child(text);
+    let height = if metrics.frame == Frame::Phone {
+        metrics.tap
+    } else {
+        metrics.tap * 0.8
+    };
+    let id = crate::hud::answer_sized(
+        commands,
+        fonts,
+        label,
+        if on {
+            crate::hud::ButtonWeight::Candle
+        } else {
+            crate::hud::ButtonWeight::Secondary
+        },
+        None,
+        height,
+        metrics.small,
+    );
+    commands.entity(id).insert(press);
     id
 }
 
@@ -2090,42 +2102,27 @@ pub(crate) fn button(
     tone: Color,
     enabled: bool,
 ) -> Entity {
-    let text = commands
-        .spawn((
-            Text::new(label),
-            tf_bold(fonts, metrics.text),
-            TextColor(if !enabled {
-                palette::DEAD
-            } else if tone == palette::ACCENT || tone == palette::ACTIVE {
-                palette::DOCK_GROUND
-            } else {
-                palette::INK
-            }),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let id = {
-        let mut entity = commands.spawn((
-            Node {
-                min_height: px(metrics.tap),
-                padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.45)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(if enabled { tone } else { palette::PANEL }),
-            soft_shadow(),
-        ));
-        if enabled {
-            // The tone travels with the button because the animation writes
-            // `BackgroundColor` every frame: after one hover the node no
-            // longer knows what colour it started at.
-            entity.insert((press, crate::ambience::Feel::new(tone)));
-        }
-        entity.id()
+    let weight = if !enabled {
+        crate::hud::ButtonWeight::Dead
+    } else if tone == palette::DANGER {
+        crate::hud::ButtonWeight::Danger
+    } else if tone == palette::ACCENT || tone == palette::ACTIVE {
+        crate::hud::ButtonWeight::Candle
+    } else {
+        crate::hud::ButtonWeight::Secondary
     };
-    commands.entity(id).add_child(text);
+    let id = crate::hud::answer_sized(
+        commands,
+        fonts,
+        label,
+        weight,
+        None,
+        metrics.tap,
+        metrics.text,
+    );
+    if enabled {
+        commands.entity(id).insert(press);
+    }
     id
 }
 

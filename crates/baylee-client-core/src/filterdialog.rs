@@ -367,7 +367,7 @@ pub enum Adding {
 /// the builder and takes the caret. Two editors of one value is the silent
 /// rewrite this whole module exists to prevent, and two carets on a phone is
 /// not an interface.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FilterPanel {
     /// The parts being edited.
     form: FilterForm,
@@ -392,7 +392,7 @@ pub struct FilterPanel {
 /// typed is put through [`value_of`] — the parser's own reader — so a row
 /// arrives at exactly the value the same letters typed into the box would
 /// have made.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Typing {
     /// Which row.
     row: usize,

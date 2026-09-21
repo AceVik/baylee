@@ -33,6 +33,10 @@ pub(super) fn materialize(
             // behind a reading surface rather than the hand's bottom fade.
             material.params.ramp = Vec4::new(36.0, 0.98, 0.98, 0.0);
             material.params.surface = Vec4::ZERO;
+            let night = Color::srgb(0.026, 0.052, 0.10).to_linear();
+            material.params.dye.x = night.red;
+            material.params.dye.y = night.green;
+            material.params.dye.z = night.blue;
             let handle = materials.add(material);
             cache.0.insert(slot.0, handle.clone());
             handle

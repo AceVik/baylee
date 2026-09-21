@@ -785,7 +785,10 @@ fn a_picked_printing_reaches_the_deck_row() {
     assert!(builder.picker().is_none(), "confirming closes it");
 
     let rows = builder.rows(Zone::Main);
-    assert_eq!(rows, vec!["1 Lightning Bolt (M11) 149 [de] *F*"]);
+    assert_eq!(
+        rows,
+        vec!["1 Lightning Bolt (M11) 149 [de] *F* scryfall=m11-149-de"]
+    );
     // The row the builder writes is the row the parser reads.
     let parsed = baylee_core::deckrow::parse(&rows[0]).expect("round-trips");
     assert_eq!(parsed.name, "Lightning Bolt");
@@ -1286,4 +1289,108 @@ fn the_builder_a_player_is_handed_hides_what_the_engine_cannot_play() {
         b.results().len() > hidden,
         "turning it off admitted nothing, so the flag is drawn and not read"
     );
+}
+
+#[test]
+fn issue_192_selection_replacement_and_caret_motion_preserve_query_results() {
+    use crate::textbuf::{Dir, Step as Reach};
+    let mut b = builder();
+    b.set_text("bears");
+    let hits = b.results().to_vec();
+    b.edit_buffer(BuildField::Search, |text| {
+        text.move_caret(Reach::Word, Dir::Left, true);
+    });
+    assert_eq!(b.results(), hits);
+    b.edit_buffer(BuildField::Search, |text| text.insert("Forest"));
+    assert_eq!(b.text(), "Forest");
+    assert_eq!(b.results(), &[0]);
+}
+
+#[test]
+fn issue_189_editing_a_printing_preserves_sideboard_quantity_and_notes() {
+    let mut b = picking();
+    b.set_printings(
+        7,
+        vec![
+            printing("a", "1", "en", &["nonfoil", "foil"]),
+            printing("b", "2", "en", &["etched"]),
+        ],
+        true,
+    );
+    b.close_picker();
+    b.load(
+        "deck",
+        "Test",
+        &[],
+        &["4 Lightning Bolt # keep together".into()],
+        &[],
+    );
+    assert!(
+        b.open_row_picker(0, Zone::Side).is_none(),
+        "catalog is cached"
+    );
+    b.picker_go(1);
+    assert_eq!(
+        b.picker().unwrap().finish(),
+        Finish::Etched,
+        "foil-only/etched-only prints select a supported finish"
+    );
+    assert!(b.picker_confirm());
+    let entry = &b.entries(Zone::Side)[0];
+    assert_eq!(entry.count, 4);
+    assert_eq!(entry.note.as_deref(), Some("keep together"));
+    assert_eq!(entry.print.finish, Some(Finish::Etched));
+    assert!(b.entries(Zone::Main).is_empty());
+    b.open_row_picker(0, Zone::Side);
+    assert_eq!(b.picker().unwrap().current().unwrap().set, "b");
+    assert_eq!(b.picker().unwrap().finish(), Finish::Etched);
+    b.close_picker();
+    assert_eq!(b.entries(Zone::Side)[0].count, 4);
+}
+
+#[test]
+fn issue_189_public_catalog_keeps_image_identity_and_finish_metadata() {
+    let print: Printing = serde_json::from_str(r#"{"id":"22e933c8-8c82-40d1-9087-8bdc6722de74","finishes":["foil","etched"],"set":"tst","collector_number":"1"}"#).unwrap();
+    assert_eq!(print.scryfall_id, "22e933c8-8c82-40d1-9087-8bdc6722de74");
+    assert!(print.has(Finish::Etched));
+    assert!(!print.has(Finish::Normal));
+}
+
+#[test]
+fn issue_194_partner_roles_can_be_added_removed_saved_and_reloaded() {
+    let mut cards = pool();
+    cards[1].commander = true;
+    cards[1].partners = vec![3];
+    cards[2].commander = true;
+    cards[2].partners = vec![2];
+    cards[4].commander = true;
+    let mut b = DeckBuilder::new();
+    b.set_pool(cards.clone(), true);
+    b.set_name("Partners");
+    assert!(b.set_commander(1));
+    assert!(!b.add_partner(1), "one card cannot occupy both roles");
+    assert!(
+        !b.add_partner(4),
+        "ordinary eligible legends are not automatically partners"
+    );
+    assert!(b.add_partner(2));
+    assert!(!b.add_partner(4), "at most two commanders");
+    let rows = b.rows(Zone::Main);
+    let leaders = b.commander_names();
+    let mut loaded = DeckBuilder::new();
+    loaded.set_pool(cards, true);
+    loaded.load("test", "Partners", &rows, &[], &leaders);
+    assert_eq!(loaded.commanders(), &[1, 2]);
+    loaded.remove_commander(1);
+    assert_eq!(loaded.commanders(), &[2]);
+    assert_eq!(
+        loaded.count_of(1, Zone::Main),
+        1,
+        "removing a role keeps the card"
+    );
+    assert!(loaded.set_commander(4));
+    assert_eq!(loaded.commanders(), &[4]);
+    loaded.clear_deck();
+    assert!(loaded.commanders().is_empty());
+    assert!(loaded.entries(Zone::Main).is_empty());
 }

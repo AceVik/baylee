@@ -268,6 +268,9 @@ fn feel(
             Some(PickingInteraction::Hovered) => 1.0,
             _ => 0.0,
         };
+        if (feel.warmth - target).abs() < f32::EPSILON && !feel.is_added() {
+            continue;
+        }
         feel.warmth += (target - feel.warmth) * step;
         if (feel.warmth - target).abs() < 0.001 {
             feel.warmth = target;
@@ -286,7 +289,10 @@ fn feel(
             Some(target) => blend(feel.base, target, hot),
             None => shade(feel.base, HOVER_LIFT * hot),
         };
-        colour.0 = shade(resting, -PRESS_SINK * cold);
+        let next = shade(resting, -PRESS_SINK * cold);
+        if colour.0 != next {
+            colour.0 = next;
+        }
     }
 }
 

@@ -43,8 +43,8 @@ fn the_builder_screen_builds_with_its_controls() {
         Press::CycleSort,
         // Both pool rows are offered, so the search does not have to be
         // used to reach a two-card pool.
-        Press::AddCard(0),
-        Press::AddCard(1),
+        Press::AddCardTo(0, Zone::Main),
+        Press::AddCardTo(1, Zone::Main),
         // Every row can be read as well as taken.
         Press::Inspect(0),
     ] {
@@ -197,7 +197,7 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     let mut rows = app.world_mut().query::<(Entity, &Press)>();
     let card = rows
         .iter(app.world())
-        .find(|(_, press)| **press == Press::AddCard(0))
+        .find(|(_, press)| **press == Press::AddCardTo(0, Zone::Main))
         .map(|(entity, _)| entity)
         .expect("a card row");
     let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
@@ -323,7 +323,7 @@ fn a_card_can_be_read_in_the_builder() {
 }
 
 #[test]
-fn a_list_keeps_its_place_when_adding_a_card_rebuilds_it() {
+fn issue_188_adding_a_card_keeps_the_pool_and_its_scroll_position() {
     let mut app = headless();
     stocked(&mut app);
     sized(&mut app, 1400.0);
@@ -336,8 +336,17 @@ fn a_list_keeps_its_place_when_adding_a_card_rebuilds_it() {
         .resource_mut::<Scrolled>()
         .set(List::Pool, 90.0);
 
-    // Adding a card changes the lobby, which rebuilds the whole tree.
-    let card = press_target(&mut app, Press::AddCard(0));
+    let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
+    let pool_entity = lists
+        .iter(app.world())
+        .find(|(_, list)| list.0 == List::Pool)
+        .unwrap()
+        .0;
+    app.world_mut()
+        .entity_mut(pool_entity)
+        .insert(ScrollPosition(Vec2::new(0.0, 90.0)));
+
+    let card = press_target(&mut app, Press::AddCardTo(0, Zone::Main));
     tap(&mut app, card);
     app.update();
 
@@ -350,6 +359,11 @@ fn a_list_keeps_its_place_when_adding_a_card_rebuilds_it() {
     assert!(
         (pool - 90.0).abs() < f32::EPSILON,
         "the new list opens where the old one was, not at the top: {pool}"
+    );
+
+    assert!(
+        app.world().get_entity(pool_entity).is_ok(),
+        "adding must retain the pool tree"
     );
 
     // A different search *is* a different list, and starts at the top.
@@ -517,4 +531,206 @@ fn the_filter_panel_says_when_a_chip_is_filtering_as_well() {
         "this test's premise: the panel is still open, so the line's absence \
          is the line's and not the panel's"
     );
+}
+
+#[test]
+fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().add(0, Zone::Main);
+        state.lobby.builder_mut().add(1, Zone::Side);
+    }
+    app.update();
+    press(&mut app, Press::ClearDeck);
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .entries(Zone::Main)
+            .len(),
+        1
+    );
+    press(&mut app, Press::CancelDestructive);
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .entries(Zone::Side)
+            .len(),
+        1
+    );
+    press(&mut app, Press::ClearDeck);
+    press(&mut app, Press::ConfirmDestructive);
+    let builder = app.world().resource::<LobbyState>().lobby.builder();
+    assert!(builder.entries(Zone::Main).is_empty());
+    assert!(builder.entries(Zone::Side).is_empty());
+}
+
+#[test]
+fn issue_188_search_keeps_deck_rows_and_repeated_listings_keep_the_root() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().add(0, Zone::Main);
+        state.lobby.builder_mut().focus_on(BuildField::Search);
+    }
+    app.update();
+    let remove = press_target(&mut app, Press::RemoveRow(0));
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(typed('F'));
+    app.update();
+    assert_eq!(press_target(&mut app, Press::RemoveRow(0)), remove);
+    let search = press_target(&mut app, Press::FocusBuild(BuildField::Search));
+    for _ in 0..5 {
+        app.world()
+            .resource::<Mailbox>()
+            .0
+            .lock()
+            .unwrap()
+            .push(Reply::Event(LobbyEvent::Games(GameListing::default())));
+        app.update();
+        assert_eq!(
+            press_target(&mut app, Press::FocusBuild(BuildField::Search)),
+            search
+        );
+    }
+}
+
+#[test]
+fn issue_191_delete_cancel_never_dispatches_a_delete() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.update();
+    press(&mut app, Press::DeleteDeck(0));
+    assert!(app.world().resource::<LobbyState>().confirmation.is_some());
+    assert_eq!(app.world().resource::<LobbyState>().lobby.decks().len(), 1);
+    press(&mut app, Press::CancelDestructive);
+    assert!(app.world().resource::<LobbyState>().confirmation.is_none());
+    assert!(!app.world().resource::<LobbyState>().lobby.busy());
+    assert_eq!(app.world().resource::<LobbyState>().lobby.decks().len(), 1);
+}
+
+#[test]
+fn issue_192_search_supports_select_all_replacement_and_middle_insertion() {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().focus_on(BuildField::Search);
+        state.lobby.builder_mut().set_text("Old query");
+    }
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::SuperLeft);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(typed('a'));
+    app.update();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .release(KeyCode::SuperLeft);
+    {
+        let mut keys = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        keys.write(typed('F'));
+        keys.write(typed('r'));
+        keys.write(pressed(KeyCode::ArrowLeft, Key::ArrowLeft));
+        keys.write(typed('o'));
+    }
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.builder().text(),
+        "For"
+    );
+}
+
+#[test]
+fn issue_194_commander_management_is_visible_without_opening_card_details() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let mut cards = pool_cards();
+        cards[0].commander = true;
+        cards[0].partners = vec![cards[1].index];
+        cards[1].commander = true;
+        state.lobby.builder_mut().set_pool(cards, true);
+    }
+    app.update();
+    press(&mut app, Press::ChooseCommander(false));
+    press(&mut app, Press::SetCommander(0));
+    assert!(presses(&mut app).contains(&Press::RemoveCommander(0)));
+    press(&mut app, Press::ChooseCommander(true));
+    assert!(presses(&mut app).contains(&Press::AddPartner(1)));
+    assert!(!presses(&mut app).contains(&Press::AddPartner(0)));
+    press(&mut app, Press::AddPartner(1));
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .commanders(),
+        &[0, 1]
+    );
+    press(&mut app, Press::RemoveCommander(0));
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .commanders(),
+        &[1]
+    );
+}
+
+#[test]
+fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
+    use crate::buildui::virtual_rows::VirtualRow;
+    use bevy::ui::CalculatedClip;
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    let rows: Vec<_> = app
+        .world_mut()
+        .query_filtered::<Entity, With<VirtualRow>>()
+        .iter(app.world())
+        .collect();
+    assert!(!rows.is_empty());
+    for &row in &rows {
+        app.world_mut()
+            .entity_mut(row)
+            .get_mut::<ComputedNode>()
+            .unwrap()
+            .size = Vec2::new(400.0, 112.0);
+        app.world_mut().entity_mut(row).insert(CalculatedClip {
+            clip: Rect::new(0.0, 1000.0, 400.0, 1500.0),
+        });
+    }
+    app.update();
+    assert!(!presses(&mut app).contains(&Press::AddCardTo(0, Zone::Main)));
+    for row in rows {
+        app.world_mut().entity_mut(row).insert(CalculatedClip {
+            clip: Rect::new(-400.0, -200.0, 400.0, 500.0),
+        });
+    }
+    app.update();
+    assert!(presses(&mut app).contains(&Press::AddCardTo(0, Zone::Main)));
+    assert!(presses(&mut app).contains(&Press::AddCardTo(1, Zone::Side)));
 }

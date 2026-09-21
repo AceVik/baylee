@@ -39,6 +39,12 @@ impl DeckBuilder {
         &self.pool
     }
 
+    /// Changes whenever card metadata is replaced, even at the same pool size.
+    #[must_use]
+    pub fn pool_revision(&self) -> u64 {
+        self.pool_revision
+    }
+
     /// One pool card.
     #[must_use]
     pub fn card(&self, slot: usize) -> Option<&PoolCard> {
@@ -54,13 +60,13 @@ impl DeckBuilder {
     /// The current search text.
     #[must_use]
     pub fn text(&self) -> &str {
-        &self.text
+        self.text.text()
     }
 
     /// The deck's name.
     #[must_use]
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.text()
     }
 
     /// The id of the deck being edited, if this is not a new one.
@@ -152,6 +158,7 @@ impl DeckBuilder {
 
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
+        self.pool_revision = self.pool_revision.wrapping_add(1);
         self.keys = cards
             .iter()
             .map(|card| crate::prose::sort_key(&card.name))
@@ -176,19 +183,19 @@ impl DeckBuilder {
 
     /// Sets the search text.
     pub fn set_text(&mut self, text: &str) {
-        self.text = text.to_string();
+        self.text = crate::textbuf::TextBuffer::new(text);
         self.retext();
     }
 
     /// Types one character into the search box.
     pub fn type_char(&mut self, ch: char) {
-        self.text.push(ch);
+        self.text.insert(&ch.to_string());
         self.retext();
     }
 
     /// Deletes the last character of the search box.
     pub fn backspace(&mut self) {
-        self.text.pop();
+        self.text.delete_back();
         self.retext();
     }
 
@@ -198,7 +205,7 @@ impl DeckBuilder {
     /// together. Parsing costs one pass over what a player typed; not doing
     /// it here would cost one pass per pool card per keystroke.
     fn retext(&mut self) {
-        self.query = crate::cardquery::parse(&self.text);
+        self.query = crate::cardquery::parse(self.text.text());
         self.refilter();
     }
 
@@ -470,7 +477,23 @@ impl DeckBuilder {
             loading: true,
             ..Picker::default()
         });
-        Some(LobbyRequest::LoadPrintings { card: index })
+        if let Some((prints, catalog)) = self.printings_cache.get(&index).cloned() {
+            self.set_printings(index, prints, catalog);
+            None
+        } else {
+            Some(LobbyRequest::LoadPrintings { card: index })
+        }
+    }
+
+    /// Change the artwork/finish of one exact row, preserving copies and notes.
+    pub fn open_row_picker(&mut self, at: usize, zone: Zone) -> Option<LobbyRequest> {
+        let entry = self.entries(zone).get(at)?.clone();
+        let request = self.open_picker(entry.slot, zone);
+        if let Some(picker) = &mut self.picker {
+            picker.replacing = Some(entry);
+            picker.select_original();
+        }
+        request
     }
 
     /// Closes the picker without adding anything.
@@ -501,9 +524,12 @@ impl DeckBuilder {
                 langs.push(printing.lang.clone());
             }
         }
+        self.printings_cache
+            .insert(card, (printings.clone(), from_catalog));
         picker.printings = printings;
         picker.langs = langs;
         picker.at = 0;
+        picker.select_original();
         picker.settle();
     }
 
@@ -570,7 +596,31 @@ impl DeckBuilder {
         };
         let (slot, zone) = (picker.slot, picker.zone);
         let choice = self.picked_choice();
-        let added = self.add_print(slot, zone, choice);
+        let replacement = picker.replacing.clone();
+        let added = if let Some(mut original) = replacement {
+            let entries = match zone {
+                Zone::Main => &mut self.main,
+                Zone::Side => &mut self.side,
+            };
+            if let Some(at) = entries.iter().position(|e| e == &original) {
+                entries.remove(at);
+                original.print = choice;
+                if let Some(existing) = entries.iter_mut().find(|e| {
+                    e.slot == original.slot && e.print == original.print && e.note == original.note
+                }) {
+                    existing.count += original.count;
+                } else {
+                    entries.push(original);
+                }
+                self.sort_zone(zone);
+                self.dirty = true;
+                true
+            } else {
+                false
+            }
+        } else {
+            self.add_print(slot, zone, choice)
+        };
         self.picker = None;
         added
     }
@@ -608,9 +658,10 @@ impl DeckBuilder {
             if !printing.collector_number.is_empty() {
                 choice.collector_number = Some(printing.collector_number.clone());
             }
-        } else if !printing.scryfall_id.is_empty() && printing.scryfall_id != reference {
-            // No set to name it by, and not the printing the row would
-            // resolve to anyway: the id is the only thing that pins it.
+        }
+        if !printing.scryfall_id.is_empty() && printing.scryfall_id != reference {
+            // Preserve the actual art key even with set metadata: the client
+            // cannot resolve a set/number back to an image without a catalog.
             choice.scryfall_id = Some(printing.scryfall_id.clone());
         }
         choice
@@ -728,6 +779,7 @@ impl DeckBuilder {
     pub fn clear_deck(&mut self) {
         self.main.clear();
         self.side.clear();
+        self.commanders.clear();
         self.pending.clear();
         self.missing.clear();
         self.dirty = true;
@@ -735,19 +787,19 @@ impl DeckBuilder {
 
     /// Sets the deck's name.
     pub fn set_name(&mut self, name: &str) {
-        self.name = name.to_string();
+        self.name = crate::textbuf::TextBuffer::new(name);
         self.dirty = true;
     }
 
     /// Types one character into the name.
     pub fn type_name(&mut self, ch: char) {
-        self.name.push(ch);
+        self.name.insert(&ch.to_string());
         self.dirty = true;
     }
 
     /// Deletes the last character of the name.
     pub fn backspace_name(&mut self) {
-        self.name.pop();
+        self.name.delete_back();
         self.dirty = true;
     }
 
@@ -803,8 +855,8 @@ impl DeckBuilder {
     #[must_use]
     pub fn focused_text(&self) -> &str {
         match self.focus {
-            BuildField::Search => &self.text,
-            BuildField::Name => &self.name,
+            BuildField::Search => self.text.text(),
+            BuildField::Name => self.name.text(),
         }
     }
 
@@ -813,6 +865,36 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.set_text(value),
             BuildField::Name => self.set_name(value),
+        }
+    }
+
+    /// The field's real caret/selection, shared by native and browser editing.
+    #[must_use]
+    pub fn buffer(&self, field: BuildField) -> &crate::textbuf::TextBuffer {
+        match field {
+            BuildField::Search => &self.text,
+            BuildField::Name => &self.name,
+        }
+    }
+
+    /// Apply one batch of input and filter only when the text actually changes.
+    pub fn edit_buffer(
+        &mut self,
+        field: BuildField,
+        edit: impl FnOnce(&mut crate::textbuf::TextBuffer),
+    ) {
+        let buffer = match field {
+            BuildField::Search => &mut self.text,
+            BuildField::Name => &mut self.name,
+        };
+        let before = buffer.text().to_owned();
+        edit(buffer);
+        if buffer.text() == before {
+            return;
+        }
+        match field {
+            BuildField::Search => self.retext(),
+            BuildField::Name => self.dirty = true,
         }
     }
 
@@ -925,7 +1007,7 @@ impl DeckBuilder {
     pub fn problems(&self, lang: Lang) -> Vec<Problem> {
         let mut out = Vec::new();
         let counts = self.counts();
-        let name = self.name.trim();
+        let name = self.name.text().trim();
         if name.is_empty() {
             out.push(Problem {
                 blocking: true,
@@ -1057,15 +1139,7 @@ impl DeckBuilder {
     /// is not already: choosing a leader that is not in the ninety-nine is a
     /// deck nobody meant to build.
     ///
-    /// **This sets one**, and a deck that already had two comes back with
-    /// one. The partner rule (CR 702.124) needs to know which partner family
-    /// each card is in, and a `/pool` row does not carry that yet — it
-    /// carries `commander`, which is eligibility and not pairing. Offering a
-    /// second leader out of what this crate can see would mean offering
-    /// pairs the gateway then refuses, and "if the button is live, the deck
-    /// saves" is the rule the builder is built around. What this side does
-    /// guarantee is that it never *loses* one: a stored deck's leaders are
-    /// kept as they were until the player names a different one.
+    /// Replaces the commander selection. Use `add_partner` to keep the first leader.
     pub fn set_commander(&mut self, slot: usize) -> bool {
         if !self.pool.get(slot).is_some_and(|card| card.commander) {
             return false;
@@ -1073,13 +1147,45 @@ impl DeckBuilder {
         if self.commanders == [slot] {
             return true;
         }
-        if self.count_of(slot, Zone::Main) == 0 {
-            self.add(slot, Zone::Main);
+        if self.count_of(slot, Zone::Main) == 0 && !self.add(slot, Zone::Main) {
+            return false;
         }
         self.commanders = vec![slot];
         self.dirty = true;
         self.stale_commander = None;
         true
+    }
+
+    /// Whether the server permits this card beside the selected commander.
+    #[must_use]
+    pub fn can_partner(&self, slot: usize) -> bool {
+        let [first] = self.commanders.as_slice() else {
+            return false;
+        };
+        let (Some(a), Some(b)) = (self.card(*first), self.card(slot)) else {
+            return false;
+        };
+        *first != slot && b.commander && a.partners.contains(&b.index)
+    }
+
+    /// Add a compatible second commander without replacing the first.
+    pub fn add_partner(&mut self, slot: usize) -> bool {
+        if !self.can_partner(slot) {
+            return false;
+        }
+        if self.count_of(slot, Zone::Main) == 0 && !self.add(slot, Zone::Main) {
+            return false;
+        }
+        self.commanders.push(slot);
+        self.dirty = true;
+        true
+    }
+
+    /// Remove only one role, keeping both the other commander and the deck cards.
+    pub fn remove_commander(&mut self, slot: usize) {
+        let before = self.commanders.len();
+        self.commanders.retain(|leader| *leader != slot);
+        self.dirty |= before != self.commanders.len();
     }
 
     /// Takes every commander mark off, leaving the cards in the deck.
@@ -1154,7 +1260,7 @@ impl DeckBuilder {
         }
         Some(LobbyRequest::SaveDeck {
             deck_id: self.editing.clone(),
-            name: self.name.trim().to_string(),
+            name: self.name.text().trim().to_string(),
             cards: self.rows(Zone::Main),
             sideboard: self.rows(Zone::Side),
             commanders: self.commander_names(),
@@ -1176,6 +1282,7 @@ impl DeckBuilder {
     pub fn start_new(&mut self) {
         self.main.clear();
         self.side.clear();
+        self.commanders.clear();
         self.pending.clear();
         self.missing.clear();
         self.name.clear();
@@ -1208,7 +1315,7 @@ impl DeckBuilder {
     ) {
         self.start_new();
         self.editing = Some(id.to_string());
-        self.name = name.to_string();
+        self.name = crate::textbuf::TextBuffer::new(name);
         // A commander is a name too, and races the pool the same way its
         // rows do.
         self.pending_commander = commanders.to_vec();

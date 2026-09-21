@@ -157,11 +157,44 @@ macro_rules! messages {
 }
 
 messages! {
+    /// Restyle an existing row, preserving quantity.
+    ApplyPrinting { en: "Apply to this row", de: "Auf diese Zeile anwenden" },
+    /// Explicit catalog insertion destinations.
+    AddMainShort { en: "+ Main", de: "+ Hauptdeck" },
+    /// Explicit catalog insertion destinations.
+    AddSideShort { en: "+ Side", de: "+ Sideboard" },
+    /// Account-only save history.
+    HistoryAccountHint { en: "History is available for account decks after signing in.", de: "Historie gibt es nach der Anmeldung für Account-Decks." },
+    /// New deck without a persisted identity.
+    HistorySaveHint { en: "Save this deck to start its history.", de: "Speichere das Deck, um seine Historie zu beginnen." },
+    /// Destructive deck confirmation.
+    DeleteDeckQuestion { en: "Delete “{0}”?", de: "„{0}“ löschen?" },
+    /// Destructive deck confirmation.
+    ClearDeckQuestion { en: "Empty “{0}”?", de: "„{0}“ leeren?" },
+    /// Destructive deck confirmation.
+    DestructiveHint { en: "Please confirm. Clearing removes the main deck and sideboard; deleting removes the saved deck.", de: "Bitte bestätigen. Leeren entfernt Hauptdeck und Sideboard; Löschen entfernt das gespeicherte Deck." },
+    /// Commander controls in the deck overview.
+    CommanderSection { en: "Commanders", de: "Commander" },
+    /// Commander selection.
+    ChooseCommander { en: "Choose / replace", de: "Auswählen / ersetzen" },
+    /// Partner selection.
+    ChoosePartner { en: "+ Partner", de: "+ Partner" },
+    /// Return from selecting a leader to normal card browsing.
+    DoneChoosing { en: "Back to all cards", de: "Zurück zu allen Karten" },
+    /// Roles and deck cards are distinct.
+    CommanderHint { en: "Choose a leader here. Removing the role keeps the card in your deck.", de: "Hier wählst du deinen Commander. Entfernen hebt die Rolle auf; die Karte bleibt im Deck." },
+    /// A partner must match the selected commander's rules.
+    PartnerHint { en: "Only compatible partners are shown. Some commanders cannot have a partner.", de: "Hier erscheinen nur passende Partner. Manche Commander können keinen Partner haben." },
+    /// Show or hide detailed deck statistics.
+    DeckStatistics { en: "Statistics", de: "Statistiken" },
     /// Hub navigation.
     HubPlay { en: "Play", de: "Spielen" },
     /// Hub navigation.
     HubDecks { en: "My collection", de: "Meine Sammlung" },
     /// Hub navigation.
+    /// The deck selected for the next game
+    SelectedDeck { en: "Your next game", de: "Dein nächstes Spiel" },
+    /// Choose a deck
     ChooseDeck { en: "Choose a deck", de: "Deck auswählen" },
     /// Hub navigation.
     CreateTable { en: "Create table", de: "Tisch erstellen" },
@@ -218,7 +251,7 @@ messages! {
     /// Library and front-door interface.
     HistoryHint { en: "Every save is kept. Restoring creates a new version; later saves remain available.", de: "Jeder Stand bleibt erhalten. Wiederherstellen erzeugt eine neue Version; spätere Stände bleiben verfügbar." },
     /// Library and front-door interface.
-    WorkingDiff { en: "Changes from your working deck", de: "Änderungen gegenüber deinem Arbeitsdeck" },
+    WorkingDiff { en: "Changes from the latest saved version", de: "Änderungen gegenüber der zuletzt gespeicherten Version" },
     /// Library and front-door interface.
     RestoreVersion { en: "Restore this version", de: "Diesen Stand wiederherstellen" },
     /// Library and front-door interface.
@@ -906,10 +939,10 @@ messages! {
     LookingForPrintings { en: "looking for other printings…", de: "suche weitere Drucke…" },
     /// {0} of {1}
     PrintingAt { en: "{0} of {1}", de: "{0} von {1}" },
-    /// this gateway has no card catalog — only this build's printing
+    /// Other printings could not be loaded. Showing the reference printing.
     NoCatalogOnlyThis {
-        en: "this gateway has no card catalog — only this build's printing",
-        de: "dieses Gateway hat keinen Kartenkatalog — nur den Druck dieses Builds",
+        en: "Other printings could not be loaded. Showing the reference printing.",
+        de: "Weitere Drucke konnten nicht geladen werden. Referenzdruck wird angezeigt.",
     },
     /// All
     AllSets { en: "All", de: "Alle" },

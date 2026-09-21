@@ -342,7 +342,7 @@ fn issue_186_house_copy_gets_its_own_identity_and_history_membership() {
         lobby.library().page.is_none(),
         "late response cannot reopen an account screen"
     );
-    assert_eq!(offline_lobby().browse_house(), None);
+    assert!(offline_lobby().browse_house().is_some());
     assert_eq!(offline_lobby().browse_history(), None);
 }
 

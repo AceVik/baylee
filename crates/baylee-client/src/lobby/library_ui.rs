@@ -280,32 +280,19 @@ pub(super) fn screen(
             }
             let diff_title = heading(commands, fonts, metrics, Phrase::WorkingDiff.text(lang));
             commands.entity(card).add_child(diff_title);
+            let base = lib.current.as_ref().unwrap_or(snapshot);
             for (label, before, after) in [
-                (
-                    Phrase::LibraryMain,
-                    lobby.builder().rows(Zone::Main),
-                    &snapshot.cards,
-                ),
-                (
-                    Phrase::LibrarySide,
-                    lobby.builder().rows(Zone::Side),
-                    &snapshot.sideboard,
-                ),
+                (Phrase::LibraryMain, &base.cards, &snapshot.cards),
+                (Phrase::LibrarySide, &base.sideboard, &snapshot.sideboard),
                 (
                     Phrase::LibraryCommanders,
-                    lobby
-                        .builder()
-                        .commanders()
-                        .iter()
-                        .filter_map(|&slot| lobby.builder().card(slot))
-                        .map(|c| c.english_name.clone())
-                        .collect(),
+                    &base.commanders,
                     &snapshot.commanders,
                 ),
             ] {
                 let section = heading(commands, fonts, metrics, label.text(lang));
                 commands.entity(card).add_child(section);
-                let changes = row_changes(&before, after);
+                let changes = row_changes(before, after);
                 if changes.is_empty() {
                     let same = note(commands, fonts, metrics, Phrase::NoChanges.text(lang));
                     commands.entity(card).add_child(same);

@@ -1546,7 +1546,7 @@ fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, size: f32, ink
 /// and says exactly the same thing on a button — a place where something
 /// would be.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(super) enum Weight {
+pub(crate) enum Weight {
     /// The answer the engine is asking for — pass, attack, keep, yes, OK.
     ///
     /// Exactly one per question, and it is the **marking of the default
@@ -1660,11 +1660,31 @@ pub(super) fn answer(
     weight: Weight,
     cap: Option<&str>,
 ) -> Entity {
+    let id = answer_sized(commands, fonts, label, weight, cap, BUTTON_H, LABEL_PT);
+    commands.entity(id).entry::<Node>().and_modify(|mut n| {
+        n.height = px(BUTTON_H);
+        n.min_height = Val::Auto;
+        n.flex_shrink = 1.0;
+    });
+    id
+}
+
+/// The game menu's button treatment at a screen-appropriate touch size.
+pub(crate) fn answer_sized(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    weight: Weight,
+    cap: Option<&str>,
+    height: f32,
+    font_size: f32,
+) -> Entity {
     let (fill, edge, ink) = weight.colours();
     let button = commands
         .spawn((
             Node {
-                height: px(BUTTON_H),
+                min_height: px(height),
+                flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(CAP_GAP),
@@ -1718,7 +1738,7 @@ pub(super) fn answer(
     let words = commands
         .spawn((
             Text::new(label.to_string()),
-            tf_bold(fonts, LABEL_PT),
+            tf_bold(fonts, font_size),
             TextColor(ink),
             Pickable::IGNORE,
         ))

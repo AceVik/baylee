@@ -16,7 +16,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/noise.wgsl"::fbm2
+#import "embedded://baylee_client/shaders/noise.wgsl"::{noise2, hash2}
 
 struct AmbienceParams {
     /// The ground, and what the bands are drawn in.
@@ -43,13 +43,14 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // Aspect-corrected so a circle stays a circle on a 21:9 monitor.
     var uv = in.uv * vec2<f32>(params.aspect, 1.0) + vec2<f32>(params.seed, params.seed * 0.7);
 
+    // Three smooth noise samples instead of twelve octaves over the entire screen.
     // The field, warped by a slower copy of itself. Domain warping is what
     // stops fbm from reading as fog and starts it reading as current.
     let warp = vec2<f32>(
-        fbm2(uv * 1.6 + vec2<f32>(t * 0.05, t * -0.03)),
-        fbm2(uv * 1.6 + vec2<f32>(-t * 0.04, t * 0.06) + 4.0),
+        noise2(uv * 1.6 + vec2<f32>(t * 0.05, t * -0.03)),
+        noise2(uv * 1.6 + vec2<f32>(-t * 0.04, t * 0.06) + 4.0),
     );
-    let field = fbm2(uv * 2.2 + warp * 1.4 + vec2<f32>(0.0, t * 0.02));
+    let field = noise2(uv * 2.2 + warp * 1.4 + vec2<f32>(0.0, t * 0.02));
 
     // Bands, lensed through the same warp so they bend with the field
     // instead of sliding across it.
@@ -65,17 +66,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // than half way and the sign-in panel sat on a wall of teal: this is the
     // ground *behind* a form somebody is reading, and the brightest thing on
     // the screen has to stay the thing they are typing into.
-    let base = mix(params.low.rgb, params.high.rgb, field * 0.14 + 0.02);
-    let lit = base + params.high.rgb * bands * 0.14;
+    let base = mix(params.low.rgb, params.high.rgb, field * 0.22 + 0.025);
+    let lit = base + params.high.rgb * bands * 0.20;
     // Sparse motes and fine grain echo the felt and champagne table bevels.
     // One procedural pass, no textures or per-particle entities; t freezes
     // with reduced motion and the ornament cannot intercept an input.
     let cells = uv * 42.0 + vec2<f32>(t * 0.07, -t * 0.12);
     let cell = floor(cells);
-    let seed = fract(sin(dot(cell, vec2<f32>(127.1, 311.7))) * 43758.5453);
+    let seed = hash2(cell);
     let point = fract(cells) - vec2<f32>(seed, fract(seed * 7.3));
     let mote = (1.0 - smoothstep(0.015, 0.065, length(point))) * step(0.985, seed);
-    let grain = (fract(sin(dot(floor(in.position.xy), vec2<f32>(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.004;
+    let grain = (hash2(floor(in.position.xy)) - 0.5) * 0.004;
     let rgb = lit * (0.65 + 0.35 * vignette) + params.high.rgb * mote * 0.22 + grain;
     return vec4<f32>(rgb, params.low.a);
 }
