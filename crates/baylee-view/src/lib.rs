@@ -1642,4 +1642,172 @@ mod tests {
         assert!(v.object(ObjectId::new(2, 0)).is_some());
         assert!(v.object(ObjectId::new(99, 0)).is_none());
     }
+
+    /// Every field the key is made of, one at a time.
+    ///
+    /// The promise `summary_key` makes is that "two objects group only when
+    /// every visible property matches, so collapsing can never hide a
+    /// difference that matters to a decision". A field left out of the key is
+    /// exactly that hidden difference — a summoning-sick creature collapsed
+    /// into a stack with one that can attack is a lie about what a player may
+    /// do this turn.
+    ///
+    /// The count at the end is what keeps this list honest: the key's own
+    /// `Debug` names its fields, so a field added to it without a mutation
+    /// here fails rather than passing quietly.
+    #[test]
+    fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
+        type Change = (&'static str, fn(&mut PublicObject));
+        const CHANGES: &[Change] = &[
+            ("card", |o| {
+                o.card = Some(CardIdentity {
+                    index: CardIndex::new(7),
+                    print: PrintRef::new(0),
+                    face: 0,
+                });
+            }),
+            ("face", |o| {
+                o.card = Some(CardIdentity {
+                    index: CardIndex::new(7),
+                    print: PrintRef::new(0),
+                    face: 1,
+                });
+            }),
+            ("name", |o| o.name = "Zombie".to_string()),
+            ("controller", |o| o.controller = PlayerId::new(1)),
+            ("commander", |o| o.commander = true),
+            ("status", |o| o.status = ObjectStatus::TAPPED),
+            ("types", |o| o.types = TypeSet::ARTIFACT),
+            ("power", |o| o.power = Some(2)),
+            ("toughness", |o| o.toughness = Some(2)),
+            ("base_power", |o| o.base_power = Some(1)),
+            ("base_toughness", |o| o.base_toughness = Some(1)),
+            ("damage", |o| o.damage = 1),
+            ("loyalty", |o| o.loyalty = Some(3)),
+            ("counters", |o| {
+                o.counters = vec![CounterEntry {
+                    kind: CounterKind::PLUS_ONE,
+                    count: 1,
+                }];
+            }),
+            ("attached", |o| o.attached_to = Some(ObjectId::new(99, 0))),
+            ("summoning_sick", |o| o.summoning_sick = true),
+        ];
+
+        let base = obj(1, 0);
+        // The same object twice, so the comparison below is about the change
+        // and not about the id — which is deliberately not in the key.
+        assert_eq!(base.summary_key(), obj(2, 0).summary_key());
+
+        for (what, change) in CHANGES {
+            let mut other = obj(3, 0);
+            change(&mut other);
+            assert_ne!(
+                base.summary_key(),
+                other.summary_key(),
+                "two objects differing in {what} collapse into one stack"
+            );
+        }
+
+        // The printing is deliberately *not* in it. Two Forests with
+        // different art are still two Forests, and a fourteenth is what
+        // turns them into one card saying fourteen — the board collapses on
+        // what a player would conclude, and the art is not part of that.
+        let printing = |print: u16| {
+            let mut o = obj(7, 0);
+            o.card = Some(CardIdentity {
+                index: CardIndex::new(7),
+                print: PrintRef::new(print),
+                face: 0,
+            });
+            o.summary_key()
+        };
+        assert_eq!(
+            printing(0),
+            printing(1),
+            "a second printing of one card splits a stack that should collapse"
+        );
+
+        // `card` and `face` are one field of the key, so the list is one
+        // longer than the key is wide.
+        let printed = format!("{:?}", base.summary_key());
+        let named = printed.matches(": ").count();
+        assert_eq!(
+            named,
+            CHANGES.len() - 1,
+            "the key prints {named} fields and this test changes \
+             {} of them: {printed}",
+            CHANGES.len() - 1
+        );
+    }
+
+    /// The two mana fields are what a client plans a turn with, and they are
+    /// carried per ability rather than per permanent: a permanent may have
+    /// several, and the one that makes mana is not always the first. Reading
+    /// the colours onto the wrong row is a land the planner counts and the
+    /// engine refuses.
+    #[test]
+    fn a_mana_row_names_the_ability_it_belongs_to() {
+        use baylee_core::mana::ManaColor;
+        let mut o = obj(1, 0);
+        o.granted_mana = Some(GrantedMana {
+            slot: 2,
+            colors: vec![ManaColor::White, ManaColor::Blue],
+            amount: 1,
+        });
+        o.board_mana = Some(BoardMana {
+            index: 1,
+            colors: vec![ManaColor::Green],
+        });
+
+        let text = serde_json::to_string(&o).expect("an object serialises");
+        let back: PublicObject = serde_json::from_str(&text).expect("and reads back");
+        assert_eq!(back.granted_mana, o.granted_mana);
+        assert_eq!(back.board_mana, o.board_mana);
+
+        let granted = back.granted_mana.expect("carried");
+        assert_eq!(granted.slot, 2, "not the first granted ability");
+        assert_eq!(
+            granted.colors.len(),
+            2,
+            "more than one colour is an ability that asks"
+        );
+        assert_eq!(
+            back.board_mana.expect("carried").index,
+            1,
+            "a printed mana ability that is not the card's first — \
+             Commander's Sphere prints a sacrifice ability beside it"
+        );
+    }
+
+    /// An object nobody granted anything carries neither field, which is what
+    /// makes the presence of one meaningful: an ability that can make no mana
+    /// right now is reported as no row at all rather than as an empty one.
+    #[test]
+    fn an_ordinary_permanent_carries_no_mana_row() {
+        let o = obj(1, 0);
+        assert!(o.granted_mana.is_none() && o.board_mana.is_none());
+    }
+
+    /// Counters are read by kind, and a kind that is not there is nought
+    /// rather than missing — a client draws the badge from this number and
+    /// would otherwise have to tell an absent counter from a zero one.
+    #[test]
+    fn a_counter_that_is_not_there_counts_as_none() {
+        let mut o = obj(1, 0);
+        assert_eq!(o.counter_count(CounterKind::PLUS_ONE), 0);
+        o.counters = vec![
+            CounterEntry {
+                kind: CounterKind::PLUS_ONE,
+                count: 3,
+            },
+            CounterEntry {
+                kind: CounterKind::Charge,
+                count: 1,
+            },
+        ];
+        assert_eq!(o.counter_count(CounterKind::PLUS_ONE), 3);
+        assert_eq!(o.counter_count(CounterKind::Charge), 1);
+        assert_eq!(o.counter_count(CounterKind::Loyalty), 0, "still nought");
+    }
 }
