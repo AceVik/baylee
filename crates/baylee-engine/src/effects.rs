@@ -328,6 +328,7 @@ mod tests {
         AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
         SeatController, SeatSpec,
     };
+    use std::collections::BTreeSet;
 
     struct RegistryLookup;
     impl CardLookup for RegistryLookup {
@@ -391,6 +392,180 @@ mod tests {
             filter,
             modifier,
         }
+    }
+
+    /// Every `Modifier` there is, so that the two classifications below are
+    /// compared over the whole enum rather than over the ones somebody
+    /// thought of.
+    ///
+    /// A list of values and not of answers: what each row is held against
+    /// is `Modifier::layer()`, which is a second hand-written classification
+    /// of the same thirty-nine variants made for a different reason. The
+    /// count is checked against the declaration in `static_ability.rs`
+    /// below, because `locks_its_set` is exhaustive and a new variant is a
+    /// compile error *there* — the risk here is a variant quietly missing
+    /// from the comparison, which is silent.
+    fn every_modifier() -> Vec<Modifier> {
+        const NOTHING: &[baylee_cards_dsl::Effect] = &[];
+        use baylee_cards_dsl::{CounterKind, KeywordSet};
+        use baylee_core::color::{Color, ColorSet};
+        use baylee_core::ids::SubtypeId;
+        use baylee_core::types::TypeSet;
+        vec![
+            Modifier::BecomeCopyOf(ObjectId::new(1, 0)),
+            Modifier::GainControl,
+            Modifier::AddType(TypeSet::ARTIFACT),
+            Modifier::RemoveType(TypeSet::CREATURE),
+            Modifier::AddSubtype(SubtypeId::new(1)),
+            Modifier::AllCreatureTypes,
+            Modifier::AllBasicLandTypes,
+            Modifier::AddTypeIfCountersAtLeast {
+                kind: CounterKind::Charge,
+                at_least: 8,
+                types: TypeSet::CREATURE,
+            },
+            Modifier::AddColor(ColorSet::of(Color::Red)),
+            Modifier::SetColor(ColorSet::EMPTY),
+            Modifier::AddKeyword(KeywordSet::FLYING),
+            Modifier::RemoveKeyword(KeywordSet::FLYING),
+            Modifier::LoseKeywords,
+            Modifier::AddKeywordIfCountersAtLeast {
+                kind: CounterKind::Charge,
+                at_least: 8,
+                keywords: KeywordSet::FLYING,
+            },
+            Modifier::GrantActivated {
+                cost: baylee_cards_dsl::Cost::TAP,
+                effects: NOTHING,
+                mana_ability: true,
+            },
+            Modifier::GrantTriggered {
+                trigger: baylee_cards_dsl::Trigger::ETB,
+                effects: NOTHING,
+                target: None,
+            },
+            Modifier::GrantsFlashback,
+            Modifier::ProtectionFrom(&Filter::CREATURE),
+            Modifier::SetPT(2, 2),
+            Modifier::ModifyPT(1, 1),
+            Modifier::ModifyPTPerCount {
+                filter: &Filter::CREATURE,
+                p: 1,
+                t: 1,
+            },
+            Modifier::SwitchPT,
+            Modifier::LegendRuleOff,
+            Modifier::PlayLandsFromGraveyard,
+            Modifier::ExtraLandDrops(2),
+            Modifier::CantActivateArtifacts,
+            Modifier::OpponentsCastAsSorcery,
+            Modifier::PlayersCantLose,
+            Modifier::CantLoseLife,
+            Modifier::PreventDamageToIt,
+            Modifier::PreventDamageFromIt,
+            Modifier::OpponentsCantSearch,
+            Modifier::NoMaxHandSize,
+            Modifier::PlayerHexproof,
+            Modifier::SorceriesHaveFlash,
+            Modifier::ManaIsAnyColor,
+            Modifier::SearchTakeover,
+            Modifier::DoesNotUntap,
+            Modifier::MayChooseNotToUntap,
+        ]
+    }
+
+    /// The list above is the enum. Read out of the declaration rather than
+    /// counted by hand, because a list that is merely long enough would pass
+    /// while missing the variant somebody added and answered for by reflex.
+    #[test]
+    fn the_list_is_every_modifier_the_dsl_declares() {
+        let source = include_str!("../../baylee-cards-dsl/src/static_ability.rs");
+        let body = source
+            .split_once("pub enum Modifier {")
+            .expect("the enum is declared there")
+            .1;
+        let declared: Vec<&str> = body
+            .split_once("\n}\n")
+            .expect("and it ends")
+            .0
+            .lines()
+            .filter(|line| line.starts_with("    ") && !line.starts_with("     "))
+            .map(str::trim)
+            .filter(|line| line.starts_with(|c: char| c.is_ascii_uppercase()))
+            .map(|line| line.split([' ', '(', '{', ',']).next().unwrap_or(line))
+            .collect();
+
+        let listed: Vec<String> = every_modifier()
+            .iter()
+            .map(|m| {
+                let printed = format!("{m:?}");
+                printed
+                    .split([' ', '('])
+                    .next()
+                    .unwrap_or(&printed)
+                    .to_owned()
+            })
+            .collect();
+
+        assert_eq!(
+            declared.len(),
+            39,
+            "read {} variants out of the declaration, which is not the enum",
+            declared.len()
+        );
+        assert_eq!(
+            declared.iter().copied().collect::<BTreeSet<_>>(),
+            listed.iter().map(String::as_str).collect::<BTreeSet<_>>(),
+            "the list and the enum have drifted"
+        );
+    }
+
+    /// **CR 611.2c and CR 613.1 draw one line, and the two readers of it
+    /// agree on thirty-eight of thirty-nine.** The rule locks a set for an
+    /// effect that modifies characteristics or changes control; the layer
+    /// system puts exactly those effects on a layer of their own and parks
+    /// everything else on `Layer::Text`, which
+    /// `a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text`
+    /// describes as the bucket for "things that genuinely change nothing
+    /// about an object". So one predicate is checkable against the other,
+    /// and neither was written with the other in mind.
+    ///
+    /// The exception is [`Modifier::CantActivateArtifacts`], Karn's static.
+    /// It answers `Layer::Ability` and locks nothing, and the two readings
+    /// are not both right: it adds and removes no ability — the artifact
+    /// still has one, and CR 602.5a stops it being activated — so by the
+    /// criterion its own layer test states it belongs in the parking bucket
+    /// beside `SorceriesHaveFlash`. Pinned rather than moved, because
+    /// `layers::apply_modifier` writes no characteristic for it either way
+    /// and nothing orders effects that write nothing: the day something
+    /// does, this is the test that says where to look.
+    #[test]
+    fn locking_a_set_and_having_a_layer_are_the_same_question_but_once() {
+        let mut disagree = Vec::new();
+        for modifier in every_modifier() {
+            let locks = locks_its_set(&modifier);
+            let characteristic = modifier.layer() != Layer::Text;
+            if locks != characteristic {
+                disagree.push(format!(
+                    "{modifier:?} locks={locks} layer={:?}",
+                    modifier.layer()
+                ));
+            }
+        }
+        assert_eq!(
+            disagree,
+            vec!["CantActivateArtifacts locks=false layer=Ability"],
+            "the two readings of CR 611.2c have drifted apart"
+        );
+    }
+
+    /// The counts, so that a change which flips a modifier from one side to
+    /// the other is a failure and not a quiet re-balancing: twenty-two
+    /// modifiers lock the objects they found, seventeen do not.
+    #[test]
+    fn twenty_two_modifiers_lock_a_set_and_seventeen_do_not() {
+        let locking = every_modifier().iter().filter(|m| locks_its_set(m)).count();
+        assert_eq!((locking, 39 - locking), (22, 17));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
