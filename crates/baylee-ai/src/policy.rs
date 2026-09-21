@@ -925,3 +925,85 @@ fn remaining_sources(view: &PlayerView) -> Vec<Source> {
     }
     sources(view, &estimate)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{mix, priced};
+    use baylee_cards_dsl::{Cost, CostPart};
+
+    /// What a tap costs is part of the ranking. `mana_shape` has already
+    /// refused a mana price, so what is left is `cost.parts`, and `{T}` is
+    /// the only part a mana source may carry for free — a `matches!` on
+    /// that one variant rather than a list of the expensive ones, so a
+    /// `CostPart` added tomorrow is priced by default.
+    ///
+    /// The bug it closes is Havenwood Battleground, which prints `{T}: Add
+    /// {G}` beside `{T}, Sacrifice this land: Add {G}{G}`: ranked on mana
+    /// made, the sacrifice won and the agent sold the land for a mana it
+    /// already had.
+    #[test]
+    fn only_tapping_the_permanent_is_free() {
+        assert!(!priced(&Cost::TAP));
+        assert!(!priced(&Cost::FREE), "an ability with no cost at all");
+        assert!(priced(&baylee_cards_dsl::cost!(TapSelf, SacrificeSelf)));
+        assert!(
+            priced(&baylee_cards_dsl::cost!(TapSelf, PayLife(1))),
+            "Spire of Industry pays the life whenever the plan asks it to"
+        );
+        assert!(
+            priced(&baylee_cards_dsl::cost!(UntapSelf)),
+            "untapping a permanent is a different button from tapping it, \
+             whatever mana comes out"
+        );
+        assert!(priced(&baylee_cards_dsl::cost!(
+            TapSelf,
+            Discard(&baylee_cards_dsl::Filter::CREATURE)
+        )));
+    }
+
+    /// The noise an agent breaks a tie with is `SplitMix`'s integer
+    /// finalizer: fixed arithmetic, not a platform hasher and not a process
+    /// RNG. A replay has to reach the same decision on another machine and
+    /// in another build, so the values are written down rather than merely
+    /// asserted to be stable within one run — a `DefaultHasher` passes
+    /// every property test this could ask and changes these four numbers.
+    #[test]
+    fn the_tie_break_noise_is_arithmetic_and_not_a_hasher() {
+        assert_eq!(mix(0), 0);
+        assert_eq!(mix(1), 6_238_072_747_940_578_789);
+        assert_eq!(mix(2), 15_839_785_061_582_574_730);
+        assert_eq!(mix(0xdead_beef), 5_622_224_078_331_092_714);
+    }
+
+    /// And it separates neighbours, which is the whole job: the noise is
+    /// keyed by the offered object as well as the view, so two objects one
+    /// apart must not sort together.
+    #[test]
+    fn neighbouring_keys_do_not_share_a_tie_break() {
+        let noise: Vec<u64> = (0..64).map(mix).collect();
+        let mut sorted = noise.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), noise.len(), "64 keys, 64 distinct answers");
+        assert_ne!(noise[1] >> 60, noise[2] >> 60, "and they differ up top");
+    }
+
+    /// One part of `priced`'s contract that the `matches!` states and
+    /// nothing else would: a cost made only of parts it has never seen is
+    /// priced, not free.
+    #[test]
+    fn an_unrecognised_part_is_priced_rather_than_ignored() {
+        const PARTS: [&[CostPart]; 3] = [
+            &[CostPart::ExileSelf],
+            &[CostPart::DiscardSelf],
+            &[CostPart::ReturnSelfToHand],
+        ];
+        for parts in PARTS {
+            let cost = Cost {
+                mana: baylee_core::mana::ManaCost::ZERO,
+                parts,
+            };
+            assert!(priced(&cost), "{parts:?}");
+        }
+    }
+}
