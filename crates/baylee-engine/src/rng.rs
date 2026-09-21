@@ -204,4 +204,133 @@ mod tests {
             assert!((1..=6).contains(&d));
         }
     }
+
+    /// Every draw is counted and moves the stream, whichever door it came
+    /// through: `calls()` is what a journal cross-checks a replay against and
+    /// `word_pos()` is what a snapshot hash reads, so a door that drew
+    /// without counting would make a replay that diverges look faithful. A
+    /// shuffle draws once per swap, so a deck of *n* costs `n - 1`.
+    ///
+    /// The empty and one-card cases are the ones worth pinning. One stream
+    /// serves the whole table, so a shuffle of nothing that drew anyway would
+    /// move it for everybody — a player with an empty library would change
+    /// what their opponent draws.
+    #[test]
+    fn every_draw_is_counted_and_moves_the_stream() {
+        let mut rng = GameRng::new(11);
+        assert_eq!(rng.calls(), 0);
+        let before = rng.word_pos();
+        rng.next_u64();
+        assert_eq!(rng.calls(), 1);
+        assert!(rng.word_pos() > before, "a draw moves the stream position");
+        rng.below(10);
+        rng.roll(20);
+        assert_eq!(rng.calls(), 3, "below and roll are draws like any other");
+
+        for len in [0_usize, 1, 2, 7, 60] {
+            let mut rng = GameRng::new(11);
+            let mut deck: Vec<usize> = (0..len).collect();
+            rng.shuffle(&mut deck);
+            assert_eq!(
+                rng.calls(),
+                u64::try_from(len.saturating_sub(1)).expect("a small deck"),
+                "a shuffle of {len} cards is one draw per swap"
+            );
+            let mut back = deck.clone();
+            back.sort_unstable();
+            assert_eq!(
+                back,
+                (0..len).collect::<Vec<_>>(),
+                "and it is a permutation: no card lost, none dealt twice"
+            );
+        }
+
+        let mut idle = GameRng::new(11);
+        idle.shuffle(&mut Vec::<u8>::new());
+        assert_eq!(
+            idle.word_pos(),
+            GameRng::new(11).word_pos(),
+            "shuffling nothing leaves the stream where every other seat \
+             expects to find it"
+        );
+    }
+
+    /// `below` is exclusive on its bound and free of modulo bias: the
+    /// multiply-high keeps the top 64 bits of a 128-bit product, so `n`
+    /// itself is unreachable by construction rather than by a rejection
+    /// loop, and `below(1)` is a constant 0 that costs one draw.
+    #[test]
+    fn a_bounded_draw_stays_under_its_bound_and_reaches_all_of_it() {
+        let mut rng = GameRng::new(3);
+        for _ in 0..500 {
+            assert_eq!(rng.below(1), 0, "the only value under one");
+        }
+
+        let mut coin = [0_u32; 2];
+        for _ in 0..2_000 {
+            let v = rng.below(2);
+            coin[usize::try_from(v).expect("under two")] += 1;
+        }
+        assert!(
+            coin.iter().all(|&n| n > 800),
+            "both halves come up, and neither is the whole coin: {coin:?}"
+        );
+
+        let mut top = 0_u64;
+        for _ in 0..2_000 {
+            let v = rng.below(u64::MAX);
+            assert!(v < u64::MAX, "the bound itself is never handed out");
+            top = top.max(v);
+        }
+        assert!(
+            top > u64::MAX / 2,
+            "and the whole range is reachable, not just its floor"
+        );
+    }
+
+    /// Zero is refused rather than wrapped. A `below(0)` is a caller asking
+    /// for a card out of an empty zone, and answering it with 0 would hand
+    /// back an index into nothing.
+    #[test]
+    #[should_panic(expected = "below(0) is meaningless")]
+    fn a_draw_below_nothing_is_refused() {
+        let mut rng = GameRng::new(1);
+        let _ = rng.below(0);
+    }
+
+    /// A clone is the same stream from the same place, which is what lets a
+    /// game position be snapshot and played on from. The seed does **not**
+    /// move, so a hash reading only `seed()` would call two different
+    /// positions of one game identical — `word_pos()` is the half that says
+    /// how far along it is, and both are read for that reason.
+    #[test]
+    fn a_clone_is_the_same_stream_from_the_same_place() {
+        let mut rng = GameRng::new(99);
+        for _ in 0..17 {
+            rng.next_u64();
+        }
+        let mut copy = rng.clone();
+        assert_eq!(copy.word_pos(), rng.word_pos());
+        assert_eq!(copy.calls(), rng.calls(), "and the count travels with it");
+        let taken: Vec<u64> = (0..8).map(|_| rng.next_u64()).collect();
+        let again: Vec<u64> = (0..8).map(|_| copy.next_u64()).collect();
+        assert_eq!(taken, again);
+
+        let fresh = GameRng::new(99);
+        assert_eq!(
+            fresh.seed(),
+            rng.seed(),
+            "the seed belongs to the game, not to the position"
+        );
+        assert_ne!(
+            fresh.word_pos(),
+            rng.word_pos(),
+            "the position is the half that moved"
+        );
+        assert_ne!(
+            GameRng::new(98).seed(),
+            fresh.seed(),
+            "and another game's seed is another stream"
+        );
+    }
 }
