@@ -823,4 +823,153 @@ mod tests {
         );
         assert_eq!(result.first_enemy_gain, 8);
     }
+
+    /// A fighter of a given mana value, for the worth arithmetic below.
+    fn priced(p: i32, t: i32, worth: u32) -> Fighter {
+        Fighter {
+            power: p,
+            toughness: t,
+            keywords: KeywordSet::EMPTY.bits(),
+            worth,
+        }
+    }
+
+    /// First strike is the whole of CR 510.4 in this model: the blocker is
+    /// dead before the ordinary damage step, so it never strikes back. The
+    /// test that existed used a 2/4 against a 3/3, which survives the
+    /// exchange either way — an attacker that took the return damage anyway
+    /// would have passed it.
+    #[test]
+    fn a_first_striker_kills_before_it_can_be_killed() {
+        let quick = fighter(2, 2, KeywordSet::FIRST_STRIKE);
+        let plain = fighter(2, 2, KeywordSet::EMPTY);
+
+        let result = fight(quick, &[plain], 1);
+        assert_eq!(result.dead, 1, "the blocker dies in the first step");
+        assert!(
+            !result.attacker_dead,
+            "and deals nothing back, because it is not there for the second"
+        );
+
+        // The counter-evidence: the same exchange without the keyword kills
+        // both, so what saved the attacker was first strike and not its size.
+        let result = fight(plain, &[plain], 1);
+        assert_eq!(result.dead, 1);
+        assert!(result.attacker_dead, "simultaneous damage trades them");
+    }
+
+    /// Deathtouch is one point, whatever the size (CR 702.2b), and it is
+    /// read off whichever side has it. A 1/1 that eats a 6/6 is the reason
+    /// a blocking search must price the keyword rather than the body.
+    #[test]
+    fn one_point_of_deathtouch_is_lethal_from_either_side() {
+        let biter = fighter(1, 1, KeywordSet::DEATHTOUCH);
+        let giant = fighter(6, 6, KeywordSet::EMPTY);
+
+        let result = fight(giant, &[biter], 1);
+        assert!(result.attacker_dead, "the 6/6 dies to one point");
+        assert_eq!(result.dead, 1, "and the 1/1 dies to six");
+
+        let result = fight(biter, &[giant], 1);
+        assert_eq!(result.dead, 1, "a deathtouch attacker kills its blocker");
+        assert!(result.attacker_dead);
+    }
+
+    /// Indestructible is checked before any amount of damage is (CR 702.12b),
+    /// so a blocker that cannot die is a block the search must not price as a
+    /// trade — and deathtouch does not change that.
+    #[test]
+    fn nothing_indestructible_dies_however_much_it_is_dealt() {
+        let wall = fighter(0, 1, KeywordSet::INDESTRUCTIBLE);
+        let result = fight(fighter(9, 9, KeywordSet::EMPTY), &[wall], 1);
+        assert_eq!(result.dead, 0, "nine damage is still not destruction");
+        assert!(!result.attacker_dead);
+
+        let result = fight(fighter(1, 1, KeywordSet::DEATHTOUCH), &[wall], 1);
+        assert_eq!(result.dead, 0, "nor is deathtouch");
+
+        let attacker = fighter(1, 1, KeywordSet::INDESTRUCTIBLE);
+        let result = fight(attacker, &[fighter(9, 9, KeywordSet::DEATHTOUCH)], 1);
+        assert!(
+            !result.attacker_dead,
+            "and the rule is read on the attacking side too"
+        );
+    }
+
+    /// An unblocked attacker is the early return, and everything about it is
+    /// arithmetic a player can check: the damage is its power, a double
+    /// striker deals it twice, first strike puts it in the first step, and
+    /// lifelink gains all of it.
+    #[test]
+    fn an_unblocked_attacker_is_its_own_arithmetic() {
+        let result = fight(fighter(3, 3, KeywordSet::EMPTY), &[], 0);
+        assert_eq!((result.damage, result.first_damage, result.gain), (3, 0, 0));
+
+        let result = fight(fighter(3, 3, KeywordSet::DOUBLE_STRIKE), &[], 0);
+        assert_eq!(result.damage, 6, "twice, in two steps");
+        assert_eq!(
+            result.first_damage, 3,
+            "half of it early, which is what a lethal check reads"
+        );
+
+        let result = fight(fighter(3, 3, KeywordSet::FIRST_STRIKE), &[], 0);
+        assert_eq!(
+            (result.damage, result.first_damage),
+            (3, 3),
+            "first strike moves the damage, it does not add any"
+        );
+
+        let result = fight(
+            fighter(3, 3, KeywordSet::LIFELINK.union(KeywordSet::DOUBLE_STRIKE)),
+            &[],
+            0,
+        );
+        assert_eq!(result.gain, 6, "lifelink gains what was dealt");
+
+        let result = fight(fighter(0, 3, KeywordSet::EMPTY), &[], 0);
+        assert_eq!(result.damage, 0, "and nought power deals nothing");
+    }
+
+    /// Trample assigns lethal to each blocker and the rest to the player,
+    /// and without it the last blocker absorbs the excess — which is what
+    /// makes a chump block worth anything at all to the defender.
+    #[test]
+    fn trample_is_the_difference_between_a_chump_block_and_none() {
+        let big = fighter(7, 7, KeywordSet::TRAMPLE);
+        let chump = fighter(1, 1, KeywordSet::EMPTY);
+
+        let result = fight(big, &[chump], 1);
+        assert_eq!(result.damage, 6, "one to the blocker, six to the player");
+        assert_eq!(result.dead, 1);
+
+        let result = fight(fighter(7, 7, KeywordSet::EMPTY), &[chump], 1);
+        assert_eq!(
+            result.damage, 0,
+            "without trample the whole seven stops at the blocker"
+        );
+        assert_eq!(result.dead, 1);
+    }
+
+    /// A token is worth nothing by mana value and is not worthless: losing a
+    /// 6/6 token to a one-mana creature is still an expensive exchange, and
+    /// the search would make it every time on mana value alone.
+    #[test]
+    fn a_token_is_priced_by_its_body_and_not_only_by_its_cost() {
+        let token = priced(6, 6, 0);
+        let cheap = priced(1, 1, 1);
+        assert!(
+            worth(token) > worth(cheap),
+            "a 6/6 token ({}) is worth more than a one-mana 1/1 ({})",
+            worth(token),
+            worth(cheap)
+        );
+        assert!(
+            worth(priced(2, 2, 4)) > worth(priced(2, 2, 1)),
+            "and between two equal bodies the expensive one is worth more"
+        );
+        assert!(
+            worth(priced(0, 0, 0)) > 0,
+            "nothing on the battlefield is worth nought — a trade is still a card"
+        );
+    }
 }
