@@ -3,16 +3,35 @@
 //! Oracle: {T}: Add {U}.
 //! Oracle: {U}, {T}: The next spell you cast this turn can't be countered.
 //! Set: TDM #261 — Tarkir: Dragonstorm | Scryfall ID: d44bccbf-6fab-46e4-8ddb-6577e27ec6e8 | Oracle ID: 339f5334-b65a-445a-a016-20e997e0b4bb
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — enters tapped unless Mountain or Forest and {T}: Add {U} are built; uncounterable grant to the next spell is unsupported.
 
 use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+static CHECK: Filter = Filter::And(&[
+    Filter::LAND,
+    Filter::ControlledByYou,
+    Filter::Or(&[
+        Filter::HasSubtype(subtypes::land::MOUNTAIN),
+        Filter::HasSubtype(subtypes::land::FOREST),
+    ]),
+]);
 
 card!(
     index = index::MISTRISE_VILLAGE,
     oracle_id = "339f5334-b65a-445a-a016-20e997e0b4bb",
     scryfall_id = "d44bccbf-6fab-46e4-8ddb-6577e27ec6e8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    faces = &[face!(name = "Mistrise Village", types = TypeSet::LAND,),],
+    faces = &[face!(
+        name = "Mistrise Village",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnless(&CHECK)],
+    ),],
+    coverage = Coverage::Partial(
+        "granting uncounterable to the next spell cast this turn is not expressible in the DSL"
+    ),
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
+        // NOT SUPPORTED: "{U}, {T}: The next spell you cast this turn can't be countered."
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
