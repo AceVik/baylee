@@ -246,3 +246,73 @@ impl HeuristicAgent {
         plan
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::sweeper;
+    use baylee_cards_dsl::{Amount, Effect, Filter};
+
+    /// A scouted sweeper is what stops the agent committing a third
+    /// creature, and the descent is [`Effect::branches`]' rather than a
+    /// list written here. Naming `Sequence` and `MayDo` and stopping there
+    /// missed every sweeper printed inside a kicker clause or behind
+    /// "unless you pay".
+    #[test]
+    fn a_sweeper_is_found_however_deeply_a_clause_nests_it() {
+        const WRATH: Effect = Effect::DestroyAll {
+            filter: &Filter::CREATURE,
+        };
+        const BARE: &[Effect] = &[WRATH];
+        const IN_A_SEQUENCE: &[Effect] = &[Effect::Sequence(&[WRATH])];
+        const IN_A_MAY: &[Effect] = &[Effect::MayDo { effects: &[WRATH] }];
+        const IN_A_KICKER: &[Effect] = &[Effect::IfKicked {
+            then: &[WRATH],
+            otherwise: &[],
+        }];
+        const IN_THE_OTHER_HALF: &[Effect] = &[Effect::IfKicked {
+            then: &[],
+            otherwise: &[Effect::MayDo { effects: &[WRATH] }],
+        }];
+
+        for (label, effects) in [
+            ("bare", BARE),
+            ("a sequence", IN_A_SEQUENCE),
+            ("a may-do", IN_A_MAY),
+            ("a kicker clause", IN_A_KICKER),
+            ("the unkicked half, two deep", IN_THE_OTHER_HALF),
+        ] {
+            assert!(sweeper(effects), "a sweeper inside {label} was not seen");
+        }
+    }
+
+    /// And the other direction, which is what makes the first worth
+    /// anything: a card that removes one creature is not a board sweeper,
+    /// and a pump is one only where the toughness it hands out is negative.
+    #[test]
+    fn a_card_that_is_not_a_sweeper_is_not_read_as_one() {
+        const ONE_AT_A_TIME: &[Effect] = &[Effect::Destroy {
+            target: baylee_cards_dsl::TargetSpec::Object(&Filter::CREATURE),
+        }];
+        const ANTHEM: &[Effect] = &[Effect::PumpFilter {
+            filter: &Filter::CREATURE,
+            controlled_by: None,
+            power: Amount::Fixed(1),
+            toughness: Amount::Fixed(1),
+            keywords: baylee_cards_dsl::KeywordSet::EMPTY,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+        }];
+        const A_PLAGUE: &[Effect] = &[Effect::Sequence(&[Effect::PumpFilter {
+            filter: &Filter::CREATURE,
+            controlled_by: None,
+            power: Amount::NegX,
+            toughness: Amount::NegX,
+            keywords: baylee_cards_dsl::KeywordSet::EMPTY,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+        }])];
+
+        assert!(!sweeper(&[]), "a card with no effects sweeps nothing");
+        assert!(!sweeper(ONE_AT_A_TIME));
+        assert!(!sweeper(ANTHEM), "a bonus is not a wrath");
+        assert!(sweeper(A_PLAGUE), "and the same shape negated is");
+    }
+}
