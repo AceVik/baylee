@@ -1050,3 +1050,133 @@ pub async fn put_settings(
     .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn deck_row(
+        name: &str,
+        cards: &[&str],
+        sideboard: &[&str],
+        commanders: &[&str],
+    ) -> deck::Model {
+        deck::Model {
+            id: Uuid::nil(),
+            account_id: None,
+            kind: "account".into(),
+            name: name.into(),
+            format: "commander".into(),
+            description: None,
+            copied_from: None,
+            copied_version: None,
+            version: 1,
+            cards: cards.iter().map(|s| (*s).to_string()).collect(),
+            sideboard: sideboard.iter().map(|s| (*s).to_string()).collect(),
+            commanders: commanders.iter().map(|s| (*s).to_string()).collect(),
+            sleeve: None,
+            playmat: None,
+            updated_at: OffsetDateTime::UNIX_EPOCH,
+        }
+    }
+
+    fn strings(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    /// The two edges this module exists to hold: the client reads unix
+    /// seconds and the column is a `timestamptz`, so the pair has to be a
+    /// round trip or a deck's date drifts every time it is saved.
+    #[test]
+    fn a_timestamp_survives_both_directions() {
+        for seconds in [0u64, 1, 1_700_000_000, 4_102_444_800] {
+            assert_eq!(secs(at(seconds)), seconds, "{seconds}");
+        }
+    }
+
+    /// Before 1970 is clamped rather than wrapped. There is no field here a
+    /// pre-epoch value would be meaningful in, and `u64::MAX` seconds from
+    /// now — which is what a wrap produces — is a worse answer than zero:
+    /// it sorts a row to the end of every list it appears in and expires
+    /// nothing.
+    #[test]
+    fn a_time_before_the_epoch_is_zero_and_not_the_end_of_the_universe() {
+        let before = OffsetDateTime::UNIX_EPOCH - time::Duration::days(1);
+        assert!(before.unix_timestamp() < 0);
+        assert_eq!(secs(before), 0);
+        assert_eq!(secs(OffsetDateTime::UNIX_EPOCH), 0);
+    }
+
+    /// And the other direction: a number no timestamp can hold is the epoch
+    /// rather than a panic, because the value came in over a socket.
+    #[test]
+    fn a_number_no_timestamp_can_hold_is_the_epoch() {
+        assert_eq!(at(u64::MAX), OffsetDateTime::UNIX_EPOCH);
+        assert_eq!(at(1_700_000_000).unix_timestamp(), 1_700_000_000);
+    }
+
+    /// A malformed id is a deck that does not exist, not a query that
+    /// fails: every route that takes an id out of a URL leans on this,
+    /// which is why it answers `None` instead of erroring.
+    #[test]
+    fn an_id_that_is_not_a_uuid_is_simply_not_found() {
+        let made = Uuid::from_u128(0x1234_5678_9abc_def0_1234_5678_9abc_def0);
+        assert_eq!(uuid(&id(made)), Some(made), "the round trip holds");
+        for raw in ["", "42", "not-a-uuid", "../../etc/passwd", "' OR 1=1 --"] {
+            assert_eq!(uuid(raw), None, "{raw}");
+        }
+    }
+
+    /// What counts as a change to a deck, and deliberately only the cards:
+    /// a version row per rename would bury the ones somebody actually wants
+    /// to roll back to. The owner asked for the history of the **cards**.
+    #[test]
+    fn renaming_a_deck_is_not_an_edit_to_its_cards() {
+        let before = deck_row("Old Name", &["4 Lightning Bolt"], &["1 Pyroblast"], &[]);
+        let mut renamed = before.clone();
+        renamed.name = "New Name".into();
+        renamed.description = Some("now with a description".into());
+        renamed.sleeve = Some("sleeve.png".into());
+
+        assert!(same_cards(
+            &renamed,
+            &strings(&["4 Lightning Bolt"]),
+            &strings(&["1 Pyroblast"]),
+            &[]
+        ));
+        assert!(!same_cards(
+            &before,
+            &strings(&["3 Lightning Bolt"]),
+            &strings(&["1 Pyroblast"]),
+            &[]
+        ));
+        assert!(
+            !same_cards(&before, &strings(&["4 Lightning Bolt"]), &[], &[]),
+            "emptying the sideboard is an edit"
+        );
+        assert!(
+            !same_cards(
+                &before,
+                &strings(&["4 Lightning Bolt"]),
+                &strings(&["1 Pyroblast"]),
+                &strings(&["1 Kenrith, the Returned King"])
+            ),
+            "and so is naming a commander"
+        );
+    }
+
+    /// The comparison is between the lists as they were written, so a
+    /// reordered decklist is a new version. That is a property of storing a
+    /// deck as an ordered array — the order is what the owner sees when
+    /// they open it again.
+    #[test]
+    fn a_reordered_list_is_a_different_list() {
+        let before = deck_row("Deck", &["4 Lightning Bolt", "4 Brainstorm"], &[], &[]);
+        assert!(!same_cards(
+            &before,
+            &strings(&["4 Brainstorm", "4 Lightning Bolt"]),
+            &[],
+            &[]
+        ));
+    }
+}
