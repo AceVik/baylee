@@ -732,3 +732,249 @@ fn matches(
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::ObjectKind;
+    use crate::state::ReplacementEntry;
+    use baylee_cards_dsl::{Filter, ReplacementRule, TriggerEventKind};
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let entry = DeckEntry {
+            card: forest,
+            print: baylee_core::ids::PrintRef::new(0),
+        };
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 12,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    fn permanent(state: &mut GameState, owner: PlayerId, name: &str) -> ObjectId {
+        let name = state.names.intern(name);
+        state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        )
+    }
+
+    fn rule(state: &mut GameState, controller: PlayerId, rule: ReplacementRule) {
+        let name = state.names.intern("Panharmonicon");
+        let source = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        state.replacement_rules.push(ReplacementEntry {
+            source,
+            controller,
+            rule,
+        });
+    }
+
+    /// How many *happenings* an event is, which is not how many times an
+    /// ability triggers for one of them. "Draw two cards" is one journal
+    /// entry carrying a count, and an ability watching a card being drawn
+    /// has to see both — a `break` that fires once for a list of matching
+    /// events is a defect this shape hides from, because here the batch is
+    /// a field.
+    #[test]
+    fn a_batched_event_is_as_many_happenings_as_it_counts() {
+        assert_eq!(
+            repeats(&GameEvent::CardsDrawn {
+                player: me(),
+                count: 3
+            }),
+            3
+        );
+        assert_eq!(
+            repeats(&GameEvent::CardsDrawn {
+                player: me(),
+                count: 0
+            }),
+            1,
+            "a zero would suppress a trigger that matched rather than \
+             over-fire it, which is the silent direction"
+        );
+        assert_eq!(
+            repeats(&GameEvent::Shuffled {
+                player: me(),
+                zone: Zone::Library
+            }),
+            1,
+            "every other event is one happening"
+        );
+    }
+
+    /// Panharmonicon: the ability triggers an *additional* time, so two of
+    /// them make three triggers and not four. The rule is read against the
+    /// trigger's source with the replacement's own controller as "you".
+    #[test]
+    fn a_trigger_multiplier_adds_a_trigger_rather_than_doubling_them() {
+        let mut state = state();
+        let bear = permanent(&mut state, me(), "Bear");
+
+        assert_eq!(trigger_count(&state, &Trigger::ETB, bear, me()), 1);
+
+        for _ in 0..2 {
+            rule(
+                &mut state,
+                me(),
+                ReplacementRule::TriggerMultiplier {
+                    source_filter: &Filter::ControlledByYou,
+                    event: TriggerEventKind::EntersBattlefield,
+                },
+            );
+        }
+        assert_eq!(
+            trigger_count(&state, &Trigger::ETB, bear, me()),
+            3,
+            "two Panharmonicons are two additional triggers"
+        );
+
+        let theirs = permanent(&mut state, them(), "Their Bear");
+        assert_eq!(
+            trigger_count(&state, &Trigger::ETB, theirs, me()),
+            1,
+            "it multiplies the permanents its own controller has"
+        );
+    }
+
+    /// The event kind is part of the rule: a Panharmonicon named for
+    /// entering the battlefield says nothing about a dies trigger, while
+    /// `Any` is the shape that covers everything.
+    #[test]
+    fn a_multiplier_named_for_one_event_kind_leaves_the_others_alone() {
+        let mut state = state();
+        let bear = permanent(&mut state, me(), "Bear");
+        rule(
+            &mut state,
+            me(),
+            ReplacementRule::TriggerMultiplier {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::EntersBattlefield,
+            },
+        );
+
+        assert_eq!(trigger_count(&state, &Trigger::ETB, bear, me()), 2);
+        assert_eq!(
+            trigger_count(&state, &Trigger::Dies(&Filter::This), bear, me()),
+            1,
+            "a dies trigger is not an enters-the-battlefield one"
+        );
+
+        rule(
+            &mut state,
+            me(),
+            ReplacementRule::TriggerMultiplier {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::Any,
+            },
+        );
+        assert_eq!(
+            trigger_count(&state, &Trigger::Dies(&Filter::This), bear, me()),
+            2,
+            "and `Any` reaches the one the named rule did not"
+        );
+        assert_eq!(trigger_count(&state, &Trigger::ETB, bear, me()), 3);
+    }
+
+    /// Suppression is not a multiplier of nought — it wins outright, from
+    /// either side of the list, because a trigger that does not happen
+    /// cannot be multiplied afterwards.
+    #[test]
+    fn suppression_beats_any_number_of_multipliers() {
+        for suppress_first in [true, false] {
+            let mut state = state();
+            let bear = permanent(&mut state, me(), "Bear");
+            let multiplier = ReplacementRule::TriggerMultiplier {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::Any,
+            };
+            let suppress = ReplacementRule::TriggerSuppress {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::Any,
+            };
+            if suppress_first {
+                rule(&mut state, me(), suppress);
+                rule(&mut state, me(), multiplier);
+            } else {
+                rule(&mut state, me(), multiplier);
+                rule(&mut state, me(), suppress);
+            }
+            assert_eq!(
+                trigger_count(&state, &Trigger::ETB, bear, me()),
+                0,
+                "suppression first: {suppress_first}"
+            );
+        }
+    }
+
+    /// A source that is no longer there answers one. It is the look-back
+    /// case — a dies trigger is collected after the permanent has left —
+    /// and nought there would be a trigger silently dropped.
+    #[test]
+    fn a_source_that_is_gone_triggers_once() {
+        let mut state = state();
+        let bear = permanent(&mut state, me(), "Bear");
+        rule(
+            &mut state,
+            me(),
+            ReplacementRule::TriggerMultiplier {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::Any,
+            },
+        );
+        assert_eq!(trigger_count(&state, &Trigger::ETB, bear, me()), 2);
+
+        state.arena.remove(bear);
+        assert_eq!(trigger_count(&state, &Trigger::ETB, bear, me()), 1);
+    }
+}
