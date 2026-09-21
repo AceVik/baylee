@@ -536,3 +536,99 @@ fn a_prepared_cast_copies_a_sorcery_and_waits_for_a_sorcery_moment() {
         "naming the prepared cast anyway is refused"
     );
 }
+
+/// #183: entry is detected before the legend rule, but stacked afterwards.
+#[test]
+fn issue_183_both_entries_trigger_whichever_legend_survives() {
+    let p0 = PlayerId::new(0);
+    let aang = card_index("481c3e14-b670-4fab-aa9f-6ce5b514096d");
+    let ring = card_index("6ad8011d-3471-4369-9d68-b264cc027487");
+    for keep_copy in [true, false] {
+        let mut engine = Duel::new(183, forest())
+            .battlefield(
+                0,
+                &[
+                    reflections_of_littjara(),
+                    forest(),
+                    plains(),
+                    island(),
+                    ring,
+                    ring,
+                ],
+            )
+            .hand(0, &[aang])
+            .start();
+        keep_mulligans(&mut engine);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::creature::ALLY),
+            )
+            .unwrap();
+        reach_main_phase(&mut engine, p0);
+        let original = in_hand(&engine, p0, aang).unwrap();
+        cast_from_hand(&mut engine, p0, aang);
+        for _ in 0..30 {
+            if matches!(engine.pending(), Pending::LegendChoice { .. }) {
+                break;
+            }
+            let Pending::Priority { player, .. } = engine.pending().clone() else {
+                panic!("unexpected before legend choice: {:?}", engine.pending());
+            };
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        }
+        let Pending::LegendChoice { player, options } = engine.pending().clone() else {
+            panic!("the original must enter beside its copy");
+        };
+        assert_eq!(options.len(), 2);
+        // Two tapped Rings produce two Allies from the copy's entry.
+        assert_eq!(tokens_controlled(&engine, p0), 2);
+        let kept = *options
+            .iter()
+            .find(|&&id| (id != original) == keep_copy)
+            .unwrap();
+        engine
+            .apply(
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: vec![kept],
+                },
+            )
+            .unwrap();
+        settle(&mut engine);
+        assert_eq!(
+            tokens_controlled(&engine, p0),
+            4,
+            "both entries produce exactly two Allies, even if the source left"
+        );
+        assert_eq!(
+            engine.state.object(kept).unwrap().zone,
+            crate::zone::Zone::Battlefield
+        );
+    }
+}
+
+#[test]
+fn issue_183_an_entering_creature_that_dies_to_an_sba_still_draws() {
+    let p0 = PlayerId::new(0);
+    let night = card_index("916bd025-c44f-49c9-8d76-4b7b2f9a8ba3");
+    let mut engine = Duel::new(184, forest())
+        .battlefield(0, &[night, island(), swamp()])
+        .hand(0, &[baleful_strix()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let before = engine.state.zones.list(ZoneLocation::Hand(p0)).len();
+    cast_from_hand(&mut engine, p0, baleful_strix());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, baleful_strix()),
+        0,
+        "the 0/0 died"
+    );
+    assert_eq!(
+        engine.state.zones.list(ZoneLocation::Hand(p0)).len(),
+        before,
+        "one card cast, exactly one card drawn"
+    );
+}

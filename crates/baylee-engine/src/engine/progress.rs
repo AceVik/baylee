@@ -216,6 +216,9 @@ impl<L: CardLookup> Engine<L> {
                 });
                 return;
             }
+            // Detect triggers while their sources still exist. CR 603.2 /
+            // 117.5: detection precedes SBAs; stacking and target choices follow.
+            self.queue_new_triggers();
             // 2. State-based actions (fixpoint).
             let outcome = sba::run(&mut self.state, &self.lookup);
             if let Some((player, options)) = outcome.legend_choice {
@@ -1640,6 +1643,50 @@ impl<L: CardLookup> Engine<L> {
         objects + players >= req.min as usize
     }
 
+    /// Remember event-time abilities before a state-based action removes them.
+    fn queue_new_triggers(&mut self) {
+        if self.breaking_loop {
+            return;
+        }
+        let found = trigger::collect(&self.state, &self.lookup, self.trigger_scan_seq);
+        self.trigger_scan_seq = self.state.journal.last_seq();
+        // The scan has passed every journal entry a departed object could
+        // be named in, so nothing can ask about one again and the list is
+        // dead weight from here (CR 111.7; `GameState::ceased`). Cleared
+        // in exactly the two branches that move `trigger_scan_seq` and
+        // never outside them: a clear on a pass that did *not* rescan
+        // would throw away what the next one still needs, and no clear at
+        // all is an unbounded leak in a deck that makes thousands of
+        // tokens. `clear` keeps the capacity, so a token-heavy turn pays
+        // for its allocation once.
+        //
+        // The other two look-back lists are bounded here for the same
+        // reason and by the same argument. `ltb_abilities` and
+        // `ltb_attachments` drop an entry on the object's *next* move,
+        // which is a complete rule for a card and no rule at all for a
+        // token: one that has ceased to exist never moves again, so its
+        // entry would sit there for the rest of the game. This is the one
+        // moment that knows an id is gone for good, and past this scan
+        // nothing may ask about it anyway.
+        let gone: Vec<baylee_core::ids::ObjectId> =
+            self.state.ceased.iter().map(|o| o.id).collect();
+        if !gone.is_empty() {
+            self.state
+                .ltb_abilities
+                .retain(|(id, _)| !gone.contains(id));
+            self.state
+                .ltb_attachments
+                .retain(|(id, _)| !gone.contains(id));
+        }
+        self.state.ceased.clear();
+        self.trigger_queue.extend(found);
+        let active = self.state.turn.active.get();
+        let seats = self.state.players.len() as u8;
+        self.trigger_queue
+            .make_contiguous()
+            .sort_by_key(|t| ((t.controller.get() + seats - active) % seats, t.timestamp));
+    }
+
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
     pub(crate) fn collect_triggers(&mut self) {
         if self.breaking_loop {
@@ -1652,40 +1699,7 @@ impl<L: CardLookup> Engine<L> {
             self.state.ceased.clear();
             return;
         }
-        if self.trigger_queue.is_empty() {
-            let found = trigger::collect(&self.state, &self.lookup, self.trigger_scan_seq);
-            self.trigger_scan_seq = self.state.journal.last_seq();
-            // The scan has passed every journal entry a departed object could
-            // be named in, so nothing can ask about one again and the list is
-            // dead weight from here (CR 111.7; `GameState::ceased`). Cleared
-            // in exactly the two branches that move `trigger_scan_seq` and
-            // never outside them: a clear on a pass that did *not* rescan
-            // would throw away what the next one still needs, and no clear at
-            // all is an unbounded leak in a deck that makes thousands of
-            // tokens. `clear` keeps the capacity, so a token-heavy turn pays
-            // for its allocation once.
-            //
-            // The other two look-back lists are bounded here for the same
-            // reason and by the same argument. `ltb_abilities` and
-            // `ltb_attachments` drop an entry on the object's *next* move,
-            // which is a complete rule for a card and no rule at all for a
-            // token: one that has ceased to exist never moves again, so its
-            // entry would sit there for the rest of the game. This is the one
-            // moment that knows an id is gone for good, and past this scan
-            // nothing may ask about it anyway.
-            let gone: Vec<baylee_core::ids::ObjectId> =
-                self.state.ceased.iter().map(|o| o.id).collect();
-            if !gone.is_empty() {
-                self.state
-                    .ltb_abilities
-                    .retain(|(id, _)| !gone.contains(id));
-                self.state
-                    .ltb_attachments
-                    .retain(|(id, _)| !gone.contains(id));
-            }
-            self.state.ceased.clear();
-            self.trigger_queue = found.into_iter().collect();
-        }
+        self.queue_new_triggers();
         while let Some(t) = self.trigger_queue.front().cloned() {
             // "This ability triggers only once each turn." The fire is
             // recorded when the trigger goes on the stack and `ability_fires`

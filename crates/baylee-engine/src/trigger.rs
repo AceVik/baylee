@@ -20,17 +20,10 @@ pub struct PendingTrigger {
     pub source: ObjectId,
     /// Index into the source card's abilities.
     pub ability_index: u32,
-    /// The list `ability_index` points into, when it is no longer the one the
-    /// source would answer with (CR 603.10a).
-    ///
-    /// `None` for every trigger collected from the battlefield, where asking
-    /// the source is right by definition. It is the look-back scan that needs
-    /// it: a copy has given its rules text back by the time its dies trigger
-    /// is collected, so the index would be read against the printed card —
-    /// a different ability, or none at all. Carried on the trigger rather
-    /// than looked up again at each of the four places that resolve it,
-    /// because they run at four different moments and the object underneath
-    /// is free to change between them.
+    /// Event-time rules text. Captured even while the source is on the
+    /// battlefield: a legend choice or lethal SBA can remove a copy before
+    /// this trigger is stacked. Synthetic keyword triggers carry their own
+    /// effects instead and leave this `None`.
     pub abilities: Option<&'static [AbilityDef]>,
     /// Controller of the trigger.
     pub controller: PlayerId,
@@ -414,7 +407,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             source: permanent,
                             ability_index: index as u32,
-                            abilities: looked_back,
+                            abilities: Some(abilities),
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,
