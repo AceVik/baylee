@@ -145,3 +145,117 @@ fn a_commander_with_no_row_of_its_own_is_still_seated() {
     assert_eq!(loaded.commanders.len(), 1, "one commander");
     assert_eq!(loaded.main.len(), 3, "and the deck list is untouched");
 }
+
+/// **Only a proxy this gateway was told about may speak for somebody else.**
+///
+/// `X-Forwarded-For` is a header anybody can set, so honouring it from any
+/// peer lets a client rotate it per request and spend an unbounded number of
+/// sign-in attempts: the limiter is keyed on whatever the header says.
+#[test]
+fn a_forwarded_address_is_read_only_from_a_proxy_on_the_list() {
+    let proxy: IpAddr = "10.0.0.1".parse().expect("an address");
+    let stranger: IpAddr = "203.0.113.9".parse().expect("an address");
+    let mut headers = HeaderMap::new();
+    headers.insert("x-forwarded-for", "198.51.100.7".parse().expect("a value"));
+
+    assert_eq!(rate_limit_ip(&[proxy], proxy, &headers), "198.51.100.7");
+    assert_eq!(
+        rate_limit_ip(&[proxy], stranger, &headers),
+        "203.0.113.9",
+        "a peer nobody vouched for is keyed on itself, whatever it claims"
+    );
+    assert_eq!(
+        rate_limit_ip(&[], proxy, &headers),
+        "10.0.0.1",
+        "and an empty list vouches for nobody, which is the default"
+    );
+}
+
+/// **The header is read from the right, because the left half is whatever
+/// the client sent.**
+///
+/// A proxy either replaces `X-Forwarded-For` with the address it is talking
+/// to, or appends that address to whatever arrived. Nothing in this
+/// repository tells an operator which to configure, so the rule has to be
+/// right for both — and on an appending proxy the client writes the left
+/// half itself. Reading from the left hands the limiter a string the
+/// attacker chose, which is the hole that trusting the header from anybody
+/// had.
+#[test]
+fn the_client_is_the_rightmost_address_nobody_vouched_for() {
+    let proxy: IpAddr = "10.0.0.1".parse().expect("an address");
+    let inner: IpAddr = "10.0.0.9".parse().expect("an address");
+    let key = |value: &str| {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", value.parse().expect("a value"));
+        rate_limit_ip(&[proxy, inner], proxy, &headers)
+    };
+
+    assert_eq!(
+        key("203.0.113.66, 198.51.100.7"),
+        "198.51.100.7",
+        "what the client wrote is on the left and what the proxy saw is on \
+         the right"
+    );
+    assert_eq!(
+        key("198.51.100.7"),
+        "198.51.100.7",
+        "a proxy that replaces the header writes one entry, and then the two \
+         directions are the same answer"
+    );
+    assert_eq!(
+        key(" 198.51.100.7 , 10.0.0.9 "),
+        "198.51.100.7",
+        "a hop that is itself on the list is stepped over, and the spacing a \
+         proxy writes is not part of the address"
+    );
+    assert_eq!(
+        key("10.0.0.9, 10.0.0.1"),
+        "10.0.0.1",
+        "a chain of nothing but vouched-for hops names no client, so the \
+         peer is the key"
+    );
+}
+
+/// What a proxy on the list did not send, or sent unreadably. Every one of
+/// these ends at the peer, which is the strict direction: everybody behind
+/// that proxy then shares one budget rather than none of them being counted.
+#[test]
+fn a_trusted_proxy_that_says_nothing_readable_is_keyed_on_itself() {
+    let proxy: IpAddr = "10.0.0.1".parse().expect("an address");
+    let key = |headers: &HeaderMap| rate_limit_ip(&[proxy], proxy, headers);
+
+    assert_eq!(key(&HeaderMap::new()), "10.0.0.1", "no header at all");
+
+    for value in ["", "   ", "not-an-address", "198.51.100.7, unknown"] {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", value.parse().expect("a value"));
+        assert_eq!(
+            key(&headers),
+            "10.0.0.1",
+            "{value:?} names no address this gateway can key on"
+        );
+    }
+}
+
+/// The list itself: an entry that is not an address is dropped, which makes
+/// that proxy one nobody vouched for. Strict and silent, which is the right
+/// way round for a list whose other failure switches the limiter off — and
+/// it is why `10.0.0.0/8` does not work, since a range is not an address.
+#[test]
+fn a_proxy_entry_that_is_not_an_address_is_a_proxy_nobody_vouched_for() {
+    assert_eq!(
+        trusted_proxies("10.0.0.1, 2001:db8::1"),
+        vec![
+            "10.0.0.1".parse::<IpAddr>().expect("an address"),
+            "2001:db8::1".parse::<IpAddr>().expect("an address"),
+        ],
+        "a comma-separated list, spacing and all"
+    );
+    assert!(trusted_proxies("").is_empty(), "unset trusts nobody");
+    assert!(
+        trusted_proxies("10.0.0.0/8, proxy.internal, 1.2.3.4:5678").is_empty(),
+        "a range, a name and an address with a port are none of them an \
+         address, and each of them is dropped rather than refused"
+    );
+}

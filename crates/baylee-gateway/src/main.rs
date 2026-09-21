@@ -172,11 +172,9 @@ async fn main() {
         registration_enabled: std::env::var("BAYLEE_REGISTRATION")
             .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
         mail: mail::Mailer::from_env(),
-        trusted_proxies: std::env::var("BAYLEE_TRUSTED_PROXIES")
-            .unwrap_or_default()
-            .split(',')
-            .filter_map(|s| s.trim().parse::<IpAddr>().ok())
-            .collect(),
+        trusted_proxies: trusted_proxies(
+            &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
+        ),
         catalog,
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
@@ -430,18 +428,62 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
     )
 }
 
-/// The IP a rate limit is keyed on: the real peer address, unless the
-/// peer itself is a configured trusted proxy — only then is its
-/// `X-Forwarded-For` honored. Trusting the header unconditionally let any
-/// client rotate it per request and disable the limiter entirely.
-fn rate_limit_ip(state: &AppState, peer: IpAddr, headers: &HeaderMap) -> String {
-    if state.trusted_proxies.contains(&peer)
-        && let Some(forwarded) = headers
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.split(',').next())
-    {
-        return forwarded.trim().to_string();
+/// The proxies whose `X-Forwarded-For` this gateway believes
+/// (`BAYLEE_TRUSTED_PROXIES`, comma-separated addresses).
+///
+/// An entry that is not an address is dropped rather than refused, and that
+/// direction is the deliberate one: an unread entry is a proxy that is
+/// **not** trusted, so the limiter keys on the proxy's own address and
+/// everyone behind it shares one budget. Strict, and quiet — which is the
+/// right way round for a list whose other failure is switching the
+/// brute-force defence off.
+fn trusted_proxies(raw: &str) -> Vec<IpAddr> {
+    raw.split(',')
+        .filter_map(|entry| entry.trim().parse::<IpAddr>().ok())
+        .collect()
+}
+
+/// The IP a rate limit is keyed on: the real peer address, unless the peer
+/// itself is a configured trusted proxy — only then is its
+/// `X-Forwarded-For` read at all. Trusting the header from anybody let a
+/// client rotate it per request and switch the limiter off.
+///
+/// **Read from the right.** A proxy either replaces the header with the
+/// address it is talking to or appends that address to whatever arrived,
+/// and this repository tells an operator to do neither, so the rule has to
+/// be right for both. On a replacing proxy there is one entry and the two
+/// directions are the same. On an appending one the client writes the left
+/// half itself: `X-Forwarded-For: <anything>` arrives, the proxy appends the
+/// address it actually sees, and reading from the left hands the limiter a
+/// string the attacker chose — the very thing trusting the header from
+/// anybody did.
+///
+/// Entries that are themselves on the list are hops and are stepped over,
+/// so a chain ends at the first address nobody vouched for. An entry that
+/// is not an address at all ends the walk at the peer rather than being
+/// stepped over, because everything left of it was written by whoever sent
+/// it.
+fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> String {
+    if !trusted.contains(&peer) {
+        return peer.to_string();
+    }
+    let Some(forwarded) = headers
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok())
+    else {
+        return peer.to_string();
+    };
+    for entry in forwarded.rsplit(',') {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            continue;
+        }
+        let Ok(address) = entry.parse::<IpAddr>() else {
+            return peer.to_string();
+        };
+        if !trusted.contains(&address) {
+            return address.to_string();
+        }
     }
     peer.to_string()
 }
@@ -715,7 +757,7 @@ async fn resend_confirmation(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     if !state
         .limiter
-        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+        .allow(&rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers))
     {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
@@ -741,7 +783,7 @@ async fn register(
     }
     if !state
         .limiter
-        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+        .allow(&rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers))
     {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
