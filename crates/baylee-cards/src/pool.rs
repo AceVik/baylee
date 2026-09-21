@@ -327,13 +327,12 @@ mod type_line_tests {
             supertypes: SupertypeSet::LEGENDARY,
             ..FaceDef::DEFAULT
         };
-        assert_eq!(super::type_line(&LEGENDARY_LAND), "Legendary Land");
-
         const PLAIN: FaceDef = FaceDef {
             name: "Ornithopter",
             types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
             ..FaceDef::DEFAULT
         };
+        assert_eq!(super::type_line(&LEGENDARY_LAND), "Legendary Land");
         assert_eq!(
             super::type_line(&PLAIN),
             "Artifact Creature",
