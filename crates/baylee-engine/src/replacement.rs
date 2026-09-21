@@ -177,3 +177,322 @@ pub fn remove_counters(
     state.invalidate_projections();
     taken
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::ObjectKind;
+    use crate::state::{CardLookup, ReplacementEntry};
+    use crate::zone::ZoneLocation;
+    use baylee_cards_dsl::{CounterKind, Filter, ReplacementRule};
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    /// Two seats, empty boards, nothing on the stack. Every rule here is
+    /// pushed by hand: `replacement_rules` is rebuilt only by the engine's
+    /// static-ability pass (`engine::progress`), which no test in this
+    /// module runs, so an entry put here stays put.
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let deck: Vec<DeckEntry> = (0..60)
+            .map(|_| DeckEntry {
+                card: forest,
+                print: baylee_core::ids::PrintRef::new(0),
+            })
+            .collect();
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: deck.clone(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 9,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    /// A card-less permanent on `owner`'s battlefield. These two rules ask
+    /// one question of an object — who controls it — so a bare one is the
+    /// whole population a filter over `ControlledByYou` can see.
+    fn permanent(state: &mut GameState, owner: PlayerId, name: &str) -> ObjectId {
+        let name = state.names.intern(name);
+        state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        )
+    }
+
+    fn doubles_tokens(state: &mut GameState, controller: PlayerId) {
+        let source = permanent(state, controller, "Doubling Season");
+        state.replacement_rules.push(ReplacementEntry {
+            source,
+            controller,
+            rule: ReplacementRule::DoubleTokenCreation {
+                controller_filter: &Filter::ControlledByYou,
+            },
+        });
+    }
+
+    fn doubles_counters(state: &mut GameState, controller: PlayerId) {
+        let source = permanent(state, controller, "Doubling Season");
+        state.replacement_rules.push(ReplacementEntry {
+            source,
+            controller,
+            rule: ReplacementRule::DoubleCounterPlacement {
+                object_filter: &Filter::ControlledByYou,
+            },
+        });
+    }
+
+    /// The bug this module was collected around, from the side it was seen
+    /// on: "if one or more tokens would be created under **your** control"
+    /// is a statement about who ends up with them, so it is read against the
+    /// recipient. Asked instead of the resolving effect's own controller it
+    /// answers yes for everybody, and my Doubling Season doubles an
+    /// opponent's tokens.
+    #[test]
+    fn a_token_doubler_reads_its_filter_against_the_recipient() {
+        let mut state = state();
+        doubles_tokens(&mut state, me());
+        assert_eq!(token_multiplier(&state, me()), 2, "my tokens are doubled");
+        assert_eq!(
+            token_multiplier(&state, them()),
+            1,
+            "and an opponent's are not — the filter is over the affected \
+             controller, not over whose effect is creating them"
+        );
+    }
+
+    /// The mirror, and read the other way round on purpose: this filter is
+    /// over the permanent *receiving* the counters. Neither
+    /// [`counter_multiplier`] nor [`put_counters`] takes a controller
+    /// argument at all, which is the same sentence said in the signature —
+    /// an opponent's spell putting a counter on my creature is doubled by my
+    /// Doubling Season, because the door cannot know whose spell it was.
+    #[test]
+    fn a_counter_doubler_reads_its_filter_against_the_permanent() {
+        let mut state = state();
+        doubles_counters(&mut state, me());
+        let mine = permanent(&mut state, me(), "Mine");
+        let theirs = permanent(&mut state, them(), "Theirs");
+
+        assert_eq!(counter_multiplier(&state, mine), 2);
+        assert_eq!(counter_multiplier(&state, theirs), 1);
+
+        put_counters(&mut state, mine, CounterKind::P1P1, 1);
+        put_counters(&mut state, theirs, CounterKind::P1P1, 1);
+        assert_eq!(
+            state
+                .object(mine)
+                .expect("still there")
+                .counters
+                .get(CounterKind::P1P1),
+            2
+        );
+        assert_eq!(
+            state
+                .object(theirs)
+                .expect("still there")
+                .counters
+                .get(CounterKind::P1P1),
+            1
+        );
+    }
+
+    /// An object that is gone is not a permanent under anybody's
+    /// replacement, and the answer is one rather than a panic: the door is
+    /// called from resolution, where a target can have left since the
+    /// effect was put on the stack.
+    #[test]
+    fn a_counter_multiplier_for_an_object_that_is_gone_is_one() {
+        let mut state = state();
+        doubles_counters(&mut state, me());
+        let mine = permanent(&mut state, me(), "Mine");
+        state.arena.remove(mine);
+        assert_eq!(counter_multiplier(&state, mine), 1);
+    }
+
+    /// Two of them multiply rather than either one winning: CR 614.1 applies
+    /// each replacement once, so the second one sees four where the first
+    /// made two. Both loops are written this way and neither had a test.
+    #[test]
+    fn two_doublers_multiply() {
+        let mut state = state();
+        doubles_tokens(&mut state, me());
+        doubles_tokens(&mut state, me());
+        doubles_counters(&mut state, me());
+        doubles_counters(&mut state, me());
+        let mine = permanent(&mut state, me(), "Mine");
+
+        assert_eq!(token_multiplier(&state, me()), 4);
+        assert_eq!(counter_multiplier(&state, mine), 4);
+
+        put_counters(&mut state, mine, CounterKind::P1P1, 3);
+        assert_eq!(
+            state
+                .object(mine)
+                .expect("still there")
+                .counters
+                .get(CounterKind::P1P1),
+            12,
+            "the multiplier applies to the whole placement, not to one counter"
+        );
+    }
+
+    /// The reason [`record_counters`] exists beside [`put_counters`].
+    /// CR 614.16 doubles what a resolving spell or ability places and what
+    /// another replacement places — and a **turn-based action** is neither,
+    /// so the lore counter a Saga takes as its controller's main phase
+    /// begins (CR 714.3b) lands as one counter under any number of Doubling
+    /// Seasons.
+    #[test]
+    fn a_turn_based_counter_is_not_doubled() {
+        let mut state = state();
+        doubles_counters(&mut state, me());
+        let saga = permanent(&mut state, me(), "Saga");
+
+        record_counters(&mut state, saga, CounterKind::Lore, 1);
+        assert_eq!(
+            state
+                .object(saga)
+                .expect("still there")
+                .counters
+                .get(CounterKind::Lore),
+            1,
+            "the turn-based action puts one"
+        );
+
+        put_counters(&mut state, saga, CounterKind::Lore, 1);
+        assert_eq!(
+            state
+                .object(saga)
+                .expect("still there")
+                .counters
+                .get(CounterKind::Lore),
+            3,
+            "and the same counter placed by an effect is doubled, which is \
+             what makes the two doors different rather than redundant"
+        );
+    }
+
+    /// Magic prints nothing that multiplies a removal, which is why
+    /// [`remove_counters`] takes no multiplier. It saturates rather than
+    /// refusing, and answers how many actually came off — the number a cost
+    /// or an effect paid with.
+    #[test]
+    fn nothing_multiplies_a_removal() {
+        let mut state = state();
+        doubles_counters(&mut state, me());
+        let mine = permanent(&mut state, me(), "Mine");
+        record_counters(&mut state, mine, CounterKind::P1P1, 3);
+
+        assert_eq!(
+            remove_counters(&mut state, mine, CounterKind::P1P1, 1),
+            1,
+            "one comes off under two doublings of its placement"
+        );
+        assert_eq!(
+            remove_counters(&mut state, mine, CounterKind::P1P1, 5),
+            2,
+            "and asking for more than is there takes what is there"
+        );
+        assert_eq!(
+            state
+                .object(mine)
+                .expect("still there")
+                .counters
+                .get(CounterKind::P1P1),
+            0
+        );
+        assert_eq!(
+            remove_counters(&mut state, mine, CounterKind::P1P1, 1),
+            0,
+            "a removal from nothing removes nothing"
+        );
+    }
+
+    /// The journal entry and the projection invalidation are part of the
+    /// door and not of the caller: a counter is a characteristic input
+    /// (CR 613.4c), so one placed without invalidating leaves the creature
+    /// drawn — and read by the state-based action that kills it — at its old
+    /// size. All three doors owe both.
+    #[test]
+    fn every_counter_door_records_the_change_and_invalidates_the_projection() {
+        let mut state = state();
+        let mine = permanent(&mut state, me(), "Mine");
+
+        // The three doors run on one object in turn and this state carries
+        // no doubling rule, so `n` is simply what the store reads after
+        // each: 2 placed, 3 after one more, 0 once three come off.
+        for (label, n) in [("put", 2u16), ("record", 3), ("remove", 0)] {
+            let before = state.journal.len();
+            // `from_preset` leaves this at the invalid sentinel, so a fresh
+            // state would pass the assertion below having done nothing.
+            state.characteristics_generation = 0;
+            match label {
+                "put" => put_counters(&mut state, mine, CounterKind::P1P1, 2),
+                "record" => record_counters(&mut state, mine, CounterKind::P1P1, 1),
+                _ => {
+                    remove_counters(&mut state, mine, CounterKind::P1P1, 3);
+                }
+            }
+            assert_eq!(
+                state.characteristics_generation,
+                u64::MAX,
+                "{label} left a cached projection standing"
+            );
+            assert_eq!(state.journal.len(), before + 1, "{label} recorded nothing");
+            let last = state.journal.entries().last().expect("an entry");
+            assert!(
+                matches!(
+                    last.event,
+                    GameEvent::CounterChanged {
+                        object,
+                        kind: CounterKind::P1P1,
+                        new,
+                        ..
+                    } if object == mine && new == n
+                ),
+                "{label} recorded {:?}",
+                last.event
+            );
+        }
+    }
+}
