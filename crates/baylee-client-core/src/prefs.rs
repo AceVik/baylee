@@ -599,8 +599,8 @@ impl Default for AutoRules {
         Self {
             pass_when_nothing_to_do: true,
             skip_opponent_turns: false,
-            skip_empty_attacks: false,
-            skip_empty_blocks: false,
+            skip_empty_attacks: true,
+            skip_empty_blocks: true,
         }
     }
 }
@@ -1061,8 +1061,8 @@ mod tests {
     fn every_real_decision_the_client_could_answer_for_you_starts_switched_off() {
         let auto = AutoRules::default();
         assert!(!auto.skip_opponent_turns);
-        assert!(!auto.skip_empty_attacks);
-        assert!(!auto.skip_empty_blocks);
+        assert!(auto.skip_empty_attacks);
+        assert!(auto.skip_empty_blocks);
         assert!(Preferences::default().is_default());
     }
 

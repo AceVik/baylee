@@ -242,15 +242,8 @@ impl RailSide {
 /// Per-step standing orders for both rails: green means "I want priority
 /// here", red means "skip — take no action and move on".
 ///
-/// The default is [`RailPreset::QuietSteps`], not green everywhere. Green
-/// everywhere is the *safe* default and it was the wrong one: it stops a
-/// player at untap, upkeep, draw, damage and cleanup, which is five of the
-/// twelve rows and, on a turn with a combat, most of the presses. A red row
-/// there declines nothing — those five are the steps a seat either gets no
-/// priority in at all or holds it with nothing that has changed since the
-/// window before. Every row where a decision is actually made stays green, and the
-/// two combat declaration rows stay green for the stronger reason: red is
-/// *not* pass there, it is "declare nothing" (see [`COMPETITIVE_STOPS`]).
+/// Fresh accounts stop at every priority window (#130). Quiet and competitive
+/// presets are explicit opt-ins; upkeep and draw can contain meaningful plays.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct PhaseOrders {
@@ -267,7 +260,7 @@ pub struct PhaseOrders {
 impl Default for PhaseOrders {
     fn default() -> Self {
         Self {
-            skip: RailPreset::QuietSteps.table(),
+            skip: RailPreset::EveryStep.table(),
             selected: None,
         }
     }
@@ -816,7 +809,11 @@ mod tests {
                     },
                     at(true, true, Phase::Combat, Step::DeclareAttackers),
                     &orders,
-                    &AutoRules::default(),
+                    &AutoRules {
+                        skip_empty_attacks: false,
+                        skip_empty_blocks: false,
+                        ..AutoRules::default()
+                    },
                     None,
                 ),
                 AutoAnswer::None,
@@ -831,7 +828,11 @@ mod tests {
                     },
                     at(true, false, Phase::Combat, Step::DeclareBlockers),
                     &orders,
-                    &AutoRules::default(),
+                    &AutoRules {
+                        skip_empty_attacks: false,
+                        skip_empty_blocks: false,
+                        ..AutoRules::default()
+                    },
                     None,
                 ),
                 AutoAnswer::None,
@@ -899,10 +900,10 @@ mod tests {
     /// exact table match, so a default no chip can name draws a fresh account
     /// with nothing lit and nothing to click to get back to.
     #[test]
-    fn the_quiet_steps_preset_is_what_a_fresh_account_already_has() {
+    fn the_every_step_preset_is_what_a_fresh_account_already_has() {
         let mut orders = PhaseOrders::default();
-        assert!(orders.is(RailPreset::QuietSteps));
-        assert!(!orders.is(RailPreset::EveryStep));
+        assert!(!orders.is(RailPreset::QuietSteps));
+        assert!(orders.is(RailPreset::EveryStep));
         assert!(!orders.is(RailPreset::Competitive));
 
         orders.set_to(RailPreset::Competitive);
@@ -914,16 +915,16 @@ mod tests {
         assert!(!orders.is(RailPreset::EveryStep));
         assert!(!orders.is(RailPreset::QuietSteps));
 
-        orders.set_to(RailPreset::QuietSteps);
+        orders.set_to(RailPreset::EveryStep);
         assert!(orders.same_as(&PhaseOrders::default()));
     }
 
     #[test]
-    fn the_default_rail_is_red_exactly_where_nothing_is_decided() {
+    fn the_default_rail_preserves_every_priority_window() {
         let orders = PhaseOrders::default();
         for side in RailSide::BOTH {
             for row in RAIL_ROWS {
-                let quiet = QUIET_ROWS.contains(&row);
+                let quiet = !row.grants_priority();
                 assert_eq!(
                     orders.is_skipped(side, row),
                     quiet,
@@ -1126,7 +1127,11 @@ mod tests {
                 },
                 at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
-                &AutoRules::default(),
+                &AutoRules {
+                    skip_empty_attacks: false,
+                    skip_empty_blocks: false,
+                    ..AutoRules::default()
+                },
                 None,
             ),
             AutoAnswer::DeclareNoBlockers
@@ -1141,7 +1146,11 @@ mod tests {
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
-                &AutoRules::default(),
+                &AutoRules {
+                    skip_empty_attacks: false,
+                    skip_empty_blocks: false,
+                    ..AutoRules::default()
+                },
                 None,
             ),
             AutoAnswer::None
@@ -1213,7 +1222,11 @@ mod tests {
                 &priority_pending(),
                 at(true, true, Phase::FirstMain, Step::Main),
                 &orders,
-                &AutoRules::default(),
+                &AutoRules {
+                    skip_empty_attacks: false,
+                    skip_empty_blocks: false,
+                    ..AutoRules::default()
+                },
                 Some(&pilot)
             ),
             AutoAnswer::Pass
@@ -1228,7 +1241,11 @@ mod tests {
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
-                &AutoRules::default(),
+                &AutoRules {
+                    skip_empty_attacks: false,
+                    skip_empty_blocks: false,
+                    ..AutoRules::default()
+                },
                 Some(&pilot),
             ),
             AutoAnswer::None
@@ -1244,7 +1261,11 @@ mod tests {
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
-                &AutoRules::default(),
+                &AutoRules {
+                    skip_empty_attacks: false,
+                    skip_empty_blocks: false,
+                    ..AutoRules::default()
+                },
                 Some(&end_turn),
             ),
             AutoAnswer::DeclareNoAttackers

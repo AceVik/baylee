@@ -1079,6 +1079,11 @@ impl Interaction {
                 if !self.is_selectable(id) {
                     return SelectionOutcome::Rejected;
                 }
+                if let Mode::Objects { options, focus, .. } = &mut self.mode
+                    && let Some(at) = options.iter().position(|candidate| *candidate == id)
+                {
+                    *focus = at;
+                }
                 if let Some(pos) = self.picks.iter().position(|p| *p == Pick::Object(id)) {
                     self.picks.remove(pos);
                     return SelectionOutcome::Removed;
@@ -1420,16 +1425,22 @@ impl Interaction {
     /// the two must be answered together.
     pub fn toggle_player(&mut self, player: PlayerId) -> SelectionOutcome {
         let Mode::Objects {
+            options,
             player_options,
             max,
+            focus,
             ..
-        } = &self.mode
+        } = &mut self.mode
         else {
             return SelectionOutcome::Rejected;
         };
-        if !player_options.contains(&player) {
+        let Some(at) = player_options
+            .iter()
+            .position(|candidate| *candidate == player)
+        else {
             return SelectionOutcome::Rejected;
-        }
+        };
+        *focus = options.len() + at;
         let max = *max;
         if let Some(at) = self.picks.iter().position(|p| *p == Pick::Seat(player)) {
             self.picks.remove(at);

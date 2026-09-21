@@ -1354,6 +1354,21 @@ messages! {
     },
 
 
+    /// A card has no candidate satisfying its required targets (#112).
+    CardHasNoTarget {
+        en: "Nothing left for this card to target",
+        de: "Für diese Karte gibt es kein gültiges Ziel mehr",
+    },
+    /// Timing prevents playing a card (#112).
+    CardWrongTime {
+        en: "This card cannot be played in this window",
+        de: "Diese Karte lässt sich in diesem Zeitfenster nicht spielen",
+    },
+    /// The current resources do not cover the card's costs (#112).
+    CardCostsUnavailable {
+        en: "The resources to pay for this card are not available",
+        de: "Die Mittel zum Bezahlen dieser Karte fehlen",
+    },
     // ---- refusals this client owns
     //
     // Everything here is a sentence the *client* decided, not one an engine

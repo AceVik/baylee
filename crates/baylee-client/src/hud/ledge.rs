@@ -556,6 +556,8 @@ pub struct LedgeRevision {
     /// What has been picked so far, because `can_confirm` reads it and the
     /// lone OK answer appears the moment it turns true.
     pub(super) selected: Vec<ObjectId>,
+    /// Player targets also change whether the answer can be confirmed (#182).
+    pub(super) selected_players: Vec<PlayerId>,
     /// What is armed and waiting for its second press. It never leaves the
     /// client, so nothing else here moves when it changes.
     pub(super) armed: Option<crate::Armed>,
@@ -854,6 +856,11 @@ pub fn sync_ledge(
             .interaction
             .as_ref()
             .map(|i| i.selected().collect())
+            .unwrap_or_default(),
+        selected_players: duel
+            .interaction
+            .as_ref()
+            .map(|i| i.selected_players().collect())
             .unwrap_or_default(),
         armed: duel.armed.clone(),
         cast_menu: duel.cast_menu.is_some() && !over,

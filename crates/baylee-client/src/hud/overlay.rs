@@ -1476,6 +1476,50 @@ mod tests {
         lines
     }
 
+    /// #182/#140: selecting only a player must rebuild the confirmation row.
+    #[test]
+    fn selecting_a_player_refreshes_the_confirm_button() {
+        use baylee_engine::choice::{Pending, TargetPrompt};
+        let mut duel = duel_saying(false, false);
+        duel.last_error = None;
+        duel.interaction = Some(baylee_client_core::Interaction::new(
+            Pending::ChooseTargets {
+                player: PlayerId::new(0),
+                options: vec![],
+                player_options: vec![PlayerId::new(0), PlayerId::new(1)],
+                min: 1,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            },
+            PlayerId::new(0),
+        ));
+        let mut app = bar_of(duel);
+        let confirms = |app: &mut App| {
+            app.world_mut()
+                .query::<&PromptButton>()
+                .iter(app.world())
+                .filter(|button| button.action == PromptAction::Confirm)
+                .count()
+        };
+        assert_eq!(confirms(&mut app), 0);
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .interaction
+            .as_mut()
+            .unwrap()
+            .toggle_player(PlayerId::new(1));
+        app.update();
+        assert_eq!(confirms(&mut app), 1);
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .interaction
+            .as_mut()
+            .unwrap()
+            .toggle_player(PlayerId::new(1));
+        app.update();
+        assert_eq!(confirms(&mut app), 0);
+    }
+
     /// The refusal the engine handed back on the last action anyone took.
     const REFUSED: &str = "illegal action for your seat";
 

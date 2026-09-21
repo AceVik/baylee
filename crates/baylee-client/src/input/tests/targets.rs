@@ -189,6 +189,22 @@ fn player_summary_children_target_the_seat_without_moving_the_camera() {
             .unwrap()
             .is_seat_selected(PlayerId::new(1))
     );
+    let interaction = app
+        .world()
+        .resource::<crate::Duel>()
+        .interaction
+        .as_ref()
+        .unwrap();
+    assert_eq!(
+        interaction.aim(),
+        Some(baylee_client_core::interaction::Pick::Seat(PlayerId::new(
+            1
+        )))
+    );
+    assert!(
+        matches!(interaction.confirm(), Some(PlayerAction::ChooseTargets { players, objects })
+        if players == vec![PlayerId::new(1)] && objects.is_empty())
+    );
     assert!(app.world().resource::<crate::Duel>().focus.is_none());
     let illegal = app
         .world_mut()
@@ -208,4 +224,37 @@ fn player_summary_children_target_the_seat_without_moving_the_camera() {
             .pick_count(),
         0
     );
+}
+
+#[test]
+fn issue_112_timing_and_cost_refusals_are_distinct() {
+    use baylee_client_core::i18n::{Phrase, Refusal};
+    use baylee_client_core::test_support::ViewBuilder;
+    for (active, reason) in [
+        (0, Phrase::CardCostsUnavailable),
+        (1, Phrase::CardWrongTime),
+    ] {
+        let mut view = ViewBuilder::new(2)
+            .with_hand(vec![("Llanowar Elves", 2, 30)])
+            .build();
+        view.hand[0].card.index = baylee_cards::decks::by_name("Llanowar Elves").unwrap();
+        view.active = PlayerId::new(active);
+        let mut duel = crate::Duel {
+            view: Some(view),
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::default(),
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        };
+        assert_eq!(
+            activate_card(&mut duel, obj(30)),
+            baylee_client_core::touch::Answer::Refused
+        );
+        assert_eq!(duel.last_error, Some(Refusal::Said(reason)));
+        assert!(duel.outbox().is_empty());
+    }
 }

@@ -585,11 +585,9 @@ fn the_gold_half_casts_with_the_mana_already_in_the_pool() {
 /// "it is not the right time" and "there is nothing left to target", and the
 /// client distinguishes none of them.
 ///
-/// **The last assertion is the defect, pinned.** `last_error` staying `None`
-/// is the silence; the day this client explains a refused tap, this test goes
-/// red, and that is the outcome it exists to produce.
+/// #112: the last assertion now requires the targetless refusal on the bar.
 #[test]
-fn a_spell_whose_only_target_was_exiled_goes_dark_and_says_nothing() {
+fn a_spell_whose_only_target_was_exiled_explains_the_refusal() {
     let (mut host, mut duel, spell) = the_reported_window();
     let on_the_battlefield = |duel: &crate::Duel, what: &str| {
         duel.view
@@ -667,10 +665,10 @@ fn a_spell_whose_only_target_was_exiled_goes_dark_and_says_nothing() {
         duel.outbox()
     );
     assert_eq!(
-        duel.last_error, None,
-        "this is the finding and not the fixture: the client refuses the tap \
-         and tells the player nothing, so there is no refusal to read. When \
-         it learns to say why, this assertion is the one that fails."
+        duel.last_error,
+        Some(baylee_client_core::i18n::Refusal::Said(
+            baylee_client_core::i18n::Phrase::CardHasNoTarget
+        ))
     );
 }
 

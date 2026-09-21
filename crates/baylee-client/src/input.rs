@@ -404,8 +404,39 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
     if answered || open_pile(duel, object) {
         Answer::Took
     } else {
+        if let Some(reason) = hand_refusal(duel, object) {
+            duel.last_error = Some(baylee_client_core::i18n::Refusal::Said(reason));
+        }
         Answer::Refused
     }
+}
+
+/// Explain a refused hand-card gesture using facts visible to this seat.
+fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
+    let view = duel.view.as_ref()?;
+    let card = view.hand.iter().find(|card| card.id == object)?;
+    if crate::targeting::provably_targetless(view, card) {
+        return Some(Phrase::CardHasNoTarget);
+    }
+    let priority = duel.interaction.as_ref().is_some_and(|i| {
+        matches!(
+        i.pending(), baylee_engine::choice::Pending::Priority { player, .. }
+            if *player == view.seat)
+    });
+    let flash = baylee_cards::by_index(card.card.index).is_some_and(|def| {
+        def.keywords.contains(baylee_cards_dsl::KeywordSet::FLASH)
+            || def
+                .faces
+                .get(usize::from(card.card.face))
+                .is_some_and(|face| face.keywords.contains(baylee_cards_dsl::KeywordSet::FLASH))
+    });
+    Some(
+        if !priority || !baylee_client_core::timing::allows(view, card.types, flash) {
+            Phrase::CardWrongTime
+        } else {
+            Phrase::CardCostsUnavailable
+        },
+    )
 }
 
 /// A tap that meant nothing else, on a card lying on top of a pile, opens

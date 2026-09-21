@@ -63,35 +63,44 @@ fn a_text_span_never_takes_the_hover_from_the_control_it_is_in() {
         ("hud/seatbar.rs", include_str!("../seatbar.rs")),
         ("hud/tray.rs", include_str!("../tray.rs")),
     ];
-    let mut seen = 0;
     for (name, source) in sources {
-        for (nth, tail) in source.split("TextSpan::new(").skip(1).enumerate() {
-            seen += 1;
-            // The spawn tuple ends at the `.id()` that takes the entity out
-            // of it, or — for a `children!` literal — at the `)],` that
-            // closes the child. Whichever comes first is the end of this
-            // span's own component list.
-            let end = tail
-                .find(".id()")
-                .into_iter()
-                .chain(tail.find(")],"))
-                .min()
-                .unwrap_or(tail.len());
-            assert!(
-                tail[..end].contains("Pickable::IGNORE"),
-                "{name}: the {} span is spawned pickable, so it takes the \
-                 hover from whatever control it is written inside",
-                nth + 1
-            );
-        }
+        assert_spans_ignore_pointer(name, source);
     }
-    // The premise: the scan found the spans rather than agreeing with an
-    // empty list. Ten of them at the time of writing; the bound is only that
-    // there are some in every file named above.
+}
+
+fn assert_spans_ignore_pointer(name: &str, source: &str) {
+    let mut seen = 0;
+
+    for (nth, tail) in source.split("TextSpan::new(").skip(1).enumerate() {
+        seen += 1;
+        // The spawn tuple ends at the `.id()` that takes the entity out
+        // of it, or — for a `children!` literal — at the `)],` that
+        // closes the child. Whichever comes first is the end of this
+        // span's own component list.
+        let end = tail
+            .find(".id()")
+            .into_iter()
+            .chain(tail.find(")],"))
+            .min()
+            .unwrap_or(tail.len());
+        assert!(
+            tail[..end].contains("Pickable::IGNORE"),
+            "{name}: the {} span is spawned pickable, so it takes the \
+                 hover from whatever control it is written inside",
+            nth + 1
+        );
+    }
     assert!(
-        seen >= 10,
-        "only {seen} spans found, so the scan has gone blind"
+        seen > 0,
+        "{name}: no spans found, so the scan has gone blind"
     );
+}
+
+#[test]
+#[should_panic(expected = "empty.rs: no spans found")]
+fn issue_175_each_file_must_contribute_spans() {
+    assert_spans_ignore_pointer("valid.rs", "TextSpan::new(label), Pickable::IGNORE)],");
+    assert_spans_ignore_pointer("empty.rs", "Text::new(label)");
 }
 
 #[test]
