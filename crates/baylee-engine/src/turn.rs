@@ -116,3 +116,79 @@ pub enum DayNight {
     /// It is night.
     Night = 1,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every step belongs to the phase the rules put it in: the beginning
+    /// phase has three (CR 501.1), combat has five (CR 506.1) and the ending
+    /// phase two (CR 512.1). The two main phases have none at all — CR 505.2
+    /// is what says so — which is why `Step::Main` is the one answer this
+    /// function cannot give on its own.
+    #[test]
+    fn every_step_belongs_to_the_phase_the_rules_put_it_in() {
+        const STEPS: [(Step, Phase); 12] = [
+            (Step::Untap, Phase::Beginning),
+            (Step::Upkeep, Phase::Beginning),
+            (Step::Draw, Phase::Beginning),
+            (Step::Main, Phase::FirstMain),
+            (Step::CombatBegin, Phase::Combat),
+            (Step::DeclareAttackers, Phase::Combat),
+            (Step::DeclareBlockers, Phase::Combat),
+            (Step::CombatDamageFirst, Phase::Combat),
+            (Step::CombatDamage, Phase::Combat),
+            (Step::CombatEnd, Phase::Combat),
+            (Step::End, Phase::Ending),
+            (Step::Cleanup, Phase::Ending),
+        ];
+        for (step, phase) in STEPS {
+            assert_eq!(step.phase(), phase, "{step:?}");
+        }
+        // Six variants for the five steps CR 506.1 names: the combat damage
+        // step happens twice when anything has first or double strike
+        // (CR 510.4), and this enum gives that second one a name of its own
+        // rather than a flag.
+        assert_eq!(STEPS.iter().filter(|(_, p)| *p == Phase::Combat).count(), 6);
+    }
+
+    /// `Step::Main` answering `FirstMain` is a **limitation and not an
+    /// answer**: both main phases are `Step::Main`, so the step alone cannot
+    /// say which one it is and only [`TurnInfo`] knows. Pinned so that the
+    /// day the two are told apart, this is the test that has to move.
+    #[test]
+    fn a_main_phase_cannot_be_told_from_its_step() {
+        assert_eq!(Step::Main.phase(), Phase::FirstMain);
+        let second = TurnInfo {
+            number: 3,
+            active: PlayerId::new(1),
+            phase: Phase::SecondMain,
+            step: Step::Main,
+        };
+        assert_eq!(
+            second.step.phase(),
+            Phase::FirstMain,
+            "the step says the first main phase while the turn is in the second"
+        );
+        assert_eq!(
+            second.phase,
+            Phase::SecondMain,
+            "which is why the phase is carried beside the step and not derived"
+        );
+    }
+
+    /// A game starts in the first player's untap step on turn 1, which is
+    /// the one piece of turn state nobody sets by hand.
+    #[test]
+    fn a_game_starts_where_the_rules_start_it() {
+        let start = TurnInfo::new(PlayerId::new(1));
+        assert_eq!(start.number, 1);
+        assert_eq!(start.active, PlayerId::new(1));
+        assert_eq!((start.phase, start.step), (Phase::Beginning, Step::Untap));
+        assert_eq!(
+            start.step.phase(),
+            start.phase,
+            "and the two agree from the first frame"
+        );
+    }
+}

@@ -49,3 +49,68 @@ pub enum EndReason {
     /// All remaining players drew (e.g. mandatory loop with `CompRulesDraw`).
     Draw,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A team wins as a team, and the seat that happened to survive is not
+    /// the winner — CR 104.2c keeps a player who has left the game on the
+    /// team that wins it. So the question is asked of the *side* a seat
+    /// plays for, and a seat playing for nobody can only win as itself.
+    #[test]
+    fn a_team_wins_for_everyone_on_it_and_a_seat_only_for_itself() {
+        let me = PlayerId::new(0);
+        let ally = PlayerId::new(2);
+        let enemy = PlayerId::new(1);
+
+        let team = Victor::Team(1);
+        assert!(team.includes(me, Some(1)));
+        assert!(
+            team.includes(ally, Some(1)),
+            "a teammate wins the same game, whether or not they are still in it"
+        );
+        assert!(!team.includes(enemy, Some(2)));
+        assert!(
+            !team.includes(me, None),
+            "a seat on no team is on no winning team either"
+        );
+
+        let solo = Victor::Player(me);
+        assert!(solo.includes(me, None));
+        assert!(
+            solo.includes(me, Some(1)),
+            "a seat that won as itself won, whatever side it was on"
+        );
+        assert!(!solo.includes(enemy, None));
+        assert!(
+            !solo.includes(ally, Some(1)),
+            "and a teammate of theirs did not — this victor is one seat"
+        );
+    }
+
+    /// A draw is a result with no victor rather than a victor nobody
+    /// matches, which is what lets a client ask `winner.is_none()` instead
+    /// of comparing against every seat at the table.
+    #[test]
+    fn a_draw_has_no_winner_at_all() {
+        let drawn = GameResult {
+            winner: None,
+            reason: EndReason::Draw,
+        };
+        assert!(drawn.winner.is_none());
+        let won = GameResult {
+            winner: Some(Victor::Player(PlayerId::new(0))),
+            reason: EndReason::LastPlayerStanding,
+        };
+        assert_ne!(drawn, won);
+        assert_eq!(
+            won,
+            GameResult {
+                winner: Some(Victor::Player(PlayerId::new(0))),
+                reason: EndReason::LastPlayerStanding,
+            },
+            "a result is its two fields and nothing else"
+        );
+    }
+}
