@@ -1995,4 +1995,114 @@ mod tests {
             "and the one underneath is still findable"
         );
     }
+
+    /// The source of this file, down to where the tests begin.
+    fn declarations() -> &'static str {
+        let source = include_str!("lib.rs");
+        source
+            .split_once("\n#[cfg(test)]")
+            .map_or(source, |(head, _)| head)
+    }
+
+    /// Every line that decides the **shape** of what a client receives: the
+    /// `pub struct` and `pub enum` declarations, their fields and variants,
+    /// and the attributes on either. Doc comments and blank lines are not
+    /// shape, so writing down what a field means costs nothing.
+    fn wire_shape() -> Vec<String> {
+        let mut shape: Vec<String> = Vec::new();
+        let mut attributes: Vec<String> = Vec::new();
+        let mut depth = 0usize;
+        for line in declarations().lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with("//") {
+                continue;
+            }
+            if depth > 0 {
+                shape.push(line.to_string());
+                depth += line.matches('{').count();
+                depth = depth.saturating_sub(line.matches('}').count());
+            } else if line.starts_with("#[") {
+                attributes.push(line.to_string());
+            } else if line.starts_with("pub struct ") || line.starts_with("pub enum ") {
+                shape.append(&mut attributes);
+                shape.push(line.to_string());
+                depth = line.matches('{').count();
+            } else {
+                attributes.clear();
+            }
+        }
+        shape
+    }
+
+    /// FNV-1a, spelled out, because this number is written down below.
+    /// `DefaultHasher` is documented as free to change between compiler
+    /// releases, and a recorded value that moved on a toolchain upgrade
+    /// would be a failure about nothing at all.
+    fn fingerprint(shape: &[String]) -> u64 {
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        for byte in shape.join("\n").bytes() {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        hash
+    }
+
+    /// **The shape on the wire and the number that names it move together.**
+    ///
+    /// [`VIEW_VERSION`] is what lets a client refuse a host it cannot
+    /// render, and every reader of it in this workspace compares it against
+    /// itself — the gateway's two e2e tests, the client's handshake, a dozen
+    /// client fixtures. Not one of them can see the case the constant exists
+    /// for: a field added, renamed or retyped here while the number stays
+    /// where it was. Both ends then say 26 and one of them is wrong about
+    /// what 26 means, which is the failure this constant was introduced to
+    /// make impossible and the one failure it cannot catch by itself.
+    ///
+    /// So the shape is recorded beside the version, and a change to either
+    /// stops here with both numbers in front of whoever made it. The
+    /// question it asks is the one [`VIEW_VERSION`]'s own doc comment asks:
+    /// was that breaking? If it was, bump the constant and say why in the
+    /// changelog above it. Either way, record the pair.
+    ///
+    /// Every type in this file is `pub` — there are no others, so reaching
+    /// every declaration is reaching every field a client is sent.
+    ///
+    /// This is a second guard and not a better one. What it cannot see is
+    /// already written down one screen up: a renumbered
+    /// [`baylee_core::types::SubtypeSet`] leaves every struct in this file
+    /// exactly as it was, and two builds then agree on the shape and
+    /// disagree on what a number in it means.
+    #[test]
+    fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
+        const RECORDED: (u32, u64) = (26, 0xbb40_b1b8_f639_b4a1);
+
+        let shape = wire_shape();
+        let declared = declarations().matches("\npub struct ").count()
+            + declarations().matches("\npub enum ").count();
+
+        assert!(
+            shape.len() >= 150 && declared >= 15,
+            "read {} lines and {declared} declarations out of this file — \
+             the reader is broken, not the view. The equality below is \
+             the door; this is only the floor",
+            shape.len()
+        );
+        assert_eq!(
+            shape
+                .iter()
+                .filter(|line| line.starts_with("pub struct ") || line.starts_with("pub enum "))
+                .count(),
+            declared,
+            "every declaration in this file is one the reader reached"
+        );
+        assert_eq!(
+            (VIEW_VERSION, fingerprint(&shape)),
+            RECORDED,
+            "the view's shape and VIEW_VERSION no longer agree with what was \
+             recorded here. If what changed is breaking for a client — a \
+             field renamed, retyped or removed, a variant added to an enum a \
+             client matches on — bump VIEW_VERSION and say why in the \
+             changelog on it. Then record the pair above, whichever it was"
+        );
+    }
 }
