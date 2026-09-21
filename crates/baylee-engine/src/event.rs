@@ -378,3 +378,57 @@ impl Journal {
         self.entries.len() as u64
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn started(seed: u64) -> GameEvent {
+        GameEvent::GameStarted { seed, seats: 2 }
+    }
+
+    /// A sequence number is how everything else addresses an entry — a
+    /// client's "what happened since" and the engine's own replay both take
+    /// one and ask for what came after it. So it is 1-based and dense, and
+    /// the number [`Journal::record`] hands back is the one the entry it
+    /// just appended carries.
+    #[test]
+    fn a_journal_numbers_its_entries_from_one_and_densely() {
+        let mut journal = Journal::default();
+        assert!(journal.is_empty());
+        assert_eq!(journal.len(), 0);
+        assert_eq!(journal.last_seq(), 0, "0 is the empty journal's answer");
+
+        let seqs: Vec<u64> = (0..3).map(|i| journal.record(started(i))).collect();
+        assert_eq!(seqs, vec![1, 2, 3]);
+        assert!(!journal.is_empty());
+        assert_eq!(journal.len(), 3);
+
+        for (i, entry) in journal.entries().iter().enumerate() {
+            assert_eq!(entry.seq, seqs[i], "record answered with its own entry");
+            assert!(
+                matches!(entry.event, GameEvent::GameStarted { seed, .. } if seed == i as u64),
+                "entries are in the order they were recorded"
+            );
+        }
+    }
+
+    /// The same number derived two ways, which is the only thing about this
+    /// wrapper that can go wrong: [`Journal::last_seq`] counts the entries
+    /// and the entry counts itself. They agree for as long as the journal
+    /// is append-only, and a removal — a compaction, a rollback, a rewind
+    /// that dropped what it undid — would part them silently, because every
+    /// reader takes the cheap one.
+    #[test]
+    fn the_last_sequence_number_agrees_with_the_last_entry() {
+        let mut journal = Journal::default();
+        for i in 0..5 {
+            let seq = journal.record(started(i));
+            assert_eq!(journal.last_seq(), seq);
+            assert_eq!(
+                journal.last_seq(),
+                journal.entries().last().expect("just recorded").seq
+            );
+        }
+    }
+}
