@@ -715,8 +715,165 @@ fn write_payload(card: &ScryfallCard, name: &str, cache_dir: &Path) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::{PAYLOAD_SCHEMA, ScryfallCard, stamp_is_current};
+    use super::{PAYLOAD_SCHEMA, ScryfallCard, Sides, stamp_is_current};
     use std::collections::HashMap;
+
+    /// A payload, built the way the cache holds one — from JSON, so the
+    /// field names this reader depends on are pinned here too.
+    fn card(json: &str) -> ScryfallCard {
+        serde_json::from_str(json).expect("a payload the reader understands")
+    }
+
+    /// The two questions `sides` answers are asked of different authorities,
+    /// and the art is the one that is per *printing*. Scryfall puts it at
+    /// exactly one of two levels — on the card for one piece of cardboard, on
+    /// each face for two — so that is what is read, rather than the layout,
+    /// which an Adventure printed double-faced would make silently wrong.
+    #[test]
+    fn a_printing_with_a_face_on_each_side_says_so_through_its_art() {
+        let dfc = card(
+            r#"{
+                "id": "1", "name": "Front // Back", "layout": "transform",
+                "card_faces": [
+                    {"name": "Front", "image_uris": {"normal": "front.jpg"}},
+                    {"name": "Back", "image_uris": {"normal": "back.jpg"}}
+                ]
+            }"#,
+        );
+        assert_eq!(
+            dfc.sides().expect("a transform card is readable"),
+            Sides {
+                back_image: true,
+                double_faced: true,
+            }
+        );
+
+        let one_piece = card(
+            r#"{
+                "id": "2", "name": "Lightning Bolt", "layout": "normal",
+                "image_uris": {"normal": "bolt.jpg"}
+            }"#,
+        );
+        assert_eq!(
+            one_piece.sides().expect("an ordinary card is readable"),
+            Sides {
+                back_image: false,
+                double_faced: false,
+            }
+        );
+    }
+
+    /// The two answers are not one answer, and the pool holds the case that
+    /// proves it: a meld card is double-faced by CR 712.1 and Scryfall serves
+    /// no back for it, because a meld back is half of an oversized face and
+    /// lives as a card of its own.
+    #[test]
+    fn a_meld_card_is_double_faced_with_no_second_picture() {
+        let meld = card(
+            r#"{
+                "id": "3", "name": "Bruna, the Fading Light", "layout": "meld",
+                "image_uris": {"normal": "bruna.jpg"}
+            }"#,
+        );
+        assert_eq!(
+            meld.sides().expect("a meld card is readable"),
+            Sides {
+                back_image: false,
+                double_faced: true,
+            }
+        );
+    }
+
+    /// Art at neither level has two causes that want opposite answers, and
+    /// `image_status` is what tells them apart. An unpublished scan is an
+    /// honest "no back" — there is no picture on either side to draw — and
+    /// anything else stops the run rather than guessing.
+    #[test]
+    fn a_printing_with_no_art_is_answered_only_where_scryfall_says_why() {
+        let unscanned = card(r#"{"id": "4", "name": "Brand New", "image_status": "missing"}"#);
+        assert_eq!(
+            unscanned.sides().expect("missing art is an answer"),
+            Sides {
+                back_image: false,
+                double_faced: false,
+            }
+        );
+
+        let odd = card(r#"{"id": "5", "name": "Odd One", "image_status": "lowres"}"#);
+        let refusal = odd.sides().expect_err("a status that cannot mean no art");
+        assert!(
+            refusal.contains("Odd One") && refusal.contains("lowres"),
+            "the refusal names the card and the status it could not read: {refusal}"
+        );
+    }
+
+    /// A payload written before this reader existed carries no
+    /// `image_status` at all, and answering it would write "no back" for
+    /// every double-faced card in the pool. It stops the run instead, and the
+    /// message names the flag that repairs it — a plain fill writes what is
+    /// *missing*, and a payload of the wrong shape is not missing.
+    #[test]
+    fn a_payload_older_than_this_reader_stops_the_run_and_names_the_cure() {
+        let old = card(r#"{"id": "6", "name": "Ancestral Recall"}"#);
+        let refusal = old.sides().expect_err("an unanswerable payload");
+        assert!(
+            refusal.contains("--refetch"),
+            "the refusal has to say what to run: {refusal}"
+        );
+        assert!(refusal.contains("Ancestral Recall"));
+    }
+
+    /// A printing with a face on each side and a layout the rules do not
+    /// account for is a refusal rather than a guess: CR 712.1 names three
+    /// kinds of double-faced card, and a fourth is a decision a person makes
+    /// after reading the printing.
+    #[test]
+    fn a_two_sided_printing_of_an_unknown_layout_is_refused() {
+        let surprise = card(
+            r#"{
+                "id": "7", "name": "Curious Thing", "layout": "adventure",
+                "card_faces": [
+                    {"name": "Curious Thing", "image_uris": {"normal": "front.jpg"}},
+                    {"name": "Curious Deed", "image_uris": {"normal": "back.jpg"}}
+                ]
+            }"#,
+        );
+        let refusal = surprise
+            .sides()
+            .expect_err("a layout with an unexpected back");
+        for wanted in ["Curious Thing", "adventure", "front.jpg", "712.1"] {
+            assert!(
+                refusal.contains(wanted),
+                "the refusal has to carry {wanted:?} so a person can read the printing: \
+                 {refusal}"
+            );
+        }
+    }
+
+    /// An ordinary Adventure — one piece of cardboard with two faces printed
+    /// on the front — is not double-faced and has no back, which is the case
+    /// the layout list would have got wrong in the other direction.
+    #[test]
+    fn an_adventure_printed_on_one_side_has_no_back() {
+        let adventure = card(
+            r#"{
+                "id": "8", "name": "Bonecrusher Giant // Stomp",
+                "layout": "adventure",
+                "image_uris": {"normal": "giant.jpg"},
+                "card_faces": [
+                    {"name": "Bonecrusher Giant"},
+                    {"name": "Stomp"}
+                ]
+            }"#,
+        );
+        assert_eq!(
+            adventure.sides().expect("an adventure is readable"),
+            Sides {
+                back_image: false,
+                double_faced: false,
+            }
+        );
+    }
 
     /// The stamp is read from its **first line**, because the file it is read
     /// out of carries prose under the number — a person who opens the cache
@@ -724,6 +881,7 @@ mod tests {
     /// source. A reader that parsed the whole body would call every stamp it
     /// ever wrote unparsable, which fails in the safe direction and would
     /// therefore have gone unnoticed as one bulk download per run, forever.
+
     #[test]
     fn a_stamp_is_read_out_of_its_first_line() {
         assert!(stamp_is_current(&format!("{PAYLOAD_SCHEMA}")));
