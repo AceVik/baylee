@@ -2267,3 +2267,43 @@ fn sunken_citadel() -> CardIndex {
 fn volatile_fault() -> CardIndex {
     card_index("95c44f28-f7fa-4785-83b9-0d81be0db0c8")
 }
+
+fn blinkmoth_nexus() -> CardIndex {
+    card_index("40d45c02-6416-4e19-8fe3-0ddadf5ba627")
+}
+
+fn creeping_tar_pit() -> CardIndex {
+    card_index("250cb58b-2924-4dff-92fe-ac0ebbbeb218")
+}
+
+fn faceless_haven() -> CardIndex {
+    card_index("f74107d5-fb4a-464b-9251-42b84d91775d")
+}
+
+fn horizon_of_progress() -> CardIndex {
+    card_index("59a82f57-fe2f-4834-a4ee-4b948eef1e12")
+}
+
+fn lake_of_the_dead() -> CardIndex {
+    card_index("bdf476e5-1d57-4b17-b45b-d52fd75aadeb")
+}
+
+fn lotus_vale() -> CardIndex {
+    card_index("01fc5bb3-ebd7-4ab4-8aef-2ece1e1d9b7c")
+}
+
+fn maestros_theater() -> CardIndex {
+    card_index("9464ddf2-4bcb-44f6-b945-89a132544de6")
+}
+
+fn riveteers_overlook() -> CardIndex {
+    card_index("5548ff43-e5f6-4a63-8562-a2b1de06d6f5")
+}
+
+fn sanctum_of_ugin() -> CardIndex {
+    card_index("72cb5dcd-9b24-435c-921a-3766108374c4")
+}
+
+fn the_black_gate() -> CardIndex {
+    card_index("40eb9904-dea3-47cf-963a-04821f98ba64")
+}
