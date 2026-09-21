@@ -2441,6 +2441,8 @@ struct PrintingTally {
     type_lines: usize,
     /// Printed power/toughness values that are a sentence and not a number.
     defined_pt: usize,
+    /// Faces whose counted enters-tapped bound was held against the print.
+    enters_tapped: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -2519,6 +2521,14 @@ struct PrintingTally {
 /// Nothing is skipped for an unknown subtype word today — every word the
 /// pool's 1475 type lines print is in the catalog — which is the number to
 /// watch if it ever drops below 1473 without a card leaving the pool.
+///
+/// Enters-tapped bound is **38**, measured 2026-09-22 at **41** over a pool
+/// of 2716. The number is deliberately not the 31 a grep for the printed
+/// word "other" finds: the parser asks only for a counted bound, so a
+/// battle land's "unless you control two or more basic lands" is in the
+/// population and "other" is not part of the sentence being read. Counting
+/// it by one instrument and bounding it by another is how a threshold comes
+/// to guard nothing, so this floor is set from the check's own line.
 const PRINTING_FLOOR: PrintingTally = PrintingTally {
     payloads: 1300,
     loyalty: 6,
@@ -2534,6 +2544,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     printings: 1300,
     type_lines: 1400,
     defined_pt: 4,
+    enters_tapped: 38,
 };
 
 /// What [`check_header_matches_code`]'s type segment reached, less a margin.
@@ -2975,6 +2986,26 @@ fn check_card_matches_the_printing(
 /// And a subtype word the catalog does not know skips the face: the catalogs
 /// are what `codegen` builds the constants from, so an unknown word is this
 /// command's own gap and never a fact about the card.
+/// The five printing checks that need the compiled `CardDef`, in one door.
+///
+/// `validate` walks the card *files* and a file whose name resolves to no
+/// `CardDef` is a finding of its own, made above — so everything here may
+/// take the definition rather than an `Option` of it, and `validate` keeps
+/// one line for the five instead of five.
+fn check_def_against_the_printing(
+    slug: &str,
+    def: &'static baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    check_scope_matches_the_text(slug, def.name(), def, payload, problems);
+    check_card_matches_the_printing(slug, def, payload, tally, problems);
+    check_type_line_matches_the_printing(slug, def, payload, tally, problems);
+    check_optional_clauses_are_offered(slug, def, payload, tally, problems);
+    check_enters_tapped_bound_matches_the_printing(slug, def, payload, tally, problems);
+}
+
 fn check_type_line_matches_the_printing(
     slug: &str,
     def: &'static baylee_cards::dsl::CardDef,
@@ -3046,6 +3077,158 @@ fn printed_subtypes(type_line: &str) -> Option<Vec<baylee_core::ids::SubtypeId>>
         at += 1;
     }
     Some(out)
+}
+
+/// The bound a printed enters-tapped-unless sentence states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PrintedBound {
+    /// "unless you control N or more …" — untapped from N upwards.
+    AtLeast(u32),
+    /// "unless you control N or fewer …" — untapped at N and below.
+    AtMost(u32),
+}
+
+/// The English number words a printed card uses for a count, and the digits
+/// beside them because a payload is allowed to write either.
+fn number_word(word: &str) -> Option<u32> {
+    Some(match word {
+        "one" => 1,
+        "two" => 2,
+        "three" => 3,
+        "four" => 4,
+        "five" => 5,
+        "six" => 6,
+        "seven" => 7,
+        "eight" => 8,
+        "nine" => 9,
+        "ten" => 10,
+        other => other.parse().ok()?,
+    })
+}
+
+/// What one printed face says about entering tapped, or `None` for a face
+/// that states no counted bound.
+///
+/// Read one **sentence** at a time and never over the whole text, because
+/// "unless you control" is a common clause: a card that sacrifices itself
+/// unless you control two Swamps and separately enters tapped would
+/// otherwise have the two halves read as one sentence they are not.
+///
+/// The three forms the pool prints are two sentences, because the third is
+/// the second turned round. "If you control two or more other lands, this
+/// land enters tapped" says tapped from two upwards, which is untapped at
+/// one and below — so it is `AtMost(1)` and the subtraction is the whole
+/// reason this check exists: five cards print that sentence and one of them
+/// wrote the printed number straight into the bound.
+fn printed_enters_tapped_bound(text: &str) -> Option<PrintedBound> {
+    let lower = text.to_lowercase();
+    for sentence in lower.split('.') {
+        if !(sentence.contains("enters") && sentence.contains("tapped")) {
+            continue;
+        }
+        for (lead, inverted) in [("unless you control ", false), ("if you control ", true)] {
+            let Some(at) = sentence.find(lead) else {
+                continue;
+            };
+            let mut words = sentence[at + lead.len()..].split_whitespace();
+            let Some(n) = words.next().and_then(number_word) else {
+                continue;
+            };
+            if words.next() != Some("or") {
+                continue;
+            }
+            match (words.next(), inverted) {
+                (Some("more"), false) => return Some(PrintedBound::AtLeast(n)),
+                (Some("fewer"), false) => return Some(PrintedBound::AtMost(n)),
+                (Some("more"), true) => return Some(PrintedBound::AtMost(n.checked_sub(1)?)),
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+/// The bound a face's `EnterModifier`s code, or `None` for a face that codes
+/// no counted one.
+fn coded_enters_tapped_bound(face: &baylee_cards::dsl::FaceDef) -> Option<PrintedBound> {
+    face.enter_modifiers.iter().find_map(|m| match m {
+        // Both bounds are `u8` on the card and the printed one is parsed
+        // as a `u32`, so the widening happens here rather than at the
+        // comparison, where a cast is a place a mistake can hide.
+        baylee_cards::dsl::EnterModifier::TappedUnlessCount { at_least, .. } => {
+            Some(PrintedBound::AtLeast(u32::from(*at_least)))
+        }
+        baylee_cards::dsl::EnterModifier::TappedUnlessAtMost { at_most, .. } => {
+            Some(PrintedBound::AtMost(u32::from(*at_most)))
+        }
+        _ => None,
+    })
+}
+
+/// Holds a counted enters-tapped-unless bound against the number the card
+/// prints, face by face.
+///
+/// This is the one printed *number* on a land that nothing compared. The
+/// oracle check says the header quotes the printing, and the header of a
+/// wrong card quotes it perfectly — Lair of the Hydra printed "If you
+/// control two or more other lands, this land enters tapped" in its header,
+/// built `at_most: 2` underneath it, and came down untapped off exactly two
+/// other lands where the four other cards printing that identical sentence
+/// came down tapped. Every side of that card read as correct: right header,
+/// right mana, right type line, wrong number.
+///
+/// `EnterModifier::TappedUnlessAtMost`'s own doc says this in prose -- that
+/// the manlands print the complement of a fast land's sentence and that "all
+/// of it is one `at_most`" -- so the rule was written down and a card broke
+/// it anyway. Prose beside a variant binds nobody; this is the same sentence
+/// as something a run can fail on.
+///
+/// The two directions are not asked of the same population, for the reason
+/// the mana check gives: a code bound that **disagrees** with the print is
+/// wrong on any card, but a bound the code does not have at all looks
+/// exactly like a clause a `Partial` card refused by name — so the missing
+/// half is asked only of `Coverage::Implemented`.
+fn check_enters_tapped_bound_matches_the_printing(
+    slug: &str,
+    def: &'static baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    let printed = face_texts(payload);
+    if printed.len() != def.faces.len() {
+        return;
+    }
+    for (at, (text, face)) in printed.iter().zip(def.faces).enumerate() {
+        let Some(want) = printed_enters_tapped_bound(text) else {
+            continue;
+        };
+        let where_ = if def.faces.len() > 1 {
+            format!("face {at} of {slug}")
+        } else {
+            slug.to_string()
+        };
+        match coded_enters_tapped_bound(face) {
+            Some(have) => {
+                tally.enters_tapped += 1;
+                if have != want {
+                    println!(
+                        "{where_}: the printing's enters-tapped bound is {want:?} and the \
+                         code's is {have:?}"
+                    );
+                    *problems += 1;
+                }
+            }
+            None if def.coverage == baylee_cards::dsl::Coverage::Implemented => {
+                println!(
+                    "{where_}: the printing states an enters-tapped bound of {want:?} and the \
+                     code counts nothing"
+                );
+                *problems += 1;
+            }
+            None => {}
+        }
+    }
 }
 
 /// What the card's mana abilities make, against what its text offers to add.
@@ -4060,10 +4243,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         };
         tally.payloads += 1;
         if let Some(def) = def {
-            check_scope_matches_the_text(&slug, def.name(), def, &payload, &mut problems);
-            check_card_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
-            check_type_line_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
-            check_optional_clauses_are_offered(&slug, def, &payload, &mut tally, &mut problems);
+            check_def_against_the_printing(&slug, def, &payload, &mut tally, &mut problems);
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
@@ -4162,7 +4342,7 @@ fn report_what_the_sweeps_reached(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
          {} keyword, {} mana, {} oracle, {} cost, {} activation cost, {} player target, \
          {} target count, {} optional clause, {} printing, {} type line, \
-         {} ability-defined P/T",
+         {} ability-defined P/T, {} enters-tapped bound",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -4176,7 +4356,8 @@ fn report_what_the_sweeps_reached(
         tally.optional_clauses,
         tally.printings,
         tally.type_lines,
-        tally.defined_pt
+        tally.defined_pt,
+        tally.enters_tapped
     );
     check_printing_floors(tally, problems);
     if unpinned > 0 {
@@ -4228,6 +4409,11 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ),
         ("printing", tally.printings, PRINTING_FLOOR.printings),
         ("type line", tally.type_lines, PRINTING_FLOOR.type_lines),
+        (
+            "enters-tapped bound",
+            tally.enters_tapped,
+            PRINTING_FLOOR.enters_tapped,
+        ),
     ] {
         if seen < floor {
             println!(
@@ -6099,8 +6285,9 @@ mod tests {
     }
 
     use super::{
-        PrintedMana, header_scryfall_id, knob, one_row_per_token, printed_mana_offered,
-        printed_subtypes, quoted_value, refuse_twin_names, script_for,
+        PrintedBound, PrintedMana, header_scryfall_id, knob, one_row_per_token,
+        printed_enters_tapped_bound, printed_mana_offered, printed_subtypes, quoted_value,
+        refuse_twin_names, script_for,
     };
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
@@ -6490,6 +6677,64 @@ mod tests {
     #[test]
     fn an_unknown_word_refuses_the_line_rather_than_guessing() {
         assert_eq!(printed_subtypes("Creature \u{2014} Wizard Nonesuch"), None);
+    }
+
+    /// The two sentences the pool prints, read straight.
+    #[test]
+    fn an_unless_you_control_sentence_states_its_bound_as_printed() {
+        assert_eq!(
+            printed_enters_tapped_bound(
+                "This land enters tapped unless you control two or more other lands."
+            ),
+            Some(PrintedBound::AtLeast(2))
+        );
+        assert_eq!(
+            printed_enters_tapped_bound(
+                "This land enters tapped unless you control two or fewer other lands."
+            ),
+            Some(PrintedBound::AtMost(2))
+        );
+        assert_eq!(
+            printed_enters_tapped_bound(
+                "This land enters tapped unless you control three or more other Islands."
+            ),
+            Some(PrintedBound::AtLeast(3))
+        );
+    }
+
+    /// And the third, which is the second turned round.
+    ///
+    /// "Tapped from two upwards" is "untapped at one and below", so the
+    /// number the card prints is one higher than the number the code holds.
+    /// Reading it straight is the defect this whole check was written for:
+    /// Lair of the Hydra wrote `at_most: 2` where its four cyclemates wrote
+    /// `at_most: 1`, and came down untapped off exactly two other lands.
+    #[test]
+    fn an_if_you_control_sentence_is_the_same_bound_one_lower() {
+        assert_eq!(
+            printed_enters_tapped_bound(
+                "If you control two or more other lands, this land enters tapped."
+            ),
+            Some(PrintedBound::AtMost(1))
+        );
+    }
+
+    /// "Unless you control" is an ordinary clause, and a card is allowed to
+    /// print one that has nothing to do with how it arrives.
+    ///
+    /// The scan is per sentence for exactly this: over the whole text these
+    /// two lines would read as one, and the Bog would be reported as a land
+    /// whose coded bound is missing.
+    #[test]
+    fn an_unrelated_unless_clause_states_no_arrival_bound() {
+        assert_eq!(
+            printed_enters_tapped_bound(
+                "This land enters tapped. When it enters, sacrifice it unless you \
+                 control two or more Swamps."
+            ),
+            None
+        );
+        assert_eq!(printed_enters_tapped_bound("{T}: Add {G}."), None);
     }
 }
 
