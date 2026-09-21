@@ -442,3 +442,154 @@ pub enum TriggerEventKind {
     /// Any event.
     Any,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::static_ability::{Layer, Modifier, ReplacementRule, StaticAbility};
+
+    const NOTHING: &[Effect] = &[];
+
+    fn activated(mana_ability: bool) -> AbilityDef {
+        AbilityDef::Activated {
+            cost: crate::cost::Cost::TAP,
+            effects: NOTHING,
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability,
+            zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
+        }
+    }
+
+    fn conditional(mana_ability: bool) -> AbilityDef {
+        AbilityDef::ActivatedConditional {
+            cost: crate::cost::Cost::TAP,
+            effects: NOTHING,
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability,
+            zone: ActivationZone::Battlefield,
+            condition: Condition::ControlCount(&crate::Filter::ARTIFACT, 3),
+            limit: ActivationLimit::Unlimited,
+        }
+    }
+
+    /// CR 605.1 makes a mana ability the exception, and the flag is the
+    /// whole difference: an ability read as one skips the stack, where an
+    /// opponent can no longer respond to it, and an ability wrongly read as
+    /// an ordinary one cannot be activated while a cost is being paid.
+    ///
+    /// Both arms are the point. `ActivatedConditional` is the same ability
+    /// with a precondition on it — Mox Opal's three artifacts — and six readers
+    /// across the engine, the client and the lints once matched only the
+    /// unconditional twin, so a conditional mana ability answered "no" to
+    /// every one of them.
+    #[test]
+    fn a_mana_ability_is_read_the_same_through_both_of_its_doors() {
+        assert!(activated(true).is_mana_ability());
+        assert!(
+            conditional(true).is_mana_ability(),
+            "the conditional twin is the one that gets forgotten"
+        );
+        assert!(!activated(false).is_mana_ability());
+        assert!(!conditional(false).is_mana_ability());
+    }
+
+    /// And nothing else is one, whatever it does. A mana ability is an
+    /// *activated* ability by CR 605.1a — a triggered ability that produces
+    /// mana is a triggered mana ability only under 605.1b, which this pool
+    /// does not have a shape for, and a spell that adds mana uses the stack
+    /// like any other spell.
+    #[test]
+    fn no_other_kind_of_ability_is_a_mana_ability() {
+        let others = [
+            AbilityDef::Unimplemented,
+            AbilityDef::Spell {
+                effects: NOTHING,
+                targets: None,
+            },
+            AbilityDef::Triggered {
+                trigger: Trigger::ETB,
+                effects: NOTHING,
+                targets: None,
+                once_per_turn: false,
+                condition: None,
+            },
+            AbilityDef::Ward { mana: 2 },
+            AbilityDef::SagaChapter {
+                chapter: 1,
+                effects: NOTHING,
+                targets: None,
+            },
+            AbilityDef::Prepared {
+                card: baylee_core::ids::CardIndex::new(1),
+            },
+            AbilityDef::Echo {
+                cost: baylee_core::mana::ManaCost::ZERO,
+            },
+            AbilityDef::Static(StaticAbility {
+                layer: Layer::Ability,
+                filter: crate::Filter::This,
+                modifier: Modifier::GrantActivated {
+                    cost: crate::cost::Cost::TAP,
+                    effects: NOTHING,
+                    // A *granted* mana ability, and the ability granting it
+                    // is still not one itself.
+                    mana_ability: true,
+                },
+            }),
+            AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
+                controller_filter: &crate::Filter::Any,
+            }),
+            AbilityDef::ModalSpell { modes: &[] },
+            AbilityDef::Suspend {
+                counters: 3,
+                cost: baylee_core::mana::ManaCost::ZERO,
+            },
+            AbilityDef::CopyOnEnterUntilEot {
+                target: crate::effect::TargetSpec::Object(&crate::Filter::CREATURE),
+                mods: &[],
+            },
+            AbilityDef::CopyOnEnter {
+                target: crate::effect::TargetSpec::Object(&crate::Filter::CREATURE),
+                mods: &[],
+            },
+            AbilityDef::Loyalty {
+                cost: 1,
+                effects: NOTHING,
+                targets: None,
+            },
+            AbilityDef::ModalTriggered {
+                trigger: Trigger::ETB,
+                modes: &[],
+                once_per_turn: false,
+                condition: None,
+            },
+        ];
+        for ability in others {
+            assert!(
+                !ability.is_mana_ability(),
+                "{ability:?} answered that it is a mana ability"
+            );
+        }
+    }
+
+    /// `Trigger::ETB` is the spelling most cards use, and it is an alias
+    /// rather than a kind of its own: "when **this** enters". A card
+    /// reaching for it must get the self-filter, because the same variant
+    /// with a wider filter is "whenever *another* creature enters" — a
+    /// different card.
+    #[test]
+    fn the_enters_alias_is_about_the_permanent_itself() {
+        assert_eq!(
+            Trigger::ETB,
+            Trigger::EntersBattlefield(&crate::Filter::This)
+        );
+        assert_ne!(
+            Trigger::ETB,
+            Trigger::EntersBattlefield(&crate::Filter::CREATURE),
+            "a filter that is not the source is another trigger entirely"
+        );
+    }
+}
