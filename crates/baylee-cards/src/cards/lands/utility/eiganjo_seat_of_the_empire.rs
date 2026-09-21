@@ -2,7 +2,7 @@
 //! Oracle: {T}: Add {W}.
 //! Oracle: Channel — {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.
 //! Set: NEO #268 — Kamigawa: Neon Dynasty | Scryfall ID: c375a022-5b57-496d-a802-e4ea8376e9e4 | Oracle ID: 7edb3d15-4f70-4ebe-8c5e-caf6a225076d
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the mana ability is built; the channel ability is not expressible.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,6 +16,12 @@ card!(
         types = TypeSet::LAND,
         supertypes = SupertypeSet::LEGENDARY,
     ),],
+    coverage = Coverage::Partial(
+        "Channel: `Filter` has no `Blocking`, so a creature that is attacking or blocking \
+         cannot be named, and nothing in `Cost`/`CostReduction` makes an activation cheaper",
+    ),
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
+        // NOT SUPPORTED: Channel — {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
