@@ -456,3 +456,163 @@ fn a_card_this_build_cannot_play_is_refused_by_a_different_sentence() {
         "one past the last row is no card at all"
     );
 }
+
+/// A deck body as a client sends it. JSON rather than a literal, because
+/// most of `DeckBody` is optional and a literal would have to name fields
+/// these tests say nothing about — and because JSON is what actually
+/// arrives.
+fn deck(body: serde_json::Value) -> Result<(), String> {
+    let body: DeckBody = serde_json::from_value(body).expect("a deck body");
+    validate_deck(&body).map_err(|(status, payload)| {
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "a deck is the body of the request"
+        );
+        payload.0.error.into_owned()
+    })
+}
+
+/// **The shape of the body is refused before any card is looked up**, each
+/// size with its own sentence: a player who sent three hundred rows and a
+/// player who sent none have different things to fix, and neither of them
+/// has a card problem.
+#[test]
+fn a_deck_is_refused_for_its_shape_before_any_card_is_read() {
+    let rows = |n: usize| vec!["1 Forest"; n];
+
+    assert!(deck(serde_json::json!({"name": "a deck", "cards": ["1 Forest"]})).is_ok());
+    assert!(
+        deck(serde_json::json!({"name": "x".repeat(64), "cards": ["1 Forest"]})).is_ok(),
+        "sixty-four characters is a name"
+    );
+    for name in [String::new(), "x".repeat(65)] {
+        assert_eq!(
+            deck(serde_json::json!({"name": name, "cards": ["1 Forest"]})),
+            Err("invalid deck name".to_string()),
+            "{} characters is not",
+            name.len()
+        );
+    }
+    assert_eq!(
+        deck(serde_json::json!({"name": "a deck", "cards": Vec::<String>::new()})),
+        Err("invalid card list".to_string()),
+        "a deck of nothing is not a deck"
+    );
+    assert_eq!(
+        deck(serde_json::json!({"name": "a deck", "cards": rows(251)})),
+        Err("invalid card list".to_string()),
+        "and the row count is capped before the copies are added up"
+    );
+    assert_eq!(
+        deck(serde_json::json!({
+            "name": "a deck",
+            "cards": ["1 Forest"],
+            "sideboard": rows(251),
+        })),
+        Err("invalid sideboard".to_string()),
+        "the sideboard has a cap of its own and says which one it was"
+    );
+}
+
+/// **A sideboard is read by the deck's own parser**, so it cannot hold what
+/// a deck could not — and it is read *separately*, so four in the deck and
+/// four in the sideboard is eight copies of a card and legal, which is the
+/// point of having one.
+#[test]
+fn a_sideboard_is_the_same_parser_over_a_list_of_its_own() {
+    assert_eq!(
+        deck(serde_json::json!({
+            "name": "a deck",
+            "cards": ["1 Forest"],
+            "sideboard": ["5 Lightning Bolt"],
+        })),
+        Err("invalid card count (1-4, unlimited for basic lands)".to_string()),
+        "five is five wherever it is written"
+    );
+    assert!(
+        deck(serde_json::json!({
+            "name": "a deck",
+            "cards": ["4 Lightning Bolt"],
+            "sideboard": ["4 Lightning Bolt"],
+        }))
+        .is_ok(),
+        "and the two lists are counted apart, which is what a sideboard is"
+    );
+}
+
+/// **Three questions, not one.** A commander's name has to resolve, what it
+/// resolves to has to be a card that may lead a deck (CR 903.3 — a legendary
+/// creature, Vehicle or Spacecraft with a power and toughness), and a second
+/// one has to be allowed to lead it *with* the first.
+///
+/// The check used to stop at the first of those, so any card in this pool
+/// could be named as a commander and the engine seated it without
+/// complaint.
+#[test]
+fn a_commander_is_a_card_that_may_lead_and_not_merely_a_card() {
+    let with = |commanders: &[&str]| {
+        deck(serde_json::json!({
+            "name": "a deck",
+            "cards": ["1 Forest"],
+            "commanders": commanders,
+        }))
+    };
+
+    assert_eq!(
+        with(&["Lihgtning Bolt"]),
+        Err("unknown commander".to_string()),
+        "a name nothing has printed"
+    );
+    assert_eq!(
+        with(&["Lightning Bolt"]),
+        Err("that card cannot be a commander".to_string()),
+        "a card this pool has, which is the question that used to go unasked"
+    );
+    assert_eq!(
+        with(&["Lightning Bolt", "Forest", "Karakas"]),
+        Err("a deck has at most two commanders".to_string()),
+        "counted before any of them is looked up"
+    );
+
+    let mut leaders = baylee_cards::all().filter_map(|def| {
+        let leader = baylee_cards::decks::leader_of(def.index)?;
+        leader.eligible.then(|| (def.faces[0].name, leader))
+    });
+    let (first_name, first) = leaders.next().expect("this pool has a commander");
+    let (second_name, _) = leaders
+        .find(|(_, other)| !baylee_cards::decks::may_lead_together(&first, other))
+        .expect("and two that cannot lead one deck between them");
+    assert_eq!(
+        with(&[first_name, second_name]),
+        Err("those two cards cannot lead one deck".to_string()),
+        "{first_name} and {second_name} are each a commander and not a pair"
+    );
+}
+
+/// The one commander an older client sends is read only while the list a
+/// newer one sends is empty. It is a reader's tolerance and not a second
+/// field: a build made before the partner rule still saves decks, and
+/// refusing it would lose the commander rather than the feature.
+#[test]
+fn the_field_an_older_client_sends_is_read_only_when_the_new_one_is_empty() {
+    assert_eq!(
+        deck(serde_json::json!({
+            "name": "a deck",
+            "cards": ["1 Forest"],
+            "commander": "Lightning Bolt",
+        })),
+        Err("that card cannot be a commander".to_string()),
+        "the old field is read when the new one says nothing"
+    );
+    assert_eq!(
+        deck(serde_json::json!({
+            "name": "a deck",
+            "cards": ["1 Forest"],
+            "commander": "Lihgtning Bolt",
+            "commanders": ["Lightning Bolt"],
+        })),
+        Err("that card cannot be a commander".to_string()),
+        "and is not read at all when it does"
+    );
+}
