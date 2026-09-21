@@ -165,6 +165,74 @@ mod tests {
         }
     }
 
+    /// **A number this conversion does not know is refused in one field and
+    /// defaulted in every other**, and the split is deliberate rather than
+    /// an oversight.
+    ///
+    /// `format` decides what game is being played — a table whose format was
+    /// silently read as Commander is not a degraded game, it is a different
+    /// one — so an unknown id is an error and
+    /// [`an_unknown_format_is_refused_rather_than_defaulted`] pins that.
+    /// Everything below is a *preference* with a sane default, and refusing
+    /// the whole preset over one would mean a newer gateway could never open
+    /// a table on an older host at all.
+    ///
+    /// Pinned here so the asymmetry is a decision somebody can find rather
+    /// than a shape three `match` arms happen to have. The day one of these
+    /// starts mattering enough to refuse, this test is what has to move.
+    #[test]
+    fn an_unknown_preference_falls_back_where_an_unknown_format_refuses() {
+        let with_rules = |loop_policy| {
+            from_proto(&v1::GamePresetMsg {
+                house_rules: Some(v1::HouseRules {
+                    loop_policy,
+                    ..v1::HouseRules::default()
+                }),
+                ..msg(vec![seat_msg(), seat_msg()])
+            })
+            .expect("two seats")
+            .house_rules
+            .loop_policy
+        };
+        assert_eq!(with_rules(1), LoopPolicy::CompRulesDraw, "the one it knows");
+        assert_eq!(
+            with_rules(99),
+            LoopPolicy::RunOnceThenBreak,
+            "and a policy from a newer host is the default, not a refusal"
+        );
+        assert_eq!(with_rules(0), LoopPolicy::RunOnceThenBreak);
+
+        let ai = |politics, hold_up| {
+            let seat = v1::SeatSpec {
+                controller: Some(v1::SeatController {
+                    kind: Some(v1::seat_controller::Kind::Ai(v1::AiProfile {
+                        politics,
+                        hold_up,
+                        ..v1::AiProfile::default()
+                    })),
+                }),
+                ..seat_msg()
+            };
+            match from_proto(&msg(vec![seat, seat_msg()]))
+                .expect("two seats")
+                .seats
+                .swap_remove(0)
+                .controller
+            {
+                SeatController::Ai(profile) => (profile.politics, profile.hold_up),
+                other => panic!("expected an AI chair, got {other:?}"),
+            }
+        };
+        assert_eq!(ai(1, 1), (Politics::AttackLeader, HoldUp::Basic));
+        assert_eq!(ai(2, 2), (Politics::Archenemy, HoldUp::ThreatAware));
+        assert_eq!(
+            ai(99, 99),
+            (Politics::Random, HoldUp::None),
+            "an opponent that plays the house default beats a table that \
+             will not open"
+        );
+    }
+
     /// Capabilities are granted by the host, never asked for. The message
     /// this conversion reads has no field for them — `dev_mode` used to be
     /// one, and it arrived from whoever opened the socket.
