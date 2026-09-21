@@ -567,3 +567,190 @@ pub enum Coverage {
     /// Stub only.
     Unimplemented,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ability::AbilityDef;
+
+    const FRONT: &[AbilityDef] = &[AbilityDef::Ward { mana: 1 }];
+    const BACK: &[AbilityDef] = &[AbilityDef::Ward { mana: 2 }];
+    const CARD_LEVEL: &[AbilityDef] = &[AbilityDef::Ward { mana: 3 }];
+
+    const SILENT: &[FaceDef] = &[
+        FaceDef {
+            name: "Front",
+            ..FaceDef::DEFAULT
+        },
+        FaceDef {
+            name: "Back",
+            ..FaceDef::DEFAULT
+        },
+    ];
+
+    /// The single-face convention: a card writes its abilities and keywords
+    /// once, at card level, and the front face inherits them. That is what
+    /// keeps 2716 card files from repeating themselves, and it only applies
+    /// where the face says nothing of its own.
+    #[test]
+    fn a_front_face_falls_back_to_what_the_card_says() {
+        let plain = CardDef {
+            faces: &[FaceDef {
+                name: "Plain",
+                ..FaceDef::DEFAULT
+            }],
+            abilities: CARD_LEVEL,
+            keywords: KeywordSet::FLYING,
+            ..CardDef::DEFAULT
+        };
+        assert_eq!(plain.abilities_for_face(0), CARD_LEVEL);
+        assert_eq!(plain.keywords_for_face(0), KeywordSet::FLYING);
+        assert_eq!(plain.name(), "Plain");
+
+        let speaks = CardDef {
+            faces: &[FaceDef {
+                name: "Speaks",
+                abilities: FRONT,
+                keywords: KeywordSet::TRAMPLE,
+                ..FaceDef::DEFAULT
+            }],
+            abilities: CARD_LEVEL,
+            keywords: KeywordSet::FLYING,
+            ..CardDef::DEFAULT
+        };
+        assert_eq!(
+            speaks.abilities_for_face(0),
+            FRONT,
+            "a face that states its own is not given the card's as well"
+        );
+        assert_eq!(speaks.keywords_for_face(0), KeywordSet::TRAMPLE);
+    }
+
+    /// The *absence* of that fallback on a back face is the load-bearing
+    /// half. A transforming card's two faces are opposites: daybound on the
+    /// front, nightbound on the back (CR 702.145a). A card whose keywords
+    /// were one set for both would answer "has daybound" for the night side
+    /// too, so CR 702.145g — "no permanents with daybound on the
+    /// battlefield" — could never be true, and CR 702.145c would turn over a
+    /// permanent that is already turned over.
+    #[test]
+    fn a_back_face_is_only_what_it_prints() {
+        let two = CardDef {
+            faces: &[
+                FaceDef {
+                    name: "Day",
+                    abilities: FRONT,
+                    keywords: KeywordSet::DAYBOUND,
+                    ..FaceDef::DEFAULT
+                },
+                FaceDef {
+                    name: "Night",
+                    abilities: BACK,
+                    keywords: KeywordSet::NIGHTBOUND,
+                    ..FaceDef::DEFAULT
+                },
+            ],
+            abilities: CARD_LEVEL,
+            keywords: KeywordSet::FLYING,
+            ..CardDef::DEFAULT
+        };
+        assert_eq!(two.abilities_for_face(1), BACK);
+        assert_eq!(two.keywords_for_face(1), KeywordSet::NIGHTBOUND);
+        assert_eq!(two.name(), "Day", "a card is named by its front face");
+
+        // A silent back face gets nothing, where a silent front face would
+        // be handed the card's own list.
+        let silent = CardDef {
+            faces: SILENT,
+            abilities: CARD_LEVEL,
+            keywords: KeywordSet::FLYING,
+            ..CardDef::DEFAULT
+        };
+        assert_eq!(silent.abilities_for_face(0), CARD_LEVEL);
+        assert!(
+            silent.abilities_for_face(1).is_empty(),
+            "the back face inherits nothing, not even from an empty front"
+        );
+        assert_eq!(silent.keywords_for_face(1), KeywordSet::EMPTY);
+    }
+
+    /// A face index past the last face answers as the last face rather than
+    /// panicking. Which matters because the *caller* is usually an engine
+    /// that has a permanent's face number and a card that may have been
+    /// re-read since.
+    #[test]
+    fn a_face_that_does_not_exist_answers_as_the_last_one() {
+        let two = CardDef {
+            faces: SILENT,
+            abilities: CARD_LEVEL,
+            ..CardDef::DEFAULT
+        };
+        assert_eq!(two.abilities_for_face(9), two.abilities_for_face(1));
+        assert_eq!(two.keywords_for_face(9), two.keywords_for_face(1));
+    }
+
+    /// `all_keywords` asks about the *card* rather than about a permanent —
+    /// "does any rule read this bit" — so it is the union of every face and
+    /// the card-level set, and a keyword printed on one side only is still
+    /// printed on the card.
+    #[test]
+    fn every_keyword_the_card_prints_anywhere_is_one_of_its_keywords() {
+        let two = CardDef {
+            faces: &[
+                FaceDef {
+                    name: "Day",
+                    keywords: KeywordSet::DAYBOUND,
+                    ..FaceDef::DEFAULT
+                },
+                FaceDef {
+                    name: "Night",
+                    keywords: KeywordSet::NIGHTBOUND,
+                    ..FaceDef::DEFAULT
+                },
+            ],
+            keywords: KeywordSet::FLYING,
+            ..CardDef::DEFAULT
+        };
+        let all = two.all_keywords();
+        for (kw, side) in [
+            (KeywordSet::DAYBOUND, "the front"),
+            (KeywordSet::NIGHTBOUND, "the back"),
+            (KeywordSet::FLYING, "the card itself"),
+        ] {
+            assert!(all.contains(kw), "a keyword printed on {side} was lost");
+        }
+        assert!(
+            !two.keywords_for_face(0).contains(KeywordSet::NIGHTBOUND),
+            "and asking one face still gets one face"
+        );
+    }
+
+    /// The neutral card is the pessimistic one, and `is_implemented` is the
+    /// field the deckbuilder offers cards by: a stub that claimed to be
+    /// playable would be handed to a player.
+    #[test]
+    fn the_neutral_card_is_not_implemented_and_has_no_name() {
+        assert!(!CardDef::DEFAULT.is_implemented());
+        assert_eq!(
+            CardDef::DEFAULT.name(),
+            "<unnamed>",
+            "a card with no faces still answers rather than panicking"
+        );
+        assert_eq!(CardDef::DEFAULT.keywords_for_face(0), KeywordSet::EMPTY);
+        assert!(
+            CardDef {
+                coverage: Coverage::Implemented,
+                ..CardDef::DEFAULT
+            }
+            .is_implemented()
+        );
+        assert!(
+            !CardDef {
+                coverage: Coverage::Partial("a mechanic the DSL cannot say"),
+                ..CardDef::DEFAULT
+            }
+            .is_implemented(),
+            "partial is not implemented — the deckbuilder reads this"
+        );
+    }
+}
