@@ -315,3 +315,247 @@ pub struct GrantedAbility {
     /// Whether it is a mana ability (CR 605.1) and so uses no stack.
     pub mana_ability: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::ObjectKind;
+    use crate::state::{CardLookup, GameState};
+    use crate::zone::{ZoneLocation, ZonePosition};
+    use baylee_cards_dsl::{Duration, Filter, Layer};
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let entry = DeckEntry {
+            card: forest,
+            print: baylee_core::ids::PrintRef::new(0),
+        };
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 8,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    fn permanent(state: &mut GameState, name: &str) -> ObjectId {
+        let name = state.names.intern(name);
+        state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+    }
+
+    fn effect(source: ObjectId, filter: EffectFilter, modifier: Modifier) -> ContinuousEffect {
+        ContinuousEffect {
+            id: EffectId::new(0),
+            source: Some(source),
+            controller: me(),
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: Duration::UntilEndOfTurn,
+            filter,
+            modifier,
+        }
+    }
+
+    /// An `ObjectId` alone is not an identity: an id is stable for a whole
+    /// game and a zone change makes the card a new object (CR 400.7), with
+    /// `version` as the half that says so. Named by the id alone, a creature
+    /// pumped by Giant Growth and then blinked with Ephemerate came back
+    /// still pumped.
+    #[test]
+    fn a_created_effect_names_the_object_it_began_on_and_not_the_id() {
+        let mut state = state();
+        let bear = permanent(&mut state, "Bear");
+        let filter = EffectFilter::object(&state, bear);
+
+        assert!(
+            filter.names(state.object(bear).expect("just made it")),
+            "the same object it was registered against"
+        );
+
+        state
+            .move_object(
+                bear,
+                ZoneLocation::Exile(me()),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("it blinks out");
+        state
+            .move_object(
+                bear,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("and back");
+
+        assert!(
+            !filter.names(state.object(bear).expect("still the same id")),
+            "it came back as a new object, and the pump does not follow it"
+        );
+    }
+
+    /// The generation is the projection cache key — a pass is reused while
+    /// it has not moved. So a registration bumps it, and a removal that
+    /// removed nothing must not: a sweep over a duration that matched no
+    /// effect otherwise rebuilds every projection on the board, once per
+    /// sweep.
+    #[test]
+    fn the_generation_moves_when_the_table_does_and_not_otherwise() {
+        let mut state = state();
+        let bear = permanent(&mut state, "Bear");
+        let before = state.effects.generation;
+
+        let first = state.effects.register(effect(
+            bear,
+            EffectFilter::Dsl(&Filter::CREATURE),
+            Modifier::ModifyPT(3, 3),
+        ));
+        assert!(state.effects.generation > before);
+        assert_eq!(state.effects.len(), 1);
+        assert!(!state.effects.is_empty());
+
+        let after_one = state.effects.generation;
+        state
+            .effects
+            .remove_where(|fx| fx.duration == Duration::UntilYourNextTurn);
+        assert_eq!(
+            state.effects.generation, after_one,
+            "a sweep that matched nothing invalidates nothing"
+        );
+
+        let second = state.effects.register(effect(
+            bear,
+            EffectFilter::Dsl(&Filter::CREATURE),
+            Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::FLYING),
+        ));
+        assert_ne!(first, second, "each registration gets its own handle");
+        assert_eq!(state.effects.as_slice()[0].id, first, "registration order");
+        assert_eq!(state.effects.as_slice()[1].id, second);
+        assert!(
+            state
+                .effects
+                .has_source_ability(bear, Modifier::ModifyPT(3, 3))
+        );
+        assert!(
+            !state
+                .effects
+                .has_source_ability(bear, Modifier::ModifyPT(1, 1))
+        );
+
+        let after_two = state.effects.generation;
+        state
+            .effects
+            .remove_where(|fx| fx.duration == Duration::UntilEndOfTurn);
+        assert!(
+            state.effects.generation > after_two,
+            "and one that did, does"
+        );
+        assert!(state.effects.is_empty());
+    }
+
+    /// CR 613.1 makes the layer a function of the modifier, and this table
+    /// stores the layer beside it. A pump registered on the ability layer
+    /// would be applied after the P/T it is supposed to modify, so the two
+    /// halves of one printed sentence are ordered by what they *are* rather
+    /// than by the order they were written in.
+    #[test]
+    fn a_registered_effect_keeps_the_layer_its_modifier_derives() {
+        let mut state = state();
+        let bear = permanent(&mut state, "Bear");
+        state.effects.register(effect(
+            bear,
+            EffectFilter::object(&state, bear),
+            Modifier::ModifyPT(2, 2),
+        ));
+        state.effects.register(effect(
+            bear,
+            EffectFilter::object(&state, bear),
+            Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::TRAMPLE),
+        ));
+        assert_eq!(state.effects.as_slice()[0].layer, Layer::PtModify);
+        assert_eq!(state.effects.as_slice()[1].layer, Layer::Ability);
+    }
+
+    /// One walk answers "which ability does this permanent have granted to
+    /// it", because the offer numbers what it finds and the activation
+    /// decodes that number back. Registration order is therefore slot
+    /// order, and a grant whose filter does not reach the object is not a
+    /// slot at all — for both readers alike, which is the only reason
+    /// skipping one is safe.
+    #[test]
+    fn granted_abilities_come_out_in_registration_order() {
+        let mut state = state();
+        let bear = permanent(&mut state, "Bear");
+        let other = permanent(&mut state, "Other");
+        let grant = |mana_ability| Modifier::GrantActivated {
+            cost: baylee_cards_dsl::Cost::TAP,
+            effects: &[],
+            mana_ability,
+        };
+        // Reaches the Bear, then one that does not, then the Bear again.
+        state.effects.register(effect(
+            bear,
+            EffectFilter::object(&state, bear),
+            grant(true),
+        ));
+        state.effects.register(effect(
+            other,
+            EffectFilter::object(&state, other),
+            grant(false),
+        ));
+        state.effects.register(effect(
+            bear,
+            EffectFilter::object(&state, bear),
+            grant(false),
+        ));
+
+        let found: Vec<bool> = granted_activated(&state, bear)
+            .map(|g| g.mana_ability)
+            .collect();
+        assert_eq!(
+            found,
+            vec![true, false],
+            "the one aimed at another permanent is not this permanent's \
+             second slot"
+        );
+        assert_eq!(granted_activated(&state, other).count(), 1);
+    }
+}
