@@ -926,3 +926,77 @@ would have eaten one.
 - Prefer an honest `Partial` carrying whatever the card *can* do over a
   refusal, when one clause is unreadable and the rest is a plain mana
   ability.
+
+## Round H — eighty lands, and what both lanes got wrong
+
+80 picked, 71 written (25 `Implemented`, 46 `Partial`), 9 honest refusals;
+stubs 432 → 361. DeepSeek 28 of 30 in 5.5 minutes, Gemini 43 of 50 in 19.5
+minutes at 683M input tokens. The shelf — names sent in an earlier round
+that are still stubs — was subtracted before the ranking, which is what kept
+thirty known refusals out of the batch.
+
+### The Gemini lane had no door, and three cards walked through it
+
+`cards_deepseek.py` refuses an answer that rewrote the `//!` block or one of
+`index` / `oracle_id` / `scryfall_id`. The Gemini lane made no such check,
+because `agy` writes the tree itself and there is no answer left to refuse —
+so Skyline Cascade, Iron Hills and Shefet Dunes each arrived with a
+different `oracle_id` and `scryfall_id` while writing the *right* card's
+text. The pool lint `every_card_answers_to_the_oracle_id_it_is_filed_under`
+caught **one** of the three: it panics on the first card it disagrees with,
+so the other two were invisible until that one was fixed and the suite run
+again.
+
+The predicate now lives in `lane.keeps_the_header` and both lanes ask it —
+DeepSeek before it writes, Gemini against `HEAD` afterwards, where the
+answer is `lane.restore_generated` rather than a refusal. A lane that names
+all three at once beats a lint that names one.
+
+### The cross rule paid for itself twice
+
+`Effect::Exile` read `res.targets.first()`, so Pit of Offerings took three
+targets, exiled one and left two — `Coverage::Implemented` and silent. A
+generated test found it because the test was written from the printed
+sentence by a model that had not written the card.
+
+And eleven of the seventy-one tests were wrong, which is the same rule
+working from the other side. Five clusters, now rules 11–16 in both test
+contracts:
+
+- **A mana creature counts.** Five tests asserted `mana_pool.total()`
+  against the number of *lands* while two Llanowar Elves stood beside them,
+  which `tap_all_mana_but` taps like anything else. A creature tapped for
+  mana also cannot attack, which is how the sixth of those tests failed.
+- **A land that entered tapped gives nothing that turn**, and an ability
+  costing `{T}` is not even offered. Mishra's Factory is the sharp case:
+  it animates *itself*, and from that moment CR 302.6 reaches a creature
+  that was never summoned, so its own pump is unpayable until its next turn.
+- **"Spend this mana only …" is `RestrictedMana`.** `ManaPool::available`
+  reads the plain pool and finds none of it — a test asserting zero there is
+  green and describes a land that produces nothing.
+- **`tap_all_mana_but` returns `()`.** Two tests bound its result and
+  compared it to a number.
+- **Boards have to support the claim.** One test expected combat damage from
+  a 0/2, another pointed "target **Dwarf** you control" at an Elf.
+
+### The token budget was the refusal, again
+
+`tests_deepseek.py` asked for 32000 and 7 of 43 came back empty — six
+`stop_reason='max_tokens'`, one truncated fence. All seven were written on a
+retry at 64000 with nothing else changed, which is the measurement
+`cards_deepseek.py` had already made for cards. Both lanes ask for 64000 now.
+
+### The nine refusals, grouped
+
+- **Rooms** (2): Jidoor, Aristocratic Capital // Overture and Midgar, City
+  of Mako // Reactor Raid — two halves on one card with doors to unlock, and
+  `FaceDef` has no shape for it.
+- **Reflexive triggers, CR 603.12** (2): Obscura Storefront and Brokers
+  Hideout — "when you do, …" after an optional cost.
+- Island of Wak-Wak: `Modifier::SetPT(i16, i16)` sets both halves together,
+  so "has base power 0" (layer 7b alone) cannot be said.
+- Grove of the Guardian: `CostPart::TapOther(&Filter)` taps exactly one
+  permanent and carries no count.
+- Echoing Deeps: copying a land card in a graveyard as an enter replacement.
+- Dakmor Salvage: dredge.
+- Scorched Ruins: "sacrifice it unless you sacrifice two untapped lands".

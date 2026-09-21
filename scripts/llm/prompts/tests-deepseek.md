@@ -61,6 +61,38 @@ Regeln:
    offen ist, ist die Marke noch auf der Kreatur, das Mana noch im Pool
    und das Opfer noch auf dem Schlachtfeld — die Kosten-Behauptung
    gehört hinter das `apply`, das die Ziel-Frage beantwortet.
+11. **Eine Kreatur mit `{T}: Add …` zählt im Pool mit.** Fünf Tests der
+   Runde H haben `mana_pool.total()` gegen die Zahl der *Länder* behauptet
+   und standen neben zwei Llanowar Elves, die `tap_all_mana_but` genauso
+   tappt. Zähle jede Quelle auf dem Brett — oder stelle für ein Szenario,
+   in dem die Kreaturen danach angreifen sollen, gar keine Mana-Kreatur
+   hin: getappt fürs Mana heißt nicht mehr angreifen.
+12. **Ein Land, das getappt ankommt, gibt in diesem Zug nichts.** Es steht
+   erst im Enttappschritt seines Beherrschers wieder auf, und bis dahin ist
+   eine Fähigkeit mit `{T}` nicht einmal im Angebot. Willst du die Manazeile
+   lesen, geh einen Zug weiter:
+   `reach_their_main_phase(&mut engine, PlayerId::new(1))`, dann
+   `reach_their_main_phase(&mut engine, p0)`. Dasselbe gilt für ein Land,
+   das sich **selbst** zur Kreatur macht: von da an ist es eine Kreatur mit
+   Einsatzschwäche (CR 302.6), und sein `{T}` ist im Ankunftszug
+   unbezahlbar.
+13. **„Spend this mana only …" ist `RestrictedMana`.** `ManaPool::available`
+   liest den *einfachen* Pool und findet davon nichts. Lies
+   `mana_pool.restricted()` und summiere die Einträge der Farbe. Ein Test,
+   der hier 0 behauptet, ist grün und beschreibt ein Land, das nichts
+   produziert.
+14. **`tap_all_mana` und `tap_all_mana_but` geben nichts zurück.** Was sie
+   bewirkt haben, steht im Pool:
+   `engine.state().players[0].mana_pool.total()`.
+15. **Mana-Symbole in einer Formatzeichenkette werden verdoppelt** —
+   `"{{T}}"`, nie `"{T}"` —, und binde keine lokale Variable auf den Namen
+   eines Kartengriffs: `let forest = …` verdeckt `fn forest()` für den Rest
+   der Funktion.
+16. **Behaupte nur, was das Brett hergibt.** Wer Kampfschaden erwartet,
+   braucht einen Angreifer mit Stärke (ein 0/2 richtet nichts aus); wer
+   „target **Dwarf** you control" prüft, braucht einen Zwerg auf der
+   eigenen Seite — und einen auf der anderen, damit „you control" auch
+   geprüft und nicht angenommen ist.
 
 Antworte mit **genau einem** ```rust-Block: der Kartengriff und die eine
 `#[test]`-Funktion. Kein weiterer Text.
