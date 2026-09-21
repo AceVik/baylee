@@ -887,6 +887,121 @@ mod tests {
         }
     }
 
+    fn agent() -> HeuristicAgent {
+        HeuristicAgent::new(AIProfile::default())
+    }
+
+    /// A distinct number per seat kind, and the guard the table below needs:
+    /// all three predicates are `matches!`, so a fifth kind answers `false`
+    /// to every one of them and is silently a seat nobody sends anything to.
+    /// This match is exhaustive.
+    fn kind_index(kind: &SeatKind) -> usize {
+        match kind {
+            SeatKind::Human => 0,
+            SeatKind::Ai(_) => 1,
+            SeatKind::Driven(_) => 2,
+            SeatKind::StandIn(_) => 3,
+        }
+    }
+
+    /// **A chair and whoever is answering for it are two different
+    /// questions, and there are three of them.** Each seat kind is a
+    /// different combination, which is the whole reason all four exist —
+    /// reading "does it answer over the wire" as "is it a human" in even one
+    /// place leaves a driven seat being played by the house AI it was taken
+    /// from, and reading "is it an AI chair" as "is the house answering"
+    /// renames a player's chair in the lobby thirty seconds after their
+    /// laptop shut.
+    ///
+    /// The four rows are four distinct answers, which is asserted rather
+    /// than left to be read: two kinds agreeing on all three would be two
+    /// names for one seat.
+    #[test]
+    fn a_seat_is_read_three_ways_and_no_two_kinds_answer_alike() {
+        let table = [
+            // (kind, answers over a socket, is an AI chair, is away)
+            (SeatKind::Human, true, false, false),
+            (SeatKind::Ai(agent()), false, true, false),
+            (SeatKind::Driven(agent()), true, true, false),
+            (SeatKind::StandIn(agent()), false, false, true),
+        ];
+        let mut answers = Vec::new();
+        for (kind, socket, ai_chair, away) in &table {
+            assert_eq!(
+                (
+                    kind.answers_over_socket(),
+                    kind.is_ai_chair(),
+                    kind.is_away()
+                ),
+                (*socket, *ai_chair, *away),
+                "seat kind {}",
+                kind_index(kind)
+            );
+            answers.push((*socket, *ai_chair, *away));
+        }
+        assert_eq!(
+            table
+                .iter()
+                .map(|(k, ..)| kind_index(k))
+                .collect::<Vec<_>>(),
+            (0..4).collect::<Vec<_>>(),
+            "the table is every kind exactly once, in declaration order"
+        );
+        answers.sort_unstable();
+        answers.dedup();
+        assert_eq!(answers.len(), 4, "two kinds are one seat under two names");
+    }
+
+    fn teamed_preset(teams: [Option<u8>; 4]) -> GamePreset {
+        let mut preset = test_preset();
+        let seat = preset.seats[0].clone();
+        preset.seats = teams
+            .iter()
+            .map(|team| SeatSpec {
+                team: *team,
+                ..seat.clone()
+            })
+            .collect();
+        preset
+    }
+
+    /// A team wins as a team, the dead included (CR 104.2c), and the roster
+    /// is where that is turned back into seats: the engine names a
+    /// `Victor::Team` and a client's roster names chairs.
+    ///
+    /// The fourth seat is on no team at all, which is the row that says the
+    /// answer is read off each seat rather than off the winner: a seat with
+    /// `None` is on no winning team however the game ended.
+    #[test]
+    fn a_team_win_names_every_chair_on_the_team() {
+        use baylee_engine::win::{EndReason, GameResult, Victor};
+        let session = Session::new(&teamed_preset([Some(1), Some(2), Some(1), None]))
+            .expect("a four-seat game");
+        let seats = |winner| {
+            session.winning_seats(GameResult {
+                winner,
+                reason: EndReason::LastTeamStanding,
+            })
+        };
+
+        assert_eq!(
+            seats(Some(Victor::Team(1))),
+            vec![PlayerId::new(0), PlayerId::new(2)],
+            "both chairs on the team, in seat order"
+        );
+        assert_eq!(seats(Some(Victor::Team(2))), vec![PlayerId::new(1)]);
+        assert!(
+            seats(Some(Victor::Team(3))).is_empty(),
+            "a team nobody at this table plays for"
+        );
+        assert_eq!(
+            seats(Some(Victor::Player(PlayerId::new(3)))),
+            vec![PlayerId::new(3)],
+            "a seat that won as itself, and it is on no team"
+        );
+        assert!(seats(None).is_empty(), "a draw has no winning seat to name");
+    }
+
     /// The whole point of a driven seat: the question stops going to the
     /// house AI and starts going out over the wire.
     ///
