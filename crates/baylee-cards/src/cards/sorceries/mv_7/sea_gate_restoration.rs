@@ -5,9 +5,14 @@
 //! Set: ZNR #76 — Zendikar Rising | Scryfall ID: 193071fe-180b-4d35-ba78-9c16675c29fc | Oracle ID: 4a8d41fe-e04d-484b-a7d1-19be311e6ca7
 //! Face: Sea Gate Restoration — {4}{U}{U}{U} — Sorcery
 //! Face: Sea Gate, Reborn —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — "no maximum hand size for the rest of the game" (a created
+// indefinite effect) plus the whole land face: pay 3 life or enter tapped,
+// and {T}: Add {U}. The draw itself has no spelling in the DSL.
 
 use baylee_cards_dsl::prelude::*;
+
+/// `{T}: Add {U}.` — the back face's entire rules text.
+static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
 
 card!(
     index = index::SEA_GATE_RESTORATION,
@@ -20,8 +25,29 @@ card!(
             mana_cost = mana!("{4}{U}{U}{U}"),
             types = TypeSet::SORCERY,
         ),
-        face!(name = "Sea Gate, Reborn", types = TypeSet::LAND,),
+        face!(
+            name = "Sea Gate, Reborn",
+            types = TypeSet::LAND,
+            abilities = BACK_MANA,
+            enter_modifiers = &[EnterModifier::TappedOrPayLife(3)],
+        ),
     ],
+    coverage = Coverage::Partial(
+        "the draw: no Amount adds a constant to a count, so \"equal to the number of cards \
+         in your hand plus one\" is not sayable — CountOf would read the hand and nothing adds one"
+    ),
+    abilities = &[spell!(&[
+        // NOT SUPPORTED: "Draw cards equal to the number of cards in your
+        // hand plus one." — Amount::CountOf answers the count itself and no
+        // variant of Amount adds a constant to it.
+        Effect::continuous(
+            &Filter::Any,
+            Modifier::NoMaxHandSize,
+            Duration::Indefinitely
+        ),
+    ])],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// Engine-level coverage: the back face is an MDFC land face, castable from
+// hand because it is a land, that enters tapped unless its controller pays
+// 3 life and taps for {U}.

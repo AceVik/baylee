@@ -5,23 +5,47 @@
 //! Set: MH3 #249 — Modern Horizons 3 | Scryfall ID: ebef3db0-2b58-4581-a79c-fbca9a059e63 | Oracle ID: 9d581188-ce80-494e-bd38-f411e1f4efb5
 //! Face: Bridgeworks Battle — {2}{G} — Sorcery
 //! Face: Tanglespan Bridgeworks —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the land face is complete ({G} without condition; enters tapped
+// unless its controller pays 3 life); the sorcery face pumps +2/+2 and cannot
+// fight.
 
 use baylee_cards_dsl::prelude::*;
+
+static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])];
 
 card!(
     index = index::BRIDGEWORKS_BATTLE,
     oracle_id = "9d581188-ce80-494e-bd38-f411e1f4efb5",
     scryfall_id = "ebef3db0-2b58-4581-a79c-fbca9a059e63",
     color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Partial(
+        "the sorcery face's \"It fights up to one target creature you don't control\" clause is not expressible"
+    ),
     faces = &[
         face!(
             name = "Bridgeworks Battle",
             mana_cost = mana!("{2}{G}"),
             types = TypeSet::SORCERY,
         ),
-        face!(name = "Tanglespan Bridgeworks", types = TypeSet::LAND,),
+        face!(
+            name = "Tanglespan Bridgeworks",
+            types = TypeSet::LAND,
+            enter_modifiers = &[EnterModifier::TappedOrPayLife(3)],
+            abilities = BACK_MANA,
+        ),
     ],
+    // NOT SUPPORTED: "It fights up to one target creature you don't
+    // control." — the vocabulary has no fight effect (two targets each
+    // dealing damage equal to their own power to the other); `DealDamage`
+    // takes one target and one amount, and the second half would need the
+    // *other* target's power.
+    abilities = &[spell!(
+        &[Effect::PumpTarget {
+            power: Amount::Fixed(2),
+            toughness: Amount::Fixed(2),
+            keywords: KeywordSet::EMPTY,
+            duration: Duration::UntilEndOfTurn,
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

@@ -7,7 +7,10 @@
 //! Set: XLN #90 — Ixalan | Scryfall ID: c4ac7570-e74e-4081-ac53-cf41e695b7eb | Oracle ID: be2a4bc4-8af6-48c5-9421-32d26272e71a
 //! Face: Arguel's Blood Fast — {1}{B} — Legendary Enchantment
 //! Face: Temple of Aclazotz —  — Legendary Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — front: {1}{B}, pay 2 life: draw a card. Back: {T}: Add {B}, and the
+// transforming back is not castable from the hand (CR 712.2 — same file, two layouts, and
+// this one is not a modal back). Two printed clauses have no DSL spelling: see NOT
+// SUPPORTED below, and `coverage` is therefore Partial.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -27,8 +30,26 @@ card!(
             name = "Temple of Aclazotz",
             types = TypeSet::LAND,
             supertypes = SupertypeSet::LEGENDARY,
+            abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])],
+            castable_from_hand = false,
         ),
     ],
+    coverage = Coverage::Partial(
+        "the upkeep transform — \"if you have 5 or less life\" is an intervening `if` no \
+         Condition variant can read, and no Effect transforms a permanent in place — and \
+         Temple's \"You gain life equal to the sacrificed creature's toughness\", whose \
+         amount no Amount reads",
+    ),
+    abilities = &[activated!(cost!("{1}{B}", PayLife(2)), &[Effect::draw(1)])],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// NOT SUPPORTED: "At the beginning of your upkeep, if you have 5 or less life, you may
+// transform Arguel's Blood Fast." — the trigger itself is a StepBegin{Upkeep, You}, but
+// the intervening `if` is a life total and `Condition` has no variant for one, so the
+// ability would fire on every upkeep and must come off the card rather than fire wrongly.
+// (Even with the condition, nothing transforms a permanent in place.)
+// NOT SUPPORTED: "{T}, Sacrifice a creature: You gain life equal to the sacrificed
+// creature's toughness." — `cost!(TapSelf, Sacrifice(&Filter::CREATURE))` is a cost the
+// wizard can pay, but the effect's amount is the toughness of the permanent that paid it
+// and no `Amount` can reach a sacrificed object: `TargetPower` reads the first target and
+// this ability names none.
