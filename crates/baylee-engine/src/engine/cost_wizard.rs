@@ -215,3 +215,174 @@ pub(crate) fn pay(
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::{ObjectKind, Status};
+    use crate::state::CardLookup;
+    use baylee_cards_dsl::Filter;
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+    use baylee_core::types::TypeSet;
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let entry = DeckEntry {
+            card: forest,
+            print: baylee_core::ids::PrintRef::new(0),
+        };
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 14,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    /// A creature for `owner`, in `zone`.
+    fn creature(
+        state: &mut GameState,
+        owner: PlayerId,
+        zone: ZoneLocation,
+        name: &str,
+    ) -> ObjectId {
+        let name = state.names.intern(name);
+        let id = state.create_bare(owner, ObjectKind::Permanent, name, zone);
+        state.object_mut(id).expect("just made it").base_mut().types = TypeSet::CREATURE;
+        id
+    }
+
+    /// Ownership is the **rule** and not the card: CR 701.21a only lets a
+    /// player sacrifice a permanent they control, and Survival of the
+    /// Fittest prints `Discard(&Filter::CREATURE)` with no "you control" in
+    /// it at all — read over every hand at the table, that filter would
+    /// have offered an opponent's card.
+    #[test]
+    fn a_cost_is_paid_from_the_payers_own_side_whatever_the_filter_says() {
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Seer");
+        let mine = creature(&mut state, me(), ZoneLocation::Battlefield, "Mine");
+        creature(&mut state, them(), ZoneLocation::Battlefield, "Theirs");
+        let in_my_hand = creature(&mut state, me(), ZoneLocation::Hand(me()), "In Hand");
+        creature(&mut state, them(), ZoneLocation::Hand(them()), "Their Hand");
+
+        let anything = &Filter::CREATURE;
+        assert_eq!(
+            options(&state, me(), source, &CostPart::Sacrifice(anything)),
+            vec![source, mine],
+            "the source is a creature it controls too, and sacrificing it \
+             is a thing cards print"
+        );
+        assert_eq!(
+            options(&state, me(), source, &CostPart::Discard(anything)),
+            vec![in_my_hand],
+            "the discard comes out of the payer's own hand"
+        );
+    }
+
+    /// CR 118.3: a permanent that is already tapped cannot be tapped to pay
+    /// a cost, whether or not the card thought to say so. The word is
+    /// supplied by the rule for `TapOther` and by nothing else — a Forest
+    /// tapped for `{G}` is the cost Quirion Ranger was printed to pay, so
+    /// `ReturnToHand` must keep offering it.
+    #[test]
+    fn only_a_tap_cost_is_refused_a_tapped_permanent() {
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Earthcraft");
+        let untapped = creature(&mut state, me(), ZoneLocation::Battlefield, "Untapped");
+        let tapped = creature(&mut state, me(), ZoneLocation::Battlefield, "Tapped");
+        state
+            .object_mut(tapped)
+            .expect("just made it")
+            .status
+            .insert(Status::TAPPED);
+
+        let anything = &Filter::CREATURE;
+        assert_eq!(
+            options(&state, me(), source, &CostPart::TapOther(anything)),
+            vec![source, untapped]
+        );
+        assert_eq!(
+            options(&state, me(), source, &CostPart::ReturnToHand(anything)),
+            vec![source, untapped, tapped],
+            "Quirion Ranger returns a Forest that is already tapped"
+        );
+        assert_eq!(
+            options(&state, me(), source, &CostPart::Sacrifice(anything)),
+            vec![source, untapped, tapped]
+        );
+    }
+
+    /// The parts that ask, in the order the cost prints them, because the
+    /// nth answer pays the nth asking part: a cost with a sacrifice and a
+    /// discard must not pay one with the other's card. And a part that asks
+    /// nothing is not in the list — `options` answers it with nothing, so a
+    /// reader that asked anyway would offer an empty choice.
+    #[test]
+    fn the_asking_parts_keep_the_order_the_cost_prints_them_in() {
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Source");
+        let cost = baylee_cards_dsl::cost!(
+            "{1}",
+            TapSelf,
+            Sacrifice(&Filter::CREATURE),
+            PayLife(1),
+            Discard(&Filter::CREATURE)
+        );
+
+        assert_eq!(answers_wanted(&cost), 2);
+        let asking: Vec<&CostPart> = asking_parts(&cost).collect();
+        assert!(matches!(asking[0], CostPart::Sacrifice(_)));
+        assert!(matches!(asking[1], CostPart::Discard(_)));
+        assert_eq!(
+            answers_wanted(&baylee_cards_dsl::cost!("{2}", TapSelf, PayLife(3))),
+            0,
+            "a cost that names no object asks nothing"
+        );
+
+        assert!(!needs_an_answer(&CostPart::TapSelf));
+        assert!(
+            options(&state, me(), source, &CostPart::TapSelf).is_empty(),
+            "and the board has nothing to offer for it"
+        );
+    }
+}
