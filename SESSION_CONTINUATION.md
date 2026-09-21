@@ -1,5 +1,32 @@
 # Baylee session continuation
 
+## Handoff to Claude (2026-09-21)
+
+The user requested handoff to Claude including commit and push. Work is on
+`main`; implementation commits `42378a13` (stack/client automation and
+localization) and `527379fc` (engine audit/performance) are pushed to
+`origin/main`. Earlier client fixes are covered below and in `16d98a95`.
+
+Start with the stack section below and `docs/client.md`. The explicit user
+choice is to stop **before** the marked ability, leaving it available for a
+response. Preserve this across standing yields, optional answers and client
+autopilot. Per-ability policy changes use `SetAbilityPolicy` to update passing
+and yes/no atomically before the engine advances.
+
+No known failing checks remain. The full workspace run preceded the final
+atomic-policy refinements; affected-crate tests, final HUD tests, workspace
+clippy and wasm check cover the final implementation. Localization does not
+translate unknown technical diagnostics or invent missing card translations.
+The native 2,000-entry fixture validated scrolling, marking and EN/DE layout;
+the subsequently corrected checkbox uses the existing tested CHECK glyph.
+
+Runtime cleanup is complete: the temporary native client is closed and the
+previously stopped compose PostgreSQL service was stopped again. Temporary
+fixtures, screenshots and logs remain under `/tmp/baylee-stack-*`, outside
+Git. There are no pending implementation edits. Preserve unrelated untracked
+`.junie/` and `gateway-store.json.imported`; neither belongs to this work.
+Do not rerun codegen or add these files merely to clean the working tree.
+
 ## Stack automation and localization (2026-09-21)
 
 - User explicitly chose to stop **before** the marked ability resolves.
