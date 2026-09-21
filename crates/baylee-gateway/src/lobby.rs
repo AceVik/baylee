@@ -720,6 +720,243 @@ mod tests {
     /// rematch room copied over, with an account and a deck but no token —
     /// would be a game its player cannot open a socket to. A token is only
     /// ever minted into a reply to the player it belongs to.
+    /// A two-chair room hosted by `host`, filed under `id`.
+    fn room_in(
+        lobby: &mut Lobby,
+        id: &str,
+        name: &str,
+        host: &str,
+        created_at: u64,
+        state: LobbyState,
+    ) {
+        let mut game = LobbyGame::room(
+            id.to_string(),
+            host.to_string(),
+            "Deck".to_string(),
+            deck(),
+            2,
+            name.to_string(),
+            created_at,
+        );
+        game.state = state;
+        lobby.games.insert(id.to_string(), game);
+    }
+
+    fn ids(rows: &[serde_json::Value]) -> Vec<String> {
+        rows.iter()
+            .map(|r| r["id"].as_str().unwrap_or_default().to_string())
+            .collect()
+    }
+
+    fn names_of(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(id, name)| ((*id).to_string(), (*name).to_string()))
+            .collect()
+    }
+
+    fn lobby() -> (Lobby, HashMap<String, String>) {
+        let mut lobby = Lobby::default();
+        // Two waiting and two playing, with a tie on `created_at` so the id
+        // has something to break.
+        room_in(&mut lobby, "b", "Second", "amy", 100, LobbyState::Waiting);
+        room_in(&mut lobby, "a", "First", "bob", 100, LobbyState::Waiting);
+        room_in(&mut lobby, "c", "Older", "amy", 50, LobbyState::Waiting);
+        room_in(&mut lobby, "d", "Running", "bob", 200, LobbyState::Playing);
+        room_in(
+            &mut lobby,
+            "e",
+            "Also running",
+            "amy",
+            10,
+            LobbyState::Playing,
+        );
+        (lobby, names_of(&[("amy", "Amy"), ("bob", "Bob")]))
+    }
+
+    /// **The order is total and paging is a partition of it.** Games live in
+    /// a `HashMap`, so before there were pages the listing came out in
+    /// whatever order the map felt like — invisible while there was only
+    /// ever one page, and a listing that hands out rows twice and drops
+    /// others as soon as there is a second.
+    ///
+    /// Waiting rooms first, then the newest, then the id, so two rooms
+    /// opened in the same second never swap places between requests. The
+    /// partition is the assertion that matters: every page concatenated is
+    /// the whole listing, once each.
+    #[test]
+    fn the_listing_has_one_order_and_every_page_is_a_slice_of_it() {
+        let (lobby, names) = lobby();
+        let all = |offset, limit| {
+            lobby.page_for(
+                "amy",
+                &names,
+                &LobbyQuery {
+                    offset,
+                    limit: Some(limit),
+                    ..LobbyQuery::default()
+                },
+            )
+        };
+
+        let (rows, total) = all(0, 100);
+        assert_eq!(total, 5);
+        assert_eq!(
+            ids(&rows),
+            vec!["a", "b", "c", "d", "e"],
+            "waiting first, then newest, then the id breaking the tie"
+        );
+        assert_eq!(
+            ids(&all(0, 100).0),
+            ids(&rows),
+            "and the same order on the next request, whatever the map does"
+        );
+
+        let mut walked = Vec::new();
+        for page in 0..3 {
+            let (rows, count) = all(page * 2, 2);
+            assert_eq!(count, total, "the total is of the listing, not the page");
+            walked.extend(ids(&rows));
+        }
+        assert_eq!(walked, ids(&rows), "no row handed out twice and none lost");
+        assert!(
+            all(5, 2).0.is_empty(),
+            "and walking past the end is an empty page rather than a wrap"
+        );
+    }
+
+    /// A finished table is in no listing at all — not the page, not the
+    /// unpaged list, and not the roll of who is sitting down. It is the one
+    /// state that is filtered in three places, so it is asked in three.
+    #[test]
+    fn a_finished_table_is_in_no_listing() {
+        let (mut lobby, names) = lobby();
+        assert_eq!(lobby.seated_accounts(), vec!["amy", "bob"]);
+
+        for id in ["a", "b", "c", "d"] {
+            lobby.games.get_mut(id).expect("filed").state = LobbyState::Over;
+        }
+        let (rows, total) = lobby.page_for("amy", &names, &LobbyQuery::default());
+        assert_eq!((ids(&rows), total), (vec!["e".to_string()], 1));
+        assert_eq!(ids(&lobby.list_for("amy", &names)), vec!["e"]);
+        assert_eq!(
+            lobby.seated_accounts(),
+            vec!["amy"],
+            "and nobody is still sitting at a table that is over"
+        );
+    }
+
+    /// The search box reads the table's name **and** its host's, because a
+    /// player looking for a table knows one or the other and rarely both —
+    /// and the host is matched on the display name a client sees, not on the
+    /// account id it never gets.
+    #[test]
+    fn the_search_box_reads_a_name_and_a_host() {
+        let (lobby, names) = lobby();
+        let find = |q: &str, waiting_only| {
+            let (rows, _) = lobby.page_for(
+                "amy",
+                &names,
+                &LobbyQuery {
+                    q: q.to_string(),
+                    waiting_only,
+                    ..LobbyQuery::default()
+                },
+            );
+            ids(&rows)
+        };
+
+        assert_eq!(find("", false), vec!["a", "b", "c", "d", "e"]);
+        assert_eq!(
+            find("   ", false),
+            vec!["a", "b", "c", "d", "e"],
+            "blank is no search"
+        );
+        assert_eq!(find("first", false), vec!["a"], "case does not matter");
+        assert_eq!(find("RUNN", false), vec!["d", "e"]);
+        assert_eq!(
+            find("bob", false),
+            vec!["a", "d"],
+            "the host's display name, which is what a client is shown"
+        );
+        assert!(
+            find("amy@example.test", false).is_empty(),
+            "and not an account id, which no listing carries"
+        );
+        assert_eq!(
+            find("", true),
+            vec!["a", "b", "c"],
+            "waiting only leaves out the tables already playing"
+        );
+        assert_eq!(find("runn", true), Vec::<String>::new());
+    }
+
+    /// A page size is a cap and not a suggestion: the listing is built by
+    /// rendering every row, so an unbounded `limit` makes one request as
+    /// expensive as the whole lobby is large. Nought is not a page either.
+    #[test]
+    fn a_page_size_is_clamped_at_both_ends() {
+        let page = |limit| {
+            LobbyQuery {
+                limit,
+                ..LobbyQuery::default()
+            }
+            .page()
+        };
+        assert_eq!(page(None), LobbyQuery::DEFAULT_LIMIT);
+        assert_eq!(page(Some(0)), 1, "a page of nothing is not a page");
+        assert_eq!(page(Some(10)), 10);
+        assert_eq!(page(Some(LobbyQuery::MAX_LIMIT + 1)), LobbyQuery::MAX_LIMIT);
+        assert_eq!(page(Some(usize::MAX)), LobbyQuery::MAX_LIMIT);
+    }
+
+    /// The same query arrives typed from `GET /lobby/games` and as **text**
+    /// from the lobby socket, whose token and query come out of one query
+    /// string and are flattened — and a flattened struct is deserialized
+    /// from a map of strings, so `offset=8` reached a `usize` field as
+    /// `"8"` and was refused. Both readings are now one struct, so the two
+    /// routes cannot drift.
+    ///
+    /// An unreadable number is the default rather than a `400`: a listing is
+    /// not worth refusing over a typo in a page number.
+    #[test]
+    fn a_query_reads_the_same_written_as_text_or_as_numbers() {
+        let typed: LobbyQuery =
+            serde_json::from_str(r#"{"q":"x","offset":8,"limit":5,"waiting_only":true}"#)
+                .expect("the typed shape");
+        let text: LobbyQuery =
+            serde_json::from_str(r#"{"q":"x","offset":"8","limit":"5","waiting_only":"true"}"#)
+                .expect("the flattened shape");
+        assert_eq!(
+            (typed.offset, typed.limit, typed.waiting_only),
+            (8, Some(5), true)
+        );
+        assert_eq!(
+            (text.offset, text.limit, text.waiting_only),
+            (typed.offset, typed.limit, typed.waiting_only)
+        );
+
+        let junk: LobbyQuery =
+            serde_json::from_str(r#"{"offset":"eight","limit":"lots","waiting_only":"perhaps"}"#)
+                .expect("a typo is not a refusal");
+        assert_eq!(
+            (junk.offset, junk.limit, junk.waiting_only),
+            (0, None, false)
+        );
+        assert_eq!(junk.page(), LobbyQuery::DEFAULT_LIMIT);
+
+        let empty: LobbyQuery = serde_json::from_str("{}").expect("a caller that asks for nothing");
+        assert_eq!(
+            (empty.offset, empty.limit, empty.waiting_only, empty.q),
+            (0, None, false, String::new())
+        );
+        for yes in ["true", "1", "yes"] {
+            let q: LobbyQuery =
+                serde_json::from_str(&format!(r#"{{"waiting_only":"{yes}"}}"#)).expect("a flag");
+            assert!(q.waiting_only, "{yes}");
+        }
+    }
+
     #[test]
     fn a_reserved_chair_is_not_a_ready_one() {
         let ready = occupied(0, "someone", 0);
