@@ -95,6 +95,23 @@ Kartendatei.
    eigenen Seite — und einen auf der anderen, damit „you control" auch
    geprüft und nicht angenommen ist.
 
+15. **`tap_all_mana` drückt auch die Karte, um die es geht.** Creeping Tar
+   Pit druckt `{T}: Add {U} or {B}` — ganzer Preis ist das eigene Tapsymbol,
+   also tappt der Helfer sie mit, und die Aktivierung danach wird für ein
+   bereits getapptes Land abgelehnt. Das liest sich wie ein Kartendefekt und
+   ist keiner. Soll die Karte stehen bleiben, nenne sie:
+   `tap_all_mana_but(&mut engine, seat, Some(<slug>()))`.
+16. **Eine erzeugbare Farbe ist keine Wahl.** „Add one mana of any type that
+   a land you control could produce" fragt nur, wenn mehr als eine Sorte
+   erzeugbar ist: über zwei Wäldern hat die Engine eine Antwort und fragt
+   nichts. Ein Test, der dort `Pending::ChooseColor` erwartet, beschreibt ein
+   Brett, das er nicht gebaut hat — stell einen Wald **und** eine Insel hin.
+17. **Schwebendes Mana wird mitgezählt.** `tap_mana_except` und
+   `tap_all_mana` lassen Mana im Pool stehen, also liest eine Behauptung
+   „genau vier schwarze" danach fünf. Ist der ganze Preis der Fähigkeit
+   `{T}` plus ein Opfer, tappe **gar nichts** vorher — der leere Pool ist
+   das, was „vier und sonst nichts" zu einer exakten Aussage macht.
+
 ## Was du abgibst
 
 Für **jede** Karte genau eine Datei, geschrieben mit deinem Schreib-Werkzeug:

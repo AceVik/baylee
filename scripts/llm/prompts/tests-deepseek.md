@@ -93,6 +93,21 @@ Regeln:
    „target **Dwarf** you control" prüft, braucht einen Zwerg auf der
    eigenen Seite — und einen auf der anderen, damit „you control" auch
    geprüft und nicht angenommen ist.
+17. **`tap_all_mana` drückt auch die Karte, um die es geht.** Creeping Tar
+   Pit druckt `{T}: Add {U} or {B}` — ganzer Preis ist das eigene Tapsymbol,
+   also tappt der Helfer sie mit, und die Aktivierung danach wird für ein
+   bereits getapptes Land abgelehnt. Das liest sich wie ein Kartendefekt und
+   ist keiner: `tap_all_mana_but(&mut engine, seat, Some(<slug>()))`.
+18. **Eine erzeugbare Farbe ist keine Wahl.** „Add one mana of any type that
+   a land you control could produce" fragt nur, wenn mehr als eine Sorte
+   erzeugbar ist: über zwei Wäldern hat die Engine eine Antwort und fragt
+   nichts. Wer dort `Pending::ChooseColor` erwartet, beschreibt ein Brett,
+   das er nicht gebaut hat — Wald **und** Insel hinstellen.
+19. **Schwebendes Mana wird mitgezählt.** `tap_mana_except` und
+   `tap_all_mana` lassen Mana im Pool stehen, also liest „genau vier
+   schwarze" danach fünf. Ist der ganze Preis `{T}` plus ein Opfer, tappe
+   **gar nichts** vorher — der leere Pool macht „vier und sonst nichts" erst
+   zu einer exakten Aussage.
 
 Antworte mit **genau einem** ```rust-Block: der Kartengriff und die eine
 `#[test]`-Funktion. Kein weiterer Text.

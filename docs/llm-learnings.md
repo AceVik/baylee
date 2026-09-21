@@ -1000,3 +1000,127 @@ retry at 64000 with nothing else changed, which is the measurement
 - Echoing Deeps: copying a land card in a graveyard as an enter replacement.
 - Dakmor Salvage: dredge.
 - Scorched Ruins: "sacrifice it unless you sacrifice two untapped lands".
+
+## Round J — the first non-land rounds, and where the tail flattens
+
+The lands were finished in round I, so round J is the first batch drawn from
+the rest: 199 fresh stubs after the shelf comes off, ranked by printed
+length — 60 creatures, 46 instants, 33 enchantments, 30 sorceries, 25
+artifacts, 3 planeswalkers. Three batches of 75/75/49 went to DeepSeek.
+
+**Batch 1: 51 of 75, 26 `Implemented` against 25 `Partial`.
+Batch 2: 42 of 75, 4 against 38.** Same lane, same contract, same prompt —
+what changed is only how deep in the ranking the batch sat. Stubs 241 → 148.
+
+### The residue stops clustering, and that is the finding
+
+Round F's 8 refusals were two tickets and twelve cards, because five of them
+were banding. Grouping batch 2's 38 `Partial` reasons finds **no cluster at
+all**: a copied activated ability, an intervening `if` on an upkeep
+transform, an `Amount` that adds a constant to a count, "if {C} was spent to
+cast it", split second, a fight with a delayed return, cast-a-permanent-of-
+each-type-from-your-graveyard. Every one its own missing sentence.
+
+So the arithmetic that made a blocker worth taking has changed. Past the
+first couple of hundred cards the next rule bought is worth one or two cards
+rather than a dozen, and the instrument to rank with is
+`transcode-report --stubs` rather than another length-sorted batch. Length
+was the right proxy while the shallow end was full; it is a worse one now.
+
+One cluster did survive the grouping and became **#201**: `ReplacementRule`
+has four variants and all four are continuous static abilities, so nothing
+can say the *one-shot* shape — "the next time this would be destroyed this
+turn". That is regenerate (7 unfinished cards) and "if it would die, exile
+it instead" (5 more, three of them the same cards) as one rule.
+
+### `Partial` reasons are claims, and four of them were checked
+
+"No `Effect::Regenerate` exists", "no `Filter` reads a counter on a
+permanent", "none compares a power", "exalted is neither a keyword bit nor a
+trigger". All four true today, all four checked against the DSL rather than
+believed. A stale "cannot be expressed" is how a card that *could* be
+written stays a stub, and `docs/card-dsl.md` is a contract the lanes obey
+literally.
+
+### A layer is part of the claim, not an implementation detail
+
+**Ashaya, Soul of the Wild** came back `Coverage::Implemented` with its `*/*`
+modelled as a printed 0/0 plus `Modifier::ModifyPTPerCount`. That is a
+sensible spelling and it is not the card: a characteristic-defining ability
+applies in layer 7a and `ModifyPTPerCount` derives to 7c, so the two agree
+on every board until a layer-7b effect sets power and toughness and disagree
+after one. `validate`'s printed-`*` check caught it — eight other pool cards
+spell a CDA this way and every one of them already said `Partial`.
+
+### `castable_from_hand` defaults right for one layout and wrong for the other
+
+`FaceDef::castable_from_hand` defaults to `true`, which is correct for a
+modal double-faced card's back face and wrong for a transforming one: CR
+712.8a gives a card in hand only its **front** face's characteristics. **The
+Everflowing Well // The Myriad Pools** — a transform DFC whose back is an
+artifact *land* — left the default in place, and the engine offered and
+accepted it as a land drop out of hand.
+
+Nothing in the pool would have said so. It was found by a sweep written for
+round J's thirteen modal double-faced cards
+(`every_modal_back_face_land_is_played_as_the_land_it_prints`) that plays
+*every* spell-fronted land back in the pool — 58 of them — rather than only
+the thirteen. The thirteen are pinned by name beside it so a shrinking
+population is a failure and not a quieter pass.
+
+Two things that sweep had to learn to be worth running:
+
+- **A back face that shares a type with its front** makes "the front face's
+  type is absent" false about a correct card. The Myriad Pools is an artifact
+  land behind an artifact. The claim that was meant is equality with the back
+  face's own type line.
+- **Fifteen back faces ask a question on arrival** — "you may pay 3 life. If
+  you don't, it enters tapped" — which is asked before the land is on the
+  battlefield, so the harness' `play_land_face` returns a refusal for a
+  perfectly good card. They are named in a pinned list rather than filtered
+  out silently, and Fell Mire, the one of round J's thirteen among them, got
+  a test of its own. A sweep that skips a card and leaves it untested has
+  only moved the gap.
+
+### The quota that looked like a wall
+
+Round I's Gemini card lane wrote **0 of 51** and its test lane 10 of 60, with
+`RESOURCE_EXHAUSTED (code 429): Individual quota reached … Resets in 3h` in
+its own transcript. That reads like "wait three hours" and is not: the quota
+is **per model family, not per account**. The same CLI, the same second,
+refused `gemini-3.7-flash-high` identically and answered
+`gpt-oss-120b-medium`. `BAYLEE_LLM_AGY_MODEL` now overrides the constant and
+every report line names the model — without that, a report saying "Gemini"
+while another model wrote the batch makes the cross rule unauditable
+afterwards, and the cross rule is the one thing about these lanes a later
+reader cannot re-derive from the files.
+
+Two measurements worth keeping: the reset is a **fixed wall-clock time** and
+probing does not push it out (two readings thirteen minutes apart named the
+same instant), and a one-word probe does **not** predict capacity for a
+batch — `gpt-oss-120b-medium` answered a probe and then returned
+`UNAVAILABLE (code 503)` for a ten-card session, twice. `claude-sonnet-4-6`
+took it and wrote 10 of 10.
+
+### What the substituted test lane still got wrong
+
+Three of those ten failed, and all three are rules the contract now carries:
+
+- **`tap_all_mana` presses the card under test.** Creeping Tar Pit's
+  `{T}: Add {U} or {B}` is a mana ability whose whole cost is its tap symbol,
+  so the sweep tapped it and the activation that followed was refused for a
+  land already tapped. `tap_all_mana_but(…, Some(slug()))` is the door.
+- **One producible colour is not a choice.** Horizon of Progress adds "any
+  type a land you control could produce"; over two Forests the engine has one
+  answer and asks nothing, so a test expecting `Pending::ChooseColor` is
+  describing a board it did not build. A Forest and an Island make the
+  question real.
+- **Floating mana is counted too.** Lake of the Dead's line adds `{B}{B}{B}{B}`
+  and the test read five, because `tap_mana_except` had left the fodder Swamp
+  and an Island in the pool first. The line's whole cost is `{T}, Sacrifice a
+  Swamp`, so an empty pool is what makes "four and nothing else" exact.
+
+None of the three is a card defect and all three read like one, which is the
+argument for the coordinator compiling before believing a red test — and for
+the cross rule, since a lane checking its own card would have "fixed" the
+card instead.
