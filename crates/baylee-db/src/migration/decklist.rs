@@ -277,3 +277,125 @@ pub(super) fn assert_seedable(decks: &[(&str, &str, &str)]) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Decklist, FRONT_FACE_REPAIRS, repaired};
+
+    /// **A section nobody knows puts its rows in the deck, not in the bin.**
+    ///
+    /// That is the fallback this parser is written around: a row in the
+    /// wrong list is visible at a table, and a row that disappeared is the
+    /// defect migration 3 had to repair. No deck file in the tree writes an
+    /// unknown section, so nothing else reaches the branch — which is the
+    /// whole reason it is worth a test rather than a comment.
+    ///
+    /// `[sideboard:in]` is the same branch wearing a known word: the match
+    /// is on the header whole, so anything after a colon that is not `deck`
+    /// is a section this parser has never heard of.
+    #[test]
+    fn a_section_nobody_knows_puts_its_rows_in_the_deck_and_not_in_the_bin() {
+        let list = Decklist::parse(
+            "[deck:Test]\n\
+             4 Lightning Bolt\n\
+             [maybeboard]\n\
+             2 Forest\n\
+             [sideboard:in]\n\
+             1 Island\n",
+        );
+
+        assert_eq!(list.name, "Test");
+        assert_eq!(list.main, ["4 Lightning Bolt", "2 Forest", "1 Island"]);
+        assert!(
+            list.side.is_empty() && list.commanders.is_empty(),
+            "and nothing was routed by a word that merely looked familiar"
+        );
+    }
+
+    /// The three sections the format has, and the one movement that is easy
+    /// to leave out: a `[deck:…]` header **returns to the main list**, so a
+    /// file that names its deck again after the sideboard does not keep
+    /// writing into the sideboard.
+    #[test]
+    fn each_section_takes_the_rows_under_it_and_a_deck_header_returns_to_the_first() {
+        let list = Decklist::parse(
+            "[deck:Two Sections]\n\
+             4 Lightning Bolt\n\
+             [sideboard]\n\
+             2 Forest\n\
+             [commander]\n\
+             Kenrith, the Returned King\n\
+             [deck:Two Sections]\n\
+             1 Island\n",
+        );
+
+        assert_eq!(list.name, "Two Sections");
+        assert_eq!(list.main, ["4 Lightning Bolt", "1 Island"]);
+        assert_eq!(list.side, ["2 Forest"]);
+        assert_eq!(list.commanders, ["Kenrith, the Returned King"]);
+    }
+
+    /// A comment and a blank line are skipped **wherever they stand**, which
+    /// is what lets a list carry its own provenance beside the rows it is
+    /// about — and neither of them ends the section they are written in.
+    #[test]
+    fn a_comment_and_a_blank_line_are_skipped_inside_a_section_too() {
+        let list = Decklist::parse(
+            "# where this list came from\n\
+             \n\
+             [deck:Commented]\n\
+             \n\
+             4 Lightning Bolt\n\
+             # and why that card is in it\n\
+             \n\
+             [sideboard]\n\
+             # this one is for the mirror\n\
+             2 Forest\n",
+        );
+
+        assert_eq!(list.name, "Commented");
+        assert_eq!(list.main, ["4 Lightning Bolt"]);
+        assert_eq!(list.side, ["2 Forest"]);
+    }
+
+    /// A file with no header keeps every row and has no name. Refusing it is
+    /// `assert_seedable`'s job and not this one: what a parser owes is to
+    /// lose nothing, and saying that a nameless deck may not be seeded is a
+    /// sentence one layer up.
+    #[test]
+    fn a_file_with_no_header_keeps_its_rows_and_has_no_name() {
+        let list = Decklist::parse("4 Lightning Bolt\n  2 Forest  \n");
+
+        assert!(list.name.is_empty());
+        assert_eq!(
+            list.main,
+            ["4 Lightning Bolt", "2 Forest"],
+            "and the row is what was written, trimmed"
+        );
+    }
+
+    /// `repaired` matches a **whole row**, so a row that merely opens with a
+    /// repaired name is left alone.
+    ///
+    /// That is right only because the two rows it names are rows this
+    /// repository seeded, and neither of them names a printing. A seeded row
+    /// that did would need its own entry rather than a prefix match, which
+    /// would reach rows nobody meant.
+    #[test]
+    fn a_repair_names_one_whole_row_and_never_a_prefix_of_it() {
+        for (both, front) in FRONT_FACE_REPAIRS {
+            assert_eq!(repaired(both), front, "the row the repair is about");
+            assert_eq!(repaired(front), front, "and it is idempotent");
+            assert_eq!(
+                repaired(&format!("{both} (MH2) 290")),
+                format!("{both} (MH2) 290"),
+                "a printing of the same pair is a row this does not name"
+            );
+        }
+        assert_eq!(
+            repaired("4 Lightning Bolt"),
+            "4 Lightning Bolt",
+            "and every other row travels through unchanged"
+        );
+    }
+}
