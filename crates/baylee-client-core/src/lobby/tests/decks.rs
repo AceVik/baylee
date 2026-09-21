@@ -217,3 +217,158 @@ fn deleting_a_deck_re_reads_the_list() {
         Some(LobbyRequest::ListDecks)
     );
 }
+
+#[test]
+fn issue_186_history_preview_preserves_edits_and_restore_is_explicit() {
+    use crate::lobby::library::{History, Reply, Request, Revision, Snapshot};
+    let mut lobby = seated_lobby();
+    lobby.builder_mut().load(
+        "d1",
+        "test",
+        &["10 Forest".into()],
+        &["2 Island".into()],
+        &[],
+    );
+    let working_main = lobby.builder().rows(Zone::Main);
+    let working_side = lobby.builder().rows(Zone::Side);
+    assert_eq!(
+        lobby.browse_history(),
+        Some(LobbyRequest::Library(Request::History("d1".into())))
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Library(Reply::History(
+            "d1".into(),
+            History {
+                version: 3,
+                updated_at: 100,
+                past: vec![Revision {
+                    version: 1,
+                    summary: Some("first".into()),
+                    superseded_at: 90,
+                    cards: 1,
+                    sideboard: 1
+                }],
+            }
+        ))),
+        Some(LobbyRequest::Library(Request::Version("d1".into(), 3)))
+    );
+    lobby.apply(LobbyEvent::Library(Reply::Version(
+        "d1".into(),
+        Snapshot {
+            version: 3,
+            cards: working_main.clone(),
+            sideboard: working_side.clone(),
+            commanders: vec![],
+        },
+    )));
+    assert_eq!(
+        lobby.restore_preview(),
+        None,
+        "current version cannot be restored"
+    );
+    assert_eq!(lobby.preview_version("another-account", 1), None);
+    assert!(lobby.preview_version("d1", 1).is_some());
+    lobby.apply(LobbyEvent::Library(Reply::Version(
+        "d1".into(),
+        Snapshot {
+            version: 1,
+            cards: vec!["4 Forest".into()],
+            sideboard: vec!["1 Island".into()],
+            commanders: vec![],
+        },
+    )));
+    assert_eq!(lobby.builder().rows(Zone::Main), working_main);
+    assert_eq!(lobby.builder().rows(Zone::Side), working_side);
+    assert_eq!(lobby.restore_preview(), None, "first click only confirms");
+    assert!(lobby.library().confirm_restore);
+    assert_eq!(
+        lobby.restore_preview(),
+        Some(LobbyRequest::Library(Request::Restore("d1".into(), 1)))
+    );
+    assert_eq!(lobby.restore_preview(), None, "double submission refused");
+    assert_eq!(
+        lobby.apply(LobbyEvent::Library(Reply::Restored("d1".into()))),
+        Some(LobbyRequest::LoadDeck {
+            deck_id: "d1".into()
+        })
+    );
+    assert!(lobby.library().page.is_none());
+}
+
+#[test]
+fn issue_186_house_copy_gets_its_own_identity_and_history_membership() {
+    use crate::lobby::library::{HouseDeck, Reply, Request};
+    let mut lobby = seated_lobby();
+    assert!(lobby.browse_house().is_some());
+    lobby.apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+        id: "shared".into(),
+        name: "House".into(),
+        format: "commander".into(),
+        description: String::new(),
+        version: 2,
+        cards: 1,
+        sideboard: 1,
+        commanders: vec![],
+    }])));
+    assert_eq!(
+        lobby.copy_house(0),
+        Some(LobbyRequest::Library(Request::Copy("shared".into())))
+    );
+    assert_eq!(lobby.copy_house(0), None);
+    assert_eq!(
+        lobby.apply(LobbyEvent::Library(Reply::Copied("private-copy".into()))),
+        Some(LobbyRequest::ListDecks)
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+            id: "private-copy".into(),
+            name: "House".into(),
+            cards: 1,
+            sideboard: 1,
+            commanders: vec![]
+        }])),
+        Some(LobbyRequest::LoadDeck {
+            deck_id: "private-copy".into()
+        })
+    );
+    lobby
+        .builder_mut()
+        .load("private-copy", "House", &["10 Forest".into()], &[], &[]);
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(lobby.browse_history().is_some());
+    lobby.sign_out();
+    lobby.apply(LobbyEvent::Library(Reply::House(vec![])));
+    assert!(
+        lobby.library().page.is_none(),
+        "late response cannot reopen an account screen"
+    );
+    assert_eq!(offline_lobby().browse_house(), None);
+    assert_eq!(offline_lobby().browse_history(), None);
+}
+
+#[test]
+fn issue_186_diff_counts_quantities_and_preserves_print_and_sideboard_changes() {
+    use crate::lobby::library::row_changes;
+    assert_eq!(
+        row_changes(
+            &["4 Forest".into(), "1 Island".into()],
+            &["2 Forest".into(), "3 Island".into()]
+        ),
+        vec![("Forest".into(), -2), ("Island".into(), 2)]
+    );
+    assert!(
+        row_changes(
+            &["2 Forest".into(), "2 Forest".into()],
+            &["4 Forest".into()]
+        )
+        .is_empty()
+    );
+    assert_eq!(
+        row_changes(&["1 Forest [SET:1]".into()], &["1 Forest [SET:2]".into()]).len(),
+        2
+    );
+    assert_eq!(
+        row_changes(&[], &["2 Negate".into()]),
+        vec![("Negate".into(), 2)]
+    );
+}

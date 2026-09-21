@@ -60,6 +60,8 @@ pub struct ClientSettings {
     /// keychain, not in a JSON file in a config directory.
     #[serde(default)]
     pub last_email: String,
+    /// Locally saved gateway addresses; selection is explicit on every launch.
+    pub gateways: Vec<String>,
 }
 
 impl Default for ClientSettings {
@@ -71,6 +73,7 @@ impl Default for ClientSettings {
             zone_browser: None,
             zone_view: baylee_client_core::browser::ViewMode::default(),
             last_email: String::new(),
+            gateways: Vec::new(),
         }
     }
 }
@@ -406,6 +409,7 @@ mod tests {
     #[test]
     fn settings_round_trip_through_json() {
         let written = ClientSettings {
+            gateways: vec!["https://example.test".into()],
             preview_scale: 1.75,
             lang: "de".to_string(),
             prefer_text_view: true,
@@ -420,6 +424,7 @@ mod tests {
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
+        assert_eq!(read.gateways, written.gateways);
         assert!((read.preview_scale - 1.75).abs() < f32::EPSILON);
         assert_eq!(read.lang, "de");
         assert!(read.prefer_text_view);

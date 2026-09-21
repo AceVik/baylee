@@ -11,6 +11,8 @@
 //! the wire should know the field names, and the shell that encodes the
 //! request is not it.
 
+pub mod library;
+
 use crate::deckbuilder::DeckBuilder;
 use crate::i18n::{Lang, Phrase};
 use crate::textbuf::{Dir, Step as Reach, TextBuffer};
@@ -45,6 +47,8 @@ impl Default for Screen {
 /// A text field on the sign-in form.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Field {
+    /// A gateway URL, edited before account sign-in.
+    Gateway,
     /// The account's e-mail address, which is also its login name.
     #[default]
     Email,
@@ -99,6 +103,8 @@ pub enum Tab {
 /// make one; asked for neither, it stays out of the way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FieldKind {
+    /// A gateway URL; no nickname autofill.
+    Url,
     /// An e-mail address: the address keyboard, and the username to autofill.
     Email,
     /// A plain name.
@@ -401,6 +407,8 @@ impl GameMode {
 /// A call the shell should make on the lobby's behalf.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LobbyRequest {
+    /// Account library operation.
+    Library(library::Request),
     /// `POST /auth/register`.
     Register {
         /// The address to register.
@@ -546,6 +554,8 @@ pub enum LobbyRequest {
 /// The outcome of a [`LobbyRequest`], handed back by the shell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LobbyEvent {
+    /// Account library response.
+    Library(library::Reply),
     /// The account now exists. It comes with no token, so a log-in follows
     /// — unless the gateway sends confirmation mail, in which case the
     /// log-in would be refused until the link is clicked and there is
@@ -634,15 +644,26 @@ enum Performer {
     Offline,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum GatewaySelection {
+    #[default]
+    Missing,
+    Selected,
+}
+
 /// The lobby's whole state.
 ///
 /// One request is in flight at a time ([`Lobby::busy`]): every intent method
 /// returns `None` while one is, so a double click cannot open two tables.
 #[derive(Clone, Debug, Default)]
 pub struct Lobby {
+    library: library::Library,
+    copied_deck: Option<String>,
     screen: Screen,
     focus: Field,
     email: TextBuffer,
+    gateway_url: TextBuffer,
+    gateway_selection: GatewaySelection,
     display_name: TextBuffer,
     password: TextBuffer,
     room_password: TextBuffer,
@@ -722,6 +743,7 @@ impl Lobby {
     pub fn new() -> Self {
         Self {
             registration_enabled: true,
+            gateway_selection: GatewaySelection::Selected,
             ..Self::default()
         }
     }
@@ -789,6 +811,7 @@ impl Lobby {
     pub fn field_kind(&self, field: Field) -> FieldKind {
         match field {
             Field::Email => FieldKind::Email,
+            Field::Gateway => FieldKind::Url,
             Field::DisplayName | Field::Search => FieldKind::Name,
             Field::Password if self.registering() => FieldKind::NewPassword,
             Field::Password => FieldKind::Password,
@@ -807,6 +830,7 @@ impl Lobby {
     #[must_use]
     pub fn buffer(&self, field: Field) -> &TextBuffer {
         match field {
+            Field::Gateway => &self.gateway_url,
             Field::Email => &self.email,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
@@ -1017,7 +1041,7 @@ impl Lobby {
                 // Logging in: two fields, and a ring of two reverses to
                 // itself. The display name is not drawn, so it is not in it.
                 (Field::Email | Field::DisplayName, false, _) => Field::Password,
-                (Field::Password, false, _) => Field::Email,
+                (Field::Password, false, _) | (Field::Gateway, _, _) => Field::Email,
                 // Signing up: three, and the direction finally reads.
                 (Field::Email, true, Tab::Next) | (Field::Password, true, Tab::Back) => {
                     Field::DisplayName
@@ -1051,7 +1075,7 @@ impl Lobby {
     pub fn typing_here(&self) -> bool {
         match self.screen {
             Screen::SignIn { registering } => match self.focus {
-                Field::Email | Field::Password => true,
+                Field::Email | Field::Password | Field::Gateway => true,
                 Field::DisplayName => registering,
                 Field::RoomPassword | Field::Search => false,
             },
@@ -1140,12 +1164,25 @@ impl Lobby {
         }
     }
 
+    /// The shell controls whether an explicit gateway has been selected.
+    pub fn set_gateway_ready(&mut self, ready: bool) {
+        self.gateway_selection = if ready {
+            GatewaySelection::Selected
+        } else {
+            GatewaySelection::Missing
+        };
+    }
+
     /// Submits the sign-in form — the Enter key, or the button.
     pub fn submit(&mut self) -> Option<LobbyRequest> {
         let Screen::SignIn { registering } = self.screen else {
             return None;
         };
         if self.busy {
+            return None;
+        }
+        if self.gateway_selection == GatewaySelection::Missing {
+            self.refuse(Phrase::ChooseGatewayFirst);
             return None;
         }
         if self.email.text().trim().is_empty() || self.password.is_empty() {
@@ -1714,6 +1751,8 @@ impl Lobby {
     /// Forgets the account. Called on a log-out button, and by the shell when
     /// the gateway rejects the token it holds.
     pub fn sign_out(&mut self) {
+        self.close_library();
+        self.copied_deck = None;
         self.performer = Performer::Nobody;
         self.decks.clear();
         self.games.clear();
@@ -1740,6 +1779,7 @@ impl Lobby {
     pub fn apply(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
         self.busy = false;
         match event {
+            LobbyEvent::Library(reply) => self.library_reply(reply),
             // Sign-up hands back no token, so the credentials that are still
             // in the form go straight into a log-in.
             LobbyEvent::Registered {
@@ -1776,6 +1816,10 @@ impl Lobby {
                     Some(i) if i < self.decks.len() => Some(i),
                     _ => (!self.decks.is_empty()).then_some(0),
                 };
+                if let Some(deck_id) = self.copied_deck.take() {
+                    self.busy = true;
+                    return Some(LobbyRequest::LoadDeck { deck_id });
+                }
                 self.list()
             }
             LobbyEvent::Pool { cards, has_text } => {
@@ -1947,6 +1991,7 @@ impl Lobby {
 
     fn buffer_mut(&mut self, field: Field) -> &mut TextBuffer {
         match field {
+            Field::Gateway => &mut self.gateway_url,
             Field::Email => &mut self.email,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,

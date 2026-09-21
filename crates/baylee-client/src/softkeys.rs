@@ -270,6 +270,7 @@ impl Inner {
             // caret itself. `inputmode` is what actually raises the address
             // keyboard on a phone; the type was buying the browser's own
             // validation on a form that does its own.
+            FieldKind::Url => ("url", "url", "off"),
             FieldKind::Email => ("text", "email", "username"),
             FieldKind::Name => ("text", "text", "nickname"),
             FieldKind::Password => ("password", "text", "current-password"),

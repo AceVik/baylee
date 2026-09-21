@@ -81,7 +81,13 @@ fn headless() -> App {
     // be running on this machine, and that answer lands a frame or two
     // later — inside whatever the test is measuring. An address no request
     // can be built from keeps a headless test off the network entirely.
-    app.world_mut().resource_mut::<LobbyState>().gateway = String::new();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateway.clear();
+        state.gateway_selected = true;
+        state.lobby.set_gateway_ready(true);
+        state.lobby.set_registration_enabled(true);
+    }
     app.update();
     app
 }

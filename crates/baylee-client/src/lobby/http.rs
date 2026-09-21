@@ -41,6 +41,7 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         expect,
         state.lobby.lang(),
         token.is_some(),
+        state.gateway_epoch,
         mailbox,
     );
 }
@@ -86,6 +87,7 @@ pub(super) fn build(
             ),
             Expect::LoggedIn,
         ),
+        LobbyRequest::Library(request) => library_request(base, request),
         LobbyRequest::ListDecks => (ehttp::Request::get(format!("{base}/decks")), Expect::Decks),
         LobbyRequest::LoadPool => (
             // The pool is public reference data and needs no token; the lang
@@ -287,8 +289,16 @@ fn bearer(mut request: ehttp::Request, token: Option<&str>) -> ehttp::Request {
 }
 
 /// Sends a request and posts its outcome to the mailbox.
-fn fetch(request: ehttp::Request, expect: Expect, lang: Lang, signed: bool, mailbox: &Mailbox) {
+fn fetch(
+    request: ehttp::Request,
+    expect: Expect,
+    lang: Lang,
+    signed: bool,
+    epoch: u64,
+    mailbox: &Mailbox,
+) {
     let box_ = Arc::clone(&mailbox.0);
+    let library = matches!(expect, Expect::Library(_));
     ehttp::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
@@ -300,8 +310,14 @@ fn fetch(request: ehttp::Request, expect: Expect, lang: Lang, signed: bool, mail
                 Phrase::GatewayNoAnswer.fill(lang, &[&err]),
             )),
         };
+        let reply = match reply {
+            Reply::Event(LobbyEvent::Failed(error)) if library => Reply::Event(
+                LobbyEvent::Library(client_core::lobby::library::Reply::Failed(error)),
+            ),
+            other => other,
+        };
         if let Ok(mut box_) = box_.lock() {
-            box_.push(reply);
+            box_.push(Reply::Remote(epoch, Box::new(reply)));
         }
     });
 }
@@ -361,6 +377,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         },
         // An edit answers `204` with no body and needs no id: the builder
         // already holds the one it is editing.
+        Expect::Library(request) => decode_library(request, body, lang),
         Expect::DeckSaved => LobbyEvent::DeckSaved {
             deck_id: serde_json::from_str::<SavedDeck>(body)
                 .ok()
@@ -465,13 +482,25 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
         .and_then(|body| serde_json::from_str::<Body>(body).ok())
         .map_or_else(
             || Phrase::GatewayAnswered.fill(lang, &[&response.status.to_string()]),
-            |b| b.error,
+            |b| match b.error.as_str() {
+                "invalid display name" => Phrase::AccountNameHint.text(lang).to_string(),
+                "weak password" | "invalid password" => {
+                    Phrase::AccountPasswordInvalid.text(lang).to_string()
+                }
+                _ => b.error,
+            },
         )
 }
 
 /// Asks once, at startup, whether this gateway takes sign-ups — and whether it
 /// mirrors card art.
 pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbox>) {
+    if state.gateway_selected {
+        probe_registration(&state, &mailbox);
+    }
+}
+
+pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
     /// `GET /auth/config`.
     #[derive(serde::Deserialize)]
     struct Body {
@@ -488,6 +517,7 @@ pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbo
 
     let box_ = Arc::clone(&mailbox.0);
     let gateway = state.gateway.clone();
+    let epoch = state.gateway_epoch;
     let url = format!("{gateway}/auth/config");
     ehttp::fetch(ehttp::Request::get(&url), move |result| {
         let body = match result {
@@ -501,17 +531,64 @@ pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbo
         let Some(body) = body else {
             return;
         };
-        // Set straight from the callback rather than through the mailbox: this
-        // is process-wide configuration, not lobby state, and every reader of
-        // it — the deck builder's hover preview among them — can be drawing
-        // before the next frame's mailbox is drained.
-        if body.art_cache {
-            baylee_client_core::images::use_art_base(baylee_client_core::images::gateway_art_base(
-                &gateway,
+        if let Ok(mut box_) = box_.lock() {
+            box_.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::Registration {
+                    enabled: body.registration_enabled,
+                    art_cache: body.art_cache,
+                }),
             ));
         }
-        if let Ok(mut box_) = box_.lock() {
-            box_.push(Reply::Registration(body.registration_enabled));
-        }
     });
+}
+
+fn library_request(
+    base: &str,
+    request: client_core::lobby::library::Request,
+) -> (ehttp::Request, Expect) {
+    use client_core::lobby::library::Request;
+    let http = match &request {
+        Request::House => ehttp::Request::get(format!("{base}/decks/shared")),
+        Request::History(id) => ehttp::Request::get(format!("{base}/decks/{id}/history")),
+        Request::Version(id, version) => {
+            ehttp::Request::get(format!("{base}/decks/{id}/versions/{version}"))
+        }
+        Request::Copy(id) => json_post(&format!("{base}/decks/{id}/copy"), &serde_json::json!({})),
+        Request::Restore(id, version) => json_post(
+            &format!("{base}/decks/{id}/versions/{version}/revert"),
+            &serde_json::json!({}),
+        ),
+    };
+    (http, Expect::Library(request))
+}
+
+pub(super) fn decode_library(
+    request: client_core::lobby::library::Request,
+    body: &str,
+    lang: Lang,
+) -> LobbyEvent {
+    use client_core::lobby::library::{Reply, Request};
+    let parsed = match request {
+        Request::House => serde_json::from_str(body).map(Reply::House),
+        Request::History(id) => {
+            serde_json::from_str(body).map(|history| Reply::History(id, history))
+        }
+        Request::Version(id, _) => {
+            serde_json::from_str(body).map(|snapshot| Reply::Version(id, snapshot))
+        }
+        Request::Copy(_) => {
+            #[derive(serde::Deserialize)]
+            struct Copy {
+                deck_id: String,
+            }
+            serde_json::from_str::<Copy>(body).map(|copy| Reply::Copied(copy.deck_id))
+        }
+        Request::Restore(id, _) => {
+            serde_json::from_str::<serde_json::Value>(body).map(|_| Reply::Restored(id))
+        }
+    };
+    LobbyEvent::Library(
+        parsed.unwrap_or_else(|_| Reply::Failed(Phrase::LibraryReadFailed.text(lang).to_string())),
+    )
 }

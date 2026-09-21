@@ -29,7 +29,13 @@ pub(super) fn poll(
         std::mem::take(&mut *box_)
     };
     for reply in replies {
+        let reply = match reply {
+            Reply::Remote(epoch, reply) if epoch == state.gateway_epoch => *reply,
+            Reply::Remote(_, _) => continue,
+            reply => reply,
+        };
         match reply {
+            Reply::Remote(_, _) => {}
             Reply::Event(event) => {
                 // A sign-in that worked is the one moment this client knows
                 // an address is a real one, so it is the only moment worth
@@ -47,8 +53,18 @@ pub(super) fn poll(
                 }
                 dispatch(&mut state, &mailbox, next);
             }
-            Reply::Registration(enabled) => state.lobby.set_registration_enabled(enabled),
-            Reply::Expired => state.lobby.sign_out(),
+            Reply::Registration { enabled, art_cache } => {
+                state.lobby.set_registration_enabled(enabled);
+                if art_cache {
+                    client_core::images::use_art_base(client_core::images::gateway_art_base(
+                        &state.gateway,
+                    ));
+                }
+            }
+            Reply::Expired => {
+                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+                state.lobby.sign_out();
+            }
         }
     }
     // Keys and standing orders belong to the account, so signing in is what
@@ -174,6 +190,11 @@ pub(super) fn softkeys(
     mut build_epoch: Local<u64>,
 ) {
     if !SoftKeyboard::owns_typing() {
+        return;
+    }
+    if state.lobby.library().page.is_some() {
+        keys.close();
+        drop(keys.drain());
         return;
     }
     // The builder counts its own placements, so it gets its own tally: one
@@ -305,6 +326,13 @@ pub(super) fn keyboard(
     if state.settings.is_open() {
         // Nothing on the settings screen is typed into.
         keys.clear();
+        return;
+    }
+    if state.lobby.library().page.is_some() {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) && !state.lobby.library().loading {
+            state.lobby.close_library();
+        }
         return;
     }
     if SoftKeyboard::owns_typing() {
@@ -603,7 +631,79 @@ pub(super) fn clicks(
         if state.settings.is_open() && !matches!(*press, Press::Rebind(_)) {
             state.settings = SettingsPane::Open;
         }
+        if !matches!(*press, Press::DeleteDeck(_)) {
+            state.confirm_delete = None;
+        }
         match *press {
+            Press::Hub(hub) => {
+                state.hub = hub;
+                scrolled.set(List::Table, 0.0);
+            }
+            Press::RoomSize(more) => {
+                state.room_chairs = if more {
+                    state.room_chairs.saturating_add(1).min(MAX_CHAIRS)
+                } else {
+                    state.room_chairs.saturating_sub(1).max(MIN_CHAIRS)
+                };
+            }
+            Press::AddGateway => {
+                if state.add_gateway()
+                    && let Some(settings) = settings.as_mut()
+                {
+                    settings.gateways.clone_from(&state.gateways);
+                    settings.save();
+                }
+            }
+            Press::SelectGateway(index) => {
+                if state.select_gateway(index) {
+                    prefs.detach();
+                    http::probe_registration(&state, &mailbox);
+                }
+            }
+            Press::BrowseHouse | Press::BrowseHistory | Press::RetryLibrary => {
+                scrolled.set(List::Library, 0.0);
+                let history = *press == Press::BrowseHistory
+                    || (*press == Press::RetryLibrary
+                        && matches!(
+                            state.lobby.library().page,
+                            Some(client_core::lobby::library::Page::History(_))
+                        ));
+                let request = if history {
+                    state.lobby.browse_history()
+                } else {
+                    state.lobby.browse_house()
+                };
+                dispatch(&mut state, &mailbox, request);
+            }
+            Press::CloseLibrary => state.lobby.close_library(),
+            Press::PreviewHouse(index) => {
+                let choice = state
+                    .lobby
+                    .library()
+                    .house
+                    .get(index)
+                    .map(|d| (d.id.clone(), d.version));
+                if let Some((id, version)) = choice {
+                    let request = state.lobby.preview_version(&id, version);
+                    dispatch(&mut state, &mailbox, request);
+                }
+            }
+            Press::PreviewVersion(version) => {
+                if let Some(client_core::lobby::library::Page::History(id)) =
+                    state.lobby.library().page.clone()
+                {
+                    let request = state.lobby.preview_version(&id, version);
+                    dispatch(&mut state, &mailbox, request);
+                }
+            }
+            Press::CopyHouse(index) => {
+                let request = state.lobby.copy_house(index);
+                dispatch(&mut state, &mailbox, request);
+            }
+            Press::RestoreVersion => {
+                let request = state.lobby.restore_preview();
+                dispatch(&mut state, &mailbox, request);
+            }
             Press::OpenSettings => state.settings = SettingsPane::Open,
             Press::CloseSettings => state.settings = SettingsPane::Closed,
             Press::Rebind(action) => {
@@ -657,6 +757,9 @@ pub(super) fn clicks(
             // the sign-in form's own requests would still be answered out of
             // the local deck file.
             Press::SignOut => {
+                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+                prefs.detach();
+                scrolled.set(List::Table, 0.0);
                 state.offline = None;
                 state.lobby.sign_out();
             }
@@ -775,6 +878,9 @@ pub(super) fn clicks(
             // skips is still the sign-in; what it no longer skips is choosing
             // who you are playing and with what.
             Press::PlayOffline => {
+                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+                prefs.detach();
+                scrolled.set(List::Table, 0.0);
                 // Whatever is already here is kept. `Press::SignOut` is the only
                 // thing that clears it, so a player coming back to offline
                 // play finds the decks and the room they left.
@@ -790,6 +896,7 @@ pub(super) fn clicks(
             // behind it. None of the three does anything here.
             Press::Leave | Press::PlayAgain | Press::PickerNothing => {}
             Press::NewDeck => {
+                state.pane = Pane::Deck;
                 let request = state.lobby.build_deck();
                 dispatch(&mut state, &mailbox, request);
             }
@@ -799,8 +906,13 @@ pub(super) fn clicks(
                 dispatch(&mut state, &mailbox, request);
             }
             Press::DeleteDeck(index) => {
-                let request = state.lobby.delete_deck(index);
-                dispatch(&mut state, &mailbox, request);
+                if state.confirm_delete == Some(index) {
+                    let request = state.lobby.delete_deck(index);
+                    state.confirm_delete = None;
+                    dispatch(&mut state, &mailbox, request);
+                } else {
+                    state.confirm_delete = Some(index);
+                }
             }
             Press::CloseBuilder => {
                 if state.lobby.builder().dirty() && !state.confirm_leave {
@@ -808,6 +920,7 @@ pub(super) fn clicks(
                     state.lobby.tell_refusal(Phrase::UnsavedChanges, &[]);
                 } else {
                     state.confirm_leave = false;
+                    state.hub = Hub::Decks;
                     let request = state.lobby.close_builder();
                     dispatch(&mut state, &mailbox, request);
                 }
@@ -926,6 +1039,7 @@ pub(crate) enum List {
     Deck,
     /// The tables and decks on the lobby screen.
     Table,
+    Library,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -940,6 +1054,7 @@ pub(crate) struct Scrolled {
     pool: f32,
     deck: f32,
     table: f32,
+    library: f32,
 }
 
 impl Scrolled {
@@ -948,6 +1063,7 @@ impl Scrolled {
             List::Pool => self.pool,
             List::Deck => self.deck,
             List::Table => self.table,
+            List::Library => self.library,
         }
     }
 
@@ -956,6 +1072,7 @@ impl Scrolled {
             List::Pool => self.pool = at,
             List::Deck => self.deck = at,
             List::Table => self.table = at,
+            List::Library => self.library = at,
         }
     }
 }
@@ -1174,6 +1291,18 @@ fn ended_as(duel: Option<&crate::Duel>) -> Option<(GameResult, PlayerId, Option<
 /// A component whose click means something.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Press {
+    Hub(Hub),
+    RoomSize(bool),
+    AddGateway,
+    SelectGateway(usize),
+    BrowseHouse,
+    BrowseHistory,
+    CloseLibrary,
+    RetryLibrary,
+    PreviewHouse(usize),
+    PreviewVersion(i32),
+    CopyHouse(usize),
+    RestoreVersion,
     /// Put the caret in this field.
     Focus(Field),
     /// Show a masked field in the clear, or cover it again.

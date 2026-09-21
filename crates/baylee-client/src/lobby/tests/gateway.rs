@@ -456,3 +456,54 @@ fn the_starter_deck_is_one_the_gateway_will_accept() {
         );
     }
 }
+
+#[test]
+fn issue_186_library_routes_and_snapshot_payloads_match_the_gateway() {
+    use client_core::lobby::library::{Reply, Request};
+    for (request, method, path) in [
+        (Request::House, "GET", "http://gw/decks/shared"),
+        (
+            Request::History("d1".into()),
+            "GET",
+            "http://gw/decks/d1/history",
+        ),
+        (
+            Request::Version("d1".into(), 2),
+            "GET",
+            "http://gw/decks/d1/versions/2",
+        ),
+        (
+            Request::Copy("house".into()),
+            "POST",
+            "http://gw/decks/house/copy",
+        ),
+        (
+            Request::Restore("d1".into(), 2),
+            "POST",
+            "http://gw/decks/d1/versions/2/revert",
+        ),
+    ] {
+        let (http, _) = super::super::http::build(
+            "http://gw",
+            Some("tok"),
+            "en",
+            LobbyRequest::Library(request),
+        );
+        assert_eq!(http.method.as_str(), method);
+        assert_eq!(http.url, path);
+    }
+    let reply = super::super::http::decode_library(
+        Request::Version("d1".into(), 2),
+        r#"{"version":2,"cards":["4 Forest"],"sideboard":["2 Island"],"commanders":[],"current":false}"#,
+        Lang::En,
+    );
+    let LobbyEvent::Library(Reply::Version(id, snapshot)) = reply else {
+        panic!("snapshot was not decoded")
+    };
+    assert_eq!(id, "d1");
+    assert_eq!(snapshot.sideboard, ["2 Island"]);
+    assert!(matches!(
+        super::super::http::decode_library(Request::House, "<html>proxy failure</html>", Lang::En),
+        LobbyEvent::Library(Reply::Failed(_))
+    ));
+}

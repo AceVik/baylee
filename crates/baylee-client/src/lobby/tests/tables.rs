@@ -43,11 +43,11 @@ fn the_table_screen_builds_once_there_is_a_deck() {
     for wanted in [
         Press::SignOut,
         Press::Refresh,
-        Press::StarterDeck,
+        Press::BrowseHouse,
         Press::SelectDeck(0),
         Press::Host(GameMode::Ai),
         Press::OpenRoom(2),
-        Press::OpenRoom(4),
+        Press::RoomSize(true),
         Press::Join(0),
         // The chairs of a waiting table are drawn for everyone, so a
         // player can take the one they want rather than whichever the
@@ -79,6 +79,8 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
         "offline play opens the table screen, not a duel"
     );
 
+    press(&mut app, Press::RoomSize(true));
+    press(&mut app, Press::RoomSize(true));
     tap_control(&mut app, "a room of four", |p| *p == Press::OpenRoom(4));
     {
         let state = app.world().resource::<LobbyState>();
@@ -155,7 +157,7 @@ fn the_offline_lobby_draws_none_of_the_gateways_controls() {
         query.iter(app.world()).copied().collect()
     };
     assert!(
-        presses.contains(&Press::OpenRoom(4)),
+        presses.contains(&Press::OpenRoom(2)),
         "the table's own controls stay: {presses:?}"
     );
     assert!(

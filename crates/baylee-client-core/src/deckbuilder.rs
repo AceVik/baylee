@@ -735,6 +735,7 @@ pub struct DeckBuilder {
 }
 
 mod builder;
+pub mod statistics;
 
 #[cfg(test)]
 mod tests;

@@ -9,6 +9,7 @@
 
 use crate::cardmat::UiCards;
 use crate::hud::{UiFonts, btn_radius, palette, tf};
+use crate::lobby::heading;
 use crate::lobby::{
     FieldLook, FieldTail, Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip,
     hover_of_card, hover_of_entry, note, print_mark, row, scroller, spacer, text_field,
@@ -183,13 +184,13 @@ pub(crate) fn builder(
         .id();
     commands.entity(root).add_child(body);
 
-    if !phone || state.pane == Pane::Cards {
-        let pool = pool_panel(commands, state, fonts, metrics, scrolled_to);
-        commands.entity(body).add_child(pool);
-    }
     if !phone || state.pane == Pane::Deck {
         let list = deck_panel(commands, state, fonts, metrics, scrolled_to);
         commands.entity(body).add_child(list);
+    }
+    if !phone || state.pane == Pane::Cards {
+        let pool = pool_panel(commands, state, fonts, metrics, scrolled_to);
+        commands.entity(body).add_child(pool);
     }
 
     // Last, so it sits over both halves whatever the frame is.
@@ -258,6 +259,18 @@ fn build_bar(
     }
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     commands.entity(bar).add_child(gap);
+    if state.lobby.token().is_some() && deck.editing().is_some() {
+        let history = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::DeckHistory.text(lang),
+            Press::BrowseHistory,
+            palette::PANEL_LIT,
+            !state.lobby.busy(),
+        );
+        commands.entity(bar).add_child(history);
+    }
     if !state.lobby.status().is_empty() {
         let status = commands
             .spawn((
@@ -302,6 +315,7 @@ fn pool_panel(
     let deck = state.lobby.builder();
     let lang = state.lobby.lang();
     let panel = build_panel(commands, metrics, percent(100), 1.0);
+    commands.entity(panel).insert(crate::lobby::dock::Dock(6));
 
     // The builder's boxes are plain strings, so the caret is always after
     // what is in them — which is where it was drawn before there was a real
@@ -632,7 +646,7 @@ fn pool_panel(
             commands,
             fonts,
             metrics,
-            "\u{25c8}",
+            Phrase::ChoosePrintShort.text(lang),
             Press::PickPrint(slot),
             false,
         );
@@ -1243,14 +1257,18 @@ fn deck_panel(
     let deck = state.lobby.builder();
     let lang = state.lobby.lang();
     let counts = deck.counts();
+    let stats = deck.statistics();
     let width = match metrics.frame {
         Frame::Phone => percent(100),
-        Frame::Tablet => px(320),
-        Frame::Desktop => px(380),
+        Frame::Tablet => percent(54),
+        Frame::Desktop => percent(62),
     };
     let grow = f32::from(u8::from(metrics.frame == Frame::Phone));
     let panel = build_panel(commands, metrics, width, grow);
+    commands.entity(panel).insert(crate::lobby::dock::Dock(5));
 
+    let overview = heading(commands, fonts, metrics, Phrase::Composition.text(lang));
+    commands.entity(panel).add_child(overview);
     let typed = TextBuffer::new(deck.name());
     let name = text_field(
         commands,
@@ -1321,6 +1339,50 @@ fn deck_panel(
     );
     commands.entity(panel).add_child(summary);
 
+    let statistics = row(commands, metrics, true);
+    for (label, value) in [
+        (Phrase::UniqueCards, stats.unique.to_string()),
+        (
+            Phrase::AverageMana,
+            stats
+                .average_mana
+                .map_or_else(|| "—".into(), |v| format!("{v:.2}")),
+        ),
+        (
+            Phrase::LandShare,
+            stats
+                .land_share
+                .map_or_else(|| "—".into(), |v| format!("{:.0}%", v * 100.0)),
+        ),
+        (
+            Phrase::OpeningLand,
+            stats
+                .opening_land
+                .map_or_else(|| "—".into(), |v| format!("{:.1}%", v * 100.0)),
+        ),
+    ] {
+        let stat = commands
+            .spawn((
+                Node {
+                    flex_grow: 1.0,
+                    min_width: px(130),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(px(metrics.gap)),
+                    row_gap: px(4),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL_LIT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let value = heading(commands, fonts, metrics, &value);
+        commands.entity(value).insert(TextColor(palette::DOCK_INK));
+        let label = note(commands, fonts, metrics, label.text(lang));
+        commands.entity(stat).add_children(&[value, label]);
+        commands.entity(statistics).add_child(stat);
+    }
+    commands.entity(panel).add_child(statistics);
     let curve = curve_bars(commands, fonts, metrics, deck);
     commands.entity(panel).add_child(curve);
 
@@ -1445,7 +1507,14 @@ fn deck_panel(
             // One tap to send a copy the other way. The builder shows one
             // list at a time, so without this a card has to be removed here
             // and found again over there.
-            ("\u{21c4}", Press::MoveRow(at)),
+            (
+                if deck.zone() == Zone::Main {
+                    "SB"
+                } else {
+                    "Main"
+                },
+                Press::MoveRow(at),
+            ),
         ] {
             let step = chip(commands, fonts, metrics, label, press, false);
             commands.entity(row_id).add_child(step);
@@ -1656,11 +1725,13 @@ fn build_panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32)
                 min_height: px(0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap * 0.8),
-                padding: UiRect::all(px(metrics.pad * 0.8)),
-                border_radius: BorderRadius::all(px(12)),
+                padding: UiRect::all(px(metrics.pad * 1.5)),
+                border_radius: BorderRadius::all(px(14)),
+                border: UiRect::all(px(1)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.4)),
             Pickable::IGNORE,
         ))
         .id()

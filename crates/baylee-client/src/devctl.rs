@@ -1268,6 +1268,11 @@ fn exits_json(believed: &Believed) -> String {
     if !finished {
         return "null".to_string();
     }
+    lobby_controls_json(believed)
+}
+
+/// All front-door controls in logical pixels, without field values or credentials.
+fn lobby_controls_json(believed: &Believed) -> String {
     let rows: Vec<String> = believed
         .exits
         .iter()
@@ -1410,7 +1415,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves},\
-         \"phase\":{phase},\"exits\":{exits}}}",
+         \"phase\":{phase},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
         // [`exits_json`] for why that flag is the row rather than a detail
@@ -1421,6 +1426,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
             .as_ref()
             .map_or_else(|| "null".to_string(), |p| quoted(&format!("{:?}", p.get()))),
         exits = exits_json(believed),
+        lobby_controls = lobby_controls_json(believed),
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),
         shelves = shelves_json(

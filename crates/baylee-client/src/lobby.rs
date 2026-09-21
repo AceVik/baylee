@@ -47,7 +47,7 @@ use crate::{DuelCommand, DuelPhase, InstalledHost};
 
 /// The ground the lobby sits on — dark enough that the felt never flashes
 /// through on the way into a duel.
-const BACKDROP: Color = Color::srgb(0.04, 0.05, 0.06);
+const BACKDROP: Color = palette::DOCK_GROUND;
 
 /// The starter deck's name, and the section of the acceptance deck file it is
 /// copied from. There is no deck builder yet; without this button a fresh
@@ -69,7 +69,8 @@ impl Plugin for LobbyPlugin {
         crate::ambience::install(app);
         crate::loading::install(app);
         crate::flip::install(app);
-        app.init_resource::<Mailbox>()
+        app.init_resource::<dock::Surfaces>()
+            .init_resource::<Mailbox>()
             .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
@@ -88,6 +89,7 @@ impl Plugin for LobbyPlugin {
                     hovers,
                     ui,
                     ui::blink,
+                    dock::materialize,
                     preview,
                     waiting,
                 )
@@ -115,11 +117,15 @@ impl Plugin for LobbyPlugin {
 
 /// The lobby's state, plus the gateway it is talking to.
 #[derive(Resource)]
+#[allow(clippy::struct_excessive_bools)] // independent UI toggles and transport/selection state
 pub struct LobbyState {
     /// The renderer-free state machine.
     pub lobby: Lobby,
-    /// Gateway base URL, resolved once at startup.
+    /// Explicitly selected gateway base URL for this session.
     pub gateway: String,
+    pub(crate) gateways: Vec<String>,
+    pub(crate) gateway_selected: bool,
+    gateway_epoch: u64,
     /// The language the card pool is asked for, from the same setting the
     /// duel reads card text in — a builder in English over a table in German
     /// would be the same card under two names.
@@ -135,6 +141,7 @@ pub struct LobbyState {
     /// unsaved changes. Leaving is one tap away from the busiest corner of
     /// the screen, and a deck is half an hour of work.
     pub(crate) confirm_leave: bool,
+    pub(crate) confirm_delete: Option<usize>,
     /// Whether a phone is showing the filter chips. They are three wrapped
     /// rows, which on a phone is most of the screen — the list they filter
     /// would be four rows tall underneath them.
@@ -143,6 +150,8 @@ pub struct LobbyState {
     /// much room there is, so it lives here and not in the state machine:
     /// every wider frame shows both halves and never reads it.
     pub(crate) pane: Pane,
+    pub(crate) hub: Hub,
+    pub(crate) room_chairs: usize,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
     /// Offline play, once the player has asked for it.
@@ -199,6 +208,13 @@ pub(crate) enum Pane {
     Deck,
 }
 
+/// The two tasks in the signed-in hub.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Hub {
+    Play,
+    Decks,
+}
+
 impl LobbyState {
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
@@ -227,14 +243,28 @@ impl LobbyState {
             lobby.set_field(Field::Email, &stored.last_email);
             lobby.focus_on(Field::Password);
         }
+        lobby.set_gateway_ready(false);
+        lobby.set_registration_enabled(false);
+        lobby.set_field(Field::Gateway, &crate::settings::gateway_url());
+        let gateways = stored
+            .gateways
+            .into_iter()
+            .filter_map(|g| gateway::normalize(&g))
+            .collect();
         Self {
+            gateways,
+            gateway_selected: false,
+            gateway_epoch: 0,
             lobby,
             gateway: crate::settings::gateway_url(),
             lang,
             connected: false,
             confirm_leave: false,
+            confirm_delete: None,
             filters_open: false,
             pane: Pane::Cards,
+            hub: Hub::Play,
+            room_chairs: MIN_CHAIRS,
             settings: SettingsPane::Closed,
             offline: None,
         }
@@ -256,17 +286,20 @@ struct Mailbox(Arc<Mutex<Vec<Reply>>>);
 
 /// What a finished HTTP call hands back.
 enum Reply {
+    /// Ignore replies from a gateway selection that has since changed.
+    Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].
     Event(LobbyEvent),
     /// `GET /auth/config` said whether sign-ups are open.
-    Registration(bool),
+    Registration { enabled: bool, art_cache: bool },
     /// The gateway no longer honours the account token we hold.
     Expired,
 }
 
 /// What the shell should make of a successful response body.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Expect {
+    Library(client_core::lobby::library::Request),
     /// `{"ok":true}` — nothing to read.
     Registered,
     /// `{"token":…}`.
@@ -295,8 +328,11 @@ enum Expect {
     Left,
 }
 
+pub(crate) mod dock;
 mod feed;
+mod gateway;
 mod http;
+mod library_ui;
 pub(crate) mod offline;
 mod preview;
 mod systems;

@@ -10,6 +10,8 @@ description = "Bevy 2.5D duel client: table renderer, HUD, input, and card image
 workspace = true
 
 [dependencies]
+url = "2.5.8"
+time.workspace = true
 baylee-ai.workspace = true
 baylee-cards.workspace = true
 # `manasources.rs` reads a card's printed mana ability out of the registry:

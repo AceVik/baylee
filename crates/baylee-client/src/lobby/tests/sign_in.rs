@@ -377,3 +377,105 @@ fn only_a_sign_in_that_worked_is_worth_remembering() {
         "mail@acevik.de"
     );
 }
+
+#[test]
+fn issue_187_no_account_request_without_an_explicit_gateway() {
+    let mut app = headless();
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings {
+        gateways: vec!["https://one.example".into(), "https://two.example/".into()],
+        ..default()
+    });
+    state
+        .lobby
+        .set_field(Field::Email, "review@example.invalid");
+    state
+        .lobby
+        .set_field(Field::Password, "temporary-test-password");
+    assert!(!state.gateway_selected);
+    assert!(state.lobby.submit().is_none());
+    app.world_mut().insert_resource(state);
+    app.update();
+    assert!(!presses(&mut app).contains(&Press::Submit));
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        assert!(state.select_gateway(1));
+        assert_eq!(state.gateway, "https://two.example");
+        assert!(state.lobby.field(Field::Password).is_empty());
+        state
+            .lobby
+            .set_field(Field::Email, "review@example.invalid");
+        state
+            .lobby
+            .set_field(Field::Password, "temporary-test-password");
+        assert!(state.lobby.submit().is_some());
+        state.lobby.apply(LobbyEvent::Failed("test".into()));
+    }
+    app.update();
+    assert!(presses(&mut app).contains(&Press::Submit));
+    // An old registration reply cannot enable this gateway's registration.
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .unwrap()
+        .push(Reply::Remote(
+            0,
+            Box::new(Reply::Registration {
+                enabled: true,
+                art_cache: false,
+            }),
+        ));
+    app.update();
+    assert!(
+        !app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .registration_enabled()
+    );
+}
+
+#[test]
+fn issue_187_saved_gateways_round_trip_without_selecting_one() {
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    for url in ["https://example.test/", "https://example.test"] {
+        state.lobby.set_field(Field::Gateway, url);
+        assert!(state.add_gateway());
+    }
+    assert_eq!(state.gateways, ["https://example.test"]);
+    assert!(!state.gateway_selected, "saving is not selecting");
+    let settings = crate::settings::ClientSettings {
+        gateways: state.gateways.clone(),
+        ..default()
+    };
+    let json = serde_json::to_string(&settings).unwrap();
+    let restored = LobbyState::from_settings(serde_json::from_str(&json).unwrap());
+    assert_eq!(restored.gateways, state.gateways);
+    assert!(!restored.gateway_selected);
+}
+
+#[test]
+fn issue_187_sign_out_ignores_late_account_responses() {
+    let mut app = headless();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::LoggedIn {
+            token: "first-account".into(),
+        });
+    app.update();
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    press(&mut app, Press::SignOut);
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .unwrap()
+        .push(Reply::Remote(
+            epoch,
+            Box::new(Reply::Event(LobbyEvent::LoggedIn {
+                token: "stale-account".into(),
+            })),
+        ));
+    app.update();
+    assert!(app.world().resource::<LobbyState>().lobby.token().is_none());
+}

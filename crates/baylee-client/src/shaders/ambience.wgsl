@@ -67,6 +67,15 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // the screen has to stay the thing they are typing into.
     let base = mix(params.low.rgb, params.high.rgb, field * 0.14 + 0.02);
     let lit = base + params.high.rgb * bands * 0.14;
-    let rgb = lit * (0.65 + 0.35 * vignette);
+    // Sparse motes and fine grain echo the felt and champagne table bevels.
+    // One procedural pass, no textures or per-particle entities; t freezes
+    // with reduced motion and the ornament cannot intercept an input.
+    let cells = uv * 42.0 + vec2<f32>(t * 0.07, -t * 0.12);
+    let cell = floor(cells);
+    let seed = fract(sin(dot(cell, vec2<f32>(127.1, 311.7))) * 43758.5453);
+    let point = fract(cells) - vec2<f32>(seed, fract(seed * 7.3));
+    let mote = (1.0 - smoothstep(0.015, 0.065, length(point))) * step(0.985, seed);
+    let grain = (fract(sin(dot(floor(in.position.xy), vec2<f32>(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.004;
+    let rgb = lit * (0.65 + 0.35 * vignette) + params.high.rgb * mote * 0.22 + grain;
     return vec4<f32>(rgb, params.low.a);
 }

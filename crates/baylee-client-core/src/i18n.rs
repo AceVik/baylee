@@ -157,6 +157,120 @@ macro_rules! messages {
 }
 
 messages! {
+    /// Hub navigation.
+    HubPlay { en: "Play", de: "Spielen" },
+    /// Hub navigation.
+    HubDecks { en: "My collection", de: "Meine Sammlung" },
+    /// Hub navigation.
+    ChooseDeck { en: "Choose a deck", de: "Deck auswählen" },
+    /// Hub navigation.
+    CreateTable { en: "Create table", de: "Tisch erstellen" },
+    /// Hub navigation.
+    PlayerCount { en: "{0} players", de: "{0} Spieler" },
+    /// Hub navigation.
+    NoOwnDecks { en: "Start with a house deck or build your own.", de: "Starte mit einem Hausdeck oder baue dein eigenes." },
+    /// Hub navigation.
+    CollectionHint { en: "Your decks, your ideas. Every saved change stays in your history.", de: "Deine Decks, deine Ideen. Jede gespeicherte Änderung bleibt in deiner Historie." },
+    /// Gateway selection.
+    GatewayStep { en: "01 / CONNECT", de: "01 / VERBINDEN" },
+    /// Gateway selection.
+    AccountStep { en: "02 / YOUR ACCOUNT", de: "02 / DEIN KONTO" },
+    /// Gateway selection.
+    ChooseGateway { en: "Choose your gateway", de: "Wähle deinen Gateway" },
+    /// Gateway selection.
+    GatewayHint { en: "Your gateway is the server where your account, decks and tables live. Saved addresses stay on this device.", de: "Dein Gateway ist der Server für dein Konto, deine Decks und Tische. Gespeicherte Adressen bleiben auf diesem Gerät." },
+    /// Gateway selection.
+    ChooseGatewayFirst { en: "Select a gateway to sign in or register.", de: "Wähle einen Gateway, um dich anzumelden oder zu registrieren." },
+    /// Gateway selection.
+    GatewayAddress { en: "GATEWAY ADDRESS", de: "GATEWAY-ADRESSE" },
+    /// Gateway selection.
+    SaveGateway { en: "Save gateway", de: "Gateway speichern" },
+    /// Gateway selection.
+    GatewayUrlInvalid { en: "Enter an http:// or https:// address without credentials, query parameters or a fragment.", de: "Gib eine http://- oder https://-Adresse ohne Zugangsdaten, Abfrageparameter oder Fragment ein." },
+    /// Server account-name rules, displayed before a registration is submitted.
+    AccountNameHint { en: "3–16 characters: A–Z, 0–9, _ or -. Start and end with a letter or number.", de: "3–16 Zeichen: A–Z, 0–9, _ oder -. Am Anfang und Ende ein Buchstabe oder eine Zahl." },
+    /// Password registration guidance.
+    AccountPasswordHint { en: "At least 8 characters. Avoid common passwords and your name or email.", de: "Mindestens 8 Zeichen. Kein häufiges Passwort und nicht dein Name oder deine E-Mail." },
+    /// A rejected password during registration.
+    AccountPasswordInvalid { en: "Choose a password with 8–256 characters, different from your name and email, and not a common password.", de: "Wähle ein Passwort mit 8–256 Zeichen, verschieden von Name und E-Mail und kein häufiges Passwort." },
+    /// A library reply was not a valid response.
+    LibraryReadFailed { en: "The library response could not be read. Please try again.", de: "Die Bibliotheksantwort konnte nicht gelesen werden. Bitte erneut versuchen." },
+    /// Library and front-door interface.
+    WelcomeTitle { en: "Your next game starts here.", de: "Dein nächstes Spiel beginnt hier." },
+    /// Library and front-door interface.
+    WelcomeNote { en: "Build a deck. Find your table. Make it yours.", de: "Baue dein Deck. Finde deinen Tisch. Spiele deinen Stil." },
+    /// Library and front-door interface.
+    AccountBenefit { en: "Your decks and their saved versions, together in one account.", de: "Deine Decks und ihre gespeicherten Versionen an einem Ort." },
+    /// Library and front-door interface.
+    OfflineBenefit { en: "Try a game without an account. Offline decks stay on this device.", de: "Spiele ohne Konto. Offline-Decks bleiben auf diesem Gerät." },
+    /// Library and front-door interface.
+    LobbyGuide { en: "Choose your deck, then join or open a table.", de: "Wähle dein Deck und tritt einem Tisch bei oder eröffne einen." },
+    /// Library and front-door interface.
+    HouseDecks { en: "House decks", de: "Hausdecks" },
+    /// Library and front-door interface.
+    HouseHint { en: "Ready to play. Copy a deck to make it your own.", de: "Bereit zum Spielen. Übernimm ein Deck als eigene Kopie." },
+    /// Library and front-door interface.
+    CopyToDecks { en: "Add to my decks", de: "Zu meinen Decks hinzufügen" },
+    /// Library and front-door interface.
+    InspectDeck { en: "View cards", de: "Karten ansehen" },
+    /// Library and front-door interface.
+    DeckHistory { en: "History", de: "Historie" },
+    /// Library and front-door interface.
+    HistoryHint { en: "Every save is kept. Restoring creates a new version; later saves remain available.", de: "Jeder Stand bleibt erhalten. Wiederherstellen erzeugt eine neue Version; spätere Stände bleiben verfügbar." },
+    /// Library and front-door interface.
+    WorkingDiff { en: "Changes from your working deck", de: "Änderungen gegenüber deinem Arbeitsdeck" },
+    /// Library and front-door interface.
+    RestoreVersion { en: "Restore this version", de: "Diesen Stand wiederherstellen" },
+    /// Library and front-door interface.
+    ConfirmRestore { en: "Confirm restore", de: "Wiederherstellen bestätigen" },
+    /// Library and front-door interface.
+    RestoreWarning { en: "This replaces your working deck, including unsaved edits. Saved versions remain available.", de: "Dies ersetzt dein Arbeitsdeck einschließlich ungespeicherter Änderungen. Gespeicherte Versionen bleiben erhalten." },
+    /// Library and front-door interface.
+    CurrentVersion { en: "Current", de: "Aktuell" },
+    /// Compact printing-picker control.
+    ChoosePrintShort { en: "Art", de: "Bild" },
+    /// Timestamp of the current save.
+    VersionSavedAt { en: "Saved", de: "Gespeichert" },
+    /// Historical timestamps describe when the next save replaced a version.
+    VersionSupersededAt { en: "Replaced by next save", de: "Durch nächsten Stand ersetzt" },
+    /// Library and front-door interface.
+    VersionLabel { en: "Version {0}", de: "Version {0}" },
+    /// Library and front-door interface.
+    LibraryEmpty { en: "No decks published yet. You can still build your own.", de: "Noch keine Decks veröffentlicht. Du kannst ein eigenes erstellen." },
+    /// Library and front-door interface.
+    NoPastVersions { en: "Your next save will appear here.", de: "Mit dem nächsten Speichern beginnt deine Historie." },
+    /// Library and front-door interface.
+    LibraryLoading { en: "Loading your library…", de: "Bibliothek wird geladen…" },
+    /// Library and front-door interface.
+    LibraryRetry { en: "Try again", de: "Erneut versuchen" },
+    /// Library and front-door interface.
+    LibraryBack { en: "Back", de: "Zurück" },
+    /// Library and front-door interface.
+    LibraryMain { en: "Main deck", de: "Hauptdeck" },
+    /// Library and front-door interface.
+    LibrarySide { en: "Sideboard", de: "Sideboard" },
+    /// Library and front-door interface.
+    LibraryCommanders { en: "Commanders", de: "Kommandeure" },
+    /// Library and front-door interface.
+    NoChanges { en: "No changes in this section.", de: "Keine Änderungen in diesem Bereich." },
+    /// Library and front-door interface.
+    DeckRows { en: "{0} main rows · {1} sideboard rows", de: "{0} Hauptdeck-Zeilen · {1} Sideboard-Zeilen" },
+    /// Library and front-door interface.
+    LibraryCounts { en: "{0} cards · {1} sideboard", de: "{0} Karten · {1} Sideboard" },
+    /// Library and front-door interface.
+    LobbyCounts { en: "{0} decks · {1} matching tables", de: "{0} Decks · {1} passende Tische" },
+    /// Library and front-door interface.
+    Composition { en: "Deck overview", de: "Deckübersicht" },
+    /// Library and front-door interface.
+    UniqueCards { en: "Unique cards", de: "Verschiedene Karten" },
+    /// Library and front-door interface.
+    AverageMana { en: "Avg. mana · nonlands", de: "Ø Mana · ohne Länder" },
+    /// Library and front-door interface.
+    LandShare { en: "Land share", de: "Länderanteil" },
+    /// Library and front-door interface.
+    OpeningLand { en: "Land in opening seven", de: "Land in den ersten sieben" },
+    /// Library and front-door interface.
+    ConfirmDeleteDeck { en: "Delete permanently?", de: "Endgültig löschen?" },
     // ---- the sign-in screen
     /// The product's name. Not translated, and here so that the one place it
     /// is written stays one place.

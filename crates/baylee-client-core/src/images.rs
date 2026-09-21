@@ -292,24 +292,37 @@ pub const BACKS_SEGMENT: &str = "backs";
 /// dozen places that turn a printing into a picture include pure helpers in the
 /// deck builder and the lobby preview that have no resource to read and no
 /// business knowing where bytes come from. This is configuration — one value,
-/// decided once at sign-in, read everywhere — and threading it through every
+/// updated on gateway selection, read everywhere — and threading it through every
 /// one of those signatures would spread the knowledge rather than contain it.
-static ART_BASE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+static ART_BASE: std::sync::RwLock<Option<std::sync::Arc<str>>> = std::sync::RwLock::new(None);
 
 /// Points card art at a gateway's mirror instead of the CDN.
 ///
-/// Called once, when `GET /auth/config` says the gateway mirrors art. A gateway
+/// Called when `GET /auth/config` says the gateway mirrors art. A gateway
 /// with the mirror switched off answers 404 for every printing, so this must be
 /// told rather than assumed — a client that guessed wrong would draw a whole
 /// table of constructed faces.
 pub fn use_art_base(base: String) {
-    let _ = ART_BASE.set(base);
+    if let Ok(mut current) = ART_BASE.write() {
+        *current = Some(base.into());
+    }
 }
 
 /// The base in force. The CDN until [`use_art_base`] says otherwise.
 #[must_use]
-pub fn art_base() -> &'static str {
-    ART_BASE.get().map_or(SCRYFALL_CDN, String::as_str)
+pub fn art_base() -> std::sync::Arc<str> {
+    ART_BASE
+        .read()
+        .ok()
+        .and_then(|base| base.clone())
+        .unwrap_or_else(|| SCRYFALL_CDN.into())
+}
+
+/// Clear a previous gateway's mirror when the selected server changes.
+pub fn reset_art_base() {
+    if let Ok(mut current) = ART_BASE.write() {
+        *current = None;
+    }
 }
 
 /// The art base for a gateway, from the URL the client already talks to it on.
@@ -327,13 +340,13 @@ pub fn gateway_art_base(gateway: &str) -> String {
 /// caller renders a card back rather than issuing a request that will 404.
 #[must_use]
 pub fn image_url(entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String> {
-    image_url_at(art_base(), entry, face, size)
+    image_url_at(&art_base(), entry, face, size)
 }
 
 /// The same, against a named base.
 ///
 /// Split out so a test can name the base instead of setting the process-wide
-/// one, which is settable only once and would leak into every other test in the
+/// one, which would otherwise leak into every other test in the
 /// binary.
 #[must_use]
 pub fn image_url_at(base: &str, entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String> {
@@ -371,7 +384,7 @@ pub fn art_url_at(base: &str, id: &str, face: Face, size: ArtSize) -> Option<Str
 /// The URL of the printed card back, against the base in force.
 #[must_use]
 pub fn back_url(size: ArtSize) -> String {
-    back_url_at(art_base(), size)
+    back_url_at(&art_base(), size)
 }
 
 /// The same, against a named base.
@@ -429,7 +442,7 @@ pub fn resolve(
         // printed.
         ImageSource::Token(id) => Some(ImageRequest {
             key,
-            url: art_url_at(art_base(), token_art(id)?, key.face, key.size)?,
+            url: art_url_at(&art_base(), token_art(id)?, key.face, key.size)?,
             treatment: FinishTreatment::Plain,
         }),
         // A copy is drawn as the card it copies and never as a printing, so
@@ -438,7 +451,7 @@ pub fn resolve(
         // be saying something true about neither.
         ImageSource::Card(index) => Some(ImageRequest {
             key,
-            url: art_url_at(art_base(), card_art(index)?, key.face, key.size)?,
+            url: art_url_at(&art_base(), card_art(index)?, key.face, key.size)?,
             treatment: FinishTreatment::Plain,
         }),
         // The back needs no table to be looked up in and can never fail to
@@ -701,7 +714,7 @@ mod tests {
         // Nothing set the process-wide base, so the default is still the CDN —
         // which is also what makes every other test in this file independent
         // of this one.
-        assert_eq!(art_base(), SCRYFALL_CDN);
+        assert_eq!(art_base().as_ref(), SCRYFALL_CDN);
     }
 
     /// The printed back comes off a shelf of its own, and both halves of the

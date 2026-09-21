@@ -232,6 +232,7 @@ impl Offline {
     /// account names.
     pub(crate) fn perform(&mut self, request: LobbyRequest, lang: Lang) -> LobbyEvent {
         match request {
+            LobbyRequest::Library(_) => LobbyEvent::Failed("Account required".to_string()),
             LobbyRequest::ListDecks => LobbyEvent::Decks(
                 self.decks
                     .iter()

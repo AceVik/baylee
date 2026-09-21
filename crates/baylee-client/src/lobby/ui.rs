@@ -99,8 +99,8 @@ impl Metrics {
             },
             Frame::Tablet => Self {
                 frame: Frame::Tablet,
-                text: 14.0,
-                head: 16.0,
+                text: 15.0,
+                head: 18.0,
                 small: 11.5,
                 tap: 44.0,
                 pad: 16.0,
@@ -108,10 +108,10 @@ impl Metrics {
             },
             Frame::Desktop => Self {
                 frame: Frame::Desktop,
-                text: 13.0,
-                head: 15.0,
-                small: 11.0,
-                tap: 38.0,
+                text: 15.0,
+                head: 20.0,
+                small: 12.0,
+                tap: 44.0,
                 pad: 18.0,
                 gap: 9.0,
             },
@@ -177,7 +177,7 @@ pub(super) fn spawn_camera(
             &mut commands,
             &mut ambience,
             BACKDROP,
-            palette::ACCENT,
+            palette::DOCK_EDGE,
             AMBIENT_ENERGY,
             0.0,
         );
@@ -260,8 +260,7 @@ pub(super) fn ui(
     }
     *drawn = Some(metrics.frame);
 
-    let full_bleed =
-        state.settings.is_open() || matches!(state.lobby.screen(), Screen::Table | Screen::Build);
+    let full_bleed = true;
     // A phone puts the sign-in form near the top instead of centring it: the
     // soft keyboard takes the bottom half of the screen, and a centred form
     // ends up underneath it.
@@ -287,6 +286,7 @@ pub(super) fn ui(
                 } else {
                     JustifyContent::Center
                 },
+                overflow: Overflow::scroll_y(),
                 padding: if full_bleed {
                     UiRect::ZERO
                 } else {
@@ -318,10 +318,17 @@ pub(super) fn ui(
         return;
     }
 
+    if state.lobby.library().page.is_some() {
+        super::library_ui::screen(&mut commands, root, &state, &fonts, metrics, &scrolled_to);
+        return;
+    }
     match state.lobby.screen() {
         Screen::SignIn { registering } => {
-            let panel = sign_in(&mut commands, &state, &fonts, metrics, *registering);
-            commands.entity(root).add_child(panel);
+            commands.entity(root).insert((
+                Scrollable(List::Table),
+                ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+            ));
+            front_door(&mut commands, root, &state, &fonts, metrics, *registering);
         }
         Screen::Table => table(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
         Screen::Build => crate::buildui::builder(
@@ -363,7 +370,7 @@ fn sign_in(
             Node {
                 // Fills a phone, floats on anything wider.
                 width: percent(100),
-                max_width: px(420),
+                max_width: px(480),
                 margin: if metrics.frame == Frame::Phone {
                     UiRect::top(px(metrics.pad * 2.0))
                 } else {
@@ -372,32 +379,68 @@ fn sign_in(
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap),
                 padding: UiRect::all(px(metrics.pad * 1.4)),
+                border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(12)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(palette::PANEL),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
             soft_shadow(),
         ))
         .id();
 
-    let title = commands
-        .spawn((
-            Text::new(Phrase::AppName.text(lang)),
-            tf(fonts, metrics.head * 1.8),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let where_ = commands
-        .spawn((
-            Text::new(state.gateway.clone()),
-            tf(fonts, metrics.small * 0.9),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(panel).add_child(title);
-    commands.entity(panel).add_child(where_);
+    commands.entity(panel).insert(super::dock::Dock(2));
+    let step = note(commands, fonts, metrics, Phrase::AccountStep.text(lang));
+    let title = heading(
+        commands,
+        fonts,
+        metrics,
+        if registering {
+            Phrase::CreateAccount
+        } else {
+            Phrase::SignIn
+        }
+        .text(lang),
+    );
+    let benefit = note(
+        commands,
+        fonts,
+        metrics,
+        if state.gateway_selected {
+            Phrase::AccountBenefit
+        } else {
+            Phrase::ChooseGatewayFirst
+        }
+        .text(lang),
+    );
+    commands.entity(panel).add_children(&[step, title, benefit]);
+    let tabs = row(commands, metrics, true);
+    for (label, active) in [
+        (Phrase::SignIn, !registering),
+        (Phrase::CreateAccount, registering),
+    ] {
+        let tab = button(
+            commands,
+            fonts,
+            metrics,
+            label.text(lang),
+            if active {
+                Press::PickerNothing
+            } else {
+                Press::ToggleRegistering
+            },
+            if active {
+                palette::PANEL_HOT
+            } else {
+                palette::PANEL
+            },
+            state.gateway_selected
+                && !lobby.busy()
+                && (label != Phrase::CreateAccount || lobby.registration_enabled()),
+        );
+        commands.entity(tabs).add_child(tab);
+    }
+    commands.entity(panel).add_child(tabs);
 
     let email = text_field(
         commands,
@@ -432,6 +475,8 @@ fn sign_in(
             },
         );
         commands.entity(panel).add_child(name);
+        let hint = note(commands, fonts, metrics, Phrase::AccountNameHint.text(lang));
+        commands.entity(panel).add_child(hint);
     }
     let password = text_field(
         commands,
@@ -452,6 +497,15 @@ fn sign_in(
         },
     );
     commands.entity(panel).add_child(password);
+    if registering {
+        let hint = note(
+            commands,
+            fonts,
+            metrics,
+            Phrase::AccountPasswordHint.text(lang),
+        );
+        commands.entity(panel).add_child(hint);
+    }
 
     let submit = button(
         commands,
@@ -464,26 +518,9 @@ fn sign_in(
         },
         Press::Submit,
         palette::ACCENT,
-        !lobby.busy(),
+        state.gateway_selected && !lobby.busy(),
     );
     commands.entity(panel).add_child(submit);
-
-    if lobby.registration_enabled() || registering {
-        let swap = button(
-            commands,
-            fonts,
-            metrics,
-            if registering {
-                Phrase::HaveAnAccount.text(lang)
-            } else {
-                Phrase::WantAnAccount.text(lang)
-            },
-            Press::ToggleRegistering,
-            palette::PANEL,
-            true,
-        );
-        commands.entity(panel).add_child(swap);
-    }
 
     let status = commands
         .spawn((
@@ -495,42 +532,6 @@ fn sign_in(
         .id();
     commands.entity(panel).add_child(status);
 
-    let rule = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                height: px(1),
-                margin: UiRect::vertical(px(4)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.08)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let offline = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::PlayOffline.text(lang),
-        Press::PlayOffline,
-        palette::PANEL,
-        true,
-    );
-    // Reachable before signing in as well: an offline duel against the house
-    // AI is played with the same keys, and a player with a keyboard they
-    // cannot use is not going to make an account first.
-    let settings = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Settings.text(lang),
-        Press::OpenSettings,
-        palette::PANEL,
-        true,
-    );
-    commands.entity(panel).add_child(rule);
-    commands.entity(panel).add_child(offline);
-    commands.entity(panel).add_child(settings);
     panel
 }
 
@@ -674,6 +675,39 @@ fn table(
         commands.entity(root).add_child(banner);
     }
 
+    let intro = surface(commands, metrics);
+    let guide = heading(commands, fonts, metrics, Phrase::LobbyGuide.text(lang));
+    let stats = note(
+        commands,
+        fonts,
+        metrics,
+        &Phrase::LobbyCounts.fill(
+            lang,
+            &[&lobby.decks().len().to_string(), &lobby.total().to_string()],
+        ),
+    );
+    commands.entity(intro).add_children(&[guide, stats]);
+    commands.entity(root).add_child(intro);
+    let navigation = row(commands, metrics, true);
+    commands.entity(navigation).insert(Node {
+        width: percent(100),
+        padding: UiRect::axes(px(metrics.pad), px(6)),
+        column_gap: px(metrics.gap),
+        flex_wrap: FlexWrap::Wrap,
+        ..default()
+    });
+    for (hub, phrase) in [(Hub::Play, Phrase::HubPlay), (Hub::Decks, Phrase::HubDecks)] {
+        let tab = chip(
+            commands,
+            fonts,
+            metrics,
+            phrase.text(lang),
+            Press::Hub(hub),
+            state.hub == hub,
+        );
+        commands.entity(navigation).add_child(tab);
+    }
+    commands.entity(root).add_child(navigation);
     // ---- body
     let body = commands
         .spawn((
@@ -700,7 +734,17 @@ fn table(
     commands.entity(root).add_child(body);
 
     // ---- decks
-    let decks = panel(commands, metrics, metrics.decks_width(), 0.0);
+    let decks = panel(
+        commands,
+        metrics,
+        if state.hub == Hub::Decks {
+            percent(100)
+        } else {
+            metrics.decks_width()
+        },
+        if state.hub == Hub::Decks { 1.0 } else { 0.0 },
+    );
+    commands.entity(decks).insert(super::dock::Dock(3));
     let decks_head = heading(commands, fonts, metrics, Phrase::YourDecks.text(lang));
     commands.entity(decks).add_child(decks_head);
     let deck_tools = row(commands, metrics, true);
@@ -717,23 +761,45 @@ fn table(
         commands,
         fonts,
         metrics,
-        Phrase::AddStarterDeck.text(lang),
-        Press::StarterDeck,
+        if lobby.offline() {
+            Phrase::AddStarterDeck
+        } else {
+            Phrase::HouseDecks
+        }
+        .text(lang),
+        if lobby.offline() {
+            Press::StarterDeck
+        } else {
+            Press::BrowseHouse
+        },
         palette::PANEL_LIT,
         !lobby.busy(),
     );
     commands.entity(deck_tools).add_child(new_deck);
     commands.entity(deck_tools).add_child(starter);
     commands.entity(decks).add_child(deck_tools);
+    let deck_grid = row(commands, metrics, true);
+    commands.entity(decks).add_child(deck_grid);
     if lobby.decks().is_empty() {
-        let empty = note(commands, fonts, metrics, Phrase::NoDecksYet.text(lang));
+        let empty = note(commands, fonts, metrics, Phrase::NoOwnDecks.text(lang));
         commands.entity(decks).add_child(empty);
     }
     for (index, deck) in lobby.decks().iter().enumerate() {
+        if state.hub == Hub::Play && lobby.selected() != Some(index) {
+            continue;
+        }
         let row = commands
             .spawn((
                 Node {
-                    width: percent(100),
+                    width: if state.hub == Hub::Decks && !phone {
+                        percent(47)
+                    } else {
+                        percent(100)
+                    },
+                    flex_grow: 1.0,
+                    min_width: px(0),
+                    flex_wrap: FlexWrap::Wrap,
+                    row_gap: px(metrics.gap),
                     min_height: px(metrics.tap),
                     align_items: AlignItems::Center,
                     column_gap: px(metrics.gap),
@@ -749,11 +815,20 @@ fn table(
                     Color::NONE
                 }),
                 Press::SelectDeck(index),
+                crate::ambience::Feel::new(palette::PANEL_LIT),
             ))
             .id();
         let name = commands
             .spawn((
-                Text::new(deck.name.clone()),
+                Text::new(format!(
+                    "{}{}",
+                    deck.name,
+                    if deck.commanders.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\n{}", deck.commanders.join(" / "))
+                    }
+                )),
                 tf(fonts, metrics.text),
                 TextColor(palette::INK),
                 Pickable::IGNORE,
@@ -762,11 +837,10 @@ fn table(
         let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
         let size = commands
             .spawn((
-                Text::new(if deck.sideboard == 0 {
-                    format!("{} rows", deck.cards)
-                } else {
-                    format!("{} + {}", deck.cards, deck.sideboard)
-                }),
+                Text::new(Phrase::DeckRows.fill(
+                    lang,
+                    &[&deck.cards.to_string(), &deck.sideboard.to_string()],
+                )),
                 tf(fonts, metrics.small),
                 TextColor(palette::MUTED),
                 Pickable::IGNORE,
@@ -779,17 +853,41 @@ fn table(
         // nearest one, so these win over selecting the deck.
         for (label, press) in [
             (Phrase::Edit.text(lang), Press::EditDeck(index)),
-            (Phrase::Delete.text(lang), Press::DeleteDeck(index)),
+            (
+                if state.confirm_delete == Some(index) {
+                    Phrase::ConfirmDeleteDeck
+                } else {
+                    Phrase::Delete
+                }
+                .text(lang),
+                Press::DeleteDeck(index),
+            ),
         ] {
             let tool = chip(commands, fonts, metrics, label, press, false);
             commands.entity(row).add_child(tool);
         }
-        commands.entity(decks).add_child(row);
+        commands.entity(deck_grid).add_child(row);
+    }
+    if state.hub == Hub::Play && !lobby.decks().is_empty() {
+        let choose = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::ChooseDeck.text(lang),
+            Press::Hub(Hub::Decks),
+            palette::PANEL_LIT,
+            true,
+        );
+        commands.entity(decks).add_child(choose);
     }
     commands.entity(body).add_child(decks);
+    if state.hub == Hub::Decks {
+        return;
+    }
 
     // ---- tables
     let games = panel(commands, metrics, percent(100), 1.0);
+    commands.entity(games).insert(super::dock::Dock(4));
     let head_row = commands
         .spawn((
             Node {
@@ -846,11 +944,7 @@ fn table(
         commands.entity(hunt).add_child(box_);
         commands.entity(head_row).add_child(hunt);
     }
-    let mut controls = vec![(
-        Phrase::PlayTheHouse.text(lang),
-        Press::Host(GameMode::Ai),
-        palette::ACCENT,
-    )];
+    let mut controls = Vec::new();
     if !alone {
         controls.splice(
             ..0,
@@ -872,6 +966,18 @@ fn table(
         let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
         commands.entity(head_row).add_child(b);
     }
+    commands.entity(games).add_child(head_row);
+    let creation = row(commands, metrics, true);
+    let play = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::PlayTheHouse.text(lang),
+        Press::Host(GameMode::Ai),
+        palette::ACCENT,
+        !lobby.busy() && lobby.selected().is_some(),
+    );
+    commands.entity(creation).add_child(play);
     // One box, two uses: it locks a room the moment it is opened, and it is
     // what a locked room is joined with. They are never both wanted at once,
     // and two boxes a player has to tell apart would be worse than one that
@@ -905,28 +1011,45 @@ fn table(
             },
         );
         commands.entity(lock).add_child(box_);
-        commands.entity(head_row).add_child(lock);
+        commands.entity(creation).add_child(lock);
     }
-    // How many chairs is the one thing that cannot be changed after the
-    // table exists, so it is asked before it does. One label and a row of
-    // numbers rather than a button per size: at two to eight, seven buttons
-    // each spelling out "Open a table for N" is most of a screen's width
-    // saying almost nothing, and it ran off the edge of a 1728-wide window.
-    let caption = note(commands, fonts, metrics, Phrase::OpenATableFor.text(lang));
-    commands.entity(head_row).add_child(caption);
-    for chairs in MIN_CHAIRS..=MAX_CHAIRS {
-        let b = button(
-            commands,
-            fonts,
-            metrics,
-            &chairs.to_string(),
-            Press::OpenRoom(chairs),
-            palette::PANEL_LIT,
-            !lobby.busy(),
-        );
-        commands.entity(head_row).add_child(b);
-    }
-    commands.entity(games).add_child(head_row);
+    let fewer = button(
+        commands,
+        fonts,
+        metrics,
+        "−",
+        Press::RoomSize(false),
+        palette::PANEL_LIT,
+        state.room_chairs > MIN_CHAIRS,
+    );
+    let size = note(
+        commands,
+        fonts,
+        metrics,
+        &Phrase::PlayerCount.fill(lang, &[&state.room_chairs.to_string()]),
+    );
+    let more = button(
+        commands,
+        fonts,
+        metrics,
+        "+",
+        Press::RoomSize(true),
+        palette::PANEL_LIT,
+        state.room_chairs < MAX_CHAIRS,
+    );
+    let create = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::CreateTable.text(lang),
+        Press::OpenRoom(state.room_chairs),
+        palette::PANEL_LIT,
+        !lobby.busy() && lobby.selected().is_some(),
+    );
+    commands
+        .entity(creation)
+        .add_children(&[fewer, size, more, create]);
+    commands.entity(games).add_child(creation);
 
     if lobby.games().is_empty() {
         // An empty lobby and an empty search are different news: one says
@@ -1971,7 +2094,13 @@ pub(crate) fn button(
         .spawn((
             Text::new(label),
             tf_bold(fonts, metrics.text),
-            TextColor(if enabled { palette::INK } else { palette::DEAD }),
+            TextColor(if !enabled {
+                palette::DEAD
+            } else if tone == palette::ACCENT || tone == palette::ACTIVE {
+                palette::DOCK_GROUND
+            } else {
+                palette::INK
+            }),
             Pickable::IGNORE,
         ))
         .id();
@@ -2025,11 +2154,13 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
                 min_height: percent(100),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap * 0.8),
-                padding: UiRect::all(px(metrics.pad * 0.8)),
-                border_radius: BorderRadius::all(px(12)),
+                padding: UiRect::all(px(metrics.pad * 1.5)),
+                border_radius: BorderRadius::all(px(14)),
+                border: UiRect::all(px(1)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.4)),
             Pickable::IGNORE,
         ))
         .id()
@@ -2102,4 +2233,111 @@ pub(crate) fn spacer() -> Node {
         flex_grow: 1.0,
         ..default()
     }
+}
+
+/// A shared HUD surface used by the front door and account library.
+pub(super) fn surface(commands: &mut Commands, metrics: Metrics) -> Entity {
+    commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: px(metrics.gap),
+                padding: UiRect::all(px(metrics.pad)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(14)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+fn front_door(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    registering: bool,
+) {
+    let page = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                min_height: percent(100),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::all(px(metrics.pad * 1.5)),
+                row_gap: px(metrics.pad * 1.5),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(root).add_child(page);
+    let brand = commands
+        .spawn((
+            Text::new("baylee"),
+            TextFont {
+                font: fonts.serif.clone().into(),
+                font_size: (metrics.head * 2.8).into(),
+                ..default()
+            },
+            TextColor(palette::DOCK_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let tagline = note(
+        commands,
+        fonts,
+        metrics,
+        Phrase::WelcomeNote.text(state.lobby.lang()),
+    );
+    commands.entity(page).add_children(&[brand, tagline]);
+    let columns = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_width: px(1120),
+                min_width: px(0),
+                flex_shrink: 0.0,
+                flex_direction: if metrics.frame == Frame::Phone {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
+                column_gap: px(metrics.pad * 1.5),
+                row_gap: px(metrics.pad),
+                align_items: AlignItems::Start,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gateway = super::gateway::panel(commands, state, fonts, metrics);
+    let account = sign_in(commands, state, fonts, metrics, registering);
+    for entity in [gateway, account] {
+        commands
+            .entity(entity)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.width = if metrics.frame == Frame::Phone {
+                    percent(100)
+                } else {
+                    percent(50)
+                };
+                node.max_width = Val::Auto;
+                node.min_width = px(0);
+                node.padding = UiRect::all(px(metrics.pad * 1.6));
+                node.margin = UiRect::ZERO;
+            });
+    }
+    commands.entity(columns).add_children(&[gateway, account]);
+    commands.entity(page).add_child(columns);
 }

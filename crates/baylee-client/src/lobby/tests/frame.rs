@@ -154,3 +154,57 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
     let both = presses(&mut app);
     assert!(both.contains(&Press::AddCard(0)) && both.contains(&Press::SetZone(Zone::Side)));
 }
+
+#[test]
+fn issue_186_library_replaces_editable_ui_and_keeps_navigation_on_phone() {
+    use client_core::lobby::library::{HouseDeck, Reply};
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "test".into(),
+        });
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        state.lobby.browse_house();
+        state
+            .lobby
+            .apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+                id: "h1".into(),
+                name: "Starter".into(),
+                format: "commander".into(),
+                description: String::new(),
+                version: 1,
+                cards: 70,
+                sideboard: 0,
+                commanders: vec!["Aang and Katara".into()],
+            }])));
+    }
+    for width in [390.0, 900.0, 1400.0] {
+        sized(&mut app, width);
+        app.update();
+        let controls = presses(&mut app);
+        for wanted in [
+            Press::CloseLibrary,
+            Press::PreviewHouse(0),
+            Press::CopyHouse(0),
+        ] {
+            assert!(controls.contains(&wanted), "{wanted:?} missing at {width}");
+        }
+        assert!(!controls.iter().any(|p| matches!(
+            p,
+            Press::EditDeck(_) | Press::DeleteDeck(_) | Press::SaveDeck
+        )));
+        let before = roots(&mut app);
+        app.update();
+        assert_eq!(roots(&mut app), before, "idle library must retain its tree");
+    }
+    press(&mut app, Press::CloseLibrary);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .library()
+            .page
+            .is_none()
+    );
+}

@@ -13,7 +13,7 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
         Press::NewDeck,
         Press::EditDeck(0),
         Press::DeleteDeck(0),
-        Press::StarterDeck,
+        Press::BrowseHouse,
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
@@ -200,8 +200,12 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
         .find(|(_, press)| **press == Press::AddCard(0))
         .map(|(entity, _)| entity)
         .expect("a card row");
-    let mut lists = app.world_mut().query_filtered::<Entity, With<Scrollable>>();
-    let list = lists.iter(app.world()).next().expect("a scrolling list");
+    let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
+    let list = lists
+        .iter(app.world())
+        .find(|(_, list)| list.0 == List::Pool)
+        .map(|(id, _)| id)
+        .expect("the card pool's scrolling list");
     app.world_mut().entity_mut(list).insert(ComputedNode {
         size: Vec2::new(300.0, 300.0),
         content_size: Vec2::new(300.0, 900.0),
