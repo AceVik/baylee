@@ -566,22 +566,31 @@ impl Session {
                 // Both answer over a socket, so `pump` returned above.
                 SeatKind::Human | SeatKind::Driven(_) => unreachable!(),
             };
-            let mut moves_the_game = !action.is_automation_setting();
-            if self.engine.apply(player, action).is_err() {
-                // AI mis-evaluation: pass when possible, else give up.
-                if matches!(pending, Pending::Priority { .. }) {
-                    let _ = self.engine.apply(player, PlayerAction::PassPriority);
-                    moves_the_game = true;
-                } else {
-                    return out;
-                }
-            }
+            let moves_the_game = self.apply_house_action(player, action);
             self.seq += 1;
             if moves_the_game {
                 self.decisions += 1;
             }
         }
         out
+    }
+
+    /// An invalid agent proposal must not leave an untimed seat stalled (#180).
+    fn apply_house_action(&mut self, player: PlayerId, action: PlayerAction) -> bool {
+        let moves = !action.is_automation_setting();
+        if self.engine.apply(player, action).is_ok() {
+            return moves;
+        }
+        // Re-read the actual question: a rejected proposal can have entered
+        // a casting/payment wizard. The ordinary timeout policy covers all
+        // question kinds instead of a positive list containing only Priority.
+        let (seat, fallback) = self
+            .timeout_action()
+            .expect("refused AI action left no decision");
+        self.engine.apply(seat, fallback).expect(
+            "both AI proposal and recovery were refused; refusing to silently stall the table",
+        );
+        true
     }
 
     /// How long a seat may sit on a decision, per the table's house rules
@@ -950,6 +959,21 @@ mod tests {
         answers.sort_unstable();
         answers.dedup();
         assert_eq!(answers.len(), 4, "two kinds are one seat under two names");
+    }
+
+    #[test]
+    fn issue_180_a_refused_non_priority_action_recovers() {
+        let mut session = Session::new(&test_preset()).unwrap();
+        let player = session.awaiting_seat().expect("opening mulligan");
+        assert!(matches!(session.engine.pending(), Pending::Mulligan { .. }));
+        let before = session.engine.snapshot_hash();
+        assert!(session.apply_house_action(
+            player,
+            PlayerAction::PlayLand {
+                card: baylee_core::ids::ObjectId::new(999_999, 0),
+            }
+        ));
+        assert_ne!(session.engine.snapshot_hash(), before);
     }
 
     fn teamed_preset(teams: [Option<u8>; 4]) -> GamePreset {
