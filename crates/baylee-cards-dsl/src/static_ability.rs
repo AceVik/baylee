@@ -477,3 +477,176 @@ pub enum ReplacementRule {
         event: crate::ability::TriggerEventKind,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_core::color::Color;
+    use baylee_core::ids::ObjectId;
+
+    /// The list and the ordering are two statements of one order, and either
+    /// could move without the other: `LAYERS` is written out by hand and
+    /// `Ord` is derived from the order the variants are *declared* in. A
+    /// layer inserted in the right place in one and the wrong place in the
+    /// other would reorder the projection silently — CR 613.1 is an applied
+    /// sequence, so a layer-5 effect read before layer 4 sees types that do
+    /// not exist yet.
+    #[test]
+    fn the_written_list_and_the_derived_order_are_one_order() {
+        assert!(
+            LAYERS.windows(2).all(|w| w[0] < w[1]),
+            "the list is not sorted by the order the layers compare in: \
+             {LAYERS:?}"
+        );
+        let mut once = LAYERS;
+        once.sort_unstable();
+        let before = once.len();
+        let unique: Vec<Layer> = {
+            let mut v = once.to_vec();
+            v.dedup();
+            v
+        };
+        assert_eq!(unique.len(), before, "a layer is listed twice");
+
+        // CR 613.1a–613.1i, and 613.4 for the sublayers of 7.
+        assert_eq!(
+            LAYERS.to_vec(),
+            vec![
+                Layer::Copy,
+                Layer::Control,
+                Layer::Text,
+                Layer::Type,
+                Layer::Color,
+                Layer::Ability,
+                Layer::PtCda,
+                Layer::PtSet,
+                Layer::PtModify,
+                Layer::PtCounters,
+                Layer::PtSwitch,
+            ],
+            "the layers are not in the order the rules apply them"
+        );
+    }
+
+    /// This table and the one below it name all thirty-nine `Modifier`s
+    /// there are today. That is a population and not a guard: what stops a
+    /// new variant from having no rules answer is the exhaustive `match` in
+    /// `layer()`, which the compiler checks. What the lists are for is the
+    /// answer itself, which the compiler cannot check at all.
+    ///
+    /// Which layer a modifier applies in is derived here and nowhere else —
+    /// `static_ability!` takes no layer argument for that reason — so this
+    /// is the one table to hold against the rules.
+    ///
+    /// Two rows are a regression rather than a restatement.
+    /// [`Modifier::ProtectionFrom`] and [`Modifier::GrantTriggered`] sat in
+    /// the no-layer bucket and answered `Text`, which is layer **3**, the
+    /// text-changing layer of CR 613.1c — neither of them changes any text.
+    /// Both add an ability (CR 702.16a: "Protection is a static ability"),
+    /// so CR 613.1f puts them on layer 6 beside the `GrantActivated` that
+    /// was already there.
+    #[test]
+    fn every_modifier_applies_in_the_layer_the_rules_give_it() {
+        const NOTHING: &[crate::effect::Effect] = &[];
+        let rows: Vec<(Modifier, Layer)> = vec![
+            (Modifier::BecomeCopyOf(ObjectId::new(1, 0)), Layer::Copy),
+            (Modifier::GainControl, Layer::Control),
+            (Modifier::AddType(TypeSet::ARTIFACT), Layer::Type),
+            (Modifier::RemoveType(TypeSet::CREATURE), Layer::Type),
+            (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
+            (Modifier::AllCreatureTypes, Layer::Type),
+            (Modifier::AllBasicLandTypes, Layer::Type),
+            (
+                Modifier::AddTypeIfCountersAtLeast {
+                    kind: crate::effect::CounterKind::Charge,
+                    at_least: 8,
+                    types: TypeSet::CREATURE,
+                },
+                Layer::Type,
+            ),
+            (Modifier::AddColor(ColorSet::of(Color::Red)), Layer::Color),
+            (Modifier::SetColor(ColorSet::EMPTY), Layer::Color),
+            (Modifier::AddKeyword(KeywordSet::FLYING), Layer::Ability),
+            (Modifier::RemoveKeyword(KeywordSet::FLYING), Layer::Ability),
+            (Modifier::LoseKeywords, Layer::Ability),
+            (
+                Modifier::AddKeywordIfCountersAtLeast {
+                    kind: crate::effect::CounterKind::Charge,
+                    at_least: 8,
+                    keywords: KeywordSet::FLYING,
+                },
+                Layer::Ability,
+            ),
+            (
+                Modifier::GrantActivated {
+                    cost: crate::cost::Cost::TAP,
+                    effects: NOTHING,
+                    mana_ability: true,
+                },
+                Layer::Ability,
+            ),
+            (Modifier::GrantsFlashback, Layer::Ability),
+            (Modifier::CantActivateArtifacts, Layer::Ability),
+            // The two that moved. Layer 6 by CR 613.1f, not layer 3.
+            (Modifier::ProtectionFrom(&Filter::CREATURE), Layer::Ability),
+            (
+                Modifier::GrantTriggered {
+                    trigger: crate::ability::Trigger::ETB,
+                    effects: NOTHING,
+                    target: None,
+                },
+                Layer::Ability,
+            ),
+            (Modifier::SetPT(2, 2), Layer::PtSet),
+            (Modifier::ModifyPT(1, 1), Layer::PtModify),
+            (
+                Modifier::ModifyPTPerCount {
+                    filter: &Filter::CREATURE,
+                    p: 1,
+                    t: 1,
+                },
+                Layer::PtModify,
+            ),
+            (Modifier::SwitchPT, Layer::PtSwitch),
+        ];
+        for (modifier, layer) in rows {
+            assert_eq!(modifier.layer(), layer, "{modifier:?}");
+        }
+    }
+
+    /// A modifier that changes no characteristic at all answers `Text`, and
+    /// that is a **parking space rather than a claim**: the layer system has
+    /// no bucket for a rules-modifying effect, and layer 3 is where they
+    /// wait. It is pinned because the two abilities that left this bucket
+    /// left it by being read as characteristic changes — so what stays here
+    /// is the list of things that genuinely change nothing about an object,
+    /// and a new modifier landing here by accident is the fault this test
+    /// exists to make visible.
+    #[test]
+    fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
+        for modifier in [
+            Modifier::LegendRuleOff,
+            Modifier::PlayLandsFromGraveyard,
+            Modifier::ExtraLandDrops(2),
+            Modifier::OpponentsCastAsSorcery,
+            Modifier::PlayersCantLose,
+            Modifier::CantLoseLife,
+            Modifier::PreventDamageToIt,
+            Modifier::PreventDamageFromIt,
+            Modifier::OpponentsCantSearch,
+            Modifier::NoMaxHandSize,
+            Modifier::PlayerHexproof,
+            Modifier::SorceriesHaveFlash,
+            Modifier::ManaIsAnyColor,
+            Modifier::SearchTakeover,
+            Modifier::DoesNotUntap,
+            Modifier::MayChooseNotToUntap,
+        ] {
+            assert_eq!(
+                modifier.layer(),
+                Layer::Text,
+                "{modifier:?} answers a layer it was not put in"
+            );
+        }
+    }
+}
