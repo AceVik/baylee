@@ -991,4 +991,199 @@ mod tests {
         assert_eq!(ManaCost::ZERO.cmc(), 0);
         assert_eq!(ManaCost::ZERO.colors(), ColorSet::EMPTY);
     }
+    /// Every mana symbol there is, so the two questions below are asked of
+    /// the whole enum and not of the ones somebody remembered.
+    const EVERY_SYMBOL: [ManaSymbol; 15] = [
+        ManaSymbol::Generic(3),
+        ManaSymbol::Colorless,
+        ManaSymbol::White,
+        ManaSymbol::Blue,
+        ManaSymbol::Black,
+        ManaSymbol::Red,
+        ManaSymbol::Green,
+        ManaSymbol::Hybrid(ColorPair::new(Color::White, Color::Blue)),
+        ManaSymbol::TwoOrColor(Color::White),
+        ManaSymbol::Phyrexian(Color::White),
+        ManaSymbol::HybridPhyrexian(ColorPair::new(Color::White, Color::Blue)),
+        ManaSymbol::Snow,
+        ManaSymbol::Variable(Variable::X),
+        ManaSymbol::HalfGeneric,
+        ManaSymbol::Infinite,
+    ];
+
+    /// A distinct number per variant, and the **guard** the list above needs.
+    ///
+    /// [`ManaSymbol::cmc_contribution`] and
+    /// [`ManaSymbol::generic_contribution`] both end in a catch-all arm, so
+    /// a symbol added tomorrow compiles there and silently contributes one
+    /// to every mana value and nothing to every generic bucket. This match
+    /// is exhaustive, so the same symbol stops the build here instead —
+    /// which is the whole reason the answers are worth writing down.
+    fn variant_index(symbol: ManaSymbol) -> usize {
+        match symbol {
+            ManaSymbol::Generic(_) => 0,
+            ManaSymbol::Colorless => 1,
+            ManaSymbol::White => 2,
+            ManaSymbol::Blue => 3,
+            ManaSymbol::Black => 4,
+            ManaSymbol::Red => 5,
+            ManaSymbol::Green => 6,
+            ManaSymbol::Hybrid(_) => 7,
+            ManaSymbol::TwoOrColor(_) => 8,
+            ManaSymbol::Phyrexian(_) => 9,
+            ManaSymbol::HybridPhyrexian(_) => 10,
+            ManaSymbol::Snow => 11,
+            ManaSymbol::Variable(_) => 12,
+            ManaSymbol::HalfGeneric => 13,
+            ManaSymbol::Infinite => 14,
+        }
+    }
+
+    /// What each symbol is worth to a mana value (CR 202.3) and what it puts
+    /// in the generic bucket, which are two different numbers on the one
+    /// symbol where it matters.
+    ///
+    /// `{2/W}` is that symbol: CR 202.3f makes its mana value **two**, and
+    /// it adds **nothing** generic, because a cost with one is not a cost
+    /// with two generic mana in it — the choice between two mana and one
+    /// white is made at payment. Reading either number off the other would
+    /// be wrong in a different direction each way.
+    ///
+    /// The three that are worth nothing are worth nothing for two different
+    /// reasons. `{X}` is CR 202.3b: outside the stack X is zero, and a card
+    /// in hand is outside the stack. `{½}` and `{∞}` are silver-bordered and
+    /// have no rules answer at all, so nought is this repo's choice rather
+    /// than the rules' — pinned so that a game which one day means to play
+    /// them has to say so.
+    #[test]
+    fn every_mana_symbol_is_worth_what_the_rules_say_it_is() {
+        let expected: Vec<(usize, u32, u32)> = vec![
+            // (variant, mana value, generic)
+            (0, 3, 3),  // {3}
+            (1, 1, 0),  // {C}
+            (2, 1, 0),  // {W}
+            (3, 1, 0),  // {U}
+            (4, 1, 0),  // {B}
+            (5, 1, 0),  // {R}
+            (6, 1, 0),  // {G}
+            (7, 1, 0),  // {W/U}
+            (8, 2, 0),  // {2/W}
+            (9, 1, 0),  // {W/P}
+            (10, 1, 0), // {W/U/P}
+            (11, 1, 0), // {S}
+            (12, 0, 0), // {X}
+            (13, 0, 0), // {½}
+            (14, 0, 0), // {∞}
+        ];
+        let seen: Vec<(usize, u32, u32)> = EVERY_SYMBOL
+            .iter()
+            .map(|s| {
+                (
+                    variant_index(*s),
+                    s.cmc_contribution(),
+                    s.generic_contribution(),
+                )
+            })
+            .collect();
+        assert_eq!(seen, expected);
+        assert_eq!(
+            seen.iter().map(|(v, ..)| *v).collect::<Vec<_>>(),
+            (0..15).collect::<Vec<_>>(),
+            "the list is every variant exactly once, in declaration order"
+        );
+    }
+
+    /// A whole cost is the sum of its symbols, which is worth checking on a
+    /// card that makes the difference visible: Reaper King's five `{2/A}`
+    /// symbols are a mana value of ten and not one generic mana anywhere,
+    /// and a reader that took the mana value for the generic requirement
+    /// would offer it for ten of any colour.
+    #[test]
+    fn a_cost_of_hybrids_costs_what_its_symbols_cost() {
+        let king = ManaCost::parse("{2/W}{2/U}{2/B}{2/R}{2/G}");
+        assert_eq!(king.cmc(), 10);
+        assert_eq!(king.generic_total(), 0);
+        assert_eq!(king.symbols().count(), 5);
+        assert_eq!(
+            king.colors(),
+            ColorSet::from_slice(&[
+                Color::White,
+                Color::Blue,
+                Color::Black,
+                Color::Red,
+                Color::Green,
+            ]),
+            "each of them is its one colour"
+        );
+
+        // The Phyrexian pair beside it, which pays in life and is still a
+        // coloured pip of mana value one each (CR 202.3g).
+        let pitch = ManaCost::parse("{2}{W/P}{W/U/P}");
+        assert_eq!((pitch.cmc(), pitch.generic_total()), (4, 2));
+        assert!(!pitch.has_variable());
+
+        // And `{X}`, which is nought until it is announced.
+        let fireball = ManaCost::parse("{X}{R}");
+        assert_eq!((fireball.cmc(), fireball.generic_total()), (1, 0));
+        assert!(fireball.has_variable());
+        assert_eq!(fireball.with_x(4).cmc(), 5);
+    }
+
+    /// Restricted mana is taken **by its restriction and not by its
+    /// position**, which is what lets a solver spend Cavern of Souls's mana
+    /// on the creature it named and leave the rest of the pool alone.
+    #[test]
+    fn restricted_mana_is_taken_by_the_restriction_that_named_it() {
+        let mut pool = ManaPool::new();
+        let rider = |id: u32, color: ManaColor| RestrictedMana {
+            color,
+            amount: 1,
+            flags: ManaFlags::NO_EMPTY,
+            restriction: RestrictionId(id),
+        };
+        pool.add_restricted(rider(7, ManaColor::Green));
+        pool.add_restricted(rider(9, ManaColor::Red));
+        assert_eq!(pool.total(), 2);
+
+        assert!(
+            pool.take_restricted(4).is_none(),
+            "a restriction nobody is holding mana for"
+        );
+        let taken = pool.take_restricted(9).expect("the second one");
+        assert_eq!(taken.color, ManaColor::Red);
+        assert_eq!(pool.restricted().len(), 1);
+        assert_eq!(
+            pool.restricted()[0].restriction,
+            RestrictionId(7),
+            "and the one nobody asked for is untouched"
+        );
+        assert_eq!(pool.total(), 1);
+    }
+
+    /// `colors_available` reads the **plain** part of the pool and nothing
+    /// else, which is a limitation rather than an oversight: restricted mana
+    /// is spendable only on what its rider names, so a caller told it was
+    /// "available" would offer a spell the payment then refuses.
+    ///
+    /// Pinned because it is invisible from the name. A pool holding one
+    /// green mana under a restriction answers the same as an empty one.
+    #[test]
+    fn a_colour_under_a_restriction_is_not_a_colour_available() {
+        let mut pool = ManaPool::new();
+        pool.add_restricted(RestrictedMana {
+            color: ManaColor::Green,
+            amount: 1,
+            flags: ManaFlags::NO_EMPTY,
+            restriction: RestrictionId(3),
+        });
+        assert_eq!(pool.total(), 1, "the mana is in the pool");
+        assert!(
+            pool.colors_available().is_empty(),
+            "and green is not one of the colours it reports"
+        );
+
+        pool.add(ManaColor::Green, 1);
+        assert_eq!(pool.colors_available(), ColorSet::of(Color::Green));
+        assert_eq!(pool.available(ManaColor::Green), 1, "the plain one only");
+    }
 }
