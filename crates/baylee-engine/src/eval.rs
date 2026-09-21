@@ -765,4 +765,159 @@ mod tests {
         assert!(matches(&Filter::NONLAND, &state, object, P0, obj));
         assert!(!matches(&Filter::NONCREATURE, &state, object, P0, obj));
     }
+
+    /// The `None` is the whole point of the signature. Answering `vec![]`
+    /// for a relation this function cannot resolve reads exactly like "no
+    /// seats matched", and that is what shipped Abraded Bluffs as a land
+    /// that deals no damage and Bojuka Bog as a swamp: only a caller
+    /// holding a `Resolution` can answer these two, and it must not be able
+    /// to swallow them silently.
+    #[test]
+    fn a_relation_the_state_cannot_answer_is_none_rather_than_nobody() {
+        let state = empty_state();
+        assert_eq!(players(PlayerRel::ControllerOfTarget, &state, P0), None);
+        assert_eq!(players(PlayerRel::Chosen, &state, P0), None);
+
+        assert_eq!(players(PlayerRel::You, &state, P0), Some(vec![P0]));
+        assert_eq!(players(PlayerRel::Opponent, &state, P0), Some(vec![P1]));
+        assert_eq!(
+            players(PlayerRel::EachPlayer, &state, P0),
+            Some(vec![P0, P1])
+        );
+        assert_eq!(
+            players(PlayerRel::EachOpponent, &state, P1),
+            Some(vec![P0]),
+            "the relation is read from whoever is asking"
+        );
+    }
+
+    /// A player who has lost is not a player the game asks anything of —
+    /// "each opponent loses 1 life" resolving after somebody conceded must
+    /// not find them.
+    #[test]
+    fn a_player_who_has_lost_is_no_longer_each_player() {
+        let mut state = empty_state();
+        state.players[1].has_lost = true;
+        assert_eq!(players(PlayerRel::EachPlayer, &state, P0), Some(vec![P0]));
+        assert_eq!(players(PlayerRel::EachOpponent, &state, P0), Some(vec![]));
+        assert_eq!(
+            players(PlayerRel::You, &state, P0),
+            Some(vec![P0]),
+            "and you are still you"
+        );
+    }
+
+    /// "If you control three or more creatures" is about the asker's own
+    /// board, whoever else has one.
+    #[test]
+    fn a_control_count_counts_the_askers_own_permanents() {
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        creature(&mut state, P0, KeywordSet::EMPTY);
+        creature(&mut state, P1, KeywordSet::EMPTY);
+
+        let two = Condition::ControlCount(&ANY_CREATURE, 2);
+        let three = Condition::ControlCount(&ANY_CREATURE, 3);
+        assert!(condition_holds(&state, P0, mine, two));
+        assert!(
+            !condition_holds(&state, P0, mine, three),
+            "theirs is theirs"
+        );
+        assert!(!condition_holds(&state, P1, mine, two));
+    }
+
+    /// Two sentences that look alike and are not: "if it has three or more"
+    /// against "if it has exactly three". A card that removes counters as a
+    /// cost sits on both sides of that difference.
+    #[test]
+    fn at_least_and_exactly_are_different_questions() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        state
+            .object_mut(source)
+            .expect("just made it")
+            .counters
+            .add(baylee_cards_dsl::CounterKind::P1P1, 3);
+
+        let kind = baylee_cards_dsl::CounterKind::P1P1;
+        assert!(condition_holds(
+            &state,
+            P0,
+            source,
+            Condition::CountersOnSelf(kind, 3)
+        ));
+        assert!(condition_holds(
+            &state,
+            P0,
+            source,
+            Condition::CountersOnSelf(kind, 2)
+        ));
+        assert!(!condition_holds(
+            &state,
+            P0,
+            source,
+            Condition::CountersOnSelf(kind, 4)
+        ));
+        assert!(condition_holds(
+            &state,
+            P0,
+            source,
+            Condition::CountersOnSelfExactly(kind, 3)
+        ));
+        assert!(!condition_holds(
+            &state,
+            P0,
+            source,
+            Condition::CountersOnSelfExactly(kind, 2)
+        ));
+    }
+
+    /// CR 113.7a: an ability is a separate object from its source the
+    /// moment it goes on the stack, so "if this land is tapped" asked of a
+    /// land that has left the battlefield has nothing to be true of.
+    #[test]
+    fn a_condition_about_a_source_that_is_gone_is_false() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let about_itself = Condition::SourceMatches(&ANY_CREATURE);
+        assert!(condition_holds(&state, P0, source, about_itself));
+
+        state.arena.remove(source);
+        assert!(!condition_holds(&state, P0, source, about_itself));
+        assert!(
+            !condition_holds(
+                &state,
+                P0,
+                source,
+                Condition::CountersOnSelf(baylee_cards_dsl::CounterKind::P1P1, 0)
+            ),
+            "every other sentence about the source fails the same way, \
+             including the one a zero would otherwise make trivially true"
+        );
+    }
+
+    /// CR 603.4 asks the clause twice — once where the ability would
+    /// trigger and once where it would resolve — so both readings go
+    /// through one function. An ability that prints no clause at all is the
+    /// trivially true one, and an absent clause answering `false` would
+    /// silence every trigger in the pool that does not print one.
+    #[test]
+    fn an_ability_with_no_intervening_if_has_a_true_one() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+
+        assert!(intervening_if(&state, None, P0, source));
+        assert!(intervening_if(
+            &state,
+            Some(Condition::ControlCount(&ANY_CREATURE, 1)),
+            P0,
+            source
+        ));
+        assert!(!intervening_if(
+            &state,
+            Some(Condition::ControlCount(&ANY_CREATURE, 2)),
+            P0,
+            source
+        ));
+    }
 }
