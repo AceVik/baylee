@@ -342,3 +342,58 @@ impl HeuristicAgent {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{all, any};
+
+    /// One `false` settles it — including after an unknown, which is the
+    /// half a "have I seen an unknown yet" flag gets wrong. A reader that
+    /// answered `false` for "cannot see" would produce a confident wrong
+    /// decision instead of a fallback, so the unknown only wins where
+    /// nothing else has.
+    #[test]
+    fn all_is_three_valued_and_a_false_outranks_an_unknown() {
+        assert_eq!(all([].into_iter()), Some(true), "nothing to refuse it");
+        assert_eq!(all([Some(true), Some(true)].into_iter()), Some(true));
+        assert_eq!(all([Some(true), None].into_iter()), None);
+        assert_eq!(
+            all([None, Some(false)].into_iter()),
+            Some(false),
+            "the unknown is not latched past a later false"
+        );
+        assert_eq!(all([Some(false), None].into_iter()), Some(false));
+        assert_eq!(all([None, None].into_iter()), None);
+    }
+
+    /// The mirror: one `true` settles it, and an unknown beats a list of
+    /// falses because the view could not see whether one of them was the
+    /// one that matched.
+    #[test]
+    fn any_is_three_valued_and_a_true_outranks_an_unknown() {
+        assert_eq!(any([].into_iter()), Some(false), "nothing to satisfy it");
+        assert_eq!(any([Some(false), Some(false)].into_iter()), Some(false));
+        assert_eq!(any([Some(false), None].into_iter()), None);
+        assert_eq!(any([None, Some(true)].into_iter()), Some(true));
+        assert_eq!(any([Some(true), None].into_iter()), Some(true));
+        assert_eq!(any([None, None].into_iter()), None);
+    }
+
+    /// Both settle on the spot rather than reading the rest, which is what
+    /// makes them safe over an iterator whose later parts are expensive —
+    /// every caller builds these from `filter_matches` on each member of a
+    /// filter list. An iterator that panics after the deciding element
+    /// proves it without asserting on a count nobody keeps.
+    #[test]
+    fn a_settled_answer_reads_no_further() {
+        let decided = [Some(false)]
+            .into_iter()
+            .chain(std::iter::from_fn(|| panic!("read past the answer")));
+        assert_eq!(all(decided), Some(false));
+
+        let decided = [Some(true)]
+            .into_iter()
+            .chain(std::iter::from_fn(|| panic!("read past the answer")));
+        assert_eq!(any(decided), Some(true));
+    }
+}

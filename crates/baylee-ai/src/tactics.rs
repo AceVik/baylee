@@ -545,3 +545,56 @@ impl HeuristicAgent {
         m.value + target
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::amount;
+    use baylee_cards_dsl::Amount;
+
+    /// The magnitude and the sign are read separately, and the sign is
+    /// `Amount::is_negative` rather than a list of the negative variants —
+    /// this was such a list, and the next negative amount added to the DSL
+    /// would have been read here as a bonus, silently, in a heuristic
+    /// nobody asserts a sign on.
+    #[test]
+    fn an_amount_carries_its_sign_from_the_dsl_and_not_from_a_list_here() {
+        assert_eq!(amount(Amount::Fixed(3), 0), 3);
+        assert_eq!(amount(Amount::NegXFixed(3), 0), -3);
+        assert_eq!(amount(Amount::X, 2), 2);
+        assert_eq!(amount(Amount::NegX, 2), -2);
+        assert_eq!(amount(Amount::DoubleX, 2), 4);
+        assert_eq!(amount(Amount::XPlusCommanderCasts, 2), 2);
+    }
+
+    /// `Negated` is a wrapper rather than a variant of its own, so it
+    /// negates whatever the inner amount already was — including one that
+    /// was negative, which is the case a sign-flipping flag gets wrong.
+    #[test]
+    fn negation_composes_with_an_amount_that_is_already_negative() {
+        assert_eq!(amount(Amount::Negated(&Amount::Fixed(2)), 0), -2);
+        assert_eq!(
+            amount(Amount::Negated(&Amount::NegX), 3),
+            3,
+            "two negations are a bonus again"
+        );
+    }
+
+    /// A count this reader cannot evaluate answers zero rather than a
+    /// guess: the heuristic is allowed to undervalue a card it cannot read
+    /// and is not allowed to invent a number for it.
+    #[test]
+    fn an_amount_this_reader_cannot_evaluate_is_worth_nothing() {
+        assert_eq!(amount(Amount::TargetPower, 5), 0);
+        assert_eq!(amount(Amount::TargetCmc, 5), 0);
+    }
+
+    /// The magnitude is a `u32` and the value an `i32`, so the conversion
+    /// saturates rather than wrapping — a wrap would turn the largest bonus
+    /// in the game into a penalty.
+    #[test]
+    fn an_amount_too_large_for_the_value_saturates() {
+        assert_eq!(amount(Amount::Fixed(u32::MAX), 0), i32::MAX);
+        assert_eq!(amount(Amount::X, u32::MAX), i32::MAX);
+        assert_eq!(amount(Amount::NegXFixed(u32::MAX), 0), -i32::MAX);
+    }
+}
