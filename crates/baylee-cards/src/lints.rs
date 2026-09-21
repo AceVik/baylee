@@ -676,7 +676,7 @@ fn cost_lists(ability: &AbilityDef) -> Vec<&'static [CostPart]> {
 /// [`CostPart::RemoveCounterSelfX`] is the storage lands' cost — "remove any
 /// number of storage counters from this land" — and the number is asked for
 /// at CR 601.2b, with the activation, *before* targets are chosen
-/// (CR 601.2c). The printed spelling on eleven of those cards is not an `X`
+/// (CR 601.2c) — both reached for an activated ability through CR 602.2b. The printed spelling on eleven of those cards is not an `X`
 /// at all but "any number of", which is a choice made as the cost is **paid**
 /// (CR 601.2h), after targets. This engine asks at the earlier moment for
 /// both, and that is legal for one spelling and merely unobservable for the
@@ -706,6 +706,27 @@ fn announced_number_beside_a_target(
         CostPart::RemoveCounterSelfX { kind } => Some((*kind, target)),
         _ => None,
     })
+}
+
+/// Every cost list a card's **faces** carry, which is the door
+/// [`cost_lists`] is not.
+///
+/// An alternative cost (CR 601.2b) is printed on a face rather than on an
+/// ability — Force of Will's "exile a blue card from your hand and pay 1
+/// life" — so it is reached from the `CardDef` and from nowhere else. It
+/// holds `CostPart`s like any other cost and `Engine::pay_cost` walks it the
+/// same way, which is what makes it a door rather than a curiosity: a sweep
+/// that opens only the ability costs reports a clean pool having read part of
+/// it.
+///
+/// It was found by probing the guard in
+/// [`no_cost_announces_a_number_on_an_ability_that_also_targets`] rather than
+/// by reading, which is the argument for that guard.
+fn face_cost_lists(def: &CardDef) -> Vec<&'static [CostPart]> {
+    def.faces
+        .iter()
+        .flat_map(|face| face.alternative_costs.iter().map(|alt| alt.cost.parts))
+        .collect()
 }
 
 #[cfg(test)]
@@ -1527,11 +1548,34 @@ mod tests {
                 check(token.name, ability);
             }
         }
+        // An alternative cost is printed on a face and reached from nowhere
+        // else, and `pay_cost` walks its parts in printed order like any
+        // other. Walked after the abilities because `check` borrows the
+        // counters until its last call.
+        for def in crate::all() {
+            for parts in face_cost_lists(def) {
+                read += 1;
+                if let Some((mover, then)) = cost_order_fault(parts) {
+                    wrong.push(format!(
+                        "{} (alternative cost) — {mover:?} and then {then:?}",
+                        def.name()
+                    ));
+                }
+            }
+        }
         // The floor, for the reason `cross-read` carries one: a sweep that
         // read nothing reports the same "no offenders" as one that read the
-        // pool. Measured at 725 cost lists on 2026-09-16.
+        // pool. Measured at 725 cost lists on 2026-09-16 and at 2022 on
+        // 2026-09-21 — the pool grew, and eleven of the new ones are the
+        // alternative costs this sweep did not open until now.
+        //
+        // Raised with the measurement rather than left where it was: a floor
+        // of 600 against a pool of 2022 would pass a reader that had gone
+        // blind on two doors out of three, which is the failure it exists to
+        // catch. The pool only grows, so a floor under the count cannot go
+        // red on its own.
         assert!(
-            read >= 600,
+            read >= 1800,
             "read {read} activation cost lists out of the pool, which is not the pool"
         );
         assert!(
@@ -1643,11 +1687,24 @@ mod tests {
                 check(token.name, ability);
             }
         }
+        // The face-level door, walked after the abilities because `check`
+        // borrows the counters until its last call.
+        for def in crate::all() {
+            announced += face_cost_lists(def)
+                .iter()
+                .flat_map(|parts| parts.iter())
+                .filter(|part| matches!(part, CostPart::RemoveCounterSelfX { .. }))
+                .count();
+        }
 
-        // The floor and the door, in that order. Sixteen storage lands carry
-        // this cost, counted on 2026-09-21; the pool may only grow, and a
-        // reader that has gone blind reports nought here rather than passing
-        // with an empty `wrong`.
+        // The floor and the door, in that order. Sixteen cards in the pool
+        // carry this cost, counted on 2026-09-21 — one fewer than the
+        // seventeen `CostPart::RemoveCounterSelfX` counts, because that
+        // number was measured over `//! Oracle:` headers and Crucible of the
+        // Spirit Dragon prints "remove X storage counters" while still being
+        // a stub. The two agree; they are counting a printing and a compiled
+        // ability. A reader that has gone blind reports nought here rather
+        // than passing with an empty `wrong`.
         assert!(
             announced >= 16,
             "read {announced} announced-number costs out of the pool, and \
