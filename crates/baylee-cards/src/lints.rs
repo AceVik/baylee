@@ -670,6 +670,44 @@ fn cost_lists(ability: &AbilityDef) -> Vec<&'static [CostPart]> {
         .collect()
 }
 
+/// An activated ability that **announces a number as it is activated and
+/// also names a target**, as `(the counter, what it targets)`.
+///
+/// [`CostPart::RemoveCounterSelfX`] is the storage lands' cost — "remove any
+/// number of storage counters from this land" — and the number is asked for
+/// at CR 601.2b, with the activation, *before* targets are chosen
+/// (CR 601.2c). The printed spelling on eleven of those cards is not an `X`
+/// at all but "any number of", which is a choice made as the cost is **paid**
+/// (CR 601.2h), after targets. This engine asks at the earlier moment for
+/// both, and that is legal for one spelling and merely unobservable for the
+/// other — unobservable for exactly as long as no card chooses a target in
+/// between.
+///
+/// So the decision in [`CostPart::RemoveCounterSelfX`]'s own documentation
+/// rests on a property of the pool, and this is that property written down
+/// where a build can fail on it. The day a card prints both, the order stops
+/// being a simplification and becomes a wrong answer: the player is asked how
+/// many counters to spend before being shown what the ability can point at.
+///
+/// It reads the ability's **own** cost. A [`Modifier::GrantActivated`]
+/// carries a `Cost` too and cannot be a finding, because it has no target
+/// field at all — a granted activated ability targets nothing, so the pair
+/// this is about cannot exist there. The sweep below says that with a count
+/// rather than leaving it unsaid.
+fn announced_number_beside_a_target(
+    ability: &AbilityDef,
+) -> Option<(crate::dsl::CounterKind, TargetSpec)> {
+    let (cost, target) = match ability {
+        AbilityDef::Activated { cost, target, .. }
+        | AbilityDef::ActivatedConditional { cost, target, .. } => (cost, (*target)?),
+        _ => return None,
+    };
+    cost.parts.iter().find_map(|part| match part {
+        CostPart::RemoveCounterSelfX { kind } => Some((*kind, target)),
+        _ => None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1501,6 +1539,135 @@ mod tests {
             "{} cost(s) pay a part after the source is gone — `pay_cost` walks \
              them in printed order, so the second one is asked of an object \
              that has left the battlefield.\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+    }
+
+    /// The lint catches the pair it exists for, and nothing that merely
+    /// looks like it.
+    #[test]
+    fn the_announcement_lint_catches_a_cost_that_asks_before_it_shows() {
+        use crate::dsl::ability::{ActivationLimit, ActivationTiming, ActivationZone};
+        use crate::dsl::counters::STORAGE;
+
+        static A_CREATURE: TargetSpec = TargetSpec::Object(&Filter::CREATURE);
+        static ANNOUNCED: [CostPart; 2] = [
+            CostPart::TapSelf,
+            CostPart::RemoveCounterSelfX { kind: STORAGE },
+        ];
+        static COUNTED: [CostPart; 2] = [
+            CostPart::TapSelf,
+            CostPart::RemoveCounterSelf {
+                kind: STORAGE,
+                n: 1,
+            },
+        ];
+
+        let storage =
+            |parts: &'static [CostPart], target: Option<TargetSpec>| AbilityDef::Activated {
+                cost: crate::dsl::Cost {
+                    mana: ManaCost::ZERO,
+                    parts,
+                },
+                effects: &[],
+                target,
+                timing: ActivationTiming::InstantSpeed,
+                mana_ability: false,
+                zone: ActivationZone::Battlefield,
+                limit: ActivationLimit::Unlimited,
+            };
+
+        assert_eq!(
+            announced_number_beside_a_target(&storage(&ANNOUNCED, Some(A_CREATURE))),
+            Some((STORAGE, A_CREATURE)),
+            "a number announced with the activation, and a target chosen after it"
+        );
+        assert_eq!(
+            announced_number_beside_a_target(&storage(&ANNOUNCED, None)),
+            None,
+            "the storage lands as they are printed: no target to be asked about"
+        );
+        assert_eq!(
+            announced_number_beside_a_target(&storage(&COUNTED, Some(A_CREATURE))),
+            None,
+            "a fixed number announces nothing, so the order cannot be observed"
+        );
+    }
+
+    /// **No card in the pool announces a number and then chooses a target.**
+    ///
+    /// The other half of the sweep is the one that keeps it honest: every
+    /// `RemoveCounterSelfX` the pool prints has to be one this walk *saw*.
+    /// The `Debug` of a card prints every cost of every ability of every
+    /// face, including the ones a static ability grants, so the two counts
+    /// disagreeing means a door was added that this reader does not know
+    /// about — which is the failure mode a lint over a hand-written match
+    /// has, and it reports "no offenders" while it happens.
+    #[test]
+    fn no_cost_announces_a_number_on_an_ability_that_also_targets() {
+        let mut wrong = Vec::new();
+        let mut announced = 0usize;
+        let mut printed = 0usize;
+        let mut granted = 0usize;
+
+        let mut check = |who: &str, ability: &AbilityDef| {
+            for parts in cost_lists(ability) {
+                announced += parts
+                    .iter()
+                    .filter(|part| matches!(part, CostPart::RemoveCounterSelfX { .. }))
+                    .count();
+            }
+            // A granted ability's cost is read above and can never be a
+            // finding, because `Modifier::GrantActivated` has no target.
+            if let AbilityDef::Static(_) = ability {
+                granted += 1;
+            }
+            if let Some((kind, target)) = announced_number_beside_a_target(ability) {
+                wrong.push(format!(
+                    "{who} — {kind:?} counters announced, then {target:?}"
+                ));
+            }
+        };
+        for def in crate::all() {
+            printed += format!("{def:?}").matches("RemoveCounterSelfX").count();
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    check(def.name(), ability);
+                }
+            }
+        }
+        for token in crate::tokens::ALL {
+            printed += format!("{token:?}").matches("RemoveCounterSelfX").count();
+            for ability in token.abilities {
+                check(token.name, ability);
+            }
+        }
+
+        // The floor and the door, in that order. Sixteen storage lands carry
+        // this cost, counted on 2026-09-21; the pool may only grow, and a
+        // reader that has gone blind reports nought here rather than passing
+        // with an empty `wrong`.
+        assert!(
+            announced >= 16,
+            "read {announced} announced-number costs out of the pool, and \
+             sixteen storage lands print one"
+        );
+        assert_eq!(
+            announced, printed,
+            "the pool prints {printed} `RemoveCounterSelfX` and this walk \
+             reached {announced} of them, so a cost door exists that \
+             `cost_lists` does not open ({granted} static abilities were \
+             walked)"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} abilit(ies) announce a number with the activation \
+             (CR 601.2b) and then choose a target (CR 601.2c). The engine \
+             asks for the number first for both printed spellings of this \
+             cost, which is legal only while no card does both — this one \
+             asks the player how many counters to spend before showing them \
+             what the ability can point at.\n{}",
             wrong.len(),
             wrong.join("\n")
         );
