@@ -33,9 +33,15 @@ pub enum Layer {
     PtSet,
     /// 7c: effects that modify power/toughness (anthems).
     PtModify,
-    /// 7d: counters.
+    /// 7c as well: counters that modify power/toughness.
+    ///
+    /// CR 613.4c names "effects **and counters** that modify power and/or
+    /// toughness" in one sublayer. They are two buckets here so that every
+    /// counter a permanent wears lands after the effects that modify it,
+    /// which CR 613.4 leaves open — a counter carries no timestamp, so the
+    /// order the sublayer asks for does not reach it.
     PtCounters,
-    /// 7e: effects that switch power/toughness.
+    /// 7d: effects that switch power/toughness.
     PtSwitch,
 }
 

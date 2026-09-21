@@ -713,4 +713,268 @@ mod tests {
             "the mask and kind() are the same list read two ways"
         );
     }
+
+    // --- Projection fixtures ------------------------------------------
+
+    struct RegistryLookup;
+    impl crate::state::CardLookup for RegistryLookup {
+        fn card(
+            &self,
+            index: baylee_core::ids::CardIndex,
+        ) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn fresh() -> GameState {
+        use baylee_core::preset::{
+            AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+            SeatController, SeatSpec,
+        };
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let entry = DeckEntry {
+            card: forest,
+            print: baylee_core::ids::PrintRef::new(0),
+        };
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 4,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    /// A permanent of exactly these types, with this printed body.
+    fn permanent(
+        state: &mut GameState,
+        label: &str,
+        types: TypeSet,
+        body: Option<(i16, i16)>,
+    ) -> ObjectId {
+        let name = state.names.intern(label);
+        let id = state.create_bare(
+            me(),
+            crate::object::ObjectKind::Permanent,
+            name,
+            crate::zone::ZoneLocation::Battlefield,
+        );
+        let base = state.object_mut(id).expect("just created").base_mut();
+        base.types = types;
+        base.power = body.map(|(p, _)| p);
+        base.toughness = body.map(|(_, t)| t);
+        id
+    }
+
+    fn register(state: &mut GameState, timestamp: u64, modifier: Modifier) {
+        state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: None,
+            controller: me(),
+            layer: modifier.layer(),
+            timestamp,
+            duration: Duration::Indefinitely,
+            filter: EffectFilter::Dsl(&ANY_F),
+            modifier,
+        });
+    }
+
+    fn body(state: &GameState, id: ObjectId) -> (Option<i16>, Option<i16>) {
+        let obj = state.object(id).expect("in play");
+        let c = recompute(state, obj).characteristics;
+        (c.power, c.toughness)
+    }
+
+    /// CR 613.4: within layer 7 the sublayers run in order, and the order is
+    /// the answer — 7b sets, 7c modifies (effects and counters both), 7d
+    /// switches. The timestamps here **contradict** it: the anthem is older
+    /// than the setting effect, so an implementation that ordered layer 7 by
+    /// timestamp alone would add first and then throw the sum away.
+    ///
+    /// Every stage is asymmetric, so each one is visible in the answer
+    /// rather than hidden by a square body.
+    #[test]
+    fn the_sublayers_of_layer_seven_run_in_the_order_the_rules_give_them() {
+        let mut state = fresh();
+        let creature = permanent(&mut state, "Bear", TypeSet::CREATURE, Some((1, 1)));
+
+        register(&mut state, 1, Modifier::ModifyPT(1, 0));
+        assert_eq!(body(&state, creature), (Some(2), Some(1)), "7c alone");
+
+        register(&mut state, 5, Modifier::SetPT(4, 2));
+        assert_eq!(
+            body(&state, creature),
+            (Some(5), Some(2)),
+            "7b first although it is the later effect, then 7c on top of it"
+        );
+
+        {
+            let counters = &mut state.object_mut(creature).expect("in play").counters;
+            counters.add(
+                crate::object::CounterKind::Plus {
+                    power: 1,
+                    toughness: 1,
+                },
+                1,
+            );
+            // Asymmetric on purpose. A square change would commute with the
+            // switch below, and then this test would pass against a
+            // projection that applied the counters *after* it.
+            counters.add(
+                crate::object::CounterKind::Minus {
+                    power: 0,
+                    toughness: 1,
+                },
+                1,
+            );
+        }
+        assert_eq!(
+            body(&state, creature),
+            (Some(6), Some(2)),
+            "and a counter modifies in the same sublayer, after the effects"
+        );
+
+        register(&mut state, 9, Modifier::SwitchPT);
+        assert_eq!(
+            body(&state, creature),
+            (Some(2), Some(6)),
+            "the switch reads what every earlier sublayer left (CR 613.4d)"
+        );
+    }
+
+    /// A setting effect asks whether the permanent is a creature **now**,
+    /// after layer 4, and not whether it was printed with a P/T box.
+    ///
+    /// This is the Treetop Village shape. Guarding on the printed value left
+    /// an animated land a creature with no toughness, which the state-based
+    /// actions put in the graveyard the instant its own ability resolved
+    /// (CR 704.5f) — a card that killed itself by working.
+    #[test]
+    fn a_land_that_layer_four_animated_can_be_given_a_body() {
+        let mut state = fresh();
+        let land = permanent(&mut state, "Treetop Village", TypeSet::LAND, None);
+
+        register(&mut state, 1, Modifier::SetPT(3, 3));
+        assert_eq!(
+            body(&state, land),
+            (None, None),
+            "nothing that is not a creature has a P/T to set (CR 208.3)"
+        );
+
+        register(&mut state, 2, Modifier::AddType(TypeSet::CREATURE));
+        assert_eq!(
+            body(&state, land),
+            (Some(3), Some(3)),
+            "layer 4 runs first, so layer 7b finds a creature"
+        );
+    }
+
+    /// Counters are read off the permanent rather than off the effect table,
+    /// so they reach a creature that no effect matches at all — and they
+    /// reach nothing that is not a creature, because a P/T is a creature's
+    /// (CR 208.3). Each counter kind carries its own arithmetic (CR 122.1a),
+    /// which is what lets a −0/−1 and a +1/+1 sit on one permanent without
+    /// either being a special case.
+    #[test]
+    fn a_counter_changes_a_body_only_where_there_is_one() {
+        use crate::object::CounterKind;
+        let mut state = fresh();
+        let creature = permanent(&mut state, "Wall of Roots", TypeSet::CREATURE, Some((0, 5)));
+        let rock = permanent(&mut state, "Sol Ring", TypeSet::ARTIFACT, None);
+
+        for id in [creature, rock] {
+            let counters = &mut state.object_mut(id).expect("in play").counters;
+            counters.add(
+                CounterKind::Plus {
+                    power: 2,
+                    toughness: 2,
+                },
+                1,
+            );
+            counters.add(
+                CounterKind::Minus {
+                    power: 0,
+                    toughness: 1,
+                },
+                3,
+            );
+        }
+
+        assert_eq!(
+            body(&state, creature),
+            (Some(2), Some(4)),
+            "+2/+2 and three −0/−1: power and toughness are summed apart"
+        );
+        assert_eq!(
+            body(&state, rock),
+            (None, None),
+            "an artifact with a +1/+1 counter on it is still not a creature"
+        );
+    }
+
+    /// A projection is skipped entirely when nothing could change the
+    /// answer, which is what keeps the pass off 2716 objects in an ordinary
+    /// game. Counters and changeling are the two reasons that have nothing
+    /// to do with the effect table, and both were found the hard way: a
+    /// permanent wearing a counter needs the pass even on an empty board.
+    #[test]
+    fn nothing_is_projected_that_no_effect_and_no_counter_reaches() {
+        use crate::object::CounterKind;
+        let mut state = fresh();
+        let bear = permanent(&mut state, "Bear", TypeSet::CREATURE, Some((2, 2)));
+
+        let plan = LayerPlan::build(&state.effects);
+        assert!(plan.is_empty());
+        assert!(
+            !needs_projection(&plan, state.object(bear).expect("in play")),
+            "an empty table over a bare creature is nothing to compute"
+        );
+
+        state.object_mut(bear).expect("in play").counters.add(
+            CounterKind::Plus {
+                power: 1,
+                toughness: 1,
+            },
+            1,
+        );
+        assert!(
+            needs_projection(&plan, state.object(bear).expect("in play")),
+            "a counter is a reason of its own — the table says nothing about it"
+        );
+
+        let mut state = fresh();
+        let bear = permanent(&mut state, "Bear", TypeSet::CREATURE, Some((2, 2)));
+        state.object_mut(bear).expect("in play").base_mut().keywords = KeywordSet::CHANGELING;
+        assert!(
+            needs_projection(
+                &LayerPlan::build(&state.effects),
+                state.object(bear).expect("in play")
+            ),
+            "and so is changeling, which is a mask rather than an effect"
+        );
+    }
 }
