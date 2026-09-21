@@ -1,185 +1,115 @@
 //! Mana payment: legality probe + auto-payment.
 //!
-//! S2 implements exact auto-payment (colored symbols first, then hybrid,
-//! then generic) and treats Phyrexian as mana-paid. The full payment-plan
-//! solver (meaningfully distinct plans → `ChoiceRequest::PayMana`) is M2.
+//! Exact deterministic assignment reserves constrained symbols and backtracks
+//! over hybrid, two-or-color and snow choices. Payment is transactional;
+//! Phyrexian life is handled by the casting wizard rather than this module.
 
 use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSymbol};
 
 /// Whether `pool` can pay `cost` at all (ignoring Phyrexian life).
 #[must_use]
 pub fn can_pay(pool: &ManaPool, cost: &ManaCost) -> bool {
-    let mut need: Vec<ManaSymbol> = cost.symbols().collect();
-    // Pay exact colors first, then hybrid/two-or, then generic.
-    need.sort_by_key(|s| match s {
-        ManaSymbol::White
-        | ManaSymbol::Blue
-        | ManaSymbol::Black
-        | ManaSymbol::Red
-        | ManaSymbol::Green
-        | ManaSymbol::Colorless
-        | ManaSymbol::Snow => 0,
-        ManaSymbol::Hybrid(_) | ManaSymbol::TwoOrColor(_) | ManaSymbol::Phyrexian(_) => 1,
-        _ => 2,
-    });
-    let mut available: Vec<ManaColor> = Vec::new();
-    for color in ManaColor::ALL {
-        available.extend(std::iter::repeat_n(color, pool.available(color) as usize));
-    }
-    let mut used = vec![false; available.len()];
-    let mut generic_needed = 0u32;
-
-    'symbols: for symbol in need {
-        let wanted: &[ManaColor] = match symbol {
-            ManaSymbol::White => &[ManaColor::White],
-            ManaSymbol::Blue => &[ManaColor::Blue],
-            ManaSymbol::Black => &[ManaColor::Black],
-            ManaSymbol::Red => &[ManaColor::Red],
-            ManaSymbol::Green => &[ManaColor::Green],
-            ManaSymbol::Colorless | ManaSymbol::Snow => &[ManaColor::Colorless],
-            ManaSymbol::Phyrexian(c) | ManaSymbol::TwoOrColor(c) => &[ManaColor::from_color(c)],
-            ManaSymbol::Hybrid(p) | ManaSymbol::HybridPhyrexian(p) => &[
-                ManaColor::from_color(p.first()),
-                ManaColor::from_color(p.second()),
-            ],
-            ManaSymbol::Generic(n) => {
-                generic_needed += n;
-                continue;
-            }
-            ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => {
-                continue;
-            }
-        };
-        for &color in wanted {
-            if let Some(i) = available
-                .iter()
-                .enumerate()
-                .position(|(j, c)| !used[j] && *c == color)
-            {
-                used[i] = true;
-                continue 'symbols;
-            }
-        }
-        // Phyrexian/two-or-color/hybrid can fall back to generic amounts.
-        match symbol {
-            ManaSymbol::TwoOrColor(_) => generic_needed += 2,
-            _ => return false,
-        }
-    }
-    let remaining = used.iter().filter(|u| !**u).count() as u32;
-    remaining >= generic_needed
+    payment(pool, cost).is_some()
 }
 
-/// Pays `cost` from `pool` if possible (auto-payment).
-///
-/// Returns `true` and mutates the pool on success; leaves the pool
-/// untouched and returns `false` on failure.
+/// Mycosynth Lattice: mana may be spent as though it were any color.
 #[must_use]
-/// Mycosynth Lattice: every mana spends as any color — the whole cost
-/// reduces to its cmc against the pool total.
 pub fn can_pay_wild(pool: &ManaPool, cost: &ManaCost) -> bool {
-    pool.total() >= cost.cmc()
+    payment(pool, &wild_cost(cost)).is_some()
 }
 
-/// Pays a cost in wild mode (any mana for any symbol).
+/// Pays a cost in wild mode; a failed payment leaves the pool unchanged.
 pub fn pay_wild(pool: &mut ManaPool, cost: &ManaCost) -> bool {
-    if !can_pay_wild(pool, cost) {
-        return false;
-    }
-    let mut remaining = cost.cmc();
-    for color in baylee_core::mana::ManaColor::ALL {
-        if remaining == 0 {
-            break;
-        }
-        let have = pool.available(color);
-        let take = have.min(remaining as u16);
-        if take > 0 {
-            pool.spend(color, take);
-            remaining -= u32::from(take);
-        }
-    }
-    remaining == 0
+    pay(pool, &wild_cost(cost))
 }
 
-/// Pays a cost from the pool (exact colors first, flexible last).
+fn wild_cost(cost: &ManaCost) -> ManaCost {
+    let mut result = ManaCost::ZERO;
+    for symbol in cost.symbols() {
+        result = result.combine(&ManaCost::from_symbol(if symbol == ManaSymbol::Snow {
+            symbol
+        } else {
+            ManaSymbol::Generic(symbol.cmc_contribution())
+        }));
+    }
+    result
+}
+
+/// Pays `cost` exactly; leaves the pool untouched on failure (#172).
 pub fn pay(pool: &mut ManaPool, cost: &ManaCost) -> bool {
-    if !can_pay(pool, cost) {
+    let Some(paid) = payment(pool, cost) else {
         return false;
-    }
-    // Colored symbols first, then hybrid, generic last — the flexible mana
-    // is spent where it is actually needed.
-    let mut symbols: Vec<ManaSymbol> = cost.symbols().collect();
-    symbols.sort_by_key(|s| match s {
-        ManaSymbol::White
-        | ManaSymbol::Blue
-        | ManaSymbol::Black
-        | ManaSymbol::Red
-        | ManaSymbol::Green
-        | ManaSymbol::Colorless
-        | ManaSymbol::Snow => 0,
-        ManaSymbol::Hybrid(_) | ManaSymbol::TwoOrColor(_) | ManaSymbol::Phyrexian(_) => 1,
-        _ => 2,
-    });
-    for symbol in symbols {
-        match symbol {
-            ManaSymbol::White
-            | ManaSymbol::Blue
-            | ManaSymbol::Black
-            | ManaSymbol::Red
-            | ManaSymbol::Green => {
-                let color = match symbol {
-                    ManaSymbol::White => ManaColor::White,
-                    ManaSymbol::Blue => ManaColor::Blue,
-                    ManaSymbol::Black => ManaColor::Black,
-                    ManaSymbol::Red => ManaColor::Red,
-                    ManaSymbol::Green => ManaColor::Green,
-                    _ => unreachable!(),
-                };
-                if !pool.spend(color, 1) {
-                    return false;
-                }
-            }
-            ManaSymbol::Colorless | ManaSymbol::Snow => {
-                if !pool.spend(ManaColor::Colorless, 1) {
-                    return false;
-                }
-            }
-            ManaSymbol::Phyrexian(c) | ManaSymbol::TwoOrColor(c) => {
-                let color = ManaColor::from_color(c);
-                if !pool.spend(color, 1) {
-                    let fallback: &[ManaColor] = match symbol {
-                        ManaSymbol::TwoOrColor(_) => &ManaColor::ALL,
-                        _ => &[],
-                    };
-                    if fallback.is_empty() || !pay_any(pool, fallback, 2) {
-                        return false;
-                    }
-                }
-            }
-            ManaSymbol::Hybrid(p) | ManaSymbol::HybridPhyrexian(p) => {
-                let first = ManaColor::from_color(p.first());
-                let second = ManaColor::from_color(p.second());
-                if !pool.spend(first, 1) && !pool.spend(second, 1) {
-                    return false;
-                }
-            }
-            ManaSymbol::Generic(n) => {
-                if !pay_any(pool, &ManaColor::ALL, n) {
-                    return false;
-                }
-            }
-            ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => {}
-        }
-    }
+    };
+    *pool = paid;
     true
 }
 
-fn pay_any(pool: &mut ManaPool, colors: &[ManaColor], n: u32) -> bool {
-    let mut remaining = n;
-    for &color in colors {
-        while remaining > 0 && pool.spend(color, 1) {
-            remaining -= 1;
+fn payment(pool: &ManaPool, cost: &ManaCost) -> Option<ManaPool> {
+    let mut symbols: Vec<_> = cost.symbols().collect();
+    symbols.sort_by_key(|s| match s {
+        ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => 1,
+        ManaSymbol::Generic(_) => 2,
+        _ => 0,
+    });
+    assign(pool.clone(), &symbols, 0)
+}
+
+/// Reserve constrained symbols first, backtracking on flexible choices.
+/// Generic fallback is deferred so it cannot consume a later symbol's color.
+fn assign(mut pool: ManaPool, symbols: &[ManaSymbol], generic: u32) -> Option<ManaPool> {
+    let Some((symbol, rest)) = symbols.split_first() else {
+        return pay_any(&mut pool, generic).then_some(pool);
+    };
+    let colors: &[ManaColor] = match *symbol {
+        ManaSymbol::White => &[ManaColor::White],
+        ManaSymbol::Blue => &[ManaColor::Blue],
+        ManaSymbol::Black => &[ManaColor::Black],
+        ManaSymbol::Red => &[ManaColor::Red],
+        ManaSymbol::Green => &[ManaColor::Green],
+        ManaSymbol::Colorless => &[ManaColor::Colorless],
+        ManaSymbol::Snow => {
+            for color in ManaColor::ALL {
+                let mut trial = pool.clone();
+                if trial.spend_snow(color)
+                    && let Some(paid) = assign(trial, rest, generic)
+                {
+                    return Some(paid);
+                }
+            }
+            return None;
         }
+        ManaSymbol::Phyrexian(c) | ManaSymbol::TwoOrColor(c) => &[ManaColor::from_color(c)],
+        ManaSymbol::Hybrid(p) | ManaSymbol::HybridPhyrexian(p) => &[
+            ManaColor::from_color(p.first()),
+            ManaColor::from_color(p.second()),
+        ],
+        ManaSymbol::Generic(n) => return assign(pool, rest, generic.saturating_add(n)),
+        ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => {
+            return assign(pool, rest, generic);
+        }
+    };
+    for &color in colors {
+        let mut trial = pool.clone();
+        if trial.spend(color, 1)
+            && let Some(paid) = assign(trial, rest, generic)
+        {
+            return Some(paid);
+        }
+    }
+    if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
+        return assign(pool, rest, generic.saturating_add(2));
+    }
+    None
+}
+
+fn pay_any(pool: &mut ManaPool, n: u32) -> bool {
+    let mut remaining = n;
+    for color in ManaColor::ALL {
+        let take = pool
+            .available(color)
+            .min(u16::try_from(remaining).unwrap_or(u16::MAX));
+        pool.spend(color, take);
+        remaining -= u32::from(take);
     }
     remaining == 0
 }
@@ -187,6 +117,71 @@ fn pay_any(pool: &mut ManaPool, colors: &[ManaColor], n: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn issue_158_snow_is_provenance_not_color() {
+        for color in ManaColor::ALL {
+            let mut ordinary = pool_of(&[(color, 1)]);
+            let before = ordinary.clone();
+            assert!(!pay(&mut ordinary, &baylee_core::mana!("{S}")));
+            assert!(!pay_wild(&mut ordinary, &baylee_core::mana!("{S}")));
+            assert_eq!(ordinary, before);
+            let mut snow = ManaPool::new();
+            snow.add_snow(color, 1);
+            assert!(pay(&mut snow, &baylee_core::mana!("{S}")));
+            assert!(snow.is_empty());
+        }
+        let mut mixed = pool_of(&[(ManaColor::Blue, 1)]);
+        mixed.add_snow(ManaColor::Blue, 1);
+        assert!(pay(&mut mixed, &baylee_core::mana!("{U}{S}")));
+        assert!(mixed.is_empty());
+    }
+
+    #[test]
+    fn issue_172_hybrid_assignment_backtracks() {
+        let mut pool = pool_of(&[(ManaColor::White, 1), (ManaColor::Blue, 1)]);
+        let cost = baylee_core::mana!("{W/U}{W/B}");
+        assert!(can_pay(&pool, &cost));
+        assert!(pay(&mut pool, &cost));
+        assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn issue_172_two_or_reserves_later_colors() {
+        let mut pool = pool_of(&[(ManaColor::Blue, 1), (ManaColor::Black, 2)]);
+        let cost = baylee_core::mana!("{2/W}{2/U}");
+        assert!(pay(&mut pool, &cost));
+        assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn issue_172_probe_and_payment_agree_and_failure_is_atomic() {
+        let costs = [
+            baylee_core::mana!("{W/U}{W/B}"),
+            baylee_core::mana!("{2/W}{2/U}"),
+            baylee_core::mana!("{1}{W/U}{B}"),
+            baylee_core::mana!("{W/U/P}{W/B}"),
+        ];
+        for white in 0..=3 {
+            for blue in 0..=3 {
+                for black in 0..=3 {
+                    let before = pool_of(&[
+                        (ManaColor::White, white),
+                        (ManaColor::Blue, blue),
+                        (ManaColor::Black, black),
+                    ]);
+                    for cost in &costs {
+                        let mut pool = before.clone();
+                        let possible = can_pay(&pool, cost);
+                        assert_eq!(pay(&mut pool, cost), possible);
+                        if !possible {
+                            assert_eq!(pool, before);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn pays_simple_costs() {
@@ -400,43 +395,5 @@ mod tests {
         assert!(!can_pay_wild(&pool, &cost));
         assert!(!pay_wild(&mut pool, &cost));
         assert_eq!(pool.total(), 2, "a refused wild payment spends nothing");
-    }
-
-    // ---- Pinned: the two defects on #172. ----
-    //
-    // These assert what the code does *today*, which is wrong, so that the
-    // commit repairing it has to come here and delete them. A limitation
-    // recorded only in prose has no test that goes red when it stops being
-    // true, and that is how it survives. **Breaking these is the success.**
-
-    #[test]
-    fn pinned_172_a_payable_pair_of_hybrids_is_refused() {
-        // `{W/U}` is canonically first, wants white first, and takes the
-        // only W; `{W/B}` then finds neither of its colours and the greedy
-        // walk has no way back. U pays `{W/U}` and W pays `{W/B}`.
-        let pool = pool_of(&[(ManaColor::White, 1), (ManaColor::Blue, 1)]);
-        let cost = baylee_core::mana!("{W/U}{W/B}");
-        assert!(
-            !can_pay(&pool, &cost),
-            "#172 is fixed: delete this pin and assert the payment instead"
-        );
-    }
-
-    #[test]
-    fn pinned_172_a_failed_payment_can_leave_the_pool_spent() {
-        // `can_pay` reserves two generic for `{2/W}` and pays `{2/U}` with
-        // the U; `pay` instead spends the U inside `{2/W}`'s fallback and
-        // then cannot pay `{2/U}` at all. `pay_any` subtracts as it goes
-        // and has no rollback, so the refusal costs the player the pool.
-        let mut pool = pool_of(&[(ManaColor::Blue, 1), (ManaColor::Black, 2)]);
-        let cost = baylee_core::mana!("{2/W}{2/U}");
-        assert!(can_pay(&pool, &cost), "the probe says yes");
-        assert!(!pay(&mut pool, &cost), "and the payment says no");
-        assert_eq!(
-            pool.total(),
-            0,
-            "#172 is fixed: the pool is intact (or the payment succeeded) \
-             — delete this pin"
-        );
     }
 }

@@ -295,13 +295,19 @@ pub fn applies_to(
 ) -> bool {
     match &fx.filter {
         EffectFilter::ObjectIs(..) => fx.filter.names(obj),
-        EffectFilter::Dsl(filter) => crate::eval::matches(
-            filter,
-            state,
-            obj,
-            fx.controller,
-            fx.source.unwrap_or(obj.id),
-        ),
+        EffectFilter::Dsl(filter) => {
+            (matches!(
+                obj.zone,
+                crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
+            ) || crate::state::filter_reaches_other_zones(filter))
+                && crate::eval::matches(
+                    filter,
+                    state,
+                    obj,
+                    fx.controller,
+                    fx.source.unwrap_or(obj.id),
+                )
+        }
     }
 }
 
@@ -391,6 +397,132 @@ mod tests {
             duration: Duration::UntilEndOfTurn,
             filter,
             modifier,
+        }
+    }
+
+    #[test]
+    fn issue_38_an_unrelated_cross_zone_effect_does_not_spread_hexproof() {
+        let mut state = state();
+        let source = permanent(&mut state, "source");
+        let library = state.zones.list(ZoneLocation::Library(me()))[0];
+        let broad = effect(
+            source,
+            EffectFilter::Dsl(&Filter::Any),
+            Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HEXPROOF),
+        );
+        assert!(applies_to(&state, &broad, state.object(source).unwrap()));
+        assert!(!applies_to(&state, &broad, state.object(library).unwrap()));
+        let explicit = effect(
+            source,
+            EffectFilter::Dsl(&Filter::InZone(baylee_cards_dsl::ZoneRef::NotBattlefield)),
+            Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HEXPROOF),
+        );
+        state.effects.register(broad.clone());
+        state.effects.register(explicit.clone());
+        state.refresh_characteristics();
+        assert!(applies_to(
+            &state,
+            &explicit,
+            state.object(library).unwrap()
+        ));
+        assert!(!applies_to(&state, &broad, state.object(library).unwrap()));
+    }
+
+    #[test]
+    fn issue_122_effect_target_identity_changes_the_snapshot() {
+        let mut a = state();
+        let source = permanent(&mut a, "source");
+        let other = permanent(&mut a, "other");
+        let mut b = a.clone();
+        a.effects.register(effect(
+            source,
+            EffectFilter::ObjectIs(source, 0),
+            Modifier::ModifyPT(1, 1),
+        ));
+        b.effects.register(effect(
+            source,
+            EffectFilter::ObjectIs(other, 0),
+            Modifier::ModifyPT(1, 1),
+        ));
+        assert_ne!(a.snapshot_hash(), b.snapshot_hash());
+        assert_eq!(a.snapshot_hash(), a.clone().snapshot_hash());
+        let mut c = state();
+        let source = permanent(&mut c, "source");
+        let mut d = c.clone();
+        c.effects.register(effect(
+            source,
+            EffectFilter::ObjectIs(source, 0),
+            Modifier::ModifyPT(1, 1),
+        ));
+        d.effects.register(effect(
+            source,
+            EffectFilter::ObjectIs(source, 1),
+            Modifier::ModifyPT(1, 1),
+        ));
+        assert_ne!(c.snapshot_hash(), d.snapshot_hash());
+    }
+
+    #[test]
+    fn issue_122_granted_costs_are_part_of_effect_identity() {
+        let mut a = state();
+        let source = permanent(&mut a, "source");
+        let mut b = a.clone();
+        a.effects.register(effect(
+            source,
+            EffectFilter::Dsl(&Filter::Any),
+            Modifier::GrantActivated {
+                cost: baylee_cards_dsl::Cost::TAP,
+                effects: &[],
+                mana_ability: false,
+            },
+        ));
+        b.effects.register(effect(
+            source,
+            EffectFilter::Dsl(&Filter::Any),
+            Modifier::GrantActivated {
+                cost: baylee_cards_dsl::Cost::FREE,
+                effects: &[],
+                mana_ability: false,
+            },
+        ));
+        assert_ne!(a.snapshot_hash(), b.snapshot_hash());
+    }
+
+    #[test]
+    fn issue_118_flashback_exiles_any_stack_departure() {
+        for destination in [
+            ZoneLocation::Graveyard(me()),
+            ZoneLocation::Hand(me()),
+            ZoneLocation::Library(me()),
+        ] {
+            for flashback in [false, true] {
+                let mut state = state();
+                let name = state.names.intern("spell");
+                let spell = state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
+                if flashback {
+                    state
+                        .object_mut(spell)
+                        .unwrap()
+                        .riders
+                        .push(crate::object::Rider::Flashback);
+                }
+                state
+                    .move_object(
+                        spell,
+                        destination,
+                        ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    )
+                    .unwrap();
+                assert_eq!(
+                    state.object(spell).unwrap().zone,
+                    if flashback {
+                        crate::zone::Zone::Exile
+                    } else {
+                        destination.zone()
+                    }
+                );
+            }
         }
     }
 

@@ -378,7 +378,11 @@ pub(crate) fn spendable_pool(
             continue;
         };
         if crate::eval::matches(filter, state, spell, player, source) {
-            probe.add(mana.color, mana.amount);
+            if mana.flags.contains(baylee_core::mana::ManaFlags::SNOW) {
+                probe.add_snow(mana.color, mana.amount);
+            } else {
+                probe.add(mana.color, mana.amount);
+            }
         }
     }
     Some(probe)
@@ -1059,7 +1063,18 @@ pub fn activate_mana(
         object: source,
         cause: Cause::Cost,
     });
-    state.players[player.get() as usize].mana_pool.add(color, 1);
+    let snow = state.object(source).is_some_and(|o| {
+        o.characteristics()
+            .supertypes
+            .contains(baylee_core::types::SupertypeSet::SNOW)
+    });
+    if snow {
+        state.players[player.get() as usize]
+            .mana_pool
+            .add_snow(color, 1);
+    } else {
+        state.players[player.get() as usize].mana_pool.add(color, 1);
+    }
     state.journal.record(GameEvent::ManaProduced {
         player,
         color,

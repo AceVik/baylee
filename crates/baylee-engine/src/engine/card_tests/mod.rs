@@ -865,13 +865,25 @@ fn settle_aiming_at(engine: &mut Engine<RegistryLookup>, face: PlayerId) -> bool
                     )
                     .expect("a face is a legal target for `any target`");
             }
+            Pending::Priority { .. } if stack_is_empty(engine) => return asked,
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            _ => break,
+            other => panic!("settle_aiming_at met an unexpected question: {other:?}"),
         }
     }
-    asked
+    panic!("settle_aiming_at did not reach quiet priority within forty actions")
+}
+
+#[test]
+fn issue_173_settling_at_quiet_priority_does_not_pass_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(173, forest()).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let before = engine.snapshot_hash();
+    assert!(!settle_aiming_at(&mut engine, p0));
+    assert_eq!(engine.snapshot_hash(), before);
 }
 
 fn myr_retriever() -> CardIndex {

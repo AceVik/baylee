@@ -612,6 +612,9 @@ pub struct RestrictedMana {
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub struct ManaPool {
     plain: [u16; 6],
+    /// Subset of plain mana produced by snow sources (#158).
+    #[serde(default)]
+    snow: [u16; 6],
     restricted: Vec<RestrictedMana>,
 }
 
@@ -625,6 +628,29 @@ impl ManaPool {
     /// Adds plain mana.
     pub fn add(&mut self, color: ManaColor, amount: u16) {
         self.plain[color.index()] = self.plain[color.index()].saturating_add(amount);
+    }
+
+    /// Adds unrestricted mana produced by a snow source.
+    pub fn add_snow(&mut self, color: ManaColor, amount: u16) {
+        let added = amount.min(u16::MAX - self.available(color));
+        self.add(color, added);
+        self.snow[color.index()] += added;
+    }
+
+    /// Snow-produced mana of this color, already included in `available`.
+    #[must_use]
+    pub fn snow_available(&self, color: ManaColor) -> u16 {
+        self.snow[color.index()]
+    }
+
+    /// Spends one mana specifically from a snow source.
+    pub fn spend_snow(&mut self, color: ManaColor) -> bool {
+        if self.snow[color.index()] == 0 {
+            return false;
+        }
+        self.snow[color.index()] -= 1;
+        self.plain[color.index()] -= 1;
+        true
     }
 
     /// Adds restricted mana (riders preserved).
@@ -643,6 +669,8 @@ impl ManaPool {
         let slot = &mut self.plain[color.index()];
         if *slot >= amount {
             *slot -= amount;
+            // Preserve snow mana when ordinary mana can cover the payment.
+            self.snow[color.index()] = self.snow[color.index()].min(*slot);
             true
         } else {
             false
@@ -689,6 +717,7 @@ impl ManaPool {
     /// (CR 106.4 — called as steps and phases end).
     pub fn empty_at_step_end(&mut self) {
         self.plain = [0; 6];
+        self.snow = [0; 6];
         self.restricted
             .retain(|r| r.flags.contains(ManaFlags::NO_EMPTY));
     }
@@ -729,6 +758,23 @@ impl ManaCost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn snow_mana_is_a_subset_preserved_until_needed_and_cleared_at_step_end() {
+        let mut pool = ManaPool::new();
+        pool.add(ManaColor::Green, 1);
+        pool.add_snow(ManaColor::Green, 2);
+        assert!(pool.spend(ManaColor::Green, 1));
+        assert_eq!(pool.snow_available(ManaColor::Green), 2);
+        assert!(pool.spend_snow(ManaColor::Green));
+        assert_eq!(pool.available(ManaColor::Green), 1);
+        assert!(pool.spend(ManaColor::Green, 1));
+        assert!(!pool.spend_snow(ManaColor::Green));
+        pool.add_snow(ManaColor::Blue, 1);
+        pool.empty_at_step_end();
+        assert!(pool.is_empty());
+        assert!(!pool.spend_snow(ManaColor::Blue));
+    }
 
     #[test]
     fn parses_simple_costs() {

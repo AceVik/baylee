@@ -558,6 +558,9 @@ pub struct GameState {
     /// working list each time is a per-effect malloc for the whole game.
     /// Always left empty, which keeps it free to clone.
     projection_ids: Vec<ObjectId>,
+    /// Whether the preceding refresh touched off-board objects. Cache-only:
+    /// the first refresh after a cross-zone effect ends must clear them too.
+    projected_cross_zone: bool,
     /// Objects that may have become a token outside the battlefield
     /// (CR 704.5d), queued for the next state-based-action pass.
     ///
@@ -693,6 +696,7 @@ impl GameState {
             characteristics_generation: u64::MAX,
             effect_generation: 0,
             projection_ids: Vec::new(),
+            projected_cross_zone: false,
             token_cleanup: Vec::new(),
         };
         state.journal.record(GameEvent::GameStarted {
@@ -1127,7 +1131,9 @@ impl GameState {
         // after every single effect-set change — allocates nothing.
         let mut ids = std::mem::take(&mut self.projection_ids);
         ids.clear();
-        if cross_zone {
+        // Cached off-board projections must be revisited after the last
+        // cross-zone effect disappears (#120).
+        if cross_zone || self.projected_cross_zone {
             ids.extend(self.arena.iter().map(|(id, _)| id));
         } else {
             // The stack contributes only its *spells*. An ability on the
@@ -1178,6 +1184,7 @@ impl GameState {
         }
         ids.clear();
         self.projection_ids = ids;
+        self.projected_cross_zone = cross_zone;
         self.characteristics_generation = generation;
     }
 
@@ -1290,6 +1297,18 @@ impl GameState {
         self.arena.get_mut(id)
     }
 
+    fn flashback_destination(&self, id: ObjectId, from: Zone, to: ZoneLocation) -> ZoneLocation {
+        if from == Zone::Stack
+            && to.zone() != Zone::Stack
+            && let Some(obj) = self.object(id)
+            && obj.riders.contains(&crate::object::Rider::Flashback)
+        {
+            ZoneLocation::Exile(obj.owner)
+        } else {
+            to
+        }
+    }
+
     /// Moves an object between zones (CR 400.7: `version` bumps — it
     /// becomes a new object for rules that track identity).
     ///
@@ -1313,6 +1332,7 @@ impl GameState {
         // applied: the card must never reach the hand or the library it was
         // headed for. The answer was taken before the effect ran; all that
         // is left is to spend it.
+        let to = self.flashback_destination(id, from_zone, to);
         let to = self.take_commander_redirect(id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
         self.zones.remove(id, from_loc);
@@ -1609,14 +1629,7 @@ impl GameState {
         h.u64(self.timestamp);
         h.u64(self.effect_generation);
         h.u64(self.characteristics_generation);
-        for fx in self.effects.iter() {
-            h.u32(fx.source.map_or(u32::MAX, baylee_core::ids::ObjectId::slot));
-            h.u8(fx.controller.get());
-            h.u8(fx.layer as u8);
-            h.u64(fx.timestamp);
-            h.u8(fx.duration as u8);
-            hash_modifier(&mut h, &fx.modifier);
-        }
+        self.hash_effects(&mut h);
         h.u32(self.turn.number);
         h.u8(self.turn.active.get());
         h.u8(self.turn.phase as u8);
@@ -1638,6 +1651,7 @@ impl GameState {
             h.boolean(p.has_lost);
             for color in ManaColor::ALL {
                 h.u16(p.mana_pool.available(color));
+                h.u16(p.mana_pool.snow_available(color));
             }
             h.usize(p.mana_pool.restricted().len());
             for r in p.mana_pool.restricted() {
@@ -1723,6 +1737,31 @@ impl GameState {
         h.finish()
     }
 
+    fn hash_effects(&self, h: &mut Hasher) {
+        for fx in self.effects.iter() {
+            h.u32(fx.id.get());
+            h.u32(fx.source.map_or(u32::MAX, baylee_core::ids::ObjectId::slot));
+            h.u8(fx.source.map_or(0, baylee_core::ids::ObjectId::generation));
+            match fx.filter {
+                crate::effects::EffectFilter::Dsl(filter) => {
+                    h.u8(0);
+                    filter_hash(h, filter);
+                }
+                crate::effects::EffectFilter::ObjectIs(id, version) => {
+                    h.u8(1);
+                    h.u32(id.slot());
+                    h.u8(id.generation());
+                    h.u32(version);
+                }
+            }
+            h.u8(fx.controller.get());
+            h.u8(fx.layer as u8);
+            h.u64(fx.timestamp);
+            h.u8(fx.duration as u8);
+            hash_modifier(h, &fx.modifier);
+        }
+    }
+
     /// A hash of the *rules-visible situation*, blind to object identity and
     /// to time.
     ///
@@ -1788,6 +1827,7 @@ impl GameState {
             h.boolean(p.has_lost);
             for color in ManaColor::ALL {
                 h.u16(p.mana_pool.available(color));
+                h.u16(p.mana_pool.snow_available(color));
             }
             // The commander tax belongs here even though nothing else that
             // only grows does. It is rules-visible — a player can see what
@@ -1893,6 +1933,53 @@ impl GameState {
 
 struct Hasher {
     inner: Xxh3,
+}
+
+// Fixed byte order and word width keep structural DSL hashing deterministic
+// across native and wasm builds. References hash their contents, never addresses.
+impl std::hash::Hasher for Hasher {
+    fn finish(&self) -> u64 {
+        self.inner.digest()
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        self.inner.update(bytes);
+    }
+    fn write_u8(&mut self, value: u8) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_u16(&mut self, value: u16) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_u32(&mut self, value: u32) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_u64(&mut self, value: u64) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_u128(&mut self, value: u128) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_i8(&mut self, value: i8) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_i16(&mut self, value: i16) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_i32(&mut self, value: i32) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_i64(&mut self, value: i64) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_i128(&mut self, value: i128) {
+        self.inner.update(&value.to_le_bytes());
+    }
+    fn write_usize(&mut self, value: usize) {
+        self.inner.update(&(value as u64).to_le_bytes());
+    }
+    fn write_isize(&mut self, value: isize) {
+        self.inner.update(&(value as i64).to_le_bytes());
+    }
 }
 
 impl Hasher {
@@ -2203,101 +2290,10 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
     }
 }
 
-fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
-    use baylee_cards_dsl::Modifier as M;
-    match m {
-        M::AddType(t) => {
-            h.u8(1);
-            h.u16(t.bits());
-        }
-        M::RemoveType(t) => {
-            h.u8(2);
-            h.u16(t.bits());
-        }
-        M::AddSubtype(s) => {
-            h.u8(3);
-            h.u16(s.get());
-        }
-        M::AllCreatureTypes => h.u8(4),
-        M::AllBasicLandTypes => h.u8(13),
-        M::AddColor(c) => {
-            h.u8(5);
-            h.u8(c.bits());
-        }
-        M::SetColor(c) => {
-            h.u8(6);
-            h.u8(c.bits());
-        }
-        M::AddKeyword(k) => {
-            h.u8(7);
-            h.u128(k.bits());
-        }
-        M::RemoveKeyword(k) => {
-            h.u8(8);
-            h.u128(k.bits());
-        }
-        M::LoseKeywords => h.u8(9),
-        M::LegendRuleOff => h.u8(14),
-        M::CantActivateArtifacts => h.u8(15),
-        M::OpponentsCastAsSorcery => h.u8(16),
-        M::PlayersCantLose => h.u8(17),
-        M::CantLoseLife => h.u8(18),
-        M::PreventDamageToIt => h.u8(19),
-        M::PreventDamageFromIt => h.u8(20),
-        M::OpponentsCantSearch => h.u8(21),
-        M::NoMaxHandSize => h.u8(22),
-        M::ProtectionFrom(f) => {
-            h.u8(23);
-            filter_hash(h, f);
-        }
-        M::BecomeCopyOf(id) => {
-            h.u8(24);
-            h.u32(id.slot());
-        }
-        M::GrantsFlashback => h.u8(25),
-        M::PlayerHexproof => h.u8(26),
-        M::GainControl => h.u8(35),
-        M::SorceriesHaveFlash => h.u8(29),
-        M::GrantTriggered { .. } => h.u8(30),
-        M::ManaIsAnyColor => h.u8(31),
-        M::SearchTakeover => h.u8(34),
-        M::DoesNotUntap => h.u8(36),
-        M::MayChooseNotToUntap => h.u8(37),
-        M::PlayLandsFromGraveyard => h.u8(38),
-        M::ExtraLandDrops(n) => {
-            h.u8(39);
-            h.u8(*n);
-        }
-        M::AddTypeIfCountersAtLeast { at_least, .. } => {
-            h.u8(32);
-            h.u8(*at_least);
-        }
-        M::AddKeywordIfCountersAtLeast { at_least, .. } => {
-            h.u8(33);
-            h.u8(*at_least);
-        }
-        M::GrantActivated { mana_ability, .. } => {
-            h.u8(27);
-            h.u8(u8::from(*mana_ability));
-        }
-        M::ModifyPTPerCount { filter, p, t } => {
-            h.u8(28);
-            filter_hash(h, filter);
-            h.i16(*p);
-            h.i16(*t);
-        }
-        M::ModifyPT(p, t) => {
-            h.u8(10);
-            h.i16(*p);
-            h.i16(*t);
-        }
-        M::SetPT(p, t) => {
-            h.u8(11);
-            h.i16(*p);
-            h.i16(*t);
-        }
-        M::SwitchPT => h.u8(12),
-    }
+fn hash_modifier(h: &mut Hasher, modifier: &baylee_cards_dsl::Modifier) {
+    // Derived Hash walks every modifier payload, including granted costs,
+    // effects, triggers and counter kinds which the old tag table omitted.
+    std::hash::Hash::hash(modifier, h);
 }
 
 /// Writes a counter kind into a hash.

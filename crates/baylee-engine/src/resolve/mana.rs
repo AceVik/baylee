@@ -87,6 +87,11 @@ pub(super) fn add(
     restriction: Option<ManaRestriction>,
 ) {
     let you = res.controller;
+    let snow = state.object(res.source).is_some_and(|o| {
+        o.characteristics()
+            .supertypes
+            .contains(baylee_core::types::SupertypeSet::SNOW)
+    });
     if let Some(ManaRestriction { filter, rider }) = restriction {
         let id = state.next_restriction_id;
         state.next_restriction_id += 1;
@@ -97,10 +102,18 @@ pub(super) fn add(
             baylee_core::mana::RestrictedMana {
                 color,
                 amount,
-                flags: baylee_core::mana::ManaFlags::default(),
+                flags: if snow {
+                    baylee_core::mana::ManaFlags::SNOW
+                } else {
+                    baylee_core::mana::ManaFlags::default()
+                },
                 restriction: baylee_core::mana::RestrictionId(id),
             },
         );
+    } else if snow {
+        state.players[you.get() as usize]
+            .mana_pool
+            .add_snow(color, amount);
     } else {
         state.players[you.get() as usize]
             .mana_pool

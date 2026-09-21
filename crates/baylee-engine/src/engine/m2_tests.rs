@@ -468,6 +468,42 @@ fn nexus_makes_library_cards_allies() {
         chup,
     );
     assert!(matches_ally);
+    let nexus_object = engine
+        .state
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state
+                .object(*id)
+                .unwrap()
+                .card
+                .is_some_and(|c| c.index.get() == nexus)
+        })
+        .unwrap();
+    engine
+        .state
+        .move_object(
+            nexus_object,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    engine.sync_static_effects();
+    engine.state.refresh_characteristics();
+    assert!(
+        !engine
+            .state
+            .object(chup)
+            .unwrap()
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ALLY),
+        "#120: library projection expires with Nexus"
+    );
 }
 
 #[test]

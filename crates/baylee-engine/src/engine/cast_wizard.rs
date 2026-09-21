@@ -1005,7 +1005,13 @@ impl<L: CardLookup> Engine<L> {
             // Flashback (CR 702.34): a spell cast from the graveyard via a
             // grant is exiled instead of hitting the graveyard again.
             if obj.zone == crate::zone::Zone::Graveyard {
-                obj.riders.push(crate::object::Rider::Flashback);
+                // Permanent permissions (for example Emry) are not flashback.
+                if obj.characteristics().types.intersects(
+                    baylee_core::types::TypeSet::INSTANT
+                        .union(baylee_core::types::TypeSet::SORCERY),
+                ) {
+                    obj.riders.push(crate::object::Rider::Flashback);
+                }
                 obj.cast_from_hand = false;
             }
             obj.mode_index = match wizard.option {

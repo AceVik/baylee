@@ -12710,22 +12710,22 @@ fn mortuary_mire_enters_tapped_and_puts_creature_on_top_of_library() {
 /// the whole cost and sacrificing the land deals 4 damage to a target
 /// creature, and 4 damage destroys a 1/1 through state-based actions.
 ///
-/// The second Mouth is the `{S}`, and it is there because of a defect rather
-/// than because the card wants it: `mana_pay` reads `ManaSymbol::Snow` as
-/// `ManaColor::Colorless` (#158), so the symbol is paid here by a colorless
-/// source that happens to be snow, and not by a snow source. Four Forests pay
-/// the `{4}`. When #158 lands this test keeps passing and stops being a
-/// statement about colorless mana; the Forests are the ones to make snow then.
+/// A Snow-Covered Forest provides green mana for `{S}`, while four ordinary
+/// Forests pay `{4}`. Colorless mana is neither required nor sufficient.
+/// `mana_pay::tests::issue_158_snow_is_provenance_not_color` also covers
+/// colored snow mana and rejects ordinary colorless mana.
 #[test]
 fn mouth_of_ronom_sacrifices_to_deal_damage_to_creature() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
+    let snow_forest =
+        baylee_cards::decks::by_name("Snow-Covered Forest").expect("snow land in pool");
     let mut engine = Duel::new(132, forest())
         .battlefield(
             0,
             &[
                 mouth_of_ronom(),
-                mouth_of_ronom(),
+                snow_forest,
                 forest(),
                 forest(),
                 forest(),
@@ -12737,18 +12737,18 @@ fn mouth_of_ronom_sacrifices_to_deal_damage_to_creature() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let mouths = all_on_battlefield(&engine, p0, mouth_of_ronom());
-    assert_eq!(mouths.len(), 2, "one Mouth to sacrifice and one to tap");
-    let (mouth, spare) = (mouths[0], mouths[1]);
+    let mouth = on_battlefield(&engine, p0, mouth_of_ronom()).expect("Mouth");
+    let spare = on_battlefield(&engine, p0, snow_forest).expect("snow source");
     let elf = on_battlefield(&engine, p1, quiet_creature()).expect("elf deployed");
 
-    // The four Forests and the spare Mouth, which `tap_mana_except` reaches
-    // now that it reads both lists: a nonbasic printing its own `{T}: Add
-    // {C}` is an ordinary `(source, index)` entry in `legal.abilities`
-    // (#159). The Mouth under test is the one kept back.
+    // Colored snow mana must pay {S}; ordinary green mana pays only {4}.
+    // This fails when snow is incorrectly treated as colorless (#158).
     let taken = tap_mana_except(&mut engine, p0, mouth);
-    assert_eq!(taken, 5, "four Forests and the spare Mouth");
-    assert!(is_tapped(&engine, spare), "the spare Mouth paid for itself");
+    assert_eq!(taken, 5, "four Forests and a Snow-Covered Forest");
+    assert!(
+        is_tapped(&engine, spare),
+        "the snow land provided green snow mana"
+    );
 
     activate(&mut engine, p0, mouth_of_ronom(), 1);
 
