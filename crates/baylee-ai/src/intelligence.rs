@@ -249,8 +249,135 @@ impl HeuristicAgent {
 
 #[cfg(test)]
 mod tests {
-    use super::sweeper;
+    use super::{DeckIntel, sweeper};
     use baylee_cards_dsl::{Amount, Effect, Filter};
+    use baylee_core::ids::{CardIndex, SubtypeId};
+
+    /// A card by the name it prints, which is the only handle a test should
+    /// use for one — an index would pin this test to a ledger row rather
+    /// than to a card.
+    fn card(name: &str) -> CardIndex {
+        baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("the pool has {name}"))
+    }
+
+    fn intel(cards: &[&str]) -> DeckIntel {
+        DeckIntel::new(cards.iter().copied().map(card).collect(), vec![])
+    }
+
+    /// **Every count is per card, read off the printing, and counts a card
+    /// once.**
+    ///
+    /// Royal Assassin is the case that says what `interaction` means: it
+    /// destroys a creature and is not interaction, because the sentence is an
+    /// *activated ability* and the field counts what a card does when it is
+    /// cast. An agent that read it as removal would hold it up as an answer
+    /// to a threat that is already resolving.
+    ///
+    /// Serra Angel says what `cheap_creatures` means from the other side, and
+    /// Sol Ring is a card that is counted by exactly one of these fields.
+    #[test]
+    fn a_deck_is_counted_by_what_its_cards_print() {
+        static DECK: [&str; 6] = [
+            "Lightning Bolt",
+            "Counterspell",
+            "Llanowar Elves",
+            "Serra Angel",
+            "Sol Ring",
+            "Royal Assassin",
+        ];
+        let one = intel(&DECK);
+
+        assert_eq!(
+            one.creatures, 3,
+            "Llanowar Elves, Serra Angel, Royal Assassin"
+        );
+        assert_eq!(
+            one.cheap_creatures, 2,
+            "and Serra Angel at five is not one of them"
+        );
+        assert_eq!(one.artifacts, 1, "Sol Ring, which is no creature");
+        assert_eq!(
+            one.interaction, 2,
+            "Lightning Bolt and Counterspell — Royal Assassin destroys a \
+             creature with an activated ability, which is not what a card \
+             does when it is cast"
+        );
+
+        // Duplicates are kept, so a deck twice the size counts twice. The
+        // submitted list is not deduplicated anywhere on the way in.
+        let twice = DeckIntel::new(
+            DECK.iter().chain(&DECK).copied().map(card).collect(),
+            vec![],
+        );
+        assert_eq!(
+            (
+                twice.creatures,
+                twice.cheap_creatures,
+                twice.artifacts,
+                twice.interaction
+            ),
+            (6, 4, 2, 4)
+        );
+    }
+
+    /// **A commander is analysed beside the deck and not inside it.**
+    ///
+    /// It is never in the main-deck list — a commander starts in the command
+    /// zone — so a reader that walked `cards` alone would say a Commander
+    /// deck's general is not a creature it has.
+    #[test]
+    fn a_commander_is_counted_although_it_is_in_no_deck_list() {
+        let general = DeckIntel::new(vec![], vec![card("Serra Angel")]);
+        assert_eq!(general.creatures, 1);
+        assert_eq!(general.cheap_creatures, 0, "five mana is not cheap");
+        assert!(
+            general.cards.is_empty() && general.commanders.len() == 1,
+            "and the two lists stay apart"
+        );
+    }
+
+    /// **The tribe is the commonest creature type, and a tie is broken the
+    /// same way whatever order the deck was submitted in.**
+    ///
+    /// That second half is the whole reason the tie-break exists.
+    /// `max_by_key` answers with the *last* maximum, so a rule of "the most
+    /// frequent wins" alone would make the tribe a function of deck order —
+    /// and a deck list that arrives shuffled differently would give the agent
+    /// a different plan for the same sixty cards. `Reverse(id)` makes the
+    /// lowest subtype id win a tie, which is an answer the submission order
+    /// cannot move.
+    #[test]
+    fn the_tribe_is_the_commonest_type_and_a_tie_does_not_depend_on_deck_order() {
+        use baylee_core::generated::subtypes::creature::{BIRD, DRUID, ELF};
+
+        let outright = intel(&["Birds of Paradise", "Birds of Paradise", "Llanowar Elves"]);
+        assert_eq!(outright.tribe, Some(BIRD), "two Birds against one of each");
+
+        let reversed = intel(&["Llanowar Elves", "Birds of Paradise", "Birds of Paradise"]);
+        assert_eq!(reversed.tribe, outright.tribe);
+
+        // One of each: Bird, Elf and Druid all at one. The lowest id wins,
+        // read here as the minimum rather than typed out, because which of
+        // the three it is belongs to the generated subtype table and not to
+        // this test.
+        let lowest = [BIRD, ELF, DRUID].into_iter().min().expect("three of them");
+        for deck in [
+            ["Birds of Paradise", "Llanowar Elves"],
+            ["Llanowar Elves", "Birds of Paradise"],
+        ] {
+            assert_eq!(
+                intel(&deck).tribe,
+                Some(lowest),
+                "a tie is broken by the id and never by the order"
+            );
+        }
+
+        assert_eq!(
+            intel(&["Lightning Bolt", "Sol Ring"]).tribe,
+            None::<SubtypeId>,
+            "a deck with no creature in it has no tribe"
+        );
+    }
 
     /// A scouted sweeper is what stops the agent committing a third
     /// creature, and the descent is [`Effect::branches`]' rather than a
