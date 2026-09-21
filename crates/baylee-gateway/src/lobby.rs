@@ -674,3 +674,172 @@ impl Lobby {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn deck() -> crate::store::Deck {
+        crate::store::Deck {
+            id: "deck".into(),
+            account_id: "someone".into(),
+            kind: "account".into(),
+            name: "Deck".into(),
+            format: "freeform".into(),
+            description: None,
+            origin: None,
+            version: 1,
+            cards: vec!["60 Forest".into()],
+            sideboard: vec![],
+            commanders: vec![],
+            sleeve: None,
+            playmat: None,
+            updated_at: 0,
+        }
+    }
+
+    /// A chair with everything in it, so a field this module forgets
+    /// somewhere is a field this test can see move.
+    fn occupied(seat: usize, account: &str, joined: u64) -> LobbySeat {
+        LobbySeat {
+            seat,
+            kind: SeatKind::Human,
+            ai: None,
+            account_id: Some(account.into()),
+            seat_token_hash: Some("hash".into()),
+            deck_name: "Deck".into(),
+            deck: Some(deck()),
+            said_ready: true,
+            team: Some(1),
+            joined_seq: Some(joined),
+        }
+    }
+
+    /// Four things have to be true before a chair may start a game, and the
+    /// third is the one that is not obvious: a **reserved** chair — one a
+    /// rematch room copied over, with an account and a deck but no token —
+    /// would be a game its player cannot open a socket to. A token is only
+    /// ever minted into a reply to the player it belongs to.
+    #[test]
+    fn a_reserved_chair_is_not_a_ready_one() {
+        let ready = occupied(0, "someone", 0);
+        assert!(ready.ready());
+
+        for spoil in [
+            (|s: &mut LobbySeat| s.account_id = None) as fn(&mut LobbySeat),
+            |s: &mut LobbySeat| s.deck = None,
+            |s: &mut LobbySeat| s.seat_token_hash = None,
+            |s: &mut LobbySeat| s.said_ready = false,
+        ] {
+            let mut seat = ready.clone();
+            spoil(&mut seat);
+            assert!(!seat.ready(), "a chair missing one of the four was ready");
+        }
+
+        let mut ai = LobbySeat::open(1);
+        ai.kind = SeatKind::Ai;
+        assert!(
+            ai.ready(),
+            "an AI the host gave no deck plays the house deck, so there is \
+             nothing left to wait for"
+        );
+    }
+
+    /// Standing up leaves nothing of the last occupant behind — a seat is
+    /// reset in three places and each one that forgot a field left
+    /// something. The team is the exception on purpose: it is the table's
+    /// shape, which nobody changed by standing up.
+    #[test]
+    fn vacating_a_chair_keeps_the_chair_and_the_side_and_nothing_else() {
+        let mut seat = occupied(3, "someone", 9);
+        seat.kind = SeatKind::Ai;
+        seat.vacate();
+
+        let mut expected = LobbySeat::open(3);
+        expected.team = Some(1);
+        assert_eq!(seat.seat, 3);
+        assert_eq!(seat.team, Some(1), "the side is the table's, not theirs");
+        assert_eq!(seat.account_id, None);
+        assert_eq!(seat.seat_token_hash, None);
+        assert_eq!(seat.deck_name, String::new());
+        assert!(seat.deck.is_none());
+        assert!(!seat.said_ready);
+        assert_eq!(seat.joined_seq, None);
+        assert_eq!(seat.kind, SeatKind::Human, "an emptied chair is a person's");
+        assert!(seat.ai.is_none());
+        // Field by field above, and then the whole struct: `Debug` prints
+        // every field it has, so a field added to `LobbySeat` and forgotten
+        // by `vacate` shows up here without this test being touched.
+        assert_eq!(
+            format!("{seat:?}"),
+            format!("{expected:?}"),
+            "a field vacate forgot"
+        );
+    }
+
+    /// The mirror, and the same trap: everything travels to the next table
+    /// except the two that must not. A seat token names one game for the
+    /// whole of its life, and saying ready is a statement about *this*
+    /// table that only the player pressing the button gets to make.
+    #[test]
+    fn a_chair_at_the_next_table_brings_everything_but_its_token_and_its_yes() {
+        let seat = occupied(2, "someone", 4);
+        let next = seat.again();
+
+        assert_eq!(next.seat_token_hash, None);
+        assert!(!next.said_ready);
+
+        let mut without = next.clone();
+        without.seat_token_hash = seat.seat_token_hash.clone();
+        without.said_ready = seat.said_ready;
+        assert_eq!(
+            format!("{without:?}"),
+            format!("{seat:?}"),
+            "something else was left behind, or invented"
+        );
+    }
+
+    /// Arrival order and not seat order: the chairs of a room are taken in
+    /// whatever order people pick them, so "who has been here longest" is
+    /// the only answer that does not depend on where they chose to sit. A
+    /// room this leaves with no host has nobody to arrange it.
+    #[test]
+    fn the_room_is_handed_to_whoever_has_been_here_longest() {
+        let mut room = LobbyGame::room(
+            "room".into(),
+            "host".into(),
+            "Deck".into(),
+            deck(),
+            4,
+            "Table".into(),
+            0,
+        );
+        // Seat 3 sat down before seat 1, and an AI chair is nobody.
+        room.seats[3] = occupied(3, "early", 1);
+        room.seats[1] = occupied(1, "late", 2);
+        room.seats[2].kind = SeatKind::Ai;
+
+        assert!(room.hosted_by("host"));
+        assert!(!room.hosted_by("early"));
+
+        assert!(room.hand_over_host());
+        assert!(
+            room.hosted_by("early"),
+            "the earliest arrival takes it, whichever chair they are in"
+        );
+
+        // The chair the first host was in empties; the next-earliest
+        // arrival takes it. (While they are still seated they would take it
+        // straight back, which is the same rule.)
+        room.seats[0].vacate();
+        assert!(room.hand_over_host());
+        assert!(room.hosted_by("late"));
+
+        room.seats[1].vacate();
+        room.seats[3].vacate();
+        assert!(
+            !room.hand_over_host(),
+            "a room with nobody left to arrange it says so"
+        );
+    }
+}
