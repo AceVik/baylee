@@ -1525,6 +1525,14 @@ Art is the texture; the *finish* and the keywords are the shader. One material
 is one card and not three draws, and a board of three hundred permanents can
 afford one pipeline.
 
+Foil and etched finishes share `print_finish` in `card_common.wgsl` (#198).
+The existing artwork sample supplies luminance, pigment and screen-space
+contours, with no extra texture fetches. Foil uses a restrained, pigment-shifted
+iridescence; etched foil emphasizes fine metallic contours and antialiased grain.
+Both protect dark ink and bright rules boxes and use bounded screen blending.
+The same treatment serves table cards and UI previews, retaining the existing
+view-angle and reduced-motion clocks.
+
 Materials are shared on a `CardLook` — art, finish, glow — which is exactly
 what the shader draws differently and nothing more. Forty plain Islands stay
 one material; a foil Island is a second; an Island the rules have made
@@ -6361,3 +6369,19 @@ Ambient sky changes retain the slow six-second crossfade. An active game
 day/night designation overrides the ambient preference and settles in about
 1.2 seconds, including a warm dawn/dusk between endpoints. Reduced motion
 switches immediately. With no designation, the ambient preference applies.
+
+
+### Printing identity and animated finishes (September 2026)
+
+Print references are local to a game. Closing a duel now clears print-keyed
+textures, their arrival/failure state, preloads, and both UI and board material
+caches. Previously a second game could reuse the first game's image for the
+same numeric print reference, including in the hand. URL-keyed deck previews
+and the shared card back remain independent of that reset.
+
+Both card shaders use the same artwork-aware finish function. Foil shifts its
+interference hue with sampled pigment and a slowly travelling light; etched
+highlights image contours and filtered metallic grain. Both catch light along
+the rounded edge, preserve dark ink and bright text boxes, and honor reduced
+motion. The same material path covers the hand, board, duel hover preview,
+printing picker, deck thumbnails and builder hover preview.

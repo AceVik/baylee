@@ -2732,6 +2732,8 @@ pub fn despawn_stage(
         commands.entity(entity).despawn();
     }
     index.cards.clear();
+    index.materials.clear();
+    index.face_materials.clear();
     index.faces.clear();
     watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with

@@ -50,6 +50,24 @@ pub fn setup(
     commands.insert_resource(cache);
 }
 
+/// Print references belong to one game; never reuse their art in the next one.
+pub(crate) fn reset_game(
+    textures: Option<ResMut<CardTextures>>,
+    preload: Option<ResMut<Preload>>,
+    materials: Option<ResMut<crate::cardmat::UiCardMaterials>>,
+) {
+    // The initial Closed transition can run before Startup creates textures.
+    if let Some(mut textures) = textures {
+        textures.reset_prints();
+    }
+    if let Some(mut preload) = preload {
+        *preload = Preload::default();
+    }
+    if let Some(mut materials) = materials {
+        materials.clear_game();
+    }
+}
+
 /// Why a printing's art will not arrive.
 ///
 /// The distinction exists because exactly one of the two is temporary, and
@@ -158,6 +176,15 @@ impl CardTextures {
             arrived: HashSet::new(),
             epoch: 0,
         }
+    }
+
+    fn reset_prints(&mut self) {
+        self.budget = TextureBudget::new(self.budget.budget());
+        self.handles.retain(|key, _| *key == BACK_KEY);
+        self.failed.retain(|key, _| *key == BACK_KEY);
+        self.arrived.retain(|key| *key == BACK_KEY);
+        self.issued = 0;
+        self.epoch = self.epoch.wrapping_add(1);
     }
 
     /// Whether this printing's art is known not to be coming.
@@ -767,6 +794,27 @@ mod tests {
     use baylee_client_core::images::ArtSize;
 
     /// The sleeve must stay original even after the remote back arrives.
+    #[test]
+    fn new_game_discards_print_ids_but_preserves_the_card_back() {
+        let mut images = Assets::<Image>::default();
+        let mut cache = CardTextures::new(&mut images, default_budget_bytes());
+        let key = ImageKey::new(baylee_core::ids::PrintRef::new(0), 0, ArtSize::Small);
+        let old = images.add(solid_texture([255, 0, 0, 255]));
+        cache.handles.insert(key, old.clone());
+        cache.handles.insert(BACK_KEY, old);
+        cache.budget.insert(key);
+        cache.mark_arrived(key);
+        cache.mark_arrived(BACK_KEY);
+        let epoch = cache.epoch();
+        cache.reset_prints();
+        assert!(!cache.handles.contains_key(&key));
+        assert!(!cache.has_arrived(key));
+        assert!(cache.handles.contains_key(&BACK_KEY));
+        assert!(cache.has_arrived(BACK_KEY));
+        assert_eq!(cache.used_bytes(), 0);
+        assert!(cache.epoch() > epoch);
+    }
+
     #[test]
     fn the_procedural_back_is_resident_and_independent_of_downloaded_art() {
         let mut images = Assets::<Image>::default();

@@ -27,10 +27,15 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
     // the language the lobby is speaking. A gateway does not: its rows are
     // account names, which have no language.
     let lang = state.lobby.lang();
+    let pool = matches!(request, LobbyRequest::LoadPool);
     if let Some(offline) = state.offline.as_mut() {
         let event = offline.perform(request, lang);
         if let Ok(mut box_) = mailbox.0.lock() {
-            box_.push(Reply::Event(event));
+            box_.push(if pool {
+                Reply::PoolLanguage(lang, event)
+            } else {
+                Reply::Event(event)
+            });
         }
         return;
     }
@@ -299,6 +304,7 @@ fn fetch(
 ) {
     let box_ = Arc::clone(&mailbox.0);
     let library = matches!(expect, Expect::Library(_));
+    let pool = matches!(expect, Expect::Pool);
     ehttp::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
@@ -311,6 +317,9 @@ fn fetch(
             )),
         };
         let reply = match reply {
+            Reply::Event(event @ LobbyEvent::Pool { .. }) if pool => {
+                Reply::PoolLanguage(lang, event)
+            }
             Reply::Event(LobbyEvent::Failed(error)) if library => Reply::Event(
                 LobbyEvent::Library(client_core::lobby::library::Reply::Failed(error)),
             ),

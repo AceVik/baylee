@@ -66,11 +66,15 @@ impl Plugin for LobbyPlugin {
     fn build(&self, app: &mut App) {
         // The keymap is the account's, and the account is signed into here —
         // shared with the duel, whichever of the two got there first.
+        if !app.is_plugin_added::<bevy::ui_widgets::ScrollbarPlugin>() {
+            app.add_plugins(bevy::ui_widgets::ScrollbarPlugin);
+        }
         crate::prefs::install(app);
         crate::ambience::install(app);
         crate::loading::install(app);
         crate::flip::install(app);
-        app.init_resource::<dock::Surfaces>()
+        app.init_resource::<thumbnails::Cache>()
+            .init_resource::<dock::Surfaces>()
             .init_resource::<Mailbox>()
             .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
@@ -82,17 +86,21 @@ impl Plugin for LobbyPlugin {
                 (
                     feed::feed,
                     poll,
+                    localization::update,
                     watch,
                     softkeys,
                     keyboard,
                     clicks,
                     scrolls,
+                    scrollbars::remember,
                     hovers,
                     ui,
                     ui::blink,
                     dock::materialize,
+                    button_style::materialize,
                     preview,
                     crate::buildui::virtual_rows::update,
+                    crate::buildui::virtual_rows::update_pool,
                     thumbnails::load,
                     thumbnails::quantities,
                     waiting,
@@ -151,6 +159,9 @@ pub struct LobbyState {
     /// would be four rows tall underneath them.
     pub(crate) filters_open: bool,
     pub(crate) stats_open: bool,
+    pub(crate) deck_actions_open: bool,
+    pub(crate) completion: Option<usize>,
+    pub(crate) completion_hidden: bool,
     pub(crate) commander_pick: Option<bool>, // false: primary; true: compatible partner
     /// Which half of the builder a phone is showing. Purely a matter of how
     /// much room there is, so it lives here and not in the state machine:
@@ -269,6 +280,9 @@ impl LobbyState {
             confirmation: None,
             filters_open: false,
             stats_open: false,
+            deck_actions_open: false,
+            completion: None,
+            completion_hidden: false,
             commander_pick: None,
             pane: Pane::Cards,
             hub: Hub::Play,
@@ -300,8 +314,12 @@ enum Reply {
     Event(LobbyEvent),
     /// Public catalog completion; never starts a second fallback lookup.
     PrintingCatalog(LobbyEvent),
+    PoolLanguage(Lang, LobbyEvent),
     /// `GET /auth/config` said whether sign-ups are open.
-    Registration { enabled: bool, art_cache: bool },
+    Registration {
+        enabled: bool,
+        art_cache: bool,
+    },
     /// The gateway no longer honours the account token we hold.
     Expired,
 }
@@ -388,10 +406,16 @@ use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 // into files stays an internal matter: every other module still says
 // `crate::lobby::button`.
 
-pub(crate) use preview::{hover_of_card, hover_of_entry};
-use systems::Scrollable;
+pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
+pub(crate) use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};
 pub(crate) use ui::{
     FieldLook, FieldTail, Frame, Metrics, button, chip, heading, note, panel, print_mark, row,
     scroller, spacer, text_field,
 };
+
+pub(crate) mod scrollbars;
+
+pub(crate) mod button_style;
+
+mod localization;

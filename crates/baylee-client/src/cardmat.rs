@@ -609,6 +609,11 @@ pub struct UiCardMaterials {
 }
 
 impl UiCardMaterials {
+    /// Drop materials keyed by game-local print references.
+    pub(crate) fn clear_game(&mut self) {
+        self.made.clear();
+    }
+
     /// The clock the cards in this cache were made on.
     const fn motion(&self) -> f32 {
         motion_of(self.still)
@@ -768,6 +773,9 @@ impl UiCardMaterials {
             },
             marks: crate::markatlas::MARKS,
         });
+        if self.previewed.len() >= 256 {
+            self.previewed.clear();
+        }
         self.previewed.insert(key, handle.clone());
         handle
     }
@@ -1075,6 +1083,31 @@ fn dress_the_card_backs(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    #[test]
+    fn game_materials_do_not_reuse_previous_games_print_references() {
+        let mut cache = UiCardMaterials::default();
+        let look = CardLook::art(
+            ImageKey::new(
+                baylee_core::ids::PrintRef::new(0),
+                0,
+                baylee_client_core::images::ArtSize::Small,
+            ),
+            FinishTreatment::Foil,
+            0,
+        );
+        cache.made.insert(look, Handle::default());
+        cache
+            .previewed
+            .insert(("url".into(), FinishTreatment::Foil), Handle::default());
+        cache.clear_game();
+        assert!(cache.made.is_empty());
+        assert_eq!(
+            cache.previewed.len(),
+            1,
+            "URL-based builder previews are independent of games"
+        );
+    }
 
     /// A permanent of a given type, with nothing else on it.
     ///

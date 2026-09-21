@@ -21,8 +21,50 @@ pub(super) fn builder_keys(
         keys.clear();
         if codes.just_pressed(KeyCode::Escape) {
             state.lobby.builder_mut().close_picker();
+        } else if codes.just_pressed(KeyCode::ArrowLeft) {
+            state.lobby.builder_mut().picker_step(-1);
+        } else if codes.just_pressed(KeyCode::ArrowRight) {
+            state.lobby.builder_mut().picker_step(1);
         }
         return false;
+    }
+    let suggestions = crate::buildui::autocomplete::suggestions(state);
+    if !suggestions.is_empty() {
+        if codes.just_pressed(KeyCode::ArrowDown) || codes.just_pressed(KeyCode::ArrowUp) {
+            let n = suggestions.len();
+            state.completion = Some(match state.completion {
+                None => {
+                    if codes.just_pressed(KeyCode::ArrowUp) {
+                        n - 1
+                    } else {
+                        0
+                    }
+                }
+                Some(at) => {
+                    if codes.just_pressed(KeyCode::ArrowUp) {
+                        (at + n - 1) % n
+                    } else {
+                        (at + 1) % n
+                    }
+                }
+            });
+            keys.clear();
+            return false;
+        }
+        if codes.just_pressed(KeyCode::Enter)
+            && let Some(slot) = state.completion.and_then(|at| suggestions.get(at)).copied()
+        {
+            crate::buildui::autocomplete::choose(state, slot);
+            scrolled.set(List::Pool, 0.0);
+            keys.clear();
+            return false;
+        }
+        if codes.just_pressed(KeyCode::Escape) {
+            state.completion_hidden = true;
+            state.completion = None;
+            keys.clear();
+            return false;
+        }
     }
     let field = state.lobby.builder().focus();
     let epoch = state.lobby.builder().focus_epoch();
@@ -132,6 +174,8 @@ pub(super) fn builder_keys(
     });
     if before != state.lobby.builder().focused_text() && field == BuildField::Search {
         scrolled.set(List::Pool, 0.0);
+        state.completion = None;
+        state.completion_hidden = false;
     }
     if tab {
         state.lobby.builder_mut().cycle_focus();

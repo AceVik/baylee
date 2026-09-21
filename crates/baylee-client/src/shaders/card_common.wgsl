@@ -52,6 +52,54 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
 }
 
+/// A restrained coating shaped by the printed image. Screen blending keeps
+/// highlights bounded; black ink and white rules boxes retain their contrast.
+/// Derivatives reuse the existing artwork sample, with no extra texture reads.
+fn print_finish(
+    printed: vec4<f32>, uv: vec2<f32>, angle: f32,
+    time: f32, finish: u32, strength: f32,
+) -> vec4<f32> {
+    let rgb = clamp(printed.rgb, vec3<f32>(0.0), vec3<f32>(1.0));
+    let luma = dot(rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    let chroma = max(rgb.r, max(rgb.g, rgb.b)) - min(rgb.r, min(rgb.g, rgb.b));
+    // Evaluated before any branch, including the plain-card early return.
+    let contour = smoothstep(0.015, 0.18, length(fwidth(rgb)));
+    let ink = smoothstep(0.015, 0.10, luma);
+    let paper = 1.0 - smoothstep(0.55, 0.90, luma);
+    let response = ink * paper * clamp(strength, 0.0, 1.0);
+    let glint = pow(1.0 - clamp(abs(angle), 0.0, 1.0), 2.0);
+    let travel = sin(time * 0.48 + angle * 2.4) * 0.8 + 0.65;
+    let band = exp(-18.0 * pow(uv.x * 0.7 + uv.y - travel, 2.0));
+    let edge = 1.0 - smoothstep(0.004, 0.020, abs(corner_sdf(uv)));
+    let edge_light = edge * (0.25 + 0.75 * band) * clamp(strength, 0.0, 1.0);
+    var light = vec3<f32>(0.0);
+    if finish == 1u {
+        // Pigment shifts the interference phase and the reflected hue, so
+        // different artwork cannot receive the same generic rainbow wash.
+        let pigment = dot(rgb, vec3<f32>(0.31, 0.53, 0.79));
+        let phase = (uv.x + uv.y) * 0.56 + angle * 0.84
+            + time * 0.065 + pigment * 0.48;
+        let rainbow = 0.5 + 0.5 * cos(6.283185 *
+            (vec3<f32>(phase) + vec3<f32>(0.0, 0.3333, 0.6667)));
+        let sheen = mix(vec3<f32>(0.66), rainbow, 0.68);
+        let tint = mix(sheen, rgb, 0.22);
+        let amount = (0.055 + 0.15 * glint + 0.30 * band) * response
+            * (0.35 + 0.45 * chroma + 0.20 * contour);
+        light = tint * amount + sheen * edge_light * 0.32;
+    } else if finish == 2u {
+        // Fine metal follows image contours. Antialias the engraving as the
+        // card shrinks, avoiding shimmering stripes in scrolling previews.
+        let phase = (uv.x - uv.y) * 180.0 + luma * 9.0;
+        let grain = 0.5 + 0.5 * sin(phase)
+            * (1.0 - smoothstep(0.7, 2.5, fwidth(phase)));
+        let metal = mix(vec3<f32>(0.70, 0.75, 0.78), rgb, 0.18);
+        let amount = (0.035 + 0.10 * glint + 0.24 * band) * response
+            * (0.16 + 0.64 * contour + 0.20 * grain);
+        light = metal * amount + metal * edge_light * 0.46;
+    }
+    return vec4<f32>(printed.rgb + (vec3<f32>(1.0) - rgb) * light, printed.a);
+}
+
 /// How tight the travelling highlight is, as a Gaussian falloff.
 ///
 /// Paired with [`SWEEP_MARGIN`]: at the margin the band is `exp(-6.5)`, which

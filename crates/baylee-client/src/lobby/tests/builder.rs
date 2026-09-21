@@ -545,6 +545,9 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
         state.lobby.builder_mut().add(1, Zone::Side);
     }
     app.update();
+    if !presses(&mut app).contains(&Press::ClearDeck) {
+        press(&mut app, Press::ToggleDeckActions);
+    }
     press(&mut app, Press::ClearDeck);
     assert_eq!(
         app.world()
@@ -565,6 +568,9 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
             .len(),
         1
     );
+    if !presses(&mut app).contains(&Press::ClearDeck) {
+        press(&mut app, Press::ToggleDeckActions);
+    }
     press(&mut app, Press::ClearDeck);
     press(&mut app, Press::ConfirmDestructive);
     let builder = app.world().resource::<LobbyState>().lobby.builder();
@@ -706,6 +712,11 @@ fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
         .resource_mut::<LobbyState>()
         .lobby
         .build_deck();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .add(0, Zone::Main);
     app.update();
     let rows: Vec<_> = app
         .world_mut()
@@ -724,13 +735,160 @@ fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
         });
     }
     app.update();
-    assert!(!presses(&mut app).contains(&Press::AddCardTo(0, Zone::Main)));
+    assert!(!presses(&mut app).contains(&Press::RemoveRow(0)));
     for row in rows {
         app.world_mut().entity_mut(row).insert(CalculatedClip {
             clip: Rect::new(-400.0, -200.0, 400.0, 500.0),
         });
     }
     app.update();
-    assert!(presses(&mut app).contains(&Press::AddCardTo(0, Zone::Main)));
-    assert!(presses(&mut app).contains(&Press::AddCardTo(1, Zone::Side)));
+    assert!(presses(&mut app).contains(&Press::RemoveRow(0)));
+}
+
+#[test]
+fn autocomplete_selects_a_name_without_adding_a_card() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().focus_on(BuildField::Search);
+        let name = state.lobby.builder().card(0).unwrap().name.clone();
+        state.lobby.builder_mut().set_text(&name[..1]);
+    }
+    app.update();
+    let slot = crate::buildui::autocomplete::suggestions(app.world().resource::<LobbyState>())[0];
+    press(&mut app, Press::CompleteSearch(slot));
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(
+        state.lobby.builder().text(),
+        state.lobby.builder().card(slot).unwrap().name
+    );
+    assert!(state.lobby.builder().entries(Zone::Main).is_empty());
+    assert!(crate::buildui::autocomplete::suggestions(state).is_empty());
+}
+
+#[test]
+fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().add(0, Zone::Main);
+    }
+    app.update();
+    assert!(!presses(&mut app).contains(&Press::ClearDeck));
+    assert!(presses(&mut app).contains(&Press::ToggleDeckActions));
+    let target = app
+        .world_mut()
+        .query::<(&Press, &Node)>()
+        .iter(app.world())
+        .find(|(p, _)| **p == Press::PickRowPrint(0))
+        .unwrap()
+        .1;
+    assert_eq!(target.width, Val::Auto);
+    assert_eq!(target.height, percent(100));
+    assert!(target.aspect_ratio.is_some());
+    press(&mut app, Press::ToggleDeckActions);
+    assert!(presses(&mut app).contains(&Press::ClearDeck));
+}
+
+#[test]
+fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
+    use crate::buildui::virtual_rows::VirtualPool;
+    use bevy::ui::CalculatedClip;
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let template = state.lobby.builder().card(0).unwrap().clone();
+        let cards = (0..120_u32)
+            .map(|i| {
+                let mut c = template.clone();
+                c.index = i;
+                c.name = format!("Card {i:03}");
+                c.english_name.clone_from(&c.name);
+                c
+            })
+            .collect();
+        state.lobby.builder_mut().set_pool(cards, true);
+    }
+    app.update();
+    assert!(
+        presses(&mut app)
+            .iter()
+            .filter(|p| matches!(p, Press::AddCardTo(_, Zone::Main)))
+            .count()
+            <= 10
+    );
+    let list = app
+        .world_mut()
+        .query_filtered::<Entity, With<VirtualPool>>()
+        .single(app.world())
+        .unwrap();
+    {
+        let mut entity = app.world_mut().entity_mut(list);
+        entity.get_mut::<ComputedNode>().unwrap().size = Vec2::new(600.0, 13440.0);
+        entity.insert(UiGlobalTransform::from(
+            bevy::math::Affine2::from_translation(Vec2::new(0.0, 6720.0)),
+        ));
+        entity.insert(CalculatedClip {
+            clip: Rect::new(0.0, 0.0, 600.0, 380.0),
+        });
+    }
+    // The new wheel position must mount the destination before layout has
+    // updated the old transforms; otherwise a fast scroll flashes blank.
+    let scroller = app.world().entity(list).get::<ChildOf>().unwrap().parent();
+    app.world_mut()
+        .entity_mut(scroller)
+        .get_mut::<ScrollPosition>()
+        .unwrap()
+        .y = 13060.0;
+    app.update();
+    let visible = presses(&mut app);
+    assert!(visible.contains(&Press::AddCardTo(119, Zone::Main)));
+    assert!(!visible.contains(&Press::AddCardTo(0, Zone::Main)));
+    assert!(
+        visible
+            .iter()
+            .filter(|p| matches!(p, Press::AddCardTo(_, Zone::Main)))
+            .count()
+            < 10
+    );
+}
+
+#[test]
+fn a_pool_reply_from_the_previous_language_cannot_replace_the_current_one() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_lang(Lang::De);
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .unwrap()
+        .push(Reply::PoolLanguage(
+            Lang::En,
+            LobbyEvent::Pool {
+                cards: Vec::new(),
+                has_text: false,
+            },
+        ));
+    app.update();
+    assert!(
+        !app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .pool()
+            .is_empty()
+    );
 }

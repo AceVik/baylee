@@ -23,15 +23,7 @@ use baylee_core::preset::Finish;
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
 
-/// How many result rows are drawn before the list stops and says how many it
-/// left out.
-///
-/// The pool is small enough to send whole and to *filter* on every keystroke,
-/// but not small enough to spawn whole: a few hundred rows is a few thousand
-/// UI nodes, rebuilt on every letter typed. This is a drawing budget, not a
-/// filter — the line above the list always names the real total.
-const SHOWN_RESULTS: usize = 60;
-
+pub(crate) mod autocomplete;
 pub(crate) mod virtual_rows;
 
 /// The tallest a mana-curve bar gets, in logical pixels.
@@ -378,6 +370,7 @@ fn pool_panel(
         },
     );
     commands.entity(panel).add_child(search);
+    autocomplete::draw(commands, state, fonts, metrics, search);
     // And under the box, the rows it was taken apart into. Under and not
     // over: it is what the field above it holds, so a panel floating over the
     // pool would be a second window rather than a way of writing the first.
@@ -575,7 +568,7 @@ fn pool_panel(
             None => true,
         })
         .collect();
-    let shown = results.len().min(SHOWN_RESULTS);
+    let shown = results.len();
     let tally = note(
         commands,
         fonts,
@@ -600,17 +593,10 @@ fn pool_panel(
     commands.entity(panel).add_child(tally);
 
     let list = scroller(commands, metrics, List::Pool, scrolled_to.get(List::Pool));
-    commands.entity(panel).add_child(list);
-    for (at, &slot) in results.iter().take(shown).enumerate() {
-        let row = virtual_rows::spawn(
-            commands,
-            state,
-            fonts,
-            metrics,
-            virtual_rows::Row::Pool(slot),
-            at < 10,
-        );
-        commands.entity(list).add_child(row);
+    crate::lobby::scrollbars::attach(commands, panel, list, metrics);
+    if !results.is_empty() {
+        let content = virtual_rows::pool(commands, state, fonts, metrics, results.clone());
+        commands.entity(list).add_child(content);
     }
     if deck.loaded() && results.is_empty() {
         let empty = note(commands, fonts, metrics, Phrase::NothingMatches.text(lang));
@@ -666,6 +652,8 @@ fn printing_picker(
         .spawn((
             Node {
                 width: percent(100),
+                max_height: percent(100),
+                overflow: Overflow::scroll_y(),
                 max_width: px(if metrics.frame == Frame::Phone {
                     520.0
                 } else {
@@ -686,6 +674,10 @@ fn printing_picker(
             Press::PickerNothing,
         ))
         .id();
+    commands.entity(panel).insert((
+        crate::lobby::Scrollable(List::PickerPanel),
+        ScrollPosition::default(),
+    ));
     commands.entity(shade).add_child(panel);
 
     // ---- what card this is, and the way out
@@ -710,7 +702,20 @@ fn printing_picker(
         Press::PickerClose,
         false,
     );
-    for child in [title, gap, close] {
+    let refresh = button(
+        commands,
+        fonts,
+        metrics,
+        if lang == Lang::De {
+            "Aktualisieren"
+        } else {
+            "Refresh"
+        },
+        Press::PickerRefresh,
+        palette::PANEL_LIT,
+        !picker.loading(),
+    );
+    for child in [title, gap, refresh, close] {
         commands.entity(head).add_child(child);
     }
     commands.entity(panel).add_child(head);
@@ -788,29 +793,94 @@ fn printing_picker(
     );
     commands.entity(panel).add_child(count);
 
-    // ---- where in the ring, and a way to jump
-    //
-    // Only when there are few enough to be targets: forty dots at 44 logical
-    // pixels is not a control, it is a second list.
-    if picker.len() > 1 && picker.len() <= 12 {
-        let dots = row(commands, metrics, true);
-        for at in 0..picker.len() {
-            let dot = chip(
-                commands,
-                fonts,
-                metrics,
-                if at == picker.at() {
-                    "\u{25cf}"
-                } else {
-                    "\u{25cb}"
-                },
-                Press::PickerGo(at),
-                at == picker.at(),
-            );
-            commands.entity(dots).add_child(dot);
-        }
-        commands.entity(panel).add_child(dots);
+    // A bounded contact sheet lets people compare images without opening each one.
+    let gallery = row(commands, metrics, false);
+    commands.entity(gallery).insert(Node {
+        width: percent(100),
+        justify_content: JustifyContent::Center,
+        column_gap: px(6),
+        ..default()
+    });
+    let start = (picker.at() / 5) * 5;
+    for (at, print) in picker.visible().iter().enumerate().skip(start).take(5) {
+        let thumb = crate::lobby::thumbnails::spawn(
+            commands,
+            &crate::lobby::HoverCard {
+                url: baylee_client_core::images::image_url(
+                    &baylee_view::PrintEntry {
+                        scryfall_id: print.scryfall_id.clone(),
+                        lang: print.lang.clone(),
+                        finish: baylee_view::Finish::Normal,
+                    },
+                    baylee_client_core::images::Face::Front,
+                    baylee_client_core::images::ArtSize::Small,
+                ),
+                back_url: None,
+                finish: treatment(picker.finish()),
+            },
+        );
+        commands.entity(thumb).insert((
+            Press::PickerGo(at),
+            Pickable::default(),
+            BorderColor::all(if at == picker.at() {
+                palette::ACCENT
+            } else {
+                palette::DOCK_EDGE
+            }),
+            Node {
+                width: px(48),
+                height: px(67),
+                border: UiRect::all(px(2)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+        ));
+        commands.entity(gallery).add_child(thumb);
     }
+    commands.entity(panel).add_child(gallery);
+
+    // Set names are directly selectable in a compact scrolling shelf.
+    let sets = row(commands, metrics, true);
+    commands.entity(sets).insert((
+        crate::lobby::Scrollable(List::PickerSets),
+        ScrollPosition::default(),
+        Pickable::default(),
+    ));
+    commands.entity(sets).insert(Node {
+        width: percent(100),
+        max_height: px(76),
+        overflow: Overflow::scroll_y(),
+        flex_wrap: FlexWrap::Wrap,
+        column_gap: px(4),
+        row_gap: px(4),
+        ..default()
+    });
+    let all = chip(
+        commands,
+        fonts,
+        metrics,
+        Phrase::AllSets.text(lang),
+        Press::PickerSet(None),
+        picker.set().is_none(),
+    );
+    commands.entity(sets).add_child(all);
+    for (i, (code, name)) in picker.sets().iter().enumerate() {
+        let label = if name.is_empty() {
+            code.to_uppercase()
+        } else {
+            (*name).to_string()
+        };
+        let set = chip(
+            commands,
+            fonts,
+            metrics,
+            &label,
+            Press::PickerSet(Some(i)),
+            picker.set() == Some(code),
+        );
+        commands.entity(sets).add_child(set);
+    }
+    commands.entity(panel).add_child(sets);
 
     // ---- language
     if picker.langs().len() > 1 {
@@ -819,7 +889,11 @@ fn printing_picker(
             commands,
             fonts,
             metrics,
-            Phrase::AllSets.text(lang),
+            if lang == Lang::De {
+                "Alle Sprachen"
+            } else {
+                "All languages"
+            },
             Press::PickerLang(None),
             picker.lang().is_none(),
         );
@@ -838,6 +912,45 @@ fn printing_picker(
         }
         commands.entity(panel).add_child(langs);
     }
+
+    let force = chip(
+        commands,
+        fonts,
+        metrics,
+        if lang == Lang::De {
+            "Foil / Etched erzwingen"
+        } else {
+            "Enforce foil / etched"
+        },
+        Press::PickerForceFinish,
+        picker.force_finish(),
+    );
+    let check = commands
+        .spawn((
+            Node {
+                width: px(18),
+                height: px(18),
+                flex_shrink: 0.0,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(3)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BorderColor::all(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if picker.force_finish() {
+        commands.entity(check).with_child((
+            Text::new("\u{f00c}"),
+            crate::hud::icon_tf(fonts, 12.0),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ));
+    }
+    commands.entity(force).insert_children(0, &[check]);
+    commands.entity(panel).add_child(force);
 
     // ---- finish
     let finishes = row(commands, metrics, true);
@@ -939,9 +1052,9 @@ fn picker_art(
     cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let height = if metrics.frame == Frame::Phone {
-        240.0
+        190.0
     } else {
-        310.0
+        280.0
     };
     let holder = commands
         .spawn((
@@ -1242,7 +1355,29 @@ fn deck_panel(
     commands.entity(panel).insert(crate::lobby::dock::Dock(5));
 
     let overview = heading(commands, fonts, metrics, Phrase::Composition.text(lang));
-    commands.entity(panel).add_child(overview);
+    let title = row(commands, metrics, false);
+    commands
+        .entity(overview)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.width = Val::Auto;
+            n.flex_grow = 1.0;
+        });
+    let menu = card_action(commands, fonts, metrics, "⋯", Press::ToggleDeckActions);
+    commands.entity(title).add_children(&[overview, menu]);
+    commands.entity(panel).add_child(title);
+    if state.deck_actions_open
+        && (!deck.entries(Zone::Main).is_empty() || !deck.entries(Zone::Side).is_empty())
+    {
+        let clear = card_action(
+            commands,
+            fonts,
+            metrics,
+            Phrase::EmptyTheDeck.text(lang),
+            Press::ClearDeck,
+        );
+        commands.entity(panel).add_child(clear);
+    }
     let name = text_field(
         commands,
         fonts,
@@ -1394,7 +1529,7 @@ fn deck_panel(
 
     // ---- the list itself
     let list = scroller(commands, metrics, List::Deck, scrolled_to.get(List::Deck));
-    commands.entity(panel).add_child(list);
+    crate::lobby::scrollbars::attach(commands, panel, list, metrics);
     let entries = deck.entries(deck.zone());
     if entries.is_empty() {
         let empty = note(commands, fonts, metrics, Phrase::DeckEmptyHint.text(lang));
@@ -1432,17 +1567,6 @@ fn deck_panel(
         commands.entity(list).add_child(row_id);
     }
 
-    if !entries.is_empty() {
-        let clear = chip(
-            commands,
-            fonts,
-            metrics,
-            Phrase::EmptyTheDeck.text(lang),
-            Press::ClearDeck,
-            false,
-        );
-        commands.entity(panel).add_child(clear);
-    }
     for missing in deck.missing() {
         let line = note(
             commands,
@@ -1667,7 +1791,7 @@ fn pool_row(
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(80),
+                min_height: px(72),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 column_gap: px(metrics.gap),
@@ -1682,6 +1806,10 @@ fn pool_row(
         ))
         .id();
     let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
+    commands
+        .entity(thumb)
+        .insert((Press::PickPrint(slot), Pickable::default()));
+    fill_thumbnail(commands, thumb);
     let info = commands
         .spawn((
             Node {
@@ -1704,8 +1832,17 @@ fn pool_row(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(info).add_child(name);
-    if metrics.frame != Frame::Phone {
+    commands.entity(name).insert(Node {
+        flex_grow: 1.0,
+        flex_basis: px(0),
+        min_width: px(0),
+        ..default()
+    });
+    let title = row(commands, metrics, false);
+    let space = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    commands.entity(title).add_children(&[name, space]);
+    commands.entity(info).add_child(title);
+    {
         let kind = commands
             .spawn((
                 Text::new(card.type_line.clone()),
@@ -1743,43 +1880,51 @@ fn pool_row(
                 .id()
         })
     } else {
-        crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small)
+        crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small * 1.3)
     };
     if let Some(cost) = cost {
-        commands.entity(entry).add_child(cost);
+        commands.entity(title).add_child(cost);
     }
-    let actions = row(commands, metrics, true);
-    let quantity = commands
-        .spawn((
-            crate::lobby::thumbnails::Quantity(slot),
-            Text::new(format!(
-                "{} / {}",
-                deck.count_of(slot, Zone::Main),
-                deck.count_of(slot, Zone::Side)
-            )),
-            tf(fonts, metrics.small),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(actions).add_child(quantity);
-    for (label, press) in [
-        (
-            Phrase::AddMainShort.text(lang),
-            Press::AddCardTo(slot, Zone::Main),
-        ),
-        (
-            Phrase::AddSideShort.text(lang),
-            Press::AddCardTo(slot, Zone::Side),
-        ),
-        (Phrase::ChoosePrintShort.text(lang), Press::PickPrint(slot)),
+    let actions = card_actions(commands, metrics);
+    for (zone, label) in [
+        (Zone::Main, Phrase::LibraryMain),
+        (Zone::Side, Phrase::LibrarySide),
     ] {
-        let action = chip(commands, fonts, metrics, label, press, false);
-        commands.entity(actions).add_child(action);
+        if zone == Zone::Side {
+            let space = commands.spawn((spacer(), Pickable::IGNORE)).id();
+            commands.entity(actions).add_child(space);
+        }
+        let group = row(commands, metrics, false);
+        commands.entity(group).entry::<Node>().and_modify(|mut n| {
+            n.width = Val::Auto;
+            n.column_gap = px(8);
+        });
+        let label = note(commands, fonts, metrics, label.text(lang));
+        let less = card_action(
+            commands,
+            fonts,
+            metrics,
+            "−",
+            Press::RemoveCardFrom(slot, zone),
+        );
+        let quantity = commands
+            .spawn((
+                crate::lobby::thumbnails::Quantity(slot, zone),
+                Text::new(deck.count_of(slot, zone).to_string()),
+                tf(fonts, metrics.small),
+                TextColor(palette::INK),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let more = card_action(commands, fonts, metrics, "+", Press::AddCardTo(slot, zone));
+        commands
+            .entity(group)
+            .add_children(&[label, less, quantity, more]);
+        commands.entity(actions).add_child(group);
     }
-    if card.commander {
+    if card.commander && state.commander_pick.is_some() {
         let partner = state.commander_pick == Some(true);
-        let leader = chip(
+        let leader = card_action(
             commands,
             fonts,
             metrics,
@@ -1794,9 +1939,8 @@ fn pool_row(
             } else {
                 Press::SetCommander(slot)
             },
-            deck.is_commander(slot),
         );
-        commands.entity(actions).add_child(leader);
+        commands.entity(info).add_child(leader);
     }
     commands.entity(info).add_child(actions);
     Some(entry)
@@ -1818,7 +1962,7 @@ fn deck_row(
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(76),
+                min_height: px(70),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 column_gap: px(metrics.gap * 0.6),
@@ -1841,6 +1985,10 @@ fn deck_row(
             palette::PANEL_LIT.lighter(0.06),
         ));
     let thumb = crate::lobby::thumbnails::spawn(commands, &hover_of_entry(card, &entry.print));
+    commands
+        .entity(thumb)
+        .insert((Press::PickRowPrint(at), Pickable::default()));
+    fill_thumbnail(commands, thumb);
     let details = commands
         .spawn((
             Node {
@@ -1854,13 +2002,16 @@ fn deck_row(
             Pickable::IGNORE,
         ))
         .id();
-    let title_row = row(commands, metrics, true);
-    let actions = row(commands, metrics, true);
-    commands.entity(details).add_children(&[title_row, actions]);
+    let title_row = row(commands, metrics, false);
+    let actions = card_actions(commands, metrics);
+    let kind = note(commands, fonts, metrics, &card.type_line);
+    commands
+        .entity(details)
+        .add_children(&[title_row, kind, actions]);
     commands.entity(row_id).add_children(&[thumb, details]);
     let count = commands
         .spawn((
-            Text::new(format!("{}×", entry.count)),
+            Text::new(entry.count.to_string()),
             tf(fonts, metrics.small),
             TextColor(palette::ACCENT),
             Pickable::IGNORE,
@@ -1879,11 +2030,15 @@ fn deck_row(
         ))
         .id();
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-    let cost = crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small);
-    for child in [Some(count), Some(title), Some(gap), cost]
-        .into_iter()
-        .flatten()
-    {
+    let cost =
+        crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small * 1.3);
+    commands.entity(title).insert(Node {
+        flex_grow: 1.0,
+        flex_basis: px(0),
+        min_width: px(0),
+        ..default()
+    });
+    for child in [Some(title), Some(gap), cost].into_iter().flatten() {
         commands.entity(title_row).add_child(child);
     }
     // A row that names a printing has to show it, or two lines of the
@@ -1908,7 +2063,6 @@ fn deck_row(
         // two lines, and a tap on one of them means that one.
         ("−", Press::RemoveRow(at)),
         ("+", Press::AddRow(at)),
-        (Phrase::ChoosePrintShort.text(lang), Press::PickRowPrint(at)),
         // One tap to send a copy the other way. The builder shows one
         // list at a time, so without this a card has to be removed here
         // and found again over there.
@@ -1921,8 +2075,63 @@ fn deck_row(
             Press::MoveRow(at),
         ),
     ] {
-        let step = chip(commands, fonts, metrics, label, press, false);
+        if matches!(press, Press::MoveRow(_)) {
+            let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+            commands.entity(actions).add_child(gap);
+        }
+        let step = card_action(commands, fonts, metrics, label, press);
         commands.entity(actions).add_child(step);
+        if matches!(press, Press::RemoveRow(_)) {
+            commands.entity(actions).add_child(count);
+        }
     }
     Some(row_id)
+}
+
+fn card_actions(commands: &mut Commands, metrics: Metrics) -> Entity {
+    let id = row(commands, metrics, true);
+    commands.entity(id).entry::<Node>().and_modify(|mut n| {
+        n.column_gap = px(10);
+        n.row_gap = px(8);
+    });
+    id
+}
+
+fn card_action(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    press: Press,
+) -> Entity {
+    let id = crate::hud::answer_sized(
+        commands,
+        fonts,
+        label,
+        crate::hud::ButtonWeight::Secondary,
+        None,
+        if metrics.frame == Frame::Phone {
+            34.0
+        } else {
+            26.0
+        },
+        metrics.small,
+    );
+    crate::lobby::button_style::icon(commands, fonts, id, press, metrics.small);
+    commands
+        .entity(id)
+        .insert(press)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.padding = UiRect::axes(px(9), px(2));
+        });
+    id
+}
+
+fn fill_thumbnail(commands: &mut Commands, thumb: Entity) {
+    commands.entity(thumb).entry::<Node>().and_modify(|mut n| {
+        n.width = Val::Auto;
+        n.height = percent(100);
+        n.aspect_ratio = Some(5.0 / 7.0);
+    });
 }

@@ -93,7 +93,7 @@ impl Metrics {
                 text: 15.0,
                 head: 17.0,
                 small: 12.0,
-                tap: 48.0,
+                tap: 44.0,
                 pad: 14.0,
                 gap: 12.0,
             },
@@ -102,7 +102,7 @@ impl Metrics {
                 text: 15.0,
                 head: 18.0,
                 small: 11.5,
-                tap: 44.0,
+                tap: 38.0,
                 pad: 16.0,
                 gap: 10.0,
             },
@@ -111,7 +111,7 @@ impl Metrics {
                 text: 15.0,
                 head: 20.0,
                 small: 12.0,
-                tap: 44.0,
+                tap: 38.0,
                 pad: 18.0,
                 gap: 9.0,
             },
@@ -1565,15 +1565,15 @@ pub(crate) fn chip(
         commands,
         fonts,
         label,
-        if on {
-            crate::hud::ButtonWeight::Candle
-        } else {
-            crate::hud::ButtonWeight::Secondary
-        },
+        crate::hud::ButtonWeight::Secondary,
         None,
         height,
         metrics.small,
     );
+    if on {
+        super::button_style::primary(commands, id);
+    }
+    super::button_style::icon(commands, fonts, id, press, metrics.small);
     commands.entity(id).insert(press);
     id
 }
@@ -2106,8 +2106,6 @@ pub(crate) fn button(
         crate::hud::ButtonWeight::Dead
     } else if tone == palette::DANGER {
         crate::hud::ButtonWeight::Danger
-    } else if tone == palette::ACCENT || tone == palette::ACTIVE {
-        crate::hud::ButtonWeight::Candle
     } else {
         crate::hud::ButtonWeight::Secondary
     };
@@ -2120,6 +2118,10 @@ pub(crate) fn button(
         metrics.tap,
         metrics.text,
     );
+    if enabled && (tone == palette::ACCENT || tone == palette::ACTIVE) {
+        super::button_style::primary(commands, id);
+    }
+    super::button_style::icon(commands, fonts, id, press, metrics.small);
     if enabled {
         commands.entity(id).insert(press);
     }

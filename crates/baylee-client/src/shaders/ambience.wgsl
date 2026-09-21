@@ -40,6 +40,13 @@ struct AmbienceParams {
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let t = globals.time * params.energy;
+    if params.pad > 0.5 {
+        // A low-contrast moving satin band. Shared by all primary controls.
+        let ribbon = 0.5 + 0.5 * sin(in.uv.x * 5.0 + in.uv.y * 1.5 - t * 0.42);
+        let sheen = pow(ribbon, 8.0) * 0.12;
+        let grain = (hash2(floor(in.position.xy)) - 0.5) * 0.003;
+        return vec4<f32>(mix(params.low.rgb, params.high.rgb, sheen) + grain, 1.0);
+    }
     // Aspect-corrected so a circle stays a circle on a 21:9 monitor.
     var uv = in.uv * vec2<f32>(params.aspect, 1.0) + vec2<f32>(params.seed, params.seed * 0.7);
 

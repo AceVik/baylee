@@ -471,6 +471,7 @@ pub struct Picker {
     slot: usize,
     /// Existing row to restyle; absent when adding from the catalog.
     replacing: Option<Entry>,
+    reference_id: String,
     /// Which list the confirmed pick lands in.
     zone: Zone,
     /// Registry index, so an answer that arrives after the dialog was closed
@@ -486,6 +487,9 @@ pub struct Picker {
     at: usize,
     /// The finish the pick will name.
     finish: Finish,
+    force_finish: bool,
+    refresh_selection: Option<(String, Finish, bool)>,
+    set: Option<String>,
     /// Whether the answer is still in flight.
     loading: bool,
     /// Whether these came from a catalog, or are the one printing this build
@@ -537,6 +541,33 @@ impl Picker {
         self.lang.as_deref()
     }
 
+    /// Allow cosmetic finishes even when this printing was not sold in them.
+    #[must_use]
+    pub fn force_finish(&self) -> bool {
+        self.force_finish
+    }
+
+    /// Set codes and names in catalog order, limited to the chosen language.
+    #[must_use]
+    pub fn sets(&self) -> Vec<(&str, &str)> {
+        let mut sets = Vec::new();
+        for p in &self.printings {
+            if !p.set.is_empty()
+                && self.lang.as_ref().is_none_or(|l| *l == p.lang)
+                && !sets.iter().any(|(code, _)| *code == p.set)
+            {
+                sets.push((p.set.as_str(), p.set_name.as_str()));
+            }
+        }
+        sets
+    }
+
+    /// Active set filter.
+    #[must_use]
+    pub fn set(&self) -> Option<&str> {
+        self.set.as_deref()
+    }
+
     /// The chosen finish.
     #[must_use]
     pub fn finish(&self) -> Finish {
@@ -549,12 +580,19 @@ impl Picker {
         self.at
     }
 
+    /// Complete metadata, retained if a refresh fails.
+    #[must_use]
+    pub fn all_printings(&self) -> &[Printing] {
+        &self.printings
+    }
+
     /// The printings the language filter admits, in carousel order.
     #[must_use]
     pub fn visible(&self) -> Vec<&Printing> {
         self.printings
             .iter()
             .filter(|p| self.lang.as_ref().is_none_or(|l| &p.lang == l))
+            .filter(|p| self.set.as_ref().is_none_or(|set| &p.set == set))
             .collect()
     }
 
@@ -581,6 +619,9 @@ impl Picker {
     /// The finishes the current printing can be had in.
     #[must_use]
     pub fn finishes(&self) -> Vec<Finish> {
+        if self.force_finish {
+            return vec![Finish::Normal, Finish::Foil, Finish::Etched];
+        }
         self.current().map(Printing::offered).unwrap_or_default()
     }
 
@@ -589,11 +630,14 @@ impl Picker {
             return;
         };
         self.at = self
-            .printings
+            .visible()
             .iter()
             .position(|p| {
                 entry.print.scryfall_id.as_ref().map_or_else(
                     || {
+                        if entry.print.set.is_none() {
+                            return p.scryfall_id == self.reference_id;
+                        }
                         entry
                             .print
                             .set
@@ -610,6 +654,7 @@ impl Picker {
             })
             .unwrap_or(0);
         self.finish = entry.print.finish_or_default();
+        self.force_finish = self.current().is_some_and(|p| !p.has(self.finish));
         if !self.loading {
             self.settle();
         }
@@ -629,6 +674,7 @@ impl Picker {
         // A printing sold only plain must not stay marked as a foil pick:
         // the row would name a finish that was never printed.
         if let Some(printing) = self.current()
+            && !self.force_finish
             && !printing.has(self.finish)
         {
             self.finish = printing.offered()[0];
@@ -783,3 +829,5 @@ pub mod statistics;
 
 #[cfg(test)]
 mod tests;
+
+mod types;

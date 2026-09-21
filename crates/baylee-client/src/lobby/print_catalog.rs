@@ -18,7 +18,7 @@ pub(super) fn fetch(
     mailbox: &Mailbox,
 ) {
     let url = format!(
-        "https://api.scryfall.com/cards/search?order=released&unique=prints&q=oracleid%3A{}",
+        "https://api.scryfall.com/cards/search?order=released&unique=prints&include_multilingual=true&include_variations=true&q=oracleid%3A{}",
         super::http::escape(oracle)
     );
     page(card, url, Vec::new(), fallback, epoch, mailbox.clone(), 0);
@@ -36,6 +36,8 @@ fn page(
 ) {
     let mut request = ehttp::Request::get(url);
     request.headers.insert("Accept", "application/json");
+    #[cfg(not(target_arch = "wasm32"))]
+    request.headers.insert("Cache-Control", "no-cache");
     request
         .headers
         .insert("User-Agent", "baylee-deckbuilder/0.1");
@@ -50,7 +52,8 @@ fn page(
             if let Some(url) = next
                 .next_page
                 .filter(|u| u.starts_with("https://api.scryfall.com/"))
-                && pages < 31
+                // Basic lands have thousands of multilingual editions.
+                && pages < 127
             {
                 page(card, url, prints, fallback, epoch, mailbox, pages + 1);
                 return;
@@ -59,7 +62,11 @@ fn page(
         // Always finish: an unavailable catalog still permits the known printing.
         let event = LobbyEvent::Printings {
             card,
-            printings: if prints.is_empty() { fallback } else { prints },
+            printings: if !catalog || prints.is_empty() {
+                fallback
+            } else {
+                prints
+            },
             from_catalog: catalog,
         };
         let queue = Arc::clone(&mailbox.0);

@@ -46,6 +46,9 @@ fn the_printing_picker_offers_every_control_it_needs() {
         Press::PickerLang(Some(0)),
         Press::PickerLang(Some(1)),
         Press::PickerFinish(Finish::Foil),
+        Press::PickerRefresh,
+        Press::PickerForceFinish,
+        Press::PickerSet(Some(1)),
         Press::PickerConfirm,
         Press::PickerClose,
     ] {

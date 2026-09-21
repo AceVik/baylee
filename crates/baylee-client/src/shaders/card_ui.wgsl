@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -56,8 +56,6 @@ struct CardParams {
 @group(1) @binding(3) var marks: texture_2d<f32>;
 @group(1) @binding(4) var marks_sampler: sampler;
 
-const FINISH_FOIL: u32 = 1u;
-const FINISH_ETCHED: u32 = 2u;
 
 const GLOW_INDESTRUCTIBLE: u32 = 1u;
 const GLOW_HEXPROOF: u32 = 2u;
@@ -395,18 +393,6 @@ fn noise(p: vec2<f32>) -> f32 {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-fn spectrum(h: f32) -> vec3<f32> {
-    let k = fract(h) * 6.0;
-    return clamp(
-        vec3<f32>(
-            abs(k - 3.0) - 1.0,
-            2.0 - abs(k - 2.0),
-            2.0 - abs(k - 4.0),
-        ),
-        vec3<f32>(0.0),
-        vec3<f32>(1.0),
-    );
-}
 
 fn edge_distance(uv: vec2<f32>) -> f32 {
     let d = min(uv, vec2<f32>(1.0) - uv);
@@ -455,22 +441,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // (E[(1-|sin|)²] = 1.5 - 4/π ≈ 0.227, so |tilt| = 1 - √0.227).
     let tilt = mix(STILL_TILT, sin(t * 0.55), m);
 
-    if params.finish == FINISH_FOIL {
-        let sweep = (uv.x + uv.y) * 1.6 + tilt * 2.4 + t * 0.10;
-        let grain = noise(uv * 46.0) * 0.28;
-        let sheen = spectrum(fract(sweep * 0.35 + grain));
-        let glint = pow(1.0 - abs(tilt), 2.0);
-        let amount = (0.16 + 0.42 * glint) * params.strength;
-        color = vec4<f32>(
-            color.rgb + sheen * amount * (0.55 + 0.45 * color.a),
-            color.a,
-        );
-    } else if params.finish == FINISH_ETCHED {
-        let lines = sin((uv.x - uv.y) * 220.0 + noise(uv * 9.0) * 6.0);
-        let etch = smoothstep(0.55, 1.0, lines) * (0.5 + 0.5 * (1.0 - abs(tilt)));
-        let metal = vec3<f32>(0.78, 0.74, 0.62);
-        color = vec4<f32>(color.rgb + metal * etch * 0.22 * params.strength, color.a);
-    }
+    color = print_finish(color, uv, tilt, t, params.finish, params.strength);
 
     // ---- the coating, on every card and whatever it was printed with
     //

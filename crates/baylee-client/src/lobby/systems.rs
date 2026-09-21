@@ -63,10 +63,12 @@ pub(super) fn poll(
         }
         let reply = match reply {
             Reply::PrintingCatalog(event) => Reply::Event(event),
+            Reply::PoolLanguage(lang, event) if lang == state.lobby.lang() => Reply::Event(event),
+            Reply::PoolLanguage(_, _) => continue,
             other => other,
         };
         match reply {
-            Reply::Remote(_, _) | Reply::PrintingCatalog(_) => {}
+            Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
             Reply::Event(event) => {
                 if let LobbyEvent::Games(listing) = &event
                     && !state.lobby.busy()
@@ -265,6 +267,8 @@ pub(super) fn softkeys(
                         .builder_mut()
                         .edit_buffer(field, |buf| buf.set(&value, cursor, anchor));
                     if changed && field == BuildField::Search {
+                        state.completion = None;
+                        state.completion_hidden = false;
                         scrolled.set(List::Pool, 0.0);
                     }
                 }
@@ -632,8 +636,20 @@ pub(super) fn clicks(
             continue;
         }
         let Some(press) = in_lineage(click.entity, &presses, &parents) else {
+            if !crate::buildui::autocomplete::suggestions(&state).is_empty() {
+                state.completion_hidden = true;
+                state.completion = None;
+            }
             continue;
         };
+        if !matches!(
+            press,
+            Press::CompleteSearch(_) | Press::FocusBuild(BuildField::Search)
+        ) && !crate::buildui::autocomplete::suggestions(&state).is_empty()
+        {
+            state.completion_hidden = true;
+            state.completion = None;
+        }
         if state.confirmation.is_some()
             && !matches!(press, Press::ConfirmDestructive | Press::CancelDestructive)
         {
@@ -779,6 +795,9 @@ pub(super) fn clicks(
                 // no way out but a click and a language that reverted on
                 // the next launch would read as a button that did nothing.
                 state.lang = lang.code().to_string();
+                if state.lobby.builder().loaded() {
+                    dispatch(&mut state, &mailbox, Some(LobbyRequest::LoadPool));
+                }
                 if let Some(settings) = settings.as_mut() {
                     settings.lang = lang.code().to_string();
                     settings.save();
@@ -969,6 +988,8 @@ pub(super) fn clicks(
                 dispatch(&mut state, &mailbox, request);
             }
             Press::FocusBuild(field) => {
+                state.completion_hidden = false;
+                state.completion = None;
                 let deck = state.lobby.builder_mut();
                 // A tap in the search box shuts the builder and takes the
                 // caret, which is the way back out of it — the same rule the
@@ -1002,6 +1023,37 @@ pub(super) fn clicks(
                 });
                 state.lobby.builder_mut().picker_set_lang(lang.as_deref());
             }
+            Press::PickerRefresh => {
+                let request = state.lobby.builder_mut().refresh_printings();
+                let card = state
+                    .lobby
+                    .builder()
+                    .picker()
+                    .and_then(|p| state.lobby.builder().card(p.slot()))
+                    .cloned();
+                if request.is_some()
+                    && !cfg!(test)
+                    && let Some(card) = card.filter(|c| uuid::Uuid::parse_str(&c.oracle_id).is_ok())
+                {
+                    let fallback = state
+                        .lobby
+                        .builder()
+                        .picker()
+                        .map(|p| p.all_printings().to_vec())
+                        .unwrap_or_default();
+                    super::print_catalog::fetch(
+                        card.index,
+                        &card.oracle_id,
+                        fallback,
+                        state.gateway_epoch,
+                        &mailbox,
+                    );
+                } else {
+                    dispatch(&mut state, &mailbox, request);
+                }
+            }
+            Press::PickerForceFinish => state.lobby.builder_mut().picker_force_finish(),
+            Press::PickerSet(at) => state.lobby.builder_mut().picker_set_set(at),
             Press::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
             Press::PickerConfirm => {
                 if !state.lobby.builder_mut().picker_confirm() {
@@ -1032,6 +1084,9 @@ pub(super) fn clicks(
                 };
                 state.lobby.builder_mut().move_entry(at, from, to);
             }
+            Press::RemoveCardFrom(slot, zone) => {
+                state.lobby.builder_mut().remove(slot, zone);
+            }
             Press::AddCardTo(slot, zone) => {
                 state.lobby.builder_mut().add(slot, zone);
             }
@@ -1060,6 +1115,11 @@ pub(super) fn clicks(
                 }
             }
             Press::RemoveCommander(slot) => state.lobby.builder_mut().remove_commander(slot),
+            Press::CompleteSearch(slot) => {
+                crate::buildui::autocomplete::choose(&mut state, slot);
+                scrolled.set(List::Pool, 0.0);
+            }
+            Press::ToggleDeckActions => state.deck_actions_open = !state.deck_actions_open,
             Press::ToggleStatistics => state.stats_open = !state.stats_open,
             Press::ClearCommander => state.lobby.builder_mut().clear_commander(),
             Press::SetZone(zone) => state.lobby.builder_mut().set_zone(zone),
@@ -1104,7 +1164,7 @@ const WHEEL_LINE: f32 = 32.0;
 /// system a sixty-row result list would simply end at the bottom of the panel
 /// with no way to reach the rest.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
-pub(super) struct Scrollable(pub(super) List);
+pub(crate) struct Scrollable(pub(crate) List);
 
 /// The lists that remember where they were left.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1116,6 +1176,8 @@ pub(crate) enum List {
     /// The tables and decks on the lobby screen.
     Table,
     Library,
+    PickerSets,
+    PickerPanel,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -1140,6 +1202,7 @@ impl Scrolled {
             List::Deck => self.deck,
             List::Table => self.table,
             List::Library => self.library,
+            List::PickerSets | List::PickerPanel => 0.0,
         }
     }
 
@@ -1149,6 +1212,7 @@ impl Scrolled {
             List::Deck => self.deck = at,
             List::Table => self.table = at,
             List::Library => self.library = at,
+            List::PickerSets | List::PickerPanel => {}
         }
     }
 }
@@ -1508,6 +1572,9 @@ pub(crate) enum Press {
     PickerLang(Option<usize>),
     /// Choose a finish for the printing the carousel is on.
     PickerFinish(Finish),
+    PickerRefresh,
+    PickerForceFinish,
+    PickerSet(Option<usize>),
     /// Add the picked printing to the deck.
     PickerConfirm,
     /// Put the picker away, adding nothing.
@@ -1523,6 +1590,7 @@ pub(crate) enum Press {
     MoveRow(usize),
     /// Add one copy of a pool card to a named list, whichever one is open.
     AddCardTo(usize, Zone),
+    RemoveCardFrom(usize, Zone),
     /// Make a pool card the deck's commander.
     SetCommander(usize),
     ChooseCommander(bool),
@@ -1530,6 +1598,8 @@ pub(crate) enum Press {
     AddPartner(usize),
     RemoveCommander(usize),
     ToggleStatistics,
+    ToggleDeckActions,
+    CompleteSearch(usize),
     /// Take the commander mark off, leaving the card in the deck.
     ClearCommander,
     /// Put it away again.

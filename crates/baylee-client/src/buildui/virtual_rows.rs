@@ -1,3 +1,8 @@
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)] // Bounded UI pixel coordinates and row indices.
 //! Keep row geometry stable while mounting controls only near the viewport.
 use super::{Frame, LobbyState, Metrics, UiFonts, deck_row, pool_row};
 use bevy::prelude::*;
@@ -5,7 +10,6 @@ use bevy::ui::{CalculatedClip, percent, px};
 
 #[derive(Clone, Copy)]
 pub(super) enum Row {
-    Pool(usize),
     Deck(usize),
 }
 
@@ -24,10 +28,8 @@ pub(super) fn spawn(
     initially_visible: bool,
 ) -> Entity {
     let height = match (row, metrics.frame) {
-        (Row::Pool(_), Frame::Phone) => 156.0,
-        (Row::Pool(_), _) => 112.0,
-        (Row::Deck(_), Frame::Phone) => 128.0,
-        (Row::Deck(_), _) => 86.0,
+        (Row::Deck(_), Frame::Phone) => 144.0,
+        (Row::Deck(_), _) => 90.0,
     };
     let entity = commands
         .spawn((
@@ -56,7 +58,6 @@ fn mount(
     metrics: Metrics,
 ) {
     let content = match row {
-        Row::Pool(slot) => pool_row(commands, state, fonts, metrics, slot),
         Row::Deck(at) => deck_row(commands, state, fonts, metrics, at),
     };
     if let Some(content) = content {
@@ -84,15 +85,20 @@ pub(crate) fn update(
         &ComputedNode,
         &UiGlobalTransform,
         &CalculatedClip,
+        &ChildOf,
         Option<&Children>,
     )>,
+    scrollers: Query<(&ScrollPosition, &ComputedNode)>,
 ) {
-    for (entity, row, node, transform, clip, children) in &rows {
+    for (entity, row, node, transform, clip, parent, children) in &rows {
         if node.size.min_element() <= 0.0 {
             continue;
         }
         let visible = near_viewport(
-            Rect::from_center_size(transform.translation, node.size),
+            Rect::from_center_size(
+                transform.translation - Vec2::Y * scroll_delta(parent, &scrollers),
+                node.size,
+            ),
             clip.clip,
         );
         if visible && children.is_none() {
@@ -115,4 +121,127 @@ mod tests {
         assert!(near_viewport(Rect::new(0.0, 590.0, 400.0, 670.0), clip));
         assert!(!near_viewport(Rect::new(0.0, 900.0, 400.0, 980.0), clip));
     }
+}
+
+/// A full catalog's geometry costs one entity, irrespective of its row count.
+#[derive(Component)]
+pub(crate) struct VirtualPool {
+    slots: Vec<usize>,
+    metrics: Metrics,
+    mounted: std::collections::BTreeMap<usize, Entity>,
+}
+
+fn pool_pitch(metrics: Metrics) -> f32 {
+    if metrics.frame == Frame::Phone {
+        184.0
+    } else {
+        112.0
+    }
+}
+
+pub(super) fn pool(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    slots: Vec<usize>,
+) -> Entity {
+    let pitch = pool_pitch(metrics);
+    let entity = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                height: px(pitch * slots.len() as f32),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut list = VirtualPool {
+        slots,
+        metrics,
+        mounted: default(),
+    };
+    for at in 0..list.slots.len().min(10) {
+        mount_pool(commands, state, fonts, entity, &mut list, at);
+    }
+    commands.entity(entity).insert(list);
+    entity
+}
+
+fn mount_pool(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    parent: Entity,
+    list: &mut VirtualPool,
+    at: usize,
+) {
+    let Some(row) = pool_row(commands, state, fonts, list.metrics, list.slots[at]) else {
+        return;
+    };
+    let pitch = pool_pitch(list.metrics);
+    commands
+        .entity(row)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.position_type = PositionType::Absolute;
+            n.top = px(at as f32 * pitch);
+            n.height = px(pitch - 6.0);
+        });
+    commands.entity(parent).add_child(row);
+    list.mounted.insert(at, row);
+}
+
+pub(crate) fn update_pool(
+    mut commands: Commands,
+    state: Res<LobbyState>,
+    fonts: Res<UiFonts>,
+    mut lists: Query<(
+        Entity,
+        &mut VirtualPool,
+        &ComputedNode,
+        &UiGlobalTransform,
+        &CalculatedClip,
+        &ChildOf,
+    )>,
+    scrollers: Query<(&ScrollPosition, &ComputedNode)>,
+) {
+    for (entity, mut list, node, transform, clip, parent) in &mut lists {
+        if node.size.min_element() <= 0.0 {
+            continue;
+        }
+        let top = transform.translation.y - node.size.y * 0.5 - scroll_delta(parent, &scrollers);
+        let scale = node.inverse_scale_factor();
+        let pitch = pool_pitch(list.metrics);
+        let start = (((clip.clip.min.y - top) * scale - 160.0).max(0.0) / pitch).floor() as usize;
+        let end = ((((clip.clip.max.y - top) * scale + 160.0).max(0.0) / pitch).ceil() as usize)
+            .min(list.slots.len());
+        let removed: Vec<_> = list
+            .mounted
+            .keys()
+            .copied()
+            .filter(|at| *at + 2 < start || *at >= end.saturating_add(2))
+            .collect();
+        for at in removed {
+            if let Some(row) = list.mounted.remove(&at) {
+                commands.entity(row).despawn();
+            }
+        }
+        for at in start..end {
+            if !list.mounted.contains_key(&at) {
+                mount_pool(&mut commands, &state, &fonts, entity, &mut list, at);
+            }
+        }
+    }
+}
+
+// Account for this frame's scroll input before Bevy computes new transforms.
+fn scroll_delta(parent: &ChildOf, scrollers: &Query<(&ScrollPosition, &ComputedNode)>) -> f32 {
+    scrollers
+        .get(parent.parent())
+        .map_or(0.0, |(position, node)| {
+            position.y / node.inverse_scale_factor().max(f32::EPSILON) - node.scroll_position.y
+        })
 }

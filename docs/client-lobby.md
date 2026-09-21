@@ -85,3 +85,41 @@ existing account decks were not edited. Native tests cover retained pane identit
 virtual-row unmount/remount, confirmation cancellation, text-buffer edits,
 printing preservation, and partner role save/load. Clippy and a wasm compile check
 cover both client targets and the gateway's extended pool wire record.
+
+The #195–#197 refinement adds compact quantity controls with separate main/side
+counts, thumbnail-click printing selection, and a confirmed empty-deck action
+inside the deck heading's overflow menu. Every row shows its type/subtypes and
+larger mana symbols. Full-height thumbnails preserve the card aspect ratio.
+Search offers six keyboard-selectable completions (arrows, Enter, Escape); choosing
+a suggestion changes the query without adding a card. New action icons use the
+existing Font Awesome asset. Muted primary buttons share one animated material
+and respect reduced motion.
+
+The entire catalog is scrollable, with native draggable scrollbar thumbs. Its
+content is a single height placeholder with only visible rows plus overscan
+mounted. Virtualization accounts for pending scroll offsets before layout;
+returning rows receive cached image handles immediately, avoiding blank frames.
+A live 1600×938 debug measurement after this refinement recorded about 75 FPS
+and no idle control-identity changes. Large jumps reached the final catalog rows.
+
+Changing language refreshes the pool while preserving the draft. Visible cards
+can retrieve cached, rate-limited Scryfall translations when a gateway has no
+localized catalog; responses are batched and stale-language replies discarded.
+The existing type-name vocabulary supplies translated types/subtypes even when
+an individual printing only supplies a translated name. Missing official card
+translations retain the English name; saved card identities stay unchanged.
+
+The printing picker now includes a five-image comparison strip, set-name filters,
+language filters, left/right keyboard navigation, and a refresh action. Refresh
+invalidates the selected card's metadata cache and requests current Scryfall
+printings directly (including multilingual and variant editions), even when the
+gateway catalog is stale. Existing metadata is retained on failure and an
+unchanged selection survives successful refresh. Scryfall's default search had
+omitted multilingual editions, explaining the sparse German choices.
+
+An explicit **Enforce foil / etched** checkbox makes either cosmetic finish
+available on any printing. The finish travels in the existing deck-row marker
+and remains selected when the row is reopened. Animated artwork-aware materials
+now render finished deck thumbnails as well as the picker and hover previews;
+URL/finish material caching is bounded to 256 entries. Plain thumbnails retain
+the inexpensive image path.

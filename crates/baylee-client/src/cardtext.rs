@@ -347,7 +347,7 @@ pub fn poll(mut texts: ResMut<CardTexts>, duel: Res<crate::Duel>) {
 /// whole table is one or two of those and they go out once per game, which
 /// is well inside all three — there is no pacing here because there is
 /// nothing to pace.
-mod scryfall {
+pub(crate) mod scryfall {
     use super::{Gather, Gathering};
     use baylee_client_core::card_face::{CardTextEntry, FaceText};
     use std::sync::{Arc, Mutex};
@@ -359,7 +359,7 @@ mod scryfall {
     const COLLECTION: &str = "https://api.scryfall.com/cards/collection";
 
     /// Sends one request per batch and hands back where they gather.
-    pub fn fill(ids: &[String]) -> Gathering {
+    pub(super) fn fill(ids: &[String]) -> Gathering {
         let bodies = bodies(ids);
         let gathering: Gathering = Arc::new(Mutex::new(Gather {
             outstanding: bodies.len(),
@@ -581,7 +581,7 @@ mod scryfall {
 /// game's text is far below that; a player who has played in nineteen
 /// languages is the case that would reach it, and the write is best-effort
 /// either way.
-mod cache {
+pub(crate) mod cache {
     use baylee_client_core::card_face::CardTextEntry;
 
     /// The document one language's text lives in.

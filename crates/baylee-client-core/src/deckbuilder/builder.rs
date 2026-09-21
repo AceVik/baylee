@@ -171,6 +171,60 @@ impl DeckBuilder {
         self.refilter();
     }
 
+    /// Fill missing type translations from the same vocabulary used by the catalog.
+    pub fn localize_types(&mut self, lang: crate::i18n::Lang) -> bool {
+        let mut changed = false;
+        for card in &mut self.pool {
+            let translated = super::types::translated(&card.type_line, lang);
+            if translated != card.type_line {
+                card.type_line = translated;
+                changed = true;
+            }
+        }
+        if changed {
+            self.pool_revision = self.pool_revision.wrapping_add(1);
+        }
+        changed
+    }
+
+    /// Apply presentation-only catalog text without reordering the working deck.
+    pub fn localize(&mut self, entries: &[crate::card_face::CardTextEntry]) -> bool {
+        let mut changed = false;
+        for entry in entries {
+            let Some((slot, card)) = self
+                .pool
+                .iter_mut()
+                .enumerate()
+                .find(|(_, c)| c.scryfall_id == entry.scryfall_id)
+            else {
+                continue;
+            };
+            let Some(face) = entry.faces.first() else {
+                continue;
+            };
+            if !face.name.is_empty() && card.name != face.name {
+                card.name.clone_from(&face.name);
+                self.keys[slot] = crate::prose::sort_key(&face.name);
+                if !card.alt_names.contains(&face.name) {
+                    card.alt_names.push(face.name.clone());
+                }
+                changed = true;
+            }
+            if !face.type_line.is_empty() && card.type_line != face.type_line {
+                card.type_line.clone_from(&face.type_line);
+                changed = true;
+            }
+            if !face.oracle_text.is_empty() && card.oracle_text != face.oracle_text {
+                card.oracle_text.clone_from(&face.oracle_text);
+                changed = true;
+            }
+        }
+        if changed {
+            self.pool_revision = self.pool_revision.wrapping_add(1);
+        }
+        changed
+    }
+
     /// The pool slot holding a card, by its English name.
     #[must_use]
     pub fn slot_of(&self, english_name: &str) -> Option<usize> {
@@ -472,6 +526,7 @@ impl DeckBuilder {
             slot,
             zone,
             card: index,
+            reference_id: card.scryfall_id.clone(),
             langs: vec!["en".to_string()],
             printings: vec![reference],
             loading: true,
@@ -494,6 +549,37 @@ impl DeckBuilder {
             picker.select_original();
         }
         request
+    }
+
+    /// Forget the cached metadata and request a fresh printing catalog.
+    pub fn refresh_printings(&mut self) -> Option<LobbyRequest> {
+        let picker = self.picker.as_mut()?;
+        if picker.loading {
+            return None;
+        }
+        picker.refresh_selection = picker
+            .current()
+            .map(|p| (p.scryfall_id.clone(), picker.finish, picker.force_finish));
+        self.printings_cache.remove(&picker.card);
+        picker.loading = true;
+        Some(LobbyRequest::LoadPrintings { card: picker.card })
+    }
+
+    /// Toggle cosmetic finishes independently of physical availability.
+    pub fn picker_force_finish(&mut self) {
+        if let Some(picker) = &mut self.picker {
+            picker.force_finish = !picker.force_finish;
+            picker.settle();
+        }
+    }
+
+    /// Filter by a set from the current language's set list.
+    pub fn picker_set_set(&mut self, at: Option<usize>) {
+        if let Some(picker) = &mut self.picker {
+            picker.set = at.and_then(|i| picker.sets().get(i).map(|(s, _)| (*s).to_string()));
+            picker.at = 0;
+            picker.settle();
+        }
     }
 
     /// Closes the picker without adding anything.
@@ -529,7 +615,30 @@ impl DeckBuilder {
         picker.printings = printings;
         picker.langs = langs;
         picker.at = 0;
+        if picker
+            .lang
+            .as_ref()
+            .is_some_and(|lang| !picker.langs.contains(lang))
+        {
+            picker.lang = None;
+        }
+        if picker
+            .set
+            .as_ref()
+            .is_some_and(|set| !picker.sets().iter().any(|(code, _)| *code == set))
+        {
+            picker.set = None;
+        }
         picker.select_original();
+        if let Some((id, finish, force)) = picker.refresh_selection.take() {
+            picker.at = picker
+                .visible()
+                .iter()
+                .position(|p| p.scryfall_id == id)
+                .unwrap_or(0);
+            picker.finish = finish;
+            picker.force_finish = force;
+        }
         picker.settle();
     }
 
@@ -568,6 +677,7 @@ impl DeckBuilder {
             return;
         };
         picker.lang = lang.map(str::to_string);
+        picker.set = None;
         // The card the player was looking at is almost certainly not at the
         // same offset in a shorter list, so the carousel restarts rather than
         // landing somewhere arbitrary.
@@ -580,7 +690,7 @@ impl DeckBuilder {
         let Some(picker) = self.picker.as_mut() else {
             return;
         };
-        if picker.current().is_some_and(|p| p.has(finish)) {
+        if picker.force_finish || picker.current().is_some_and(|p| p.has(finish)) {
             picker.finish = finish;
         }
     }

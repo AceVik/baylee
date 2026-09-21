@@ -1394,3 +1394,135 @@ fn issue_194_partner_roles_can_be_added_removed_saved_and_reloaded() {
     assert!(loaded.commanders().is_empty());
     assert!(loaded.entries(Zone::Main).is_empty());
 }
+
+#[test]
+fn localized_names_and_types_do_not_change_saved_card_identity() {
+    use crate::card_face::{CardTextEntry, FaceText};
+    let mut b = DeckBuilder::new();
+    let mut cards = pool();
+    cards[0].scryfall_id = "test-print".into();
+    let english = cards[0].english_name.clone();
+    b.set_pool(cards, true);
+    b.add(0, Zone::Main);
+    b.add(0, Zone::Side);
+    let main = b.rows(Zone::Main);
+    let side = b.rows(Zone::Side);
+    let entries = [CardTextEntry {
+        scryfall_id: "test-print".into(),
+        lang: "de".into(),
+        faces: vec![FaceText {
+            name: "Deutscher Kartenname".into(),
+            type_line: "Kreatur — Mensch, Zauberer".into(),
+            ..Default::default()
+        }],
+    }];
+    assert!(b.localize(&entries));
+    let revision = b.pool_revision();
+    assert!(!b.localize(&entries), "cached text is idempotent");
+    assert_eq!(b.pool_revision(), revision);
+    assert_eq!(b.rows(Zone::Main), main);
+    assert_eq!(b.rows(Zone::Side), side);
+    assert_eq!(b.card(0).unwrap().english_name, english);
+    assert_eq!(b.card(0).unwrap().type_line, "Kreatur — Mensch, Zauberer");
+    b.set_text("Deutscher");
+    assert!(b.results().contains(&0));
+}
+
+#[test]
+fn cosmetic_finish_override_survives_navigation_and_deck_round_trip() {
+    let mut b = picking();
+    b.set_printings(
+        7,
+        vec![
+            printing("a", "1", "en", &["nonfoil"]),
+            printing("b", "2", "de", &["nonfoil"]),
+        ],
+        true,
+    );
+    b.picker_force_finish();
+    b.picker_set_finish(Finish::Etched);
+    b.picker_step(1);
+    assert_eq!(b.picker().unwrap().finish(), Finish::Etched);
+    assert!(b.picker_confirm());
+    b.open_row_picker(0, Zone::Main);
+    assert_eq!(b.picker().unwrap().finish(), Finish::Etched);
+    assert!(b.picker().unwrap().force_finish());
+    b.picker_force_finish();
+    assert_eq!(b.picker().unwrap().finish(), Finish::Normal);
+}
+
+#[test]
+fn printing_refresh_invalidates_cache_and_does_not_duplicate_inflight_requests() {
+    let mut b = picking();
+    assert_eq!(b.refresh_printings(), None);
+    b.set_printings(7, vec![printing("a", "1", "en", &["nonfoil"])], true);
+    assert_eq!(
+        b.refresh_printings(),
+        Some(LobbyRequest::LoadPrintings { card: 7 })
+    );
+    assert_eq!(b.refresh_printings(), None);
+    assert_eq!(b.picker().unwrap().len(), 1);
+    b.set_printings(7, vec![printing("b", "2", "de", &["foil"])], true);
+    b.close_picker();
+    assert_eq!(b.open_picker(0, Zone::Main), None);
+    assert_eq!(b.picker().unwrap().current().unwrap().set, "b");
+}
+
+#[test]
+fn set_and_language_filters_compose_and_language_change_clears_set() {
+    let mut b = picking();
+    b.set_printings(
+        7,
+        vec![
+            printing("a", "1", "en", &["nonfoil"]),
+            printing("a", "1", "de", &["nonfoil"]),
+            printing("b", "2", "en", &["nonfoil"]),
+        ],
+        true,
+    );
+    assert_eq!(b.picker().unwrap().sets().len(), 2);
+    b.picker_set_set(Some(0));
+    assert_eq!(b.picker().unwrap().len(), 2);
+    b.picker_set_lang(Some("de"));
+    assert_eq!(b.picker().unwrap().len(), 1);
+    assert_eq!(b.picker().unwrap().set(), None);
+    assert_eq!(b.picker().unwrap().sets().len(), 1);
+}
+
+#[test]
+fn editing_a_default_print_selects_the_reference_instead_of_the_newest_promo() {
+    let mut b = picking();
+    b.close_picker();
+    assert!(b.add_print(0, Zone::Main, PrintChoice::default()));
+    b.open_row_picker(0, Zone::Main);
+    let mut reference = printing("old", "1", "en", &["nonfoil"]);
+    reference.scryfall_id = "reference".into();
+    b.set_printings(
+        7,
+        vec![printing("promo", "1", "en", &["foil"]), reference],
+        true,
+    );
+    let p = b.picker().unwrap();
+    assert_eq!(p.at(), 1);
+    assert_eq!(p.finish(), Finish::Normal);
+    assert!(!p.force_finish());
+}
+
+#[test]
+fn refreshing_metadata_preserves_the_selected_art_and_cosmetic_finish() {
+    let mut b = picking();
+    let prints = vec![
+        printing("a", "1", "en", &["nonfoil"]),
+        printing("b", "2", "de", &["nonfoil"]),
+    ];
+    b.set_printings(7, prints.clone(), true);
+    b.picker_go(1);
+    b.picker_force_finish();
+    b.picker_set_finish(Finish::Etched);
+    b.refresh_printings();
+    b.set_printings(7, prints.into_iter().rev().collect(), true);
+    let p = b.picker().unwrap();
+    assert_eq!(p.current().unwrap().set, "b");
+    assert_eq!(p.finish(), Finish::Etched);
+    assert!(p.force_finish());
+}

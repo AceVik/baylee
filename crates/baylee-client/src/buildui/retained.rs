@@ -10,6 +10,7 @@ use baylee_client_core::{
 #[derive(PartialEq, Eq)]
 struct DeckKey {
     statistics: bool,
+    actions: bool,
     main: Vec<Entry>,
     side: Vec<Entry>,
     name: TextBuffer,
@@ -21,7 +22,10 @@ struct DeckKey {
     cmc: Option<u32>,
 }
 #[derive(PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // Independent retained editor view flags.
 struct PoolKey {
+    completion: Option<usize>,
+    completion_hidden: bool,
     commander_pick: Option<bool>,
     commanders: Vec<usize>,
     revision: u64,
@@ -153,6 +157,7 @@ fn keys(state: &LobbyState) -> (DeckKey, PoolKey, BarKey) {
     (
         DeckKey {
             statistics: state.stats_open,
+            actions: state.deck_actions_open,
             main: deck.entries(Zone::Main).to_vec(),
             side: deck.entries(Zone::Side).to_vec(),
             name: deck.buffer(BuildField::Name).clone(),
@@ -164,6 +169,8 @@ fn keys(state: &LobbyState) -> (DeckKey, PoolKey, BarKey) {
             cmc: deck.cmc(),
         },
         PoolKey {
+            completion: state.completion,
+            completion_hidden: state.completion_hidden,
             commander_pick: state.commander_pick,
             commanders: deck.commanders().to_vec(),
             revision: deck.pool_revision(),

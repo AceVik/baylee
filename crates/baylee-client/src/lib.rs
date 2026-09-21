@@ -1471,7 +1471,11 @@ impl Plugin for DuelPlugin {
             .add_systems(OnExit(DuelPhase::Finished), hud::despawn_finish)
             .add_systems(
                 OnEnter(DuelPhase::Closed),
-                (table::despawn_stage, hud::despawn_overlay),
+                (
+                    table::despawn_stage,
+                    hud::despawn_overlay,
+                    textures::reset_game,
+                ),
             );
     }
 }
