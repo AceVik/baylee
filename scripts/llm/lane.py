@@ -90,6 +90,66 @@ def worklist(list_file: str) -> list[str]:
     ]
 
 
+GENERATED_FIELDS = ("index = index::", "oracle_id = ", "scryfall_id = ")
+
+
+def keeps_the_header(stub: str, written: str) -> str | None:
+    """The reason to refuse this card, or None.
+
+    The `//!` lines and the three identity fields belong to a generator, and
+    a model that rewrote one has misunderstood the job badly enough that the
+    rest is not worth trusting either. Both card lanes ask it — DeepSeek of
+    an answer before writing it, Gemini of the file against `HEAD` after
+    `agy` has already written it — so it lives here rather than in either.
+    """
+    for line in stub.splitlines():
+        if line.startswith("//!") and line not in written:
+            return f"header line dropped: {line[:60]}"
+    for field in GENERATED_FIELDS:
+        want = next(
+            (l.strip() for l in stub.splitlines() if l.strip().startswith(field)), None
+        )
+        if want and want not in written:
+            return f"generated field rewritten: {want[:60]}"
+    if "card!(" not in written:
+        return "no `card!(` in the answer"
+    if "GENERATED STUB" in written or "TODO(card)" in written:
+        return "still marked a stub"
+    return None
+
+
+def restore_generated(stub: str, written: str) -> str | None:
+    """`written` with the generator's lines put back, or None to revert it.
+
+    Only the four things the generator owns are restored — the `//!` block
+    and the three fields — and everything a model actually had to write is
+    left alone, because in the three cards this was built for the card text
+    was the right card's and only the identity was invented. `None` is the
+    other answer: a file with no `card!(` or still carrying the stub marker
+    is not a card, and there is nothing in it to keep.
+    """
+    if "card!(" not in written or "GENERATED STUB" in written:
+        return None
+    lines = written.splitlines()
+    head = [l for l in stub.splitlines() if l.startswith("//!")]
+    at = [i for i, l in enumerate(lines) if l.startswith("//!")]
+    if len(at) != len(head):
+        return None
+    for i, line in zip(at, head):
+        lines[i] = line
+    for field in GENERATED_FIELDS:
+        want = next(
+            (l.strip() for l in stub.splitlines() if l.strip().startswith(field)), None
+        )
+        if not want:
+            continue
+        for i, line in enumerate(lines):
+            if line.strip().startswith(field):
+                lines[i] = line[: len(line) - len(line.lstrip())] + want
+                break
+    return "\n".join(lines) + "\n"
+
+
 # --------------------------------------------------------------- DeepSeek
 
 

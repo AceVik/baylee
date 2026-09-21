@@ -56,24 +56,6 @@ RULES = (pathlib.Path(__file__).resolve().parent / "prompts/cards-deepseek.md").
 )
 
 
-def keeps_the_header(stub: str, written: str) -> str | None:
-    """The reason to refuse this answer, or None."""
-    for line in stub.splitlines():
-        if line.startswith("//!") and line not in written:
-            return f"header line dropped: {line[:60]}"
-    for field in ("index = index::", "oracle_id = ", "scryfall_id = "):
-        want = next(
-            (l.strip() for l in stub.splitlines() if l.strip().startswith(field)), None
-        )
-        if want and want not in written:
-            return f"generated field rewritten: {want[:60]}"
-    if "card!(" not in written:
-        return "no `card!(` in the answer"
-    if "GENERATED STUB" in written or "TODO(card)" in written:
-        return "still marked a stub"
-    return None
-
-
 def one(prefix: str, card: dict) -> str:
     path = lane.ROOT / card["path"]
     stub = path.read_text(encoding="utf-8")
@@ -100,7 +82,7 @@ def one(prefix: str, card: dict) -> str:
             f"{' '.join(answer.split())[:120]}"
         )
     written = m.group(1)
-    bad = keeps_the_header(stub, written)
+    bad = lane.keeps_the_header(stub, written)
     if bad:
         return f"{card['name']} | refused | {bad}"
     path.write_text(written, encoding="utf-8")

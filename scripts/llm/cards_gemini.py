@@ -52,7 +52,40 @@ def main(batch_file: str, minutes: int = 60) -> int:
         text=True,
         check=False,
     ).stdout.splitlines()
-    print(f"  {len([l for l in touched if l.strip()])} von {len(cards)} Dateien angefasst")
+    written = [l.split()[-1] for l in touched if l.strip()]
+    print(f"  {len(written)} von {len(cards)} Dateien angefasst")
+
+    # The check `cards_deepseek.py` makes *before* it writes, made here
+    # after: `agy` edits the tree itself, so there is no answer to refuse
+    # and the file is the only thing left to ask. Round H had three cards
+    # that rewrote the generator's four lines — each with a different
+    # `oracle_id`, a different `scryfall_id` and a `//!` line naming a set
+    # that does not exist — while writing the right card's text, which is
+    # why the identity is restored and the rest is kept. What caught them
+    # was the pool's own lint, and it caught exactly one: that assertion
+    # panics on the first card it disagrees with, so two were invisible
+    # behind the third until it was fixed. A file with no `card!(` left in
+    # it is not a card and goes back to being a stub.
+    for path in written:
+        head = subprocess.run(
+            ["git", "show", f"HEAD:{path}"],
+            cwd=lane.ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+        body = (lane.ROOT / path).read_text(encoding="utf-8")
+        bad = lane.keeps_the_header(head, body)
+        if not bad:
+            continue
+        repaired = lane.restore_generated(head, body)
+        if repaired is None:
+            (lane.ROOT / path).write_text(head, encoding="utf-8")
+            print(f"  zurückgesetzt: {path} — {bad}")
+        else:
+            (lane.ROOT / path).write_text(repaired, encoding="utf-8")
+            print(f"  Kopf wiederhergestellt: {path} — {bad}")
+
     return 0 if proc.returncode == 0 else 1
 
 
