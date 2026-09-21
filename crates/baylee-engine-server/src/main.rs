@@ -85,16 +85,36 @@ impl Attach {
     /// second (that is how a person starts it by hand).
     fn discover() -> Option<Self> {
         let args: Vec<String> = std::env::args().skip(1).collect();
+        Self::read(&args, |name| std::env::var(name).ok())
+    }
+
+    /// The attachment a given command line and environment describe.
+    ///
+    /// Split from [`Attach::discover`] so that the precedence and the
+    /// all-or-nothing rule can be asserted: a function that read the process
+    /// arguments itself could not be tested for what it does with them, which
+    /// is the same bargain `import::plan` makes with the clock.
+    ///
+    /// The all-or-nothing half is the one worth having a test for, because
+    /// answering `None` is not an error here — it is a different program.
+    /// A launch missing any one of the three falls through to [`listen`], the
+    /// dev harness, which has no authentication at all and hands a socket
+    /// whichever seat it names.
+    fn read(args: &[String], env: impl Fn(&str) -> Option<String>) -> Option<Self> {
         let flag = |name: &str| {
             args.iter()
                 .position(|a| a == name)
                 .and_then(|i| args.get(i + 1))
                 .cloned()
         };
-        let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-        let url = flag("--attach").or_else(|| env("BAYLEE_ATTACH_URL"))?;
-        let game_id = flag("--game").or_else(|| env("BAYLEE_GAME"))?;
-        let token = flag("--token").or_else(|| env("BAYLEE_ENGINE_TOKEN"))?;
+        // An empty variable is not an answer. A shell that exports
+        // `BAYLEE_ENGINE_TOKEN=` from an unset value would otherwise attach
+        // with an empty token and be refused by the gateway, which reads as
+        // a rejected engine rather than as a launch that was never given one.
+        let from_env = |name: &str| env(name).filter(|v| !v.is_empty());
+        let url = flag("--attach").or_else(|| from_env("BAYLEE_ATTACH_URL"))?;
+        let game_id = flag("--game").or_else(|| from_env("BAYLEE_GAME"))?;
+        let token = flag("--token").or_else(|| from_env("BAYLEE_ENGINE_TOKEN"))?;
         Some(Self {
             url,
             game_id,
@@ -663,6 +683,125 @@ mod tests {
             // Seat 0 is a person's chair, seat 1 is the house's.
             seats: vec![seat(false), seat(true)],
         }
+    }
+
+    /// Every launch is one of two programs, and three strings decide which.
+    ///
+    /// **All three or none**: an attachment missing any one of them is not a
+    /// half-configured attach, it is a fall-through to [`listen`] — the dev
+    /// harness, which has no authentication and lets a socket name its own
+    /// seat. That is the right default for a developer on loopback and the
+    /// wrong one for anything else, so the three-way requirement is the thing
+    /// standing between them.
+    #[test]
+    fn an_attachment_takes_all_three_or_this_process_is_a_different_program() {
+        let none = |_: &str| None;
+        let full = [
+            "--attach".to_string(),
+            "ws://gateway/engine/ws".to_string(),
+            "--game".to_string(),
+            "g1".to_string(),
+            "--token".to_string(),
+            "t1".to_string(),
+        ];
+
+        assert_eq!(
+            Attach::read(&full, none),
+            Some(Attach {
+                url: "ws://gateway/engine/ws".to_string(),
+                game_id: "g1".to_string(),
+                token: "t1".to_string(),
+            })
+        );
+
+        for missing in ["--attach", "--game", "--token"] {
+            let cut: Vec<String> = full
+                .chunks(2)
+                .filter(|pair| pair[0] != missing)
+                .flatten()
+                .cloned()
+                .collect();
+            assert_eq!(
+                Attach::read(&cut, none),
+                None,
+                "without {missing} this launch is the dev harness, not an attach"
+            );
+        }
+
+        assert_eq!(
+            Attach::read(&["--attach".to_string()], none),
+            None,
+            "a flag with nothing behind it names nothing"
+        );
+        assert_eq!(Attach::read(&[], none), None);
+    }
+
+    /// The command line wins, field by field, because that is how the agent
+    /// starts this process — and the environment is how a person starts it by
+    /// hand, so a person's variable must not quietly override the agent's
+    /// argument in a launch that has both.
+    ///
+    /// An **empty** variable is not an answer either: it attaches with an
+    /// empty token otherwise, and the gateway refusing that reads as a
+    /// rejected engine rather than as a launch that was never given one.
+    #[test]
+    fn the_command_line_beats_the_environment_field_by_field() {
+        let env = |name: &str| {
+            Some(
+                match name {
+                    "BAYLEE_ATTACH_URL" => "ws://from-env/engine/ws",
+                    "BAYLEE_GAME" => "from-env",
+                    "BAYLEE_ENGINE_TOKEN" => "env-token",
+                    _ => return None,
+                }
+                .to_string(),
+            )
+        };
+
+        let mixed = Attach::read(
+            &[
+                "--attach".to_string(),
+                "ws://from-flag/engine/ws".to_string(),
+            ],
+            env,
+        )
+        .expect("the environment supplies the other two");
+        assert_eq!(mixed.url, "ws://from-flag/engine/ws", "the flag wins");
+        assert_eq!(
+            mixed.game_id, "from-env",
+            "and the rest still comes from the environment"
+        );
+        assert_eq!(mixed.token, "env-token");
+
+        let empty = |name: &str| {
+            if name == "BAYLEE_ENGINE_TOKEN" {
+                Some(String::new())
+            } else {
+                env(name)
+            }
+        };
+        assert_eq!(
+            Attach::read(&[], empty),
+            None,
+            "an exported-but-empty token is a launch with no token"
+        );
+    }
+
+    /// **The dev harness binds loopback**, and that is a decision rather than
+    /// a convenience: it has no authentication, so a socket names its own
+    /// seat and is handed that seat's hidden information. Binding it
+    /// anywhere else hands out every hand at the table.
+    ///
+    /// Asserted through `is_loopback` and not by retyping the constant, so
+    /// the test is about the property and not about the spelling.
+    #[test]
+    fn the_dev_harness_binds_somewhere_only_this_machine_can_reach() {
+        let address: std::net::IpAddr = DEFAULT_BIND.parse().expect("a bindable address");
+        assert!(
+            address.is_loopback(),
+            "{DEFAULT_BIND} is reachable from off this machine, and this \
+             listener hands a socket whichever seat it asks for"
+        );
     }
 
     /// The dev harness has no authentication, so this field carries no
