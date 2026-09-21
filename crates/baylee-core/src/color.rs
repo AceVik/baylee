@@ -255,4 +255,116 @@ mod tests {
             Color::White
         );
     }
+
+    /// The ten pairs Magic prints, and the order it prints them in: the
+    /// second colour follows the first on the W→U→B→R→G→W wheel in at most
+    /// two steps. Both ways round give the same pair, which is what makes
+    /// this a canonical form rather than a preference — a guild stored one
+    /// way and looked up the other would be two different keys.
+    #[test]
+    fn every_pair_is_canonical_whichever_way_round_it_is_built() {
+        use Color::{Black, Blue, Green, Red, White};
+        // Allied first (one step), then enemy (two): Orzhov is W/B and
+        // never B/W, Simic is G/U and never U/G.
+        const PRINTED: [(Color, Color); 10] = [
+            (White, Blue),
+            (Blue, Black),
+            (Black, Red),
+            (Red, Green),
+            (Green, White),
+            (White, Black),
+            (Blue, Red),
+            (Black, Green),
+            (Red, White),
+            (Green, Blue),
+        ];
+        assert_eq!(PRINTED.len(), 10, "every unordered pair of five colours");
+        for (a, b) in PRINTED {
+            for pair in [ColorPair::new(a, b), ColorPair::new(b, a)] {
+                assert_eq!((pair.first(), pair.second()), (a, b), "{a:?}/{b:?}");
+                assert!(pair.contains(a) && pair.contains(b));
+                assert_eq!(pair.bits(), a.bit() | b.bit());
+                assert_eq!(ColorSet::of_pair(pair).len(), 2);
+            }
+        }
+    }
+
+    /// A pair is two *distinct* colours, and the refusal is a panic in a
+    /// `const fn` — so a card written with one is a build error rather than
+    /// a guild that is half a colour.
+    #[test]
+    #[should_panic(expected = "two distinct colors")]
+    fn a_pair_of_one_colour_is_refused() {
+        let _ = ColorPair::new(Color::Red, Color::Red);
+    }
+
+    /// The symbol is the round trip a decklist, a mana cost and a card
+    /// filter all go through. `C` is not a colour — colorless is the
+    /// absence of one — so it has no `Color` to come back as.
+    #[test]
+    fn a_colour_survives_its_own_symbol() {
+        for c in Color::ALL {
+            assert_eq!(Color::from_symbol(c.symbol()), Some(c), "{c:?}");
+            assert!(!c.name().is_empty());
+        }
+        assert_eq!(Color::from_symbol('C'), None, "colorless is not a colour");
+        assert_eq!(Color::from_symbol('X'), None, "and neither is X");
+        for c in Color::ALL {
+            assert_eq!(
+                Color::from_symbol(c.symbol().to_ascii_lowercase()),
+                Some(c),
+                "a decklist writes its colours in either case"
+            );
+        }
+    }
+
+    /// Each colour owns one bit, and a set prints and iterates in WUBRG
+    /// order however it was built — the order a player reads a cost in.
+    #[test]
+    fn a_set_reads_in_wubrg_order_however_it_was_built() {
+        let bits: Vec<u8> = Color::ALL.iter().map(|c| c.bit()).collect();
+        let mut distinct = bits.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        assert_eq!(distinct.len(), 5, "one bit each");
+
+        let backwards = ColorSet::from_slice(&[Color::Green, Color::Black, Color::White]);
+        assert_eq!(backwards.to_string(), "WBG");
+        assert_eq!(
+            backwards.iter().collect::<Vec<_>>(),
+            vec![Color::White, Color::Black, Color::Green]
+        );
+        assert_eq!(ColorSet::EMPTY.to_string(), "C", "colorless prints as C");
+        assert_eq!(format!("{backwards:?}"), "ColorSet(WBG)");
+    }
+
+    /// The set algebra the layer system and every colour filter read.
+    /// `difference` is the one with a direction, and the identities are
+    /// what a filter asking "colours you do not have" depends on.
+    #[test]
+    fn the_set_algebra_holds_on_the_five() {
+        let wu = ColorSet::from_slice(&[Color::White, Color::Blue]);
+        let ub = ColorSet::from_slice(&[Color::Blue, Color::Black]);
+        let all = ColorSet::from_slice(&Color::ALL);
+
+        assert_eq!(wu.union(ub).len(), 3);
+        assert_eq!(
+            wu.intersection(ub),
+            ColorSet::of(Color::Blue),
+            "the shared colour and nothing else"
+        );
+        assert_eq!(wu.difference(ub), ColorSet::of(Color::White));
+        assert_eq!(
+            ub.difference(wu),
+            ColorSet::of(Color::Black),
+            "it has a direction"
+        );
+        assert!(wu.intersects(ub));
+        assert!(!wu.intersects(ColorSet::of(Color::Red)));
+        assert_eq!(all.len(), 5);
+        assert_eq!(all.difference(all), ColorSet::EMPTY);
+        assert!(all.difference(all).is_colorless());
+        assert_eq!(wu.union(wu), wu);
+        assert_eq!(ColorSet::EMPTY.union(wu), wu);
+    }
 }
