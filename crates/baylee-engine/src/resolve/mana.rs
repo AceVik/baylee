@@ -237,3 +237,260 @@ fn colored(colors: ColorSet) -> Vec<ManaColor> {
     .map(|(m, _)| m)
     .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::ObjectKind;
+    use crate::state::{CardLookup, Commander};
+    use baylee_core::color::Color;
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+    use baylee_core::types::TypeSet;
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let deck: Vec<DeckEntry> = (0..60)
+            .map(|_| DeckEntry {
+                card: forest,
+                print: baylee_core::ids::PrintRef::new(0),
+            })
+            .collect();
+        let seat = || SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: deck.clone(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 5,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(), seat()],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    fn permanent(state: &mut GameState, owner: PlayerId, name: &str) -> ObjectId {
+        let name = state.names.intern(name);
+        state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        )
+    }
+
+    /// A land on `owner`'s battlefield producing exactly `colors`.
+    fn land(state: &mut GameState, owner: PlayerId, name: &str, colors: ColorSet) -> ObjectId {
+        let id = permanent(state, owner, name);
+        let base = state.object_mut(id).expect("just made it").base_mut();
+        base.types = TypeSet::LAND;
+        base.produced_colors = colors;
+        id
+    }
+
+    /// The three sources that read nothing but their own argument, and the
+    /// one that is a list of them. `Choice` keeps the card's order rather
+    /// than sorting into WUBRG: the options are offered to a player, and a
+    /// reordered list is a different keystroke for the same card.
+    #[test]
+    fn a_fixed_or_listed_source_is_its_own_answer() {
+        let mut state = state();
+        let rock = permanent(&mut state, me(), "Rock");
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::Fixed(ManaColor::Red), rock),
+            vec![ManaColor::Red]
+        );
+        assert_eq!(
+            colors_of(
+                &state,
+                me(),
+                ManaSource::Choice(&[ManaColor::Green, ManaColor::White]),
+                rock
+            ),
+            vec![ManaColor::Green, ManaColor::White]
+        );
+    }
+
+    /// CR 903.4: colour identity is a property of the commander card
+    /// wherever it is. Reading the command zone instead made an Arcane
+    /// Signet stop producing the moment its commander was cast — exactly
+    /// when it matters — so this test puts the commander on the
+    /// **battlefield** and asks anyway.
+    #[test]
+    fn a_commanders_identity_is_read_from_the_marker_and_not_from_its_zone() {
+        let mut state = state();
+        let signet = permanent(&mut state, me(), "Arcane Signet");
+        let general = permanent(&mut state, me(), "General");
+        state
+            .object_mut(general)
+            .expect("just made it")
+            .base_mut()
+            .color_identity = ColorSet::of(Color::White).union(ColorSet::of(Color::Blue));
+
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::CommanderIdentity, signet),
+            vec![ManaColor::Colorless],
+            "a game with no commander still resolves the ability"
+        );
+
+        state.commanders[me().get() as usize].push(Commander {
+            object: general,
+            casts: 1,
+            answered: 0,
+        });
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::CommanderIdentity, signet),
+            vec![ManaColor::White, ManaColor::Blue],
+            "the marker answers wherever the card is, and it is not in the \
+             command zone here"
+        );
+        assert_eq!(
+            colors_of(&state, them(), ManaSource::CommanderIdentity, signet),
+            vec![ManaColor::Colorless],
+            "and it is this player's commander, not the table's"
+        );
+    }
+
+    /// The union over one side of the table, which is the whole of
+    /// Reflecting Pool and Exotic Orchard. Three things it must not do:
+    /// count a non-land, count the other side's lands, or lose the
+    /// colorless half.
+    #[test]
+    fn land_colours_are_the_union_of_the_side_that_was_asked_about() {
+        let mut state = state();
+        let pool = land(&mut state, me(), "Reflecting Pool", ColorSet::EMPTY);
+        land(&mut state, me(), "Forest", ColorSet::of(Color::Green));
+        land(&mut state, me(), "Plains", ColorSet::of(Color::White));
+        land(&mut state, them(), "Mountain", ColorSet::of(Color::Red));
+        let rock = permanent(&mut state, me(), "Signet");
+        state
+            .object_mut(rock)
+            .expect("just made it")
+            .base_mut()
+            .produced_colors = ColorSet::of(Color::Black);
+
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool),
+            vec![ManaColor::White, ManaColor::Green],
+            "my lands, in WUBRG order, and the Signet is not a land"
+        );
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::LandColor { mine: false }, pool),
+            vec![ManaColor::Red],
+            "an Exotic Orchard reads the other side of the table"
+        );
+
+        state
+            .object_mut(pool)
+            .expect("still there")
+            .base_mut()
+            .produced_colorless = true;
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool),
+            vec![ManaColor::White, ManaColor::Green, ManaColor::Colorless],
+            "a land making colorless mana is a colour this can produce, and \
+             it is not in the ColorSet the other four came out of"
+        );
+    }
+
+    /// `produced_colors` is a reading of the **card**, and a land whose mana
+    /// is "the chosen color" has none there to read — the answer is on the
+    /// object. Without this a Reflecting Pool beside an Uncharted Haven saw
+    /// a land that makes nothing.
+    #[test]
+    fn a_land_making_the_chosen_colour_is_read_off_the_object() {
+        let mut state = state();
+        let pool = land(&mut state, me(), "Reflecting Pool", ColorSet::EMPTY);
+        let haven = land(&mut state, me(), "Uncharted Haven", ColorSet::EMPTY);
+        state
+            .object_mut(haven)
+            .expect("just made it")
+            .base_mut()
+            .produced_chosen = true;
+
+        assert!(
+            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool).is_empty(),
+            "nothing has been chosen yet, so the card is right that it \
+             produces nothing"
+        );
+
+        state.object_mut(haven).expect("still there").chosen_color = Some(ManaColor::Blue);
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool),
+            vec![ManaColor::Blue]
+        );
+    }
+
+    /// The two sources that ask the object they are on. `Chosen` with
+    /// nothing chosen is an empty list rather than a guess — a copy that did
+    /// not arrive through the replacement, or a board built by a test; the
+    /// ability resolves and adds nothing. `ChosenOr` adds the chosen colour
+    /// to the printed list, and adds it once.
+    #[test]
+    fn a_chosen_colour_is_asked_of_the_permanent_that_is_making_the_mana() {
+        let mut state = state();
+        let one = permanent(&mut state, me(), "Thriving Moor");
+        let two = permanent(&mut state, me(), "Another Moor");
+
+        assert!(
+            colors_of(&state, me(), ManaSource::Chosen, one).is_empty(),
+            "no colour was ever chosen"
+        );
+
+        state.object_mut(one).expect("still there").chosen_color = Some(ManaColor::Red);
+        state.object_mut(two).expect("still there").chosen_color = Some(ManaColor::Green);
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::Chosen, one),
+            vec![ManaColor::Red]
+        );
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::Chosen, two),
+            vec![ManaColor::Green],
+            "the two share a card and cannot both read it for this"
+        );
+
+        let printed = &[ManaColor::Black, ManaColor::Red];
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::ChosenOr(printed), one),
+            vec![ManaColor::Black, ManaColor::Red],
+            "the chosen colour is already printed, so it is not offered twice"
+        );
+        assert_eq!(
+            colors_of(&state, me(), ManaSource::ChosenOr(printed), two),
+            vec![ManaColor::Black, ManaColor::Red, ManaColor::Green]
+        );
+    }
+}
