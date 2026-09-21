@@ -307,3 +307,151 @@ mod whole_name_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod type_line_tests {
+    use baylee_cards_dsl::FaceDef;
+    use baylee_core::types::{SupertypeSet, TypeSet};
+
+    /// The printed order, which is the order a player reads: supertypes,
+    /// then types, then an em dash, then subtypes. This is the renderer
+    /// `xtask validate` holds against the printing Scryfall carries, so it
+    /// is also the one that has to be spelled the way a card is spelled —
+    /// a hyphen or a missing space here is 2716 wrong type lines and a
+    /// wall of findings.
+    #[test]
+    fn a_type_line_reads_the_way_the_card_prints_it() {
+        const LEGENDARY_LAND: FaceDef = FaceDef {
+            name: "Karakas",
+            types: TypeSet::LAND,
+            supertypes: SupertypeSet::LEGENDARY,
+            ..FaceDef::DEFAULT
+        };
+        assert_eq!(super::type_line(&LEGENDARY_LAND), "Legendary Land");
+
+        const PLAIN: FaceDef = FaceDef {
+            name: "Ornithopter",
+            types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            ..FaceDef::DEFAULT
+        };
+        assert_eq!(
+            super::type_line(&PLAIN),
+            "Artifact Creature",
+            "no dash where the card prints no subtype"
+        );
+    }
+
+    /// Every subtype on every face resolves to a word, and the line is the
+    /// whole of what the face says.
+    ///
+    /// `type_line` drops a subtype it cannot name — a `filter_map` over the
+    /// generated table — so an id the table has no word for leaves the line
+    /// shorter and no louder. That is the exact shape of the drift this
+    /// renderer exists to catch: the ids are a running index into one
+    /// sorted range, so one new creature type renumbers every artifact,
+    /// enchantment, land, planeswalker and spell subtype after it.
+    #[test]
+    fn every_subtype_in_the_pool_has_a_word_and_reaches_the_line() {
+        let mut faces = 0;
+        let mut with_subtypes = 0;
+        for def in crate::all() {
+            for face in def.faces {
+                faces += 1;
+                let line = super::type_line(face);
+                let named = face
+                    .subtypes
+                    .iter()
+                    .filter(|id| baylee_core::generated::subtypes::name(**id).is_some())
+                    .count();
+                assert_eq!(
+                    named,
+                    face.subtypes.len(),
+                    "{}: a subtype id with no word vanishes from {line:?}",
+                    face.name
+                );
+                if face.subtypes.is_empty() {
+                    assert!(
+                        !line.contains('\u{2014}'),
+                        "{}: a dash with nothing after it — {line:?}",
+                        face.name
+                    );
+                } else {
+                    with_subtypes += 1;
+                    assert_eq!(
+                        line.matches(" \u{2014} ").count(),
+                        1,
+                        "{}: {line:?}",
+                        face.name
+                    );
+                }
+                assert!(
+                    !line.is_empty() && line.trim() == line && !line.contains("  "),
+                    "{}: {line:?} is not a line a card prints",
+                    face.name
+                );
+            }
+        }
+        assert!(
+            faces > 2_700 && with_subtypes > 900,
+            "{faces} faces and {with_subtypes} with subtypes — the pool is not \
+             being walked"
+        );
+    }
+
+    /// What a face prints in its corner. Power and toughness win over
+    /// loyalty rather than being added to it, because the one card that
+    /// carries both would otherwise print two numbers where the card prints
+    /// one — and a 0/0 is a body, not an absence.
+    #[test]
+    fn the_corner_of_a_card_is_a_body_or_a_number_or_nothing() {
+        const BEAR: FaceDef = FaceDef {
+            name: "Bear",
+            power: Some(2),
+            toughness: Some(2),
+            ..FaceDef::DEFAULT
+        };
+        const EMPTY_BODY: FaceDef = FaceDef {
+            name: "Nothing",
+            power: Some(0),
+            toughness: Some(0),
+            ..FaceDef::DEFAULT
+        };
+        const WALKER: FaceDef = FaceDef {
+            name: "Walker",
+            loyalty: Some(3),
+            ..FaceDef::DEFAULT
+        };
+        const BOTH: FaceDef = FaceDef {
+            name: "Both",
+            power: Some(1),
+            toughness: Some(1),
+            loyalty: Some(4),
+            ..FaceDef::DEFAULT
+        };
+        assert_eq!(super::stats(&BEAR).as_deref(), Some("2/2"));
+        assert_eq!(
+            super::stats(&EMPTY_BODY).as_deref(),
+            Some("0/0"),
+            "a 0/0 has a body and dies to a state-based action for it"
+        );
+        assert_eq!(super::stats(&WALKER).as_deref(), Some("3"));
+        assert_eq!(super::stats(&BOTH).as_deref(), Some("1/1"));
+        assert_eq!(super::stats(&FaceDef::DEFAULT), None);
+    }
+
+    /// Colours as letters, in WUBRG order however the set was built. This
+    /// is the *list* spelling and not the display one: a colourless card is
+    /// an empty list here, where `ColorSet` prints itself as `C`.
+    #[test]
+    fn colours_come_out_as_letters_in_wubrg_order() {
+        use baylee_core::color::{Color, ColorSet};
+        let backwards = ColorSet::from_slice(&[Color::Green, Color::White, Color::Blue]);
+        assert_eq!(super::letters(backwards), "WUG");
+        assert_eq!(super::letters(ColorSet::ALL), "WUBRG");
+        assert_eq!(
+            super::letters(ColorSet::EMPTY),
+            "",
+            "colourless is no letters, not the letter C"
+        );
+    }
+}
