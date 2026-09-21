@@ -714,6 +714,280 @@ mod tests {
         );
     }
 
+    fn flight() -> CardIndex {
+        card_index("6a4068b0-fb4f-429c-a94e-47849f3eb7ef")
+    }
+
+    /// Seat 0 holds one Flight — "Enchant creature" — on the battlefield,
+    /// and nothing else is in play. A real card is needed here rather than a
+    /// bare object, because the Aura's enchant restriction is read off its
+    /// own `Effect::AttachSelf` (CR 303.4c) and a card-less object states
+    /// none.
+    fn aura_state() -> (GameState, baylee_core::ids::ObjectId) {
+        let mut preset = empty_boards_preset(5);
+        preset.seats[0].starting_battlefield = vec![entry(flight())];
+        let state = GameState::from_preset(&preset, &RegistryLookup).expect("game starts");
+        let aura = *state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .first()
+            .expect("the aura is in play");
+        (state, aura)
+    }
+
+    /// A permanent of exactly these types and subtypes, controlled by seat 0.
+    fn bare(
+        state: &mut GameState,
+        label: &str,
+        types: TypeSet,
+        subtypes: &[baylee_core::ids::SubtypeId],
+    ) -> baylee_core::ids::ObjectId {
+        let name = state.names.intern(label);
+        let id = state.create_bare(
+            PlayerId::new(0),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let base = state.object_mut(id).expect("just created").base_mut();
+        base.types = types;
+        base.subtypes = baylee_core::types::SubtypeSet::from_slice(subtypes);
+        if types.contains(TypeSet::CREATURE) {
+            base.power = Some(2);
+            base.toughness = Some(2);
+        }
+        state.invalidate_projections();
+        id
+    }
+
+    fn equipment(state: &mut GameState) -> baylee_core::ids::ObjectId {
+        bare(
+            state,
+            "Test Equipment",
+            TypeSet::ARTIFACT,
+            &[baylee_core::generated::subtypes::artifact::EQUIPMENT],
+        )
+    }
+
+    fn creature(state: &mut GameState) -> baylee_core::ids::ObjectId {
+        bare(state, "Test Creature", TypeSet::CREATURE, &[])
+    }
+
+    fn attach(
+        state: &mut GameState,
+        what: baylee_core::ids::ObjectId,
+        to: baylee_core::ids::ObjectId,
+    ) {
+        state
+            .object_mut(what)
+            .expect("on the battlefield")
+            .attached_to = Some(to);
+        state.invalidate_projections();
+    }
+
+    fn on_battlefield(state: &GameState, id: baylee_core::ids::ObjectId) -> bool {
+        state.zones.list(ZoneLocation::Battlefield).contains(&id)
+    }
+
+    /// CR 704.5m: an Aura attached to nothing, or to something that is no
+    /// longer there, is put into its owner's graveyard. Without it an Aura
+    /// outlived the creature it enchanted and went on granting its effect.
+    #[test]
+    fn an_aura_with_nothing_to_enchant_is_put_into_the_graveyard() {
+        let (mut state, aura) = aura_state();
+        let host = creature(&mut state);
+        attach(&mut state, aura, host);
+
+        run(&mut state, &RegistryLookup);
+        assert!(
+            on_battlefield(&state, aura),
+            "an Aura on a legal host stays where it is"
+        );
+
+        // The host dies. The Aura is now attached to an object that is not on
+        // the battlefield, which is the commonest way this rule fires.
+        state
+            .move_object(
+                host,
+                ZoneLocation::Graveyard(PlayerId::new(0)),
+                ZonePosition::Top,
+                Cause::StateBased,
+            )
+            .expect("the creature dies");
+        run(&mut state, &RegistryLookup);
+        assert!(!on_battlefield(&state, aura), "the Aura falls off and dies");
+        assert!(
+            state
+                .zones
+                .list(ZoneLocation::Graveyard(PlayerId::new(0)))
+                .contains(&aura),
+            "into its owner's graveyard, not out of the game"
+        );
+
+        // And one that never had a host at all.
+        let (mut state, aura) = aura_state();
+        assert!(
+            state.object(aura).expect("in play").attached_to.is_none(),
+            "an Aura put onto the battlefield without being cast enchants \
+             nothing"
+        );
+        run(&mut state, &RegistryLookup);
+        assert!(!on_battlefield(&state, aura));
+    }
+
+    /// **Illegal is not the same as gone**, and the counter-test is the half
+    /// that matters: both sit on the same host, and only the Aura dies.
+    ///
+    /// CR 303.4c makes the Aura's own enchant ability the test, so a host
+    /// that is still a permanent on the battlefield but has stopped being a
+    /// creature is illegal for Flight. An Equipment's restriction is the
+    /// rules' instead (CR 301.5b), and an Equipment on an illegal host
+    /// merely becomes unattached (CR 704.5n) — it is an artifact and stays
+    /// in play.
+    #[test]
+    fn an_illegal_host_kills_an_aura_and_only_unequips_an_equipment() {
+        let (mut state, aura) = aura_state();
+        let host = creature(&mut state);
+        let gear = equipment(&mut state);
+        attach(&mut state, aura, host);
+        attach(&mut state, gear, host);
+
+        run(&mut state, &RegistryLookup);
+        assert!(on_battlefield(&state, aura) && on_battlefield(&state, gear));
+        assert_eq!(
+            state.object(gear).expect("in play").attached_to,
+            Some(host),
+            "a creature is a legal host for both"
+        );
+
+        // The host stops being a creature without leaving the battlefield.
+        state.object_mut(host).expect("in play").base_mut().types = TypeSet::ENCHANTMENT;
+        state.invalidate_projections();
+
+        run(&mut state, &RegistryLookup);
+        assert!(
+            !on_battlefield(&state, aura),
+            "the Aura may no longer enchant it (CR 303.4c) and goes"
+        );
+        assert!(
+            on_battlefield(&state, gear),
+            "the Equipment is not destroyed by an illegal host"
+        );
+        assert_eq!(
+            state.object(gear).expect("in play").attached_to,
+            None,
+            "it simply becomes unattached (CR 704.5n)"
+        );
+        assert!(
+            on_battlefield(&state, host),
+            "and the host itself is untouched by any of it"
+        );
+    }
+
+    /// CR 303.4d: nothing may be attached to itself, and the check is by
+    /// object identity rather than by filter.
+    ///
+    /// Both objects here are card-less, so they state no enchant
+    /// restriction at all and *every* permanent on the battlefield is a
+    /// legal host for them — which is the point: the only sentence that can
+    /// refuse is `host != id`. Each is then attached to a neighbour instead
+    /// and stays, so a green run cannot mean the attachment was refused for
+    /// some other reason.
+    #[test]
+    fn nothing_may_be_attached_to_itself() {
+        let mut state =
+            GameState::from_preset(&empty_boards_preset(9), &RegistryLookup).expect("game starts");
+        let neighbour = creature(&mut state);
+        // An Aura that is also a creature, so the graveyard arm is out of
+        // the way and what it does about itself is visible as an unattach.
+        let aura = bare(
+            &mut state,
+            "Self-loving Aura",
+            TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+            &[baylee_core::generated::subtypes::enchantment::AURA],
+        );
+        // A living weapon, for the same reason on the Equipment side: its
+        // host is a creature, so CR 301.5b is satisfied and only identity
+        // is left to refuse.
+        let gear = bare(
+            &mut state,
+            "Self-equipping Weapon",
+            TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            &[baylee_core::generated::subtypes::artifact::EQUIPMENT],
+        );
+
+        for id in [aura, gear] {
+            attach(&mut state, id, id);
+        }
+        run(&mut state, &RegistryLookup);
+        for (id, what) in [(aura, "an Aura"), (gear, "an Equipment")] {
+            assert_eq!(
+                state.object(id).expect("still in play").attached_to,
+                None,
+                "{what} attached to itself is attached to nothing legal"
+            );
+        }
+
+        // The counter-evidence: the same two objects on a neighbour stay
+        // there, so what the pass refused was the identity and not them.
+        for id in [aura, gear] {
+            attach(&mut state, id, neighbour);
+        }
+        run(&mut state, &RegistryLookup);
+        for id in [aura, gear] {
+            assert_eq!(
+                state.object(id).expect("still in play").attached_to,
+                Some(neighbour),
+                "any permanent is a legal host for an attachment that names none"
+            );
+        }
+    }
+
+    /// An attachment that is *also* a creature needs no host: a living
+    /// weapon whose germ has died is an Equipment creature on the
+    /// battlefield, and a bestowed Aura whose host is gone stays as the
+    /// creature it was cast as (CR 702.103c). Only the non-creature Aura
+    /// falls into the graveyard, which is what the type check in front of
+    /// that arm is for.
+    #[test]
+    fn an_attachment_that_is_a_creature_stays_without_one() {
+        let mut state =
+            GameState::from_preset(&empty_boards_preset(13), &RegistryLookup).expect("game starts");
+        let living = bare(
+            &mut state,
+            "Living Weapon",
+            TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            &[baylee_core::generated::subtypes::artifact::EQUIPMENT],
+        );
+        let bestowed = bare(
+            &mut state,
+            "Bestowed Aura",
+            TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+            &[baylee_core::generated::subtypes::enchantment::AURA],
+        );
+
+        // The counterpart, in the same pass and the same state: an
+        // ordinary Aura with no host, which is the one thing here that does
+        // fall into the graveyard.
+        let plain = bare(
+            &mut state,
+            "Plain Aura",
+            TypeSet::ENCHANTMENT,
+            &[baylee_core::generated::subtypes::enchantment::AURA],
+        );
+
+        run(&mut state, &RegistryLookup);
+        assert!(
+            on_battlefield(&state, living) && on_battlefield(&state, bestowed),
+            "neither is destroyed for having nothing to attach to"
+        );
+        assert!(
+            !on_battlefield(&state, plain),
+            "while the Aura that is only an Aura does fall off — the type \
+             check in front of that arm is the whole difference"
+        );
+    }
+
     /// The candidate queue is drained by every pass, which is what lets
     /// `snapshot_hash` ignore it: two states that played the same game are
     /// equal even though one of them queued and cleared a candidate.
