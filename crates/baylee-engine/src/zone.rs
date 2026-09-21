@@ -325,4 +325,108 @@ mod tests {
         );
         assert!(zones.stack_projectable().is_empty());
     }
+
+    /// The eight zones, written out because there is no `ALL` to walk and a
+    /// ninth would otherwise be added to one of these functions and not the
+    /// others. A `Zone` reached by neither `of` nor this list is a zone
+    /// nothing below is asked about.
+    const EVERY_ZONE: [Zone; 8] = [
+        Zone::Library,
+        Zone::Hand,
+        Zone::Battlefield,
+        Zone::Graveyard,
+        Zone::Exile,
+        Zone::Stack,
+        Zone::Command,
+        Zone::OutsideGame,
+    ];
+
+    /// Three functions, one fact. `of` builds a location, `zone` reads the
+    /// kind back off it and `player` says whose it is — and `is_shared` says
+    /// the same thing from the other end, in a different file's vocabulary.
+    /// A zone added to one of them and not the others makes the pair
+    /// disagree silently: a shared zone that carries a player would give
+    /// every seat its own battlefield.
+    #[test]
+    fn a_zone_and_its_location_agree_about_whose_it_is() {
+        let p = PlayerId::new(1);
+        for zone in EVERY_ZONE {
+            let loc = ZoneLocation::of(zone, p);
+            assert_eq!(loc.zone(), zone, "{zone:?} did not survive the round trip");
+            assert_eq!(
+                loc.player().is_none(),
+                zone.is_shared(),
+                "{zone:?}: `player` and `is_shared` disagree"
+            );
+            if !zone.is_shared() {
+                assert_eq!(loc.player(), Some(p), "{zone:?} kept somebody else's seat");
+                assert_ne!(
+                    ZoneLocation::of(zone, PlayerId::new(0)),
+                    loc,
+                    "{zone:?}: two seats' zones are two locations"
+                );
+            }
+        }
+    }
+
+    /// A shared zone is the same location whoever asks for it, which is what
+    /// lets a caller pass any seat when it has one to hand.
+    #[test]
+    fn a_shared_zone_ignores_the_player_it_is_asked_with() {
+        for zone in EVERY_ZONE.into_iter().filter(|z| z.is_shared()) {
+            assert_eq!(
+                ZoneLocation::of(zone, PlayerId::new(0)),
+                ZoneLocation::of(zone, PlayerId::new(7)),
+                "{zone:?}"
+            );
+        }
+        assert!(Zone::Battlefield.is_shared() && Zone::Stack.is_shared());
+    }
+
+    /// The three zones a view may not simply hand over. Written as a list
+    /// rather than derived, because this is the rule itself: a graveyard is
+    /// public even though a hand is not, and the sideboard is hidden even
+    /// though it is not in the game at all.
+    #[test]
+    fn the_hidden_zones_are_the_library_the_hand_and_the_cards_outside_the_game() {
+        let hidden: Vec<Zone> = EVERY_ZONE
+            .into_iter()
+            .filter(|z| z.is_hidden_by_default())
+            .collect();
+        assert_eq!(
+            hidden,
+            vec![Zone::Library, Zone::Hand, Zone::OutsideGame],
+            "a zone joining or leaving this list is a change to what a \
+             player may see"
+        );
+    }
+
+    /// Order is significant and removal preserves it: the top of a library
+    /// is the end of its `Vec`, so a swap-remove would reorder the cards
+    /// under the one that left — and a library is shuffled exactly when the
+    /// rules say and never by a data structure.
+    #[test]
+    fn removing_from_the_middle_leaves_the_order_alone() {
+        let mut zones = Zones::new(2);
+        let lib = ZoneLocation::Library(PlayerId::new(0));
+        for slot in 1..=5 {
+            zones.insert(id(slot), lib, ZonePosition::Top, true);
+        }
+        assert_eq!(
+            zones.list(lib).as_slice(),
+            &[id(1), id(2), id(3), id(4), id(5)]
+        );
+        assert!(zones.remove(id(3), lib));
+        assert_eq!(
+            zones.list(lib).as_slice(),
+            &[id(1), id(2), id(4), id(5)],
+            "the cards under it kept their order"
+        );
+        assert!(zones.contains(id(5), lib));
+        assert!(!zones.contains(id(3), lib));
+        assert!(
+            !zones.contains(id(5), ZoneLocation::Library(PlayerId::new(1))),
+            "and it is in one player's library, not in the zone kind"
+        );
+    }
 }
