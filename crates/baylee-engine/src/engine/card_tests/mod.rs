@@ -332,6 +332,8 @@ const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Haunted Ridge",
     "Hive of the Eye Tyrant",
     "Inspiring Vantage",
+    "Lair of the Hydra",
+    "Mystic Sanctuary",
     "Overgrown Farmland",
     "Razorverge Thicket",
     "Rockfall Vale",
@@ -342,6 +344,7 @@ const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Stormcarved Coast",
     "Sundown Pass",
     "Thran Portal",
+    "Witch's Cottage",
 ];
 
 fn skyclave_apparition() -> CardIndex {
@@ -2223,4 +2226,44 @@ fn talon_gates_of_madara() -> CardIndex {
 
 fn turtle_lair() -> CardIndex {
     card_index("eb002bbc-08df-4bf0-bea3-46494ad261b6")
+}
+
+fn axgard_armory() -> CardIndex {
+    card_index("bce30fd0-ed1e-495d-9149-6a4c81c45c7b")
+}
+
+fn cabaretti_courtyard() -> CardIndex {
+    card_index("65424bea-fd53-4f85-9757-0b91a6d40ba4")
+}
+
+fn cavernous_maw() -> CardIndex {
+    card_index("952ab8fe-f7d3-4673-89de-8c6d3f8a081f")
+}
+
+fn elven_passage() -> CardIndex {
+    card_index("97a2cd39-6b54-496b-b3ac-dab9dfed7edc")
+}
+
+fn escape_tunnel() -> CardIndex {
+    card_index("0056fc91-4398-471c-b561-7ff99750ac8a")
+}
+
+fn fire_nation_palace() -> CardIndex {
+    card_index("f2000fb8-39c6-4ad6-a020-5245faaa1eba")
+}
+
+fn hobbit_hole() -> CardIndex {
+    card_index("17492186-9814-4c41-8111-1f000a96c212")
+}
+
+fn realm_of_koh() -> CardIndex {
+    card_index("bb9ce416-eef1-49e8-89a0-2b6837505070")
+}
+
+fn sunken_citadel() -> CardIndex {
+    card_index("508189e1-9cef-4f9c-8ff1-078c99a0f603")
+}
+
+fn volatile_fault() -> CardIndex {
+    card_index("95c44f28-f7fa-4785-83b9-0d81be0db0c8")
 }

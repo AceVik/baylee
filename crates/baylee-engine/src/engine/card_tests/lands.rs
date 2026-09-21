@@ -21747,3 +21747,704 @@ fn turtle_lair_lands_untapped_and_its_any_colour_mana_pays_only_for_a_ninja_or_t
     );
     assert!(is_tapped(&engine, lair), "the {{T}} was its price again");
 }
+
+/// Axgard Armory prints `This land enters tapped`, `{{T}}: Add {{W}}`, and
+/// `{{1}}{{R}}{{R}}{{W}}, {{T}}, Sacrifice this land: Search your library for an Aura card and/or an Equipment card, reveal them, put them into your hand, then shuffle.`
+/// The card is marked `Coverage::Implemented`.
+/// When played, it enters tapped, untaps on the subsequent turn, and sacrifices with floating mana to search the library for an Equipment card into hand.
+#[test]
+fn axgard_armory_enters_tapped_and_sacrifices_to_search_equipment() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, lightning_greaves())
+        .battlefield(0, &[mountain(), mountain(), plains(), forest()])
+        .hand(0, &[axgard_armory()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let armory = play_land(&mut engine, p0, axgard_armory());
+    assert!(entered_tapped(&engine, armory));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, armory));
+
+    tap_mana_except(&mut engine, p0, armory);
+    activate(&mut engine, p0, axgard_armory(), 1);
+    assert!(in_graveyard(&engine, p0, axgard_armory()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected library search prompt");
+    };
+    assert!(!options.is_empty());
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(chosen).unwrap().zone, Zone::Hand);
+}
+
+/// Cabaretti Courtyard prints `When this land enters, sacrifice it. When you do, search your library for a basic Mountain, Forest, or Plains card, put it onto the battlefield tapped, then shuffle and you gain 1 life.`
+/// The card is marked `Coverage::Partial` because the reflexive trigger condition is not expressible in the engine.
+/// When played, its entering trigger sacrifices the land, searches the library for a basic forest onto the battlefield tapped, and gains 1 life.
+#[test]
+fn cabaretti_courtyard_sacrifices_on_etb_to_fetch_basic_land_tapped_and_gain_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[cabaretti_courtyard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let initial_life = engine.state().players[0].life;
+    play_land(&mut engine, p0, cabaretti_courtyard());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected library search prompt");
+    };
+    assert!(!options.is_empty());
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, cabaretti_courtyard()).is_some());
+    assert_eq!(
+        engine.state().object(chosen).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(is_tapped(&engine, chosen));
+    assert_eq!(engine.state().players[0].life, initial_life + 1);
+}
+
+/// Cavernous Maw prints `{{T}}: Add {{C}}` and `{{2}}: This land becomes a 3/3 Elemental creature until end of turn. It's still a Cave land.`
+/// The card is marked `Coverage::Partial` because the activation condition requiring three or more Caves is unsupported and offered unconditionally.
+/// Paying `{{2}}` to activate the animation turns the land into an untapped 3/3 Elemental creature while retaining its land type.
+#[test]
+fn cavernous_maw_animates_into_a_three_three_elemental_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[cavernous_maw()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let maw = play_land(&mut engine, p0, cavernous_maw());
+    assert!(!entered_tapped(&engine, maw));
+    assert!(!types(&engine, maw).contains(TypeSet::CREATURE));
+
+    tap_all_mana_but(&mut engine, p0, Some(cavernous_maw()));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        2
+    );
+
+    activate(&mut engine, p0, cavernous_maw(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    let t = types(&engine, maw);
+    assert!(t.contains(TypeSet::CREATURE));
+    assert!(t.contains(TypeSet::LAND));
+    assert_eq!(pt(&engine, maw), (3, 3));
+    assert!(!is_tapped(&engine, maw));
+}
+
+/// Elven Passage prints `{{T}}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. You may behold an Elf. If you do, untap that land.`
+/// The card is marked `Coverage::Partial` because the behold mechanic and conditional untapping are unsupported and omitted.
+/// Activating its ability pays 1 life, sacrifices the land, and fetches a basic forest onto the battlefield tapped.
+#[test]
+fn elven_passage_sacrifices_and_pays_life_to_fetch_basic_land_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[elven_passage()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let initial_life = engine.state().players[0].life;
+    let passage = play_land(&mut engine, p0, elven_passage());
+    assert!(!is_tapped(&engine, passage));
+
+    activate(&mut engine, p0, elven_passage(), 0);
+    assert!(in_graveyard(&engine, p0, elven_passage()).is_some());
+    assert_eq!(engine.state().players[0].life, initial_life - 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected library search prompt");
+    };
+    assert!(!options.is_empty());
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(chosen).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(is_tapped(&engine, chosen));
+}
+
+/// Escape Tunnel prints `{{T}}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle` and an unblockability evasion ability.
+/// The card is marked `Coverage::Partial` because targeting creatures by power comparison is unsupported and omitted.
+/// Activating the fetch ability sacrifices Escape Tunnel and puts a searched basic land onto the battlefield tapped.
+#[test]
+fn escape_tunnel_sacrifices_to_fetch_basic_land_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[escape_tunnel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let tunnel = play_land(&mut engine, p0, escape_tunnel());
+    assert!(!is_tapped(&engine, tunnel));
+
+    activate(&mut engine, p0, escape_tunnel(), 0);
+    assert!(in_graveyard(&engine, p0, escape_tunnel()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected library search prompt");
+    };
+    assert!(!options.is_empty());
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(chosen).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(is_tapped(&engine, chosen));
+}
+
+/// Fire Nation Palace prints `This land enters tapped unless you control a basic land`, `{{T}}: Add {{R}}`, and a firebending ability.
+/// The card is marked `Coverage::Partial` because the firebending activation is unsupported and omitted.
+/// When played while controlling a basic `forest()`, Fire Nation Palace enters untapped and immediately taps to add red mana to the pool.
+#[test]
+fn fire_nation_palace_enters_untapped_with_basic_land_and_taps_for_red() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[fire_nation_palace()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let palace = play_land(&mut engine, p0, fire_nation_palace());
+    assert!(!entered_tapped(&engine, palace));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+}
+
+/// Hobbit Hole prints `{{T}}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle` and `Halflingcycling {{4}}`.
+/// The card is marked `Coverage::Implemented`.
+/// When played onto the battlefield, activating its fetch ability sacrifices the land and puts a searched basic land onto the battlefield tapped.
+#[test]
+fn hobbit_hole_sacrifices_on_battlefield_to_fetch_basic_land_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest()).hand(0, &[hobbit_hole()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hole = play_land(&mut engine, p0, hobbit_hole());
+    assert!(!is_tapped(&engine, hole));
+
+    activate(&mut engine, p0, hobbit_hole(), 0);
+    assert!(in_graveyard(&engine, p0, hobbit_hole()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected library search prompt");
+    };
+    assert!(!options.is_empty());
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(chosen).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(is_tapped(&engine, chosen));
+}
+
+/// Realm of Koh prints `This land enters tapped unless you control a basic land`, `{{T}}: Add {{B}}`, and a token creation ability.
+/// The card is marked `Coverage::Partial` because the Spirit token's blocking restrictions are unsupported and omitted.
+/// When played while controlling a basic `forest()`, Realm of Koh enters untapped and immediately taps to add black mana to the pool.
+#[test]
+fn realm_of_koh_enters_untapped_with_basic_land_and_taps_for_black() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[realm_of_koh()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let koh = play_land(&mut engine, p0, realm_of_koh());
+    assert!(!entered_tapped(&engine, koh));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+}
+
+/// Sunken Citadel prints `This land enters tapped. As it enters, choose a color`, `{{T}}: Add one mana of the chosen color`,
+/// and `{{T}}: Add two mana of the chosen color. Spend this mana only to activate abilities of land sources.`
+/// The card is marked `Coverage::Partial` because the spend restriction on the two-mana ability is not expressible in the engine.
+/// When played, Sunken Citadel prompts for a color choice as it enters, arrives tapped, untaps on the next turn,
+/// and activating its second ability produces two mana of the chosen color.
+#[test]
+fn sunken_citadel_chooses_color_and_taps_for_two_mana() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[sunken_citadel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let citadel = play_land(&mut engine, p0, sunken_citadel());
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, citadel));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, citadel));
+
+    activate(&mut engine, p0, sunken_citadel(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        2
+    );
+    assert!(is_tapped(&engine, citadel));
+}
+
+/// Volatile Fault prints `{{T}}: Add {{C}}` and `{{1}}, {{T}}, Sacrifice this land: Destroy target nonbasic land an opponent controls. That player may search their library for a basic land card, put it onto the battlefield, then shuffle. You create a Treasure token.`
+/// The card is marked `Coverage::Partial` because the searched land enters tapped instead of untapped.
+/// Activating the sacrifice ability destroys the opponent's nonbasic land, allows them to search for a basic land, and creates a Treasure token for the activator.
+#[test]
+fn volatile_fault_destroys_opponent_nonbasic_and_creates_treasure() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[volatile_fault(), forest()])
+        .battlefield(1, &[badlands()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let target = on_battlefield(&engine, p1, badlands()).expect("Badlands deployed");
+    let fault = on_battlefield(&engine, p0, volatile_fault()).expect("Fault deployed");
+
+    tap_mana_except(&mut engine, p0, fault);
+    activate(&mut engine, p0, volatile_fault(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice");
+    };
+    assert!(options.contains(&target));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+
+    assert!(in_graveyard(&engine, p0, volatile_fault()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected search");
+    };
+    assert_eq!(player, p1);
+    assert_eq!((min, max), (0, 1));
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p1, badlands()).is_some());
+    assert_eq!(tokens_of(&engine, p0).len(), 1);
+}
+
+fn lair_of_the_hydra() -> CardIndex {
+    card_index("126e9140-2c05-4c00-8b01-5653456c736a")
+}
+
+fn mystic_sanctuary() -> CardIndex {
+    card_index("17b60106-a4c7-410a-8ac3-ec8e74e29a7c")
+}
+
+fn witch_s_cottage() -> CardIndex {
+    card_index("6c8f276e-4e7b-4974-ab02-9356cc0ffb2b")
+}
+
+/// Lair of the Hydra: "If you control two or more other lands, this land
+/// enters tapped."
+///
+/// The land was written `at_most: 2` where the four cards printing that
+/// identical sentence -- Cave of the Frost Dragon, Den of the Bugbear, Hall
+/// of Storm Giants, Hive of the Eye Tyrant -- all write `at_most: 1`, so it
+/// came down *untapped* off exactly two other lands and every other card in
+/// its own cycle came down tapped. Two other lands is the boundary the
+/// wrong bound sat on, which is why this is the side that is played: it is
+/// the assertion that fails against the code it replaces.
+#[test]
+fn a_manland_that_reads_two_or_more_other_lands_enters_tapped_off_exactly_two() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(960, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[lair_of_the_hydra()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lair = play_land(&mut engine, p0, lair_of_the_hydra());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        entered_tapped(&engine, lair),
+        "two other lands is \"two or more\", so the Lair enters tapped"
+    );
+}
+
+/// The other side of the same bound, one land fewer.
+///
+/// A test that only asserted the tapped half would pass against a filter
+/// that had simply been written "always tapped", so the untapped side is
+/// what makes the number mean anything.
+#[test]
+fn a_manland_that_reads_two_or_more_other_lands_enters_untapped_off_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(961, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[lair_of_the_hydra()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lair = play_land(&mut engine, p0, lair_of_the_hydra());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !entered_tapped(&engine, lair),
+        "one other land is under the bound, so the Lair enters untapped"
+    );
+}
+
+/// Mystic Sanctuary: "This land enters tapped unless you control three or
+/// more other Islands. When this land enters untapped, you may put target
+/// instant or sorcery card from your graveyard on top of your library."
+///
+/// The library is filled with an instant rather than a basic land, which is
+/// what gives `seed_graveyard` something the trigger may legally point at.
+/// Both sentences are played at once, because the second is gated on the
+/// first: the Sanctuary is the fourth Island here, so it arrives untapped
+/// and the trigger has to reach the graveyard.
+#[test]
+fn a_mystic_sanctuary_off_three_other_islands_replays_an_instant() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(962, eerie_interlude())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[mystic_sanctuary()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = in_graveyard(&engine, p0, eerie_interlude()).expect("an instant is in the yard");
+    let before = library_size(&engine, p0);
+
+    let sanctuary = play_land(&mut engine, p0, mystic_sanctuary());
+    assert!(
+        !entered_tapped(&engine, sanctuary),
+        "three other Islands is three or more, so the Sanctuary enters untapped"
+    );
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "an untapped arrival asks the graveyard question: {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&buried),
+        "the instant in the graveyard is one of the answers"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![buried],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
+    });
+    assert!(
+        in_graveyard(&engine, p0, eerie_interlude()).is_none(),
+        "the card left the graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        before + 1,
+        "and it is on top of the library"
+    );
+}
+
+/// The tapped side of the Sanctuary, one Island fewer.
+///
+/// "You control" is not the engine's default and the filter has to spell it,
+/// so the fourth land on the table here is an Island the *opponent* controls:
+/// a filter that had merely counted Islands would read three and let this
+/// land in untapped.
+#[test]
+fn a_mystic_sanctuary_counts_only_its_controllers_islands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(963, eerie_interlude())
+        .battlefield(0, &[island(), island()])
+        .battlefield(1, &[island(), island()])
+        .hand(0, &[mystic_sanctuary()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+
+    let sanctuary = play_land(&mut engine, p0, mystic_sanctuary());
+    assert!(
+        entered_tapped(&engine, sanctuary),
+        "two of your own Islands are not three, whatever is across the table"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "a tapped arrival asks nothing at all: {:?}",
+        engine.pending()
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, eerie_interlude()).is_some(),
+        "and the instant stays where it was"
+    );
+}
+
+/// Witch's Cottage is the same pair of sentences over Swamps and creature
+/// cards, and it is here because the two lands write the second sentence two
+/// different ways -- the Sanctuary as a filter on the trigger's own event,
+/// the Cottage as `Condition::SourceMatches(Untapped)`. Whether those two
+/// spellings behave alike is exactly what a played test says and a read of
+/// either file does not.
+#[test]
+fn a_witch_s_cottage_off_three_other_swamps_replays_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(964, quiet_creature())
+        .battlefield(0, &[swamp(), swamp(), swamp()])
+        .hand(0, &[witch_s_cottage()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = in_graveyard(&engine, p0, quiet_creature()).expect("a creature is in the yard");
+    let before = library_size(&engine, p0);
+
+    let cottage = play_land(&mut engine, p0, witch_s_cottage());
+    assert!(
+        !entered_tapped(&engine, cottage),
+        "three other Swamps is three or more, so the Cottage enters untapped"
+    );
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "an untapped arrival asks the graveyard question: {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&buried),
+        "the creature card in the graveyard is one of the answers"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![buried],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
+    });
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_none(),
+        "the card left the graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        before + 1,
+        "and it is on top of the library"
+    );
+}
+
+/// The tapped side of the Cottage, and the half that says the condition is
+/// read when the trigger would go on the stack rather than only on
+/// resolution: a land that came down tapped asks nothing.
+#[test]
+fn a_witch_s_cottage_that_enters_tapped_leaves_the_graveyard_alone() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(965, quiet_creature())
+        .battlefield(0, &[swamp(), swamp()])
+        .battlefield(1, &[swamp(), swamp()])
+        .hand(0, &[witch_s_cottage()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+
+    let cottage = play_land(&mut engine, p0, witch_s_cottage());
+    assert!(
+        entered_tapped(&engine, cottage),
+        "two of your own Swamps are not three, whatever is across the table"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "a tapped arrival asks nothing at all: {:?}",
+        engine.pending()
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_some(),
+        "and the creature card stays where it was"
+    );
+}

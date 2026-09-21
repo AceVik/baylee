@@ -24,7 +24,7 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnlessAtMost {
             filter: &Filter::YOUR_LAND,
-            at_most: 2,
+            at_most: 1,
         }],
     )],
     abilities = &[
