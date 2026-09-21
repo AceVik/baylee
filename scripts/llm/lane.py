@@ -43,7 +43,14 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 GEMINI_CONVERSATIONS = pathlib.Path(
     os.path.expanduser("~/.gemini/antigravity-cli/conversations")
 )
-GEMINI_MODEL = "gemini-3.8-flash-high"
+# The model the `agy` lane asks for, overridable because the quota is **per
+# model family and not per account**: measured 22.09.2026, a session that
+# `gemini-3.8-flash-high` and `gemini-3.7-flash-high` both refused with
+# `RESOURCE_EXHAUSTED … Resets in 3h` was answered by `gpt-oss-120b-medium`
+# through the same CLI, the same second. So a lane held by the quota has a
+# way out that is not waiting, and the cross rule is satisfied by any model
+# that is not the one which wrote the cards. `agy models` lists them.
+GEMINI_MODEL = os.environ.get("BAYLEE_LLM_AGY_MODEL", "gemini-3.8-flash-high")
 DEEPSEEK_MODEL = "deepseek-flash[1m]"
 
 DOORS = {
@@ -345,8 +352,13 @@ def report_gemini(plural, singular, count, proc, seconds, steps, sent, answer_pa
 
     The minutes come first because they are the scarce thing on this lane:
     the subscription costs no money and refreshes a time quota instead.
+
+    The **model** is named on every line since it became overridable. A
+    report that says "Gemini" while another model wrote the batch makes the
+    cross rule unauditable afterwards -- and the cross rule is the one thing
+    about these lanes that a later reader cannot re-derive from the files.
     """
-    print(f"{count} {plural}, {seconds / 60:.1f} min, Exit {proc.returncode}")
+    print(f"{count} {plural} ({GEMINI_MODEL}), {seconds / 60:.1f} min, Exit {proc.returncode}")
     if steps is not None:
         print(
             f"  {steps} Schritte, ~{sent / 4 / 1e6:.0f} Mio. Eingabe-Token, "
