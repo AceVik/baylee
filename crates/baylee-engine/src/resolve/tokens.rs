@@ -380,3 +380,257 @@ fn create_token(
     arrive(state, id);
     id
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::{CardLookup, ReplacementEntry};
+    use baylee_cards_dsl::{Filter, ReplacementRule};
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatCapabilities,
+        SeatController, SeatSpec,
+    };
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    fn treasure() -> &'static baylee_cards_dsl::TokenDef {
+        &baylee_cards::tokens::TREASURE
+    }
+
+    /// Seat 0 starts with one Forest on the battlefield: a token copy of a
+    /// **card** is the one branch that needs a card to copy.
+    fn state() -> GameState {
+        let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("registry contains Forest")
+            .index;
+        let entry = DeckEntry {
+            card: forest,
+            print: baylee_core::ids::PrintRef::new(0),
+        };
+        let seat = |bf: Vec<DeckEntry>| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: bf,
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 6,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![seat(vec![entry]), seat(vec![])],
+        };
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    fn the_forest(state: &GameState) -> ObjectId {
+        *state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .first()
+            .expect("seat 0 started with one")
+    }
+
+    /// "If one or more tokens would be created under your control" — a
+    /// Doubling Season controlled by seat 0.
+    fn doubles_tokens(state: &mut GameState, controller: PlayerId) {
+        let name = state.names.intern("Doubling Season");
+        let source = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        state.replacement_rules.push(ReplacementEntry {
+            source,
+            controller,
+            rule: ReplacementRule::DoubleTokenCreation {
+                controller_filter: &Filter::ControlledByYou,
+            },
+        });
+    }
+
+    /// The factory is a **door** (CR 614.1): a token made beside it is
+    /// invisible to every replacement that multiplies tokens. And the rule
+    /// is read off whoever ends up with them — Crib Swap hands its
+    /// Shapeshifter to the player whose creature it answered, so my
+    /// Doubling Season must not double that one.
+    #[test]
+    fn the_token_factory_is_where_the_doubling_replacement_applies() {
+        let mut state = state();
+        doubles_tokens(&mut state, me());
+
+        assert_eq!(
+            create_tokens(&mut state, me(), treasure(), None, 1).len(),
+            2
+        );
+        assert_eq!(
+            create_tokens(&mut state, them(), treasure(), None, 1).len(),
+            1,
+            "the tokens are created under their control, not under mine"
+        );
+        assert_eq!(
+            create_tokens(&mut state, me(), treasure(), None, 3).len(),
+            6,
+            "the multiplier applies to the whole creation"
+        );
+    }
+
+    /// A token copy is a token, so the same replacement applies: Rite of
+    /// Replication under a Doubling Season makes two copies. That the three
+    /// copy branches read no replacement at all is why this is a second
+    /// door rather than one more argument to the first.
+    #[test]
+    fn a_token_copy_goes_through_the_same_replacement() {
+        let mut state = state();
+        doubles_tokens(&mut state, me());
+        let forest = the_forest(&state);
+        let base = std::sync::Arc::new(
+            state
+                .object(forest)
+                .expect("the Forest")
+                .characteristics()
+                .clone(),
+        );
+
+        let copies = create_token_copies(&mut state, me(), forest, &base, 1);
+        assert_eq!(copies.len(), 2);
+        assert_eq!(
+            create_token_copies(&mut state, them(), forest, &base, 1).len(),
+            1
+        );
+    }
+
+    /// CR 707.2 copies the original's abilities with its characteristics,
+    /// and a copy of a *card* owes the face whose printed abilities it still
+    /// carries — this crate has no card registry, so the face is queued for
+    /// whoever does.
+    #[test]
+    fn a_copy_of_a_card_queues_the_face_its_abilities_are_behind() {
+        let mut state = state();
+        let forest = the_forest(&state);
+        let card = state
+            .object(forest)
+            .expect("the Forest")
+            .card
+            .expect("a card");
+        let base = std::sync::Arc::new(
+            state
+                .object(forest)
+                .expect("the Forest")
+                .characteristics()
+                .clone(),
+        );
+        state.pending_copied_faces.clear();
+
+        let copies = create_token_copies(&mut state, me(), forest, &base, 2);
+
+        assert_eq!(copies.len(), 2);
+        assert_eq!(
+            state.pending_copied_faces,
+            vec![(copies[0], card.index, 0), (copies[1], card.index, 0)],
+            "one entry per copy — a shared queue with one entry would leave \
+             the second copy a blank permanent"
+        );
+        // A copy of a *token* has its definition instead, and owes no face.
+        let treasures = create_tokens(&mut state, me(), treasure(), None, 1);
+        state.pending_copied_faces.clear();
+        let base = std::sync::Arc::new(
+            state
+                .object(treasures[0])
+                .expect("a Treasure")
+                .characteristics()
+                .clone(),
+        );
+        let copy = create_token_copies(&mut state, me(), treasures[0], &base, 1);
+        assert!(state.pending_copied_faces.is_empty());
+        assert!(
+            std::ptr::eq(
+                state
+                    .object(copy[0])
+                    .expect("the copy")
+                    .token
+                    .expect("a definition"),
+                treasure()
+            ),
+            "the copy of a Treasure is a Treasure: the definition is the \
+             only record of which token this is once the characteristics \
+             have been copied out of it"
+        );
+    }
+
+    /// A token is not moved onto the battlefield — it is created there. But
+    /// CR 603.6a asks whether a permanent *entered* and not how it got
+    /// there, and the engine reads that off this one event, so a token that
+    /// arrived in silence was a board Nesting Dovehawk never saw.
+    ///
+    /// `from` is `OutsideGame`, the only variant meaning no zone at all
+    /// (CR 400.1): the leaves-, dies- and exiled-from-battlefield triggers
+    /// all read that side and every one of them wants `Battlefield` there,
+    /// so naming a zone the token was never in would be both a lie and a
+    /// trigger.
+    #[test]
+    fn a_token_enters_the_battlefield_and_says_so() {
+        let mut state = state();
+        state.characteristics_generation = 0;
+        let entries = state.journal.len();
+
+        let tokens = create_tokens(&mut state, me(), treasure(), None, 1);
+        let id = tokens[0];
+
+        let obj = state.object(id).expect("just made it");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+        assert_eq!(obj.controller, me());
+        assert!(
+            std::ptr::eq(obj.token.expect("a definition"), treasure()),
+            "what makes it a Treasure rather than a blank artifact"
+        );
+        assert!(
+            state.zones.list(ZoneLocation::Battlefield).contains(&id),
+            "and the zone list agrees with the object"
+        );
+        assert_eq!(
+            state.characteristics_generation,
+            u64::MAX,
+            "a permanent that just arrived has never been projected"
+        );
+        assert_eq!(state.journal.len(), entries + 1);
+        assert!(
+            matches!(
+                state.journal.entries().last().expect("an entry").event,
+                GameEvent::ZoneChanged {
+                    object,
+                    from: crate::zone::Zone::OutsideGame,
+                    to: crate::zone::Zone::Battlefield,
+                    ..
+                } if object == id
+            ),
+            "recorded {:?}",
+            state.journal.entries().last().expect("an entry").event
+        );
+    }
+}
