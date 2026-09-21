@@ -627,13 +627,14 @@ claims that must not read as the same light. `CardGroup::activatable` is true
 only when every permanent the card stands for can act, so a stack of three
 never invites a click that gets refused.
 
-There is no undo in the engine, so anything irreversible is **two-stage**: the
+Spells and abilities with costs beyond their own tap are **two-stage**: the
 first tap arms (`Duel::armed`, an `ObjectId` and a `Deed` — `Play`, `Ability`
 or a mana `Run`), a second tap on the same card sends, `Esc` takes it back, and
 every reader re-resolves against the *current* `LegalActions` so a deed the
-engine has withdrawn disarms rather than firing. Mana abilities are the one
-exemption and stay one tap, read off the card's own `mana_ability` flag
-(CR 605.1) — floating mana is the cheap mistake. The drawing is two more glow
+engine has withdrawn disarms rather than firing. Land drops and abilities
+whose entire cost is their own tap use one click, as `input::activate_card`
+and `arm_ability` implement. This is the existing interaction policy; #141
+corrects the earlier claim that mana abilities were the only exemption. The drawing is two more glow
 bits in the same border register: `ARMED` holds still where `ACTIVATABLE`
 travels (the invitation was accepted), `WILL_TAP` marks the lands the plan
 would spend, and an armed card drops `ACTIVATABLE` so one border never carries
