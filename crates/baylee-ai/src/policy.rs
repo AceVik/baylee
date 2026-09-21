@@ -931,6 +931,87 @@ mod tests {
     use super::{mix, priced};
     use baylee_cards_dsl::{Cost, CostPart};
 
+    /// **A land on the back of a card is still a land the engine offers.**
+    ///
+    /// A `CardIdentity` in hand names the face that is up, and for a modal
+    /// double-faced card that face is the spell — so every reader asking
+    /// `types.contains(LAND)` of it read Shatterskull Smashing as a sorcery
+    /// and nothing else, while `compute_legal` was already offering the land
+    /// drop (CR 712.12). An agent that disagrees with the offer it is
+    /// answering declines land drops the engine is making it.
+    ///
+    /// So the rule is read over the **whole pool** rather than over an
+    /// example: `plays_as_land` and "any face is a land" name the same
+    /// cards, and the population that makes the sweep worth anything is
+    /// counted beside it — the cards whose front face is not a land and
+    /// whose back is, which are exactly the ones a front-face reader gets
+    /// wrong.
+    #[test]
+    fn a_land_on_any_face_is_a_land_this_agent_can_play() {
+        use baylee_core::ids::PrintRef;
+        use baylee_core::types::TypeSet;
+
+        let mut read = 0usize;
+        let mut hidden_lands = Vec::new();
+        let mut wrong = Vec::new();
+        for def in baylee_cards::all() {
+            read += 1;
+            // Face 0, because that is what a card in hand shows and what
+            // every front-face reader was looking at.
+            let card = super::CardIdentity {
+                index: def.index,
+                print: PrintRef::new(0),
+                face: 0,
+            };
+            let any_face_is_a_land = def.faces.iter().any(|f| f.types.contains(TypeSet::LAND));
+            if super::plays_as_land(card) != any_face_is_a_land {
+                wrong.push(def.name());
+            }
+            let front_is_a_land = def.faces[0].types.contains(TypeSet::LAND);
+            if any_face_is_a_land && !front_is_a_land {
+                hidden_lands.push(def.name());
+                assert!(
+                    super::land_face(card).is_some_and(|f| f.types.contains(TypeSet::LAND)),
+                    "{} names a face that is not the land",
+                    def.name()
+                );
+            }
+        }
+
+        assert!(
+            read > 2_500,
+            "read {read} cards out of the pool, which is not the pool"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} card(s) disagree with CR 712.12: {:?}",
+            wrong.len(),
+            &wrong[..wrong.len().min(10)]
+        );
+        // 82 on 2026-09-21, which is the number `land_face`'s own doc
+        // states — measured here rather than retyped. The floor is under it
+        // because the pool only grows, and a sweep that read none of these
+        // would report the same clean result as one that read all of them.
+        assert!(
+            hidden_lands.len() >= 80,
+            "only {} card(s) print a spell over a land, so this sweep proves \
+             nothing about the case it exists for: {hidden_lands:?}",
+            hidden_lands.len()
+        );
+
+        // And the other direction, which is the one a card author would
+        // break: a card with no land face anywhere is not a land drop.
+        let bolt = baylee_cards::by_oracle_id("4457ed35-7c10-48c8-9776-456485fdf070")
+            .expect("registry contains Lightning Bolt");
+        let bolt = super::CardIdentity {
+            index: bolt.index,
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        assert!(!super::plays_as_land(bolt));
+        assert!(super::land_face(bolt).is_none());
+    }
+
     /// What a tap costs is part of the ranking. `mana_shape` has already
     /// refused a mana price, so what is left is `cost.parts`, and `{T}` is
     /// the only part a mana source may carry for free — a `matches!` on
