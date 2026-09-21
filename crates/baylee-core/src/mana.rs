@@ -871,4 +871,124 @@ mod tests {
             "{0}"
         );
     }
+
+    /// CR 601.2b: the announced number replaces every variable symbol, and
+    /// a card printing two of them (`{X}{X}`) charges it twice. Until it is
+    /// announced, `{X}` is nothing — which is what makes an unannounced
+    /// `X` spell's mana value zero on the stack.
+    #[test]
+    fn announcing_x_replaces_every_variable_symbol() {
+        let one = ManaCost::parse("{X}{R}");
+        assert_eq!(one.cmc(), 1, "an unannounced X counts nothing");
+        assert!(one.has_variable());
+        assert_eq!(one.with_x(3).to_string(), "{3}{R}");
+        assert_eq!(one.with_x(3).cmc(), 4);
+        assert!(
+            !one.with_x(3).has_variable(),
+            "and it is no longer variable"
+        );
+
+        let twice = ManaCost::parse("{X}{X}{B}");
+        assert_eq!(twice.with_x(2).cmc(), 5, "two symbols, twice the number");
+        // Announcing nothing leaves a `{0}` symbol standing, where
+        // `with_less_generic` drops a generic part it has emptied. The
+        // arithmetic agrees either way — this is what the cost *prints*,
+        // and Magic prints `{0}` beside nothing else. Pinned rather than
+        // endorsed: a reader that draws a pip per symbol draws one here.
+        assert_eq!(one.with_x(0).to_string(), "{0}{R}");
+        assert_eq!(one.with_x(0).cmc(), 1, "which costs what it should");
+    }
+
+    /// Delve and convoke take generic mana off and **only** generic mana: a
+    /// reduction larger than the cost has is not a cost that pays its
+    /// coloured pips for you, and it must not wrap the subtraction either.
+    #[test]
+    fn a_reduction_eats_generic_mana_and_never_a_coloured_pip() {
+        let cost = ManaCost::parse("{3}{U}{U}");
+        assert_eq!(cost.with_less_generic(0), cost);
+        assert_eq!(cost.with_less_generic(1).to_string(), "{2}{U}{U}");
+        assert_eq!(cost.with_less_generic(3).to_string(), "{U}{U}");
+        assert_eq!(
+            cost.with_less_generic(99).to_string(),
+            "{U}{U}",
+            "a reduction bigger than the cost leaves the colours standing"
+        );
+        assert_eq!(cost.with_less_generic(99).cmc(), 2);
+        assert_eq!(
+            ManaCost::parse("{U}{U}").with_less_generic(2).to_string(),
+            "{U}{U}",
+            "and a cost with no generic part is untouched"
+        );
+    }
+
+    /// The mirror, and the commander tax is what needed it: a cost printing
+    /// no generic symbol at all has to **grow** one rather than stay as it
+    /// was. Two taxes in a row add up on the one symbol instead of writing
+    /// two.
+    #[test]
+    fn a_cost_increase_grows_a_generic_symbol_that_was_not_printed() {
+        let plain = ManaCost::parse("{G}{G}");
+        assert_eq!(plain.with_more_generic(0), plain, "no tax, no change");
+        assert_eq!(plain.with_more_generic(2).to_string(), "{2}{G}{G}");
+        assert_eq!(
+            plain.with_more_generic(2).with_more_generic(2).to_string(),
+            "{4}{G}{G}",
+            "the second tax joins the first rather than writing a second symbol"
+        );
+        assert_eq!(
+            ManaCost::parse("{1}{W}").with_more_generic(2).to_string(),
+            "{3}{W}"
+        );
+        assert_eq!(
+            ManaCost::ZERO.with_more_generic(3).to_string(),
+            "{3}",
+            "a free spell taxed is not a free spell"
+        );
+    }
+
+    /// CR 601.2f: an additional cost stacks onto the base cost. Kicker is
+    /// the shape, and the result is one cost in canonical order rather than
+    /// two lists laid end to end.
+    #[test]
+    fn an_additional_cost_stacks_onto_the_one_that_was_printed() {
+        let base = ManaCost::parse("{1}{G}");
+        let kicker = ManaCost::parse("{2}{R}");
+        let both = base.combine(&kicker);
+
+        assert_eq!(both.cmc(), base.cmc() + kicker.cmc());
+        assert_eq!(
+            both.colors(),
+            ColorSet::from_slice(&[Color::Red, Color::Green])
+        );
+        assert_eq!(
+            both.to_string(),
+            kicker.combine(&base).to_string(),
+            "combining is not an order the reader can see"
+        );
+        assert_eq!(base.combine(&ManaCost::ZERO), base);
+        assert!(
+            base.combine(&ManaCost::parse("{X}")).has_variable(),
+            "and a variable carried in is still variable"
+        );
+    }
+
+    /// What a cost *is* made of, read four ways: the total, the generic
+    /// half, whether it is variable at all, and which colours it demands.
+    /// A hybrid symbol demands both of its colours and costs one.
+    #[test]
+    fn a_cost_answers_what_it_is_made_of() {
+        let hybrid = ManaCost::parse("{2}{W/U}{B}");
+        assert_eq!(hybrid.cmc(), 4);
+        assert_eq!(hybrid.generic_total(), 2);
+        assert!(!hybrid.has_variable());
+        assert_eq!(
+            hybrid.colors(),
+            ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black]),
+            "a hybrid pip is both of its colours"
+        );
+        assert!(!hybrid.is_empty());
+        assert!(ManaCost::ZERO.is_empty());
+        assert_eq!(ManaCost::ZERO.cmc(), 0);
+        assert_eq!(ManaCost::ZERO.colors(), ColorSet::EMPTY);
+    }
 }
