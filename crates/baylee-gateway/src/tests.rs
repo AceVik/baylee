@@ -300,3 +300,159 @@ fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
         );
     }
 }
+
+/// What a deck list of these lines parses to, or what the player is told.
+///
+/// Every refusal here is a 400 and that is folded in rather than asserted
+/// per case: the deck is the body of the request, so there is no other
+/// answer for a list this server cannot read.
+fn parsed(lines: &[&str]) -> Result<usize, String> {
+    let owned: Vec<String> = lines.iter().map(|line| (*line).to_string()).collect();
+    parse_deck_lines(&owned)
+        .map(|rows| rows.len())
+        .map_err(|(status, body)| {
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a deck is the body of the request"
+            );
+            body.0.error.into_owned()
+        })
+}
+
+/// **Four copies is a deck's limit, not a line's.**
+///
+/// That is the rule a per-line check gets wrong, and it gets it wrong in the
+/// direction a player finds by accident rather than on purpose: three
+/// Lightning Bolt and then two more is five Lightning Bolt, and every line
+/// in that list is legal on its own. The count is carried per card across
+/// the whole list, which is the only reason this function exists instead of
+/// a loop at each of its two call sites.
+#[test]
+fn the_copy_limit_is_counted_over_the_deck_and_not_over_one_line() {
+    const TOO_MANY: &str = "invalid card count (1-4, unlimited for basic lands)";
+
+    assert_eq!(parsed(&["4 Lightning Bolt"]), Ok(1));
+    assert_eq!(parsed(&["5 Lightning Bolt"]), Err(TOO_MANY.to_string()));
+    assert_eq!(
+        parsed(&["3 Lightning Bolt", "1 Lightning Bolt"]),
+        Ok(2),
+        "four in two rows is four"
+    );
+    assert_eq!(
+        parsed(&["3 Lightning Bolt", "2 Lightning Bolt"]),
+        Err(TOO_MANY.to_string()),
+        "and five in two rows is five"
+    );
+    assert_eq!(
+        parsed(&["1 Lightning Bolt"; 5]),
+        Err(TOO_MANY.to_string()),
+        "however many rows it is spread over"
+    );
+    assert_eq!(
+        parsed(&["4 Lightning Bolt (LEA)", "4 Lightning Bolt (M10)"]),
+        Err(TOO_MANY.to_string()),
+        "two printings of one card are one card — the eight Bolts that went \
+         through a per-row check once a printing became part of a row"
+    );
+    assert_eq!(
+        parsed(&["4 Lightning Bolt", "4 Karakas"]),
+        Ok(2),
+        "and it is counted per card, so two cards are two counts"
+    );
+}
+
+/// A basic land is the exemption, and what makes one is the **printing**:
+/// the supertype and the type off the front face, never the name. A
+/// Karakas is a legendary land and is four like everything else.
+#[test]
+fn a_basic_land_is_the_one_card_a_deck_may_hold_any_number_of() {
+    assert_eq!(parsed(&["40 Forest"]), Ok(1));
+    assert_eq!(
+        parsed(&["20 Forest", "20 Island"]),
+        Ok(2),
+        "and each of them separately"
+    );
+    assert_eq!(
+        parsed(&["5 Karakas"]),
+        Err("invalid card count (1-4, unlimited for basic lands)".to_string()),
+        "a land that is not basic is not exempt, whatever else it is"
+    );
+}
+
+/// The list has a ceiling as well, and it is checked **as the lines are
+/// read** rather than at the end, so a list that would take a gigabyte to
+/// expand is refused at the row that passes 250 rather than after all of
+/// them.
+///
+/// A count of nought never reaches here: `deckrow::parse` refuses it first
+/// and the sentence a player gets is that parser's, which is why the check
+/// standing behind it in this function cannot fire today. The assertion
+/// below is on the message rather than on the refusal, so the day a nought
+/// does get this far it says so here instead of silently changing which
+/// half answered.
+#[test]
+fn the_ceiling_is_the_whole_list_and_is_read_row_by_row() {
+    assert_eq!(parsed(&["250 Forest"]), Ok(1), "a deck of exactly the cap");
+    assert_eq!(
+        parsed(&["251 Forest"]),
+        Err("deck too large".to_string()),
+        "and one more is not a deck"
+    );
+    assert_eq!(
+        parsed(&["200 Forest", "51 Island"]),
+        Err("deck too large".to_string()),
+        "the ceiling is the total and not the row"
+    );
+    assert_eq!(
+        parsed(&["0 Forest"]),
+        Err("malformed card count".to_string()),
+        "nought is refused by the row parser, one layer before this one"
+    );
+}
+
+/// **A card that exists and a card that does not are two different
+/// refusals**, and the difference is the one a player can act on: a typo is
+/// theirs to fix and a card this build compiles nothing for is not.
+///
+/// The name is looked for in the `CardIndex` ledger, which numbers every
+/// card there is rather than this pool, so the unplayable card is found
+/// here rather than written down — a name spelled into the test would
+/// become a card one day and the test would go green having stopped asking
+/// the question.
+#[test]
+fn a_card_this_build_cannot_play_is_refused_by_a_different_sentence() {
+    let unplayable = baylee_cards_index::ROWS
+        .iter()
+        .find(|row| baylee_cards::decks::by_name(row.name).is_none())
+        .expect("the ledger names more cards than this build compiles");
+
+    assert_eq!(
+        no_such_card(unplayable.name, "unknown card"),
+        EXISTS_UNPLAYABLE
+    );
+    let row = format!("1 {}", unplayable.name);
+    assert_eq!(
+        parsed(&[row.as_str()]),
+        Err(EXISTS_UNPLAYABLE.to_string()),
+        "and that is the sentence the deck route gives it"
+    );
+    assert_eq!(
+        no_such_card("Lihgtning Bolt", "unknown card"),
+        "unknown card",
+        "a name nothing has ever printed is the caller's own sentence"
+    );
+
+    assert_eq!(
+        no_such_card_at(unplayable.index),
+        EXISTS_UNPLAYABLE,
+        "the same two facts reached by index"
+    );
+    assert_eq!(
+        no_such_card_at(baylee_core::ids::CardIndex::new(
+            u32::try_from(baylee_cards_index::ROWS.len()).expect("the ledger fits in a u32")
+        )),
+        "unknown card",
+        "one past the last row is no card at all"
+    );
+}
