@@ -319,4 +319,106 @@ mod tests {
         assert_eq!(hello.token, "secret");
         assert_eq!(hello.capacity, 2);
     }
+
+    /// A websocket URL is passed through untouched, which is the claim
+    /// `ws_base` makes about itself: guessing at one would be worse than
+    /// letting the socket refuse it. A base with no scheme at all is in the
+    /// same position — this function's job is the two it knows.
+    #[test]
+    fn a_base_that_is_already_a_socket_is_left_alone() {
+        for already in ["ws://gw:28766", "wss://play.example"] {
+            assert_eq!(ws_base(already), already);
+            assert_eq!(
+                ws_base(&format!("{already}/")),
+                already,
+                "and a trailing slash is never a second one"
+            );
+        }
+        assert_eq!(
+            ws_base("127.0.0.1:28766"),
+            "127.0.0.1:28766",
+            "a base with no scheme is handed on as it was written"
+        );
+        assert_eq!(
+            ws_base("http://host/play"),
+            "ws://host/play",
+            "a gateway behind a path keeps its path"
+        );
+        let behind_a_path = AgentConfig {
+            gateway: "https://example.test/baylee".to_string(),
+            ..config()
+        };
+        assert_eq!(
+            behind_a_path.control_url(),
+            "wss://example.test/baylee/agent/ws"
+        );
+    }
+
+    /// The welcome is the frame the agent waits for, and it carries the two
+    /// things it then lives by: the id the gateway knows it as and how often
+    /// to prove it is alive. Nothing else on that socket is acted on — an
+    /// envelope this build cannot read is silence, not a guess, which is the
+    /// same answer the wire gives a message from a newer peer.
+    #[test]
+    fn the_welcome_is_read_and_everything_unknown_is_silence() {
+        let welcome = Envelope {
+            msg: Some(v1::envelope::Msg::AgentWelcome(v1::AgentWelcome {
+                agent_id: "a7".to_string(),
+                heartbeat_secs: 20,
+            })),
+        };
+        assert_eq!(
+            order(welcome),
+            Order::Welcomed {
+                agent_id: "a7".to_string(),
+                heartbeat_secs: 20,
+            }
+        );
+        assert_eq!(
+            order(Envelope { msg: None }),
+            Order::Nothing,
+            "an empty envelope is not an order"
+        );
+        let refusal = Envelope {
+            msg: Some(v1::envelope::Msg::Error(v1::Error {
+                code: 1,
+                message: "no".to_string(),
+            })),
+        };
+        assert_eq!(order(refusal), Order::Nothing, "and neither is a refusal");
+    }
+
+    /// The status kind travels as an integer and is read back as an enum, so
+    /// the cast is the contract: a gateway that reads a different variant
+    /// than the agent sent would log one engine's fate as another's. Each of
+    /// the three is sent through the wire type and asked for by name.
+    #[test]
+    fn an_engine_status_survives_the_number_it_travels_as() {
+        use v1::engine_status::Kind;
+        for kind in [Kind::Started, Kind::Exited, Kind::Failed] {
+            let Some(v1::envelope::Msg::EngineStatus(sent)) =
+                status("g1", kind, "exit status: 0").msg
+            else {
+                panic!("a status");
+            };
+            assert_eq!(sent.game_id, "g1");
+            assert_eq!(sent.detail, "exit status: 0");
+            assert_eq!(
+                Kind::try_from(sent.kind).expect("a kind the schema knows"),
+                kind,
+                "the number the gateway reads back is the one the agent meant"
+            );
+            assert_ne!(sent.kind, Kind::Unspecified as i32);
+        }
+    }
+
+    /// A heartbeat carries the agent's own clock, which is what lets the
+    /// gateway tell a live agent from a socket that is merely still open.
+    #[test]
+    fn a_heartbeat_carries_the_time_it_was_sent_at() {
+        let Some(v1::envelope::Msg::Heartbeat(beat)) = heartbeat(1_700_000_000_123).msg else {
+            panic!("a heartbeat");
+        };
+        assert_eq!(beat.client_time_ms, 1_700_000_000_123);
+    }
 }
