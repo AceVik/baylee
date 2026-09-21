@@ -3,8 +3,10 @@
 //! Oracle: +1: Target artifact or creature loses all abilities and becomes a green Elk creature with base power and toughness 3/3.
 //! Oracle: −5: Exchange control of target artifact or creature you control and target creature an opponent controls with power 3 or less.
 //! Set: ELD #197 — Throne of Eldraine | Scryfall ID: 3462a3d0-5552-49fa-9eb7-100960c55891 | Oracle ID: 60c60923-ff1b-43f7-8768-731499fcffc9
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the +2 creates a Food token; the +1 and the −5 are not sayable and
+// are dropped, each with the printed sentence written out below.
 
+use crate::tokens::FOOD;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -21,6 +23,22 @@ card!(
         subtypes = &[subtypes::planeswalker::OKO],
         loyalty = Some(4),
     ),],
+    coverage = Coverage::Partial(
+        "not expressible: the +1 (nothing takes away every ability a permanent has) and the −5 (control of two chosen permanents cannot be exchanged, and no Filter reads power)",
+    ),
+    abilities = &[
+        // +2: Create a Food token.
+        loyalty!(2, &[Effect::CreateToken { token: &FOOD }]),
+        // NOT SUPPORTED: "+1: Target artifact or creature loses all abilities and
+        // becomes a green Elk creature with base power and toughness 3/3." —
+        // Modifier::LoseKeywords strips keyword abilities only, no modifier or
+        // effect removes every ability a permanent has, and one continuous effect
+        // carries one layer, so the single printed "becomes" sentence has no
+        // spelling.
+        // NOT SUPPORTED: "−5: Exchange control of target artifact or creature you
+        // control and target creature an opponent controls with power 3 or less." —
+        // Effect::ExchangeControlOrSacrifice exchanges the source with one target
+        // (and sacrifices the source), not two chosen permanents, and there is no
+        // power-bounded Filter for the second target.
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

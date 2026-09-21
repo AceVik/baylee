@@ -6,10 +6,32 @@
 //! Set: LCI #146 — The Lost Caverns of Ixalan | Scryfall ID: 3d715e9f-223d-462e-8ce3-eebbaf1cd021 | Oracle ID: 2f4374f6-c695-4a5d-a6d6-0e41eaa587ca
 //! Face: Dowsing Device — {1}{R} — Artifact
 //! Face: Geode Grotto —  — Land — Cave
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the artifact-enters pump trigger and both Geode Grotto abilities
+// are built; the "Then transform …" clause is not (see the NOT SUPPORTED line
+// beside the ability).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+/// Geode Grotto's abilities. A transforming card's back face carries its own
+/// (CR 712.2), so they hang off the face and not off the card.
+static BACK_FACE_ABILITIES: &[AbilityDef] = &[
+    mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
+    activated!(
+        cost!("{2}{R}", TapSelf),
+        &[Effect::PumpTarget {
+            power: Amount::CountOf {
+                filter: &Filter::YOUR_ARTIFACT,
+                zone: ZoneSel::Battlefield,
+            },
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::HASTE,
+            duration: Duration::UntilEndOfTurn,
+        }],
+        target = Some(TargetSpec::Object(&Filter::CREATURE)),
+        timing = ActivationTiming::SorcerySpeed,
+    ),
+];
 
 card!(
     index = index::DOWSING_DEVICE,
@@ -26,8 +48,34 @@ card!(
             name = "Geode Grotto",
             types = TypeSet::LAND,
             subtypes = &[subtypes::land::CAVE],
+            abilities = BACK_FACE_ABILITIES,
         ),
     ],
+    coverage = Coverage::Partial(
+        "the transform clause — no Effect branches on how many permanents you \
+         control, and ExileSelfReturnAsFace is unconditional"
+    ),
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::Or(&[
+            Filter::This,
+            Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou, Filter::Another]),
+        ])),
+        &[Effect::PumpTarget {
+            power: Amount::Fixed(1),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::HASTE,
+            duration: Duration::UntilEndOfTurn,
+        }],
+        targets = Some(TargetReq::up_to_one(TargetSpec::Object(
+            &Filter::YOUR_CREATURE
+        ))),
+    )],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// NOT SUPPORTED: "Then transform this artifact if you control four or more
+// artifacts." No Effect runs a branch on a count of permanents a player
+// controls — IfControlGreatestCmc compares mana values, and
+// Condition::ControlCount is an activation / intervening-`if` condition that
+// would gate the whole trigger, including the pump that prints no condition.
+// ExileSelfReturnAsFace is the transform shape, but it is unconditional and
+// exiles the permanent, which the printed transform does not.

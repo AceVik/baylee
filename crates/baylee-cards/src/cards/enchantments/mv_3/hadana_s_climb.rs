@@ -6,9 +6,27 @@
 //! Set: RIX #158 — Rivals of Ixalan | Scryfall ID: 8e7554bc-8583-4059-8895-c3845bc27ae3 | Oracle ID: 93b91d18-6acf-42e5-9a31-bc6e01f90c1f
 //! Face: Hadana's Climb — {1}{G}{U} — Legendary Enchantment
 //! Face: Winged Temple of Orazca —  — Legendary Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the combat trigger's counter, the back face's mana ability and its
+// pump are built; the transform clause is not (see the NOT SUPPORTED line).
 
 use baylee_cards_dsl::prelude::*;
+
+/// The back face's own abilities — Winged Temple of Orazca's mana line and its
+/// pump. A back face reads what it prints; the front face's abilities are the
+/// card-level list.
+static BACK_ABILITIES: &[AbilityDef] = &[
+    mana_ability!(&[Effect::mana_of_any_color()]),
+    activated!(
+        cost!("{1}{G}{U}", TapSelf),
+        &[Effect::PumpTarget {
+            power: Amount::TargetPower,
+            toughness: Amount::TargetPower,
+            keywords: KeywordSet::FLYING,
+            duration: Duration::UntilEndOfTurn,
+        }],
+        target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE))
+    ),
+];
 
 card!(
     index = index::HADANA_S_CLIMB,
@@ -26,8 +44,30 @@ card!(
             name = "Winged Temple of Orazca",
             types = TypeSet::LAND,
             supertypes = SupertypeSet::LEGENDARY,
+            abilities = BACK_ABILITIES,
+        ),
+    ],
+    coverage = Coverage::Partial(
+        "front face: \"Then if that creature has three or more +1/+1 counters on it, \
+         transform Hadana's Climb\" — no effect reads a counter count off the \
+         ability's target"
+    ),
+    abilities = &[
+        // NOT SUPPORTED: "Then if that creature has three or more +1/+1 counters
+        // on it, transform Hadana's Climb." — the count is asked of the ability's
+        // *target*, while `Condition::CountersOnSelf` reads the source and no
+        // `Effect` carries a per-target test. The counter half is built; the
+        // transform never happens.
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::CombatBegin,
+                whose: PlayerRel::You,
+            },
+            &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
         ),
     ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
