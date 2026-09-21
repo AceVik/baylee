@@ -316,6 +316,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if let Some(obj) = state.object_mut(id) {
                     obj.status.insert(Status::PHASED_OUT);
                 }
+                // CR 702.26b: phasing removes a permanent from combat
+                // without changing zones. Blocked attackers stay blocked.
+                state.combat.remove_from_combat(id);
                 state.journal.record(GameEvent::PhaseChanged {
                     object: id,
                     phased_out: true,

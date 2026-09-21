@@ -134,6 +134,7 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
         // Defender (CR 702.3b): can't attack, however untapped it is.
         && !obj.characteristics().keywords.contains(K::DEFENDER)
         && !obj.status.contains(Status::TAPPED)
+        && !obj.status.contains(Status::PHASED_OUT)
         && !summoning_sick(state, obj)
 }
 
@@ -165,6 +166,7 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
             .filter(|id| {
                 state.object(**id).is_some_and(|o| {
                     opponents.contains(&o.controller)
+                        && !o.status.contains(Status::PHASED_OUT)
                         && o.characteristics().types.contains(TypeSet::PLANESWALKER)
                 })
             })
@@ -184,7 +186,9 @@ pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerI
         Defender::Player(p) => Some(p),
         Defender::Planeswalker(id) => state
             .object(id)
-            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .filter(|o| {
+                o.zone == crate::zone::Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+            })
             .map(|o| o.controller),
     }
 }
@@ -238,6 +242,10 @@ pub fn can_block(
         || b.controller != defending
         || !b.characteristics().types.contains(TypeSet::CREATURE)
         || b.status.contains(Status::TAPPED)
+        || b.status.contains(Status::PHASED_OUT)
+        || a.zone != crate::zone::Zone::Battlefield
+        || a.status.contains(Status::PHASED_OUT)
+        || !a.characteristics().types.contains(TypeSet::CREATURE)
     {
         return false;
     }
@@ -460,10 +468,7 @@ fn deal_damage_to_defender(
         // CR 506.4c: the attack stands even after the planeswalker has
         // gone, but there is nothing left for the damage to land on.
         Defender::Planeswalker(walker) => {
-            if state
-                .object(walker)
-                .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
-            {
+            if defending_player(state, defender).is_none() {
                 return 0;
             }
             deal_damage_to_object(state, source, walker, amount, true)
@@ -1333,5 +1338,139 @@ mod tests {
             state.players[0].life, life_before,
             "lifelink paid out for damage that was never dealt"
         );
+    }
+
+    #[test]
+    fn phased_out_creatures_cannot_attack_or_block() {
+        let mut state = empty_state();
+        let p0 = PlayerId::new(0);
+        let p1 = PlayerId::new(1);
+        let attacker = creature(&mut state, p0, 2, 2, KeywordSet::HASTE);
+        let blocker = creature(&mut state, p1, 2, 2, KeywordSet::default());
+        assert!(can_attack(&state, p0, attacker));
+        assert!(can_block(&state, p1, blocker, attacker));
+        state
+            .object_mut(blocker)
+            .unwrap()
+            .status
+            .insert(Status::PHASED_OUT);
+        assert!(!can_block(&state, p1, blocker, attacker));
+        state
+            .object_mut(blocker)
+            .unwrap()
+            .status
+            .remove(Status::PHASED_OUT);
+        state
+            .object_mut(attacker)
+            .unwrap()
+            .status
+            .insert(Status::PHASED_OUT);
+        assert!(!can_attack(&state, p0, attacker));
+        assert!(!can_block(&state, p1, blocker, attacker));
+    }
+
+    #[test]
+    fn phased_out_planeswalkers_are_not_defenders() {
+        let mut state = empty_state();
+        let p0 = PlayerId::new(0);
+        let p1 = PlayerId::new(1);
+        let walker = planeswalker(&mut state, p1, 3);
+        let defender = Defender::Planeswalker(walker);
+        assert!(defender_options(&state, p0).contains(&defender));
+        assert_eq!(defending_player(&state, defender), Some(p1));
+        state
+            .object_mut(walker)
+            .unwrap()
+            .status
+            .insert(Status::PHASED_OUT);
+        assert_eq!(defender_options(&state, p0), vec![Defender::Player(p1)]);
+        assert_eq!(defending_player(&state, defender), None);
+        state
+            .object_mut(walker)
+            .unwrap()
+            .status
+            .remove(Status::PHASED_OUT);
+        assert!(defender_options(&state, p0).contains(&defender));
+    }
+
+    fn phase_out(state: &mut GameState, id: ObjectId) {
+        let mut res = crate::resolve::Resolution {
+            source: id,
+            on_stack: id,
+            controller: state.object(id).unwrap().controller,
+            effects: vec![baylee_cards_dsl::Effect::PhaseOut { target: None }],
+            pc: 0,
+            targets: smallvec::SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_players: baylee_core::ids::SeatSet::default(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+        };
+        let _ = crate::resolve::run(state, &mut res);
+        assert!(
+            state
+                .object(id)
+                .unwrap()
+                .status
+                .contains(Status::PHASED_OUT)
+        );
+    }
+
+    #[test]
+    fn phasing_out_an_attacker_removes_it_from_combat() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, PlayerId::new(0), 4, 4, KeywordSet::default());
+        attack(&mut state, attacker, PlayerId::new(1));
+        phase_out(&mut state, attacker);
+        assert!(state.combat.attackers.is_empty());
+        deal_combat_damage(&mut state, false);
+        assert_eq!(state.players[1].life, 20);
+        assert!(
+            on_battlefield(&state, attacker),
+            "phasing is not a zone change"
+        );
+    }
+
+    #[test]
+    fn phasing_out_a_blocker_keeps_the_attacker_blocked() {
+        for keywords in [KeywordSet::default(), KeywordSet::TRAMPLE] {
+            let mut state = empty_state();
+            let attacker = creature(&mut state, PlayerId::new(0), 4, 4, keywords);
+            let blocker = creature(&mut state, PlayerId::new(1), 2, 2, KeywordSet::default());
+            attack(&mut state, attacker, PlayerId::new(1));
+            block(&mut state, blocker, attacker);
+            phase_out(&mut state, blocker);
+            assert!(state.combat.blockers.is_empty());
+            assert!(state.combat.is_blocked(attacker));
+            deal_combat_damage(&mut state, false);
+            assert_eq!(damage(&state, attacker), 0);
+            assert_eq!(damage(&state, blocker), 0);
+            assert_eq!(
+                state.players[1].life,
+                if keywords.contains(KeywordSet::TRAMPLE) {
+                    16
+                } else {
+                    20
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn phasing_out_an_attacked_planeswalker_prevents_damage_and_lifelink() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, PlayerId::new(0), 4, 4, KeywordSet::LIFELINK);
+        let walker = planeswalker(&mut state, PlayerId::new(1), 5);
+        attack_walker(&mut state, attacker, walker);
+        phase_out(&mut state, walker);
+        deal_combat_damage(&mut state, false);
+        assert_eq!(loyalty(&state, walker), 5);
+        assert_eq!(state.players[0].life, 20);
+        assert_eq!(state.players[1].life, 20);
     }
 }

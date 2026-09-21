@@ -185,3 +185,30 @@ What the numbers say:
   copying a whole `Characteristics` per object per refresh. The bitmap is its
   largest field, and the base is already shared behind an `Arc` until
   something writes to it.
+
+
+## Ordered zone removal (2026-09-21)
+
+Stack resolution and drawing both remove the last entry of an ordered zone.
+Previously `Zones::remove` searched from the beginning even in that case,
+making a complete stack drain quadratic. It now checks the last entry first;
+removals elsewhere still use an order-preserving search and removal. The
+spell-only projection subset uses the same operation.
+
+Measured on the M1 Max in the same session, using the new benchmark on
+`16d98a95` and after the change (20 samples, 1 s warmup, 2 s measurement):
+
+| Benchmark | Before | After |
+|---|---|---|
+| `zones/drain_stack_100` | 2.437 µs | 240.6 ns |
+| `zones/drain_stack_20000` | 63.76 ms | 45.26 µs |
+
+These numbers cover zone removal only, not full ability resolution or whole
+games. Zone cloning is outside the timed body. The mixed-removal regression
+test checks all eight zones against an independent ordered-list model,
+including top, bottom and middle removals, repeated removals, and the stack's
+spell subset.
+
+Reproduce with `cargo bench -p baylee-engine --bench basics --
+zones/drain_stack --sample-size 20 --measurement-time 2 --warm-up-time 1`;
+use Criterion's `--save-baseline before` / `--baseline before` for comparison.

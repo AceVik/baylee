@@ -3,7 +3,7 @@
 //! no action fires, then offers priority.
 
 use crate::event::{Cause, GameEvent, LossReason};
-use crate::object::{CounterKind, ObjectKind};
+use crate::object::{CounterKind, ObjectKind, Status};
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::PlayerId;
@@ -89,15 +89,20 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
         let Some(obj) = state.object(id) else {
             continue;
         };
+        if obj.status.contains(Status::PHASED_OUT) {
+            continue;
+        }
+        // CR 704.5i also applies to animated planeswalkers; being a
+        // creature (even an indestructible one) does not replace this SBA.
+        if obj.characteristics().types.contains(TypeSet::PLANESWALKER)
+            && obj.counters.get(CounterKind::Loyalty) == 0
+            && obj.kind == ObjectKind::Permanent
+        {
+            put_into_graveyard(state, id);
+            outcome.changed = true;
+            continue;
+        }
         if !obj.characteristics().types.contains(TypeSet::CREATURE) {
-            // Planeswalkers with 0 loyalty (CR 704.5i).
-            if obj.characteristics().types.contains(TypeSet::PLANESWALKER)
-                && obj.counters.get(CounterKind::Loyalty) == 0
-                && obj.kind == ObjectKind::Permanent
-            {
-                put_into_graveyard(state, id);
-                outcome.changed = true;
-            }
             continue;
         }
         let toughness = obj.characteristics().toughness.unwrap_or(0);
@@ -141,7 +146,7 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
     // variant now, so it would be an easy and wrong generalisation to cancel
     // a -0/-1 against a +1/+1: the rule names the two counters by their
     // printed words, and a Wall of Roots wearing both keeps both.
-    for id in state.zones.list(ZoneLocation::Battlefield).clone() {
+    for id in state.battlefield_view() {
         let Some(obj) = state.object(id) else {
             continue;
         };
@@ -182,7 +187,8 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
             let Some(obj) = state.object(id) else {
                 continue;
             };
-            if obj.controller == player
+            if !obj.status.contains(Status::PHASED_OUT)
+                && obj.controller == player
                 && obj
                     .characteristics()
                     .supertypes
@@ -367,7 +373,7 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
         let Some(obj) = state.object(id) else {
             continue;
         };
-        if obj.kind != ObjectKind::Permanent {
+        if obj.kind != ObjectKind::Permanent || obj.status.contains(Status::PHASED_OUT) {
             continue;
         }
         let types = obj.characteristics().types;
@@ -1024,6 +1030,144 @@ mod tests {
             state.snapshot_hash(),
             replay.snapshot_hash(),
             "an empty pass on a settled state changes nothing"
+        );
+    }
+
+    #[test]
+    fn an_indestructible_planeswalker_creature_still_needs_loyalty() {
+        let mut state = GameState::from_preset(&empty_boards_preset(17), &RegistryLookup).unwrap();
+        let walker = bare(
+            &mut state,
+            "Animated walker",
+            TypeSet::PLANESWALKER.union(TypeSet::CREATURE),
+            &[],
+        );
+        let obj = state.object_mut(walker).unwrap();
+        obj.base_mut().keywords = baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE;
+        obj.counters.set(CounterKind::Loyalty, 1);
+        assert!(!run(&mut state, &RegistryLookup).changed);
+        assert!(on_battlefield(&state, walker));
+        state
+            .object_mut(walker)
+            .unwrap()
+            .counters
+            .set(CounterKind::Loyalty, 0);
+        assert!(run(&mut state, &RegistryLookup).changed);
+        assert!(
+            !on_battlefield(&state, walker),
+            "zero loyalty is not destruction"
+        );
+    }
+
+    #[test]
+    fn phased_out_permanents_ignore_lethal_damage_and_zero_loyalty() {
+        let mut state = GameState::from_preset(&empty_boards_preset(19), &RegistryLookup).unwrap();
+        let creature = creature(&mut state);
+        let walker = bare(&mut state, "Absent walker", TypeSet::PLANESWALKER, &[]);
+        state.object_mut(creature).unwrap().damage = 2;
+        for id in [creature, walker] {
+            state
+                .object_mut(id)
+                .unwrap()
+                .status
+                .insert(crate::object::Status::PHASED_OUT);
+        }
+        assert!(!run(&mut state, &RegistryLookup).changed);
+        for id in [creature, walker] {
+            assert!(on_battlefield(&state, id));
+            state
+                .object_mut(id)
+                .unwrap()
+                .status
+                .remove(crate::object::Status::PHASED_OUT);
+        }
+        assert!(run(&mut state, &RegistryLookup).changed);
+        assert!(!on_battlefield(&state, creature));
+        assert!(!on_battlefield(&state, walker));
+    }
+
+    #[test]
+    fn phased_out_legend_does_not_conflict_until_it_returns() {
+        let mut state = GameState::from_preset(&empty_boards_preset(23), &RegistryLookup).unwrap();
+        let a = creature(&mut state);
+        let b = creature(&mut state);
+        for id in [a, b] {
+            state.object_mut(id).unwrap().base_mut().supertypes = SupertypeSet::LEGENDARY;
+        }
+        state
+            .object_mut(b)
+            .unwrap()
+            .status
+            .insert(crate::object::Status::PHASED_OUT);
+        assert!(run(&mut state, &RegistryLookup).legend_choice.is_none());
+        state
+            .object_mut(b)
+            .unwrap()
+            .status
+            .remove(crate::object::Status::PHASED_OUT);
+        assert_eq!(
+            run(&mut state, &RegistryLookup).legend_choice,
+            Some((PlayerId::new(0), vec![a, b]))
+        );
+    }
+
+    #[test]
+    fn phased_out_attachments_and_counters_wait_for_phasing_in() {
+        let (mut state, aura) = aura_state();
+        let host = creature(&mut state);
+        let gear = equipment(&mut state);
+        attach(&mut state, gear, host);
+        // The host leaves while the equipment is phased out; the aura has no host.
+        state
+            .move_object(
+                host,
+                ZoneLocation::Hand(PlayerId::new(0)),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        for id in [aura, gear] {
+            let obj = state.object_mut(id).unwrap();
+            obj.status.insert(crate::object::Status::PHASED_OUT);
+            obj.counters.set(CounterKind::P1P1, 2);
+            obj.counters.set(CounterKind::M1M1, 1);
+        }
+        run(&mut state, &RegistryLookup);
+        for id in [aura, gear] {
+            assert!(on_battlefield(&state, id));
+            let obj = state.object_mut(id).unwrap();
+            assert_eq!(obj.counters.get(CounterKind::P1P1), 2);
+            assert_eq!(obj.counters.get(CounterKind::M1M1), 1);
+            obj.status.remove(crate::object::Status::PHASED_OUT);
+        }
+        assert_eq!(state.object(gear).unwrap().attached_to, Some(host));
+        run(&mut state, &RegistryLookup);
+        assert!(!on_battlefield(&state, aura));
+        let gear = state.object(gear).unwrap();
+        assert_eq!(gear.attached_to, None);
+        assert_eq!(gear.counters.get(CounterKind::P1P1), 1);
+        assert_eq!(gear.counters.get(CounterKind::M1M1), 0);
+    }
+    #[test]
+    fn phasing_does_not_extend_the_deathtouch_damage_window() {
+        let mut state = GameState::from_preset(&empty_boards_preset(29), &RegistryLookup).unwrap();
+        let creature = creature(&mut state);
+        let obj = state.object_mut(creature).unwrap();
+        obj.damage = 1;
+        obj.deathtouched = true;
+        obj.status.insert(Status::PHASED_OUT);
+        run(&mut state, &RegistryLookup);
+        assert!(on_battlefield(&state, creature));
+        assert!(!state.object(creature).unwrap().deathtouched);
+        state
+            .object_mut(creature)
+            .unwrap()
+            .status
+            .remove(Status::PHASED_OUT);
+        run(&mut state, &RegistryLookup);
+        assert!(
+            on_battlefield(&state, creature),
+            "deathtouch only applies since the last SBA check"
         );
     }
 }

@@ -1,5 +1,40 @@
 # Baylee session continuation
 
+## Engine audit (2026-09-21)
+
+- Zero-loyalty planeswalkers now leave the battlefield even when they are
+  also indestructible creatures (CR 704.5i).
+- Combat offers and validation exclude phased-out attackers, blockers and
+  planeswalkers. Resolving PhaseOut removes the permanent from combat;
+  a departed blocker still leaves its attacker blocked, with trample handled
+  separately. Phased-out attacked planeswalkers receive no combat damage
+  and produce no lifelink gain (CR 702.26b).
+- Battlefield SBAs skip phased-out permanents for lethal damage, loyalty,
+  legend choices, counter annihilation and attachment cleanup. The deathtouch
+  damage window still closes at each SBA check, including while phased out.
+- Ordered zone removal fast-paths the last entry with pop, including the
+  projectable spell subset. Middle removals still preserve order and replay
+  determinism. This avoids quadratic zone-removal work when draining a stack.
+- Added 11 tests: nine reproduced failures before their fixes, one guards the
+  deathtouch/phasing boundary, and one checks mixed removals against an ordered
+  reference list in all eight zones. Two Criterion stack-drain benchmarks
+  and measured results are in docs/perf-baseline.md (20k: 63.76 ms → 45.26 µs,
+  zone-removal microbenchmark only).
+
+Validation: `cargo test -p baylee-engine --all-targets` passed 1,103 tests
+plus Criterion smoke checks. `cargo test --workspace --all-targets
+--no-fail-fast` passed 3,739 tests (3 existing ignored tests), with DATABASE_URL
+set to the local compose PostgreSQL instance. The initial workspace attempt
+stopped because DATABASE_URL was unset; all 15 catalog integration tests passed
+once configured. Workspace clippy with `-D warnings`, formatting and diff
+checks passed. The previously stopped PostgreSQL service was started for this
+validation and stopped again afterwards.
+
+Rule references: official Comprehensive Rules, 2026-06-19,
+https://media.wizards.com/2026/downloads/MagicCompRules%2020260619.pdf,
+CR 702.26b, 704.5h–j and 704.5q. This audit covers the listed combat/SBA
+paths, not complete support for every phasing interaction.
+
 ## Client audit and push
 
 The subsequent client audit fixed these additional failures:

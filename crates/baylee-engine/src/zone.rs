@@ -196,19 +196,10 @@ impl Zones {
 
     /// Removes an object from a zone, preserving order. Returns success.
     pub fn remove(&mut self, id: ObjectId, loc: ZoneLocation) -> bool {
-        if loc == ZoneLocation::Stack
-            && let Some(pos) = self.stack_projectable.iter().position(|&x| x == id)
-        {
-            // Cheap even on a huge stack: this list holds only the spells.
-            self.stack_projectable.remove(pos);
+        if loc == ZoneLocation::Stack {
+            remove_ordered(&mut self.stack_projectable, id);
         }
-        let list = self.list_mut(loc);
-        if let Some(pos) = list.iter().position(|&x| x == id) {
-            list.remove(pos);
-            true
-        } else {
-            false
-        }
+        remove_ordered(self.list_mut(loc), id)
     }
 
     /// Inserts an object into a zone at the given position.
@@ -257,6 +248,21 @@ impl Zones {
     #[must_use]
     pub fn stack_is_empty(&self) -> bool {
         self.stack.is_empty()
+    }
+}
+
+/// Resolving the stack and drawing a card both remove the last entry.
+/// Avoid scanning the entire zone for those operations, while preserving
+/// order for countered spells, tutors, and other removals from the middle.
+fn remove_ordered(list: &mut Vec<ObjectId>, id: ObjectId) -> bool {
+    if list.last() == Some(&id) {
+        list.pop();
+        true
+    } else if let Some(pos) = list.iter().position(|&x| x == id) {
+        list.remove(pos);
+        true
+    } else {
+        false
     }
 }
 
@@ -428,5 +434,43 @@ mod tests {
             !zones.contains(id(5), ZoneLocation::Library(PlayerId::new(1))),
             "and it is in one player's library, not in the zone kind"
         );
+    }
+    #[test]
+    fn mixed_removals_preserve_every_zone_and_the_projectable_subset() {
+        for zone in EVERY_ZONE {
+            let mut zones = Zones::new(2);
+            let loc = ZoneLocation::of(zone, PlayerId::new(0));
+            let mut expected = Vec::new();
+            for slot in 0..128 {
+                let position = match slot % 3 {
+                    0 => ZonePosition::Bottom,
+                    1 => ZonePosition::Top,
+                    _ => ZonePosition::Index(expected.len() / 2),
+                };
+                let index = match position {
+                    ZonePosition::Bottom => 0,
+                    ZonePosition::Top => expected.len(),
+                    ZonePosition::Index(i) => i,
+                };
+                expected.insert(index, id(slot));
+                zones.insert(id(slot), loc, position, slot % 2 == 0);
+            }
+            for step in 0..128 {
+                let index = match step % 3 {
+                    0 => expected.len() - 1,
+                    1 => 0,
+                    _ => expected.len() / 2,
+                };
+                let removed = expected.remove(index);
+                assert!(zones.remove(removed, loc));
+                assert!(!zones.remove(removed, loc));
+                assert_eq!(zones.list(loc), &expected);
+                let projectable: Vec<_> = (0..128)
+                    .map(id)
+                    .filter(|id| zone == Zone::Stack && id.slot() % 2 == 0 && expected.contains(id))
+                    .collect();
+                assert_eq!(zones.stack_projectable(), projectable);
+            }
+        }
     }
 }

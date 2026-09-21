@@ -258,6 +258,36 @@ fn bench_token_board(c: &mut Criterion) {
     });
 }
 
+/// Resolving a trigger storm repeatedly removes the top of an ordered zone.
+fn bench_stack_drain(c: &mut Criterion) {
+    use baylee_core::ids::ObjectId;
+    use baylee_engine::zone::{ZoneLocation, ZonePosition, Zones};
+
+    for count in [100u32, 20_000] {
+        let mut zones = Zones::new(2);
+        for slot in 0..count {
+            zones.insert(
+                ObjectId::new(slot, 0),
+                ZoneLocation::Stack,
+                ZonePosition::Top,
+                false,
+            );
+        }
+        c.bench_function(&format!("zones/drain_stack_{count}"), |b| {
+            b.iter_batched(
+                || zones.clone(),
+                |mut zones| {
+                    while let Some(&id) = zones.list(ZoneLocation::Stack).last() {
+                        assert!(zones.remove(id, ZoneLocation::Stack));
+                    }
+                    zones
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+}
+
 // The baseline benchmark group (CI regression budgets derive from these).
 criterion_group!(
     basics,
@@ -267,6 +297,7 @@ criterion_group!(
     bench_priority_pass,
     bench_layers,
     bench_layers_deep_stack,
-    bench_token_board
+    bench_token_board,
+    bench_stack_drain
 );
 criterion_main!(basics);
