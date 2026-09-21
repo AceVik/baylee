@@ -5,9 +5,12 @@
 //! Set: ZNR #26 — Zendikar Rising | Scryfall ID: ada9a974-8f1f-4148-bd61-200fc14714b2 | Oracle ID: 342e08f9-d4d0-4408-8621-66e087058616
 //! Face: Makindi Stampede — {3}{W}{W} — Sorcery
 //! Face: Makindi Mesas —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — front face pumps your team +2/+2 until end of turn; back
+// face enters tapped (EnterModifier::Tapped) and taps for {W}.
 
 use baylee_cards_dsl::prelude::*;
+
+static MESAS_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
 
 card!(
     index = index::MAKINDI_STAMPEDE,
@@ -20,8 +23,20 @@ card!(
             mana_cost = mana!("{3}{W}{W}"),
             types = TypeSet::SORCERY,
         ),
-        face!(name = "Makindi Mesas", types = TypeSet::LAND,),
+        face!(
+            name = "Makindi Mesas",
+            types = TypeSet::LAND,
+            enter_modifiers = &[EnterModifier::Tapped],
+            abilities = MESAS_MANA,
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::PumpFilter {
+        filter: &Filter::YOUR_CREATURE,
+        controlled_by: None,
+        power: Amount::Fixed(2),
+        toughness: Amount::Fixed(2),
+        keywords: KeywordSet::EMPTY,
+        duration: Duration::UntilEndOfTurn,
+    }])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

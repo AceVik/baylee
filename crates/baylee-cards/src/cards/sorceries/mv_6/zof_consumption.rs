@@ -5,7 +5,8 @@
 //! Set: ZNR #132 — Zendikar Rising | Scryfall ID: 98496d5b-1519-4f0c-8b46-0a43be643dfb | Oracle ID: d9f11985-e460-425d-b083-9cb0edf1983a
 //! Face: Zof Consumption — {4}{B}{B} — Sorcery
 //! Face: Zof Bloodbog —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — front drains each opponent for 4 and gains you 4; back
+// enters tapped and prints its own {B} mana ability.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -20,8 +21,19 @@ card!(
             mana_cost = mana!("{4}{B}{B}"),
             types = TypeSet::SORCERY,
         ),
-        face!(name = "Zof Bloodbog", types = TypeSet::LAND,),
+        face!(
+            name = "Zof Bloodbog",
+            types = TypeSet::LAND,
+            enter_modifiers = &[EnterModifier::Tapped],
+            abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])],
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[
+        Effect::LoseLife {
+            amount: Amount::Fixed(4),
+            target: PlayerRel::EachOpponent,
+        },
+        Effect::gain_life(4),
+    ])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

@@ -5,9 +5,12 @@
 //! Set: ZNR #30 — Zendikar Rising | Scryfall ID: b6e6be8c-41c3-4348-a8dd-b40ceb24e9b4 | Oracle ID: 15fc4e74-300e-4c2d-8ed7-004553b2f7c2
 //! Face: Ondu Inversion — {6}{W}{W} — Sorcery
 //! Face: Ondu Skyruins —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — front face is a one-sided wrath on nonland permanents;
+// back face enters tapped and taps for {W}.
 
 use baylee_cards_dsl::prelude::*;
+
+static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
 
 card!(
     index = index::ONDU_INVERSION,
@@ -20,8 +23,15 @@ card!(
             mana_cost = mana!("{6}{W}{W}"),
             types = TypeSet::SORCERY,
         ),
-        face!(name = "Ondu Skyruins", types = TypeSet::LAND,),
+        face!(
+            name = "Ondu Skyruins",
+            types = TypeSet::LAND,
+            enter_modifiers = &[EnterModifier::Tapped],
+            abilities = BACK_MANA,
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::DestroyAll {
+        filter: &Filter::NONLAND,
+    }])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

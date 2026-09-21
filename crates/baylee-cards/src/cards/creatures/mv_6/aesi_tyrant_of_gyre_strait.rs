@@ -2,7 +2,7 @@
 //! Oracle: You may play an additional land on each of your turns.
 //! Oracle: Landfall — Whenever a land you control enters, you may draw a card.
 //! Set: DSC #210 — Duskmourn: House of Horror Commander | Scryfall ID: 673c21f8-02b6-4ac4-b2fc-df065b4ac662 | Oracle ID: 6511f317-bd38-46d0-b800-7125a3f420da
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — one extra land drop per turn, plus landfall's optional draw.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -22,6 +22,14 @@ card!(
         power = Some(5),
         toughness = Some(5),
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        static_ability!(Filter::Any, Modifier::ExtraLandDrops(1)),
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::YOUR_LAND),
+            &[Effect::MayDo {
+                effects: &[Effect::draw(1)],
+            }]
+        ),
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

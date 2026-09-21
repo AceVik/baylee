@@ -5,7 +5,8 @@
 //! Set: MH3 #244 — Modern Horizons 3 | Scryfall ID: a3cb782d-c459-468d-9779-9b5669abc337 | Oracle ID: 053a69d8-2b5e-4f14-8b02-ca405891dc4a
 //! Face: Fell the Profane — {2}{B}{B} — Instant
 //! Face: Fell Mire —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the front face destroys a target creature or planeswalker;
+// the back face enters tapped unless you pay 3 life, and taps for {B}.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -20,8 +21,20 @@ card!(
             mana_cost = mana!("{2}{B}{B}"),
             types = TypeSet::INSTANT,
         ),
-        face!(name = "Fell Mire", types = TypeSet::LAND,),
+        face!(
+            name = "Fell Mire",
+            types = TypeSet::LAND,
+            enter_modifiers = &[EnterModifier::TappedOrPayLife(3)],
+            abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])],
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::destroy(TargetSpec::Object(
+            &Filter::CREATURE_OR_PLANESWALKER
+        ))],
+        targets = Some(TargetReq::one(TargetSpec::Object(
+            &Filter::CREATURE_OR_PLANESWALKER
+        )))
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

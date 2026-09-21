@@ -5,9 +5,13 @@
 //! Set: ZNR #64 — Zendikar Rising | Scryfall ID: 301750a7-d1fd-435e-bfa8-9d2fb22ad627 | Oracle ID: 941a4b14-ea2a-4bd0-8cc2-d609f80df32c
 //! Face: Jwari Disruption — {1}{U} — Instant
 //! Face: Jwari Ruins —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the counterspell as `PlayerMayPayOr` on the targeted spell's
+// controller (pays {1}, or `CounterTargetSpell` runs); the back face carries
+// `EnterModifier::Tapped` and its own {T}: Add {U} mana ability.
 
 use baylee_cards_dsl::prelude::*;
+
+static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
 
 card!(
     index = index::JWARI_DISRUPTION,
@@ -20,8 +24,20 @@ card!(
             mana_cost = mana!("{1}{U}"),
             types = TypeSet::INSTANT,
         ),
-        face!(name = "Jwari Ruins", types = TypeSet::LAND,),
+        face!(
+            name = "Jwari Ruins",
+            types = TypeSet::LAND,
+            enter_modifiers = &[EnterModifier::Tapped],
+            abilities = BACK_MANA,
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::PlayerMayPayOr {
+            player: PlayerRel::ControllerOfTarget,
+            mana: Amount::Fixed(1),
+            effect: &Effect::CounterTargetSpell,
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
