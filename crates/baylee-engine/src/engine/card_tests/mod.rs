@@ -1932,3 +1932,295 @@ fn trenzalore_clocktower() -> CardIndex {
 fn wild_roads() -> CardIndex {
     card_index("36fbc8ba-bb4c-4e5e-9031-78c36e376851")
 }
+
+fn ash_barrens() -> CardIndex {
+    card_index("58257464-278e-45fa-8e0b-bcd9a7500bc1")
+}
+
+fn big_apple_3_a_m() -> CardIndex {
+    card_index("dd01ef1f-f6be-498f-82e0-dc04833e685f")
+}
+
+fn captivating_cave() -> CardIndex {
+    card_index("4c77767a-8133-43bc-b7a5-09a73259d354")
+}
+
+fn cave_of_temptation() -> CardIndex {
+    card_index("75540897-53f6-433b-bd70-9851551df6ef")
+}
+
+fn crawling_barrens() -> CardIndex {
+    card_index("dfe1a112-97aa-4e81-8431-81552ba2cdcf")
+}
+
+fn daily_bugle_building() -> CardIndex {
+    card_index("483e0c6c-8131-486c-b482-cc3396c9786b")
+}
+
+fn eden_seat_of_the_sanctum() -> CardIndex {
+    card_index("84856b92-5ce8-47f3-9a1c-78d6a3e26aca")
+}
+
+fn elvenking_s_halls() -> CardIndex {
+    card_index("a91e0154-14a9-4681-8236-04db231592a4")
+}
+
+fn eye_of_ugin() -> CardIndex {
+    card_index("10d13ff6-c4d0-4753-8939-a8a90f0e92bb")
+}
+
+fn fabled_passage() -> CardIndex {
+    card_index("0c85b8f7-0bd0-4680-9ec5-d4b110460a54")
+}
+
+fn forsaken_city() -> CardIndex {
+    card_index("6bb00a28-8b5a-4049-93b7-3db02de88aeb")
+}
+
+fn goblin_town() -> CardIndex {
+    card_index("98d20908-6d68-4d31-b719-207f93c9b402")
+}
+
+fn interplanar_beacon() -> CardIndex {
+    card_index("073169f2-da3a-4a93-8c01-b3fd8558d225")
+}
+
+fn karn_s_bastion() -> CardIndex {
+    card_index("9fb8cd81-403a-4988-8f1c-b8eccf8abd9c")
+}
+
+fn keldon_megaliths() -> CardIndex {
+    card_index("ec0ea7f7-52ce-40d1-b34c-e36dd4b26120")
+}
+
+fn krosan_verge() -> CardIndex {
+    card_index("d9a10971-f32b-4978-952d-fed0a5bc9e36")
+}
+
+fn lindblum_industrial_regency() -> CardIndex {
+    card_index("4cc014f3-05e0-442e-9dee-03eab1aa65a3")
+}
+
+fn llanowar_reborn() -> CardIndex {
+    card_index("92acb789-0e42-465c-ac16-40fefec48805")
+}
+
+fn mariposa_military_base() -> CardIndex {
+    card_index("f1e03d99-024a-430b-9342-ffd2268bd103")
+}
+
+fn minas_tirith() -> CardIndex {
+    card_index("7b0d7e62-0287-454a-8702-b0bfa7b41245")
+}
+
+fn mishra_s_factory() -> CardIndex {
+    card_index("5963e0ef-e0bc-4611-ad4f-813a4c0eacfb")
+}
+
+fn moonring_island() -> CardIndex {
+    card_index("cf620c66-7db1-4db8-ae56-ee4bc2f77d74")
+}
+
+fn nephalia_academy() -> CardIndex {
+    card_index("3b7e7a11-bf59-413d-8796-640d17c2c1c6")
+}
+
+fn pendelhaven() -> CardIndex {
+    card_index("f70e72e1-9abe-485b-9fea-e8b35352f5b3")
+}
+
+fn plaza_of_harmony() -> CardIndex {
+    card_index("5ff1d6d8-8cea-4a25-90d9-b575f4c99bc8")
+}
+
+fn power_depot() -> CardIndex {
+    card_index("64687880-03f9-4f38-985b-1027c797e33f")
+}
+
+fn river_of_tears() -> CardIndex {
+    card_index("8a83d284-75a0-4901-b7d9-c4b7586ee327")
+}
+
+fn valakut_the_molten_pinnacle() -> CardIndex {
+    card_index("1bc44216-4e06-4f66-89b7-5c327004604e")
+}
+
+fn baxter_building() -> CardIndex {
+    card_index("71bc69a5-7cec-4abd-b97d-13f8e1f9afac")
+}
+
+fn brotherhood_headquarters() -> CardIndex {
+    card_index("0d3a06d5-5bb9-4733-a55b-9e2c75de6b6e")
+}
+
+fn castle_garenbrig() -> CardIndex {
+    card_index("de75e5dd-8a52-406c-b55c-96d686885500")
+}
+
+fn castle_locthwain() -> CardIndex {
+    card_index("be811e70-aaaa-41f3-bf9e-5d3f9f719b49")
+}
+
+fn contested_cliffs() -> CardIndex {
+    card_index("b891a683-2ebc-4e9c-b402-5dd9c1b42b69")
+}
+
+fn contested_war_zone() -> CardIndex {
+    card_index("ed73de2b-d7f4-48d9-9be2-aa9d111b7aa7")
+}
+
+fn dragon_cursed_halls() -> CardIndex {
+    card_index("5be7a4d5-33b7-464b-8851-d4ad35302e62")
+}
+
+fn endless_sands() -> CardIndex {
+    card_index("c4033d97-769f-4811-8b11-f85b8817b7a2")
+}
+
+fn flagstones_of_trokair() -> CardIndex {
+    card_index("f73979bb-91a5-4388-b70b-0cd7a4e14291")
+}
+
+fn flamekin_village() -> CardIndex {
+    card_index("34a1eb04-08f6-49d8-a1d1-b987a76bd8b1")
+}
+
+fn forge_of_heroes() -> CardIndex {
+    card_index("77807103-bcd5-479f-bedd-f5d97aa6d3d2")
+}
+
+fn ghost_quarter() -> CardIndex {
+    card_index("2ec4288e-34c6-4831-a2c0-ba1ca1d9d1dc")
+}
+
+fn great_arashin_city() -> CardIndex {
+    card_index("f40f374b-acaf-459d-9ccd-b0b22d1a3f28")
+}
+
+fn guildmages_forum() -> CardIndex {
+    card_index("ace6403d-9fac-4d0f-a6ea-eb2ff3da259d")
+}
+
+fn helios_one() -> CardIndex {
+    card_index("cfb1a656-0bf1-484d-b099-33087914250b")
+}
+
+fn ifnir_deadlands() -> CardIndex {
+    card_index("af698bd5-5f56-4d2a-9f02-8c3e781210cd")
+}
+
+fn iron_hills() -> CardIndex {
+    card_index("a71e8d07-1a49-47a0-834e-de87d750a200")
+}
+
+fn maze_of_shadows() -> CardIndex {
+    card_index("b7b51ab1-403e-4640-8827-b04965aa6760")
+}
+
+fn mines_of_moria() -> CardIndex {
+    card_index("583cdebe-0195-45be-bd2e-5765f07cb902")
+}
+
+fn mirkwood() -> CardIndex {
+    card_index("cd49aa99-bf84-4edd-aecc-6dae78b73412")
+}
+
+fn mistrise_village() -> CardIndex {
+    card_index("339f5334-b65a-445a-a016-20e997e0b4bb")
+}
+
+fn murmuring_bosk() -> CardIndex {
+    card_index("42b9d383-3fe2-4fc8-ab86-f80a288d502b")
+}
+
+fn mystifying_maze() -> CardIndex {
+    card_index("58bd67a8-1833-4827-aa33-1c141568f481")
+}
+
+fn nivix_aerie_of_the_firemind() -> CardIndex {
+    card_index("9c482f1d-08b4-4882-918c-448a556d3fbe")
+}
+
+fn nomad_stadium() -> CardIndex {
+    card_index("4034bec6-e3c7-4d3f-81df-7c903977a606")
+}
+
+fn pit_of_offerings() -> CardIndex {
+    card_index("044d2788-6daa-4849-a813-1f577eef9295")
+}
+
+fn public_thoroughfare() -> CardIndex {
+    card_index("de5b995c-9691-4555-9070-66bcbc29f955")
+}
+
+fn ruins_of_oran_rief() -> CardIndex {
+    card_index("7140f396-1bfa-4b28-ba28-fa15eba74652")
+}
+
+fn sejiri_steppe() -> CardIndex {
+    card_index("3dfbf95e-a91b-429c-96e2-95ac777e7027")
+}
+
+fn shefet_dunes() -> CardIndex {
+    card_index("8305715e-f711-47d6-8efe-d0efe4ced418")
+}
+
+fn skyline_cascade() -> CardIndex {
+    card_index("79301ae1-8c9c-4723-be21-dc27e1646f35")
+}
+
+fn surtland_frostpyre() -> CardIndex {
+    card_index("965aa666-3919-4053-8584-b773bdd54f0b")
+}
+
+fn the_mycosynth_gardens() -> CardIndex {
+    card_index("03f5c566-825c-4c46-9c01-a2f9b1e70a13")
+}
+
+fn throne_of_makindi() -> CardIndex {
+    card_index("7e8198e9-0f3b-420b-ab09-74f13f4fd548")
+}
+
+fn tolaria() -> CardIndex {
+    card_index("9879a4f3-3b9c-45cf-af03-7f2ae4c689b4")
+}
+
+fn unclaimed_territory() -> CardIndex {
+    card_index("584b15f2-6ae9-413a-8b8d-9244dbea4878")
+}
+
+fn dwarven_armorer() -> CardIndex {
+    card_index("5bbd27b1-0afd-4d98-a73c-c348c8f08625")
+}
+
+fn hashep_oasis() -> CardIndex {
+    card_index("eab70fff-6a9f-4f9f-89a2-b6910c199e46")
+}
+
+fn immersturm_skullcairn() -> CardIndex {
+    card_index("354a7376-fb4b-424d-8964-93727302dccb")
+}
+
+fn lake_town() -> CardIndex {
+    card_index("717c6beb-81c6-43ed-aab0-aedfc1cbac33")
+}
+
+fn mech_hangar() -> CardIndex {
+    card_index("abc04775-171d-41f3-83ea-4b4eb72723d5")
+}
+
+fn smugglers_copter() -> CardIndex {
+    card_index("49136bdc-bc50-49a2-999a-1ef9c16ea130")
+}
+
+fn mistveil_plains() -> CardIndex {
+    card_index("bb5c1817-ac22-4779-9005-251bc354f181")
+}
+
+fn talon_gates_of_madara() -> CardIndex {
+    card_index("8c45bf9d-a017-43bf-9e32-67810a8a217b")
+}
+
+fn turtle_lair() -> CardIndex {
+    card_index("eb002bbc-08df-4bf0-bea3-46494ad261b6")
+}
