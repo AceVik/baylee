@@ -45,7 +45,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     let you = res.controller;
     match op {
         Effect::Exile { .. } => {
-            if let Some(&target_id) = res.targets.first() {
+            // Every target and not the first. A card may name more than one
+            // — Pit of Offerings prints "exile up to three target cards from
+            // graveyards" and carries `TargetReq::up_to(.., 3)` — and a
+            // reader that took `first()` exiled one of them and left the
+            // rest where they were, with the card still claiming
+            // `Coverage::Implemented`. A single-target exile has one entry
+            // in `res.targets`, so nothing else in the pool moves.
+            for target_id in res.targets.clone() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
