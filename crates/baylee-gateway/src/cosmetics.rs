@@ -515,6 +515,15 @@ mod tests {
             "uppercase is not what we write"
         );
         assert!(!well_formed(&"a".repeat(63)), "and the length is exact");
+        assert!(!well_formed(&"a".repeat(65)), "at both ends");
+        assert!(
+            !well_formed(&format!("{}g", "a".repeat(63))),
+            "a letter past f is not hex"
+        );
+        assert!(
+            !well_formed(&format!("{}.", "a".repeat(63))),
+            "and a trailing dot is what would pick the extension"
+        );
         assert!(well_formed(&"0123456789abcdef".repeat(4)));
     }
 
@@ -524,5 +533,37 @@ mod tests {
             assert_eq!(Kind::parse(kind.as_str()), Some(kind));
         }
         assert_eq!(Kind::parse("avatar"), None);
+    }
+
+    /// **The guard is asked before the filesystem is**, and the id that
+    /// proves it has to be sixty-four characters long: an id refused for
+    /// its length passes this test whatever else is wrong with it, which is
+    /// what the table above cannot say.
+    ///
+    /// `../` and sixty-one more characters is exactly sixty-four, so the
+    /// only thing refusing it is that a separator and a dot are not hex —
+    /// and the file it names is written here rather than hoped for, because
+    /// a traversal that found nothing would pass against a store with no
+    /// guard at all.
+    #[test]
+    fn a_traversal_of_the_right_length_does_not_read_the_file_it_names() {
+        let store = temp_store("traversal");
+        let mine = store
+            .put(Kind::Sleeve, &a_picture(200, 300))
+            .expect("stored");
+        let dir = store.dir.clone().expect("a directory");
+
+        let climb = format!("../{}", "a".repeat(61));
+        assert_eq!(climb.len(), 64, "the length is not what refuses this one");
+        let named = dir.join(format!("{climb}.jpg"));
+        std::fs::write(&named, b"not this gateway's to serve").expect("a file to reach");
+
+        assert!(store.get(&mine).is_some(), "its own file reads");
+        assert!(
+            store.get(&climb).is_none(),
+            "and the one it climbs to does not, although it is there"
+        );
+
+        let _ = std::fs::remove_file(&named);
     }
 }
