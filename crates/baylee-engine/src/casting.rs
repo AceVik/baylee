@@ -1178,6 +1178,136 @@ mod tests {
         });
     }
 
+    /// Puts the state in `player`'s first main phase with an empty stack —
+    /// the one moment a sorcery may be cast, so every refusal below is one
+    /// thing changed from here.
+    fn main_phase_of(state: &mut GameState, player: PlayerId) {
+        state.turn.phase = Phase::FirstMain;
+        state.turn.step = crate::turn::Step::Main;
+        state.turn.active = player;
+    }
+
+    fn no_keywords() -> baylee_cards_dsl::KeywordSet {
+        baylee_cards_dsl::KeywordSet::EMPTY
+    }
+
+    /// CR 117.1a: an instant whenever its controller has priority, and a
+    /// noninstant only in its controller's own main phase with the stack
+    /// empty. Three things make a sorcery illegal and each of them alone is
+    /// enough, which is why they are asked one at a time — and the second
+    /// main phase is the fourth row, because the permission is read off the
+    /// *phase* and `Step::Main` cannot tell the two apart.
+    #[test]
+    fn a_sorcery_needs_all_three_of_the_permissions_an_instant_needs_none_of() {
+        let mut state = state();
+        main_phase_of(&mut state, me());
+        let sorcery =
+            |state: &GameState| timing_allows(state, me(), TypeSet::SORCERY, no_keywords());
+        let instant =
+            |state: &GameState| timing_allows(state, me(), TypeSet::INSTANT, no_keywords());
+
+        assert!(sorcery(&state), "your own main phase, stack empty");
+        assert!(instant(&state));
+
+        state.turn.phase = Phase::SecondMain;
+        assert!(sorcery(&state), "and the other main phase is one too");
+
+        state.turn.phase = Phase::Beginning;
+        assert!(!sorcery(&state), "not a main phase");
+        assert!(instant(&state), "an instant does not care which phase");
+
+        main_phase_of(&mut state, them());
+        assert!(!sorcery(&state), "somebody else's main phase");
+        assert!(instant(&state));
+
+        main_phase_of(&mut state, me());
+        let name = state.names.intern("Something");
+        state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
+        assert!(!sorcery(&state), "the stack is not empty");
+        assert!(instant(&state), "which is exactly when an instant is for");
+    }
+
+    /// Flash (CR 702.8a) puts a card in the instant group whatever its types
+    /// say, and Teferi's `+1` does the same for that player's **sorceries**
+    /// only. Two halves a "your spells have flash" reading would get wrong:
+    /// it is not granted to a creature, and it is not granted to the player
+    /// across the table.
+    #[test]
+    fn flash_and_a_granted_flash_are_read_from_two_different_places() {
+        let mut state = state();
+        main_phase_of(&mut state, them());
+        let flash = baylee_cards_dsl::KeywordSet::FLASH;
+
+        assert!(
+            !timing_allows(&state, me(), TypeSet::CREATURE, no_keywords()),
+            "a creature on somebody else's turn"
+        );
+        assert!(
+            timing_allows(&state, me(), TypeSet::CREATURE, flash),
+            "and the same creature with flash"
+        );
+
+        assert!(!timing_allows(
+            &state,
+            me(),
+            TypeSet::SORCERY,
+            no_keywords()
+        ));
+        register(&mut state, them(), Modifier::SorceriesHaveFlash);
+        assert!(
+            !timing_allows(&state, me(), TypeSet::SORCERY, no_keywords()),
+            "the +1 an opponent activated is not mine"
+        );
+
+        register(&mut state, me(), Modifier::SorceriesHaveFlash);
+        assert!(
+            timing_allows(&state, me(), TypeSet::SORCERY, no_keywords()),
+            "and the one I activated is"
+        );
+        assert!(
+            !timing_allows(&state, me(), TypeSet::CREATURE, no_keywords()),
+            "it says sorceries, and a creature is not one"
+        );
+    }
+
+    /// Teferi's static is asked **first** and beats flash: an opponent's
+    /// instant is pulled back to sorcery speed whatever it says. What it
+    /// leaves them is exactly what sorcery speed is — their own main phase
+    /// with an empty stack — and its own controller is not their own
+    /// opponent, which is the row that says the question is asked per seat.
+    #[test]
+    fn a_sorcery_speed_lock_beats_flash_and_spares_its_controller() {
+        let mut state = state();
+        main_phase_of(&mut state, them());
+        let flash = baylee_cards_dsl::KeywordSet::FLASH;
+
+        assert!(
+            timing_allows(&state, me(), TypeSet::INSTANT, no_keywords()),
+            "before the lock, an instant on anybody's turn"
+        );
+        register(&mut state, them(), Modifier::OpponentsCastAsSorcery);
+        assert!(
+            !timing_allows(&state, me(), TypeSet::INSTANT, no_keywords()),
+            "and under it, not on theirs"
+        );
+        assert!(
+            !timing_allows(&state, me(), TypeSet::CREATURE, flash),
+            "flash does not get out from under it"
+        );
+
+        main_phase_of(&mut state, me());
+        assert!(
+            timing_allows(&state, them(), TypeSet::INSTANT, no_keywords()),
+            "the seat that controls the lock is not locked by it — and it is \
+             not their turn, so nothing else explains this"
+        );
+        assert!(
+            timing_allows(&state, me(), TypeSet::INSTANT, no_keywords()),
+            "the lock leaves an opponent their own main phase"
+        );
+        assert!(timing_allows(&state, me(), TypeSet::SORCERY, no_keywords()));
+    }
+
     /// CR 305.6 gives a land one mana ability **per** basic type, so this
     /// shortcut answers only where there is nothing to choose. Answering on
     /// the player's behalf is worse than not answering: Godless Shrine used
