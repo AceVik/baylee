@@ -1308,6 +1308,159 @@ mod tests {
         assert!(timing_allows(&state, me(), TypeSet::SORCERY, no_keywords()));
     }
 
+    /// A face with no text, carrying only the three fields these probes read.
+    fn probe_face(
+        convoke: bool,
+        delve: bool,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+    ) -> baylee_cards_dsl::FaceDef {
+        let mut face = crate::engine::synthetic::land_face("Probe");
+        face.convoke = convoke;
+        face.delve = delve;
+        face.cost_reduction = reduction;
+        face
+    }
+
+    fn artifact(state: &mut GameState, owner: PlayerId, name: &str) -> ObjectId {
+        let id = permanent(state, owner, name);
+        state.object_mut(id).expect("just made it").base_mut().types = TypeSet::ARTIFACT;
+        id
+    }
+
+    fn creature(state: &mut GameState, owner: PlayerId, name: &str) -> ObjectId {
+        let id = permanent(state, owner, name);
+        state.object_mut(id).expect("just made it").base_mut().types = TypeSet::CREATURE;
+        id
+    }
+
+    fn tap(state: &mut GameState, id: ObjectId) {
+        state
+            .object_mut(id)
+            .expect("on the battlefield")
+            .status
+            .insert(crate::object::Status::TAPPED);
+    }
+
+    /// Convoke pays with untapped creatures and artifacts its caster
+    /// controls (CR 702.51), and each of those four words is a row: a tapped
+    /// one is not a source, an opponent's is not a source, and a land is
+    /// not one however untapped it is.
+    ///
+    /// The count is what the offer and the payment both read. They disagreed
+    /// once and the result was a convoke spell offered exactly when its
+    /// printed cost was already payable — which is the one case convoke is
+    /// not for.
+    #[test]
+    fn convoke_counts_untapped_permanents_of_two_types_on_one_side() {
+        let mut state = state();
+        let bear = creature(&mut state, me(), "Bear");
+        let mox = artifact(&mut state, me(), "Mox");
+        let tapped = creature(&mut state, me(), "Tapped");
+        tap(&mut state, tapped);
+        let theirs = creature(&mut state, them(), "Theirs");
+        tap(&mut state, theirs);
+        let untapped_theirs = creature(&mut state, them(), "Also theirs");
+        let land = permanent(&mut state, me(), "Land");
+        state.object_mut(land).expect("made it").base_mut().types = TypeSet::LAND;
+
+        let sources = convoke_sources(&state, me());
+        assert_eq!(
+            sources,
+            vec![bear, mox],
+            "a tapped one, an opponent's, and a land are none of them"
+        );
+        assert_eq!(
+            convoke_sources(&state, them()),
+            vec![untapped_theirs],
+            "and the other side counts its own"
+        );
+
+        // What the keyword is then worth, which is the number the two probes
+        // must agree on — and nothing at all on a face that does not print it.
+        assert_eq!(
+            keyword_reduction(&state, &probe_face(true, false, None), me()),
+            2
+        );
+        assert_eq!(
+            keyword_reduction(&state, &probe_face(false, false, None), me()),
+            0
+        );
+    }
+
+    /// Delve pays with the caster's graveyard (CR 702.66a), one card each,
+    /// and it stacks with convoke on a face that printed both. Dig Through
+    /// Time is the pool's only delve card and was offered at eight mana or
+    /// not at all, with a full graveyard doing nothing.
+    #[test]
+    fn delve_counts_a_graveyard_and_adds_to_whatever_else_the_face_prints() {
+        let mut state = state();
+        for i in 0..3 {
+            let name = state.names.intern(&format!("Buried {i}"));
+            state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Graveyard(me()));
+        }
+        let name = state.names.intern("Theirs");
+        state.create_bare(
+            them(),
+            ObjectKind::Card,
+            name,
+            ZoneLocation::Graveyard(them()),
+        );
+        creature(&mut state, me(), "Bear");
+
+        assert_eq!(
+            keyword_reduction(&state, &probe_face(false, true, None), me()),
+            3,
+            "my graveyard, and not the table's"
+        );
+        assert_eq!(
+            keyword_reduction(&state, &probe_face(false, true, None), them()),
+            1
+        );
+        assert_eq!(
+            keyword_reduction(&state, &probe_face(true, true, None), me()),
+            4,
+            "a face printing both adds them"
+        );
+    }
+
+    /// A printed reduction is read off the card and asked of the seat:
+    /// Surgical Metamorph costs `{1}` less if you were not the starting
+    /// player, so the seat it is *for* is the one the offer used to leave it
+    /// out for.
+    #[test]
+    fn a_printed_reduction_reaches_the_seat_it_was_printed_for() {
+        let state = state();
+        let face = probe_face(
+            false,
+            false,
+            Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(1)),
+        );
+        let starter = state.starting_player;
+        let other = if starter == me() { them() } else { me() };
+
+        assert_eq!(printed_reduction(&state, &face, starter), 0);
+        assert_eq!(printed_reduction(&state, &face, other), 1);
+        assert_eq!(
+            printed_reduction(&state, &probe_face(false, false, None), other),
+            0,
+            "and a card that prints no reduction gets none"
+        );
+    }
+
+    /// Mycosynth Lattice's third line, which the affordability checks did not
+    /// read at all — so the spell it made payable was never offered as
+    /// castable in the first place.
+    #[test]
+    fn mana_is_wild_only_while_something_says_so() {
+        let mut state = state();
+        assert!(!mana_is_wild(&state));
+        register(&mut state, me(), Modifier::ManaIsAnyColor);
+        assert!(
+            mana_is_wild(&state),
+            "it is a question about the table and not about a seat"
+        );
+    }
+
     /// CR 305.6 gives a land one mana ability **per** basic type, so this
     /// shortcut answers only where there is nothing to choose. Answering on
     /// the player's behalf is worse than not answering: Godless Shrine used
