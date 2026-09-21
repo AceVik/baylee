@@ -2756,4 +2756,126 @@ mod tests {
             "cleared is back to where it started, which is what a turn boundary does"
         );
     }
+
+    /// A four-seat table where seats 0 and 1 are a team, seat 2 is on a team
+    /// of its own and seat 3 is on none at all.
+    fn teamed_state() -> GameState {
+        let mut preset = make_preset(5);
+        let seat = preset.seats[0].clone();
+        preset.seats = vec![seat.clone(), seat.clone(), seat.clone(), seat];
+        preset.seats[0].team = Some(1);
+        preset.seats[1].team = Some(1);
+        preset.seats[2].team = Some(2);
+        preset.seats[3].team = None;
+        GameState::from_preset(&preset, &RegistryLookup).expect("a four-seat table")
+    }
+
+    /// CR 119.4 says "greater than or **equal** to the amount", so a player
+    /// on exactly two life may pay two and lose to CR 704.5a a moment
+    /// later. That is their call: this was written three times as
+    /// `life <= amount → no`, which quietly took the last point of life off
+    /// the table — a shockland entered tapped without asking and a
+    /// fetchland was never offered. The margin belongs to the AI's own
+    /// policy, not to a rule.
+    #[test]
+    fn the_last_point_of_life_is_still_payable() {
+        let mut state = GameState::from_preset(&make_preset(1), &RegistryLookup).expect("a game");
+        let me = PlayerId::new(0);
+        state.players[0].life = 2;
+
+        assert!(state.can_pay_life(me, 2), "exactly enough is enough");
+        assert!(state.can_pay_life(me, 1));
+        assert!(!state.can_pay_life(me, 3));
+
+        state.players[0].life = 0;
+        assert!(!state.can_pay_life(me, 1));
+        assert!(
+            state.can_pay_life(me, 0),
+            "CR 119.4b: paying nothing is always possible"
+        );
+        state.players[0].life = -5;
+        assert!(
+            state.can_pay_life(me, 0),
+            "including at a life total the game has not swept up yet"
+        );
+        assert!(
+            state.can_pay_life(me, -1),
+            "and a negative payment is not a payment"
+        );
+    }
+
+    /// Every rule that says "opponent" goes through one predicate, and it
+    /// asks the **side** rather than the seat: a teammate is another player
+    /// and is not an opponent, which is the difference between "each
+    /// opponent loses 1 life" and "each other player".
+    #[test]
+    fn a_teammate_is_another_player_and_not_an_opponent() {
+        let state = teamed_state();
+        let (a, b, c, d) = (
+            PlayerId::new(0),
+            PlayerId::new(1),
+            PlayerId::new(2),
+            PlayerId::new(3),
+        );
+
+        assert!(!state.is_opponent(a, a), "nobody is their own opponent");
+        assert!(!state.is_opponent(b, a), "and neither is a teammate");
+        assert!(!state.is_opponent(a, b), "which is true both ways round");
+        assert!(state.is_opponent(c, a), "another team is");
+        assert!(state.is_opponent(d, a), "and so is a seat on no team");
+        assert!(
+            state.is_opponent(d, c),
+            "two seats that share no side are opponents however they got there"
+        );
+    }
+
+    /// A seat with no team is a side of one, which is what makes a game
+    /// with no teams at all a table of opponents without anything having to
+    /// say so. Two such seats are two different sides even though both are
+    /// `None`.
+    #[test]
+    fn a_seat_on_no_team_is_a_side_of_one() {
+        let state = teamed_state();
+        assert_eq!(state.side_of(PlayerId::new(0)), Side::Team(1));
+        assert_eq!(state.side_of(PlayerId::new(1)), Side::Team(1));
+        assert_eq!(state.side_of(PlayerId::new(2)), Side::Team(2));
+        assert_eq!(
+            state.side_of(PlayerId::new(3)),
+            Side::Solo(PlayerId::new(3))
+        );
+        assert_ne!(
+            state.side_of(PlayerId::new(3)),
+            state.side_of(PlayerId::new(2)),
+            "a lone seat is not on the team of every other lone seat"
+        );
+
+        let plain = GameState::from_preset(&make_preset(2), &RegistryLookup).expect("a game");
+        assert!(plain.is_opponent(PlayerId::new(1), PlayerId::new(0)));
+    }
+
+    /// Names are rules identity rather than display text: the same spelling
+    /// interns to one handle, so "is this the same name" is an integer
+    /// compare — which is what a legend rule and a `Filter::NamedLike` both
+    /// do thousands of times a game.
+    #[test]
+    fn one_spelling_is_one_name() {
+        let mut names = Names::default();
+        assert!(names.is_empty());
+
+        let bolt = names.intern("Lightning Bolt");
+        let again = names.intern("Lightning Bolt");
+        let other = names.intern("Lightning Helix");
+
+        assert_eq!(bolt, again, "one spelling, one handle");
+        assert_ne!(bolt, other);
+        assert_eq!(names.len(), 2, "and the second interning stored nothing");
+        assert_eq!(names.get(bolt), "Lightning Bolt");
+        assert_eq!(names.get(other), "Lightning Helix");
+        assert!(!names.is_empty());
+
+        // Case and whitespace are part of the spelling: this is identity,
+        // not a search box.
+        assert_ne!(names.intern("lightning bolt"), bolt);
+        assert_ne!(names.intern("Lightning Bolt "), bolt);
+    }
 }
