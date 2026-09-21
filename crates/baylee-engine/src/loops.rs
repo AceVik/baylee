@@ -216,4 +216,109 @@ mod tests {
         }
         assert!(watch.wants_sample());
     }
+
+    /// Greatest common divisor, for the sampled period below.
+    fn gcd(a: u64, b: u64) -> u64 {
+        if b == 0 { a } else { gcd(b, a % b) }
+    }
+
+    /// The number handed back is a real period of the stream the detector
+    /// saw, not merely a non-zero report. Sampling every 256th iteration
+    /// turns a cycle of `len` into a sampled cycle of `len / gcd(len, 256)`,
+    /// so a period that is a multiple of that one is a distance the
+    /// situation genuinely repeats at — and any other number would be a
+    /// report the caller cannot act on.
+    #[test]
+    fn the_period_it_reports_is_a_distance_the_situation_repeats_at() {
+        for len in [1_u64, 2, 3, 5, 7, 13, 64, 255, 257] {
+            let sampled = len / gcd(len, LoopWatch::SAMPLE_EVERY);
+            let period =
+                run(2_000_000, |i| i % len).unwrap_or_else(|| panic!("a {len}-cycle is a loop"));
+            assert!(period > 0, "a period of nought is no period");
+            assert_eq!(
+                period % sampled,
+                0,
+                "a {len}-cycle sampled every {stride} is a {sampled}-cycle, \
+                 and {period} is not a multiple of it",
+                stride = LoopWatch::SAMPLE_EVERY
+            );
+        }
+    }
+
+    /// The loop does not have to start at the beginning. A segment that
+    /// grinds through a large finite pile and *then* falls into a cycle is
+    /// the shape a real one takes — a mill that empties a library and leaves
+    /// two abilities recreating each other — and Brent is chosen partly
+    /// because it finds a cycle behind any prefix with one stored value.
+    #[test]
+    fn a_loop_behind_a_long_prefix_is_still_found() {
+        const PREFIX: u64 = 400_000;
+        for len in [2_u64, 3, 9, 100] {
+            let period = run(4_000_000, |i| {
+                if i < PREFIX {
+                    i
+                } else {
+                    // Values from a different range, so the cycle cannot be
+                    // matched against anything in the prefix by accident.
+                    u64::MAX - (i % len)
+                }
+            });
+            assert!(
+                period.is_some(),
+                "a {len}-cycle behind {PREFIX} iterations of finite work went \
+                 unnoticed"
+            );
+        }
+    }
+
+    /// Samples are taken at a fixed stride from one fixed iteration, which
+    /// is what makes the cost a constant rather than a share of the work:
+    /// one signature per 256 iterations past the threshold, and none at all
+    /// before it.
+    #[test]
+    fn a_sample_is_taken_at_a_fixed_stride_and_not_before() {
+        const RUN: u64 = LoopWatch::WATCH_AFTER + LoopWatch::SAMPLE_EVERY * 10;
+        let mut watch = LoopWatch::default();
+        let mut sampled = Vec::new();
+        for i in 0..RUN {
+            if watch.wants_sample() {
+                sampled.push(i);
+            }
+            watch.step(None);
+        }
+        assert_eq!(watch.steps(), RUN, "every iteration is counted");
+        let want: Vec<u64> = (0..=10)
+            .map(|k| LoopWatch::WATCH_AFTER + LoopWatch::SAMPLE_EVERY * k)
+            .take_while(|i| *i < RUN)
+            .collect();
+        assert_eq!(sampled, want);
+        assert_eq!(
+            sampled.len(),
+            10,
+            "ten signatures for {RUN} iterations, and none for the first \
+             {threshold}",
+            threshold = LoopWatch::WATCH_AFTER
+        );
+    }
+
+    /// An iteration the engine did not hash leaves the detector exactly
+    /// where it was. `wants_sample` and `step` are two calls on purpose, so
+    /// a caller that skips the signature must cost the watch nothing but a
+    /// count — otherwise a detector fed a short stream would compare a
+    /// signature against a hole and call the game repetitive.
+    #[test]
+    fn an_iteration_that_was_not_hashed_only_counts() {
+        let mut watch = LoopWatch::default();
+        for _ in 0..100_000 {
+            assert_eq!(watch.step(None), None);
+        }
+        assert_eq!(watch.steps(), 100_000);
+
+        // The very first signature it does see becomes the tortoise, so the
+        // *second* identical one is a candidate and the third confirms it —
+        // the unhashed hundred thousand did not take that first slot.
+        assert_eq!(watch.step(Some(9)), None, "the first is only saved");
+        assert_eq!(watch.step(Some(9)), None, "the second is on probation");
+        assert_eq!(watch.step(Some(9)), Some(1), "the third confirms a 1-cycle");
+    }
 }
