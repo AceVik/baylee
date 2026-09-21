@@ -548,8 +548,198 @@ impl HeuristicAgent {
 
 #[cfg(test)]
 mod tests {
-    use super::amount;
-    use baylee_cards_dsl::Amount;
+    use super::{amount, meaning};
+    use baylee_cards_dsl::{Amount, CounterKind, Duration, Effect, KeywordSet, TargetSpec};
+
+    /// `Effect::branches` is asked of every effect before the table below is,
+    /// so **removal printed inside a clause is still removal**.
+    ///
+    /// The table used to name `Sequence` and `MayDo` and stop there, and a
+    /// destroy behind "when this is kicked" or "unless you pay" read as no
+    /// meaning at all — which is not merely an undervaluation: an effect with
+    /// no meaning is one `targets` declines to express a preference about, so
+    /// the agent aimed the removal at whatever the fallback picked.
+    ///
+    /// Both branches are read, because an `IfKicked` is one prompt with two
+    /// possible answers and the agent chooses its target before it knows
+    /// which.
+    #[test]
+    fn removal_printed_inside_a_clause_is_still_removal() {
+        static DESTROY: [Effect; 1] = [Effect::Destroy {
+            target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+        }];
+        static MAY: [Effect; 1] = [Effect::MayDo { effects: &DESTROY }];
+        static KICKED: [Effect; 1] = [Effect::IfKicked {
+            then: &DESTROY,
+            otherwise: &[],
+        }];
+        static OTHERWISE: [Effect; 1] = [Effect::IfKicked {
+            then: &[],
+            otherwise: &DESTROY,
+        }];
+
+        for (what, effects) in [
+            ("printed plainly", &DESTROY),
+            ("behind a may", &MAY),
+            ("behind a kicker", &KICKED),
+            ("in the other branch of one", &OTHERWISE),
+        ] {
+            let m = meaning(effects, 0);
+            assert!(m.removal && m.destroy, "removal {what} is removal");
+            assert_eq!(m.benefit, -1, "and it is bad for whoever it points at");
+        }
+
+        assert!(
+            !meaning(&[Effect::MayDo { effects: &[] }], 0).removal,
+            "a clause with nothing in it is not removal"
+        );
+    }
+
+    /// **Two counters have no sign of their own**, and saying nought about
+    /// them is not the neutral answer it looks like.
+    ///
+    /// A lore counter advances whatever Saga it lands on and a time counter
+    /// delays whatever is counting down, so each is good for one seat and bad
+    /// for another — which `meaning` cannot know, because it is handed an
+    /// effect list and no object. A benefit of nought made `targets` decline
+    /// to express a preference, and the fallback aimed at an opponent, which
+    /// is right for almost every other spell and hands that opponent their
+    /// next chapter. So they come back as a `clock` for somebody else to
+    /// price, and every other counter keeps a sign.
+    #[test]
+    fn the_two_counters_with_no_sign_come_back_as_a_clock_instead() {
+        let put = |kind| {
+            meaning(
+                &[Effect::AddCounter {
+                    kind,
+                    amount: Amount::Fixed(1),
+                }],
+                0,
+            )
+        };
+
+        for kind in [CounterKind::Lore, CounterKind::Time] {
+            let m = put(kind);
+            assert_eq!(m.clock, Some(kind), "{kind:?} is priced per object");
+            assert_eq!(m.benefit, 0, "and carries no sign of its own");
+        }
+
+        for kind in [
+            CounterKind::P1P1,
+            CounterKind::Loyalty,
+            CounterKind::Lifelink,
+            CounterKind::Energy,
+            CounterKind::Charge,
+            CounterKind::Level,
+        ] {
+            let m = put(kind);
+            assert_eq!(m.benefit, 1, "{kind:?} is a gift");
+            assert!(m.clock.is_none(), "{kind:?} needs no second opinion");
+        }
+
+        for kind in [
+            CounterKind::Minus {
+                power: 1,
+                toughness: 1,
+            },
+            CounterKind::Poison,
+            CounterKind::Rad,
+        ] {
+            assert_eq!(put(kind).benefit, -1, "{kind:?} is a penalty");
+        }
+
+        let custom = put(CounterKind::Custom(1));
+        assert_eq!(
+            (custom.benefit, custom.clock),
+            (0, None),
+            "a custom counter means whatever the card that prints it says, \
+             and there is no rule here to read"
+        );
+    }
+
+    /// **The first clock wins.** A spell that both advances a Saga and delays
+    /// a suspended card prints two sentences and would need two target
+    /// choices; one effect list answering one prompt has one.
+    #[test]
+    fn an_effect_list_carries_one_clock_and_it_is_the_first() {
+        static BOTH: [Effect; 2] = [
+            Effect::AddCounter {
+                kind: CounterKind::Lore,
+                amount: Amount::Fixed(1),
+            },
+            Effect::AddCounter {
+                kind: CounterKind::Time,
+                amount: Amount::Fixed(1),
+            },
+        ];
+        static REVERSED: [Effect; 2] = [BOTH[1], BOTH[0]];
+
+        assert_eq!(meaning(&BOTH, 0).clock, Some(CounterKind::Lore));
+        assert_eq!(
+            meaning(&REVERSED, 0).clock,
+            Some(CounterKind::Time),
+            "first in the list, not first in the enum"
+        );
+    }
+
+    /// **A pump of nothing but keywords is still a gift — unless the only
+    /// keyword is defender.**
+    ///
+    /// The numbers are read as a sign and not a size, so `+1/-1` is the
+    /// nothing it arithmetically is. What the keyword clause adds is the
+    /// shape a trick like Rush of Blood prints: `+0/+0` and an ability. The
+    /// exception is the one keyword a card hands out to make a creature
+    /// *worse*, and it is spelled as a mask rather than a comparison, so a
+    /// defender arriving beside flying is still a gift.
+    #[test]
+    fn a_pump_of_keywords_alone_is_a_gift_unless_the_keyword_is_defender() {
+        let pump = |p: Amount, t: Amount, keywords| {
+            meaning(
+                &[Effect::PumpTarget {
+                    power: p,
+                    toughness: t,
+                    keywords,
+                    duration: Duration::UntilEndOfTurn,
+                }],
+                0,
+            )
+            .benefit
+        };
+        let zero = Amount::Fixed(0);
+
+        assert_eq!(
+            pump(Amount::Fixed(3), Amount::Fixed(3), KeywordSet::EMPTY),
+            1
+        );
+        assert_eq!(
+            pump(
+                Amount::NegXFixed(2),
+                Amount::NegXFixed(2),
+                KeywordSet::EMPTY
+            ),
+            -1
+        );
+        assert_eq!(
+            pump(Amount::Fixed(1), Amount::NegXFixed(1), KeywordSet::EMPTY),
+            0,
+            "the numbers are a sign and not a size"
+        );
+        assert_eq!(
+            pump(zero, zero, KeywordSet::FLYING),
+            1,
+            "Rush of Blood's shape: no numbers and an ability"
+        );
+        assert_eq!(
+            pump(zero, zero, KeywordSet::DEFENDER),
+            0,
+            "the one keyword handed out to make a creature worse"
+        );
+        assert_eq!(
+            pump(zero, zero, KeywordSet::DEFENDER.union(KeywordSet::FLYING)),
+            1,
+            "and it is a mask, so a defender beside flying is still a gift"
+        );
+    }
 
     /// The magnitude and the sign are read separately, and the sign is
     /// `Amount::is_negative` rather than a list of the negative variants —
