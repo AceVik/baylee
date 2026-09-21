@@ -42,7 +42,15 @@ def one(prefix: str, rel: str, out_dir: pathlib.Path) -> str:
     slug = pathlib.Path(rel).stem
     text = (lane.ROOT / rel).read_text(encoding="utf-8")
     try:
-        answer = lane.ask_deepseek(prefix, RULES, text, max_tokens=32000)
+        # 64000, the same as the card lane and for the same measured
+        # reason. At 32000, 7 of round H's 43 came back with nothing at all
+        # — six `stop_reason='max_tokens'` and one truncated code fence —
+        # and all seven were written on a retry with 64000 and nothing else
+        # changed, so the budget was the refusal in every case. A test that
+        # reasons about a board before it writes spends most of its room
+        # there, and DeepSeek bills the tokens it generates, so a low cap
+        # buys nothing and loses cards.
+        answer = lane.ask_deepseek(prefix, RULES, text, max_tokens=64000)
     except Exception as exc:  # noqa: BLE001 — the reason is the report
         return f"{slug} | error | {exc}"
     m = re.search(r"```(?:rust)?\n(.*?)```", answer, re.S)
