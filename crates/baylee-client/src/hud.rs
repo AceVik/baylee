@@ -1117,6 +1117,10 @@ struct BrowserGate {
 /// Which snapshot the overlay currently shows.
 #[derive(Resource, Default)]
 pub struct HudRevision {
+    lang: Option<Lang>,
+    stack_selected: Option<ObjectId>,
+    ability_orders: Vec<baylee_client_core::automation::AbilityOrder>,
+    stack_window: usize,
     hand_order: crate::hand_order::HandOrder,
     seq: Option<u64>,
     prompt: Option<String>,
@@ -1884,6 +1888,8 @@ pub struct CardMotion<'w> {
 /// are despawned, and the shelf is passed over.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct OverlayTree<'w, 's> {
+    pub(crate) stack_scroll: Query<'w, 's, &'static ScrollPosition, With<stack::StackBody>>,
+
     /// The root, and whatever hangs off it.
     pub(crate) root: Query<'w, 's, (Entity, Option<&'static Children>), With<HudRoot>>,
     /// The shelf, so a child can be recognised as the one to keep.

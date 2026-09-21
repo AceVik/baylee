@@ -344,16 +344,9 @@ pub(super) fn printing_picker(
         (Finish::Normal, Phrase::FinishPlain.text(lang)),
         (Finish::Foil, Phrase::FinishFoil.text(lang)),
         (Finish::Etched, Phrase::FinishEtched.text(lang)),
-        (Finish::Holographic, "Holo"),
-        (
-            Finish::Glitter,
-            if lang == Lang::De {
-                "Glitzer"
-            } else {
-                "Glitter"
-            },
-        ),
-        (Finish::Galaxy, "Galaxy"),
+        (Finish::Holographic, Phrase::FinishHolographic.text(lang)),
+        (Finish::Glitter, Phrase::FinishGlitter.text(lang)),
+        (Finish::Galaxy, Phrase::FinishGalaxy.text(lang)),
     ] {
         let sold = offered.contains(&finish);
         let c = button(

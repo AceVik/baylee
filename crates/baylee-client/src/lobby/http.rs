@@ -496,7 +496,7 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
                 "weak password" | "invalid password" => {
                     Phrase::AccountPasswordInvalid.text(lang).to_string()
                 }
-                _ => b.error,
+                _ => client_core::i18n::server_message(lang, &b.error),
             },
         )
 }

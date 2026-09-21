@@ -275,6 +275,8 @@ fn automation_panel(
         commands.entity(column).add_child(line);
     }
 
+    spawn_ability_orders(commands, column, prefs, lang, fonts, metrics);
+
     let motion = motion_row(commands, prefs, lang, fonts, metrics);
     commands.entity(column).add_child(motion);
     let weather = sky_row(commands, prefs, lang, fonts, metrics);
@@ -388,6 +390,46 @@ fn preset_row(
     );
     commands.entity(line).add_children(&[text, use_it]);
     line
+}
+
+fn spawn_ability_orders(
+    commands: &mut Commands,
+    column: Entity,
+    prefs: &Preferences,
+    lang: Lang,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) {
+    if !prefs.ability_orders.is_empty() {
+        let reset = chip(
+            commands,
+            fonts,
+            metrics,
+            Phrase::StackResetRules.text(lang),
+            Press::ResetAbilityOrders,
+            false,
+        );
+        commands.entity(column).add_child(reset);
+        for order in &prefs.ability_orders {
+            let line = row(commands, metrics, false);
+            let name = baylee_cards::by_index(order.ability.card).map_or("—", |card| card.name());
+            let label = Phrase::StackRuleName.fill(
+                lang,
+                &[name, &(order.ability.index.saturating_add(1)).to_string()],
+            );
+            let text = heading(commands, fonts, metrics, &label);
+            let reset = chip(
+                commands,
+                fonts,
+                metrics,
+                Phrase::Reset.text(lang),
+                Press::ForgetAbility(order.ability),
+                false,
+            );
+            commands.entity(line).add_children(&[text, reset]);
+            commands.entity(column).add_child(line);
+        }
+    }
 }
 
 /// Which language the interface speaks, offered as one chip per language.

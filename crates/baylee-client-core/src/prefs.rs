@@ -687,6 +687,8 @@ pub struct Preferences {
     pub orders: PhaseOrders,
     /// What the client answers on the player's behalf.
     pub auto: AutoRules,
+    /// Per-card-ability yields and optional answers, synced with the account.
+    pub ability_orders: Vec<crate::automation::AbilityOrder>,
     /// Whether the table holds still: cards and the camera go straight to
     /// where they belong instead of moving there.
     ///

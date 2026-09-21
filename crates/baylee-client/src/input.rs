@@ -259,6 +259,9 @@ fn card_on_screen(
 /// reading of these branches, kept in step with them by hand. See
 /// [`baylee_client_core::touch`].
 pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
+    if select_stack_stop(duel, object) {
+        return Answer::Took;
+    }
     // A second tap on the same card is the send. A tap on a different one is
     // a change of mind and not a confirmation, so it disarms and arms afresh.
     if duel.armed.as_ref().is_some_and(|a| a.object == object) {
@@ -3392,6 +3395,23 @@ pub fn navigate_home(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
     duel.focus = None;
     duel.camera_held = false;
     crate::rebuild_board(duel);
+}
+
+/// Stack navigation must not steal a pending target choice.
+fn select_stack_stop(duel: &mut Duel, object: ObjectId) -> bool {
+    if duel
+        .view
+        .as_ref()
+        .is_some_and(|view| view.stack.iter().any(|item| item.id == object))
+        && !duel
+            .interaction
+            .as_ref()
+            .is_some_and(|choice| choice.is_selectable(object))
+    {
+        duel.stack_selected = (duel.stack_selected != Some(object)).then_some(object);
+        return true;
+    }
+    false
 }
 
 #[cfg(test)]

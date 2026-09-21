@@ -792,6 +792,11 @@ pub(super) fn clicks(
             Press::ResetAllBindings => {
                 prefs.edit().keymap = baylee_client_core::prefs::Keymap::standard();
             }
+            Press::ResetAbilityOrders => prefs.edit().ability_orders.clear(),
+            Press::ForgetAbility(ability) => prefs
+                .edit()
+                .ability_orders
+                .retain(|order| order.ability != ability),
             Press::ToggleAuto(rule) => {
                 let mut edit = prefs.edit();
                 rule.toggle(&mut edit.auto);
@@ -1527,6 +1532,10 @@ pub(crate) enum Press {
     ResetAllBindings,
     /// Flip one automation switch.
     ToggleAuto(baylee_client_core::prefs::AutoRule),
+    /// Return every card ability to manual responses.
+    ResetAbilityOrders,
+    /// Forget one ability's policy.
+    ForgetAbility(baylee_core::ids::AbilityRef),
     /// Stop the table moving, or let it move again.
     ToggleMotion,
     /// Speak this language from now on.

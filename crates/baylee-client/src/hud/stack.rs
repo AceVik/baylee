@@ -4,53 +4,9 @@
 //! of the permanent it came from — followed by a row of everything it
 //! targets, each drawn as its own smaller card.
 //!
-//! # One sentence, then a queue
-//!
-//! The panel does not draw its entries as peers. The next thing to resolve is
-//! a **full** row — a card an inch across, the spell's name at reading size,
-//! the printed sentence an ability came from, an arrow and a picture of
-//! everything it points at — and everything under it is a **compact** row: a
-//! smaller card, one line, smaller thumbnails, no second line for a sentence
-//! and no arrow. That is the whole hierarchy, and it is one decision rather
-//! than two, because the size ramp *is* the depth cue.
-//!
-//! What goes *on* that one line is the row's name — except for an ability,
-//! which has no name of its own and was borrowing its source's. Two triggers
-//! off one permanent were then the same row twice, which is what #132
-//! reported from a stack of five. A queued ability is headed by its own
-//! printed clause instead ([`heading`]); the picture beside it already says
-//! which permanent it came from, and it is the line the row already had.
-//!
-//! The sentence is the clearest case of what that ramp buys. It runs to
-//! [`STACK_SENTENCE_LINES`] lines and answers "what is about to happen",
-//! which is a question about the *next* thing to resolve; the same paragraph
-//! on every queued row would be four screens of rules text nobody is reading
-//! yet, in the space the queue needs to say how deep it is.
-//!
-//! The arithmetic forces it. A full row is [`STACK_CARD_H`] plus its padding,
-//! about 113 px; the panel is 62% of the window, which on a laptop is a
-//! little over six hundred. Five uniform rows and the sixth is clipped with
-//! nothing to say it was — and a stack of ten is a perfectly ordinary
-//! storm turn. One full row and [`STACK_COMPACT_ROWS`] compact ones fit in
-//! the same space, and what still does not fit is *counted* on a last line
-//! rather than silently cut off.
-//!
-//! **That 113 is a floor and the panel is full at it**, which is worth having
-//! written down, because the obvious answer to "the queue says too little" is
-//! to give a queued row another line and there is nowhere to take it from.
-//! 113 is the *card*; a full row carrying a two-line name, a subtitle and a
-//! four-line sentence is 12 padding + 42.2 + 3 + 15.8 + 3 + 63.4 ≈ 139. A
-//! compact row is 8 padding + [`STACK_QUEUED_H`] ≈ 72. At 1052 logical
-//! pixels the panel's content box is 0.62 × 1052 − 20 ≈ 632, and a head, a
-//! full row, six compact rows and the seven 6-pixel gaps between them come
-//! to about 634 — before the "+N more" line. So the queue is drawn at its
-//! budget already: one more line on each compact row is ~95 px that do not
-//! exist, and dropping [`STACK_COMPACT_ROWS`] to five to pay for it buys 78
-//! and still does not cover it. #132 asks for the queue to say more; the
-//! room for it has to come from saying something *else* on the line a
-//! compact row already has, not from another line. These are modelled from
-//! the constants rather than measured off a screenshot, so they are the
-//! right order of magnitude and not a promise to the pixel.
+//! The next entry is expanded; queued entries use fixed-height compact rows.
+//! A virtual scrolling window keeps even trigger storms bounded in UI nodes.
+//! Selection and scroll offsets survive retained HUD rebuilds.
 //!
 //! # Arriving, and resolving
 //!
@@ -183,19 +139,40 @@ const STACK_QUEUED_TARGET_H: f32 = STACK_QUEUED_TARGET_W * 88.0 / 63.0;
 /// Inter) still 65 px short of the edge.
 const STACK_PANEL_W: f32 = 352.0;
 
-/// How many compact rows are drawn under the full one.
-///
-/// The panel is `max_height: 62%`; on the 1052-logical-pixel window this
-/// client is developed against that is 652, less 20 of padding and 34 of
-/// title leaves 598. A full row is the card plus its padding, `101 + 12` =
-/// 113, and a compact one `64 + 8` = 72, both plus the 6 px gap:
-/// `113 + 6 + 6 × 78 = 587`, and the seventh compact row would be the first
-/// to be cut. Anything past that is counted on one line instead — a number is
-/// a worse drawing than a card and a much better one than a silent clip.
-///
-/// Six survived the widening because the panel grew sideways and not
-/// downwards: the cards are a tenth taller and the budget is unchanged.
-const STACK_COMPACT_ROWS: usize = 6;
+/// Bounded visible rows, including overscan for smooth scrolling.
+const STACK_COMPACT_ROWS: usize = 16;
+const STACK_FULL_HEIGHT: f32 = 164.0;
+const STACK_ROW_HEIGHT: f32 = 82.0;
+
+/// First rendered queued row, including a small overscan above the viewport.
+pub(super) fn window_start(scroll: f32) -> usize {
+    (((scroll - STACK_FULL_HEIGHT).max(0.0) / STACK_ROW_HEIGHT) as usize).saturating_sub(2)
+}
+
+fn rows_height(start: usize, end: usize) -> f32 {
+    if end <= start {
+        return 0.0;
+    }
+    (end - start) as f32 * STACK_ROW_HEIGHT
+        + if start == 0 {
+            STACK_FULL_HEIGHT - STACK_ROW_HEIGHT
+        } else {
+            0.0
+        }
+}
+
+fn spacer(commands: &mut Commands, height: f32) -> Entity {
+    commands
+        .spawn((
+            Node {
+                height: px(height),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
+}
 
 /// The name on the full row, which is the largest thing in the panel.
 const STACK_NAME_PT: f32 = 16.0;
@@ -727,6 +704,9 @@ pub fn ease_the_stack_in(
 #[allow(clippy::too_many_lines)] // a title, a queue and a tally, built flat
 pub(super) fn spawn_stack_panel(
     commands: &mut Commands,
+    selected: Option<ObjectId>,
+    orders: &[baylee_client_core::automation::AbilityOrder],
+    scroll: ScrollPosition,
     lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
@@ -881,29 +861,35 @@ pub(super) fn spawn_stack_panel(
         )
         .id();
     commands.entity(head).add_child(toggle);
+    spawn_controls(commands, panel, selected, orders, lang, view, fonts);
+    let start = window_start(scroll.y).min(board.stack.len().saturating_sub(1));
+    let end = (start + STACK_COMPACT_ROWS).min(board.stack.len());
     let body = commands
         .spawn((
             StackBody,
             Scrolls,
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(6),
                 overflow: Overflow::scroll_y(),
                 min_height: px(0),
                 ..default()
             },
-            ScrollPosition::default(),
+            scroll,
         ))
         .id();
     commands.entity(panel).add_child(body);
 
-    let shown = board.stack.len().min(1 + STACK_COMPACT_ROWS);
-    for item in board.stack.iter().take(shown) {
+    if start > 0 {
+        let gap = spacer(commands, rows_height(0, start));
+        commands.entity(body).add_child(gap);
+    }
+    for item in &board.stack[start..end] {
         let entry = spawn_stack_entry(
             commands,
             lang,
             item,
             item.depth == 0,
+            selected == Some(item.id),
             view,
             statics,
             picks,
@@ -916,25 +902,233 @@ pub(super) fn spawn_stack_panel(
         commands.entity(body).add_child(entry);
     }
 
-    if let Some(hidden) = board.stack.len().checked_sub(shown).filter(|n| *n > 0) {
-        let more = commands
+    if end < board.stack.len() {
+        let gap = spacer(commands, rows_height(end, board.stack.len()));
+        commands.entity(body).add_child(gap);
+    }
+    panel
+}
+
+fn control_button(
+    commands: &mut Commands,
+    parent: Entity,
+    label: &str,
+    active: bool,
+    fonts: &UiFonts,
+) -> Entity {
+    let button = commands
+        .spawn((
+            Button,
+            Node {
+                min_height: px(28),
+                padding: UiRect::axes(px(8), px(5)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px(4)),
+                border: UiRect::all(px(1)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(if active {
+                palette::CANDLE_WASH_LIT
+            } else {
+                palette::DIALOG_LIT
+            }),
+            BorderColor::all(if active {
+                palette::CANDLE
+            } else {
+                palette::DIALOG_LINE
+            }),
+            children![(
+                Text::new(label),
+                tf(fonts, 11.0),
+                TextColor(palette::INK),
+                Pickable::IGNORE
+            )],
+        ))
+        .id();
+    commands.entity(parent).add_child(button);
+    button
+}
+
+fn pass_check(commands: &mut Commands, fonts: &UiFonts, enabled: bool) -> Entity {
+    commands
+        .spawn((
+            Node {
+                width: px(14),
+                height: px(14),
+                margin: UiRect::right(px(6)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(3)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BorderColor::all(palette::CANDLE),
+            Pickable::IGNORE,
+            children![(
+                Text::new(if enabled {
+                    glyph::CHECK.to_string()
+                } else {
+                    String::new()
+                }),
+                icon_tf(fonts, 10.0),
+                TextColor(palette::CANDLE),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn spawn_controls(
+    commands: &mut Commands,
+    panel: Entity,
+    selected: Option<ObjectId>,
+    orders: &[baylee_client_core::automation::AbilityOrder],
+    lang: Lang,
+    view: &PlayerView,
+    fonts: &UiFonts,
+) {
+    use baylee_client_core::automation::{ability_order, set_ability_order};
+    use baylee_engine::choice::StandingAnswer;
+    let marked = selected.and_then(|id| view.stack.iter().find(|item| item.id == id));
+    let controls = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(5),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(panel).add_child(controls);
+    let hint = if marked.is_some() {
+        Phrase::StackStopHint
+    } else {
+        Phrase::StackSelectHint
+    };
+    let text = commands
+        .spawn((
+            Text::new(hint.text(lang)),
+            tf(fonts, 10.0),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(controls).add_child(text);
+    let running = view.priority_held;
+    let label = if running {
+        Phrase::HoldRelease
+    } else if marked.is_some() {
+        Phrase::StackRunTo
+    } else {
+        Phrase::StackRun
+    };
+    let button = control_button(commands, controls, label.text(lang), running, fonts);
+    commands
+        .entity(button)
+        .observe(|mut click: On<Pointer<Click>>, mut duel: ResMut<Duel>| {
+            click.propagate(false);
+            if let Some(action) = duel.hold_action(false) {
+                duel.submit(action);
+            }
+        });
+    let ability = marked
+        .or_else(|| view.stack.last())
+        .and_then(|item| match item.stack_item {
+            Some(baylee_view::StackItem::Ability { ability, .. }) => ability,
+            _ => None,
+        });
+    if let Some(ability) = ability {
+        let order = ability_order(orders, ability);
+        let title = commands
+            .spawn((
+                Text::new(Phrase::StackAbilityPolicy.text(lang)),
+                tf(fonts, 10.0),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(controls).add_child(title);
+        let pass = control_button(
+            commands,
+            controls,
+            Phrase::StackAlwaysPass.text(lang),
+            order.pass,
+            fonts,
+        );
+        let mark = pass_check(commands, fonts, order.pass);
+        commands.entity(pass).insert_children(0, &[mark]);
+        commands.entity(pass).observe(
+            move |mut click: On<Pointer<Click>>, mut prefs: ResMut<crate::prefs::Prefs>| {
+                click.propagate(false);
+                let mut order = ability_order(&prefs.all().ability_orders, ability);
+                order.pass = !order.pass;
+                set_ability_order(&mut prefs.edit().ability_orders, order);
+            },
+        );
+        let choices = commands
             .spawn((
                 Node {
-                    margin: UiRect::top(px(2)),
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(4),
+                    flex_wrap: FlexWrap::Wrap,
+                    row_gap: px(4),
                     ..default()
                 },
                 Pickable::IGNORE,
-                children![(
-                    Text::new(Phrase::StackMore.fill(lang, &[&hidden.to_string()])),
-                    tf(fonts, 11.0),
-                    TextColor(palette::MUTED),
-                    Arriving::ink(key, palette::MUTED.alpha()),
-                )],
             ))
             .id();
-        commands.entity(body).add_child(more);
+        commands.entity(controls).add_child(choices);
+        for (label, answer) in [
+            (Phrase::StackAsk, None),
+            (Phrase::StackAlwaysYes, Some(StandingAnswer::Yes)),
+            (Phrase::StackAlwaysNo, Some(StandingAnswer::No)),
+        ] {
+            let button = control_button(
+                commands,
+                choices,
+                label.text(lang),
+                order.answer == answer,
+                fonts,
+            );
+            commands.entity(button).observe(
+                move |mut click: On<Pointer<Click>>, mut prefs: ResMut<crate::prefs::Prefs>| {
+                    click.propagate(false);
+                    let mut order = ability_order(&prefs.all().ability_orders, ability);
+                    order.answer = answer;
+                    set_ability_order(&mut prefs.edit().ability_orders, order);
+                },
+            );
+        }
+        let hint = commands
+            .spawn((
+                Text::new(Phrase::StackPolicyHint.text(lang)),
+                tf(fonts, 10.0),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(controls).add_child(hint);
     }
-    panel
+    if !orders.is_empty() {
+        let reset = control_button(
+            commands,
+            controls,
+            Phrase::StackResetRules.text(lang),
+            false,
+            fonts,
+        );
+        commands.entity(reset).observe(
+            |mut click: On<Pointer<Click>>, mut prefs: ResMut<crate::prefs::Prefs>| {
+                click.propagate(false);
+                prefs.edit().ability_orders.clear();
+            },
+        );
+    }
 }
 
 /// One row of the stack panel: the object, what it is, and what it points at.
@@ -951,6 +1145,7 @@ fn spawn_stack_entry(
     lang: Lang,
     item: &baylee_client_core::board::StackItem,
     full: bool,
+    marked: bool,
     view: &PlayerView,
     statics: &GameStatic,
     picks: &Picks<'_>,
@@ -977,7 +1172,9 @@ fn spawn_stack_entry(
     // so the row can simply be *built* lit, which is what the hand zone has
     // always done with its halo.
     let hovered = picks.hovered == Some(item.id);
-    let fill = if full {
+    let fill = if marked {
+        palette::CANDLE_WASH_LIT
+    } else if full {
         if hovered {
             palette::PANEL_HOT
         } else {
@@ -990,11 +1187,22 @@ fn spawn_stack_entry(
     } else {
         Color::NONE
     };
-    let rail = if full { palette::CANDLE } else { Color::NONE };
+    let rail = if full || marked {
+        palette::CANDLE
+    } else {
+        Color::NONE
+    };
     let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
+                height: px(if full {
+                    STACK_FULL_HEIGHT
+                } else {
+                    STACK_ROW_HEIGHT
+                }),
+                flex_shrink: 0.0,
+                overflow: Overflow::clip(),
                 column_gap: px(8),
                 padding: UiRect::all(px(if full { 6.0 } else { 4.0 })),
                 border: UiRect::left(px(3)),
@@ -1172,7 +1380,11 @@ fn spawn_stack_entry(
         // this ground is legible for a word and tiring for a sentence.
         let seat = commands
             .spawn((
-                TextSpan::new(statics.seat_name(item.controller).to_string()),
+                TextSpan::new(if item.controller == view.seat {
+                    Phrase::You.text(lang).to_string()
+                } else {
+                    statics.seat_name(item.controller).to_string()
+                }),
                 super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),

@@ -28,38 +28,13 @@
 //! the sheet drew them in grey as bracketed asides beside the very number
 //! they disagreed with.
 //!
-//! # What is not here
-//!
-//! A refusal that arrived as **prose from another process** is shown in the
-//! words that process sent, because it is the one that knows why it said no.
-//! [`Refusal`] is the pair — a phrase this client owns, or somebody else's
-//! sentence — and the prompt bar renders either.
-//!
-//! This used to say only that *the gateway's* refusals (`{"error":"…"}`) are
-//! shown in the gateway's words, and that translating them is "a protocol
-//! change — a code beside the prose". That is still true, and it is about the
-//! **lobby**: `ErrorBody` in the gateway is one `error` field and nothing
-//! else, so a code there is a field that does not exist yet.
-//!
-//! What it was silent about is the **duel's** refusal slot, and #121 is that
-//! measurement. Nothing the gateway says reaches it: the gateway forwards
-//! `SeatFrame` bytes it never decodes. Two writers reach it, and they are
-//! shaped differently, which is the whole argument for [`Refusal`] having two
-//! arms:
-//!
-//! - **This client wrote eight** of the sentences there, a closed set that
-//!   was English for no better reason than that `Duel::last_error` was a
-//!   `String` — one stale-deed line at six call sites, one cast-mode line,
-//!   and the six a mana run gives up with. They are phrases now.
-//! - **The engine's half cannot be enumerated.** Three of its lines are
-//!   fixed, and the other four call sites are `error(reason)`, forwarding
-//!   whatever the rules kernel refused with. There is no list to translate,
-//!   which is why `Verbatim` is the design and not the backlog.
-//!
-//! Should a *named* engine refusal ever want translating, that is still not a
-//! protocol change: `v1::Error` has carried a `code` field the whole time,
-//! hard-coded to `1` by both writers, so the wire is already there and what
-//! is missing is a taxonomy.
+//! Known engine and gateway refusals are localized by [`server_message`].
+//! Unknown diagnostics keep the original detail so a newer server remains
+//! diagnosable by an older client. Card and player names are never translated
+//! by replacing words inside arbitrary messages.
+
+mod server;
+pub use server::server_message;
 
 use baylee_core::ids::PlayerId;
 use baylee_view::GameStatic;
@@ -1405,7 +1380,39 @@ messages! {
     /// The same priority window, on somebody else's turn. "Your move" there
     /// reads as "it is your turn", which it is not.
     YouMayRespond { en: "You may respond", de: "Du kannst reagieren" },
-    /// Stack
+    /// Resolve the stack while retaining manual choices.
+    StackRun { en: "Resolve stack", de: "Stack abarbeiten" },
+    /// Stack automation control.
+    StackRunTo { en: "Resolve up to selection", de: "Bis zur Markierung abarbeiten" },
+    /// Stack automation control.
+    StackStopHint { en: "Stop before the marked ability. Click again to clear.", de: "Stopp vor der markierten Fähigkeit. Erneut klicken zum Aufheben." },
+    /// Stack automation control.
+    StackSelectHint { en: "Select an entry to stop before it.", de: "Eintrag markieren, um davor anzuhalten." },
+    /// Stack automation control.
+    StackAbilityPolicy { en: "For this card ability", de: "Für diese Kartenfähigkeit" },
+    /// Stack automation control.
+    StackAlwaysPass { en: "Always pass", de: "Immer passen" },
+    /// Stack automation control.
+    StackAsk { en: "Always ask", de: "Immer fragen" },
+    /// Stack automation control.
+    StackAlwaysYes { en: "Always yes", de: "Immer Ja" },
+    /// Stack automation control.
+    StackAlwaysNo { en: "Always no", de: "Immer Nein" },
+    /// Stack automation control.
+    StackResetRules { en: "Reset ability automation", de: "Fähigkeitsautomatik zurücksetzen" },
+    /// Stack automation control.
+    StackNoPolicy { en: "This entry has no reusable card ability.", de: "Für diesen Eintrag ist keine dauerhafte Kartenfähigkeit verfügbar." },
+    /// Stack automation control.
+    StackPolicyHint { en: "Targets and payments still require your decision.", de: "Ziele und Zahlungen entscheidest du weiterhin selbst." },
+    /// Stack panel title.
+    StackRuleName { en: "{0} · Ability {1}", de: "{0} · Fähigkeit {1}" },
+    /// Holographic card finish.
+    FinishHolographic { en: "Holographic", de: "Holografisch" },
+    /// Glitter card finish.
+    FinishGlitter { en: "Glitter", de: "Glitzer" },
+    /// Galaxy card finish.
+    FinishGalaxy { en: "Galaxy", de: "Galaxie" },
+    /// Stack panel title.
     StackTitle { en: "Stack", de: "Stapel" },
     /// Spell
     StackSpell { en: "Spell", de: "Zauber" },
@@ -2058,23 +2065,9 @@ pub fn own_seat_name(lang: Lang, name: &str) -> String {
 
 /// A refusal the prompt bar has to draw, in whichever form it arrived.
 ///
-/// One slot, two kinds of thing, and the pair is the point. A refusal this
-/// client decided is a [`Phrase`] and is translated like every other word on
-/// the screen; a refusal another process sent is its sentence and is drawn as
-/// it came, because the process that said no is the one that knows why. A
-/// field typed `String` could only ever hold the second, which is how nine
-/// client-owned sentences came to be English in a German interface (#121).
-///
-/// This is the shape `crate::Duel::link_note` already had for the same
-/// reason — *"a phrase rather than a rendered string so the decision stays
-/// where a test can read it, and the words stay in the overlay, which is the
-/// only thing that knows the language"* — with one arm added for the case
-/// `link_note` never has.
-///
-/// [`Self::Verbatim`] is **not** a deficiency to be driven to zero. It is
-/// what keeps the pair forward-compatible: an engine that refuses for a
-/// reason this client has never heard of renders its English sentence rather
-/// than nothing, so the two sides need no lockstep deploy.
+/// Client-owned phrases and known engine/server messages follow the current
+/// language. Unknown diagnostics keep the original message so newer servers
+/// remain readable without a lockstep client update.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Refusal {
     /// A sentence this client owns.
@@ -2089,7 +2082,7 @@ impl Refusal {
     pub fn text(&self, lang: Lang) -> String {
         match self {
             Self::Said(phrase) => phrase.text(lang).to_string(),
-            Self::Verbatim(prose) => prose.clone(),
+            Self::Verbatim(prose) => server_message(lang, prose),
         }
     }
 }

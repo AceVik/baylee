@@ -46,7 +46,11 @@ fn every_field_of_the_revision_is_both_compared_and_assigned() {
     let opens = gate
         .rfind("if revision.seq == seq")
         .expect("and the gate above it");
-    let gate = &gate[opens..];
+    let gate: String = gate[opens..]
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
+    let assign: String = assign.chars().filter(|c| !c.is_whitespace()).collect();
 
     for field in fields {
         let needle = format!("revision.{field}");

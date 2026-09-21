@@ -136,7 +136,9 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         // index — and a priority hold to a step. Neither names an object on
         // any board, so neither can pick a bystander.
         | PlayerAction::SetPriorityHold(_)
-        | PlayerAction::SetStandingAnswer { .. } => Vec::new(),
+        | PlayerAction::SetStandingAnswer { .. }
+        | PlayerAction::SetAbilityYield { .. }
+        | PlayerAction::SetAbilityPolicy { .. } => Vec::new(),
     }
 }
 

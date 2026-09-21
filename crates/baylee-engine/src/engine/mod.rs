@@ -651,6 +651,18 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_mul(31)
                 .wrapping_add(hold_tag(seat.hold))
                 .wrapping_add(seat.standing_answers().count() as u64);
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(seat.priority_paused));
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(seat.yielded_abilities().count() as u64);
+            for ability in seat.yielded_abilities() {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(ability.card.get()))
+                    .wrapping_add(u64::from(ability.index));
+            }
             for (ability, answer) in seat.standing_answers() {
                 extra = extra
                     .wrapping_mul(31)
@@ -722,8 +734,13 @@ impl<L: CardLookup> Engine<L> {
         if let PlayerAction::OfferDraw = action {
             return self.offer_draw(player);
         }
+        let answered_priority =
+            matches!(self.pending, Pending::Priority { player: holder, .. } if holder == player);
         self.awaiting_answer = false;
         self.apply_inner(player, action)?;
+        if answered_priority && let Some(seat) = self.automation.get_mut(player.get() as usize) {
+            seat.priority_paused = false;
+        }
         // And then the machine, which is the whole of the settling an action
         // owes. It used to be unreachable from here: `after_action` published
         // the next `Pending` itself and set `awaiting_answer`, which is the

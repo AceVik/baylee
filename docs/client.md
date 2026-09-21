@@ -991,12 +991,27 @@ wrapped, smaller thumbnails, no arrow and no subtitle. The size ramp **is**
 the depth cue, which is why there is no numeral beside the rows — position
 already carries the order and the badge already carries the count.
 
-The arithmetic is what forces it rather than taste. The panel is
-`max_height: 62%`; a full row is about 113 logical pixels and a laptop leaves
-about 598 after the title, so five uniform rows fit and the sixth is clipped
-with nothing to say it was — and a stack of ten is an ordinary storm turn. One
-full row and six compact ones fit the same space, and what still does not fit
-is *counted* on a last line (`+3 more`). Under the title sits one more line
+The panel is capped at 62% of the window height. Its body scrolls through
+all entries using fixed-height rows (164 px for the next entry, 82 px for
+queued entries), a bounded rendering window and height-preserving spacers.
+Scroll position survives hover, selection and language changes.
+
+Selecting an entry marks a stopping point. “Resolve to selection” passes
+priority until that entry reaches the top, then stops **before** it resolves.
+The engine pauses standing yields at this boundary and the client also suspends
+its phase autopilot until a manual action. Legal target selection takes precedence
+over marking a stop. Removing the marked object also cancels the hold.
+
+For the selected ability (or the top ability without a selection), independent
+“Always pass” and Ask / Always yes / Always no controls apply to its exact
+`AbilityRef`, across copies of that card. Preferences persist locally and through
+account settings; individual rules or all rules can be cleared in automation
+settings. Only optional, automatable yes/no prompts accept standing answers;
+targets, payments and other choices remain manual. Rules are applied to the
+engine, journaled and included in deterministic snapshots. Explicit stops and
+cancellation take precedence over standing yields.
+
+Under the title sits one more line
 the prompt slip cannot carry: whose answer the table is waiting for, from
 `PlayerView::awaiting`, and nothing at all once the game is over. It read
 `PlayerView::priority` until `VIEW_VERSION` 23, which answered a narrower

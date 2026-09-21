@@ -8,6 +8,61 @@ use crate::i18n::Phrase;
 use baylee_engine::choice::{LegalActions, Pending};
 use baylee_view::{Phase, Step};
 
+/// A remembered policy for one printed card ability, across printings and games.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AbilityOrder {
+    /// Stable card and ability handle; different abilities remain independent.
+    pub ability: baylee_core::ids::AbilityRef,
+    /// Pass priority while this ability is on top of the stack.
+    pub pass: bool,
+    /// Answer optional yes/no questions; other choices still require input.
+    pub answer: Option<baylee_engine::choice::StandingAnswer>,
+}
+
+impl AbilityOrder {
+    /// Default manual policy for this ability.
+    #[must_use]
+    pub const fn manual(ability: baylee_core::ids::AbilityRef) -> Self {
+        Self {
+            ability,
+            pass: false,
+            answer: None,
+        }
+    }
+
+    /// One atomic update, so disabling a rule cannot consume an old answer.
+    #[must_use]
+    pub const fn action(self) -> baylee_engine::choice::PlayerAction {
+        baylee_engine::choice::PlayerAction::SetAbilityPolicy {
+            ability: self.ability,
+            pass: self.pass,
+            answer: self.answer,
+        }
+    }
+}
+
+/// Find an ability's policy without conflating its source's other abilities.
+#[must_use]
+pub fn ability_order(
+    orders: &[AbilityOrder],
+    ability: baylee_core::ids::AbilityRef,
+) -> AbilityOrder {
+    orders
+        .iter()
+        .find(|order| order.ability == ability)
+        .copied()
+        .unwrap_or_else(|| AbilityOrder::manual(ability))
+}
+
+/// Replace a policy and keep persisted settings deterministic and compact.
+pub fn set_ability_order(orders: &mut Vec<AbilityOrder>, order: AbilityOrder) {
+    orders.retain(|previous| previous.ability != order.ability);
+    if order.pass || order.answer.is_some() {
+        orders.push(order);
+        orders.sort_by_key(|order| order.ability);
+    }
+}
+
 /// One row of the phase rail: every step of a Magic turn, in order
 /// (CR 500.1). The two main phases share `Step::Main` and are told apart
 /// by their phase; the two combat damage steps share one row.
@@ -1588,6 +1643,53 @@ mod tests {
             ),
             AutoAnswer::None,
             "but a spell the lands could be tapped for is something to do"
+        );
+    }
+}
+
+#[cfg(test)]
+mod ability_order_tests {
+    use super::*;
+    use baylee_core::ids::{AbilityRef, CardIndex};
+    use baylee_engine::choice::StandingAnswer;
+
+    #[test]
+    fn settings_keep_independent_answers_for_each_card_ability() {
+        let a = AbilityRef::new(CardIndex::new(5), 0);
+        let b = AbilityRef::new(CardIndex::new(5), 1);
+        let mut prefs = crate::prefs::Preferences::default();
+        set_ability_order(
+            &mut prefs.ability_orders,
+            AbilityOrder {
+                ability: b,
+                pass: false,
+                answer: Some(StandingAnswer::No),
+            },
+        );
+        set_ability_order(
+            &mut prefs.ability_orders,
+            AbilityOrder {
+                ability: a,
+                pass: true,
+                answer: Some(StandingAnswer::Yes),
+            },
+        );
+        let saved = crate::prefs::Preferences::from_json(&prefs.to_json());
+        assert_eq!(saved.ability_orders, prefs.ability_orders);
+        assert!(ability_order(&saved.ability_orders, a).pass);
+        assert_eq!(
+            ability_order(&saved.ability_orders, b).answer,
+            Some(StandingAnswer::No)
+        );
+        set_ability_order(&mut prefs.ability_orders, AbilityOrder::manual(a));
+        assert_eq!(
+            prefs.ability_orders,
+            vec![ability_order(&saved.ability_orders, b)]
+        );
+        assert!(
+            crate::prefs::Preferences::from_json("{}")
+                .ability_orders
+                .is_empty()
         );
     }
 }

@@ -387,3 +387,290 @@ fn a_game_losing_question_carries_no_automation_handle() {
         "a question with no ability handle can never be auto-answered"
     );
 }
+
+fn three_rally_triggers() -> Engine<RegistryLookup> {
+    let mut engine = started(
+        Duel::new(43, plains())
+            .battlefield(0, &[plains(), plains(), ondu_cleric(), ondu_cleric()])
+            .hand(0, &[ondu_cleric()]),
+    );
+    assert!(walk_to_own_main(&mut engine, P0));
+    cast_from_hand(&mut engine, P0, ondu_cleric());
+    pass_until(&mut engine, |engine| {
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .len()
+            == 3
+            && engine
+                .state()
+                .zones
+                .list(crate::zone::ZoneLocation::Stack)
+                .iter()
+                .all(|id| engine.state().object(*id).unwrap().ability.is_some())
+    });
+    engine
+}
+
+#[test]
+fn standing_yield_names_one_ability_and_one_seat() {
+    let mut engine = three_rally_triggers();
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player: P0, .. }
+    ));
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability: AbilityRef::new(ondu_cleric(), 1),
+                enabled: true,
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player: P0, .. }),
+        "another ability on the same card is independent"
+    );
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability,
+                enabled: true,
+            },
+        )
+        .unwrap();
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player: P1, .. }
+    ));
+    assert!(!engine.automation(P1).yields_to(ability));
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability,
+                enabled: false,
+            },
+        )
+        .unwrap();
+    assert!(!engine.automation(P0).yields_to(ability));
+}
+
+#[test]
+fn marked_stack_boundary_outranks_a_standing_yield_and_yes() {
+    let mut engine = three_rally_triggers();
+    let mark = engine.state().zones.list(crate::zone::ZoneLocation::Stack)[0];
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    let before = engine.state().players[0].life;
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetStandingAnswer {
+                ability,
+                answer: Some(StandingAnswer::Yes),
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetPriorityHold(PriorityHold::UntilTopOfStack { object: mark }),
+        )
+        .unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability,
+                enabled: true,
+            },
+        )
+        .unwrap();
+    for _ in 0..12 {
+        if matches!(engine.pending(), Pending::Priority { player: P0, .. }) {
+            break;
+        }
+        assert!(matches!(
+            engine.pending(),
+            Pending::Priority { player: P1, .. }
+        ));
+        engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player: P0, .. }
+    ));
+    assert_eq!(
+        engine.state().zones.list(crate::zone::ZoneLocation::Stack),
+        &[mark]
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        before + 6,
+        "only the two triggers above the mark resolve"
+    );
+    assert_eq!(engine.automation(P0).hold, PriorityHold::Always);
+    // Reapplying preferences must not swallow the priority just requested.
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability,
+                enabled: true,
+            },
+        )
+        .unwrap();
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player: P0, .. }
+    ));
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, before + 9);
+}
+
+#[test]
+fn cancelling_a_hold_restores_priority_even_for_a_yielded_ability() {
+    let mut engine = three_rally_triggers();
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability,
+                enabled: true,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(P0, PlayerAction::SetPriorityHold(PriorityHold::Always))
+        .unwrap();
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    // The top trigger can already have both players' passes, so answer its
+    // optional question before testing the next priority window.
+    if matches!(engine.pending(), Pending::YesNo { player: P0, .. }) {
+        engine.apply(P0, PlayerAction::YesNo(false)).unwrap();
+    }
+    assert_eq!(engine.automation(P0).hold, PriorityHold::Always);
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player: P0, .. }
+    ));
+}
+
+#[test]
+fn standing_yields_are_part_of_the_deterministic_snapshot() {
+    let mut a = started(Duel::new(47, forest()));
+    let mut b = started(Duel::new(47, forest()));
+    let baseline = a.snapshot_hash();
+    for index in [1, 0] {
+        a.apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability: AbilityRef::new(ondu_cleric(), index),
+                enabled: true,
+            },
+        )
+        .unwrap();
+    }
+    for index in [0, 1] {
+        b.apply(
+            P0,
+            PlayerAction::SetAbilityYield {
+                ability: AbilityRef::new(ondu_cleric(), index),
+                enabled: true,
+            },
+        )
+        .unwrap();
+    }
+    assert_ne!(a.snapshot_hash(), baseline);
+    assert_eq!(a.snapshot_hash(), b.snapshot_hash());
+}
+
+#[test]
+fn a_large_automated_stack_yields_a_real_choice_at_the_safety_limit() {
+    let mut engine = three_rally_triggers();
+    let top = *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .last()
+        .unwrap();
+    let ability = engine.state().object(top).unwrap().ability;
+    let name = engine.state.names.intern("Rally");
+    for _ in 0..1800 {
+        let id = engine.state.create_bare(
+            P0,
+            crate::object::ObjectKind::AbilityOnStack,
+            name,
+            crate::zone::ZoneLocation::Stack,
+        );
+        engine.state.object_mut(id).unwrap().ability = ability;
+    }
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetStandingAnswer {
+                ability: AbilityRef::new(ondu_cleric(), 0),
+                answer: Some(StandingAnswer::Yes),
+            },
+        )
+        .unwrap();
+    let turn = engine.state().turn.number;
+    for player in [P0, P1] {
+        engine
+            .apply(
+                player,
+                PlayerAction::SetPriorityHold(PriorityHold::UntilEndOfTurn { turn }),
+            )
+            .unwrap();
+    }
+    assert!(
+        engine.awaiting_answer,
+        "the host must receive a current unanswered choice"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "this reached the budget before draining"
+    );
+    match engine.pending().clone() {
+        Pending::Priority { player, .. } => {
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        }
+        Pending::YesNo { player, .. } => engine.apply(player, PlayerAction::YesNo(true)).unwrap(),
+        other => panic!("expected a usable choice at the boundary: {other:?}"),
+    }
+}
+
+#[test]
+fn clearing_an_ability_policy_cannot_pass_using_the_old_yield() {
+    let mut engine = three_rally_triggers();
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    // A restored policy has not consumed the current decision yet.
+    engine.automation[0].set_yield(ability, true);
+    engine.automation[0].set_standing_answer(ability, Some(StandingAnswer::Yes));
+    let action = PlayerAction::SetAbilityPolicy {
+        ability,
+        pass: false,
+        answer: None,
+    };
+    engine.apply(P0, action).unwrap();
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player: P0, .. }
+    ));
+    assert!(!engine.automation(P0).yields_to(ability));
+    assert_eq!(engine.automation(P0).standing_answer(ability), None);
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .len(),
+        3
+    );
+}

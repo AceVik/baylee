@@ -47,14 +47,27 @@ impl<L: CardLookup> Engine<L> {
             .unwrap_or_else(|| EMPTY.get_or_init(SeatAutomation::default))
     }
 
-    /// Applies a [`PlayerAction::SetPriorityHold`] or
-    /// [`PlayerAction::SetStandingAnswer`].
+    /// Updates seat automation before running the next decision.
     pub(crate) fn set_automation(&mut self, player: PlayerId, action: &PlayerAction) {
         let Some(seat) = self.automation.get_mut(player.get() as usize) else {
             return;
         };
         match action {
-            PlayerAction::SetPriorityHold(hold) => seat.hold = *hold,
+            PlayerAction::SetPriorityHold(hold) => {
+                seat.hold = *hold;
+                seat.priority_paused = matches!(hold, PriorityHold::Always);
+            }
+            PlayerAction::SetAbilityYield { ability, enabled } => {
+                seat.set_yield(*ability, *enabled);
+            }
+            PlayerAction::SetAbilityPolicy {
+                ability,
+                pass,
+                answer,
+            } => {
+                seat.set_yield(*ability, *pass);
+                seat.set_standing_answer(*ability, *answer);
+            }
             PlayerAction::SetStandingAnswer { ability, answer } => {
                 seat.set_standing_answer(*ability, *answer);
             }
@@ -89,6 +102,7 @@ impl<L: CardLookup> Engine<L> {
                 PriorityHold::UntilEndOfTurn { turn: set_on } => turn != set_on,
             };
             if expired {
+                seat.priority_paused = true;
                 seat.hold = PriorityHold::Always;
             }
         }
@@ -105,18 +119,31 @@ impl<L: CardLookup> Engine<L> {
     fn auto_answer(&mut self) -> bool {
         let answer = match &self.pending {
             Pending::Priority { player, legal } => {
-                let hold = self.automation(*player).hold;
-                let pass = match hold {
-                    PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
-                    // Every other variant either withholds the decision or
-                    // does not, and `suppresses` is the one place that says
-                    // which — the same answer the view hands the client, so
-                    // an indicator cannot disagree with the engine. The
-                    // expiry pass above already cleared any hold whose
-                    // condition is met, so an active one still means "keep
-                    // going".
-                    other => other.suppresses(),
-                };
+                let settings = self.automation(*player);
+                let top_ability = self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Stack)
+                    .last()
+                    .and_then(|id| self.state.object(*id))
+                    .and_then(|obj| {
+                        let loc = obj.ability?;
+                        loc.card
+                            .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index))
+                    });
+                let hold = settings.hold;
+                let pass = !settings.priority_paused
+                    && (match hold {
+                        PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
+                        // Every other variant either withholds the decision or
+                        // does not, and `suppresses` is the one place that says
+                        // which — the same answer the view hands the client, so
+                        // an indicator cannot disagree with the engine. The
+                        // expiry pass above already cleared any hold whose
+                        // condition is met, so an active one still means "keep
+                        // going".
+                        other => other.suppresses(),
+                    } || top_ability.is_some_and(|ability| settings.yields_to(ability)));
                 pass.then_some((*player, PlayerAction::PassPriority))
             }
             // Two conditions, and the second is the one that is easy to
@@ -154,13 +181,16 @@ impl<L: CardLookup> Engine<L> {
     /// meant to skip".
     pub(crate) fn run_until_choice(&mut self) {
         const AUTO_ANSWER_LIMIT: u32 = 4096;
-        for _ in 0..AUTO_ANSWER_LIMIT {
+        for step in 0..AUTO_ANSWER_LIMIT {
             self.run_machine();
             if !self.awaiting_answer {
                 return;
             }
             self.expire_holds();
-            if !self.auto_answer() {
+            // Leave a real, unanswered decision at the safety boundary.
+            // Consuming the final answer without running the machine again
+            // otherwise exposes a stale Pending to the host.
+            if step + 1 == AUTO_ANSWER_LIMIT || !self.auto_answer() {
                 return;
             }
         }

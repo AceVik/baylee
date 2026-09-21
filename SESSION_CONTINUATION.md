@@ -1,5 +1,39 @@
 # Baylee session continuation
 
+## Stack automation and localization (2026-09-21)
+
+- User explicitly chose to stop **before** the marked ability resolves.
+  Stack entry clicks mark that boundary; legal target choices take precedence.
+  Resolve-to-selection uses UntilTopOfStack; both engine standing yields and
+  client phase automation respect the reached boundary until manual priority.
+  Intervening optional answers cannot clear the stop; cancellation also pauses.
+- Added per-AbilityRef standing yields, independent optional Yes/No policies,
+  atomic policy updates and deterministic snapshot coverage. Defaults remain
+  compatible with older preferences. Policies persist locally/account-wide,
+  are installed in the engine, and can be reset individually or together.
+  Targets and payments stay manual.
+- Replaced the seven-entry stack cutoff with a bounded virtual scrolling
+  window and height-preserving spacers. Hover, selection and language changes
+  retain scroll position; 2,000 entries tested in the native Metal renderer
+  and headless retained-HUD tests. Test fixtures/screenshots stay in /tmp.
+- Added English/German stack controls, translated finish names and known
+  engine/gateway refusals. Language changes invalidate the HUD immediately.
+  Unknown technical diagnostics retain their original text; card translations
+  still depend on availability and retain the existing English fallback.
+- Fixed the engine automation safety cap: it now returns a usable unanswered
+  choice instead of a stale decision already consumed by auto-answering.
+  Covered with 1,800 additional triggered abilities.
+
+
+Validation: the full workspace/all-targets run passed 3,752 tests (three existing
+ignored). Subsequent atomic-policy and stop-guard refinements were rechecked in
+the affected crates: final targeted runs passed 794 client tests (one existing ignored),
+843 client-core tests and 1,107 engine tests. The final HUD-only rerun passed
+203 tests. Workspace clippy (`--all-targets -- -D warnings`), wasm32 client
+check, formatting and diff checks passed. Native review covered scrolling and
+marking with 2,000 entries and both English/German labels. Fifteen new regression
+tests cover the stack, automation, persistence and localization changes.
+
 ## Engine audit (2026-09-21)
 
 - Zero-loyalty planeswalkers now leave the battlefield even when they are

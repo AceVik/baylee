@@ -427,6 +427,12 @@ pub struct Duel {
     pub canvas_aspect: Option<f32>,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
+    /// Stack entry chosen as the next manual response boundary.
+    pub stack_selected: Option<ObjectId>,
+    /// A requested boundary must also suppress the client's phase autopilot.
+    pub stack_stop_requested: bool,
+    /// Ability policies last installed in this host connection.
+    pub ability_orders_applied: Option<Vec<automation::AbilityOrder>>,
     /// Whether the player has aimed the camera themselves.
     ///
     /// While this is false the table frames itself ([`table::frame_table`]),
@@ -687,6 +693,22 @@ impl Duel {
     /// one system boundary, which is what lets input handlers stay plain
     /// functions of the board model.
     pub fn submit(&mut self, action: PlayerAction) {
+        if !action.is_automation_setting()
+            && self
+                .interaction
+                .as_ref()
+                .is_some_and(|i| i.is_mine() && matches!(i.pending(), Pending::Priority { .. }))
+        {
+            self.stack_stop_requested = false;
+        }
+        if let PlayerAction::SetPriorityHold(hold) = &action {
+            self.stack_stop_requested = matches!(
+                hold,
+                baylee_engine::choice::PriorityHold::UntilTopOfStack { .. }
+                    | baylee_engine::choice::PriorityHold::Always
+            );
+            self.autopilot = None;
+        }
         // Whatever was typed belonged to the question just answered.
         self.subtype_filter.clear();
         // And so did the last refusal. Cleared here rather than when a new
@@ -728,6 +750,9 @@ impl Duel {
     /// the last one, so it has to be read on the edge too: a frame later the
     /// previous total is gone.
     pub(crate) fn receive_view(&mut self, view: PlayerView) {
+        self.stack_selected = self
+            .stack_selected
+            .filter(|id| view.stack.iter().any(|item| item.id == *id));
         // One reading of the difference, two things told about it: the number
         // over the bar and the sound in the room are the same event on the
         // same clock, which is what `Change::started` is for.
@@ -967,6 +992,11 @@ impl Duel {
             baylee_engine::choice::PriorityHold::Always
         } else if until_turn_ends {
             baylee_engine::choice::PriorityHold::UntilEndOfTurn { turn: view.turn }
+        } else if let Some(object) = self
+            .stack_selected
+            .filter(|id| view.stack.iter().any(|obj| obj.id == *id))
+        {
+            baylee_engine::choice::PriorityHold::UntilTopOfStack { object }
         } else {
             baylee_engine::choice::PriorityHold::UntilStackEmpty {
                 depth: u16::try_from(view.stack.len()).unwrap_or(u16::MAX),
@@ -1519,6 +1549,7 @@ fn poll_host(
         match message {
             HostMessage::Static(statics) => {
                 duel.statics = Some(*statics);
+                duel.ability_orders_applied = None;
                 // A print table arriving is the one event that can turn an
                 // unresolvable printing into a resolvable one: this payload is
                 // re-sent, before the view that needs it, whenever the seat
@@ -1559,6 +1590,36 @@ fn poll_host(
 /// Applies the standing orders and the autopilot: hands control back at
 /// the boundary, and never makes a real decision for the player.
 fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
+    if !duel.outbox.is_empty() {
+        return;
+    }
+    if duel.view.is_some()
+        && duel.ability_orders_applied.as_ref() != Some(&prefs.all().ability_orders)
+    {
+        let old = duel.ability_orders_applied.take().unwrap_or_default();
+        for order in &old {
+            if !prefs
+                .all()
+                .ability_orders
+                .iter()
+                .any(|new| new.ability == order.ability)
+            {
+                duel.submit(automation::AbilityOrder::manual(order.ability).action());
+            }
+        }
+        for order in &prefs.all().ability_orders {
+            if !old.contains(order) {
+                duel.submit(order.action());
+            }
+        }
+        duel.ability_orders_applied = Some(prefs.all().ability_orders.clone());
+        if !duel.outbox.is_empty() {
+            return;
+        }
+    }
+    if duel.stack_stop_requested {
+        return;
+    }
     // A plan in flight owns the priority it is spending; passing under it
     // would throw the mana away between the tap and the spell.
     if duel.mana_run.is_some() {
@@ -2379,3 +2440,6 @@ pub(crate) fn registry_printed(slot: u32, controller: u8, name: &str) -> baylee_
     }
     object
 }
+
+#[cfg(test)]
+mod stack_tests;

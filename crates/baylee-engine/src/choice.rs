@@ -517,9 +517,37 @@ pub struct SeatAutomation {
     pub hold: PriorityHold,
     /// Remembered yes/no answers, keyed by ability and kept sorted.
     standing: Vec<(AbilityRef, StandingAnswer)>,
+    /// Abilities this seat always lets resolve, in stable handle order.
+    #[serde(default)]
+    yields: Vec<AbilityRef>,
+    /// A requested stack boundary outranks standing yields until manual input.
+    #[serde(default)]
+    pub(crate) priority_paused: bool,
 }
 
 impl SeatAutomation {
+    /// Whether priority over this particular ability is passed automatically.
+    #[must_use]
+    pub fn yields_to(&self, ability: AbilityRef) -> bool {
+        self.yields.binary_search(&ability).is_ok()
+    }
+
+    /// Enable or remove a standing yield without changing yes/no answers.
+    pub fn set_yield(&mut self, ability: AbilityRef, enabled: bool) {
+        match (self.yields.binary_search(&ability), enabled) {
+            (Err(i), true) => self.yields.insert(i, ability),
+            (Ok(i), false) => {
+                self.yields.remove(i);
+            }
+            _ => {}
+        }
+    }
+
+    /// Yielded abilities in deterministic order.
+    pub fn yielded_abilities(&self) -> impl Iterator<Item = AbilityRef> + '_ {
+        self.yields.iter().copied()
+    }
+
     /// The remembered answer for an ability, if any.
     #[must_use]
     pub fn standing_answer(&self, ability: AbilityRef) -> Option<StandingAnswer> {
@@ -552,7 +580,10 @@ impl SeatAutomation {
     /// Whether this seat automates nothing (the default).
     #[must_use]
     pub fn is_default(&self) -> bool {
-        self.hold == PriorityHold::Always && self.standing.is_empty()
+        self.hold == PriorityHold::Always
+            && self.standing.is_empty()
+            && self.yields.is_empty()
+            && !self.priority_paused
     }
 }
 
@@ -786,10 +817,25 @@ pub enum PlayerAction {
     /// interrupted. It is journaled so a replay auto-passes in exactly the
     /// places the live game did.
     SetPriorityHold(PriorityHold),
-    /// Remember (or, with `None`, forget) an answer for an ability's
-    /// yes/no question — "always gain the life, stop asking".
+    /// Automatically pass this seat's priority for one specific ability.
     ///
     /// Also legal at any time, for the same reason.
+    SetAbilityYield {
+        /// The individual ability whose priority windows may be skipped.
+        ability: AbilityRef,
+        /// Enable auto-passing; false restores manual responses.
+        enabled: bool,
+    },
+    /// Replace both settings atomically, before the engine resumes automation.
+    SetAbilityPolicy {
+        /// The individual card ability.
+        ability: AbilityRef,
+        /// Pass priority over this ability.
+        pass: bool,
+        /// Optional standing answer; `None` restores asking.
+        answer: Option<StandingAnswer>,
+    },
+    /// Change the remembered yes/no answer independently of auto-passing.
     SetStandingAnswer {
         /// Which ability's question.
         ability: AbilityRef,
@@ -808,7 +854,10 @@ impl PlayerAction {
     pub const fn is_automation_setting(&self) -> bool {
         matches!(
             self,
-            Self::SetPriorityHold(_) | Self::SetStandingAnswer { .. }
+            Self::SetPriorityHold(_)
+                | Self::SetStandingAnswer { .. }
+                | Self::SetAbilityYield { .. }
+                | Self::SetAbilityPolicy { .. }
         )
     }
 }

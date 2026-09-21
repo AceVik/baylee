@@ -258,7 +258,13 @@ pub fn sync_overlay(
         .as_ref()
         .and_then(baylee_client_core::Interaction::chosen_index);
 
+    let stack_scroll = tree.stack_scroll.iter().next().cloned().unwrap_or_default();
+    let stack_window = super::stack::window_start(stack_scroll.y);
     if revision.seq == seq
+        && revision.lang == Some(lang)
+        && revision.stack_selected == duel.stack_selected
+        && revision.ability_orders == prefs.all().ability_orders
+        && revision.stack_window == stack_window
         && revision.hand_order == duel.hand_order
         && revision.prompt == prompt
         && revision.error == error
@@ -283,6 +289,12 @@ pub fn sync_overlay(
         return;
     }
     revision.seq = seq;
+    revision.lang = Some(lang);
+    revision.stack_selected = duel.stack_selected;
+    revision
+        .ability_orders
+        .clone_from(&prefs.all().ability_orders);
+    revision.stack_window = stack_window;
     revision.hand_order = duel.hand_order;
     revision.prompt.clone_from(&prompt);
     revision.error.clone_from(&error);
@@ -892,6 +904,9 @@ pub fn sync_overlay(
     ) {
         let stack = spawn_stack_panel(
             &mut commands,
+            duel.stack_selected,
+            &prefs.all().ability_orders,
+            stack_scroll,
             lang,
             board,
             view,
@@ -1932,7 +1947,7 @@ mod tests {
     /// which is the opposite defect and the one that would silently rewrite
     /// an engine's refusal into a sentence this client made up.
     #[test]
-    fn a_refusal_is_read_in_the_language_of_whoever_wrote_it() {
+    fn refusals_follow_the_selected_client_language() {
         // `mine` and not `said`, which is the function three lines down that
         // reads the screen.
         for (lang, mine) in [
@@ -1967,9 +1982,7 @@ mod tests {
             );
         }
 
-        // The other arm, unchanged and staying that way: prose another
-        // process sent is drawn as it came, in a German interface, because
-        // the process that said no is the one that knows why.
+        // Known engine refusals follow the selected language as well.
         let mut app = bar_of(duel_saying(false, false));
         app.world_mut()
             .resource_mut::<crate::settings::ClientSettings>()
@@ -1977,9 +1990,10 @@ mod tests {
         app.update();
         let lines = said(&mut app);
         assert!(
-            lines.iter().any(|l| l.contains(REFUSED)),
-            "another process's refusal is not this client's to translate or \
-             to drop: {lines:?}"
+            lines
+                .iter()
+                .any(|l| l.contains(&baylee_client_core::i18n::server_message(Lang::De, REFUSED))),
+            "known engine refusals are localized: {lines:?}"
         );
     }
 
@@ -3752,6 +3766,62 @@ mod tests {
         );
         crate::rebuild_board(&mut duel);
         (duel, texts)
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // offsets are copied exactly, without arithmetic
+    fn a_deep_stack_keeps_scroll_and_selection_across_hover_and_language_changes() {
+        let (mut duel, texts) = hovering_the_stack(false);
+        let mut view = duel.view.clone().unwrap();
+        let template = view.stack[0].clone();
+        view.stack = (100..2100)
+            .map(|id| {
+                let mut entry = template.clone();
+                entry.id = ObjectId::new(id, 0);
+                entry
+            })
+            .collect();
+        duel.receive_view(view);
+        let mut app = overlay_with(duel, texts);
+        let scroll = 24_600.0;
+        let mut body = app
+            .world_mut()
+            .query_filtered::<&mut ScrollPosition, With<stack::StackBody>>();
+        body.single_mut(app.world_mut()).unwrap().y = scroll;
+        app.update();
+        let mut body = app
+            .world_mut()
+            .query_filtered::<(&ScrollPosition, &Children), With<stack::StackBody>>();
+        let (position, children) = body.single(app.world()).unwrap();
+        assert_eq!(position.y, scroll);
+        assert!(
+            children.len() <= 18,
+            "only the visible window and spacers are spawned"
+        );
+        let mark = ObjectId::new(1800, 0);
+        {
+            let mut duel = app.world_mut().resource_mut::<Duel>();
+            duel.stack_selected = Some(mark);
+            duel.hovered = Some(mark);
+        }
+        app.world_mut()
+            .resource_mut::<crate::settings::ClientSettings>()
+            .lang = "de".into();
+        app.update();
+        assert_eq!(body.single(app.world()).unwrap().0.y, scroll);
+        assert_eq!(app.world().resource::<Duel>().stack_selected, Some(mark));
+        assert!(
+            said(&mut app)
+                .iter()
+                .any(|line| line.contains(Phrase::StackRunTo.text(Lang::De)))
+        );
+        let root = body.single(app.world()).unwrap().1[0];
+        app.update();
+        assert_eq!(
+            body.single(app.world()).unwrap().1[0],
+            root,
+            "an idle frame retains the tree"
+        );
     }
 
     fn overlay_with(duel: Duel, texts: crate::cardtext::CardTexts) -> App {
