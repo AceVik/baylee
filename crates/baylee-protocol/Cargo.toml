@@ -16,6 +16,11 @@ bytes.workspace = true
 # has no business in a wire schema.
 serde.workspace = true
 
+[dev-dependencies]
+# The JSON half of the wire is checked here, so its spelling is pinned where
+# the shape is declared rather than at each of the two ends that read it.
+serde_json.workspace = true
+
 [build-dependencies]
 prost-build.workspace = true
 protoc-bin-vendored.workspace = true
