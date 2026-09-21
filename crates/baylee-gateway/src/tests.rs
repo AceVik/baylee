@@ -259,3 +259,44 @@ fn a_proxy_entry_that_is_not_an_address_is_a_proxy_nobody_vouched_for() {
          address, and each of them is dropped rather than refused"
     );
 }
+
+/// **Three spellings shut the door, and every other value leaves it open.**
+///
+/// `registration_enabled` is what `/auth/config` tells a client and what
+/// `POST /auth/register` checks, so this is the switch an operator reaches
+/// for when they want a private gateway. `BAYLEE_REGISTRATION=no` leaves it
+/// open. So does `OFF`, so does a variable exported empty, and none of them
+/// says anything at the moment it is set — the operator finds out when
+/// somebody registers.
+///
+/// Pinned as it is rather than as it should be, because widening the list
+/// and refusing what is not on it are different decisions and neither is
+/// this test's to make. The day one is taken, the second half of this test
+/// is what changes: either the open list loses `no` and `OFF`, or an
+/// unrecognised value stops being a value at all.
+#[test]
+fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
+    for closed in ["off", "0", "false"] {
+        assert!(
+            !registration_enabled(Some(closed)),
+            "{closed:?} is one of the three that shut it"
+        );
+    }
+    for open in [
+        None,
+        Some(""),
+        Some("no"),
+        Some("OFF"),
+        Some("Off"),
+        Some("disabled"),
+        Some("false "),
+        Some("on"),
+        Some("1"),
+    ] {
+        assert!(
+            registration_enabled(open),
+            "{open:?} leaves registration open, and an operator who wrote it \
+             meant the opposite"
+        );
+    }
+}

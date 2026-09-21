@@ -169,8 +169,9 @@ async fn main() {
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
             .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
-        registration_enabled: std::env::var("BAYLEE_REGISTRATION")
-            .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
+        registration_enabled: registration_enabled(
+            std::env::var("BAYLEE_REGISTRATION").ok().as_deref(),
+        ),
         mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
@@ -426,6 +427,24 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
             error: std::borrow::Cow::Owned(message),
         }),
     )
+}
+
+/// Whether this gateway lets a stranger make an account
+/// (`BAYLEE_REGISTRATION`).
+///
+/// **Three spellings shut the door and every other value leaves it open**,
+/// which is the wrong way round for the one switch an operator reaches for
+/// when they want it shut: `no`, `OFF` and a variable exported empty all
+/// read as on, and nothing says so at the moment it is set.
+///
+/// Left as it stands rather than widened on a guess. Accepting more words
+/// and refusing the ones it does not know are different decisions, and the
+/// second is the one this workspace took next door — a `dev-table` board
+/// specification that does not resolve refuses to start the gateway rather
+/// than failing at the moment somebody presses Start. The day either is
+/// taken, the test named after this sentence is what changes.
+fn registration_enabled(raw: Option<&str>) -> bool {
+    !matches!(raw, Some("off" | "0" | "false"))
 }
 
 /// The proxies whose `X-Forwarded-For` this gateway believes
