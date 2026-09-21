@@ -892,3 +892,45 @@ fn a_pool_reply_from_the_previous_language_cannot_replace_the_current_one() {
             .is_empty()
     );
 }
+
+#[test]
+fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().focus_on(BuildField::Search);
+        let name = state.lobby.builder().card(0).unwrap().name.clone();
+        state.lobby.builder_mut().set_text(&name[..1]);
+    }
+    app.update();
+    assert!(
+        presses(&mut app)
+            .iter()
+            .any(|p| matches!(p, Press::CompleteSearch(_)))
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .open_picker(0, Zone::Main);
+    app.update();
+    assert!(
+        !presses(&mut app)
+            .iter()
+            .any(|p| matches!(p, Press::CompleteSearch(_)))
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .close_picker();
+    app.update();
+    assert!(
+        presses(&mut app)
+            .iter()
+            .any(|p| matches!(p, Press::CompleteSearch(_)))
+    );
+}

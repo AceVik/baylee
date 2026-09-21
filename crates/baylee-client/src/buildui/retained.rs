@@ -183,7 +183,7 @@ fn keys(state: &LobbyState) -> (DeckKey, PoolKey, BarKey) {
             playable: deck.playable_only(),
             sort: deck.sort(),
             zone: deck.zone(),
-            focused: deck.focus() == BuildField::Search,
+            focused: deck.focus() == BuildField::Search && deck.picker().is_none(),
             filters: state.filters_open,
             panel: deck.panel().cloned(),
             inspecting: deck.inspecting(),

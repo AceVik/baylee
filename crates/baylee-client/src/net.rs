@@ -200,6 +200,34 @@ fn dial(ticket: &SeatTicket) -> Result<Link, String> {
     })
 }
 
+/// Transport state independent of protocol decoding, so an Error cannot leave
+/// the UI waiting forever for a Closed event the platform may never send.
+#[derive(Default)]
+#[allow(clippy::struct_excessive_bools)] // Open socket, interrupted session, and redial in flight.
+struct Connection {
+    open: bool,
+    lost: bool,
+    dialling: bool,
+}
+
+impl Connection {
+    fn observe(&mut self, event: &WsEvent) {
+        match event {
+            WsEvent::Opened => {
+                self.open = true;
+                self.lost = false;
+                self.dialling = false;
+            }
+            WsEvent::Error(_) | WsEvent::Closed => {
+                self.open = false;
+                self.lost = true;
+                self.dialling = false;
+            }
+            WsEvent::Message(_) => {}
+        }
+    }
+}
+
 /// A duel hosted somewhere else.
 ///
 /// Holds no game state of its own: the table is authoritative about every
@@ -217,22 +245,7 @@ pub struct NetworkHost {
     seat: PlayerId,
     /// Highest sequence number seen, so a reconnect can ask for the rest.
     last_seq: u64,
-    /// Whether the socket has reported itself open.
-    open: bool,
-    /// Whether the socket has gone away since it was last open.
-    ///
-    /// Separate from `!open`, which is also true for the moments before the
-    /// first handshake lands: a table that has not connected yet is not a
-    /// table that dropped, and the retry schedule must not start on it.
-    lost: bool,
-    /// Whether a redial is in flight.
-    ///
-    /// Only ever true between [`NetworkHost::redial`] and the `Opened` (or
-    /// `Error`) that answers it, and it is what keeps the application from
-    /// dialling again on the very next frame — a socket takes longer than a
-    /// frame to open, and a host that looked `Down` throughout would be
-    /// redialled sixty times a second.
-    dialling: bool,
+    connection: Connection,
     /// Frames waiting for the socket to open.
     ///
     /// A browser `WebSocket` throws on a send before `onopen`, and the first
@@ -260,9 +273,7 @@ impl NetworkHost {
             ticket,
             link: Mutex::new(link),
             last_seq: 0,
-            open: false,
-            lost: false,
-            dialling: false,
+            connection: Connection::default(),
             outbox: Vec::new(),
             pending_out: Vec::new(),
         })
@@ -282,12 +293,12 @@ impl NetworkHost {
     pub fn redial(&mut self) -> Result<(), String> {
         let link = dial(&self.ticket)?;
         *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = link;
-        self.open = false;
+        self.connection.open = false;
         // Still lost until the new socket says `Opened`, and dialling until
         // then so the application waits for this attempt instead of starting
         // another one on the next frame.
-        self.lost = true;
-        self.dialling = true;
+        self.connection.lost = true;
+        self.connection.dialling = true;
         let resume = Envelope {
             msg: Some(v1::envelope::Msg::Resume(v1::ResumeGame {
                 game_id: self.ticket.game_id.clone(),
@@ -306,7 +317,7 @@ impl NetworkHost {
     /// Whether the socket has opened and not since closed.
     #[must_use]
     pub const fn is_open(&self) -> bool {
-        self.open
+        self.connection.open
     }
 
     /// The last sequence number this client has seen.
@@ -330,7 +341,7 @@ impl NetworkHost {
 
     /// Sends everything that was waiting for the socket to open.
     fn flush(&mut self) {
-        if !self.open || self.outbox.is_empty() {
+        if !self.connection.open || self.outbox.is_empty() {
             return;
         }
         let link = self.link.get_mut().unwrap_or_else(PoisonError::into_inner);
@@ -349,12 +360,8 @@ impl DuelHost for NetworkHost {
             std::iter::from_fn(|| link.receiver.try_recv()).collect()
         };
         for event in events {
+            self.connection.observe(&event);
             match event {
-                WsEvent::Opened => {
-                    self.open = true;
-                    self.lost = false;
-                    self.dialling = false;
-                }
                 WsEvent::Message(WsMessage::Binary(bytes)) => {
                     match Envelope::decode(bytes.as_slice()) {
                         Ok(envelope) => {
@@ -373,29 +380,9 @@ impl DuelHost for NetworkHost {
                 }
                 // The protocol is binary throughout; text on this socket is
                 // somebody else's, and pings answer themselves.
-                WsEvent::Message(_) => {}
-                // An error on a socket that is being redialled is that dial
-                // failing, and it is not always followed by a `Closed` — the
-                // browser and tungstenite disagree about that. Reported as
-                // "down" rather than as a message, or a host would sit in
-                // `Connecting` forever and never be dialled again, which is
-                // the freeze this whole path exists to prevent.
-                WsEvent::Error(reason) => {
-                    if self.dialling {
-                        self.dialling = false;
-                    } else {
-                        out.push(HostMessage::Failed(reason));
-                    }
-                }
-                // Deliberately no `Failed` here any more. It was one, and it
-                // read as the end of the game on the prompt bar while the
-                // table was still sitting there waiting for the seat — the
-                // link is a *state* now, and the banner is drawn from it.
-                WsEvent::Closed => {
-                    self.open = false;
-                    self.lost = true;
-                    self.dialling = false;
-                }
+                // All transport failures drive the reconnect state, including
+                // errors without a subsequent Closed event on the first dial.
+                WsEvent::Message(_) | WsEvent::Opened | WsEvent::Error(_) | WsEvent::Closed => {}
             }
         }
         self.flush();
@@ -427,7 +414,7 @@ impl DuelHost for NetworkHost {
     }
 
     fn link(&self) -> LinkState {
-        match (self.lost, self.dialling) {
+        match (self.connection.lost, self.connection.dialling) {
             (false, _) => LinkState::Up,
             (true, true) => LinkState::Connecting,
             (true, false) => LinkState::Down,
@@ -442,6 +429,24 @@ impl DuelHost for NetworkHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn errors_without_closed_trigger_reconnection_on_every_dial() {
+        for (open, dialling) in [(false, false), (true, false), (false, true)] {
+            let mut connection = Connection {
+                open,
+                dialling,
+                lost: dialling,
+            };
+            connection.observe(&WsEvent::Error("socket failed".into()));
+            assert!(!connection.open);
+            assert!(connection.lost);
+            assert!(!connection.dialling);
+            connection.observe(&WsEvent::Opened);
+            assert!(connection.open);
+            assert!(!connection.lost);
+        }
+    }
 
     fn ticket(gateway: &str) -> SeatTicket {
         SeatTicket {

@@ -228,6 +228,7 @@ pub(super) fn watch(
 /// The keyboard is *not* raised on arrival — only when a field is tapped —
 /// because a form that covers half the screen before anyone asked for it is
 /// the thing every mobile web app gets wrong.
+#[allow(clippy::too_many_lines)] // Platform input routing across lobby and editor fields.
 pub(super) fn softkeys(
     mut keys: ResMut<SoftKeyboard>,
     mut state: ResMut<LobbyState>,
@@ -248,6 +249,12 @@ pub(super) fn softkeys(
     // shared counter would open the keyboard on the way between the screens.
     if matches!(state.lobby.screen(), Screen::Build) {
         let builder = state.lobby.builder();
+        if builder.picker().is_some_and(|p| !p.set_open()) {
+            keys.close();
+            drop(keys.drain());
+            *build_epoch = builder.focus_epoch();
+            return;
+        }
         if *build_epoch != builder.focus_epoch() {
             *build_epoch = builder.focus_epoch();
             keys.open(builder.focus().kind(), builder.focused_text());
@@ -1272,10 +1279,7 @@ fn scroll_lineage(
     memory: &mut Scrolled,
 ) {
     let mut current = Some(entity);
-    for _ in 0..8 {
-        let Some(e) = current else {
-            return;
-        };
+    while let Some(e) = current {
         if let Ok((mut position, computed, which)) = lists.get_mut(e) {
             position.y = crate::hud::scrolled(
                 position.y,
@@ -1635,8 +1639,7 @@ fn in_lineage<'a>(
     parents: &Query<&ChildOf>,
 ) -> Option<&'a Press> {
     let mut current = Some(entity);
-    for _ in 0..6 {
-        let e = current?;
+    while let Some(e) = current {
         if let Ok(found) = presses.get(e) {
             return Some(found);
         }

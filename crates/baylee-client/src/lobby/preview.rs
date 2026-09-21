@@ -46,6 +46,7 @@ pub(super) struct Hovered {
 /// The preview node itself.
 #[derive(Component)]
 pub(super) struct CardPreview {
+    canvas: Vec2,
     /// The epoch this node was drawn for.
     epoch: u64,
 }
@@ -65,6 +66,7 @@ pub(super) fn hovers(
     {
         overs.clear();
         outs.clear();
+        hovered.source = None;
         if hovered.card.take().is_some() {
             hovered.epoch = hovered.epoch.wrapping_add(1);
         }
@@ -78,7 +80,9 @@ pub(super) fn hovers(
     }
     let mut at = hovered.at;
     for out in outs.read() {
-        if lineage_card(out.entity, &cards, &parents).is_some() {
+        if lineage_card(out.entity, &cards, &parents)
+            .is_some_and(|(entity, _)| Some(entity) == source)
+        {
             next = None;
             source = None;
         }
@@ -90,8 +94,9 @@ pub(super) fn hovers(
             at = over.pointer_location.position;
         }
     }
+    let moved = source != hovered.source;
     hovered.source = source;
-    if next != hovered.card {
+    if next != hovered.card || moved {
         hovered.card = next;
         hovered.at = at;
         hovered.epoch = hovered.epoch.wrapping_add(1);
@@ -105,8 +110,7 @@ fn lineage_card<'a>(
     parents: &Query<&ChildOf>,
 ) -> Option<(Entity, &'a HoverCard)> {
     let mut current = Some(entity);
-    for _ in 0..6 {
-        let e = current?;
+    while let Some(e) = current {
         if let Ok(found) = cards.get(e) {
             return Some((e, found));
         }
@@ -129,8 +133,14 @@ pub(super) fn preview(
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
 ) {
-    let current = existing.iter().next().map(|(_, p)| p.epoch);
-    if current == Some(hovered.epoch) {
+    let canvas = windows
+        .iter()
+        .next()
+        .map_or(Vec2::new(1280.0, 800.0), |win| {
+            Vec2::new(win.width(), win.height())
+        });
+    let current = existing.iter().next().map(|(_, p)| (p.epoch, p.canvas));
+    if current == Some((hovered.epoch, canvas)) {
         return;
     }
     for (entity, _) in existing {
@@ -152,8 +162,7 @@ pub(super) fn preview(
 
     // Big enough to read the art, small enough to leave the list visible.
 
-    let window = windows.iter().next();
-    let (w, h) = window.map_or((1280.0, 800.0), |win| (win.width(), win.height()));
+    let (w, h) = (canvas.x, canvas.y);
     let height = (h * 0.65).clamp(280.0, 520.0).min((h - 32.0).max(100.0));
     let width = height * baylee_client_core::layout::CARD_ASPECT;
     // Beside the pointer, flipped to the other side when there is no room
@@ -163,6 +172,7 @@ pub(super) fn preview(
     } else {
         (hovered.at.x - width - 24.0).max(8.0)
     };
+    let left = left.min((w - width - 8.0).max(8.0));
     let top = (hovered.at.y - height / 2.0).clamp(8.0, (h - height - 8.0).max(8.0));
 
     // The frame that turns: it holds the position and the scale, and each
@@ -171,6 +181,7 @@ pub(super) fn preview(
     let frame = commands
         .spawn((
             CardPreview {
+                canvas,
                 epoch: hovered.epoch,
             },
             crate::flip::Flip::default(),
@@ -322,8 +333,105 @@ pub(super) fn starter_rows() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::hover_of_card;
+    use super::*;
     use baylee_client_core::deckbuilder::PoolCard;
+
+    fn pointer_event<E: std::fmt::Debug + Clone + Reflect>(
+        entity: Entity,
+        event: E,
+        x: f32,
+    ) -> Pointer<E> {
+        use bevy::picking::pointer::{Location, PointerId};
+        Pointer::new(
+            PointerId::Mouse,
+            Location {
+                target: bevy::camera::NormalizedRenderTarget::Window(
+                    bevy::window::WindowRef::Entity(Entity::PLACEHOLDER)
+                        .normalize(None)
+                        .unwrap(),
+                ),
+                position: Vec2::new(x, 100.0),
+            },
+            event,
+            entity,
+        )
+    }
+
+    #[test]
+    fn identical_art_moves_to_the_new_row_and_ignores_unrelated_out_events() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<LobbyState>()
+            .init_resource::<Hovered>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Out>>()
+            .add_systems(Update, hovers);
+        let art = hover_of_card(&row(false, false));
+        let first = app.world_mut().spawn(art.clone()).id();
+        let second = app.world_mut().spawn(art).id();
+        let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        app.world_mut()
+            .write_message(pointer_event(first, Over { hit: hit.clone() }, 100.0));
+        app.update();
+        let epoch = app.world().resource::<Hovered>().epoch;
+        // A nested icon must still resolve to the row, however many layout wrappers it has.
+        let mut leaf = second;
+        for _ in 0..12 {
+            let child = app.world_mut().spawn_empty().id();
+            app.world_mut().entity_mut(leaf).add_child(child);
+            leaf = child;
+        }
+        app.world_mut()
+            .write_message(pointer_event(leaf, Over { hit: hit.clone() }, 600.0));
+        app.update();
+        let hovered = app.world().resource::<Hovered>();
+        assert_eq!(hovered.source, Some(second));
+        assert!(hovered.epoch > epoch);
+        assert_eq!(hovered.at, Vec2::new(600.0, 100.0));
+        app.world_mut()
+            .write_message(pointer_event(first, Out { hit }, 100.0));
+        app.update();
+        assert_eq!(app.world().resource::<Hovered>().source, Some(second));
+        assert!(app.world().resource::<Hovered>().card.is_some());
+    }
+
+    #[test]
+    fn resizing_the_window_repositions_a_stationary_preview() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_asset::<CardUiMaterial>()
+            .init_resource::<UiCardMaterials>()
+            .insert_resource(Hovered {
+                card: Some(hover_of_card(&row(false, false))),
+                at: Vec2::new(1100.0, 600.0),
+                ..default()
+            })
+            .add_systems(Update, preview);
+        let window = app.world_mut().spawn(Window::default()).id();
+        app.update();
+        let first = app
+            .world_mut()
+            .query_filtered::<Entity, With<CardPreview>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .resolution
+            .set(640.0, 480.0);
+        app.update();
+        assert!(app.world().get_entity(first).is_err());
+        let (_, node) = app
+            .world_mut()
+            .query::<(&CardPreview, &Node)>()
+            .single(app.world())
+            .unwrap();
+        let (Val::Px(left), Val::Px(width)) = (node.left, node.width) else {
+            panic!("pixel placement")
+        };
+        assert!(left + width <= 640.0);
+    }
 
     /// A pool row with one printing id and whichever sides flags a test wants.
     fn row(has_back_image: bool, double_faced: bool) -> PoolCard {

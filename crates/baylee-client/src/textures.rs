@@ -220,18 +220,15 @@ impl CardTextures {
 
     /// Issues another attempt at one failed fetch.
     ///
-    /// Dropping the handle is the part that matters: [`Self::get`] returns
-    /// early for a key it already holds, so nothing would ask again while the
-    /// dead handle is still in the map. The key stays in `failed` until the art
-    /// actually lands, so the card goes on drawing its face in the meantime
-    /// rather than flickering once per sweep.
+    /// Keep the handle: existing materials and the load-state observer must
+    /// see the replacement image arrive. The retry system explicitly reloads
+    /// the asset; dropping one clone cannot restart a failed shared handle.
     pub fn retry(&mut self, key: ImageKey) {
         let tried = match self.failed.get(&key) {
             Some(Failure::Load(n)) => *n,
             _ => return,
         };
         self.failed.insert(key, Failure::Load(tried + 1));
-        self.handles.remove(&key);
     }
 
     /// Forgets every printing that failed only because the print table had no
@@ -525,13 +522,11 @@ pub fn note_load_states(mut textures: ResMut<CardTextures>, assets: Res<AssetSer
 /// was blank for the rest of the game — the client had recorded an opinion
 /// about the network and never revisited it.
 ///
-/// Dropping the handle is what actually re-fetches: [`CardTextures::get`]
-/// returns early for a key it already holds, so the key has to stop being held
-/// before anything will ask for it again. The entry stays in `failed`
-/// meanwhile, so the card keeps drawing its face until the art really arrives
-/// — `note_load_states` is what clears it, on success.
+/// Explicitly reload shared handles. The entry stays in `failed` meanwhile,
+/// so the card keeps drawing its fallback until `note_load_states` sees success.
 pub fn retry_failed_loads(
     mut textures: ResMut<CardTextures>,
+    assets: Res<AssetServer>,
     time: Res<Time>,
     mut next_sweep: Local<f32>,
 ) {
@@ -541,6 +536,19 @@ pub fn retry_failed_loads(
     }
     *next_sweep = now + RETRY_AFTER;
     for (key, tried) in textures.due_for_retry() {
+        let Some(handle) = textures.handles.get(&key) else {
+            continue;
+        };
+        if !matches!(
+            assets.get_load_state(handle),
+            Some(bevy::asset::LoadState::Failed(_))
+        ) {
+            continue;
+        }
+        let Some(path) = handle.path() else {
+            continue;
+        };
+        assets.reload(path.clone());
         textures.retry(key);
         bevy::log::debug!(?key, attempt = tried + 1, "retrying a card image");
     }
@@ -794,6 +802,82 @@ mod tests {
     use baylee_client_core::images::ArtSize;
 
     /// The sleeve must stay original even after the remote back arrives.
+    #[derive(TypePath)]
+    struct FlakyImage(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    impl bevy::asset::AssetLoader for FlakyImage {
+        type Asset = Image;
+        type Settings = ();
+        type Error = std::io::Error;
+        async fn load(
+            &self,
+            reader: &mut dyn bevy::asset::io::Reader,
+            _settings: &(),
+            _context: &mut bevy::asset::LoadContext<'_>,
+        ) -> Result<Image, Self::Error> {
+            reader.read_to_end(&mut Vec::new()).await?;
+            if self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                Err(std::io::Error::other("temporary image failure"))
+            } else {
+                Ok(Image::default())
+            }
+        }
+        fn extensions(&self) -> &[&str] {
+            &["flaky"]
+        }
+    }
+
+    #[test]
+    fn failed_images_reload_even_while_materials_retain_the_handle() {
+        use bevy::asset::io::{
+            AssetSourceBuilder, AssetSourceId,
+            memory::{Dir, MemoryAssetReader},
+        };
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        let dir = Dir::default();
+        dir.insert_asset_text(std::path::Path::new("card.flaky"), "image");
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let mut app = App::new();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((bevy::app::TaskPoolPlugin::default(), AssetPlugin::default()))
+        .init_asset::<Image>()
+        .init_resource::<Time>()
+        .register_asset_loader(FlakyImage(attempts.clone()));
+        let mut store = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut store, default_budget_bytes());
+        let key = ImageKey::new(baylee_core::ids::PrintRef::new(0), 0, ArtSize::Small);
+        let retained: Handle<Image> = app.world().resource::<AssetServer>().load("card.flaky");
+        textures.handles.insert(key, retained.clone());
+        app.insert_resource(textures)
+            .add_systems(Update, (note_load_states, retry_failed_loads).chain());
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while std::time::Instant::now() < until {
+            // Deterministic test clock: allow the next retry sweep without wall-clock waits.
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_secs(5));
+            app.update();
+            if app.world().resource::<CardTextures>().has_arrived(key) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+        assert!(
+            app.world()
+                .resource::<Assets<Image>>()
+                .contains(retained.id())
+        );
+        assert!(app.world().resource::<CardTextures>().has_arrived(key));
+        assert!(!app.world().resource::<CardTextures>().has_failed(key));
+    }
+
     #[test]
     fn new_game_discards_print_ids_but_preserves_the_card_back() {
         let mut images = Assets::<Image>::default();

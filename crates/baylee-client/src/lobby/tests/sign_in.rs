@@ -479,3 +479,18 @@ fn issue_187_sign_out_ignores_late_account_responses() {
     app.update();
     assert!(app.world().resource::<LobbyState>().lobby.token().is_none());
 }
+
+#[test]
+fn deeply_nested_button_contents_still_activate_their_button() {
+    let mut app = headless();
+    let button = app.world_mut().spawn(Press::PlayOffline).id();
+    let mut leaf = button;
+    for _ in 0..12 {
+        let child = app.world_mut().spawn_empty().id();
+        app.world_mut().entity_mut(leaf).add_child(child);
+        leaf = child;
+    }
+    tap(&mut app, leaf);
+    app.update();
+    assert!(app.world().resource::<LobbyState>().offline.is_some());
+}

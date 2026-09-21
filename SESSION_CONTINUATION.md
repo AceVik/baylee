@@ -1,5 +1,31 @@
 # Baylee session continuation
 
+## Client audit and push
+
+The subsequent client audit fixed these additional failures:
+
+- WebSocket errors without a Closed event now enter the reconnect path, on
+  the initial connection as well as established and redialled connections.
+- Failed card images explicitly reload their existing asset handle. Materials
+  retaining a handle no longer prevent retries, and successful retries reach
+  the cache observer. Loading/error overlays reset when art changes or retries.
+- Hover previews move between separate rows showing identical art, ignore
+  unrelated delayed Out events, and reposition when the window shrinks.
+- Nested controls and scrolling no longer stop working at arbitrary ancestry
+  depths. The nearest matching ancestor still owns the action.
+- Background search suggestions and the mobile text input cannot remain active
+  over the artwork dialog. Opening it invalidates pending clipboard reads;
+  closing it does not unexpectedly reopen the phone keyboard.
+- Refreshing printing metadata repairs incompatible language/set filters instead
+  of leaving the carousel empty.
+
+Validation: client and client-core `--all-targets` suites passed 1,676 tests
+(1 ignored), including real local WebSocket connections, reconnection, complete
+combat paths, and a simulated image that fails once before loading successfully.
+Workspace clippy with `-D warnings` and the wasm compilation also passed.
+The user requested pushing this audited state, including the previous local
+milestones, to `origin/main`. Preserve the unrelated untracked files below.
+
 ## Follow-up fixes: combat, zone browser and artwork selection
 
 - Combat confirmation now rebuilds when attacker/blocker assignments change,
@@ -68,7 +94,7 @@ this milestone, together with the follow-up printing and rendering work:
 
 ## Follow-up
 
-No push is authorized. Project 6 items #195–#198 should be **In review** after
+Project 6 items #195–#198 should be **In review** after
 this milestone. Preserve the pre-existing untracked `.junie/` and
 `gateway-store.json.imported`; neither belongs in this commit.
 

@@ -5,7 +5,8 @@ use super::*;
 pub(crate) fn suggestions(state: &LobbyState) -> Vec<usize> {
     let deck = state.lobby.builder();
     let query = deck.text().trim().to_lowercase();
-    if state.completion_hidden
+    if deck.picker().is_some()
+        || state.completion_hidden
         || deck.focus() != BuildField::Search
         || deck.panel().is_some()
         || query.is_empty()

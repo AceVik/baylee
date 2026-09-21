@@ -365,7 +365,9 @@ fn pool_panel(
             // Not while the builder is open. The two are editors of one
             // string and only one may show a caret — a box the player cannot
             // type into while a bar blinks in it is the worse half of that.
-            focused: deck.focus() == BuildField::Search && deck.panel().is_none(),
+            focused: deck.focus() == BuildField::Search
+                && deck.panel().is_none()
+                && deck.picker().is_none(),
             mask: None,
             press: Press::FocusBuild(BuildField::Search),
             lead: Some(crate::hud::glyph::MAGNIFIER),

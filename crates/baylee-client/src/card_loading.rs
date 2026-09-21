@@ -9,6 +9,7 @@ pub(crate) struct Spinner;
 
 #[derive(Component)]
 pub(crate) struct AwaitingImage {
+    image: bevy::asset::AssetId<Image>,
     overlay: Entity,
     indicator: Entity,
     failed: bool,
@@ -98,6 +99,16 @@ pub(crate) fn images(
                 Some(bevy::asset::LoadState::Failed(_))
             )
         });
+        let Some(image_id) = art.map(Handle::id) else {
+            continue;
+        };
+        let waiting = waiting.filter(|waiting| {
+            if waiting.image == image_id && (!waiting.failed || failed) {
+                return true;
+            }
+            commands.entity(waiting.overlay).despawn();
+            false
+        });
         if let Some(waiting) = waiting {
             if failed && !waiting.failed {
                 commands.entity(waiting.indicator).despawn();
@@ -115,6 +126,7 @@ pub(crate) fn images(
                     ));
                 }
                 commands.entity(entity).insert(AwaitingImage {
+                    image: image_id,
                     overlay: waiting.overlay,
                     indicator: waiting.overlay,
                     failed: true,
@@ -147,6 +159,7 @@ pub(crate) fn images(
             .entity(entity)
             .add_child(overlay)
             .insert(AwaitingImage {
+                image: image_id,
                 overlay,
                 indicator: spinner,
                 failed: false,
@@ -157,6 +170,29 @@ pub(crate) fn images(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replacing_pending_art_replaces_its_loading_state_in_place() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_asset::<CardUiMaterial>()
+            .add_systems(Update, images);
+        let first = app.world().resource::<Assets<Image>>().reserve_handle();
+        let second = app.world().resource::<Assets<Image>>().reserve_handle();
+        let card = app.world_mut().spawn(ImageNode::new(first)).id();
+        app.update();
+        let old = app.world().get::<AwaitingImage>(card).unwrap().overlay;
+        app.world_mut()
+            .entity_mut(card)
+            .insert(ImageNode::new(second.clone()));
+        app.update();
+        let waiting = app.world().get::<AwaitingImage>(card).unwrap();
+        assert_eq!(waiting.image, second.id());
+        assert_ne!(waiting.overlay, old);
+        assert!(app.world().get_entity(old).is_err());
+        assert!(!waiting.failed);
+    }
 
     #[test]
     fn a_loading_card_keeps_its_placeholder_until_the_image_arrives() {

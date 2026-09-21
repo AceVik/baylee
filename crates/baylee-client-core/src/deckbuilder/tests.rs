@@ -1569,3 +1569,46 @@ fn cosmetic_finishes_roundtrip_through_the_deck_picker() {
         assert!(b.picker().unwrap().force_finish());
     }
 }
+
+#[test]
+fn refreshing_printings_repairs_a_disappeared_language_set_combination() {
+    let mut b = picking();
+    b.set_printings(
+        7,
+        vec![
+            printing("a", "1", "de", &["nonfoil"]),
+            printing("b", "1", "de", &["nonfoil"]),
+        ],
+        true,
+    );
+    b.picker_set_lang(Some("de"));
+    b.picker_set_set(Some(0));
+    b.refresh_printings();
+    b.set_printings(
+        7,
+        vec![
+            printing("a", "1", "en", &["nonfoil"]),
+            printing("b", "1", "de", &["nonfoil"]),
+        ],
+        true,
+    );
+    let p = b.picker().unwrap();
+    assert_eq!(p.lang(), Some("de"));
+    assert_eq!(p.set(), None);
+    assert_eq!(p.current().unwrap().set, "b");
+}
+
+#[test]
+fn opening_artwork_invalidates_pending_paste_but_closing_does_not_raise_keyboard() {
+    let mut b = picking();
+    b.close_picker();
+    b.focus_on(BuildField::Search);
+    let before = b.focus_epoch();
+    b.open_picker(0, Zone::Main);
+    assert_ne!(before, b.focus_epoch());
+    b.focus_on(BuildField::PickerSet);
+    let epoch = b.focus_epoch();
+    b.close_picker();
+    assert_eq!(b.focus(), BuildField::Search);
+    assert_eq!(b.focus_epoch(), epoch);
+}

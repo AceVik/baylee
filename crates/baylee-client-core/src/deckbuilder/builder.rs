@@ -527,6 +527,7 @@ impl DeckBuilder {
             ..Printing::default()
         };
         let index = card.index;
+        self.focus_epoch = self.focus_epoch.wrapping_add(1);
         self.picker = Some(Picker {
             slot,
             zone,
@@ -627,7 +628,8 @@ impl DeckBuilder {
 
     /// Closes the picker without adding anything.
     pub fn close_picker(&mut self) {
-        self.focus_on(BuildField::Search);
+        // Returning to the builder is not a request to raise the phone keyboard.
+        self.focus = BuildField::Search;
         self.picker = None;
     }
 
@@ -671,6 +673,11 @@ impl DeckBuilder {
             .as_ref()
             .is_some_and(|set| !picker.sets().iter().any(|(code, _)| *code == set))
         {
+            picker.set = None;
+        }
+        // Both filter values may still exist separately while their combination
+        // vanished in the refreshed catalog. Keep the language, widen the set.
+        if picker.is_empty() {
             picker.set = None;
         }
         picker.select_original();
