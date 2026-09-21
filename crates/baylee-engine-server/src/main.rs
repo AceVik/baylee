@@ -736,6 +736,36 @@ mod tests {
         assert_eq!(Attach::read(&[], none), None);
     }
 
+    /// **The agent writes these three flags and this reads them**, and each
+    /// side was held against nothing but its own spelling.
+    ///
+    /// Nothing in the build links the two: the agent depends on the control
+    /// plane and on nothing else in this workspace, which is what lets it run
+    /// on a machine that has never heard of a card. So a rename on either
+    /// side leaves both crates green, and what it produces is an engine that
+    /// comes up as the **dev harness** instead — a loopback listener with no
+    /// authentication that hands a socket whichever seat it names — reported
+    /// to nobody, while the gateway waits for an attachment that never
+    /// arrives. The test that would have caught it runs all three processes
+    /// and is `#[ignore]`d.
+    ///
+    /// A dev-dependency is the whole cost, and it points the way round a
+    /// test may point: the reader depends on the writer.
+    #[test]
+    fn the_three_flags_are_the_ones_the_agent_writes() {
+        let argv = baylee_agent::engine_argv("ws://gw:28766/engine/ws", "g-7", "engine-token");
+
+        assert_eq!(
+            Attach::read(&argv, |_| None),
+            Some(Attach {
+                url: "ws://gw:28766/engine/ws".to_string(),
+                game_id: "g-7".to_string(),
+                token: "engine-token".to_string(),
+            }),
+            "what the agent wrote is what this process attaches with"
+        );
+    }
+
     /// The command line wins, field by field, because that is how the agent
     /// starts this process — and the environment is how a person starts it by
     /// hand, so a person's variable must not quietly override the agent's

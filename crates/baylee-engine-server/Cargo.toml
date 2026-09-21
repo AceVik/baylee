@@ -26,3 +26,10 @@ tokio-tungstenite.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+# The other end of the command line this binary is started with. The agent
+# writes the three flags and this reads them, and nothing in the build links
+# the two — so without this the two spellings are only ever held against
+# themselves. It points the way a test may: the reader depends on the writer.
+baylee-agent.workspace = true

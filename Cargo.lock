@@ -912,6 +912,7 @@ dependencies = [
 name = "baylee-engine-server"
 version = "0.1.0"
 dependencies = [
+ "baylee-agent",
  "baylee-ai",
  "baylee-cards",
  "baylee-cards-dsl",
