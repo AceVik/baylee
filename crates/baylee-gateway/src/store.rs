@@ -1179,4 +1179,64 @@ mod tests {
             &[]
         ));
     }
+
+    /// **"The address is taken" is a sentence about one error and not about
+    /// every error**, because it is what `create_account` answers a stranger
+    /// with: an `Ok(None)` that the route turns into "that e-mail already
+    /// has an account". Reading an unrelated failure as that one tells a
+    /// registering player their address is spoken for when the database was
+    /// merely unreachable.
+    ///
+    /// Two readings, because sea-orm reports the same refusal two ways:
+    /// `RecordNotInserted` when it noticed, and an execution error carrying
+    /// PostgreSQL's own wording when it did not. The second is a substring
+    /// match on a message, which is what makes it worth writing the
+    /// negatives down beside the positives — a message is not an interface,
+    /// and this is the test that notices when the wording moves.
+    #[test]
+    fn a_unique_violation_is_read_as_taken_and_nothing_else_is() {
+        assert!(is_taken(&sea_orm::DbErr::RecordNotInserted));
+        assert!(is_taken(&sea_orm::DbErr::Custom(
+            "error returned from database: duplicate key value violates \
+             unique constraint \"account_email_key\""
+                .to_string()
+        )));
+
+        for other in [
+            sea_orm::DbErr::RecordNotUpdated,
+            sea_orm::DbErr::RecordNotFound("no such account".to_string()),
+            sea_orm::DbErr::Custom("connection closed".to_string()),
+            sea_orm::DbErr::Custom("deadlock detected".to_string()),
+            sea_orm::DbErr::Custom(
+                "null value in column \"email\" violates not-null constraint".to_string(),
+            ),
+        ] {
+            assert!(
+                !is_taken(&other),
+                "{other:?} is not an address somebody already has"
+            );
+        }
+    }
+
+    /// What the reading does not ask is **which** unique index failed, and
+    /// that is safe rather than lucky: both of the ones this insert can trip
+    /// are the address. The column carries its own, and
+    /// `account_email_lower` is the functional one that makes two addresses
+    /// differing only in case one address. A display name deliberately has
+    /// none — a globally unique name is a race every popular Alice loses,
+    /// and refusing a registration for a taken name says that name exists —
+    /// so there is no second sentence this could be mistaken for.
+    ///
+    /// `create_account` is the only caller, which is the other half of why.
+    #[test]
+    fn both_of_the_unique_indexes_this_can_report_mean_the_same_sentence() {
+        for constraint in ["account_email_key", "account_email_lower"] {
+            assert!(
+                is_taken(&sea_orm::DbErr::Custom(format!(
+                    "duplicate key value violates unique constraint \"{constraint}\""
+                ))),
+                "{constraint} is the address under another name"
+            );
+        }
+    }
 }
