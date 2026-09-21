@@ -42,17 +42,22 @@ pub fn hash_password(password: &str) -> String {
     hash.to_string()
 }
 
+/// Argon2id hash of a fixed password, computed once with the **same**
+/// parameters as a real one, because it is computed the same way.
+///
+/// A hard-coded literal drifted out of sync once already (m=65536,t=3
+/// against m=19456,t=2) and made an unknown user measurably *slower* to
+/// refuse than a real one — the exact leak the dummy is there to close.
+/// Calling [`hash_password`] is what makes that impossible rather than
+/// unlikely, and it is a `static` rather than a local so that a test can say
+/// so out loud.
+static DUMMY: std::sync::LazyLock<String> =
+    std::sync::LazyLock::new(|| hash_password("dummy-password"));
+
 /// Verify a password against a stored PHC hash. Unknown users verify
 /// against a fixed dummy hash to equalize timing.
 #[must_use]
 pub fn verify_password(stored: Option<&str>, password: &str) -> bool {
-    // Argon2id hash of a fixed password, computed once with the *same*
-    // parameters as real hashes (`Argon2::default()` in `hash_password`).
-    // A hard-coded literal drifted out of sync once already (m=65536,t=3
-    // vs. m=19456,t=2) and made unknown users measurably *slower* than
-    // real ones — the exact leak the dummy is supposed to close.
-    static DUMMY: std::sync::LazyLock<String> =
-        std::sync::LazyLock::new(|| hash_password("dummy-password"));
     let phc = stored.unwrap_or(&DUMMY);
     let Ok(parsed) = PasswordHash::new(phc) else {
         return false;
@@ -411,6 +416,157 @@ mod tests {
         assert!(
             !limiter.allow("d@e.f"),
             "somebody else's count is untouched"
+        );
+    }
+
+    /// **The dummy an unknown user is refused against costs what a real one
+    /// costs**, which is the whole of what it is for: the work has to be the
+    /// same or the refusal is faster and the timing says the account does
+    /// not exist.
+    ///
+    /// A hard-coded literal drifted once already — m=65536,t=3 against
+    /// m=19456,t=2 — and made the unknown user the *slower* of the two.
+    /// Computing it through `hash_password` is what closed that, and this is
+    /// the assertion that says so rather than leaving it to a reader to
+    /// notice.
+    #[test]
+    fn an_unknown_user_is_refused_against_a_hash_that_cost_what_a_real_one_costs() {
+        let real = PasswordHash::new(&hash_password("a-very-fine-password"))
+            .expect("a hash this crate just wrote");
+        let dummy = PasswordHash::new(&DUMMY).expect("and the one it refuses with");
+
+        assert_eq!(real.algorithm.as_str(), dummy.algorithm.as_str());
+        assert_eq!(
+            real.params.to_string(),
+            dummy.params.to_string(),
+            "the work an unknown user costs is the work a real one costs"
+        );
+        assert_eq!(
+            format!("{:?}", real.version),
+            format!("{:?}", dummy.version)
+        );
+        assert_ne!(
+            real.salt.map(|s| s.to_string()),
+            dummy.salt.map(|s| s.to_string()),
+            "and it is the same recipe rather than the same hash"
+        );
+    }
+
+    /// **One digest, two spellings, and they have to agree.** A session token
+    /// is looked up as the thirty-two bytes a `bytea` column holds; a room's
+    /// password and a seat's token never reach a row and are compared as hex
+    /// inside a map. A difference between the two would be a token that
+    /// cannot be found by the thing that stored it.
+    #[test]
+    fn the_stored_digest_and_the_written_one_are_the_same_digest() {
+        let token = new_token();
+
+        assert_eq!(
+            token_digest(&token).len(),
+            32,
+            "SHA-256 is thirty-two bytes"
+        );
+        assert_eq!(token_hash(&token), hex_lower(&token_digest(&token)));
+        assert_eq!(token_hash(&token).len(), 64);
+        assert!(
+            token_hash(&token)
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+            "lower-case hex, which is what the column and the map both hold"
+        );
+        assert_ne!(token_digest(&token), token_digest(&format!("{token}x")));
+    }
+
+    /// A token is 256 bits of the OS CSPRNG written as hex, so the length is
+    /// not the measure — sixty-four *hex* characters is thirty-two bytes and
+    /// sixty-four of anything else is not.
+    #[test]
+    fn a_token_is_thirty_two_bytes_of_randomness_and_not_sixty_four_characters() {
+        let token = new_token();
+        assert_eq!(token.len(), 64);
+        assert!(token.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(new_token(), new_token());
+    }
+
+    /// Constant time is about the comparison and not about the lengths: two
+    /// strings of different lengths are not equal, and saying so is not a
+    /// leak, because the length of a token is public.
+    #[test]
+    fn a_comparison_of_two_lengths_is_a_refusal_and_not_a_panic() {
+        assert!(ct_eq("", ""));
+        assert!(!ct_eq("a", "ab"));
+        assert!(!ct_eq("ab", "a"));
+        assert!(!ct_eq("", "a"));
+        assert!(ct_eq(&"x".repeat(64), &"x".repeat(64)));
+    }
+
+    /// **The window slides**, which is the half the counting tests cannot
+    /// see: eight wrong passwords are a lockout for five minutes and not for
+    /// ever, so a key that has spent its budget gets it back by waiting.
+    #[test]
+    fn a_spent_budget_comes_back_when_the_window_has_passed() {
+        let limiter = RateLimiter::new(Duration::from_millis(120), 2);
+
+        assert!(limiter.allow("a@b.c"));
+        assert!(limiter.allow("a@b.c"));
+        assert!(!limiter.allow("a@b.c"), "spent inside the window");
+
+        std::thread::sleep(Duration::from_millis(220));
+        assert!(
+            limiter.allow("a@b.c"),
+            "and handed back by the window moving on, with nobody saying so"
+        );
+    }
+
+    /// The same budget coming back **between two sweeps**, which is the half
+    /// the test above cannot see: the periodic sweep prunes every key, and
+    /// by the time a key's hits are stale a sweep is usually due anyway, so
+    /// it reaches them first. Removing `allow`'s own `retain` leaves that
+    /// test green.
+    ///
+    /// So the sweep is put out of reach by saying it has just run, and what
+    /// is left is the entry pruning its own hits. A key that attempts often
+    /// enough to stay in the map is exactly the key this matters for.
+    #[test]
+    fn an_entry_prunes_its_own_hits_when_no_sweep_is_due() {
+        let limiter = RateLimiter::new(Duration::from_millis(40), 2);
+
+        assert!(limiter.allow("a@b.c"));
+        assert!(limiter.allow("a@b.c"));
+        assert!(!limiter.allow("a@b.c"), "spent");
+
+        std::thread::sleep(Duration::from_millis(80));
+        *limiter.last_sweep.lock() = Instant::now();
+        assert!(
+            limiter.allow("a@b.c"),
+            "the sweep is not due, and the entry's own hits are outside the \
+             window"
+        );
+    }
+
+    /// **A unique key is not a way to grow this map**, which is why the
+    /// sweep exists: the keys are e-mail addresses and IP addresses a
+    /// stranger chooses, and one attempt each would otherwise be one entry
+    /// each for as long as the process runs.
+    ///
+    /// The sweep is periodic rather than per call, so it happens on the
+    /// first attempt after a window has passed — and it runs before that
+    /// attempt is recorded, which is why one key is left and not two.
+    #[test]
+    fn a_key_nobody_uses_again_does_not_stay_in_the_map() {
+        let limiter = RateLimiter::new(Duration::from_millis(80), 2);
+
+        for n in 0..50 {
+            assert!(limiter.allow(&format!("stranger-{n}")));
+        }
+        assert_eq!(limiter.hits.lock().len(), 50, "one entry each, so far");
+
+        std::thread::sleep(Duration::from_millis(160));
+        assert!(limiter.allow("the attempt that sweeps"));
+        assert_eq!(
+            limiter.hits.lock().len(),
+            1,
+            "fifty keys with nothing inside the window are fifty keys gone"
         );
     }
 }
