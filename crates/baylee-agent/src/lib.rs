@@ -45,12 +45,31 @@ impl AgentConfig {
     /// # Errors
     /// When no token is configured, or when the engine binary cannot be found.
     pub fn from_env() -> Result<Self, String> {
-        let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+        Self::read(|name| std::env::var(name).ok(), default_engine_bin)
+    }
+
+    /// The reading itself, with the two things it asks the machine handed in.
+    ///
+    /// Separated so that it can be read at all. `std::env` is one table per
+    /// process and a test runner is threads, so a test that set these
+    /// variables would be a test that changed what some other test was
+    /// reading at that moment. The rules below are all of the quiet kind —
+    /// an empty variable, a value that will not parse, a default nobody
+    /// states — which is exactly the kind that goes wrong without anybody
+    /// noticing.
+    ///
+    /// # Errors
+    /// As [`Self::from_env`].
+    fn read(
+        env: impl Fn(&str) -> Option<String>,
+        default_bin: impl Fn() -> Option<PathBuf>,
+    ) -> Result<Self, String> {
+        let var = |name: &str| env(name).filter(|v| !v.is_empty());
         let token =
             var("BAYLEE_AGENT_TOKEN").ok_or_else(|| "BAYLEE_AGENT_TOKEN is not set".to_string())?;
         let engine_bin = match var("BAYLEE_ENGINE_BIN") {
             Some(path) => PathBuf::from(path),
-            None => default_engine_bin().ok_or_else(|| {
+            None => default_bin().ok_or_else(|| {
                 "cannot find baylee-engine-server; set BAYLEE_ENGINE_BIN".to_string()
             })?,
         };
@@ -420,5 +439,164 @@ mod tests {
             panic!("a heartbeat");
         };
         assert_eq!(beat.client_time_ms, 1_700_000_000_123);
+    }
+
+    /// Everything the environment is allowed to say, in one place, so that
+    /// each test below is about one variable and the engine binary is never
+    /// a file this machine has to actually have.
+    fn configured(vars: &[(&str, &str)]) -> Result<AgentConfig, String> {
+        AgentConfig::read(
+            |name| {
+                vars.iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| (*value).to_string())
+            },
+            || Some(PathBuf::from("/opt/baylee/baylee-engine-server")),
+        )
+    }
+
+    /// **An agent with no token does not start**, which is the one refusal
+    /// in the whole reading.
+    ///
+    /// The reason is the topology rather than the protocol: this is the only
+    /// program here that spawns anything, so an agent that would introduce
+    /// itself to whoever answered is a way to run processes on this machine
+    /// at somebody else's asking. Refusing at start rather than at the first
+    /// `StartEngine` is the difference between an operator seeing it and a
+    /// player seeing it.
+    #[test]
+    fn an_agent_with_no_token_is_a_way_to_run_programs_and_does_not_start() {
+        for vars in [vec![], vec![("BAYLEE_AGENT_TOKEN", "")]] {
+            assert_eq!(
+                configured(&vars),
+                Err("BAYLEE_AGENT_TOKEN is not set".to_string()),
+                "an empty variable is not a secret, it is one nobody set"
+            );
+        }
+        assert_eq!(
+            configured(&[("BAYLEE_AGENT_TOKEN", "s3cret")]).map(|config| config.token),
+            Ok("s3cret".to_string()),
+            "and with one it starts"
+        );
+    }
+
+    /// **Empty is unset, for every one of them.** `BAYLEE_AGENT_NAME=` is a
+    /// line a shell writes when a variable it was expanding was itself
+    /// empty, and a reader asking only whether the variable *exists* would
+    /// name this agent the empty string, dial no gateway at all and look for
+    /// an engine at a path with nothing in front of it.
+    #[test]
+    fn a_variable_that_is_empty_is_a_variable_nobody_set() {
+        let empty = configured(&[
+            ("BAYLEE_AGENT_TOKEN", "s3cret"),
+            ("BAYLEE_GATEWAY", ""),
+            ("BAYLEE_AGENT_NAME", ""),
+            ("BAYLEE_AGENT_CAPACITY", ""),
+            ("BAYLEE_ENGINE_BIN", ""),
+        ])
+        .expect("a token is the only thing this needs");
+
+        assert_eq!(
+            empty,
+            configured(&[("BAYLEE_AGENT_TOKEN", "s3cret")]).expect("the same reading"),
+            "four empty variables read as four variables nobody set"
+        );
+        assert_eq!(empty.gateway, "http://127.0.0.1:28766");
+        assert_eq!(empty.name, "agent");
+        assert_eq!(empty.capacity, 0);
+        assert_eq!(
+            empty.engine_bin,
+            PathBuf::from("/opt/baylee/baylee-engine-server")
+        );
+    }
+
+    /// The gateway base is kept in the **one** spelling the socket is built
+    /// out of. A trailing slash is what a shell completes a URL with and
+    /// what a browser's address bar hands over, and it would otherwise reach
+    /// [`AgentConfig::control_url`] as `…//agent/ws`.
+    ///
+    /// [`ws_base`] trims one as well, which is not the same rule twice:
+    /// it takes any base from anywhere, and this one is about what the field
+    /// holds — what gets logged at start, and what two configurations are
+    /// compared on.
+    #[test]
+    fn the_gateway_base_is_kept_without_the_slash_a_shell_completes_it_with() {
+        for written in ["http://gw:28766", "http://gw:28766/", "http://gw:28766///"] {
+            let config = configured(&[
+                ("BAYLEE_AGENT_TOKEN", "s3cret"),
+                ("BAYLEE_GATEWAY", written),
+            ])
+            .expect("a gateway and a token");
+            assert_eq!(config.gateway, "http://gw:28766", "written as {written}");
+            assert_eq!(config.control_url(), "ws://gw:28766/agent/ws");
+        }
+    }
+
+    /// **A capacity that is not a number takes the limit off**, which is the
+    /// wrong direction for a typo to fall in: `BAYLEE_AGENT_CAPACITY=fore`
+    /// does not cap this agent at four, it uncaps it, and the gateway then
+    /// hands it every game it has.
+    ///
+    /// Pinned as it is rather than as it should be. The neighbouring
+    /// decision in this workspace went the other way — a `dev-table` board
+    /// specification that does not resolve refuses to start the gateway
+    /// rather than failing at the moment somebody presses Start — and the
+    /// day this reading does the same, this is the test that changes: the
+    /// first assertion becomes an `Err` naming the variable.
+    #[test]
+    fn a_capacity_that_is_not_a_number_takes_the_limit_off() {
+        let config = configured(&[
+            ("BAYLEE_AGENT_TOKEN", "s3cret"),
+            ("BAYLEE_AGENT_CAPACITY", "fore"),
+        ])
+        .expect("it starts, which is the whole of what this pins");
+        assert_eq!(config.capacity, 0);
+        assert!(
+            config.has_room(1000),
+            "and zero is not `no engines`, it is `no limit`"
+        );
+        assert_eq!(
+            configured(&[
+                ("BAYLEE_AGENT_TOKEN", "s3cret"),
+                ("BAYLEE_AGENT_CAPACITY", "4"),
+            ])
+            .map(|config| config.capacity),
+            Ok(4),
+            "a number that parses is still read as one"
+        );
+    }
+
+    /// The engine binary is the one named, or the one beside this agent.
+    ///
+    /// That the fallback is **not consulted** when a path was given is worth
+    /// an assertion rather than a reading, because the fallback asks the
+    /// filesystem: a reader that called it first would make an agent with an
+    /// explicit engine depend on a file it is never going to run.
+    #[test]
+    fn the_engine_binary_is_the_one_named_or_the_one_beside_this_agent() {
+        let named = AgentConfig::read(
+            |name| match name {
+                "BAYLEE_AGENT_TOKEN" => Some("s3cret".to_string()),
+                "BAYLEE_ENGINE_BIN" => Some("/opt/other/engine".to_string()),
+                _ => None,
+            },
+            || -> Option<PathBuf> { panic!("not looked for when a path was given") },
+        )
+        .expect("a named binary");
+        assert_eq!(named.engine_bin, PathBuf::from("/opt/other/engine"));
+
+        assert_eq!(
+            configured(&[("BAYLEE_AGENT_TOKEN", "s3cret")]).map(|config| config.engine_bin),
+            Ok(PathBuf::from("/opt/baylee/baylee-engine-server")),
+            "and the one beside this agent when nobody said"
+        );
+        assert_eq!(
+            AgentConfig::read(
+                |name| (name == "BAYLEE_AGENT_TOKEN").then(|| "s3cret".to_string()),
+                || None,
+            ),
+            Err("cannot find baylee-engine-server; set BAYLEE_ENGINE_BIN".to_string()),
+            "an agent that cannot find an engine names the variable to set"
+        );
     }
 }
