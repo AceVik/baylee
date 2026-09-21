@@ -625,6 +625,116 @@ mod tests {
         target_options(&TargetSpec::Object(&ANY_CREATURE), state, chooser, source)
     }
 
+    /// Gives `object` protection from `filter`, as a continuous effect the
+    /// seat `controller` controls.
+    fn protect(
+        state: &mut GameState,
+        controller: PlayerId,
+        object: ObjectId,
+        filter: &'static Filter,
+    ) {
+        let filter_of = crate::effects::EffectFilter::object(state, object);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(object),
+            controller,
+            layer: baylee_cards_dsl::Modifier::ProtectionFrom(filter).layer(),
+            timestamp: 1,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter: filter_of,
+            modifier: baylee_cards_dsl::Modifier::ProtectionFrom(filter),
+        });
+    }
+
+    /// Protection (CR 702.16) is two questions and both are asked of a
+    /// different object: which permanent *has* it, and whether the thing
+    /// coming at it matches the filter. An effect naming one creature does
+    /// not protect the one beside it, and a creature with protection from
+    /// artifacts is not protected from a creature.
+    #[test]
+    fn protection_is_read_off_the_protected_object_and_the_thing_it_faces() {
+        static ARTIFACTS: Filter = Filter::ARTIFACT;
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let beside = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+
+        assert!(
+            !protected_from(&state, mine, theirs),
+            "nothing is protected from anything to begin with"
+        );
+        protect(&mut state, P0, mine, &ANY_CREATURE);
+        assert!(protected_from(&state, mine, theirs));
+        assert!(
+            protected_from(&state, mine, beside),
+            "protection from creatures is from all of them, mine included"
+        );
+        assert!(
+            !protected_from(&state, beside, theirs),
+            "and the creature standing next to it has none"
+        );
+
+        let other = creature(&mut state, P0, KeywordSet::EMPTY);
+        protect(&mut state, P0, other, &ARTIFACTS);
+        assert!(
+            !protected_from(&state, other, theirs),
+            "protection from artifacts is not protection from a creature"
+        );
+    }
+
+    /// **Whose opponent** is read off the seat that controls the protection
+    /// effect and not off the permanent that carries it (CR 109.5: "you" is
+    /// the controller of the ability). The two are the same on every printed
+    /// card, which is exactly why a reader that used the permanent's
+    /// controller would look right — so the case that tells them apart is
+    /// the one worth writing down.
+    #[test]
+    fn protection_from_an_opponent_means_the_effects_controllers_opponent() {
+        static OPPONENTS: Filter = Filter::ControlledByOpponent;
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let beside = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+
+        protect(&mut state, P0, mine, &OPPONENTS);
+        assert!(protected_from(&state, mine, theirs));
+        assert!(
+            !protected_from(&state, mine, beside),
+            "a creature I control is not one my opponent controls"
+        );
+
+        // The same protection, granted by the seat across the table: the
+        // filter now reads from their side, so it is my own creature the
+        // permanent is protected from.
+        let odd = creature(&mut state, P0, KeywordSet::EMPTY);
+        protect(&mut state, P1, odd, &OPPONENTS);
+        assert!(
+            protected_from(&state, odd, beside),
+            "from their seat, a creature I control is an opponent's"
+        );
+        assert!(
+            !protected_from(&state, odd, theirs),
+            "and their own creature is not"
+        );
+    }
+
+    /// An object that is not in the arena is protected from nothing and
+    /// protects against nothing: both halves answer `false` rather than
+    /// panicking, which is what lets a damage step ask about a creature that
+    /// a state-based action has already taken away.
+    #[test]
+    fn protection_asked_about_something_that_is_gone_is_simply_false() {
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+        protect(&mut state, P0, mine, &ANY_CREATURE);
+        assert!(protected_from(&state, mine, theirs));
+
+        let gone = ObjectId::new(9_999, 0);
+        assert!(!protected_from(&state, gone, theirs));
+        assert!(!protected_from(&state, mine, gone));
+    }
+
     /// Hexproof (CR 702.11b) stops opponents and nobody else.
     #[test]
     fn hexproof_hides_a_creature_from_its_controllers_opponents() {
