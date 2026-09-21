@@ -225,3 +225,171 @@ impl Filter {
     pub const ANOTHER_CREATURE_YOU_CONTROL: Self =
         Self::And(&[Self::CREATURE, Self::ControlledByYou, Self::Another]);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every constant this file declares, beside the name it is declared
+    /// under.
+    ///
+    /// Hand-written because what is compared here is the *value* and no
+    /// reader of the text can supply one — and held against the
+    /// declarations below, so a constant added tomorrow fails the check
+    /// rather than being quietly left out of every comparison in this
+    /// module.
+    const NAMED: &[(&str, Filter)] = &[
+        ("CREATURE", Filter::CREATURE),
+        ("ARTIFACT", Filter::ARTIFACT),
+        ("ENCHANTMENT", Filter::ENCHANTMENT),
+        ("LAND", Filter::LAND),
+        ("PLANESWALKER", Filter::PLANESWALKER),
+        ("NONLAND", Filter::NONLAND),
+        ("NONCREATURE", Filter::NONCREATURE),
+        ("BASIC_LAND", Filter::BASIC_LAND),
+        ("INSTANT_OR_SORCERY", Filter::INSTANT_OR_SORCERY),
+        ("ARTIFACT_OR_ENCHANTMENT", Filter::ARTIFACT_OR_ENCHANTMENT),
+        ("ARTIFACT_OR_CREATURE", Filter::ARTIFACT_OR_CREATURE),
+        (
+            "ARTIFACT_CREATURE_OR_ENCHANTMENT",
+            Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT,
+        ),
+        ("CREATURE_OR_PLANESWALKER", Filter::CREATURE_OR_PLANESWALKER),
+        ("NONBASIC_LAND", Filter::NONBASIC_LAND),
+        ("NONTOKEN_CREATURE", Filter::NONTOKEN_CREATURE),
+        ("ANOTHER_CREATURE", Filter::ANOTHER_CREATURE),
+        ("LEGENDARY_CREATURE", Filter::LEGENDARY_CREATURE),
+        ("ATTACKING_CREATURE", Filter::ATTACKING_CREATURE),
+        ("YOUR_CREATURE", Filter::YOUR_CREATURE),
+        ("OPPONENT_CREATURE", Filter::OPPONENT_CREATURE),
+        ("YOUR_LAND", Filter::YOUR_LAND),
+        ("YOUR_BASIC_LAND", Filter::YOUR_BASIC_LAND),
+        ("YOUR_ARTIFACT", Filter::YOUR_ARTIFACT),
+        (
+            "ANOTHER_CREATURE_YOU_CONTROL",
+            Filter::ANOTHER_CREATURE_YOU_CONTROL,
+        ),
+    ];
+
+    /// The table above is the file below. Read out of the source for the
+    /// reason `the_authoring_contract_names_every_filter_constant` reads it:
+    /// a list retyped and left alone is the same defect the constants exist
+    /// to end, one layer up.
+    #[test]
+    fn the_table_is_every_constant_this_file_declares() {
+        let declared: Vec<&str> = include_str!("filter.rs")
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("pub const "))
+            .filter_map(|rest| rest.split(':').next())
+            .map(str::trim)
+            .collect();
+        let listed: Vec<&str> = NAMED.iter().map(|(name, _)| *name).collect();
+        assert_eq!(
+            declared, listed,
+            "the table and the declarations have drifted — in this order, \
+             because a constant belongs beside the ones it is built from"
+        );
+    }
+
+    /// **No filter has two names.** Two constants that are the same data are
+    /// the sin this module's head describes from the other side: `eval`
+    /// cannot tell them apart, `state::filter_hash` gives them one hash, and
+    /// a card author picking between them is choosing a synonym while
+    /// believing they chose a meaning.
+    ///
+    /// It is a real hazard rather than a tidy one, because these are built
+    /// out of each other: `NONCREATURE` and `NONLAND` differ by one
+    /// `TypeSet` constant, and `ARTIFACT_OR_CREATURE` and
+    /// `ARTIFACT_OR_ENCHANTMENT` by one clause.
+    #[test]
+    fn no_two_constants_are_the_same_filter() {
+        for (i, (name, filter)) in NAMED.iter().enumerate() {
+            for (other, twin) in &NAMED[i + 1..] {
+                assert_ne!(
+                    filter, twin,
+                    "{name} and {other} are one filter under two names"
+                );
+            }
+        }
+        assert!(NAMED.len() >= 24, "read {} constants", NAMED.len());
+    }
+
+    /// **The same objects are not the same filter**, which is the sentence
+    /// [`Filter::LacksType`] is documented with and the reason it exists at
+    /// all. Each pair below matches exactly the same objects in every game
+    /// state there is, and each is two distinct pieces of data — so a card
+    /// that writes the wrong one is correct in play and a second name for a
+    /// filter that already had one.
+    #[test]
+    fn two_spellings_of_one_predicate_are_two_filters() {
+        static NOT_A_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
+        assert_ne!(
+            Filter::NONCREATURE,
+            Filter::Not(&NOT_A_CREATURE),
+            "`LacksType(t)` is the one spelling for \"not a creature\""
+        );
+
+        assert_ne!(
+            Filter::INSTANT_OR_SORCERY,
+            Filter::HasType(TypeSet::INSTANT.union(TypeSet::SORCERY)),
+            "`HasType` asks `intersects`, so a two-type set is already an \
+             \"or\" — and it is not the `Or` the pool writes"
+        );
+
+        assert_ne!(
+            Filter::YOUR_LAND,
+            Filter::And(&[Filter::ControlledByYou, Filter::LAND]),
+            "the same two clauses the other way round"
+        );
+
+        assert_ne!(
+            Filter::YOUR_BASIC_LAND,
+            Filter::And(&[
+                Filter::HasSupertype(SupertypeSet::BASIC),
+                Filter::LAND,
+                Filter::ControlledByYou,
+            ]),
+            "and `YOUR_BASIC_LAND` nests its noun rather than flattening it"
+        );
+    }
+
+    /// The clause order of every compound constant, which is data and not
+    /// style: `f!` spells one order, `state::filter_hash` hashes the order,
+    /// and the commit that introduced each of these proved it byte-identical
+    /// to what the cards already wrote. Noun first throughout, with the
+    /// nesting `YOUR_BASIC_LAND` documents.
+    #[test]
+    fn every_compound_constant_keeps_the_order_it_was_proved_against() {
+        assert_eq!(
+            Filter::BASIC_LAND,
+            Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]),
+            "the supertype first, which is the order CR 205.4a reads in too"
+        );
+        assert_eq!(
+            Filter::YOUR_LAND,
+            Filter::And(&[Filter::LAND, Filter::ControlledByYou])
+        );
+        assert_eq!(
+            Filter::YOUR_BASIC_LAND,
+            Filter::And(&[Filter::BASIC_LAND, Filter::ControlledByYou])
+        );
+        assert_eq!(
+            Filter::ANOTHER_CREATURE_YOU_CONTROL,
+            Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Another]),
+            "your before another — the one order `f!` can spell two ways"
+        );
+        assert_eq!(
+            Filter::NONBASIC_LAND,
+            Filter::And(&[
+                Filter::LAND,
+                Filter::Not(&Filter::HasSupertype(SupertypeSet::BASIC)),
+            ]),
+            "`Not(HasSupertype)` and not a `LacksSupertype` that does not exist"
+        );
+        assert_eq!(
+            Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT,
+            Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT]),
+            "and an `Or` is written in the order the card prints the words"
+        );
+    }
+}
