@@ -753,6 +753,152 @@ mod tests {
     /// declared as an attacker, and a Restoration Angel later took an
     /// attacking Sun Titan and Elesh Norn out of a combat they went on
     /// fighting.
+    /// A board of `teams.len()` seats, on the sides it names.
+    fn teamed_state(teams: &[Option<u8>]) -> GameState {
+        let seat = |team: Option<u8>| SeatSpec {
+            controller: SeatController::Open,
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
+            deck: vec![],
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: Some(20),
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team,
+        };
+        GameState::from_preset(
+            &GamePreset {
+                format: FormatId::Freeform,
+                seed: 1,
+                house_rules: HouseRules::default(),
+                modifiers: vec![],
+                prints: vec![],
+                seats: teams.iter().copied().map(seat).collect(),
+            },
+            &NoCards,
+        )
+        .expect("a seated board")
+    }
+
+    /// What may be attacked is **each surviving opponent and the
+    /// planeswalkers those opponents control** (CR 506.2), as one flat list
+    /// because the rules make it one choice and a client renders it as one.
+    ///
+    /// A teammate is not an opponent, and neither is their planeswalker —
+    /// the walker half reads the same opponent list, which is the only
+    /// reason it cannot answer differently. My own walker is not a defender
+    /// either, and a seat that has lost is no longer anybody's opponent.
+    #[test]
+    fn a_defender_is_an_opponent_or_something_an_opponent_controls() {
+        let mut state = teamed_state(&[Some(1), Some(2), Some(1), Some(2)]);
+        let me = PlayerId::new(0);
+        let ally = PlayerId::new(2);
+        let enemy = PlayerId::new(1);
+        let other_enemy = PlayerId::new(3);
+
+        let mine = planeswalker(&mut state, me, 4);
+        let allys = planeswalker(&mut state, ally, 4);
+        let theirs = planeswalker(&mut state, enemy, 4);
+
+        let options = defender_options(&state, me);
+        assert_eq!(
+            options,
+            vec![
+                Defender::Player(enemy),
+                Defender::Player(other_enemy),
+                Defender::Planeswalker(theirs),
+            ],
+            "the two seats across the table and the one walker they control"
+        );
+        assert!(!options.contains(&Defender::Player(ally)));
+        assert!(
+            !options.contains(&Defender::Planeswalker(allys)),
+            "a teammate's planeswalker is not a defender"
+        );
+        assert!(!options.contains(&Defender::Planeswalker(mine)));
+
+        // A seat that has lost is nobody's opponent any more, and its
+        // planeswalker goes with it.
+        state
+            .players
+            .iter_mut()
+            .find(|p| p.id == enemy)
+            .expect("seated")
+            .has_lost = true;
+        assert_eq!(
+            defender_options(&state, me),
+            vec![Defender::Player(other_enemy)],
+            "and the walker it controlled is no longer reachable either"
+        );
+    }
+
+    /// In a duel every other seat is an opponent, which is the case that
+    /// makes the team reading above invisible: with no teams on the table
+    /// the two answers are the same list.
+    #[test]
+    fn with_no_teams_on_the_table_every_other_seat_is_a_defender() {
+        let mut state = empty_state();
+        let me = PlayerId::new(0);
+        let them = PlayerId::new(1);
+        let walker = planeswalker(&mut state, them, 3);
+        creature(&mut state, them, 2, 2, KeywordSet::EMPTY);
+
+        assert_eq!(
+            defender_options(&state, me),
+            vec![Defender::Player(them), Defender::Planeswalker(walker)],
+            "a creature they control is not something to attack"
+        );
+        assert_eq!(defender_options(&state, them), vec![Defender::Player(me)]);
+    }
+
+    /// The damage aimed at a defender goes to a seat, and which seat is a
+    /// second question: a planeswalker's controller rather than the player
+    /// it was declared against.
+    ///
+    /// `None` once the walker has left. The attack stays declared
+    /// (CR 506.4c) — this is what says there is nothing left to damage,
+    /// which is the difference between a trampling attacker having a
+    /// recipient and having none.
+    #[test]
+    fn the_damage_goes_to_a_seat_and_a_walker_that_left_names_none() {
+        let mut state = empty_state();
+        let me = PlayerId::new(0);
+        let them = PlayerId::new(1);
+        let walker = planeswalker(&mut state, them, 3);
+
+        assert_eq!(defending_player(&state, Defender::Player(them)), Some(them));
+        assert_eq!(
+            defending_player(&state, Defender::Player(me)),
+            Some(me),
+            "a seat names itself whoever is asking"
+        );
+        assert_eq!(
+            defending_player(&state, Defender::Planeswalker(walker)),
+            Some(them),
+            "the walker's controller, not whoever was attacked"
+        );
+
+        state
+            .move_object(
+                walker,
+                ZoneLocation::Graveyard(them),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::StateBased,
+            )
+            .expect("it dies");
+        assert_eq!(
+            defending_player(&state, Defender::Planeswalker(walker)),
+            None,
+            "the attack is still declared and there is nothing to damage"
+        );
+        assert_eq!(
+            defending_player(&state, Defender::Planeswalker(ObjectId::new(9_999, 0))),
+            None,
+            "and an id that never was anything answers the same way"
+        );
+    }
+
     #[test]
     fn a_blinked_attacker_is_out_of_combat() {
         let mut state = empty_state();
