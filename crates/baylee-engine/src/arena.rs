@@ -195,4 +195,72 @@ mod tests {
         let seen: Vec<u32> = arena.iter().map(|(_, v)| *v).collect();
         assert_eq!(seen, vec![0, 100, 300, 400]);
     }
+
+    /// Every object in this engine is built from its own id — a
+    /// `GameObject` stores the handle it will be found under — so the
+    /// closure is handed the id the value is about to live at, and not one
+    /// the caller has to guess and then correct.
+    #[test]
+    fn a_value_is_built_from_the_id_it_will_answer_to() {
+        let mut arena: Arena<ObjectId> = Arena::new();
+        let a = arena.insert_with(|id| id);
+        let b = arena.insert_with(|id| id);
+        assert_eq!(arena.get(a), Some(&a));
+        assert_eq!(arena.get(b), Some(&b));
+        assert_ne!(a, b);
+    }
+
+    /// `slots` is the canonical traversal for the snapshot hash, and it is
+    /// canonical because it walks **every** slot — including the empty ones,
+    /// with the generation their removal bumped. Two states that reached the
+    /// same board by different routes have to hash differently, and the
+    /// removed slots are the only record that one of them made a token and
+    /// lost it.
+    #[test]
+    fn the_snapshot_traversal_walks_the_empty_slots_too() {
+        let mut arena: Arena<u32> = Arena::new();
+        let a = arena.insert(1);
+        arena.insert(2);
+        arena.remove(a);
+
+        let walked: Vec<(u32, u8, Option<u32>)> =
+            arena.slots().map(|(i, g, v)| (i, g, v.copied())).collect();
+        assert_eq!(
+            walked,
+            vec![(0, 1, None), (1, 0, Some(2))],
+            "the emptied slot is still walked, and says it has been emptied"
+        );
+        assert_eq!(arena.len(), 1, "but it is not a live entry");
+        assert_eq!(arena.iter().count(), 1, "and `iter` does not show it");
+    }
+
+    /// An id out of `iter` is an id `get` accepts: it carries the slot's
+    /// **current** generation, so a caller that collects ids and then reads
+    /// them back does not hand itself a stale handle.
+    #[test]
+    fn an_id_from_iter_is_one_get_still_answers() {
+        let mut arena: Arena<u32> = Arena::new();
+        let first = arena.insert(7);
+        arena.insert(8);
+        arena.remove(first);
+        arena.insert(9);
+
+        for (id, value) in arena.iter().map(|(id, v)| (id, *v)).collect::<Vec<_>>() {
+            assert_eq!(arena.get(id), Some(&value));
+        }
+    }
+
+    /// Removing twice takes nothing the second time, and takes nothing off
+    /// the count either — a door that decremented on a handle it had
+    /// already invalidated would make `len` drift from what `iter` finds.
+    #[test]
+    fn a_handle_can_only_be_spent_once() {
+        let mut arena: Arena<u32> = Arena::new();
+        let a = arena.insert(1);
+        assert_eq!(arena.remove(a), Some(1));
+        assert_eq!(arena.remove(a), None);
+        assert_eq!(arena.len(), 0);
+        assert!(arena.is_empty());
+        assert_eq!(arena.iter().count(), 0);
+    }
 }
