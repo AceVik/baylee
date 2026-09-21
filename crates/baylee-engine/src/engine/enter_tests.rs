@@ -143,13 +143,11 @@ impl Tally {
     }
 }
 
-/// How small each arm is allowed to get before the sweep is no longer
+/// How small the population is allowed to get before the sweep is no longer
 /// measuring anything.
 ///
-/// These are the guard against the failure this whole tier is written
-/// around: a sweep that finds nothing is indistinguishable from a sweep that
-/// checks nothing. They sit under the counts a full run reports, with room
-/// for a card to be re-read or a cycle to be adopted.
+/// The guard against the failure this whole tier is written around: a sweep
+/// that finds nothing is indistinguishable from a sweep that checks nothing.
 ///
 /// Measured 2026-09-10 over the whole pool: **1217 land faces**, of which
 /// 243 enter tapped, 931 enter untapped and 43 ask a question. The tapped
@@ -157,8 +155,30 @@ impl Tally {
 /// unconditional `EnterModifier::Tapped`, and the extra one is Glasspool
 /// Shore, which is a tapland on the back of a creature. A sweep that had
 /// read only front faces would have reported 242 and looked right.
+///
+/// **Those three numbers move without anything being wrong**, and only one
+/// of them moves upward. Every stub is a bare `Land` with no enter modifier,
+/// so it is counted untapped; finishing it moves it to whichever arm its
+/// printing says, and most of what is left to finish is a tapland or a card
+/// that asks. Round H finished 71 lands and the same 1217 faces read 378
+/// tapped, 689 untapped and 150 asking — a floor of 700 on the untapped arm
+/// went red with nothing wrong, because it was a threshold between two
+/// numbers that were both moving. So the untapped arm is not held against a
+/// count at all, and what the sweep is held against instead is the thing
+/// that cannot drift with implementation progress: **every land face in the
+/// pool is reached and classified**, which is an equality rather than a
+/// floor and says strictly more than either constant did.
 const TAPPED_FLOOR: usize = 200;
-const UNTAPPED_FLOOR: usize = 700;
+
+/// The untapped arm as a share of the faces reached — at least a quarter.
+/// It exists only to say the arm has not emptied, and a share cannot be
+/// crossed by finishing a card the way a count can.
+const UNTAPPED_SHARE: usize = 4;
+
+/// The pool still has its lands. Unlike the arms, this one moves only when
+/// cards are added or removed, which is a fact about the pool rather than
+/// about how much of it is written.
+const FACES_FLOOR: usize = 1200;
 
 fn walk(slice: &[&'static CardDef]) -> (Vec<String>, Tally) {
     let mut offenders = Vec::new();
@@ -230,6 +250,21 @@ fn every_land_in_the_pool_arrives_the_way_its_own_card_says_it_does() {
         "{} land faces entered differently from what their data says: {offenders:#?}",
         offenders.len()
     );
+    // Every face, not merely a lot of them. `offenders` is empty by the
+    // assertion above and a face lands in exactly one of the three buckets,
+    // so the three of them add back up to the population or the sweep
+    // dropped something on the floor.
+    let faces: usize = baylee_cards::all().map(|def| land_faces(def).len()).sum();
+    let reached = tally.tapped + tally.untapped + tally.asks;
+    assert_eq!(
+        reached, faces,
+        "the sweep classified {reached} of the pool's {faces} land faces"
+    );
+    assert!(
+        faces >= FACES_FLOOR,
+        "only {faces} land faces in the pool, under the floor of {FACES_FLOOR} — \
+         either the pool lost its lands or this sweep stopped reaching them"
+    );
     assert!(
         tally.tapped >= TAPPED_FLOOR,
         "only {} land faces entered tapped, under the floor of {TAPPED_FLOOR} — either \
@@ -237,8 +272,9 @@ fn every_land_in_the_pool_arrives_the_way_its_own_card_says_it_does() {
         tally.tapped
     );
     assert!(
-        tally.untapped >= UNTAPPED_FLOOR,
-        "only {} land faces entered untapped, under the floor of {UNTAPPED_FLOOR}",
+        tally.untapped * UNTAPPED_SHARE >= faces,
+        "only {} of {faces} land faces entered untapped, under 1/{UNTAPPED_SHARE} \
+         of them",
         tally.untapped
     );
 }
