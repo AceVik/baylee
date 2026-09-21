@@ -105,3 +105,158 @@ impl Table {
         (base.wrapping_add(d.wrapping_mul(step)) as usize) & (self.slots - 1)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{SEED2_OFFSET, Table, fmix64, hash, parts};
+
+    /// **These four numbers are what every committed table was built
+    /// with.** The generator places the keys with this arithmetic and the
+    /// lookup finds them again with it, so changing it does not produce a
+    /// worse table — it produces a table that answers `None` for every key,
+    /// which looks exactly like one that was never filled in. Written down
+    /// rather than derived, because a test that recomputes the hash agrees
+    /// with whatever the hash has become.
+    #[test]
+    fn the_arithmetic_the_committed_tables_were_placed_with() {
+        assert_eq!(fmix64(0), 0);
+        assert_eq!(fmix64(1), 12_994_781_566_227_106_604);
+        assert_eq!(hash(b"", 0), 17_280_346_270_528_514_342);
+        assert_eq!(hash(b"Lightning Bolt", 0), 13_927_349_926_344_005_927);
+        assert_eq!(
+            hash(b"Lightning Bolt", SEED2_OFFSET),
+            538_476_385_227_210_331,
+            "the second seed is a different hash of the same key, not a \
+             second reading of the first one"
+        );
+    }
+
+    /// One changed letter moves all 64 bits — the finalizer is there for
+    /// exactly this, and card names differ by a letter far more often than
+    /// they differ wildly.
+    #[test]
+    fn one_changed_letter_is_a_different_hash_everywhere() {
+        let a = hash(b"Lightning Bolt", 0);
+        let b = hash(b"Lightning Bolu", 0);
+        assert_ne!(a, b);
+        let differing = (a ^ b).count_ones();
+        assert!(
+            (16..=48).contains(&differing),
+            "{differing} of 64 bits differ, which is not an avalanche"
+        );
+        assert_ne!(a >> 32, b >> 32, "the half that picks the bucket moves");
+    }
+
+    /// The three numbers a key contributes: a bucket that is in range, and
+    /// a progression whose step is **odd**, which is what lets some
+    /// displacement separate any two keys sharing a bucket. An even step
+    /// walks half the residues and a bucket of two can be unplaceable.
+    #[test]
+    fn a_keys_progression_has_an_odd_step_and_an_in_range_bucket() {
+        for buckets in [1usize, 3, 64, 1000] {
+            for key in [
+                "",
+                "a",
+                "Lightning Bolt",
+                "Sheoldred // The True Scriptures",
+            ] {
+                let (bucket, _base, step) = parts(key.as_bytes(), 0, buckets);
+                assert!(bucket < buckets, "{key} fell outside {buckets} buckets");
+                assert_eq!(step % 2, 1, "{key} got an even step");
+            }
+        }
+    }
+
+    /// A perfect hash is perfect only over the keys it was built from, so
+    /// the lookup **always answers** and the caller compares the spelling it
+    /// finds. A slot outside the table would be a panic in a `const fn`
+    /// nobody writes a bounds check around.
+    #[test]
+    fn every_string_lands_in_a_slot_whether_it_is_a_key_or_not() {
+        let table = Table {
+            displacements: &[0, 1, 2, 3],
+            slots: 8,
+            seed: 7,
+        };
+        for key in ["", "not a card", "Лайтнинг", "稲妻", "\u{0}\u{1}"] {
+            assert!(table.slot(key.as_bytes()) < table.slots, "{key}");
+        }
+    }
+
+    /// The two halves are one arithmetic, which is the whole reason this
+    /// module is in `baylee-core` rather than in the generator. Placed here
+    /// the way the generator places — largest bucket first, each key onto a
+    /// slot no earlier bucket took — the lookup finds every key again.
+    #[test]
+    fn a_table_placed_with_parts_is_read_back_by_slot() {
+        const KEYS: &[&str] = &[
+            "Forest",
+            "Island",
+            "Mountain",
+            "Plains",
+            "Swamp",
+            "Lightning Bolt",
+            "Mox Opal",
+            "Force of Will",
+            "Karakas",
+            "Volrath's Stronghold",
+        ];
+        let buckets = 4usize;
+        let slots = 16usize;
+        let seed = 42u64;
+
+        // Keys per bucket, largest bucket placed first.
+        let mut order: Vec<usize> = (0..buckets).collect();
+        let members = |b: usize| -> Vec<&'static str> {
+            KEYS.iter()
+                .copied()
+                .filter(|k| parts(k.as_bytes(), seed, buckets).0 == b)
+                .collect()
+        };
+        order.sort_by_key(|b| std::cmp::Reverse(members(*b).len()));
+
+        let mut taken = vec![false; slots];
+        let mut displacements = vec![0u32; buckets];
+        for bucket in order {
+            let keys = members(bucket);
+            // Bounded rather than open: an unplaceable bucket is a
+            // failed search and not a hang.
+            let d = (0u32..4096).find(|d| {
+                let mut seen: Vec<usize> = Vec::new();
+                keys.iter().all(|k| {
+                    let (_, base, step) = parts(k.as_bytes(), seed, buckets);
+                    let slot = base.wrapping_add(d.wrapping_mul(step)) as usize & (slots - 1);
+                    if taken[slot] || seen.contains(&slot) {
+                        return false;
+                    }
+                    seen.push(slot);
+                    true
+                })
+            });
+            let d = d.expect("a displacement under 4096 places this bucket");
+            displacements[bucket] = d;
+            for k in keys {
+                let (_, base, step) = parts(k.as_bytes(), seed, buckets);
+                taken[base.wrapping_add(d.wrapping_mul(step)) as usize & (slots - 1)] = true;
+            }
+        }
+
+        // `slot` is the only thing that reads it back, and it has to agree.
+        let leaked: &'static [u32] = Box::leak(displacements.into_boxed_slice());
+        let table = Table {
+            displacements: leaked,
+            slots,
+            seed,
+        };
+        let mut found: Vec<usize> = KEYS.iter().map(|k| table.slot(k.as_bytes())).collect();
+        assert_eq!(found.len(), KEYS.len());
+        found.sort_unstable();
+        found.dedup();
+        assert_eq!(
+            found.len(),
+            KEYS.len(),
+            "two keys share a slot: the lookup does not agree with the \
+             placement it was given"
+        );
+    }
+}
