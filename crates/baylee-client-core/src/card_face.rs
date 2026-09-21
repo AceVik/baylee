@@ -568,6 +568,131 @@ mod tests {
     /// long as the card's own file did. Nothing failed — the fixture supplies
     /// both halves of its own comparison — which is exactly why a wrong word
     /// could sit in it. `xtask validate` now asks the printing.
+    /// A bare set of characteristics with the three fields a type line is
+    /// made of.
+    fn typed(
+        supertypes: SupertypeSet,
+        types: TypeSet,
+        subtypes: &[baylee_core::ids::SubtypeId],
+    ) -> Characteristics {
+        let mut set = SubtypeSet::EMPTY;
+        for id in subtypes {
+            set.insert(*id);
+        }
+        Characteristics {
+            supertypes,
+            types,
+            subtypes: set,
+            ..Characteristics::default()
+        }
+    }
+
+    /// **A supertype is printed in front of the types and the em dash only
+    /// appears when something is behind it.** That the subtypes group behind
+    /// their own type is [`subtypes_follow_the_type_they_belong_to`]; this is
+    /// the rest of the line, which nothing named.
+    ///
+    /// The dash half is the one worth pinning: `projected_type_line` decides
+    /// it from the words it produced rather than from the subtype *set*, so a
+    /// permanent carrying a subtype it no longer has a type for still reads
+    /// `Land` and never `Land —`.
+    #[test]
+    fn a_supertype_leads_the_line_and_an_empty_tail_prints_no_dash() {
+        use baylee_core::generated::subtypes::land;
+
+        assert_eq!(
+            projected_type_line(&typed(
+                SupertypeSet::LEGENDARY,
+                TypeSet::LAND,
+                &[land::FOREST],
+            )),
+            "Legendary Land — Forest",
+            "a supertype is printed before the types and never behind the dash"
+        );
+        assert_eq!(
+            projected_type_line(&typed(SupertypeSet::EMPTY, TypeSet::ARTIFACT, &[])),
+            "Artifact",
+            "and nothing behind the dash means no dash"
+        );
+        assert_eq!(
+            projected_type_line(&typed(
+                SupertypeSet::BASIC,
+                TypeSet::LAND,
+                &[land::MOUNTAIN]
+            )),
+            "Basic Land — Mountain"
+        );
+    }
+
+    /// A subtype whose own type is no longer there is **not printed**, which
+    /// is the case an animated land makes: the creature types a Dryad Arbor
+    /// carries have nothing over them the moment it stops being a creature,
+    /// and a line reading `Land — Dryad` is a permanent no player can parse.
+    ///
+    /// Pinned as what the renderer does rather than as a rules claim — the
+    /// grouping is by the types present, and this is the same walk seen from
+    /// the other side.
+    #[test]
+    fn a_subtype_with_no_type_over_it_is_left_off_the_line() {
+        use baylee_core::generated::subtypes::{creature, land};
+
+        assert_eq!(
+            projected_type_line(&typed(
+                SupertypeSet::EMPTY,
+                TypeSet::LAND,
+                &[creature::DRYAD, land::FOREST],
+            )),
+            "Land — Forest",
+            "the creature half of Dryad Arbor, with the creature type gone"
+        );
+        assert_eq!(
+            projected_type_line(&typed(
+                SupertypeSet::EMPTY,
+                TypeSet::LAND,
+                &[creature::DRYAD]
+            )),
+            "Land",
+            "and with nothing left to print behind the dash, no dash"
+        );
+    }
+
+    /// The changeling phrase (CR 702.73) is **one kind's worth of the line
+    /// and not the whole of it**, and it is printed only when the set really
+    /// holds every creature type.
+    ///
+    /// That a plain changeling collapses is
+    /// [`changeling_collapses_instead_of_printing_three_hundred_types`]; what
+    /// is left unsaid there is the pair of cases on either side of it. A
+    /// changeling that is also a land keeps its land subtype in front of the
+    /// phrase, because the collapse replaces the creature block alone — and
+    /// one Shapeshifter is one word, which is the assertion that tells
+    /// `contains_all` apart from "has any creature type at all".
+    #[test]
+    fn the_changeling_phrase_replaces_one_block_and_only_when_it_is_earned() {
+        use baylee_core::generated::subtypes::{creature, land};
+
+        let mut all = Characteristics {
+            types: TypeSet::LAND.union(TypeSet::CREATURE),
+            subtypes: SubtypeSet::ALL_CREATURE,
+            ..Characteristics::default()
+        };
+        all.subtypes.insert(land::FOREST);
+        assert_eq!(
+            projected_type_line(&all),
+            "Land Creature — Forest All creature types"
+        );
+
+        assert_eq!(
+            projected_type_line(&typed(
+                SupertypeSet::EMPTY,
+                TypeSet::CREATURE,
+                &[creature::SHAPESHIFTER]
+            )),
+            "Creature — Shapeshifter",
+            "one creature type is one word, not the phrase"
+        );
+    }
+
     #[test]
     fn a_plain_creature_reads_like_its_printed_card() {
         let mut obj = token(1, 0, "Ondu Cleric", 1, 1);
