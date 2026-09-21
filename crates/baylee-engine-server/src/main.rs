@@ -617,3 +617,117 @@ mod attached {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_core::ids::PrintRef;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo,
+        SeatCapabilities, SeatController, SeatSpec,
+    };
+
+    fn preset() -> GamePreset {
+        let entry = DeckEntry {
+            card: baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+                .expect("registry contains Forest")
+                .index,
+            print: PrintRef::new(0),
+        };
+        let seat = |ai: bool| SeatSpec {
+            controller: if ai {
+                SeatController::Ai(AIProfile::default())
+            } else {
+                SeatController::Open
+            },
+            capabilities: SeatCapabilities::default(),
+            deck: (0..60).map(|_| entry).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        GamePreset {
+            format: FormatId::Freeform,
+            seed: 3,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: Finish::Normal,
+            }],
+            // Seat 0 is a person's chair, seat 1 is the house's.
+            seats: vec![seat(false), seat(true)],
+        }
+    }
+
+    /// The dev harness has no authentication, so this field carries no
+    /// authority here and would otherwise be read by nothing — which is
+    /// exactly what makes it the right place to put a seat number. Against
+    /// the gateway the same field still says "prove it".
+    #[test]
+    fn a_seat_token_is_a_seat_number_here_and_anything_unreadable_is_the_first_seat() {
+        assert_eq!(seat_from_token("1"), PlayerId::new(1));
+        assert_eq!(seat_from_token(" 2 "), PlayerId::new(2), "trimmed");
+        assert_eq!(seat_from_token(""), PlayerId::new(0));
+        assert_eq!(seat_from_token("not a number"), PlayerId::new(0));
+        assert_eq!(seat_from_token("-1"), PlayerId::new(0));
+        assert_eq!(
+            seat_from_token("999"),
+            PlayerId::new(0),
+            "a number no seat could be is the first seat and not a wrap"
+        );
+    }
+
+    /// Three answers, deliberately different. A free human chair is sat in,
+    /// an AI chair is taken over and owed back, and anything else is
+    /// refused — including a seat another socket is already answering for.
+    /// Two sockets on one AI chair is not a shared seat, it is two programs
+    /// holding the same hand, racing each other for every question.
+    #[test]
+    fn sitting_down_takes_over_a_house_chair_and_never_a_taken_one() {
+        let mut session = Session::new(&preset()).expect("a two-seat table");
+
+        assert_eq!(sit(&mut session, PlayerId::new(0)), Ok(false), "a person's");
+        assert_eq!(
+            sit(&mut session, PlayerId::new(1)),
+            Ok(true),
+            "the house chair is taken over, and owed back"
+        );
+        assert!(
+            matches!(
+                session.seat_kind(PlayerId::new(1)),
+                Some(SeatKind::Driven(_))
+            ),
+            "and it says so afterwards"
+        );
+        assert!(
+            sit(&mut session, PlayerId::new(1)).is_err(),
+            "a second socket on one AI chair would race the first"
+        );
+        assert!(
+            sit(&mut session, PlayerId::new(9)).is_err(),
+            "a seat that is not at this table"
+        );
+    }
+
+    /// Decoding happens *before* the preset can be validated, so this
+    /// budget is the only thing between an unauthenticated peer and an
+    /// arbitrary allocation. tungstenite's own default is 64 MiB, three
+    /// orders of magnitude above the largest message this protocol has —
+    /// dropping the setting is a change nothing else would notice.
+    #[test]
+    fn the_frame_budget_is_set_and_is_far_below_the_library_default() {
+        let config = ws_config();
+        assert_eq!(config.max_message_size, Some(4 << 20));
+        assert_eq!(config.max_frame_size, Some(4 << 20));
+        assert!(
+            config.max_message_size < Some(64 << 20),
+            "the default would be the budget again"
+        );
+    }
+}
