@@ -174,4 +174,114 @@ mod tests {
         assert_eq!(rows[2].zone, Zone::Commander);
         assert_eq!(unique_names(&rows), vec!["Boss", "Island", "Swamp"]);
     }
+
+    /// A malformed row names the line it is on, and the number is a line of
+    /// the **file** rather than a count of the rows parsed so far: comments
+    /// and blank lines are skipped for meaning and still counted for
+    /// position, which is the whole value of the number to somebody opening
+    /// the file at it.
+    #[test]
+    fn a_malformed_row_names_the_line_it_is_on() {
+        // Line 1 a comment, 2 blank, 3 the header, 4 a good row, 5 blank,
+        // 6 the offender — so a parser numbering rows would say 2 and a
+        // parser numbering meaningful lines would say 4.
+        let prefix = "# the acceptance decks\n\n[deck:A]\n1 Island\n\n";
+        for bad in ["Island", "many Islands", "-1 Island", "[pantry]"] {
+            let text = format!("{prefix}{bad}\n");
+            let err = parse_decks(&text).expect_err("a line nothing can read");
+            let DeckParseError::DeckLine { line, text } = err;
+            assert_eq!(line, 6, "on {bad:?}");
+            assert_eq!(text, bad, "and it quotes the line back");
+        }
+        // The trim happens before the report, so an indented offender is
+        // quoted as what it says rather than as how it was laid out.
+        let err = parse_decks("[deck:A]\n   Island\n").expect_err("no count");
+        let DeckParseError::DeckLine { line, text } = err;
+        assert_eq!((line, text.as_str()), (2, "Island"));
+    }
+
+    /// A second deck starts in its own main deck. The zone is a running
+    /// state, so without the reset a `[sideboard]` in the first deck would
+    /// still be in force when the next one opens and every card of it would
+    /// be filed as a sideboard.
+    #[test]
+    fn a_new_deck_starts_in_its_own_main_deck() {
+        let rows = parse_decks(
+            "[deck:A]\n1 Island\n[sideboard]\n1 Swamp\n[commander]\n1 Boss\n\
+             [deck:B]\n1 Forest\n",
+        )
+        .expect("decks parse");
+        let filed: Vec<(&str, Zone, &str)> = rows
+            .iter()
+            .map(|r| (r.deck.as_str(), r.zone, r.name.as_str()))
+            .collect();
+        assert_eq!(
+            filed,
+            vec![
+                ("A", Zone::Main, "Island"),
+                ("A", Zone::Sideboard, "Swamp"),
+                ("A", Zone::Commander, "Boss"),
+                ("B", Zone::Main, "Forest"),
+            ]
+        );
+    }
+
+    /// The count is the first word and everything after it is the name, so a
+    /// card whose printed name starts with a number or holds one keeps it.
+    /// The names are what the registry is asked for, and a name that lost a
+    /// word is a card nobody can find.
+    #[test]
+    fn a_count_is_the_first_word_and_the_rest_is_the_name() {
+        let rows = parse_decks(
+            "[deck:A]\n\
+             4  Borrowing 100,000 Arrows\n\
+             1 Jötun Grunt   \n\
+             10 Sol Ring\n",
+        )
+        .expect("decks parse");
+        let counted: Vec<(u32, &str)> = rows.iter().map(|r| (r.count, r.name.as_str())).collect();
+        assert_eq!(
+            counted,
+            vec![
+                (4, "Borrowing 100,000 Arrows"),
+                (1, "Jötun Grunt"),
+                (10, "Sol Ring"),
+            ],
+            "the whole name, and a count of more than one digit"
+        );
+    }
+
+    /// Two of the three section keywords are read in any case and the third
+    /// is not: `deck:` is matched literally. Pinned as what the parser does
+    /// rather than endorsed — a file written `[DECK:A]` is refused, and the
+    /// refusal at least says which line.
+    #[test]
+    fn the_section_keywords_are_read_in_any_case_except_the_deck_prefix() {
+        let rows = parse_decks("[deck:A]\n1 Island\n[SideBoard]\n1 Swamp\n[COMMANDER]\n1 Boss\n")
+            .expect("decks parse");
+        assert_eq!(rows[1].zone, Zone::Sideboard);
+        assert_eq!(rows[2].zone, Zone::Commander);
+
+        let err = parse_decks("[DECK:A]\n1 Island\n").expect_err("the prefix is literal");
+        let DeckParseError::DeckLine { line, .. } = err;
+        assert_eq!(line, 1);
+    }
+
+    /// The lists are sorted and deduplicated across every deck and zone: one
+    /// name is one card wherever it was written, which is what lets the
+    /// registry be built from the union without asking who asked for it.
+    #[test]
+    fn a_name_is_one_card_wherever_it_was_written() {
+        let rows = parse_decks(
+            "[deck:A]\n1 Island\n1 Sol Ring\n[sideboard]\n1 Island\n\
+             [deck:B]\n1 Forest\n[commander]\n1 Island\n",
+        )
+        .expect("decks parse");
+        assert_eq!(rows.len(), 5, "every row is kept as written");
+        assert_eq!(
+            unique_names(&rows),
+            vec!["Forest", "Island", "Sol Ring"],
+            "and the list of cards is the set of names, in order"
+        );
+    }
 }
