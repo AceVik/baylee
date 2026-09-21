@@ -126,16 +126,68 @@ pub async fn connect(url: &str, pool: u32) -> Result<DatabaseConnection> {
 /// Connection strings carry credentials and errors get pasted into bug
 /// reports. `postgres://baylee:hunter2@host/db` becomes
 /// `postgres://baylee@host/db`.
+///
+/// A password is written in **two** places and this takes out both.
+///
+/// The first is the userinfo, and its end is the **last** `@` before the
+/// query string rather than the first, because a password may hold an
+/// unencoded `@` and a host may not. That is not a hypothetical shape:
+/// sqlx parses `postgres://username:p@ssw0rd@hostname:5432/database` and
+/// asserts the password is `p@ssw0rd`, and it parses
+/// `postgres://user@hostname:password@hostname:5432/database` as the
+/// username `user@hostname`. Read from the front, the first of those leaves
+/// `ssw0rd` in the log line and the second leaves the password whole.
+///
+/// The second is the query string, where `password` is a parameter sqlx
+/// reads — `postgres:///?password=some_pass` is a working connection string
+/// with no userinfo at all. Its value is replaced rather than the parameter
+/// dropped, so the line still says that a password was supplied, and the
+/// key is compared whole: a parameter whose name merely ends in the word is
+/// a different parameter.
+///
+/// What it cannot find is a password holding an unencoded `?`, because that
+/// is where the query string begins for every reader including the one this
+/// URL is going to. Percent-encoding is the answer to that, and is what the
+/// syntax asks for in the first place.
 #[must_use]
 pub fn redacted(url: &str) -> String {
     let Some((scheme, rest)) = url.split_once("://") else {
         return url.to_owned();
     };
-    let Some((creds, host)) = rest.split_once('@') else {
-        return url.to_owned();
+    let (head, query) = match rest.split_once('?') {
+        Some((head, query)) => (head, Some(query)),
+        None => (rest, None),
     };
-    let user = creds.split_once(':').map_or(creds, |(u, _)| u);
-    format!("{scheme}://{user}@{host}")
+    let head = match head.rsplit_once('@') {
+        Some((creds, host)) => {
+            let user = creds.split_once(':').map_or(creds, |(u, _)| u);
+            format!("{user}@{host}")
+        }
+        None => head.to_owned(),
+    };
+    match query {
+        Some(query) => format!("{scheme}://{head}?{}", without_password(query)),
+        None => format!("{scheme}://{head}"),
+    }
+}
+
+/// The `password` parameter's value out of a query string, with every other
+/// parameter and the order they were written in left alone.
+fn without_password(query: &str) -> String {
+    query
+        .split('&')
+        .map(|param| {
+            if param
+                .split_once('=')
+                .is_some_and(|(key, _)| key == "password")
+            {
+                "password=…"
+            } else {
+                param
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("&")
 }
 
 #[cfg(test)]
@@ -150,15 +202,92 @@ mod tests {
         );
     }
 
-    /// The three shapes that are not "user:password@host", each of which an
+    /// **One password proves nothing about the next one.** The test above
+    /// passes on a reader that takes the *first* `@`, and these two URLs are
+    /// what that reader does with a password that holds one: half of
+    /// `p@ssw0rd` survives as `ssw0rd`, and a username that itself holds an
+    /// `@` leaves the password whole and untouched.
+    ///
+    /// Neither shape is invented. They are sqlx's own
+    /// `it_parses_password_with_non_ascii_chars_correctly` and
+    /// `it_parses_username_with_at_sign_correctly`, which assert exactly
+    /// which half is which — so this is what the database on the other end
+    /// reads too, not a spelling nobody would write.
+    #[test]
+    fn a_password_that_holds_an_at_sign_goes_with_the_rest_of_it() {
+        assert_eq!(
+            redacted("postgres://username:p@ssw0rd@hostname:5432/database"),
+            "postgres://username@hostname:5432/database"
+        );
+        assert_eq!(
+            redacted("postgres://user@hostname:password@hostname:5432/database"),
+            "postgres://user@hostname@hostname:5432/database",
+            "the username keeps the `@` that is its own; only the password goes"
+        );
+        for (url, secret) in [
+            (
+                "postgres://username:p@ssw0rd@hostname:5432/database",
+                "ssw0rd",
+            ),
+            (
+                "postgres://user@hostname:password@hostname:5432/database",
+                "password",
+            ),
+        ] {
+            assert!(
+                !redacted(url).contains(secret),
+                "no part of the password is left in {}",
+                redacted(url)
+            );
+        }
+    }
+
+    /// **The other place a password is written.** `password` is a query
+    /// parameter sqlx reads, so a URL with no userinfo at all can still
+    /// carry the secret — `postgres:///?password=some_pass` is a test of
+    /// theirs and connects — and this function used to hand that back
+    /// verbatim.
+    #[test]
+    fn a_password_handed_over_as_a_parameter_is_still_a_password() {
+        assert_eq!(
+            redacted("postgres://127.0.0.1:5432/baylee?password=hunter2"),
+            "postgres://127.0.0.1:5432/baylee?password=…"
+        );
+        assert_eq!(
+            redacted("postgres:///?password=some_pass"),
+            "postgres:///?password=…",
+            "no host and no user, and still something to hide"
+        );
+        assert_eq!(
+            redacted(
+                "postgres://baylee:hunter2@127.0.0.1/baylee\
+                 ?sslmode=require&password=hunter2&application_name=gateway"
+            ),
+            "postgres://baylee@127.0.0.1/baylee\
+             ?sslmode=require&password=…&application_name=gateway",
+            "both places at once, and every other parameter in its own order"
+        );
+        assert_eq!(
+            redacted("postgres://127.0.0.1/baylee?options[password]=x"),
+            "postgres://127.0.0.1/baylee?options[password]=x",
+            "a key that merely ends in the word is a different parameter"
+        );
+    }
+
+    /// The four shapes that are not "user:password@host", each of which an
     /// eager splitter would mangle into something that no longer names the
     /// same server.
+    ///
+    /// The last of them is why the search stops at the query string: an `@`
+    /// in a parameter's value is not a credential, and a reader taking the
+    /// first one cut that URL down to `postgres://127.0.0.1@b`.
     #[test]
     fn a_url_with_nothing_to_hide_is_left_alone() {
         for url in [
             "postgres://127.0.0.1/baylee",
             "postgres://baylee@127.0.0.1/baylee",
             "not a url at all",
+            "postgres://127.0.0.1:5432/baylee?application_name=a@b",
         ] {
             assert_eq!(redacted(url), url);
         }
