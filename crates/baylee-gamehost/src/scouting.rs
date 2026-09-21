@@ -161,6 +161,23 @@ mod tests {
         (decks(&preset), state)
     }
 
+    /// Every seat kind there is, so this list cannot go quiet on a new one.
+    ///
+    /// The refusal below is a list of the kinds that are refused, and a list
+    /// like that says nothing about a variant added after it was written: a
+    /// fifth `SeatKind` would simply not be in the loop, the test would stay
+    /// green, and whether the house may read that chair's hand would be
+    /// decided by nobody. The `match` is exhaustive, so adding one is a build
+    /// error here and an answer somebody gives on purpose.
+    fn kind_index(kind: &SeatKind) -> usize {
+        match kind {
+            SeatKind::Human => 0,
+            SeatKind::Ai(_) => 1,
+            SeatKind::Driven(_) => 2,
+            SeatKind::StandIn(_) => 3,
+        }
+    }
+
     /// An AI-chair label is not authority. `Driven` is human-operated and
     /// `StandIn` is a human's chair the house is only holding, so the
     /// *current* controller is checked on every request rather than at the
@@ -170,11 +187,21 @@ mod tests {
         let (decks, state) = fixture();
         let p0 = PlayerId::new(0);
 
-        for kind in [
+        let refused = [
             SeatKind::Human,
             SeatKind::Driven(agent()),
             SeatKind::StandIn(agent()),
-        ] {
+        ];
+        let mut answered: Vec<usize> = refused.iter().map(kind_index).collect();
+        answered.push(kind_index(&SeatKind::Ai(agent())));
+        answered.sort_unstable();
+        assert_eq!(
+            answered,
+            (0..4).collect::<Vec<_>>(),
+            "every seat kind is either refused below or is the one that is not"
+        );
+
+        for kind in refused {
             let seats = [kind, SeatKind::Ai(agent())];
             assert!(
                 request(&seats, &decks, &state, p0, everything()).is_none(),
