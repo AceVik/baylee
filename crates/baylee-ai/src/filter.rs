@@ -16,7 +16,7 @@
 //! rule exists to prevent one level up, where an unread clause refuses the
 //! card instead of shipping a wrong one.
 //!
-//! Three variants are principled refusals rather than gaps to fill in later:
+//! Four variants are principled refusals rather than gaps to fill in later:
 //!
 //! - [`Filter::MatchesChosenTypeOfSource`] reads `chosen_subtype` off the
 //!   source object. The view carries no such field for any object, so there
@@ -30,8 +30,13 @@
 //!   has, wherever it is. The view shows the command zone and the
 //!   battlefield; a commander in a hidden zone is a count. Answering from the
 //!   visible ones would be a different question that agrees most of the time.
+//! - [`Filter::CmcAtMostX`] is bounded by the X announced for the ability's
+//!   source (CR 107.3a), which the engine keeps on the source object and no
+//!   view carries. Answering `true` would let an agent plan a tutor for a
+//!   card the search may not legally find, which is exactly the
+//!   considered-looking wrong decision above.
 //!
-//! [`Filter::IsToken`] is a fourth refusal, and only sometimes. The engine
+//! [`Filter::IsToken`] is a fifth refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
 //! registry token, which says so through `token`; a permanent the seat may
 //! not look at, which has no card because it is not entitled to one; and a
@@ -143,11 +148,12 @@ impl HeuristicAgent {
             Filter::CmcAtLeast(n) => Some(object.mana_value >= *n),
             Filter::ToughnessAtMost(n) => Some(object.toughness.is_some_and(|t| t <= *n)),
             Filter::InZone(want) => Some(zone == *want),
-            // The three the view cannot answer. Named in this module's own
+            // The four the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
+            | Filter::CmcAtMostX
             | Filter::SharesSubtypeWithCommander => None,
         }
     }

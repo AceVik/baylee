@@ -2307,3 +2307,25 @@ fn sanctum_of_ugin() -> CardIndex {
 fn the_black_gate() -> CardIndex {
     card_index("40eb9904-dea3-47cf-963a-04821f98ba64")
 }
+
+fn evasive_action() -> CardIndex {
+    card_index("4543a99d-eefa-470d-976d-11250524ae28")
+}
+
+fn gaea_s_might() -> CardIndex {
+    card_index("73b26f12-78eb-4d01-9dd6-ee643c7a80a8")
+}
+
+// oracle_id = "1423b8e6-9165-4a89-a6ed-18085f460bca"
+fn power_armor() -> CardIndex {
+    card_index("1423b8e6-9165-4a89-a6ed-18085f460bca")
+}
+
+// oracle_id = "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+fn chord_of_calling() -> CardIndex {
+    card_index("6789a170-f2c5-4fc0-8a45-2b2361e67410")
+}
+
+fn green_suns_zenith() -> CardIndex {
+    card_index("0d96b60b-a060-48ee-bb83-93f1c4a10669")
+}

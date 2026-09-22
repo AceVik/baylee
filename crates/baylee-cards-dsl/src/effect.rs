@@ -181,6 +181,22 @@ pub enum Amount {
     /// Number of distinct colors among battlefield objects matching the
     /// filter (General Tazri).
     DistinctColorsAmong(&'static Filter),
+    /// Number of distinct **basic land types** among battlefield objects
+    /// matching the filter — the count every "domain" card spells out.
+    ///
+    /// Domain is an ability word and so has no rules meaning of its own
+    /// (CR 207.2c): what the card actually says is "for each basic land
+    /// type among lands you control", which is why this takes a filter
+    /// rather than being a bare `Domain` variant with "lands you control"
+    /// hidden inside the engine.
+    ///
+    /// It is not [`Amount::CountOf`] and not [`Amount::DistinctColorsAmong`],
+    /// which is what left three cards in the pool unwritable: `CountOf`
+    /// counts *objects*, so one Tundra answers 1 where the card wants 2 and
+    /// two Forests answer 2 where the card wants 1; and a land is
+    /// colourless, so the colour count answers 0 for any of them. The five
+    /// types are CR 305.6's, and no other land type counts.
+    BasicLandTypesAmong(&'static Filter),
     /// A fixed negative value (-N at use sites).
     NegXFixed(u32),
     /// The power of the first target (last known characteristics).

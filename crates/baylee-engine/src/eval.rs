@@ -100,6 +100,15 @@ pub fn matches_projected(
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
         Filter::CmcAtMost(n) => chars.mana_cost.cmc() <= *n,
+        // The bound is the announced X on the ability's own source, which is
+        // where `cast_wizard` writes it and what `res.x` is read from one
+        // layer up. A source that is gone, or that announced nothing, bounds
+        // at 0 rather than at everything: an unreadable bound that found the
+        // whole library would be a tutor with no price.
+        Filter::CmcAtMostX => {
+            let x = state.object(this).map_or(0, |o| o.x_value);
+            chars.mana_cost.cmc() <= x
+        }
         Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::InZone(z) => {
@@ -225,6 +234,25 @@ pub fn amount(
                 }
             }
             u32::from(colors.len())
+        }
+        // `SubtypeSet::BASIC_LANDS` is CR 305.6's five and is already the
+        // pool's one spelling of them, so this asks that set rather than
+        // writing a sixth list of Plains/Island/Swamp/Mountain/Forest.
+        // Union first and intersect once: a domain count is over *types*,
+        // so two Forests are one and a Tundra is two.
+        Amount::BasicLandTypesAmong(filter) => {
+            let mut seen = baylee_core::types::SubtypeSet::EMPTY;
+            for id in state.zones.list(ZoneLocation::Battlefield) {
+                if let Some(obj) = state.object(*id)
+                    && matches(filter, state, obj, you, this)
+                {
+                    seen.union_with(obj.characteristics().subtypes);
+                }
+            }
+            baylee_core::types::SubtypeSet::BASIC_LANDS
+                .iter()
+                .filter(|t| seen.contains(*t))
+                .count() as u32
         }
         Amount::SourcePower => state
             .object(this)
@@ -559,9 +587,9 @@ mod tests {
     use crate::object::ObjectKind;
     use crate::state::CardLookup;
     use baylee_cards_dsl::KeywordSet;
-    use baylee_core::ids::CardIndex;
+    use baylee_core::ids::{CardIndex, SubtypeId};
     use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController, SeatSpec};
-    use baylee_core::types::TypeSet;
+    use baylee_core::types::{SubtypeSet, TypeSet};
 
     /// No cards: these tests are about keywords, not about whichever
     /// printed card happens to carry one.
@@ -618,6 +646,138 @@ mod tests {
         b.toughness = Some(1);
         b.keywords = keywords;
         id
+    }
+
+    /// A land on `controller`'s battlefield carrying `subtypes`.
+    fn land(state: &mut GameState, controller: PlayerId, subtypes: &[SubtypeId]) -> ObjectId {
+        let name = state.names.intern("Test Land");
+        let id = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let b = state.object_mut(id).expect("just created").base_mut();
+        b.types = TypeSet::LAND;
+        b.subtypes = SubtypeSet::from_slice(subtypes);
+        id
+    }
+
+    /// Domain counts **types**, and that is the whole reason it is a variant
+    /// of its own rather than either of the two amounts that were already
+    /// there. `Amount::CountOf` counts objects, so two Forests would answer
+    /// 2 where the card wants 1 and a Tundra 1 where it wants 2; a land is
+    /// colourless, so `Amount::DistinctColorsAmong` answers 0 for any board
+    /// of them. Both readings are asserted here beside the right one, so a
+    /// later simplification back onto either is a red test rather than a
+    /// card that quietly pumps by the wrong number.
+    #[test]
+    fn a_domain_count_is_over_basic_land_types_and_not_over_lands() {
+        use baylee_core::generated::subtypes::land;
+        static DOMAIN: Amount = Amount::BasicLandTypesAmong(&Filter::YOUR_LAND);
+        static YOUR_LANDS: Filter = Filter::YOUR_LAND;
+
+        let mut state = empty_state();
+        let forest = land(&mut state, P0, &[land::FOREST]);
+        let count = |state: &GameState| self::amount(&DOMAIN, state, P0, forest, None);
+
+        assert_eq!(count(&state), 1, "one Forest is one basic land type");
+        land(&mut state, P0, &[land::FOREST]);
+        assert_eq!(
+            count(&state),
+            1,
+            "a second Forest adds no type — this is where a count of objects parts company"
+        );
+        land(&mut state, P0, &[land::PLAINS, land::ISLAND]);
+        assert_eq!(count(&state), 3, "a Tundra is two types on one land");
+        land(&mut state, P1, &[land::MOUNTAIN, land::SWAMP]);
+        assert_eq!(
+            count(&state),
+            3,
+            "and the filter is `lands you control`: an opponent's Badlands is not yours"
+        );
+
+        // The two amounts this is not, over the same board.
+        assert_eq!(
+            self::amount(
+                &Amount::CountOf {
+                    filter: &YOUR_LANDS,
+                    zone: ZoneSel::Battlefield
+                },
+                &state,
+                P0,
+                forest,
+                None
+            ),
+            3,
+            "three lands, four types — a count of objects is not domain"
+        );
+        assert_eq!(
+            self::amount(
+                &Amount::DistinctColorsAmong(&YOUR_LANDS),
+                &state,
+                P0,
+                forest,
+                None
+            ),
+            0,
+            "and a land is colourless, whatever mana it makes"
+        );
+
+        // CR 305.6 names five and no other land type joins them.
+        land(&mut state, P0, &[land::DESERT, land::GATE]);
+        assert_eq!(
+            count(&state),
+            3,
+            "Desert and Gate are land types (CR 205.3i) and not basic ones"
+        );
+    }
+
+    /// `Filter::CmcAtMostX` reads its bound off the **source**, which is the
+    /// only place the announced number exists at match time: a filter is
+    /// evaluated with `this` in hand and with no `x` beside it. The pool
+    /// cards that print "mana value X or less" are searches, so the bound
+    /// being wrong is a tutor that finds a card it may not find.
+    ///
+    /// Zero is asserted beside the two live bounds because that is the
+    /// answer for an ability that announced nothing, and it has to *mean*
+    /// zero: a filter that could not read its bound and matched everything
+    /// would be a tutor with no price at all.
+    #[test]
+    fn a_mana_value_bound_of_x_is_read_off_the_ability_source() {
+        static WITHIN_X: Filter = Filter::CmcAtMostX;
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let free = creature(&mut state, P0, KeywordSet::EMPTY);
+        let two = creature(&mut state, P0, KeywordSet::EMPTY);
+        state
+            .object_mut(two)
+            .expect("just created")
+            .base_mut()
+            .mana_cost = baylee_core::mana::ManaCost::parse("{1}{G}");
+
+        let reaches = |state: &GameState, id: ObjectId| {
+            let obj = state.object(id).expect("on the battlefield");
+            matches(&WITHIN_X, state, obj, P0, source)
+        };
+
+        assert!(
+            reaches(&state, free),
+            "X is 0 and a cost of nothing is 0 or less"
+        );
+        assert!(
+            !reaches(&state, two),
+            "and a two-drop is not — an unreadable bound that matched would              be a tutor with no price"
+        );
+
+        state.object_mut(source).expect("just created").x_value = 2;
+        assert!(reaches(&state, two), "X = 2 reaches a two-drop");
+
+        state.object_mut(source).expect("just created").x_value = 1;
+        assert!(
+            !reaches(&state, two),
+            "and X = 1 does not: the bound is the announced number and not              merely whether one was announced"
+        );
     }
 
     /// Who `chooser` may point a creature-targeting spell at.

@@ -2857,3 +2857,294 @@ fn a_counted_pump_is_read_on_resolution_and_not_on_announcement() {
          made it a 3/3"
     );
 }
+
+/// Evasive Action is {1}{U} and counters a spell unless its controller pays
+/// {1} for each **basic land type among lands you control** — the domain
+/// count belongs to the instant's own controller, not to the spell's. The
+/// three lands under p0 hold only two basic land types (Island and Forest),
+/// and that number is only readable against the alternatives: one per land
+/// would ask for three, one per land of the spell's controller would ask for
+/// one off p1's three Swamps, and only "basic land type" asks for two. The
+/// declined tax is the other half — the Ritual never adds its three black and
+/// its card ends up in its owner's graveyard.
+#[test]
+fn evasive_action_taxes_by_the_basic_land_types_of_its_own_controllers_lands() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), forest()])
+        .hand(0, &[evasive_action()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // p1 has to be the active player to cast in a main phase, and its spell
+    // has to still be on the stack when the counter is aimed at it.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    let ritual = on_stack(&engine, dark_ritual()).expect("the Ritual is on the stack");
+
+    // Priority comes back around to p0 while the Ritual waits to resolve.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    cast_from_hand(&mut engine, p0, evasive_action());
+
+    // Targets are chosen as the spell is cast (CR 601.2c); with one legal
+    // spell on the stack the engine may name it itself.
+    if let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    {
+        assert_eq!(player, p0, "the caster names their own target");
+        assert!(
+            options.contains(&ritual),
+            "the Ritual is the spell on the stack: {options:?}"
+        );
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![ritual],
+                },
+            )
+            .unwrap();
+    }
+
+    // The tax is asked when Evasive Action *resolves*, not when it is cast:
+    // a counterspell goes on the stack above the Ritual and both seats get
+    // priority first (CR 117.3c). Reading the pending straight after the
+    // target choice reads that priority window and nothing else.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the Ritual's controller is asked for the domain tax, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p1, "the controller of the target spell pays");
+    assert_eq!(
+        mana, 2,
+        "Island and Forest are two basic land types among p0's three lands — \
+         three would be one per land and one would be the target's own Swamps"
+    );
+
+    // Declining is a real counter: the Ritual's three black never arrive.
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, dark_ritual()).is_some(),
+        "an unpaid tax counters the spell"
+    );
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Black),
+        2,
+        "the three Swamps paid for the Ritual and nothing else, so a Ritual \
+         that had resolved would have added {{B}}{{B}}{{B}} on top"
+    );
+    assert!(
+        in_graveyard(&engine, p0, evasive_action()).is_some(),
+        "and the instant itself resolved and went to its owner's graveyard"
+    );
+}
+
+/// Gaea's Might prints one sentence: "{G} — Domain — Target creature gets
+/// +1/+1 until end of turn for each basic land type among lands you control."
+/// The count is of *types* and not of lands, and it reads only lands **you**
+/// control, so the board is built to fail either misreading at once: two
+/// Forests and an Island under p0 are three lands carrying two basic land
+/// types, while a Swamp and a Mountain across the table would make it four if
+/// "you control" were skipped. A 1/1 that ends as a 3/3 is the only answer
+/// those two traps leave standing — a per-land count would read 4/4 and a
+/// table-wide count 5/5.
+#[test]
+fn gaeas_might_pumps_by_basic_land_types_among_your_own_lands() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), island(), quiet_creature()])
+        .hand(0, &[gaea_s_might()])
+        .battlefield(1, &[swamp(), mountain(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let mine = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is out");
+    let theirs = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is out");
+    assert_eq!(pt(&engine, mine), (1, 1), "a printed 1/1 before the spell");
+
+    cast_from_hand(&mut engine, p0, gaea_s_might());
+
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the caster aims it");
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "\"target creature\" reaches either side of the table: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .expect("the Elf was one of the options");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, mine),
+        (3, 3),
+        "Forest and Island are two basic land types — not the three lands \
+         that carry them, and not the four types the whole table has"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "and the creature the spell did not name is untouched"
+    );
+}
+
+/// Chord of Calling — {X}{G}{G}{G} instant with convoke: "Search your library
+/// for a creature card with mana value X or less, put it onto the battlefield,
+/// then shuffle."
+///
+/// X is announced and paid for rather than assumed, and that is most of what
+/// the scenario measures: four Forests make exactly the four mana of
+/// {1}{G}{G}{G}, and the pool is empty by the time the search asks — an engine
+/// that charged only {G}{G}{G} would still have one floating. The library is
+/// built out of Llanowar Elves, mana value 1, so "a creature card with mana
+/// value X or less" is a bound over real cards rather than an empty offer: the
+/// search shows creature cards and nothing else, and the one chosen leaves the
+/// library and stands on the battlefield.
+#[test]
+fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    // The 60-card backing deck is the pool the search reads, so it is a
+    // creature card of mana value 1 and not a basic land.
+    let mut engine = Duel::new(41, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[chord_of_calling()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Mana before the claim: castability is read off the pool.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Forests are four green mana, and nothing else is on the board"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "and no creature is — which is also why convoke has nothing to offer"
+    );
+
+    cast_with_floating(&mut engine, p0, chord_of_calling());
+    // CR 601.2b: X is announced before any cost is paid.
+    let Pending::ChooseNumber { player, min, max } = engine.pending().clone() else {
+        panic!("a spell with {{X}} asks for X, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the caster announces the value");
+    assert!(
+        min <= 1 && 1 <= max,
+        "X = 1 is one of the offers: {min}..={max}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(1))
+        .expect("the value the question itself enumerated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the seat that searched is the one asked");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::SearchLibrary,
+        "a library search and not a discard, a scry or a cost"
+    );
+    assert!(
+        max >= 1 && min <= 1,
+        "up to one card may be found: {min}..={max}"
+    );
+    assert!(
+        options.len() > 1,
+        "the backing deck is the library, so the search has cards to show: {}",
+        options.len()
+    );
+    for id in &options {
+        assert!(
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == llanowar_elves())),
+            "a creature card of mana value 1 is `X or less` for X = 1, and the \
+             library holds nothing else: {id:?}"
+        );
+    }
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{X}}{{G}}{{G}}{{G}} with X = 1 is four mana, and four is what the \
+         Forests made: an engine that fetched without charging the X would \
+         still have one floating"
+    );
+
+    let library_before = library_size(&engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("the card the search offered");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        all_on_battlefield(&engine, p0, llanowar_elves()).len(),
+        1,
+        "the found creature card is put onto the battlefield, and it is one \
+         card: the Elves drawn into hand are not creatures on the table"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "and it came out of the library it was searched in — a fetch that \
+         copied the card would leave this at `library_before`"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
+        "it was put onto the battlefield, not into a graveyard"
+    );
+}

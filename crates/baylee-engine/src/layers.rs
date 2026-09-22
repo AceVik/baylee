@@ -455,6 +455,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Attacking
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
+        | Filter::CmcAtMostX
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,
     }

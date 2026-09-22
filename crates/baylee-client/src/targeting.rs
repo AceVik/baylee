@@ -287,18 +287,21 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         Filter::CmcAtMost(n) => object.mana_value <= *n,
         Filter::CmcAtLeast(n) => object.mana_value >= *n,
         Filter::ToughnessAtMost(n) => object.toughness.is_some_and(|t| t <= *n),
-        // Five the view cannot answer, named rather than swept up. The first
+        // Six the view cannot answer, named rather than swept up. The first
         // three need the *source* object, which is a card in hand that has
         // not been cast and so has no chosen subtype, no attachment and no
         // identity on the battlefield to share. `HasKeyword` is a
         // `KeywordSet` against the view's flat `u128` and is left until
         // something needs it. `InZone` is answerable only for the zone the
         // caller already chose to iterate, which makes it a tautology here
-        // rather than a reading.
+        // rather than a reading. And `CmcAtMostX` is bounded by the X
+        // announced for the source, which is a number no view carries — the
+        // same refusal `baylee-ai`'s reader makes about it.
         Filter::MatchesChosenTypeOfSource
         | Filter::SharesSubtypeWithCommander
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
+        | Filter::CmcAtMostX
         | Filter::InZone(_) => return None,
     })
 }

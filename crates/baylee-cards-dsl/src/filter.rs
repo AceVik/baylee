@@ -77,6 +77,21 @@ pub enum Filter {
     HasKeyword(KeywordSet),
     /// Converted mana cost at most N.
     CmcAtMost(u32),
+    /// Mana value at most **X**, the value announced for the ability's own
+    /// source (CR 107.3a).
+    ///
+    /// Not [`Self::CmcAtMost`] with a number in it, and that is the whole
+    /// reason it exists: a card printing "a creature card with mana value X
+    /// or less" does not know the bound until it is cast, so every such card
+    /// was inexpressible. The number is read off the source object rather
+    /// than threaded through the matcher, because that is where the engine
+    /// already writes it — a filter is evaluated with the ability's source
+    /// in hand and with no announced value beside it.
+    ///
+    /// An ability that announces no X reads 0, which is what
+    /// [`crate::Amount::X`] does in the same position: a triggered ability
+    /// has no announcement to read.
+    CmcAtMostX,
     /// Converted mana cost at least N.
     CmcAtLeast(u32),
     /// Toughness at most N (Recruiter of the Guard).
