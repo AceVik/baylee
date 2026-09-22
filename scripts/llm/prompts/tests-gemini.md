@@ -181,4 +181,7 @@ du eine Tabelle aus, eine Zeile pro Karte:
 <Kartenname> | written | skip | <ein Satz>
 ```
 
+
+**Alle Kommentare, Doc-Kommentare und `assert!`-Meldungen im Rust-Code sind auf Englisch.** Dieses Repository ist durchgehend englisch geschrieben; dieser Prompt ist die einzige deutsche Datei in der Kette, und eine deutsche Zeile im Baum ist eine, die jemand von Hand übersetzen muss.
+
 ## Die Karten

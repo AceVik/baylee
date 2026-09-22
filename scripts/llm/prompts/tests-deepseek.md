@@ -121,3 +121,5 @@ Regeln:
 
 Antworte mit **genau einem** ```rust-Block: der Kartengriff und die eine
 `#[test]`-Funktion. Kein weiterer Text.
+
+**Alle Kommentare, Doc-Kommentare und `assert!`-Meldungen im Rust-Code sind auf Englisch.** Dieses Repository ist durchgehend englisch geschrieben; dieser Prompt ist die einzige deutsche Datei in der Kette, und eine deutsche Zeile im Baum ist eine, die jemand von Hand übersetzen muss.
