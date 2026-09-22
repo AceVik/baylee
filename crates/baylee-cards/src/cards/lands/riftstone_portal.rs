@@ -15,17 +15,17 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     faces = &[face!(name = "Riftstone Portal", types = TypeSet::LAND,),],
     coverage = Coverage::Partial(
-        "the graveyard clause is a static that grants lands you control an \
-         activated ability: StaticAbility has no zone to function from (its \
-         source is only read while it is a permanent on the battlefield) and \
-         ability-granting statics are not supported yet"
+        "a StaticAbility has no zone to function from: its source is read only \
+         while it is a permanent on the battlefield, so the graveyard clause \
+         never switches on"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         // NOT SUPPORTED: As long as this card is in your graveyard, lands you
-        // control have "{T}: Add {G} or {W}." — an ability-granting static
-        // functioning from the graveyard; `Modifier::GrantActivated` is not
-        // enforced (see "Ability-granting statics" in docs/card-dsl.md, M3+)
-        // and no `StaticAbility` says which zone its source functions from.
+        // control have "{T}: Add {G} or {W}." — the *grant* is expressible,
+        // and Chromatic Lantern writes that very sentence; what is missing is
+        // the zone. A `StaticAbility` has no field saying where its source
+        // functions from, and the layer projection walks the battlefield and
+        // the stack, so a card in a graveyard applies nothing.
     ],
 );

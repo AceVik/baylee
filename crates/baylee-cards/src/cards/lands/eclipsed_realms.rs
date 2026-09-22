@@ -3,9 +3,10 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {T}: Add one mana of any color. Spend this mana only to cast a spell of the chosen type or activate an ability of a source of the chosen type.
 //! Set: ECL #263 — Lorwyn Eclipsed | Scryfall ID: a174f0db-8b4f-4c37-9583-44c92d37b9c0 | Oracle ID: 5715ed43-395c-4877-99a7-8e28e7bf9dce
-// PARTIAL — the {C} ability, the any-color mana ability and the as-it-enters
-// type choice are built; the printed spend restriction and the printed list
-// of eight types are not expressible (see the NOT SUPPORTED note below).
+// PARTIAL — the {C} ability, the as-it-enters type choice and the any-color mana
+// restricted to the chosen type (Filter::MatchesChosenTypeOfSource — the Cavern
+// of Souls pattern) are built; the activation half of the spend restriction and
+// the printed list of eight types are not.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -19,17 +20,18 @@ card!(
         enter_modifiers = &[EnterModifier::ChooseSubtype],
     )],
     coverage = Coverage::Partial(
-        "the any-color mana's spend restriction — \"only to cast a spell of the chosen type \
-         or activate an ability of a source of the chosen type\" — has no variant: a \
-         ManaRestriction names spells and never an activation, and pool mana has no \
-         provenance; and the eight types the card prints are not sayable, \
-         EnterModifier::ChooseSubtype offering every creature type"
+        "the printed \"or activate an ability of a source of the chosen type\" — a \
+         ManaRestriction names spells and never an activation, so the mana is made and \
+         restricted to spells of the chosen type and to nothing else; and the eight types \
+         the card prints are not sayable, EnterModifier::ChooseSubtype offering every \
+         creature type"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: "Spend this mana only to cast a spell of the chosen
-        // type or activate an ability of a source of the chosen type." — the
-        // mana is made, and made unrestricted.
-        mana_ability!(&[Effect::mana_of_any_color()]),
+        // NOT SUPPORTED: "or activate an ability of a source of the chosen type." — the
+        // mana is made and is spendable on a spell of the chosen type, but no activation
+        // can be paid with it.
+        mana_ability!(&[Effect::mana_of_any_color()
+            .restricted(&Filter::MatchesChosenTypeOfSource, SpendRider::None)]),
     ],
 );

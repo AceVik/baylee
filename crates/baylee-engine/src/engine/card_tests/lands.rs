@@ -14368,7 +14368,19 @@ fn eclipsed_realms_chooses_subtype_on_entry_and_produces_colored_mana() {
         .unwrap();
 
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(
+        pool.restricted().len(),
+        1,
+        "the any-colour mana is restricted to the chosen type, which is where \
+         it has to land — an unrestricted blue here is the land this card was \
+         until the restriction was written"
+    );
+    assert_eq!(pool.restricted()[0].color, ManaColor::Blue);
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        0,
+        "and not in the plain pool"
+    );
     assert!(is_tapped(&engine, land));
 }
 
@@ -16685,17 +16697,19 @@ fn baxter_building_taps_for_four_mana_in_the_colors_its_controller_names() {
     );
 }
 
-/// Brotherhood Headquarters is a land and `Coverage::Partial`: its
-/// `{T}: Add {C}` half is built, while the second printed line — `{T}: Add
-/// one mana of any color`, spendable only on Assassin spells, freerunning
-/// spells and Assassin abilities — has no DSL representation. So the card is
-/// played as a real land drop and tapped for the colourless it does print,
-/// and the offer made for the permanent is read to show that the restricted
-/// any-color ability is not merely unrunnable but absent: one printed
-/// ability, no colour question, and one `{C}` in the pool with nothing on the
-/// stack (CR 605.3b).
+/// Brotherhood Headquarters is a land and `Coverage::Partial`: both printed
+/// mana abilities are built, and what is missing is two thirds of the second
+/// one's *spend restriction* — "a spell that has freerunning" and "an ability
+/// of an Assassin source" are unreachable, so the mana is restricted to the
+/// Assassin-spell half alone, which is narrower than the printing and never
+/// wider.
+///
+/// This leg plays the land as a real land drop, reads the offer to show that
+/// **both** routes are there, and taps for the colourless half. The
+/// restriction itself is the sibling test below, because both abilities cost
+/// `{T}` and one land can only be asked once.
 #[test]
-fn brotherhood_headquarters_taps_for_one_colorless_and_never_asks_for_a_color() {
+fn brotherhood_headquarters_offers_both_printed_mana_abilities() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(813, forest())
         .hand(0, &[brotherhood_headquarters()])
@@ -16724,9 +16738,9 @@ fn brotherhood_headquarters_taps_for_one_colorless_and_never_asks_for_a_color() 
     };
     let offered = deeds(&legal, &[land]);
     assert!(
-        matches!(offered[..], [(0, Deed::Ability(0))]),
-        "two mana abilities are printed and the partial build offers one, so \
-         there is no second route to press: {offered:?}"
+        matches!(offered[..], [(0, Deed::Ability(0)), (0, Deed::Ability(1))]),
+        "both printed mana abilities are offered — the colourless one and the \
+         any-colour one whose mana is restricted: {offered:?}"
     );
 
     activate(&mut engine, p0, brotherhood_headquarters(), 0);
@@ -16744,10 +16758,53 @@ fn brotherhood_headquarters_taps_for_one_colorless_and_never_asks_for_a_color() 
     assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "and the seat holds priority again, no colour ever having been asked \
-         for: {:?}",
+        "and the seat holds priority again, the colourless half having asked \
+         no colour: {:?}",
         engine.pending()
     );
+}
+
+/// The restriction is the half worth proving, because restricted mana that
+/// landed in the ordinary pool would be a land strictly better than its
+/// printing.
+///
+/// `ManaPool` keeps the two apart — `available(colour)` counts the plain
+/// counters and restricted mana lives in its own list — so what says the
+/// restriction is real is that the chosen colour is **not** available while
+/// the restricted list holds exactly it.
+#[test]
+fn brotherhood_headquarters_any_colour_mana_lands_restricted() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(814, forest())
+        .hand(0, &[brotherhood_headquarters()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, brotherhood_headquarters());
+    activate(&mut engine, p0, brotherhood_headquarters(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("\"add one mana of any color\" asks: {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 5, "any colour is all five");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.restricted().len(), 1, "one restricted mana was made");
+    assert_eq!(
+        pool.restricted()[0].color,
+        ManaColor::Blue,
+        "the colour that was asked for"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        0,
+        "and it is not in the ordinary pool — mana that could pay for anything \
+         is the card this land is not"
+    );
+    assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
 }
 
 /// Castle Garenbrig is `Coverage::Partial`: "This land enters tapped unless
@@ -25197,8 +25254,9 @@ fn wandering_fumarole_enters_tapped_and_animates_into_an_elemental() {
     };
     assert_eq!(
         legal.abilities.iter().filter(|(id, _)| *id == land).count(),
-        2,
-        "only printed abilities are present; the granted {{0}} switch ability is not offered"
+        3,
+        "the two printed abilities and the granted {{0}} switch the animation \
+         hands the land — this count was 2 for as long as the grant was dropped"
     );
 }
 
@@ -32211,5 +32269,226 @@ fn wanderwine_hub_enters_untapped_by_revealing_merfolk() {
     assert!(
         is_tapped(&engine2, land2),
         "with no Merfolk in hand, Wanderwine Hub enters tapped"
+    );
+}
+
+/// Forgotten Monument prints `{{T}}: Add {{C}}` and `Other Caves you control have "{{T}}, Pay 1 life: Add one mana of any color."`
+/// Under `Coverage::Implemented`, both abilities are fully supported. This test verifies that Forgotten
+/// Monument taps for colorless mana without life loss, grants the activated mana ability to another controlled Cave
+/// (`captivating_cave()`) which pays 1 life and adds mana of any color, and confirms that Forgotten Monument does not
+/// grant the ability to itself, to non-Cave lands, or to an opponent's Cave.
+#[test]
+fn forgotten_monument_grants_mana_ability_to_other_caves_you_control() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forgotten_monument(), captivating_cave(), forest()])
+        .battlefield(1, &[cavernous_maw()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let monument =
+        on_battlefield(&engine, p0, forgotten_monument()).expect("monument on battlefield");
+    let cave =
+        on_battlefield(&engine, p0, captivating_cave()).expect("captivating cave on battlefield");
+    let my_forest = on_battlefield(&engine, p0, forest()).expect("forest on battlefield");
+    let opp_cave =
+        on_battlefield(&engine, p1, cavernous_maw()).expect("opponent cave on battlefield");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+
+    assert!(
+        legal
+            .abilities
+            .contains(&(cave, crate::choice::GRANTED_ABILITY)),
+        "another controlled Cave receives the granted ability"
+    );
+    assert!(
+        !legal
+            .abilities
+            .contains(&(monument, crate::choice::GRANTED_ABILITY)),
+        "Forgotten Monument does not grant the ability to itself"
+    );
+    assert!(
+        !legal
+            .abilities
+            .contains(&(my_forest, crate::choice::GRANTED_ABILITY)),
+        "non-Cave land does not receive the granted ability"
+    );
+
+    // Forgotten Monument taps for colorless mana without life loss.
+    activate(&mut engine, p0, forgotten_monument(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "monument produces {{C}}"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "tapping monument does not cost life"
+    );
+    assert!(is_tapped(&engine, monument), "monument is tapped");
+
+    // Activating the granted ability on the other Cave costs {T} and 1 life, and adds any color.
+    activate(
+        &mut engine,
+        p0,
+        captivating_cave(),
+        crate::choice::GRANTED_ABILITY,
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "paying 1 life for the granted ability"
+    );
+    assert!(is_tapped(&engine, cave), "cave is tapped");
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5, "grants mana of any color");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "added one red mana"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "mana ability resolves without using the stack"
+    );
+
+    // Verify that on the opponent's turn, their Cave does not have the granted ability.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p1
+    });
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority for p1, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, index)| *id == opp_cave && *index == crate::choice::GRANTED_ABILITY),
+        "opponent Cave does not receive the grant"
+    );
+}
+
+/// Wandering Fumarole enters tapped, prints `{{T}}: Add {{U}} or {{R}}`, and
+/// `{{2}}{{U}}{{R}}: Until end of turn, this land becomes a 1/4 blue and red Elemental creature with "{{0}}: Switch this creature's power and toughness until end of turn." It's still a land.`
+/// Under `Coverage::Implemented`, the granted switch ability is implemented via `Modifier::GrantActivated`.
+/// This test plays the land tapped, passes to the next turn so it untaps, floats `{{2}}{{U}}{{R}}` with `tap_all_mana_but`,
+/// animates the land into a 1/4 blue and red Elemental land creature, and activates the granted `{{0}}` ability at
+/// `crate::choice::GRANTED_ABILITY` to switch its power and toughness to 4/1 and back to 1/4.
+#[test]
+fn wandering_fumarole_enters_tapped_animates_and_switches_pt() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), mountain(), mountain()])
+        .hand(0, &[wandering_fumarole()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, wandering_fumarole());
+    assert!(
+        entered_tapped(&engine, land),
+        "Wandering Fumarole enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    // Float {2}{U}{R} while keeping Wandering Fumarole untapped.
+    tap_all_mana_but(&mut engine, p0, Some(wandering_fumarole()));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        2
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        2
+    );
+
+    // Activate ability 1 ({2}{U}{R} animation).
+    activate(&mut engine, p0, wandering_fumarole(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, land), (1, 4), "animated land is a 1/4");
+    let chars = engine
+        .state()
+        .object(land)
+        .expect("land exists")
+        .characteristics();
+    assert!(chars.types.contains(TypeSet::CREATURE));
+    assert!(chars.types.contains(TypeSet::LAND), "it is still a land");
+    assert!(
+        chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ELEMENTAL),
+        "gained Elemental subtype"
+    );
+    assert!(chars.colors.contains(baylee_core::color::Color::Blue));
+    assert!(chars.colors.contains(baylee_core::color::Color::Red));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, index)| *id == land && *index == crate::choice::GRANTED_ABILITY),
+        "the granted {{0}} switch ability is offered"
+    );
+
+    // Activate the granted {0} switch ability.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the switch ability activates");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, land),
+        (4, 1),
+        "power and toughness switched to 4/1"
+    );
+
+    // Activate the granted {0} switch ability again to switch back to 1/4.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the switch ability activates a second time");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, land),
+        (1, 4),
+        "power and toughness switched back to 1/4"
     );
 }

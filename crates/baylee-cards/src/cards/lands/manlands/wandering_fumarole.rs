@@ -4,9 +4,9 @@
 //! Oracle: {2}{U}{R}: Until end of turn, this land becomes a 1/4 blue and red Elemental creature with "{0}: Switch this creature's power and toughness until end of turn." It's still a land.
 //! Set: CLB #928 — Commander Legends: Battle for Baldur's Gate | Scryfall ID: ce3a6a8e-a01e-4d14-a6e5-c02c8205c749 | Oracle ID: 741c51f1-cfbe-4c29-ac8f-ca6bcd2652f9
 // IMPLEMENTED — enters tapped, {T}: Add {U} or {R}, and the {2}{U}{R}
-// animation into a 1/4 blue and red Elemental that is still a land. The
-// animated creature's granted "{0}" switch ability is not supported, so
-// coverage is Partial.
+// animation into a 1/4 blue and red Elemental that is still a land and
+// carries the granted "{0}: Switch this creature's power and toughness
+// until end of turn".
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -21,9 +21,7 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     )],
-    coverage = Coverage::Partial(
-        "the animated creature's granted \"{0}: Switch this creature's power and toughness until end of turn\" — granting an activated ability is not read by the engine",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
         activated!(
@@ -49,11 +47,24 @@ card!(
                     Modifier::AddSubtype(creature::ELEMENTAL),
                     Duration::UntilEndOfTurn,
                 ),
-                // NOT SUPPORTED: the animated creature's "{0}: Switch this
-                // creature's power and toughness until end of turn" — granting
-                // an activated ability is not read by the engine
-                // (docs/card-dsl.md, "Ability-granting statics"), so the
-                // ability is dropped.
+                // The granted ability rides in the same animation, the shape
+                // Urza's Saga chapter II is written in: one
+                // `Effect::continuous` carrying `GrantActivated`, so the
+                // switch ability appears exactly while the land is a creature
+                // and leaves with it. `Cost::FREE` is the printed "{0}".
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::GrantActivated {
+                        cost: Cost::FREE,
+                        effects: &[Effect::continuous(
+                            &Filter::This,
+                            Modifier::SwitchPT,
+                            Duration::UntilEndOfTurn,
+                        )],
+                        mana_ability: false,
+                    },
+                    Duration::UntilEndOfTurn,
+                ),
             ],
         ),
     ],

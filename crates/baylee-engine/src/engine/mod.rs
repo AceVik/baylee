@@ -809,6 +809,8 @@ mod enter_tests;
 mod flashback_tests;
 
 #[cfg(test)]
+mod granted_this_tests;
+#[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
 mod investigate_tests;

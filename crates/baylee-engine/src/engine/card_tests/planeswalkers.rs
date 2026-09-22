@@ -601,7 +601,8 @@ fn wrenn_and_realmbreaker_plus_one_animates_land_with_vigilance_hexproof_haste()
         "target land is not initially a creature"
     );
 
-    activate(&mut engine, p0, wrenn_and_realmbreaker(), 0);
+    // The static grant is ability 0, in printed order, so the +1 is 1.
+    activate(&mut engine, p0, wrenn_and_realmbreaker(), 1);
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!(
             "expected target choice for +1 ability, got {:?}",
@@ -696,4 +697,153 @@ fn grist_offers_only_the_ability_that_is_written() {
          that number has moved, the `NOT SUPPORTED` notes on the card and \
          this test both need rereading"
     );
+}
+
+/// Wrenn and Realmbreaker prints `Lands you control have "{{T}}: Add one mana of any color."` and
+/// `+1: Up to one target land you control becomes a 3/3 Elemental creature with vigilance, hexproof, and haste until your next turn. It's still a land.`
+/// Under `Coverage::Partial`, the static mana grant and +1 animation are implemented, while the −2 selection and −7 permanent casting are omitted.
+/// This test verifies that Wrenn starts with 4 loyalty, grants an any-color mana ability to controlled lands (used by `forest()` to produce black mana),
+/// Wrenn and Realmbreaker prints "Lands you control have \"{T}: Add one mana
+/// of any color.\"" — the same static Chromatic Lantern prints, and the half
+/// this card silently dropped for as long as `Modifier::GrantActivated` was
+/// listed as unenforced.
+///
+/// Both directions are asserted: a land under this seat is offered the
+/// granted ability, and a land across the table is not. One of them alone
+/// would pass on a grant that reached every land on the battlefield.
+#[test]
+fn wrenn_and_realmbreaker_grants_your_lands_any_colour_mana() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wrenn_and_realmbreaker(), forest()])
+        .battlefield(1, &[mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_forest = on_battlefield(&engine, p0, forest()).expect("Forest on battlefield");
+    let opp_mountain =
+        on_battlefield(&engine, p1, mountain()).expect("opponent Mountain on battlefield");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal
+            .abilities
+            .contains(&(my_forest, crate::choice::GRANTED_ABILITY)),
+        "a land this seat controls is offered the granted any-colour ability"
+    );
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, index)| *id == opp_mountain && *index == crate::choice::GRANTED_ABILITY),
+        "and a land across the table is not — \"lands you control\""
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: my_forest,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the granted mana ability activates");
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5, "\"one mana of any color\" is all five");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "a Forest made black, which is the whole point of the sentence"
+    );
+    assert!(is_tapped(&engine, my_forest), "and it paid its own {{T}}");
+}
+
+/// The +1: "Up to one target land you control becomes a 3/3 Elemental
+/// creature with vigilance, hexproof, and haste until your next turn. It's
+/// still a land."
+///
+/// Ability index 1, because the static grant above is ability 0 — printed
+/// order, the way Chromatic Lantern writes it.
+#[test]
+fn wrenn_and_realmbreaker_plus_one_animates_a_land_you_control() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wrenn_and_realmbreaker(), plains()])
+        .battlefield(1, &[mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wrenn =
+        on_battlefield(&engine, p0, wrenn_and_realmbreaker()).expect("Wrenn on battlefield");
+    let my_plains = on_battlefield(&engine, p0, plains()).expect("Plains on battlefield");
+    let opp_mountain =
+        on_battlefield(&engine, p1, mountain()).expect("opponent Mountain on battlefield");
+    assert_eq!(
+        counters_on(&engine, wrenn, CounterKind::Loyalty),
+        4,
+        "she arrives on four"
+    );
+
+    activate(&mut engine, p0, wrenn_and_realmbreaker(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("\"target land you control\" asks: {:?}", engine.pending());
+    };
+    assert!(options.contains(&my_plains), "a land this seat controls");
+    assert!(
+        !options.contains(&opp_mountain),
+        "and not one across the table"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![my_plains],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        counters_on(&engine, wrenn, CounterKind::Loyalty),
+        5,
+        "the +1 is paid before the ability resolves"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    let chars = engine
+        .state()
+        .object(my_plains)
+        .expect("plains exists")
+        .characteristics();
+    assert!(chars.types.contains(TypeSet::LAND), "it's still a land");
+    assert!(
+        chars.types.contains(TypeSet::CREATURE),
+        "and now a creature"
+    );
+    assert_eq!(pt(&engine, my_plains), (3, 3), "a 3/3");
+    assert!(
+        chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ELEMENTAL)
+    );
+
+    let kw = keywords(&engine, my_plains);
+    assert!(kw.contains(KeywordSet::VIGILANCE), "vigilance");
+    assert!(kw.contains(KeywordSet::HEXPROOF), "hexproof");
+    assert!(kw.contains(KeywordSet::HASTE), "haste");
 }
