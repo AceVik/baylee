@@ -5151,15 +5151,15 @@ fn leonin_scimitar() -> CardIndex {
     card_index("cde26d69-f3e7-4dd0-a53b-cd0ec812d717")
 }
 
-/// Leonin Scimitar druckt zwei Zeilen: "Equipped creature gets +1/+1" und
-/// "Equip {1}". Beide sind nur zusammen etwas wert — die zweite muss die
-/// erste an genau die Kreatur binden, die die Ausrüstungs-Frage genannt hat
-/// —, also steht neben dem Träger ein zweiter Elf unter derselben Kontrolle
-/// und ein dritter über dem Tisch: nur der erste darf sich ändern, und
-/// `(2, 2)` gegen zweimal `(1, 1)` schließt "creatures you control" und "the
-/// whole table" gleichzeitig aus. Bezahlt wird aus drei Plains, die beide
-/// Elfen stehen lassen, damit der Träger nicht selbst für sein eigenes
-/// Schwert getappt wurde.
+/// Leonin Scimitar prints two lines: "Equipped creature gets +1/+1" and
+/// "Equip {1}". Both are only worth anything together — the second must
+/// bind the first to exactly the creature that the equip question named —,
+/// so next to the bearer stands a second Elf under the same control and a
+/// third across the table: only the first may change, and `(2, 2)` versus
+/// two times `(1, 1)` simultaneously rules out "creatures you control" and
+/// "the whole table". Payment is made from three Plains, which leave both
+/// Elves standing, so that the bearer was not itself tapped for its own
+/// sword.
 #[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
 #[test]
 fn leonin_scimitar_arms_only_the_creature_it_is_attached_to() {

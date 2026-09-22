@@ -39956,16 +39956,16 @@ fn urza_s_cave() -> CardIndex {
 
 // One printed card, played end to end: the length is the card's.
 #[allow(clippy::too_many_lines)]
-/// Urza's Cave ist ein Land mit zwei gedruckten Zeilen: `{T}: Add {C}` und
-/// der aktivierten `{3}, {T}, Sacrifice this land: Search your library for a
-/// land card, put it onto the battlefield tapped, then shuffle`. Drei der
-/// vier Wälder werden für die `{3}` getappt, der vierte bleibt absichtlich
-/// stehen — so ist „kommt getappt ins Spiel" eine Aussage über das gesuchte
-/// Land und nicht über ein Brett, auf dem ohnehin alles liegt. Dass die
-/// Fähigkeit ihre eigene Quelle opfert, liest der Test an beiden Enden ab:
-/// die Höhle ist vom Schlachtfeld verschwunden und liegt im Friedhof, der
-/// Pool ist leer, und aus der Bibliothek ist genau eine Karte weniger
-/// geworden.
+/// Urza's Cave is a land with two printed lines: `{T}: Add {C}` and the
+/// activated `{3}, {T}, Sacrifice this land: Search your library for a
+/// land card, put it onto the battlefield tapped, then shuffle`. Three
+/// of the four Forests are tapped for the `{3}`, the fourth deliberately
+/// stays untapped — that way "enters tapped" is a statement about the
+/// searched land and not about a board on which everything is lying
+/// anyway. That the ability sacrifices its own source is read by the test
+/// at both ends: the Cave is gone from the battlefield and lies in the
+/// graveyard, the pool is empty, and the library has become exactly one
+/// card smaller.
 #[test]
 fn urza_s_cave_fetches_a_land_tapped_and_sacrifices_itself() {
     let p0 = PlayerId::new(0);
@@ -39980,9 +39980,9 @@ fn urza_s_cave_fetches_a_land_tapped_and_sacrifices_itself() {
     assert_eq!(forests.len(), 4, "four Forests were dealt");
     let spared = forests[3];
 
-    // Drei der vier Wälder bezahlen die {3}; der vierte bleibt absichtlich
-    // ungetappt und ist die Kontrolle weiter unten. Die Höhle wird
-    // zurückgehalten, weil ihre eigene {T}-Fähigkeit gleich bezahlt wird.
+    // Three of the four Forests pay the {3}; the fourth deliberately stays
+    // untapped and is the control further down. The Cave is held back,
+    // because its own {T} ability is paid right away.
     tap_mana_where(&mut engine, p0, |id| id != cave && id != spared);
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
@@ -40015,8 +40015,8 @@ fn urza_s_cave_fetches_a_land_tapped_and_sacrifices_itself() {
     let library_before = library_size(&engine, p0);
     activate(&mut engine, p0, urza_s_cave(), 1);
 
-    // Die Kosten sind der letzte Schritt der Aktivierung (CR 601.2h), also
-    // steht beides schon fest, während die Suche noch auf dem Stapel liegt.
+    // The costs are the last step of activation (CR 601.2h), so both are
+    // already fixed while the search is still on the stack.
     assert!(
         on_battlefield(&engine, p0, urza_s_cave()).is_none(),
         "the Cave sacrificed itself to pay for its own ability"
@@ -44031,15 +44031,16 @@ fn sheltered_thicket() -> CardIndex {
     card_index("db8d8643-3d0b-4f20-bf53-f4cd26a0e8df")
 }
 
-/// Sheltered Thicket druckt drei Zeilen: "This land enters tapped", "Cycling
-/// {2}" und, weil es Mountain und Forest ist, "{T}: Add {R} or {G}". Gespielt
-/// wird die Karte von der Hand und nicht hingesetzt — `starting_battlefield`
-/// ist eine Platzierung ohne Eintritt (CR 614.1c), die das getappte Ankommen
-/// gar nicht erst vorführen würde —, während die zweite Handkopie zyklisiert:
-/// nur so steht "Discard this card" im Friedhof und das Land daneben weiterhin
-/// auf dem Schlachtfeld. Die Manazeile wird an der hingesetzten Kopie gelesen,
-/// die noch steht, weil ein getappt angekommenes Land in seinem Ankunftszug
-/// nichts tappen kann.
+/// Sheltered Thicket prints three lines: "This land enters tapped", "Cycling
+/// {2}" and, because it is a Mountain and a Forest, "{T}: Add {R} or {G}".
+/// The card is played from hand and not put onto the battlefield —
+/// `starting_battlefield` is a placement without entering (CR 614.1c),
+/// which would not demonstrate the tapped arrival at all —, while the
+/// second hand copy is cycled: only that way does "Discard this card" lie
+/// in the graveyard and the land next to it remains on the battlefield.
+/// The mana line is read on the put-onto-the-battlefield copy, which
+/// still stands because a land that entered tapped cannot tap for anything
+/// in its turn of arrival.
 #[test]
 fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
     let p0 = PlayerId::new(0);
@@ -44050,7 +44051,7 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    // Von der Hand gespielt: die eine Kopie kommt getappt an.
+    // Played from hand: the one copy enters tapped.
     let played = play_land(&mut engine, p0, sheltered_thicket());
     assert!(
         entered_tapped(&engine, played),
@@ -44062,27 +44063,27 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
         types(&engine, played)
     );
 
-    // Cycling {2} aus der Hand: die zwei Wälder zahlen, die zweite Kopie ist
-    // die Karte, die geht, und "Draw a card" holt genau eine zurück.
+    // Cycling {2} from hand: the two Forests pay, the second copy is the
+    // card that goes, and "Draw a card" brings exactly one back.
     let library_before = library_size(&engine, p0);
     tap_all_mana_but(&mut engine, p0, Some(sheltered_thicket()));
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         2,
-        "zwei Wälder, zwei Mana, und beide Thickets blieben stehen"
+        "two Forests, two mana, and both Thickets remained standing"
     );
     activate(&mut engine, p0, sheltered_thicket(), 1);
     pass_until(&mut engine, stack_is_empty);
 
     assert!(
         in_graveyard(&engine, p0, sheltered_thicket()).is_some(),
-        "\"Discard this card\": die zyklisierte Handkopie liegt im Friedhof"
+        "\"Discard this card\": the cycled hand copy lies in the graveyard"
     );
     assert_eq!(
         all_on_battlefield(&engine, p0, sheltered_thicket()).len(),
         2,
-        "die hingesetzte und die gespielte Kopie stehen weiter — der Friedhof \
-         hat die Handkarte bekommen und nicht das Land"
+        "the put-onto-the-battlefield and the played copy remain — the \
+         graveyard got the hand card and not the land"
     );
     assert_eq!(
         library_size(&engine, p0),
@@ -44095,7 +44096,7 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
         "die {{2}} kamen aus dem Pool"
     );
 
-    // Die Manazeile an der Kopie, die noch ungetappt steht, bei leerem Pool.
+    // The mana line on the copy that is still untapped, with an empty pool.
     let standing = all_on_battlefield(&engine, p0, sheltered_thicket())
         .into_iter()
         .find(|id| !is_tapped(&engine, *id))
@@ -44112,7 +44113,7 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
         options.contains(&ManaColor::Red) && options.contains(&ManaColor::Green),
         "\"{{R}} or {{G}}\": {options:?}"
     );
-    assert_eq!(options.len(), 2, "und keine dritte: {options:?}");
+    assert_eq!(options.len(), 2, "and no third: {options:?}");
     engine
         .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
         .expect("Grün war eines der angebotenen Felder");
@@ -44120,10 +44121,10 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 1, "die genannte Farbe");
     assert_eq!(pool.total(), 1, "ein Mana, ein Tap, und sonst nichts");
-    assert!(is_tapped(&engine, standing), "{{T}} war der Preis");
+    assert!(is_tapped(&engine, standing), "the {{T}} was the price");
     assert!(
         stack_is_empty(&engine),
-        "CR 605.3b: eine Mana-Fähigkeit benutzt keinen Stack"
+        "CR 605.3b: a mana ability does not use the stack"
     );
 }
 
@@ -46337,16 +46338,15 @@ fn ferrous_lake() -> CardIndex {
     card_index("62c15af0-40e1-407d-b056-7a3d909e3fdb")
 }
 
-/// Ferrous Lake steht als Land ohne Grundlandtyp auf dem Tisch, trägt also
-/// keine CR-305.6-Mana-Fähigkeit und hat keinen anderen Weg zu Mana als die
-/// gedruckte Zeile: "{1}, {T}: Add {U}{R}." Damit ist der Mana-Pool des
-/// Spielers die einzige Quelle für das {1} — mit leerem Pool darf die
-/// Fähigkeit gar nicht erst im Angebot stehen, und genau das ist der
-/// Gegenbeweis, dass der Preis gelesen und nicht nur gedruckt wird.
-/// Danach trägt eine einzige getappte Insel den ganzen Preis: das {1}
-/// verschwindet aus dem Pool, und übrig bleibt exakt ein blaues und ein
-/// rotes Mana — die rote Hälfte kann keine andere Karte auf diesem Brett
-/// erzeugt haben.
+/// Ferrous Lake sits on the table as a land without a basic land type, so it
+/// has no CR-305.6 mana ability and no other way to mana than the printed
+/// line: "{1}, {T}: Add {U}{R}." Thus the player's mana pool is the only
+/// source for the {1} — with an empty pool the ability may not even be in
+/// the offer, and that is exactly the counterproof that the cost is read
+/// and not merely printed. After that, a single tapped Island carries the
+/// whole cost: the {1} disappears from the pool, and exactly one blue and
+/// one red mana remain — the red half cannot have been produced by any
+/// other card on this board.
 #[test]
 fn ferrous_lake_charges_one_generic_for_a_blue_and_a_red() {
     let p0 = PlayerId::new(0);
@@ -48592,17 +48592,16 @@ fn gruul_guildgate_enters_tapped_and_taps_for_either_of_its_two_colors() {
     assert_eq!(pool.total(), 1, "one mana, off one tap");
 }
 
-/// Henge of Ramos ist ein Land aus zwei Mana-Fähigkeiten und sonst nichts:
-/// "{T}: Add {C}" und "{2}, {T}: Add one mana of any color." Beide Hälften
-/// werden gespielt, weil sie sich in genau der Weise unterscheiden, in der
-/// eine Mana-Fähigkeit falsch gelesen werden kann — die zweite kostet zwei
-/// Mana *zusätzlich* zu ihrem eigenen Tapsymbol, also trägt das Angebot sie
-/// nur, solange der Pool sie deckt (CR 601.2h) — und weil die Frage, die sie
-/// stellt, der ganze Farbkreis ohne Colorless ist (CR 105.4). Der {2}-Tap
-/// wird mit zwei zuerst getappten Wäldern bezahlt, während der Henge als die
-/// zurückbehaltene Quelle benannt ist; der blanke {T} wird einen Zug später
-/// gelesen, wenn der Enttappschritt das Land wieder hingestellt hat und der
-/// Pool leer ist, damit "ein Colorless und sonst nichts" exakt ist.
+/// Henge of Ramos is a land made of two mana abilities and nothing else:
+/// "{T}: Add {C}" and "{2}, {T}: Add one mana of any color." Both halves are
+/// played because they differ in exactly the way a mana ability can be
+/// misread — the second costs two mana *in addition to* its own tap symbol,
+/// so the offer carries it only as long as the pool covers it (CR 601.2h) —
+/// and because the question it asks is the whole color wheel without
+/// colorless (CR 105.4). The {2} tap is paid with two Forests tapped first,
+/// while the Henge is named as the held-back source; the bare {T} is read one
+/// turn later, when the untap step has put the land back up and the pool is
+/// empty, so that "a colorless and nothing else" is exact.
 fn henge_of_ramos() -> CardIndex {
     card_index("829474df-6413-4323-aef6-f878cb0e797c")
 }
@@ -48627,13 +48626,13 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         0,
-        "der Pool ist leer, bevor irgendetwas getappt wird"
+        "the pool is empty before anything is tapped"
     );
 
-    // Die {2} ist ein echter Preis und das Angebot wird am Pool gelesen
-    // (CR 601.2h): ohne schwebendes Mana steht die zweite Fähigkeit nicht
-    // zur Wahl, während die erste — deren ganzer Preis ihr eigenes Tapsymbol
-    // ist — es tut.
+    // The {2} is a real cost and the offer is read at the pool
+    // (CR 601.2h): without floating mana, the second ability is not
+    // available to choose, while the first — whose entire cost is its own
+    // tap symbol — is.
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!(
             "der Sitz hat eine ruhige Hauptphase, got {:?}",
@@ -48642,7 +48641,7 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
     };
     assert!(
         !legal.abilities.contains(&(henge, 1)),
-        "{{2}} ist aus einem leeren Pool nicht bezahlbar"
+        "{{2}} is not payable from an empty pool"
     );
     assert!(
         legal.abilities.contains(&(henge, 0)),
@@ -48650,13 +48649,13 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
         legal.abilities
     );
 
-    // Die erste Hälfte: {2}, {T} für eine Farbe nach Wahl. Die beiden
-    // Wälder gehen zuerst, und der Henge ist die Quelle, die stehen bleibt.
+    // The first half: {2}, {T} for a color of your choice. The two
+    // Forests go first, and the Henge is the source that remains.
     tap_mana_except(&mut engine, p0, henge);
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         2,
-        "zwei Wälder, und der Henge steht noch"
+        "two Forests, and the Henge is still standing"
     );
     assert!(!is_tapped(&engine, henge));
 
@@ -48680,34 +48679,31 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
     assert_eq!(
         options.len(),
         5,
-        "die fünf Farben des Spiels, und Colorless ist gar keine (CR 105.4): {options:?}"
+        "the five colors of the game, and colorless is not one at all (CR 105.4): {options:?}"
     );
 
     engine
         .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .expect("Schwarz war eine der angebotenen Farben");
+        .expect("Black was one of the offered colors");
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(
         pool.available(ManaColor::Black),
         1,
-        "die benannte Farbe, und keine Vorgabe"
+        "the named color, and no default"
     );
     assert_eq!(
         pool.total(),
         1,
-        "drei Mana hinein, zwei als {{2}} wieder heraus"
+        "three mana in, two as {{2}} back out again"
     );
-    assert!(
-        is_tapped(&engine, henge),
-        "das {{T}} im Preis hat es getappt"
-    );
+    assert!(is_tapped(&engine, henge), "the {{T}} in the cost tapped it");
     assert!(
         stack_is_empty(&engine),
-        "CR 605.3b: eine Mana-Fähigkeit benutzt keinen Stack"
+        "CR 605.3b: a mana ability does not use the stack"
     );
 
-    // Die zweite Hälfte ist der blanke {T}: Add {C}, gelesen im nächsten Zug,
-    // wenn der Enttappschritt das Land wieder aufgestellt hat.
+    // The second half is the bare {T}: Add {C}, read on the next turn,
+    // when the untap step has untapped the land again.
     reach_their_main_phase(&mut engine, p1);
     assert!(
         walk_to_own_main(&mut engine, p0),
@@ -48732,10 +48728,7 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
         "ein Mana aus einem Tap — die zwei ungetappten Wälder daneben stehen \
          unberührt, sonst stünden hier drei"
     );
-    assert!(
-        is_tapped(&engine, henge),
-        "der eigene Tap war der ganze Preis"
-    );
+    assert!(is_tapped(&engine, henge), "its own tap was the whole price");
     assert!(
         stack_is_empty(&engine),
         "CR 605.3b: auch diese Hälfte benutzt keinen Stack"
@@ -55409,4 +55402,1590 @@ fn tarnished_citadel_taps_for_colorless_for_free_and_for_a_color_at_three_life()
         stack_is_empty(&engine),
         "still a mana ability, so nothing was ever on the stack (CR 605.3b)"
     );
+}
+
+fn bountiful_landscape() -> CardIndex {
+    card_index("2eb69a8f-9456-4852-b868-85ae609d3441")
+}
+
+/// `Bountiful Landscape` taps for `{{C}}`, cycles for `{{G}}{{U}}{{R}}`, and fetches a basic
+/// Forest, Island, or Mountain tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability sacrifices the land immediately and puts the chosen basic land
+/// onto the battlefield tapped.
+#[test]
+fn bountiful_landscape_fetches_tapped_basic_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1905, forest())
+        .hand(0, &[bountiful_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, bountiful_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, bountiful_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, bountiful_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, bountiful_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn castle_ardenvale() -> CardIndex {
+    card_index("f8f4fc60-725d-46d8-8e8f-e68e00d20589")
+}
+
+/// `Castle Ardenvale` enters tapped unless its controller controls a Plains, taps for `{{W}}`,
+/// and creates a 1/1 white Human creature token for `{{2}}{{W}}{{W}}, {{T}}` under `Coverage::Implemented`.
+/// Controlling a Plains allows it to enter untapped, where activating its token ability consumes four
+/// floating white mana and leaves the land tapped beside the new token.
+#[test]
+fn castle_ardenvale_enters_untapped_with_plains_and_creates_human_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1901, forest())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[castle_ardenvale()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, castle_ardenvale());
+    assert!(!entered_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(castle_ardenvale()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, castle_ardenvale(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(pt(&engine, tokens[0]), (1, 1));
+}
+
+fn contaminated_landscape() -> CardIndex {
+    card_index("28196fd9-00c9-4cd0-b603-0eec8511ec79")
+}
+
+/// `Contaminated Landscape` taps for `{{C}}`, cycles for `{{W}}{{U}}{{B}}`, and fetches a basic
+/// Plains, Island, or Swamp tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the fetch ability pays its tap and sacrifice cost, searches the library, and puts
+/// the selected basic land onto the battlefield tapped.
+#[test]
+fn contaminated_landscape_fetches_tapped_basic_island() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1906, island())
+        .hand(0, &[contaminated_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, contaminated_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, contaminated_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, contaminated_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, contaminated_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn deceptive_landscape() -> CardIndex {
+    card_index("1831fe12-dbe0-437f-8fc8-f01bbb701fe1")
+}
+
+/// `Deceptive Landscape` taps for `{{C}}`, cycles for `{{G}}{{W}}{{B}}`, and fetches a basic
+/// Plains, Swamp, or Forest tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the sacrifice cost and places the fetched basic land
+/// onto the battlefield tapped.
+#[test]
+fn deceptive_landscape_fetches_tapped_basic_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1907, forest())
+        .hand(0, &[deceptive_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, deceptive_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, deceptive_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, deceptive_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, deceptive_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn eroded_canyon() -> CardIndex {
+    card_index("852c6520-d148-4923-a312-05a9af821f24")
+}
+
+/// `Eroded Canyon` enters tapped, deals 1 damage to target opponent on entry,
+/// and taps for `{{U}}` or `{{R}}` under `Coverage::Implemented`.
+/// Playing the land places its enters-the-battlefield trigger on the stack, which targets the opponent
+/// and reduces their life total while leaving the land tapped.
+#[test]
+fn eroded_canyon_enters_tapped_and_burns_target_opponent() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(1904, forest())
+        .hand(0, &[eroded_canyon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, eroded_canyon());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let Pending::ChooseTargets {
+        player,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(player_options, vec![p1]);
+    assert_eq!((min, max), (1, 1));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[1].life, 19);
+    assert!(is_tapped(&engine, land));
+}
+
+fn foreboding_landscape() -> CardIndex {
+    card_index("bcfe1653-e602-4d38-abe7-bfcc7f203f9d")
+}
+
+/// `Foreboding Landscape` taps for `{{C}}`, cycles for `{{B}}{{G}}{{U}}`, and fetches a basic
+/// Swamp, Forest, or Island tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the tap and sacrifice cost immediately, resolving the search
+/// for a basic land onto the battlefield tapped.
+#[test]
+fn foreboding_landscape_fetches_tapped_basic_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1908, forest())
+        .hand(0, &[foreboding_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, foreboding_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, foreboding_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, foreboding_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, foreboding_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn gates_of_istfell() -> CardIndex {
+    card_index("6f85c26e-3c87-4112-ad1a-8a5708555a93")
+}
+
+/// `Gates of Istfell` enters tapped, taps for `{{W}}`, and sacrifices for `{{2}}{{W}}{{U}}{{U}}, {{T}}`
+/// to gain 2 life and draw two cards under `Coverage::Implemented`.
+/// After entering tapped and untapping on the subsequent turn, floating the activation mana allows it
+/// to be sacrificed, increasing life to 22 and drawing two cards.
+#[test]
+fn gates_of_istfell_enters_tapped_and_sacrifices_to_gain_life_and_draw() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(1919, forest())
+        .battlefield(0, &[plains(), plains(), island(), island(), forest()])
+        .hand(0, &[gates_of_istfell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, gates_of_istfell());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert!(!is_tapped(&engine, land));
+
+    let library_before = library_size(&engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(gates_of_istfell()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
+
+    activate(&mut engine, p0, gates_of_istfell(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, gates_of_istfell()).is_some());
+    assert_eq!(engine.state().players[0].life, 22);
+    assert_eq!(library_size(&engine, p0), library_before - 2);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn glacial_fortress() -> CardIndex {
+    card_index("027dd013-baa7-4111-b3c9-f4d1414e9c45")
+}
+
+/// `Glacial Fortress` enters tapped unless its controller controls a Plains or an Island,
+/// and taps for `{{W}}` or `{{U}}` under `Coverage::Implemented`.
+/// Controlling a Plains allows it to enter untapped and immediately produce blue mana through its choice.
+#[test]
+fn glacial_fortress_enters_untapped_with_plains_and_taps_for_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1902, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[glacial_fortress()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, glacial_fortress());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, glacial_fortress(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Blue));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
+}
+
+fn grove_of_the_burnwillows() -> CardIndex {
+    card_index("d33c3fbb-8306-4c2d-b0dd-88f12639da94")
+}
+
+/// `Grove of the Burnwillows` taps for `{{C}}` or taps for `{{R}}` or `{{G}}` while giving each
+/// opponent 1 life under `Coverage::Implemented`.
+/// Activating ability 1 prompts for a color choice, adds the chosen colored mana, and increases
+/// the opponent's life total from 20 to 21.
+#[test]
+fn grove_of_the_burnwillows_adds_colored_mana_and_gives_opponent_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1916, forest())
+        .hand(0, &[grove_of_the_burnwillows()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, grove_of_the_burnwillows());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, grove_of_the_burnwillows(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Red));
+    assert!(options.contains(&ManaColor::Green));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert_eq!(engine.state().players[1].life, 21);
+}
+
+fn kabira_crossroads() -> CardIndex {
+    card_index("b3dbb16f-fa8f-4406-bcf3-e647e4337619")
+}
+
+/// `Kabira Crossroads` enters tapped, gains 2 life on entry, and taps for `{{W}}`
+/// under `Coverage::Implemented`.
+/// Playing the land puts its enters-the-battlefield trigger on the stack, which resolves
+/// to raise its controller's life total from 20 to 22.
+#[test]
+fn kabira_crossroads_enters_tapped_and_gains_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1920, forest())
+        .hand(0, &[kabira_crossroads()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, kabira_crossroads());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[0].life, 22);
+    assert!(is_tapped(&engine, land));
+}
+
+fn lorehold_campus() -> CardIndex {
+    card_index("45773715-3f46-4671-b633-bf087e892e26")
+}
+
+/// `Lorehold Campus` enters tapped, taps for `{{R}}` or `{{W}}`, and scries 1 for `{{4}}, {{T}}`
+/// under `Coverage::Implemented`.
+/// After entering tapped and untapping on the next turn, floating four mana from basic lands
+/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn lorehold_campus_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(1923, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[lorehold_campus()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, lorehold_campus());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(lorehold_campus()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, lorehold_campus(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn maelstrom_of_the_spirit_dragon() -> CardIndex {
+    card_index("49e9fba7-8465-4bbb-95db-73a7e149f494")
+}
+
+/// `Maelstrom of the Spirit Dragon` taps for `{{C}}`, produces restricted mana of any color
+/// spendable only on Dragon or Omen spells, and searches for a Dragon card under `Coverage::Implemented`.
+/// Activating ability 1 prompts for a color choice and deposits restricted mana into `pool.restricted()`
+/// rather than general available mana.
+#[test]
+fn maelstrom_of_the_spirit_dragon_produces_restricted_dragon_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1909, forest())
+        .hand(0, &[maelstrom_of_the_spirit_dragon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, maelstrom_of_the_spirit_dragon());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, maelstrom_of_the_spirit_dragon(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 0);
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Red);
+    assert!(is_tapped(&engine, land));
+}
+
+fn new_benalia() -> CardIndex {
+    card_index("6e743fbf-b5b6-4176-a4f2-6933f521f2fe")
+}
+
+/// `New Benalia` enters tapped, scries 1 upon entering, and taps for `{{W}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and places its enters-the-battlefield trigger on the stack,
+/// which prompts for a scry choice through `ChoicePrompt::ScryBottom`.
+#[test]
+fn new_benalia_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1924, forest()).hand(0, &[new_benalia()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, new_benalia());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn night_market() -> CardIndex {
+    card_index("4cdb9f80-d08f-4986-99c8-573166d66082")
+}
+
+/// `Night Market` enters tapped, prompts for a color as it enters, and features
+/// cycling `{{3}}` under `Coverage::Implemented`.
+/// Playing one copy prompts for a color choice via `Pending::ChooseColor` and leaves it tapped,
+/// while a second copy in hand discards itself to cycle and draws a card.
+#[test]
+fn night_market_enters_tapped_chooses_color_and_cycles_from_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1903, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[night_market(), night_market()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = in_hand(&engine, p0, night_market()).expect("first copy in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: first })
+        .unwrap();
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseColor prompt on entry, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options.len(), 5);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+    assert!(entered_tapped(&engine, first));
+
+    let second = in_hand(&engine, p0, night_market()).expect("second copy in hand");
+    assert_ne!(first, second);
+
+    let library_before = library_size(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    activate(&mut engine, p0, night_market(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, night_market()).is_some());
+    assert_eq!(library_size(&engine, p0), library_before - 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn perilous_landscape() -> CardIndex {
+    card_index("e2b472dd-047d-47eb-9ebb-df6aa4b52dd4")
+}
+
+/// `Perilous Landscape` taps for `{{C}}`, cycles for `{{U}}{{R}}{{W}}`, and fetches a basic
+/// Island, Mountain, or Plains tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the sacrifice cost and places the selected basic land
+/// onto the battlefield tapped.
+#[test]
+fn perilous_landscape_fetches_tapped_basic_island() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1910, island())
+        .hand(0, &[perilous_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, perilous_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, perilous_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, perilous_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, perilous_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn prismari_campus() -> CardIndex {
+    card_index("3a3a1b35-ae4d-49d5-ae09-5a1693ad53ce")
+}
+
+/// `Prismari Campus` enters tapped, taps for `{{U}}` or `{{R}}`, and scries 1 for `{{4}}, {{T}}`
+/// under `Coverage::Implemented`.
+/// After entering tapped and untapping on the following turn, floating four mana from basic lands
+/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn prismari_campus_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(1925, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[prismari_campus()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, prismari_campus());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(prismari_campus()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, prismari_campus(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn quandrix_campus() -> CardIndex {
+    card_index("172f86b6-9580-4eb2-b7dc-2a44277d978b")
+}
+
+/// `Quandrix Campus` enters tapped, taps for `{{G}}` or `{{U}}`, and scries 1 for `{{4}}, {{T}}`
+/// under `Coverage::Implemented`.
+/// After entering tapped and untapping on the following turn, floating four mana from basic lands
+/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn quandrix_campus_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(1926, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[quandrix_campus()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, quandrix_campus());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(quandrix_campus()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, quandrix_campus(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn school_of_the_unseen() -> CardIndex {
+    card_index("5028dfe8-c505-4643-b493-760b1f19d47f")
+}
+
+/// `School of the Unseen` taps for `{{C}}` and filters mana via `{{2}}, {{T}}` to add one mana of any
+/// color under `Coverage::Implemented`.
+/// Tapping two Forests for generic mana allows ability 1 to be activated, consuming the two mana
+/// and adding the chosen color to the mana pool.
+#[test]
+fn school_of_the_unseen_filters_generic_mana_into_colored_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1922, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[school_of_the_unseen()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, school_of_the_unseen());
+    assert!(!entered_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(school_of_the_unseen()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    activate(&mut engine, p0, school_of_the_unseen(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(is_tapped(&engine, land));
+}
+
+fn seething_landscape() -> CardIndex {
+    card_index("2d8635bd-ed96-4bb1-8718-6962a0eee3d5")
+}
+
+/// `Seething Landscape` taps for `{{C}}`, cycles for `{{U}}{{B}}{{R}}`, and fetches a basic
+/// Island, Swamp, or Mountain tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the fetch ability pays the sacrifice cost and places the searched basic land
+/// onto the battlefield tapped.
+#[test]
+fn seething_landscape_fetches_tapped_basic_island() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1911, island())
+        .hand(0, &[seething_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, seething_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, seething_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, seething_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, seething_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn shattered_landscape() -> CardIndex {
+    card_index("7fbad3f2-66f6-4e3a-b9e0-1ddbcd94d42a")
+}
+
+/// `Shattered Landscape` taps for `{{C}}`, cycles for `{{R}}{{W}}{{B}}`, and fetches a basic
+/// Mountain, Plains, or Swamp tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the tap and sacrifice cost, placing the chosen basic land
+/// onto the battlefield tapped.
+#[test]
+fn shattered_landscape_fetches_tapped_basic_plains() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1912, plains())
+        .hand(0, &[shattered_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, shattered_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, shattered_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, shattered_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, shattered_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn sheltering_landscape() -> CardIndex {
+    card_index("5b932be0-4dac-41b9-9c59-f79e4cecc31a")
+}
+
+/// `Sheltering Landscape` taps for `{{C}}`, cycles for `{{R}}{{G}}{{W}}`, and fetches a basic
+/// Mountain, Forest, or Plains tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the sacrifice cost immediately and resolves the search
+/// for a matching basic land onto the battlefield tapped.
+#[test]
+fn sheltering_landscape_fetches_tapped_basic_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1913, forest())
+        .hand(0, &[sheltering_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, sheltering_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, sheltering_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, sheltering_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, sheltering_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn silverquill_campus() -> CardIndex {
+    card_index("2b65eb80-6fb7-429f-81f2-2fe125eba634")
+}
+
+/// `Silverquill Campus` enters tapped, taps for `{{W}}` or `{{B}}`, and scries 1 for `{{4}}, {{T}}`
+/// under `Coverage::Implemented`.
+/// After entering tapped and untapping on the following turn, floating four mana from basic lands
+/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn silverquill_campus_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(1927, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[silverquill_campus()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, silverquill_campus());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(silverquill_campus()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, silverquill_campus(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn sliver_hive() -> CardIndex {
+    card_index("e7286688-ffbe-4d25-ad55-27990f005368")
+}
+
+/// `Sliver Hive` taps for `{{C}}`, taps for restricted mana of any color spendable only on
+/// Sliver spells, and creates a 1/1 Sliver token for `{{5}}, {{T}}` under `Coverage::Implemented`.
+/// Activating ability 1 prompts for a color choice and deposits the mana into `pool.restricted()`
+/// rather than general available mana.
+#[test]
+fn sliver_hive_adds_restricted_sliver_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1921, forest()).hand(0, &[sliver_hive()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, sliver_hive());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, sliver_hive(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 0);
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Green);
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_abandon() -> CardIndex {
+    card_index("3baa8e38-ef93-435d-b63e-f781d5bfcc68")
+}
+
+/// `Temple of Abandon` enters tapped, scries 1 upon entering, and taps for `{{R}}` or `{{G}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn temple_of_abandon_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1928, forest())
+        .hand(0, &[temple_of_abandon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_abandon());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_deceit() -> CardIndex {
+    card_index("33b9b3bd-33ca-46f3-b8bb-a978bc3d1085")
+}
+
+/// `Temple of Deceit` enters tapped, scries 1 upon entering, and taps for `{{U}}` or `{{B}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn temple_of_deceit_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1929, forest())
+        .hand(0, &[temple_of_deceit()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_deceit());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_enlightenment() -> CardIndex {
+    card_index("89f43e27-790b-4ca1-8ba7-0882b31e0783")
+}
+
+/// `Temple of Enlightenment` enters tapped, scries 1 upon entering, and taps for `{{W}}` or `{{U}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn temple_of_enlightenment_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1930, forest())
+        .hand(0, &[temple_of_enlightenment()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_enlightenment());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn tranquil_landscape() -> CardIndex {
+    card_index("d4eb65d5-99fd-4daf-b7d3-8ebf99ee9c61")
+}
+
+/// `Tranquil Landscape` taps for `{{C}}`, cycles for `{{G}}{{W}}{{U}}`, and fetches a basic
+/// Forest, Plains, or Island tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the sacrifice cost and places the selected basic land
+/// onto the battlefield tapped.
+#[test]
+fn tranquil_landscape_fetches_tapped_basic_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1914, forest())
+        .hand(0, &[tranquil_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, tranquil_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, tranquil_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, tranquil_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, tranquil_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn twisted_landscape() -> CardIndex {
+    card_index("db659cae-2078-423e-a6ed-63898dbab87f")
+}
+
+/// `Twisted Landscape` taps for `{{C}}`, cycles for `{{B}}{{R}}{{G}}`, and fetches a basic
+/// Swamp, Mountain, or Forest tapped via `{{T}}`, sacrifice under `Coverage::Implemented`.
+/// Activating the search ability pays the sacrifice cost and puts the selected basic land
+/// onto the battlefield tapped.
+#[test]
+fn twisted_landscape_fetches_tapped_basic_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1915, forest())
+        .hand(0, &[twisted_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, twisted_landscape());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, twisted_landscape(), 2);
+    assert!(on_battlefield(&engine, p0, twisted_landscape()).is_none());
+    assert!(in_graveyard(&engine, p0, twisted_landscape()).is_some());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty());
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(entered_tapped(&engine, chosen));
+    assert_eq!(lands_of(&engine, p0).len(), 1);
+}
+
+fn underground_river() -> CardIndex {
+    card_index("857febd9-cdd7-4f8e-a852-d88084b0cfbc")
+}
+
+/// `Underground River` taps for `{{C}}` or taps for `{{U}}` or `{{B}}` while dealing 1 damage
+/// to its controller under `Coverage::Implemented`.
+/// Activating ability 1 prompts for a color choice, adds the chosen colored mana, and reduces
+/// its controller's life total by 1.
+#[test]
+fn underground_river_adds_colored_mana_and_deals_damage_to_controller() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1917, forest())
+        .hand(0, &[underground_river()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, underground_river());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, underground_river(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Blue));
+    assert!(options.contains(&ManaColor::Black));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
+    assert_eq!(engine.state().players[0].life, 19);
+}
+
+fn yavimaya_coast() -> CardIndex {
+    card_index("40b36bc6-c185-4bda-99e7-0118953c2c97")
+}
+
+/// `Yavimaya Coast` taps for `{{C}}` or taps for `{{G}}` or `{{U}}` while dealing 1 damage
+/// to its controller under `Coverage::Implemented`.
+/// Activating ability 1 prompts for a color choice, adds the chosen colored mana, and reduces
+/// its controller's life total from 20 to 19.
+#[test]
+fn yavimaya_coast_adds_colored_mana_and_deals_damage_to_controller() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1918, forest())
+        .hand(0, &[yavimaya_coast()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, yavimaya_coast());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, yavimaya_coast(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Green));
+    assert!(options.contains(&ManaColor::Blue));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert_eq!(engine.state().players[0].life, 19);
 }
