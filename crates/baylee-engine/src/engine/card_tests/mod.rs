@@ -2393,3 +2393,31 @@ fn spinerock_knoll() -> CardIndex {
 fn vesuva() -> CardIndex {
     card_index("4001b868-ada1-43f4-92e2-27ab0e80c913")
 }
+
+fn obscura_storefront() -> CardIndex {
+    card_index("dc31a6f8-6228-4a25-b937-5d8d78514333")
+}
+
+fn barad_dur() -> CardIndex {
+    card_index("88159872-d37d-4847-b048-e4a9af6437bd")
+}
+
+fn jidoor_aristocratic_capital() -> CardIndex {
+    card_index("bd513d9d-5aa2-4860-bd86-8b5d9430f133")
+}
+
+fn dungeon_descent() -> CardIndex {
+    card_index("f086a63c-0c62-4674-bd27-82e7aed12b1a")
+}
+
+fn howltooth_hollow() -> CardIndex {
+    card_index("463fc699-f4fc-4112-a6b3-6dcb642203e6")
+}
+
+fn grove_of_the_guardian() -> CardIndex {
+    card_index("f746612a-fbed-44ca-b2cc-5928e10cf4bb")
+}
+
+fn collector_ouphe() -> CardIndex {
+    card_index("0c4bc9ea-a5fd-4f44-96a1-5448eee228c4")
+}

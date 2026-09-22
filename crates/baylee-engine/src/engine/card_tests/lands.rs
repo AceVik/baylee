@@ -24508,3 +24508,258 @@ fn vesuva_enters_as_a_copy_of_a_land_on_the_battlefield() {
         "and taps for green off the type line it copied (CR 305.6)"
     );
 }
+
+/// Obscura Storefront is Brokers Hideout's sibling in a different wedge —
+/// "search your library for a basic Plains, Island, or Swamp card" — and it
+/// is played the same way for the same reason: the branch that finds
+/// **nothing** is what separates the three types it prints from "a basic
+/// land". A Forest is a basic land and is none of the three.
+///
+/// The file is `Coverage::Partial` for a reason this scenario cannot see and
+/// says so rather than leaving it: the printed "When you do" is a reflexive
+/// trigger (CR 603.12), and here the search sits in the same ability as the
+/// sacrifice. Nothing below responds to anything, so the two readings agree.
+#[test]
+fn obscura_storefront_searches_for_one_of_the_three_basics_it_names() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .hand(0, &[obscura_storefront()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let life_before = engine.state().players[0].life;
+    play_land(&mut engine, p0, obscura_storefront());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("the search asks which land, got {:?}", engine.pending())
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("a card the search offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let found = on_battlefield(&engine, p0, island()).expect("the Island it searched up");
+    assert!(
+        is_tapped(&engine, found),
+        "\"put it onto the battlefield tapped\""
+    );
+    assert!(
+        in_graveyard(&engine, p0, obscura_storefront()).is_some(),
+        "\"sacrifice it\" — and it went to its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before + 1,
+        "\"and you gain 1 life\""
+    );
+
+    // A deck of Forests: a basic land this card may not find.
+    let mut lean = Duel::new(SEED, forest())
+        .hand(0, &[obscura_storefront()])
+        .start();
+    keep_mulligans(&mut lean);
+    assert!(walk_to_own_main(&mut lean, p0), "p0 reaches its own main");
+    let lean_library = library_size(&lean, p0);
+    play_land(&mut lean, p0, obscura_storefront());
+    pass_until(&mut lean, |e| at_rest(e, p0));
+    assert_eq!(
+        library_size(&lean, p0),
+        lean_library,
+        "a Forest is a basic land and is not a Plains, Island or Swamp"
+    );
+}
+
+/// Barad-dûr enters tapped **unless you control a legendary creature**,
+/// which is the rarer half of the checkland sentence: the usual one looks at
+/// land types, and a reader that matched on a supertype without also
+/// requiring the card type would be satisfied by Barad-dûr itself, which is
+/// a legendary land sitting right there. So the negative branch has the land
+/// alone on an otherwise empty board, and the positive one adds
+/// Jin-Gitaxias.
+///
+/// The file is `Coverage::Partial` for the {X}{X}{B} amass ability, and
+/// nothing here reaches it: `Effect::Amass` carries a fixed number where the
+/// card prints X, and no `Condition` says a creature died this turn.
+#[test]
+fn barad_dur_checks_for_a_legendary_creature_and_not_for_itself() {
+    let p0 = PlayerId::new(0);
+
+    let mut bare = Duel::new(SEED, forest()).hand(0, &[barad_dur()]).start();
+    keep_mulligans(&mut bare);
+    assert!(walk_to_own_main(&mut bare, p0), "p0 reaches its own main");
+    let tapped = play_land(&mut bare, p0, barad_dur());
+    assert!(
+        entered_tapped(&bare, tapped),
+        "a legendary *land* is not a legendary creature, not even this one"
+    );
+
+    let mut held = Duel::new(SEED, forest())
+        .battlefield(0, &[jin_gitaxias()])
+        .hand(0, &[barad_dur()])
+        .start();
+    keep_mulligans(&mut held);
+    assert!(walk_to_own_main(&mut held, p0), "p0 reaches its own main");
+    let untapped = play_land(&mut held, p0, barad_dur());
+    assert!(
+        !entered_tapped(&held, untapped),
+        "Jin-Gitaxias is a legendary creature and turns the clause off"
+    );
+
+    activate(&mut held, p0, barad_dur(), 0);
+    assert_eq!(
+        held.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "{{T}}: Add {{B}}"
+    );
+}
+
+/// Jidoor is a Town — a land on the front of a card whose back is an
+/// Adventure — and the half worth playing is that the land drop is the land.
+/// "Overture" is a {4}{U}{U} sorcery on the other face, so a card offering
+/// its back out of hand would be a six-mana spell anybody could play for
+/// free as a land, which is exactly the fault twenty-one cards in this pool
+/// had this morning.
+///
+/// The file is `Coverage::Partial` for Overture's own text — "mills half
+/// their library, rounded down" has no `Amount` that halves — and the
+/// Adventure is therefore checked by its absence rather than cast.
+#[test]
+fn jidoor_is_played_as_the_town_and_taps_for_blue() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[jidoor_aristocratic_capital()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let land = play_land(&mut engine, p0, jidoor_aristocratic_capital());
+    assert!(
+        entered_tapped(&engine, land),
+        "\"This land enters tapped\" is unconditional"
+    );
+    assert!(
+        types(&engine, land).contains(TypeSet::LAND),
+        "what arrived is the Town and not the sorcery on its back"
+    );
+    assert!(
+        !types(&engine, land).contains(TypeSet::SORCERY),
+        "and the Adventure face stayed on the other side of the card"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    activate(&mut engine, p0, jidoor_aristocratic_capital(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "{{T}}: Add {{U}}"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "one blue and nothing else"
+    );
+}
+
+/// Dungeon Descent and Howltooth Hollow are the two remaining shelf taplands
+/// with one colour between them, and they are here for the same pair the
+/// other three were: entering tapped and then making the colour printed
+/// beside it, neither being worth asserting alone.
+///
+/// Both carry a `Coverage::Partial` for a mechanic with no vocabulary at all
+/// — venturing into the dungeon, and hideaway — and both of those hang off a
+/// *second* activated ability. So the ability list is read: one ability
+/// each, which is the gap made countable rather than described.
+#[test]
+fn the_last_two_shelf_taplands_enter_tapped_and_offer_one_ability_each() {
+    let p0 = PlayerId::new(0);
+
+    for (card, colour) in [
+        (dungeon_descent(), ManaColor::Colorless),
+        (howltooth_hollow(), ManaColor::Black),
+    ] {
+        let mut engine = Duel::new(SEED, forest()).hand(0, &[card]).start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+        let land = play_land(&mut engine, p0, card);
+        assert!(entered_tapped(&engine, land), "\"This land enters tapped\"");
+
+        cross_into_the_next_own_main(&mut engine, p0);
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        assert_eq!(
+            legal.abilities.iter().filter(|(id, _)| *id == land).count(),
+            1,
+            "the mana ability, and not the venture or hideaway one beside it"
+        );
+
+        activate(&mut engine, p0, card, 0);
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(colour),
+            1,
+            "the one colour its mana ability prints"
+        );
+        assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    }
+}
+
+/// Grove of the Guardian's token ability costs "Tap two untapped creatures
+/// you control", and `CostPart::TapOther` names exactly one permanent and
+/// carries no count — so the file is `Coverage::Partial` and the land offers
+/// its mana ability and nothing else.
+///
+/// That is what this pins, with two untapped creatures and five lands
+/// standing there to pay a price nobody is asked for. The assertion is not
+/// about a rule working; it is about a gap staying where the coverage flag
+/// says it is, and it is **meant to fail** the day the cost can be written.
+#[test]
+fn grove_of_the_guardian_offers_only_the_half_its_coverage_says_is_built() {
+    let p0 = PlayerId::new(0);
+    let mut grove = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                grove_of_the_guardian(),
+                quiet_creature(),
+                quiet_creature(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut grove);
+    reach_main_phase(&mut grove, p0);
+    let land = on_battlefield(&grove, p0, grove_of_the_guardian()).expect("the land is in play");
+    let Pending::Priority { legal, .. } = grove.pending().clone() else {
+        panic!("expected priority, got {:?}", grove.pending())
+    };
+    assert_eq!(
+        legal.abilities.iter().filter(|(id, _)| *id == land).count(),
+        1,
+        "only the mana ability, although two untapped creatures and five \
+         lands are standing here to pay for the other one"
+    );
+    activate(&mut grove, p0, grove_of_the_guardian(), 0);
+    assert_eq!(
+        grove.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "{{T}}: Add {{C}} is the half that is built"
+    );
+}
