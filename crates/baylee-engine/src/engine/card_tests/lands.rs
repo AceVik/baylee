@@ -26831,3 +26831,2843 @@ fn zanarkand_ancient_metropolis_enters_tapped_and_taps_for_green() {
     assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, land));
 }
+
+/// Accursed Duneyard prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}: Regenerate target Shade,
+/// Skeleton, Specter, Spirit, Vampire, Wraith, or Zombie.`
+///
+/// Under `Coverage::Partial`, the regenerate ability is omitted because the engine's
+/// `Effect` enum carries no regeneration variant. With two green mana floating from
+/// `forest()` lands, Accursed Duneyard untapped, and a controlled Zombie creature
+/// (`festering_goblin()`), ability index 1 is not offered in `legal.abilities`.
+/// Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
+#[test]
+fn accursed_duneyard_taps_for_colorless_and_omits_regenerate_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[accursed_duneyard(), forest(), forest(), festering_goblin()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let duneyard =
+        on_battlefield(&engine, p0, accursed_duneyard()).expect("accursed duneyard on battlefield");
+
+    // Float {2} from the two Forests while keeping Accursed Duneyard untapped.
+    tap_mana_except(&mut engine, p0, duneyard);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, duneyard));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(duneyard, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(duneyard, 1)),
+        "with {{2}} floating and a Zombie target present, ability 1 is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, accursed_duneyard(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.available(ManaColor::Green), 2);
+    assert_eq!(pool.total(), 3);
+    assert!(is_tapped(&engine, duneyard));
+}
+
+/// Amonkhet Raceway prints `Start your engines!`, `{{T}}: Add {{C}}.`, and
+/// `Max speed — {{T}}: Target creature gains haste until end of turn.`
+///
+/// Under `Coverage::Partial`, the speed mechanic and the Max speed condition have no
+/// DSL vocabulary and are omitted. Ability index 0 provides `{{T}}: Add {{C}}`, while
+/// ability index 1 is not offered in `legal.abilities` despite controlling an untapped creature
+/// (`llanowar_elves()`). Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
+#[test]
+fn amonkhet_raceway_taps_for_colorless_and_omits_speed_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[amonkhet_raceway(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let raceway =
+        on_battlefield(&engine, p0, amonkhet_raceway()).expect("amonkhet raceway on battlefield");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(raceway, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(raceway, 1)),
+        "under `Coverage::Partial`, Max speed haste ability is omitted despite creature on battlefield"
+    );
+
+    activate(&mut engine, p0, amonkhet_raceway(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(is_tapped(&engine, raceway));
+}
+
+/// Argoth, Sanctum of Nature prints `This land enters tapped unless you control a legendary
+/// green creature.`, `{{T}}: Add {{G}}.`, `{{2}}{{G}}{{G}}, {{T}}: Create a 2/2 green Bear creature
+/// token, then mill three cards. Activate only as a sorcery.`, and `(Melds with Titania, Voice of Gaea.)`
+///
+/// Under `Coverage::Partial`, `EnterModifier::TappedUnless` and the `{{T}}: Add {{G}}` mana ability
+/// are built; the Bear token creation and meld are omitted. Without a legendary green creature,
+/// playing this land enters tapped. After advancing to the next turn, it untaps, withholds
+/// ability index 1 despite floating `{{2}}{{G}}{{G}}` from four `forest()` lands, and taps for one green mana.
+#[test]
+fn argoth_sanctum_of_nature_enters_tapped_and_taps_for_green() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[argoth_sanctum_of_nature()])
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, argoth_sanctum_of_nature());
+    assert!(
+        entered_tapped(&engine, land),
+        "without a legendary green creature, Argoth enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    // Float {4} green mana while keeping Argoth untapped.
+    tap_mana_except(&mut engine, p0, land);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "ability 0 ({{T}}: Add {{G}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "under `Coverage::Partial`, Bear token ability is omitted despite floating {{2}}{{G}}{{G}}"
+    );
+
+    activate(&mut engine, p0, argoth_sanctum_of_nature(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 5);
+    assert_eq!(pool.total(), 5);
+    assert!(is_tapped(&engine, land));
+}
+
+/// Avishkar Raceway prints `Start your engines!`, `{{T}}: Add {{C}}.`, and
+/// `Max speed — {{3}}, {{T}}, Discard a card: Draw a card.`
+///
+/// Under `Coverage::Partial`, the speed mechanic and Max speed gate are omitted due to
+/// lacking DSL vocabulary. With three green mana floating from `forest()` lands, Avishkar Raceway
+/// standing untapped, and a card in hand to discard, ability index 1 is not offered in
+/// `legal.abilities`. Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
+#[test]
+fn avishkar_raceway_taps_for_colorless_and_omits_discard_draw_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[avishkar_raceway(), forest(), forest(), forest()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let raceway =
+        on_battlefield(&engine, p0, avishkar_raceway()).expect("avishkar raceway on battlefield");
+
+    // Float {3} from the three Forests while keeping Avishkar Raceway untapped.
+    tap_mana_except(&mut engine, p0, raceway);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+    assert!(!is_tapped(&engine, raceway));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(raceway, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(raceway, 1)),
+        "under `Coverage::Partial`, Max speed discard/draw ability is omitted despite floating {{3}} and card in hand"
+    );
+
+    activate(&mut engine, p0, avishkar_raceway(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.available(ManaColor::Green), 3);
+    assert_eq!(pool.total(), 4);
+    assert!(is_tapped(&engine, raceway));
+}
+
+/// Bretagard Stronghold prints `This land enters tapped.`, `{{T}}: Add {{G}}.`, and
+/// `{{G}}{{W}}{{W}}, {{T}}, Sacrifice this land: Put a +1/+1 counter on each of up to two target
+/// creatures you control. They gain vigilance and lifelink until end of turn. Activate only as a sorcery.`
+///
+/// Under `Coverage::Partial`, `EnterModifier::Tapped` and `{{T}}: Add {{G}}` are built; the sacrifice
+/// ability is omitted because an activated ability carries a bare `TargetSpec` without count and
+/// `Effect::AddCounter` reaches only the first target. Playing this land enters tapped. After advancing
+/// to the next turn, it untaps, withholds ability index 1 despite floating `{{G}}{{W}}{{W}}` from
+/// a `forest()` and two `plains()` with two controlled creatures (`young_wolf()`), and taps for green.
+#[test]
+fn bretagard_stronghold_enters_tapped_and_omits_sacrifice_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[bretagard_stronghold()])
+        .battlefield(
+            0,
+            &[forest(), plains(), plains(), young_wolf(), young_wolf()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, bretagard_stronghold());
+    assert!(
+        entered_tapped(&engine, land),
+        "Bretagard Stronghold enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    // Float {G}{W}{W} while keeping Bretagard Stronghold untapped.
+    tap_mana_except(&mut engine, p0, land);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        2
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "ability 0 ({{T}}: Add {{G}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "under `Coverage::Partial`, the sacrifice ability is omitted despite floating {{G}}{{W}}{{W}} and two targets"
+    );
+
+    activate(&mut engine, p0, bretagard_stronghold(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 2);
+    assert_eq!(pool.available(ManaColor::White), 2);
+    assert_eq!(pool.total(), 4);
+    assert!(is_tapped(&engine, land));
+}
+
+/// Castle Doom prints `{{T}}: Add {{C}}.`, `{{T}}: Add one mana of any color. Spend this mana
+/// only to cast an artifact spell.`, and `{{3}}, {{T}}, Sacrifice an artifact: Create a 3/3
+/// colorless Robot Villain artifact creature token named Doombot. Activate only as a sorcery.`
+///
+/// Under `Coverage::Partial`, both mana abilities are implemented, while the Doombot creation
+/// ability is omitted because no Doombot token exists in the registry. With three green mana
+/// floating from `forest()` lands, Castle Doom untapped, and an artifact on the battlefield
+/// (`quiet_artifact()`), ability index 2 is not offered in `legal.abilities`. Activating ability
+/// index 1 prompts for a color choice via `Pending::ChooseColor` and adds restricted mana to
+/// `pool.restricted()` rather than general `pool.available()`.
+#[test]
+fn castle_doom_produces_restricted_mana_and_omits_token_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                castle_doom(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_artifact(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let doom = on_battlefield(&engine, p0, castle_doom()).expect("castle doom on battlefield");
+
+    // Float {3} green and the Sol Ring's {C}{C} while keeping Castle Doom
+    // untapped: five is more than the {3} the omitted ability charges, and
+    // the price has to be floated or `can_afford` reads an empty pool and
+    // the ability is missing from the offer for the wrong reason.
+    tap_mana_except(&mut engine, p0, doom);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
+    assert!(!is_tapped(&engine, doom));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(doom, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(doom, 1)),
+        "ability 1 ({{T}}: Add restricted mana) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(doom, 2)),
+        "under `Coverage::Partial`, Doombot ability is omitted despite floating {{3}} and artifact"
+    );
+
+    activate(&mut engine, p0, castle_doom(), 1);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("expected ChooseColor, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, baylee_cards_dsl::ALL_MANA_COLORS.to_vec());
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 0);
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Blue);
+    assert_eq!(pool.available(ManaColor::Green), 3);
+    assert!(is_tapped(&engine, doom));
+}
+
+/// Detection Tower prints `{{T}}: Add {{C}}.` and `{{1}}, {{T}}: Until end of turn, your
+/// opponents and creatures your opponents control with hexproof can be the targets of spells
+/// and abilities you control as though they didn't have hexproof.`
+///
+/// Under `Coverage::Partial`, the creature half is implemented by stripping hexproof from
+/// opponent creatures outright until end of turn, while targeting opponents themselves is omitted.
+/// With an opponent controlling `sylvan_caryatid()` (which has hexproof), activating ability index 1
+/// for `{{1}}, {{T}}` off a `forest()` removes `KeywordSet::HEXPROOF` from the opponent's creature.
+#[test]
+fn detection_tower_removes_hexproof_from_opponent_creatures() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[detection_tower(), forest()])
+        .battlefield(1, &[sylvan_caryatid()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let tower = on_battlefield(&engine, p0, detection_tower()).expect("tower on battlefield");
+    let caryatid = on_battlefield(&engine, p1, sylvan_caryatid()).expect("caryatid on battlefield");
+    assert!(keywords(&engine, caryatid).contains(KeywordSet::HEXPROOF));
+
+    // Float {1} green mana from the Forest while keeping Detection Tower untapped.
+    tap_mana_except(&mut engine, p0, tower);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert!(!is_tapped(&engine, tower));
+
+    activate(&mut engine, p0, detection_tower(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(!keywords(&engine, caryatid).contains(KeywordSet::HEXPROOF));
+    assert!(is_tapped(&engine, tower));
+}
+
+/// Edgewall Inn prints `This land enters tapped.`, `As this land enters, choose a color.`,
+/// `{{T}}: Add one mana of the chosen color.`, and `{{3}}, {{T}}, Sacrifice this land: Return
+/// target card that has an Adventure from your graveyard to your hand.`
+///
+/// Under `Coverage::Partial`, `EnterModifier::Tapped`, `EnterModifier::ChooseColor`, and the chosen
+/// color mana ability are implemented, while the adventure return ability is omitted.
+/// Playing this land prompts for a color choice via `Pending::ChooseColor` and enters tapped.
+/// In the next turn, it untaps, withholds ability index 1 despite floating `{{3}}` from three
+/// `forest()` lands, and taps for one mana of the chosen color (`ManaColor::Black`).
+#[test]
+fn edgewall_inn_enters_tapped_chooses_color_and_taps_for_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[edgewall_inn()])
+        .battlefield(0, &[forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, edgewall_inn()).expect("edgewall inn in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("expected ChooseColor, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, baylee_cards_dsl::ALL_MANA_COLORS.to_vec());
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let inn = on_battlefield(&engine, p0, edgewall_inn()).expect("inn on battlefield");
+    assert!(entered_tapped(&engine, inn));
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, inn));
+
+    // Float {3} green mana from the three Forests while keeping Edgewall Inn untapped.
+    tap_mana_except(&mut engine, p0, inn);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+    assert!(!is_tapped(&engine, inn));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(inn, 0)),
+        "ability 0 ({{T}}: Add chosen color) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(inn, 1)),
+        "under `Coverage::Partial`, adventure return ability is omitted despite floating {{3}}"
+    );
+
+    activate(&mut engine, p0, edgewall_inn(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.available(ManaColor::Green), 3);
+    assert_eq!(pool.total(), 4);
+    assert!(is_tapped(&engine, inn));
+}
+
+/// Eiganjo, Seat of the Empire prints `{{T}}: Add {{W}}.` and `Channel — {{2}}{{W}}, Discard
+/// this card: It deals 4 damage to target attacking or blocking creature. This ability costs
+/// {{1}} less to activate for each legendary creature you control.`
+///
+/// Under `Coverage::Partial`, the Channel ability from hand is omitted because the engine
+/// carries no attacking/blocking filter or activation cost reduction. With `{{2}}{{W}}` floating
+/// from two `plains()` and a `forest()`, Eiganjo in hand offers no activated abilities in
+/// `legal.abilities`. Playing the card as an untapped legendary land allows immediately activating
+/// ability index 0 for one additional white mana.
+#[test]
+fn eiganjo_seat_of_the_empire_taps_for_white_and_omits_channel() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[eiganjo_seat_of_the_empire()])
+        .battlefield(0, &[plains(), plains(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Float {2}{W} from the lands on the battlefield.
+    tap_all_mana(&mut engine, p0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 2);
+    assert_eq!(pool.available(ManaColor::Green), 1);
+
+    let card = in_hand(&engine, p0, eiganjo_seat_of_the_empire()).expect("eiganjo in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == card),
+        "under `Coverage::Partial`, Channel ability is omitted despite floating {{2}}{{W}}"
+    );
+
+    let land = play_land(&mut engine, p0, eiganjo_seat_of_the_empire());
+    assert!(!entered_tapped(&engine, land));
+
+    activate(&mut engine, p0, eiganjo_seat_of_the_empire(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 3);
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert_eq!(pool.total(), 4);
+    assert!(is_tapped(&engine, land));
+}
+
+/// Emeria, the Sky Ruin prints `This land enters tapped.`, `At the beginning of your upkeep,
+/// if you control seven or more Plains, you may return target creature card from your
+/// graveyard to the battlefield.`, and `{{T}}: Add {{W}}.`
+///
+/// Marked `Coverage::Implemented`, all clauses are fully supported: `EnterModifier::Tapped`,
+/// the upkeep trigger gated on seven controlled `plains()` returning a creature from the graveyard,
+/// and the `{{T}}: Add {{W}}` mana ability. Playing Emeria enters tapped. On the subsequent upkeep
+/// with seven Plains controlled, the trigger fires, asks for a target via `Pending::ChooseTargets`,
+/// and returns the creature (`quiet_creature()`) from the graveyard to the battlefield.
+/// Upon entering the main phase, Emeria stands untapped and taps for white mana.
+#[test]
+fn emeria_the_sky_ruin_enters_tapped_and_reanimates_at_upkeep_with_seven_plains() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, quiet_creature())
+        .hand(0, &[emeria_the_sky_ruin()])
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let creature = in_graveyard(&engine, p0, quiet_creature()).expect("creature in graveyard");
+
+    let emeria = play_land(&mut engine, p0, emeria_the_sky_ruin());
+    assert!(entered_tapped(&engine, emeria));
+
+    // Pass turns until p0's upkeep trigger puts ChooseTargets on the stack.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseTargets, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert!(options.contains(&creature));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "creature returned to battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_none(),
+        "creature left the graveyard"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, emeria));
+
+    activate(&mut engine, p0, emeria_the_sky_ruin(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert!(is_tapped(&engine, emeria));
+}
+
+/// Eumidian Hatchery prints `{{T}}, Pay 1 life: Add {{B}}. Put a hatchling counter on this land.`
+/// and `When this land is put into a graveyard from the battlefield, for each hatchling counter
+/// on it, create a 1/1 black Insect creature token with flying.`
+///
+/// Under `Coverage::Partial`, the mana ability is implemented with its life payment and counter
+/// placement (`CounterKind::Custom(5)`), while the graveyard trigger is omitted.
+/// Because its activation cost includes paying life rather than tapping alone, it is not tapped
+/// by automatic mana helpers. Activating ability 0 manually pays 1 life, adds one black mana,
+/// places one hatchling counter, and leaves ability index 1 absent from `legal.abilities`.
+#[test]
+fn eumidian_hatchery_pays_life_adds_black_and_puts_counter() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[eumidian_hatchery()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hatchery =
+        on_battlefield(&engine, p0, eumidian_hatchery()).expect("eumidian hatchery on battlefield");
+    assert_eq!(engine.state().players[0].life, 20);
+    assert_eq!(counters_on(&engine, hatchery, CounterKind::Custom(5)), 0);
+    assert!(!is_tapped(&engine, hatchery));
+
+    activate(&mut engine, p0, eumidian_hatchery(), 0);
+
+    assert_eq!(engine.state().players[0].life, 19);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.total(), 1);
+    assert_eq!(counters_on(&engine, hatchery, CounterKind::Custom(5)), 1);
+    assert!(is_tapped(&engine, hatchery));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(source, idx)| *source == hatchery && *idx == 1),
+        "under `Coverage::Partial`, graveyard trigger is omitted"
+    );
+}
+
+/// Field of Ruin prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}, Sacrifice this land: Destroy target nonbasic land an opponent controls. Each player searches their library for a basic land card, puts it onto the battlefield, then shuffles.`
+///
+/// Under `Coverage::Partial`, the destroy clause is implemented while the each-player search is omitted.
+/// With `{{2}}` floating from two `forest()` lands, Field of Ruin untapped, and an opponent controlling
+/// both `badlands()` and `forest()`, ability 1 targets only the opponent's nonbasic land.
+/// After choosing the target, the sacrifice and mana costs are paid, `badlands()` is destroyed,
+/// and no search is prompted, leaving both libraries at 60 cards.
+#[test]
+fn field_of_ruin_destroys_opponent_nonbasic_land_and_omits_search() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[field_of_ruin(), forest(), forest()])
+        .battlefield(1, &[badlands(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let field = on_battlefield(&engine, p0, field_of_ruin()).expect("field of ruin on battlefield");
+    let target_badlands = on_battlefield(&engine, p1, badlands()).expect("badlands on battlefield");
+    let opponent_forest =
+        on_battlefield(&engine, p1, forest()).expect("opponent forest on battlefield");
+
+    // Float {{2}} from the two Forests while keeping Field of Ruin untapped.
+    tap_mana_except(&mut engine, p0, field);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, field));
+
+    activate(&mut engine, p0, field_of_ruin(), 1);
+
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+
+    assert!(player_options.is_empty());
+    assert!(
+        options.contains(&target_badlands),
+        "opponent's nonbasic land is a legal target"
+    );
+    assert!(
+        !options.contains(&opponent_forest),
+        "opponent's basic land is not a legal target"
+    );
+    assert!(
+        !options.contains(&field),
+        "controller's own land is not a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target_badlands],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    // Costs paid: Field of Ruin sacrificed, {{2}} deducted from pool.
+    assert!(
+        in_graveyard(&engine, p0, field_of_ruin()).is_some(),
+        "field of ruin sacrificed as cost"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, badlands()).is_some(),
+        "opponent's badlands destroyed"
+    );
+    assert!(
+        engine.state().object(opponent_forest).is_some(),
+        "opponent's forest remains"
+    );
+
+    // Under `Coverage::Partial`, the each-player library search is omitted.
+    assert_eq!(library_size(&engine, p0), 60);
+    assert_eq!(library_size(&engine, p1), 60);
+}
+
+/// Field of the Dead prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `Whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 black Zombie creature token.`
+///
+/// Under `Coverage::Partial`, the land enters tapped and taps for colorless mana, while the Zombie token trigger is omitted because the intervening-if counts distinct card names.
+/// When played as the seventh land with a distinct name alongside `forest()`, `plains()`, `island()`, `swamp()`, `mountain()`, and `badlands()`, it enters tapped and creates no token on the stack.
+/// On the following turn, it untaps and ability 0 produces one colorless mana.
+#[test]
+fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                plains(),
+                island(),
+                swamp(),
+                mountain(),
+                badlands(),
+            ],
+        )
+        .hand(0, &[field_of_the_dead()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, field_of_the_dead());
+    assert!(
+        entered_tapped(&engine, land),
+        "field of the dead enters tapped"
+    );
+
+    // Under `Coverage::Partial`, no Zombie token trigger is placed on the stack.
+    assert!(stack_is_empty(&engine), "no trigger on the stack");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "no zombie tokens created"
+    );
+
+    // Untap on the next turn to activate the mana ability.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    activate(&mut engine, p0, field_of_the_dead(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(is_tapped(&engine, land));
+}
+
+/// Fomori Vault prints `{{T}}: Add {{C}}.` and `{{3}}, {{T}}, Discard a card: Look at the top X cards of your library, where X is the number of artifacts you control. Put one of those cards into your hand and the rest on the bottom of your library in a random order.`
+///
+/// Under `Coverage::Partial`, the second ability is omitted because X is a dynamically computed artifact count while the DSL pick effect expects a fixed count.
+/// With `{{3}}` floating from three `forest()` lands, an artifact on the battlefield (`quiet_artifact()`), a card in hand to discard (`plains()`), and Fomori Vault untapped, ability 1 is not offered in `legal.abilities`.
+/// Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
+#[test]
+fn fomori_vault_taps_for_colorless_and_omits_artifact_count_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                fomori_vault(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_artifact(),
+            ],
+        )
+        .hand(0, &[plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vault = on_battlefield(&engine, p0, fomori_vault()).expect("fomori vault on battlefield");
+
+    // Float the three Forests and the Sol Ring's {{C}}{{C}} while keeping
+    // Fomori Vault untapped — five, and the omitted ability charges three.
+    tap_mana_except(&mut engine, p0, vault);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
+    assert!(!is_tapped(&engine, vault));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(vault, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(vault, 1)),
+        "with {{3}} floating, an artifact controlled, a card in hand, and vault untapped, ability 1 is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, fomori_vault(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        3,
+        "the vault's one, on top of the Sol Ring's two"
+    );
+    assert_eq!(pool.available(ManaColor::Green), 3);
+    assert_eq!(pool.total(), 6);
+    assert!(is_tapped(&engine, vault));
+}
+
+/// Great Hall of Starnheim prints `This land enters tapped.`, `{{T}}: Add {{B}}.`, and `{{W}}{{W}}{{B}}, {{T}}, Sacrifice this land and a creature you control: Create a 4/4 white Angel Warrior creature token with flying and vigilance. Activate only as a sorcery.`
+///
+/// Under `Coverage::Partial`, the land enters tapped and taps for black mana, while the token activation is omitted due to a missing Angel Warrior token definition.
+/// After entering tapped and untapping on the next turn, with `{{W}}{{W}}{{B}}` floating from two `plains()` and one `swamp()`, a creature present (`quiet_creature()`), and Great Hall untapped, ability 1 is not offered in `legal.abilities`.
+/// Activating ability 0 adds one black mana to `pool.available(ManaColor::Black)`.
+#[test]
+fn great_hall_of_starnheim_enters_tapped_and_omits_angel_token_ability() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), swamp(), quiet_creature()])
+        .hand(0, &[great_hall_of_starnheim()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hall = play_land(&mut engine, p0, great_hall_of_starnheim());
+    assert!(
+        entered_tapped(&engine, hall),
+        "great hall of starnheim enters tapped"
+    );
+
+    // Advance to the next turn so Great Hall of Starnheim untaps.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, hall), "untaps on next turn");
+
+    // Float {{W}}{{W}}{{B}} — plus the Elves' own {{G}}, which is why this is
+    // four — while keeping Great Hall untapped.
+    tap_mana_except(&mut engine, p0, hall);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 2);
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.total(), 4);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(hall, 0)),
+        "ability 0 ({{T}}: Add {{B}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(hall, 1)),
+        "with {{W}}{{W}}{{B}} floating, a creature present, and hall untapped, ability 1 is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, great_hall_of_starnheim(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 2);
+    assert_eq!(pool.available(ManaColor::White), 2);
+    assert_eq!(pool.total(), 5, "and the Elves' {{G}} beside them");
+    assert!(is_tapped(&engine, hall));
+}
+
+/// Hall of Oracles prints `{{T}}: Add {{C}}.`, `{{1}}, {{T}}: Add one mana of any color.`, and `{{T}}: Put a +1/+1 counter on target creature. Activate only as a sorcery and only if you've cast an instant or sorcery spell this turn.`
+///
+/// Under `Coverage::Partial`, both mana abilities are implemented while the counter-granting ability is omitted because the cast-spell gate has no condition representation.
+/// With one green mana floating from a `forest()`, a creature present (`quiet_creature()`), and Hall of Oracles untapped, ability 2 is not offered in `legal.abilities`.
+/// The negative is about the ability being **absent**, and it is worth
+/// saying what would make it stop meaning that: the printed ability costs
+/// only `{{T}}`, so it would appear here the day it is written — unless it
+/// is written with its "only if you've cast an instant or sorcery spell
+/// this turn" gate, which nothing on this board has done. Whoever closes
+/// the gap casts a spell in this test first, or the pin passes for the
+/// third reason rather than the first.
+/// Activating ability 1 filters the floating mana through `Pending::ChooseColor` into one blue mana.
+#[test]
+fn hall_of_oracles_filters_mana_and_omits_counter_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[hall_of_oracles(), forest(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hall =
+        on_battlefield(&engine, p0, hall_of_oracles()).expect("hall of oracles on battlefield");
+
+    // Float the Forest and the Elves' own {{G}} while keeping Hall of
+    // Oracles untapped: two, and the omitted ability charges nothing but a
+    // tap, so the floating price is the {{1}} of ability 1.
+    tap_mana_except(&mut engine, p0, hall);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        2
+    );
+    assert!(!is_tapped(&engine, hall));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(hall, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(hall, 1)),
+        "ability 1 ({{1}}, {{T}}: Add one mana of any color) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(hall, 2)),
+        "ability 2 is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, hall_of_oracles(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "the {{1}} came out of the two floating greens, and one is left"
+    );
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(pool.total(), 2);
+    assert!(is_tapped(&engine, hall));
+}
+
+/// Hall of Tagsin prints `{{T}}: Add {{C}}.`, `{{1}}, {{T}}: Add one mana of any color.`, and `{{4}}, {{T}}: Create a tapped Powerstone token.`
+///
+/// Under `Coverage::Partial`, both mana abilities are implemented while the Powerstone token ability is omitted because tokens cannot enter tapped.
+/// With `{{4}}` floating from four `forest()` lands and Hall of Tagsin untapped, ability 2 is not offered in `legal.abilities`.
+/// Activating ability 1 filters one floating green mana through `Pending::ChooseColor` into one black mana.
+#[test]
+fn hall_of_tagsin_filters_mana_and_omits_powerstone_token_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[hall_of_tagsin(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hall =
+        on_battlefield(&engine, p0, hall_of_tagsin()).expect("hall of tagsin on battlefield");
+
+    // Float {{4}} from the four Forests while keeping Hall of Tagsin untapped.
+    tap_mana_except(&mut engine, p0, hall);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+    assert!(!is_tapped(&engine, hall));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(hall, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(hall, 1)),
+        "ability 1 ({{1}}, {{T}}: Add one mana of any color) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(hall, 2)),
+        "ability 2 (Powerstone creation) is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, hall_of_tagsin(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 3);
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.total(), 4);
+    assert!(is_tapped(&engine, hall));
+}
+
+/// Hanweir Battlements prints `{{T}}: Add {{C}}.`, `{{R}}, {{T}}: Target creature gains haste until end of turn.`, and `{{3}}{{R}}{{R}}, {{T}}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township.`
+///
+/// Under `Coverage::Partial`, the mana ability and haste activation are implemented while the meld clause is omitted.
+/// With `{{3}}{{R}}{{R}}` floating from five `mountain()` lands, a creature present (`llanowar_elves()`), and Hanweir Battlements untapped, ability 2 is not offered in `legal.abilities`.
+/// Activating ability 1 grants haste to the target creature until end of turn and taps the land.
+#[test]
+fn hanweir_battlements_grants_haste_and_omits_meld_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                hanweir_battlements(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let battlements = on_battlefield(&engine, p0, hanweir_battlements())
+        .expect("hanweir battlements on battlefield");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf on battlefield");
+
+    assert!(
+        !keywords_of(&engine, elf).contains(KeywordSet::HASTE),
+        "creature does not have haste initially"
+    );
+
+    // Float {{5}} red mana from the five Mountains while keeping Hanweir Battlements untapped.
+    tap_mana_except(&mut engine, p0, battlements);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        5
+    );
+    assert!(!is_tapped(&engine, battlements));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(battlements, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(battlements, 1)),
+        "ability 1 ({{R}}, {{T}}: Target creature gains haste) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(battlements, 2)),
+        "ability 2 (meld) is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, hanweir_battlements(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elf));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        keywords_of(&engine, elf).contains(KeywordSet::HASTE),
+        "creature gained haste"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        4
+    );
+    assert!(is_tapped(&engine, battlements));
+}
+
+/// Haven of the Spirit Dragon prints `{{T}}: Add {{C}}.`, `{{T}}: Add one mana of any color. Spend this mana only to cast a Dragon creature spell.`, and `{{2}}, {{T}}, Sacrifice this land: Return target Dragon creature card or Ugin planeswalker card from your graveyard to your hand.`
+///
+/// Under `Coverage::Implemented`, activating ability 1 prompts for a color choice and produces restricted mana spendable only on Dragon creature spells.
+/// Because this mana carries a spending restriction, it appears in `pool.restricted()` rather than `pool.available()`.
+/// With an empty graveyard, ability 2 is withheld from `legal.abilities` for lack of a legal target.
+#[test]
+fn haven_of_the_spirit_dragon_produces_restricted_dragon_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[haven_of_the_spirit_dragon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let haven = on_battlefield(&engine, p0, haven_of_the_spirit_dragon())
+        .expect("haven of the spirit dragon on battlefield");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(haven, 0)),
+        "ability 0 (colorless mana) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(haven, 1)),
+        "ability 1 (restricted dragon mana) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(haven, 2)),
+        "ability 2 is not offered when the graveyard has no target"
+    );
+
+    activate(&mut engine, p0, haven_of_the_spirit_dragon(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        0,
+        "restricted mana does not appear in simple available pool"
+    );
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Red);
+    assert!(is_tapped(&engine, haven));
+}
+
+/// Heart of Yavimaya prints `If this land would enter, sacrifice a Forest instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.`, `{{T}}: Add {{G}}.`, and `{{T}}: Target creature gets +1/+1 until end of turn.`
+///
+/// Under `Coverage::Partial`, the printed Forest-sacrifice entry replacement is omitted because replacement effects of this shape cannot be expressed.
+/// When played from hand with no Forest on the battlefield, it enters untapped without being sacrificed.
+/// Activating ability 1 pumps target creature (`llanowar_elves()`) by +1/+1 until end of turn and taps the land.
+#[test]
+fn heart_of_yavimaya_enters_without_sacrifice_and_pumps_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[llanowar_elves()])
+        .hand(0, &[heart_of_yavimaya()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf on battlefield");
+    assert_eq!(pt(&engine, elf), (1, 1));
+
+    let land = play_land(&mut engine, p0, heart_of_yavimaya());
+    assert!(!is_tapped(&engine, land), "enters untapped");
+    assert!(
+        on_battlefield(&engine, p0, heart_of_yavimaya()).is_some(),
+        "heart of yavimaya landed without sacrificing a forest"
+    );
+
+    activate(&mut engine, p0, heart_of_yavimaya(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elf));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, elf), (2, 2), "elf received +1/+1 pump");
+    assert!(is_tapped(&engine, land));
+}
+
+/// Hidden Hideout prints `This land enters tapped.`, `{{T}}: Add one mana of any color in your commander's color identity.`, and `{{2}}, {{T}}: Target creature you control with a counter on it gains lifelink until end of turn.`
+///
+/// Under `Coverage::Partial`, the land enters tapped and taps for mana in the commander's color identity, while the lifelink ability is omitted because filters cannot check for counters.
+/// With a mono-black commander (`sheoldred_the_apocalypse()`), the land enters tapped, untaps on the following turn, and with `{{2}}` floating from two `forest()` lands and a creature present (`quiet_creature()`), ability 1 is not offered in `legal.abilities`.
+/// Activating ability 0 produces one black mana matching the commander's color identity.
+#[test]
+fn hidden_hideout_enters_tapped_and_produces_commander_color_mana() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .commander(0, &[sheoldred_the_apocalypse()])
+        .battlefield(0, &[forest(), forest(), quiet_creature()])
+        .hand(0, &[hidden_hideout()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, hidden_hideout());
+    assert!(
+        entered_tapped(&engine, land),
+        "hidden hideout enters tapped"
+    );
+
+    // Advance to next turn so the land untaps.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    // Float the two Forests and the Elves' own {{G}} while keeping Hidden
+    // Hideout untapped.
+    tap_mana_except(&mut engine, p0, land);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        3
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "ability 0 (commander identity mana) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "with {{2}} floating, a creature present, and land untapped, ability 1 is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, hidden_hideout(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.available(ManaColor::Green), 3);
+    assert_eq!(pool.total(), 4);
+    assert!(is_tapped(&engine, land));
+}
+
+/// Ice Floe prints `You may choose not to untap this land during your untap step.` and `{{T}}: Tap target creature without flying that's attacking you. It doesn't untap during its controller's untap step for as long as this land remains tapped.`
+///
+/// Under `Coverage::Partial`, the untap-step choice (`Modifier::MayChooseNotToUntap`) and the activated tap ability are implemented, while the continuous lock keeping the creature tapped is omitted.
+/// During an opponent's combat, when attacked by a non-flying creature (`llanowar_elves()`), ability 1 taps the attacker and taps Ice Floe.
+/// On the controller's subsequent untap step, the engine offers the `crate::choice::ChoicePrompt::LeaveTapped` question, and electing to keep Ice Floe tapped leaves it tapped into the main phase.
+#[test]
+fn ice_floe_taps_attacking_nonflyer_and_may_remain_tapped() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ice_floe()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let floe = on_battlefield(&engine, p0, ice_floe()).expect("ice floe on battlefield");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("elf on battlefield");
+
+    // Advance to p1's declare attackers step.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        panic!("expected choose attackers, got {:?}", engine.pending());
+    };
+    let defender = defenders[0];
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, defender)],
+            },
+        )
+        .unwrap();
+
+    // In declare attackers priority, pass p1's priority if held so p0 can respond.
+    if let Pending::Priority { player, .. } = engine.pending().clone()
+        && player == p1
+    {
+        engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    }
+
+    activate(&mut engine, p0, ice_floe(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elf), "attacking elf is a legal target");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(is_tapped(&engine, floe), "ice floe tapped to activate");
+
+    // Progress through the rest of the turn to p0's untap step.
+    let mut asked_leave_tapped = false;
+    for _ in 0..100 {
+        if let Pending::ChooseCards {
+            player,
+            options,
+            prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            ..
+        } = engine.pending().clone()
+        {
+            assert_eq!(player, p0);
+            assert!(
+                options.contains(&floe),
+                "ice floe is offered to leave tapped"
+            );
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseObjects {
+                        objects: vec![floe],
+                    },
+                )
+                .unwrap();
+            asked_leave_tapped = true;
+            break;
+        }
+        let (player, action) = answer_one(&engine).expect("walk to untap step");
+        engine.apply(player, action).unwrap();
+    }
+    assert!(
+        asked_leave_tapped,
+        "untap step asked whether to leave Ice Floe tapped"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        is_tapped(&engine, floe),
+        "ice floe remained tapped into main phase"
+    );
+}
+
+/// Junktown prints `{{T}}: Add {{C}}.` and `{{4}}{{R}}, {{T}}, Sacrifice this land: Create three Junk tokens.`
+///
+/// Under `Coverage::Partial`, the Junk-token ability is omitted because Junk tokens are not in `crate::tokens` and the play-from-exile permission has no `Effect` variant.
+/// With Junktown and five basic lands (four `forest()` and one `mountain()`) on the battlefield under `PlayerId::new(0)`,
+/// floating `{{4}}{{R}}` while keeping Junktown untapped shows that ability 0 is offered while ability 1 is withheld from `legal.abilities`.
+/// Activating ability 0 adds one colorless mana to the pool, reaching a total of 6 mana.
+#[test]
+fn junktown_taps_for_colorless_and_omits_junk_token_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                junktown(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let town = on_battlefield(&engine, p0, junktown()).expect("junktown on battlefield");
+
+    // Float {{4}}{{R}} while keeping Junktown untapped.
+    tap_mana_except(&mut engine, p0, town);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
+    assert!(!is_tapped(&engine, town));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(town, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(town, 1)),
+        "ability 1 is omitted under `Coverage::Partial` even with {{4}}{{R}} floating"
+    );
+
+    activate(&mut engine, p0, junktown(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.available(ManaColor::Green), 4);
+    assert_eq!(pool.available(ManaColor::Red), 1);
+    assert_eq!(pool.total(), 6);
+    assert!(is_tapped(&engine, town));
+}
+
+/// Kjeldoran Outpost prints an enter replacement to sacrifice a Plains, `{{T}}: Add {{W}}.`, and `{{1}}{{W}}, {{T}}: Create a 1/1 white Soldier creature token.`
+///
+/// Under `Coverage::Partial`, the enter replacement is omitted because no `EnterModifier` expresses sacrificing a Plains or going to the graveyard instead.
+/// Playing Kjeldoran Outpost from hand enters the battlefield untapped without sacrificing a controlled `plains()`.
+/// Floating `{{1}}{{W}}` from two `plains()` and activating ability 1 creates a 1/1 white Soldier creature token, tapping the outpost.
+#[test]
+fn kjeldoran_outpost_enters_without_sacrifice_and_creates_soldier() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[kjeldoran_outpost()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let outpost = play_land(&mut engine, p0, kjeldoran_outpost());
+    assert!(
+        !entered_tapped(&engine, outpost),
+        "kjeldoran outpost prints no enters-tapped clause"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, plains()).len(),
+        2,
+        "controlled plains remain intact under `Coverage::Partial`"
+    );
+
+    // Float {{1}}{{W}} from the two Plains while keeping Kjeldoran Outpost untapped.
+    tap_mana_except(&mut engine, p0, outpost);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, outpost));
+
+    activate(&mut engine, p0, kjeldoran_outpost(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    let soldiers = tokens_of(&engine, p0);
+    assert_eq!(soldiers.len(), 1, "one soldier token created");
+    assert_eq!(pt(&engine, soldiers[0]), (1, 1), "soldier is 1/1");
+    assert!(is_tapped(&engine, outpost));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+/// Lava Tubes prints `This land doesn't untap during your untap step if it has a depletion counter on it.`, `At the beginning of your upkeep, remove a depletion counter from this land.`, and `{{T}}: Add {{B}} or {{R}}. Put a depletion counter on this land.`
+///
+/// Under `Coverage::Partial`, the untap lock and upkeep removal are omitted because static abilities carry no condition and effects do not remove counters.
+/// Playing Lava Tubes from hand enters untapped.
+/// Activating ability 0 prompts with `Pending::ChooseColor` between `ManaColor::Black` and `ManaColor::Red`. Choosing black adds one black mana and places a `counters::DEPLETION` counter on Lava Tubes.
+/// Advancing to the next own main phase verifies that the unmodeled upkeep clause does not remove the counter and the unmodeled untap lock leaves the land untapped.
+#[test]
+fn lava_tubes_adds_chosen_mana_and_depletion_counter() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest()).hand(0, &[lava_tubes()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let tubes = play_land(&mut engine, p0, lava_tubes());
+    assert!(
+        !entered_tapped(&engine, tubes),
+        "lava tubes prints no enters-tapped clause"
+    );
+
+    activate(&mut engine, p0, lava_tubes(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![ManaColor::Black, ManaColor::Red]);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert_eq!(counters_on(&engine, tubes, counters::DEPLETION), 1);
+    assert!(is_tapped(&engine, tubes));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        counters_on(&engine, tubes, counters::DEPLETION),
+        1,
+        "upkeep removal is not built under `Coverage::Partial`"
+    );
+    assert!(
+        !is_tapped(&engine, tubes),
+        "untap lock is not built under `Coverage::Partial`"
+    );
+}
+
+/// Littjara Mirrorlake prints `This land enters tapped.`, `{{T}}: Add {{U}}.`, and `{{2}}{{G}}{{G}}{{U}}, {{T}}, Sacrifice this land: Create a token that's a copy of target creature you control, except it enters with an additional +1/+1 counter on it. Activate only as a sorcery.`
+///
+/// Under `Coverage::Partial`, the copy token's additional +1/+1 counter is omitted because `Effect::CreateTokenCopyOf` carries no modifier list.
+/// Playing Littjara Mirrorlake enters tapped. In the following turn, with `{{2}}{{G}}{{G}}{{U}}` floating from basic lands,
+/// ability 1 targets only a controlled creature (`llanowar_elves()`) and not an opponent's creature.
+/// Upon resolution, Littjara Mirrorlake is sacrificed and a copy token enters
+/// as a 1/1 without a `CounterKind::Plus` counter.
+#[test]
+fn littjara_mirrorlake_enters_tapped_and_creates_creature_copy() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[littjara_mirrorlake()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lake = play_land(&mut engine, p0, littjara_mirrorlake());
+    assert!(
+        entered_tapped(&engine, lake),
+        "littjara mirrorlake enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, lake));
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("controlled elf");
+    let opp_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("opponent elf");
+
+    // Float {{2}}{{G}}{{G}}{{U}} while keeping Littjara Mirrorlake untapped —
+    // six, because the Elves tap for their own {{G}} beside the lands.
+    tap_mana_except(&mut engine, p0, lake);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 6);
+
+    activate(&mut engine, p0, littjara_mirrorlake(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&my_elf),
+        "controlled creature is a legal target"
+    );
+    assert!(
+        !options.contains(&opp_elf),
+        "opponent's creature is not a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![my_elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        in_graveyard(&engine, p0, littjara_mirrorlake()).is_some(),
+        "littjara mirrorlake sacrificed as cost"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "{{2}}{{G}}{{G}}{{U}} out of six leaves the Elves' own mana standing"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one copy token created");
+    assert_eq!(pt(&engine, tokens[0]), (1, 1), "token is a 1/1 elf");
+    assert_eq!(
+        counters_on(
+            &engine,
+            tokens[0],
+            CounterKind::Plus {
+                power: 1,
+                toughness: 1,
+            }
+        ),
+        0,
+        "additional +1/+1 counter omitted under `Coverage::Partial`"
+    );
+}
+
+/// Magosi, the Waterveil prints `This land enters tapped.`, `{{T}}: Add {{U}}.`, `{{U}}, {{T}}: Put an eon counter on this land. Skip your next turn.`, and `{{T}}, Remove an eon counter from this land and return it to its owner's hand: Take an extra turn after this one.`
+///
+/// Under `Coverage::Partial`, the eon-counter abilities are omitted because no effect skips a turn and eon counters are not defined in `counters`.
+/// Playing Magosi, the Waterveil from hand enters tapped.
+/// In the next turn, with `{{U}}` floating from an `island()` and Magosi untapped, ability 0 is offered while abilities 1 and 2 are omitted from `legal.abilities`.
+/// Activating ability 0 adds `{{U}}` to `pool.available(ManaColor::Blue)` and taps the land.
+#[test]
+fn magosi_the_waterveil_enters_tapped_and_omits_eon_counter_abilities() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island()])
+        .hand(0, &[magosi_the_waterveil()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let magosi = play_land(&mut engine, p0, magosi_the_waterveil());
+    assert!(
+        entered_tapped(&engine, magosi),
+        "magosi, the waterveil enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, magosi));
+
+    // Float {{U}} from Island while keeping Magosi untapped.
+    tap_mana_except(&mut engine, p0, magosi);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(magosi, 0)),
+        "ability 0 ({{T}}: Add {{U}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(magosi, 1)),
+        "ability 1 is omitted under `Coverage::Partial` even with {{U}} floating"
+    );
+    assert!(
+        !legal.abilities.contains(&(magosi, 2)),
+        "ability 2 is omitted under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, magosi_the_waterveil(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 2);
+    assert_eq!(pool.total(), 2);
+    assert!(is_tapped(&engine, magosi));
+}
+
+/// Maze's End prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `{{3}}, {{T}}, Return this land to its owner's hand: Search your library for a Gate card, put it onto the battlefield, then shuffle. If you control ten or more Gates with different names, you win the game.`
+///
+/// Under `Coverage::Partial`, the win-the-game clause is omitted because no `Effect` variant wins the game.
+/// Playing Maze's End from hand enters tapped.
+/// In the next turn, with `{{3}}` floating from three `forest()` lands, activating ability 1 pays `{{3}}`, taps and returns Maze's End to hand,
+/// prompts a library search via `ChoicePrompt::SearchLibrary`, and puts a `basilisk_gate()` onto the battlefield without triggering a game win.
+#[test]
+fn maze_s_end_enters_tapped_and_tutors_gate_to_battlefield() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, basilisk_gate())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[maze_s_end()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let maze = play_land(&mut engine, p0, maze_s_end());
+    assert!(entered_tapped(&engine, maze), "maze's end enters tapped");
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, maze));
+
+    // Float {{3}} from Forests while keeping Maze's End untapped.
+    tap_mana_except(&mut engine, p0, maze);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    activate(&mut engine, p0, maze_s_end(), 1);
+
+    // Cost paid: Maze's End returned to hand, {{3}} mana spent.
+    assert!(
+        in_hand(&engine, p0, maze_s_end()).is_some(),
+        "maze's end returned to hand as cost"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected library search, got {:?}", engine.pending());
+    };
+    assert!(!options.is_empty(), "gate card available in library");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, basilisk_gate()).is_some(),
+        "gate put onto battlefield"
+    );
+    assert!(
+        !matches!(engine.pending(), Pending::GameOver(_)),
+        "win-the-game clause omitted under `Coverage::Partial`"
+    );
+}
+
+/// Mount Doom prints `{{T}}, Pay 1 life: Add {{B}} or {{R}}.`, `{{1}}{{B}}{{R}}, {{T}}: Mount Doom deals 1 damage to each opponent.`, and `{{5}}{{B}}{{R}}, {{T}}, Sacrifice Mount Doom and a legendary artifact: Choose up to two creatures, then destroy the rest. Activate only as a sorcery.`
+///
+/// Under `Coverage::Partial`, the board-wipe ability is omitted because no effect chooses a subset of creatures and destroys the remainder.
+/// With Mount Doom, five `forest()`, one `swamp()`, and one `mountain()` under `PlayerId::new(0)`,
+/// floating `{{5}}{{B}}{{R}}` with Mount Doom untapped confirms that abilities 0 and 1 are offered while ability 2 is absent from `legal.abilities`.
+/// Activating ability 1 deals 1 damage to the opponent, reducing their life total to 19 while leaving controller life at 20.
+#[test]
+fn mount_doom_deals_damage_to_opponent_and_omits_board_wipe() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                mount_doom(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                swamp(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let doom = on_battlefield(&engine, p0, mount_doom()).expect("mount doom on battlefield");
+
+    // Float {{5}}{{B}}{{R}} from basics while keeping Mount Doom untapped.
+    tap_mana_except(&mut engine, p0, doom);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 7);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(legal.abilities.contains(&(doom, 0)), "ability 0 is offered");
+    assert!(
+        legal.abilities.contains(&(doom, 1)),
+        "ability 1 ({{1}}{{B}}{{R}}: Deal 1 damage) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(doom, 2)),
+        "ability 2 is omitted under `Coverage::Partial` even with {{5}}{{B}}{{R}} floating"
+    );
+
+    activate(&mut engine, p0, mount_doom(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "opponent takes 1 damage"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "controller takes no damage"
+    );
+    assert!(is_tapped(&engine, doom));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "{{1}}{{B}}{{R}} spent from floating pool"
+    );
+}
+
+/// Mudflat Village prints `{{T}}: Add {{C}}.`, `{{T}}: Add {{B}}. Spend this mana only to cast a creature spell.`, and `{{1}}{{B}}, {{T}}, Sacrifice this land: Return target Bat, Lizard, Rat, or Squirrel card from your graveyard to your hand.`
+///
+/// Under `Coverage::Implemented`, activating ability 1 produces black mana restricted to casting creature spells.
+/// Because this mana carries a spending restriction, it appears in `pool.restricted()` rather than `pool.available(ManaColor::Black)`.
+/// With an empty graveyard, ability 2 is withheld from `legal.abilities` for lack of a legal target even when `{{1}}{{B}}` is floating.
+#[test]
+fn mudflat_village_produces_creature_restricted_black_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mudflat_village(), forest(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let village =
+        on_battlefield(&engine, p0, mudflat_village()).expect("mudflat village on battlefield");
+
+    // Float {{1}}{{B}} from basic lands while keeping Mudflat Village untapped.
+    tap_mana_except(&mut engine, p0, village);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(village, 0)),
+        "ability 0 (colorless mana) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(village, 1)),
+        "ability 1 (restricted creature mana) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(village, 2)),
+        "ability 2 is not offered when the graveyard has no legal target"
+    );
+
+    activate(&mut engine, p0, mudflat_village(), 1);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "only the swamp's unrestricted black mana appears in the available pool"
+    );
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Black);
+    assert!(is_tapped(&engine, village));
+}
+
+/// Myriad Landscape prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `{{2}}, {{T}}, Sacrifice this land: Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle.`
+///
+/// Under `Coverage::Partial`, the basic land tutor ability is omitted because no filter can express the relational constraint that two searched cards must share a land type.
+/// Playing Myriad Landscape from hand enters tapped.
+/// In the next turn, with `{{2}}` floating from two `forest()` lands and Myriad Landscape untapped, ability 0 is offered while ability 1 is withheld from `legal.abilities`.
+/// Activating ability 0 produces one colorless mana and taps the land.
+#[test]
+fn myriad_landscape_enters_tapped_and_omits_basic_land_tutor() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[myriad_landscape()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let landscape = play_land(&mut engine, p0, myriad_landscape());
+    assert!(
+        entered_tapped(&engine, landscape),
+        "myriad landscape enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, landscape));
+
+    // Float {{2}} from Forests while keeping Myriad Landscape untapped.
+    tap_mana_except(&mut engine, p0, landscape);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(landscape, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(landscape, 1)),
+        "ability 1 is omitted under `Coverage::Partial` even with {{2}} floating"
+    );
+
+    activate(&mut engine, p0, myriad_landscape(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.available(ManaColor::Green), 2);
+    assert_eq!(pool.total(), 3);
+    assert!(is_tapped(&engine, landscape));
+}
+
+/// Mystic Sanctuary prints `({T}: Add {U}.)`, `This land enters tapped unless you control three or more other Islands.`, and `When this land enters untapped, you may put target instant or sorcery card from your graveyard on top of your library.`
+///
+/// Under `Coverage::Implemented`, controlling three other `island()` lands allows Mystic Sanctuary to enter untapped from hand.
+/// Its enters-battlefield trigger fires and targets an instant card (`eerie_interlude()`) in the graveyard.
+/// Upon resolution, the targeted card is moved from the graveyard to the top of the library.
+#[test]
+fn mystic_sanctuary_enters_untapped_and_puts_instant_on_top_of_library() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, eerie_interlude())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[mystic_sanctuary()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = in_graveyard(&engine, p0, eerie_interlude()).expect("instant in graveyard");
+    let before_lib = library_size(&engine, p0);
+
+    let sanctuary = play_land(&mut engine, p0, mystic_sanctuary());
+    assert!(
+        !entered_tapped(&engine, sanctuary),
+        "three other islands satisfy the enters-untapped condition"
+    );
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&buried),
+        "instant in graveyard is a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![buried],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, eerie_interlude()).is_none(),
+        "instant card left the graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        before_lib + 1,
+        "instant card placed on top of library"
+    );
+}
+
+/// Nearby Planet prints Rangeling, `This land enters tapped.`, and `When this land enters, sacrifice it unless you pay {{1}}.`
+///
+/// Under `Coverage::Partial`, Rangeling is omitted because the DSL cannot grant every nonbasic land type, leaving Nearby Planet without intrinsic mana abilities.
+/// Playing Nearby Planet from hand enters tapped via `EnterModifier::Tapped`.
+/// When the enters-battlefield trigger resolves, `Pending::YesNo` with `YesNoPrompt::PayTax { mana: 1 }` is prompted;
+/// paying with `{{1}}` floating from `forest()` prevents sacrifice, spending the mana and leaving the land tapped on the battlefield.
+#[test]
+fn nearby_planet_enters_tapped_and_pays_tax_to_remain_on_battlefield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[nearby_planet()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Float {{1}} from Forest.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+
+    let planet = play_land(&mut engine, p0, nearby_planet());
+    assert!(
+        entered_tapped(&engine, planet),
+        "nearby planet enters tapped"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        panic!("expected PayTax prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, YesNoPrompt::PayTax { mana: 1 });
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, nearby_planet()).is_some(),
+        "nearby planet remains on battlefield when tax is paid"
+    );
+    assert!(is_tapped(&engine, planet), "remains tapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the one mana was spent paying the tax"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.mana_abilities.contains(&planet),
+        "Rangeling is omitted under `Coverage::Partial`, so Nearby Planet has no basic land type mana abilities"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == planet),
+        "no activated abilities on nearby planet"
+    );
+}
+
+/// Northampton Farm prints `{{T}}: Add {{C}}.`, `{{1}}, {{T}}: Exile target creature you own.`, and `{{2}}, {{T}}, Sacrifice this land: Return a creature card exiled with this land to the battlefield under your control. Return each other card exiled with this land to its owner's hand.`
+///
+/// Under `Coverage::Partial`, the return clause is omitted because no effect variant partitions exiled cards between battlefield and hand.
+/// With Northampton Farm, two basic lands, and a creature on the battlefield under `PlayerId::new(0)`, and an opponent's creature across the table, floating `{{2}}` while keeping Northampton Farm untapped shows that ability 0 and ability 1 are offered while ability 2 is omitted from `legal.abilities`.
+/// Activating ability 1 costs `{{1}}` and `{{T}}`, targets only the owned creature, and exiles it.
+#[test]
+fn northampton_farm_taps_for_colorless_and_exiles_owned_creature() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[northampton_farm(), forest(), forest(), young_wolf()])
+        .battlefield(1, &[young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let farm = on_battlefield(&engine, p0, northampton_farm()).expect("farm on battlefield");
+    let my_wolf = on_battlefield(&engine, p0, young_wolf()).expect("my wolf on battlefield");
+    let their_wolf = on_battlefield(&engine, p1, young_wolf()).expect("their wolf on battlefield");
+
+    // Float {{2}} while keeping Northampton Farm untapped.
+    tap_mana_except(&mut engine, p0, farm);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, farm));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(farm, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(farm, 1)),
+        "ability 1 ({{1}}, {{T}}: Exile target creature you own) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(farm, 2)),
+        "ability 2 is omitted under `Coverage::Partial` even with {{2}} floating"
+    );
+
+    activate(&mut engine, p0, northampton_farm(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&my_wolf),
+        "target creature you own offers your own creature"
+    );
+    assert!(
+        !options.contains(&their_wolf),
+        "target creature you own rejects opponent's creature"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_wolf],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, young_wolf()).is_none());
+    assert_eq!(
+        engine.state().object(my_wolf).expect("wolf exists").zone,
+        Zone::Exile
+    );
+    assert!(is_tapped(&engine, farm));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+}
+
+/// Nykthos, Shrine to Nyx prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}: Choose a color. Add an amount of mana of that color equal to your devotion to that color.`
+///
+/// Under `Coverage::Partial`, the devotion ability is omitted because devotion requires counting mana symbols of a chosen color among permanents you control, which is unsupported.
+/// With Nykthos and two basic lands (`forest()`) on the battlefield under `PlayerId::new(0)`, floating `{{2}}` while keeping Nykthos untapped shows that ability 0 is offered while ability 1 is withheld from `legal.abilities`.
+/// Activating ability 0 adds one colorless mana to the pool and taps Nykthos.
+#[test]
+fn nykthos_shrine_to_nyx_taps_for_colorless_and_omits_devotion_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[nykthos_shrine_to_nyx(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let nykthos =
+        on_battlefield(&engine, p0, nykthos_shrine_to_nyx()).expect("nykthos on battlefield");
+
+    // Float {{2}} from Forests while keeping Nykthos untapped.
+    tap_mana_except(&mut engine, p0, nykthos);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, nykthos));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(nykthos, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(nykthos, 1)),
+        "ability 1 is omitted under `Coverage::Partial` even with {{2}} floating"
+    );
+
+    activate(&mut engine, p0, nykthos_shrine_to_nyx(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.available(ManaColor::Green), 2);
+    assert_eq!(pool.total(), 3);
+    assert!(is_tapped(&engine, nykthos));
+}
+
+/// Oakhollow Village prints `{{T}}: Add {{C}}.`, `{{T}}: Add {{G}}. Spend this mana only to cast a creature spell.`, and `{{G}}, {{T}}: Put a +1/+1 counter on each Frog, Rabbit, Raccoon, or Squirrel you control that entered the battlefield this turn.`
+///
+/// Under `Coverage::Partial`, the counter ability is omitted because tracking creatures that entered the battlefield this turn is not expressible in the filter system.
+/// With Oakhollow Village and a `forest()` on the battlefield under `PlayerId::new(0)`, floating `{{G}}` while keeping Oakhollow Village untapped shows that abilities 0 and 1 are offered while ability 2 is omitted from `legal.abilities`.
+/// Activating ability 1 produces green mana restricted to creature spells, which appears in `pool.restricted()` rather than general available mana, and leaves the land tapped.
+#[test]
+fn oakhollow_village_produces_creature_restricted_green_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[oakhollow_village(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let village = on_battlefield(&engine, p0, oakhollow_village()).expect("village on battlefield");
+
+    // Float {{G}} from Forest while keeping Oakhollow Village untapped.
+    tap_mana_except(&mut engine, p0, village);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert!(!is_tapped(&engine, village));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(village, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(village, 1)),
+        "ability 1 ({{T}}: Add {{G}} restricted) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(village, 2)),
+        "ability 2 is omitted under `Coverage::Partial` even with {{G}} floating"
+    );
+
+    activate(&mut engine, p0, oakhollow_village(), 1);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "only the forest's unrestricted green mana appears in the available pool"
+    );
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Green);
+    assert_eq!(pool.total(), 2);
+    assert!(is_tapped(&engine, village));
+}
+
+/// Oscorp Industries prints `This land enters tapped.`, `When this land enters from a graveyard, you lose 2 life.`, `{{T}}: Add {{U}}, {{B}}, or {{R}}.`, and `Mayhem (You may play this card from your graveyard if you discarded it this turn. Timing rules still apply.)`
+///
+/// Under `Coverage::Partial`, the enters-from-graveyard life loss trigger and the Mayhem mechanic are omitted because neither tracking entry origins nor graveyard discard permissions are supported.
+/// Playing Oscorp Industries from hand enters the battlefield tapped without life loss. In the next turn, after it untaps, activating ability 0 prompts for a color choice between `ManaColor::Blue`, `ManaColor::Black`, and `ManaColor::Red` via `Pending::ChooseColor`, adds the chosen color to the mana pool, and leaves the land tapped.
+#[test]
+fn oscorp_industries_enters_tapped_and_produces_chosen_mana() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[oscorp_industries()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let oscorp = play_land(&mut engine, p0, oscorp_industries());
+    assert!(
+        entered_tapped(&engine, oscorp),
+        "oscorp industries enters tapped"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "playing from hand causes no life loss"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, oscorp));
+
+    activate(&mut engine, p0, oscorp_industries(), 0);
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        options,
+        vec![ManaColor::Blue, ManaColor::Black, ManaColor::Red]
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(is_tapped(&engine, oscorp));
+    assert_eq!(engine.state().players[0].life, 20);
+}
+
+/// Petrified Hamlet prints `When this land enters, choose a land card name.`, `Activated abilities of sources with the chosen name can't be activated unless they're mana abilities.`, `Lands with the chosen name have "{{T}}: Add {{C}}."`, and `{{T}}: Add {{C}}.`
+///
+/// Under `Coverage::Partial`, the name-choosing ETB and static ability lock are omitted because naming card choices and name-based activation locks are unsupported.
+/// Playing Petrified Hamlet from hand enters the battlefield untapped and leaves the player at quiet priority without prompting for a card name.
+/// Activating ability 0 produces one colorless mana in `pool.available(ManaColor::Colorless)` and leaves the land tapped.
+#[test]
+fn petrified_hamlet_enters_untapped_and_taps_for_colorless() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[petrified_hamlet()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hamlet = play_land(&mut engine, p0, petrified_hamlet());
+    assert!(
+        !entered_tapped(&engine, hamlet),
+        "petrified hamlet enters untapped"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no ETB name choice prompt is asked under `Coverage::Partial`"
+    );
+
+    activate(&mut engine, p0, petrified_hamlet(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(is_tapped(&engine, hamlet));
+}
+
+/// Port of Karfell prints `This land enters tapped.`, `{{T}}: Add {{U}}.`, and `{{3}}{{U}}{{B}}{{B}}, {{T}}, Sacrifice this land: Mill four cards, then return a creature card from your graveyard to the battlefield tapped.`
+///
+/// Under `Coverage::Partial`, the reanimated creature enters untapped because `Effect::GraveyardToBattlefield` lacks a destination modifier.
+/// Playing Port of Karfell from hand enters tapped.
+/// In the following turn, with `{{3}}{{U}}{{B}}{{B}}` floating from basic lands and a creature card in the graveyard, activating ability 1 sacrifices Port of Karfell, mills four cards, and returns the creature card to the battlefield untapped.
+#[test]
+fn port_of_karfell_enters_tapped_mills_and_reanimates_untapped() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, young_wolf())
+        .battlefield(
+            0,
+            &[swamp(), swamp(), island(), forest(), forest(), forest()],
+        )
+        .hand(0, &[port_of_karfell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let karfell = play_land(&mut engine, p0, port_of_karfell());
+    assert!(
+        entered_tapped(&engine, karfell),
+        "port of karfell enters tapped"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, karfell));
+
+    // Put one creature card into p0's graveyard.
+    seed_graveyard(&mut engine, p0, 1);
+    let dead_wolf =
+        in_graveyard(&engine, p0, young_wolf()).expect("creature card seeded in graveyard");
+    let lib_before = library_size(&engine, p0);
+
+    // Float {{3}}{{U}}{{B}}{{B}} from basic lands while keeping Port of Karfell untapped.
+    tap_mana_except(&mut engine, p0, karfell);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 6);
+
+    activate(&mut engine, p0, port_of_karfell(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&dead_wolf),
+        "reanimation ability targets creature in graveyard"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![dead_wolf],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, port_of_karfell()).is_none(),
+        "port of karfell is sacrificed as part of activation cost"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 4,
+        "milled four cards"
+    );
+    let wolf =
+        on_battlefield(&engine, p0, young_wolf()).expect("reanimated creature is on battlefield");
+    assert!(
+        !is_tapped(&engine, wolf),
+        "reanimated creature enters untapped under `Coverage::Partial`"
+    );
+}
+
+/// River Delta prints `This land doesn't untap during your untap step if it has a depletion counter on it.`, `At the beginning of your upkeep, remove a depletion counter from this land.`, and `{{T}}: Add {{U}} or {{B}}. Put a depletion counter on this land.`
+///
+/// Under `Coverage::Partial`, the untap lock and upkeep counter removal are omitted because static abilities carry no condition and effects do not remove counters.
+/// Playing River Delta from hand enters untapped.
+/// Activating ability 0 prompts with `Pending::ChooseColor` between `ManaColor::Blue` and `ManaColor::Black`. Choosing blue adds one blue mana and places a `counters::DEPLETION` counter on River Delta.
+/// Advancing to the next own main phase verifies that the unmodeled upkeep clause does not remove the counter and the unmodeled untap lock leaves the land untapped.
+#[test]
+fn river_delta_adds_chosen_mana_and_depletion_counter() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest()).hand(0, &[river_delta()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let delta = play_land(&mut engine, p0, river_delta());
+    assert!(
+        !entered_tapped(&engine, delta),
+        "river delta enters untapped"
+    );
+
+    activate(&mut engine, p0, river_delta(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![ManaColor::Blue, ManaColor::Black]);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert_eq!(counters_on(&engine, delta, counters::DEPLETION), 1);
+    assert!(is_tapped(&engine, delta));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        counters_on(&engine, delta, counters::DEPLETION),
+        1,
+        "upkeep removal is not built under `Coverage::Partial`"
+    );
+    assert!(
+        !is_tapped(&engine, delta),
+        "untap lock is not built under `Coverage::Partial`"
+    );
+}
+
+/// Rockface Village prints `{{T}}: Add {{C}}.`, `{{T}}: Add {{R}}. Spend this mana only to cast a creature spell.`, and `{{R}}, {{T}}: Target Lizard, Mouse, Otter, or Raccoon you control gets +1/+0 and gains haste until end of turn. Activate only as a sorcery.`
+///
+/// Under `Coverage::Implemented`, activating ability 1 produces red mana restricted to creature spells, which is tracked in `pool.restricted()` rather than general available mana.
+/// With only a Wolf on the battlefield, ability 2 is withheld from `legal.abilities` for lack of a legal target even when `{{R}}` is floating.
+#[test]
+fn rockface_village_produces_creature_restricted_red_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[rockface_village(), mountain(), young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let village = on_battlefield(&engine, p0, rockface_village()).expect("village on battlefield");
+
+    // Float {{R}} from Mountain while keeping Rockface Village untapped.
+    tap_mana_except(&mut engine, p0, village);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert!(!is_tapped(&engine, village));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(village, 0)),
+        "ability 0 (colorless mana) is offered"
+    );
+    assert!(
+        legal.abilities.contains(&(village, 1)),
+        "ability 1 (restricted creature mana) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(village, 2)),
+        "ability 2 is not offered when the battlefield has no legal tribal target"
+    );
+
+    activate(&mut engine, p0, rockface_village(), 1);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "only the mountain's unrestricted red mana appears in the available pool"
+    );
+    assert_eq!(pool.restricted().len(), 1);
+    assert_eq!(pool.restricted()[0].amount, 1);
+    assert_eq!(pool.restricted()[0].color, ManaColor::Red);
+    assert_eq!(pool.total(), 2);
+    assert!(is_tapped(&engine, village));
+}
+
+/// Rustic Clachan prints `As this land enters, you may reveal a Kithkin card from your hand. If you don't, this land enters tapped.`, `{{T}}: Add {{W}}.`, and `Reinforce 1—{{1}}{{W}} ({{1}}{{W}}, Discard this card: Put a +1/+1 counter on target creature.)`
+///
+/// Under `Coverage::Partial`, the enters-tapped-unless-reveal-Kithkin clause is omitted because entry modifiers cannot inspect cards in a player's hand.
+/// Playing Rustic Clachan enters the battlefield untapped.
+/// With a creature on the battlefield and `{{1}}{{W}}` floating from the played land and a basic land, a second copy of Rustic Clachan in hand offers its Reinforce 1 ability.
+/// Activating ability 1 discards the card from hand, places a +1/+1 counter on the creature, and leaves the discarded card in the graveyard.
+#[test]
+fn rustic_clachan_enters_untapped_and_reinforces_from_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), young_wolf()])
+        .hand(0, &[rustic_clachan(), rustic_clachan()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let clachan = play_land(&mut engine, p0, rustic_clachan());
+    assert!(
+        !entered_tapped(&engine, clachan),
+        "rustic clachan enters untapped under `Coverage::Partial`"
+    );
+
+    // Float {{1}}{{W}} from Forest and Rustic Clachan.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.iter().any(|(source, idx)| *idx == 1
+            && engine
+                .state()
+                .object(*source)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == rustic_clachan()))),
+        "the second rustic clachan in hand offers its reinforce ability"
+    );
+
+    activate(&mut engine, p0, rustic_clachan(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+    assert!(options.contains(&wolf));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolf],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        in_graveyard(&engine, p0, rustic_clachan()).is_some(),
+        "the reinforced card is discarded to the graveyard as cost"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(counters_on(&engine, wolf, CounterKind::P1P1), 1);
+    assert_eq!(pt(&engine, wolf), (2, 2));
+}
+
+/// Safe Haven prints `{{2}}, {{T}}: Exile target creature you control.` and `At the beginning of your upkeep, you may sacrifice this land. If you do, return each card exiled with this land to the battlefield under its owner's control.`
+///
+/// Under `Coverage::Implemented`, activating ability 0 for `{{2}}, {{T}}` exiles a controlled creature with a link to Safe Haven.
+/// At the beginning of the next upkeep, answering yes to the optional sacrifice trigger sacrifices Safe Haven and returns the exiled creature to the battlefield.
+#[test]
+fn safe_haven_exiles_creature_and_returns_it_on_upkeep_sacrifice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[safe_haven(), forest(), forest(), young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // Safe Haven is on the battlefield from the first turn, so its own
+    // upkeep trigger asks its question before anybody reaches a main phase.
+    // Declined here: nothing is exiled under it yet, and `reach_main_phase`
+    // expects a priority it would otherwise never see.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    reach_main_phase(&mut engine, p0);
+
+    let haven = on_battlefield(&engine, p0, safe_haven()).expect("safe haven on battlefield");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+
+    // Float {{2}} from Forests while keeping Safe Haven untapped.
+    tap_mana_except(&mut engine, p0, haven);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, haven));
+
+    activate(&mut engine, p0, safe_haven(), 0);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options, vec![wolf]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolf],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, young_wolf()).is_none(),
+        "wolf is exiled"
+    );
+    assert_eq!(
+        engine.state().object(wolf).expect("wolf exists").zone,
+        Zone::Exile
+    );
+    assert!(is_tapped(&engine, haven));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    // Advance to p0's next upkeep where Safe Haven's trigger asks whether to sacrifice.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::MayDo,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected YesNo prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, safe_haven()).is_none(),
+        "safe haven was sacrificed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, young_wolf()).is_some(),
+        "wolf returned to the battlefield"
+    );
+}
+
+/// Scrying Sheets prints `{{T}}: Add {{C}}.` and `{{1}}{{S}}, {{T}}: Look at the top card of your library. If that card is snow, you may reveal it and put it into your hand.`
+///
+/// Under `Coverage::Partial`, the top-card inspection ability is omitted because branching on printed characteristics of the top library card is unsupported.
+/// With Scrying Sheets and two basic lands (`forest()`) on the battlefield under `PlayerId::new(0)`, floating two mana while keeping Scrying Sheets untapped shows that ability 0 is offered while ability 1 is withheld from `legal.abilities`.
+/// Activating ability 0 adds one colorless mana to the pool and leaves Scrying Sheets tapped.
+#[test]
+fn scrying_sheets_taps_for_colorless_and_omits_snow_reveal_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[scrying_sheets(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sheets = on_battlefield(&engine, p0, scrying_sheets()).expect("sheets on battlefield");
+
+    // Float two mana from Forests while keeping Scrying Sheets untapped.
+    tap_mana_except(&mut engine, p0, sheets);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, sheets));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(sheets, 0)),
+        "ability 0 ({{T}}: Add {{C}}) is offered"
+    );
+    assert!(
+        !legal.abilities.contains(&(sheets, 1)),
+        "ability 1 is omitted under `Coverage::Partial` even with mana floating"
+    );
+
+    activate(&mut engine, p0, scrying_sheets(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.available(ManaColor::Green), 2);
+    assert_eq!(pool.total(), 3);
+    assert!(is_tapped(&engine, sheets));
+}
+
+fn accursed_duneyard() -> CardIndex {
+    card_index("48edc348-93f6-4dce-9cc4-7244d76b6f4a")
+}
+
+fn amonkhet_raceway() -> CardIndex {
+    card_index("fe174586-d36b-40f6-babd-1f98e76eec22")
+}
+
+fn argoth_sanctum_of_nature() -> CardIndex {
+    card_index("62648946-1708-48f4-ba40-c057563ab11b")
+}
+
+fn avishkar_raceway() -> CardIndex {
+    card_index("e2c35551-1ba5-4424-baf9-821b49bbcc8c")
+}
+
+fn bretagard_stronghold() -> CardIndex {
+    card_index("c792229b-4a0f-48d5-93e5-60bd4cae9c42")
+}
+
+fn castle_doom() -> CardIndex {
+    card_index("9bd013df-ad75-4099-940b-1765c58faf26")
+}
+
+fn detection_tower() -> CardIndex {
+    card_index("93695c16-c441-492d-af12-b57df9739846")
+}
+
+fn edgewall_inn() -> CardIndex {
+    card_index("4dfd33e8-7e30-493b-8564-f7df5f0257aa")
+}
+
+fn eiganjo_seat_of_the_empire() -> CardIndex {
+    card_index("7edb3d15-4f70-4ebe-8c5e-caf6a225076d")
+}
+
+fn emeria_the_sky_ruin() -> CardIndex {
+    card_index("cc999cf2-c99b-4911-8c52-6cc4a99fcc7b")
+}
+
+fn eumidian_hatchery() -> CardIndex {
+    card_index("5b6d933e-2830-4f5a-b244-a421aa9615dc")
+}
+
+fn field_of_ruin() -> CardIndex {
+    card_index("f825c98f-a327-440b-8c0d-ebe02e23bfb7")
+}
+
+fn field_of_the_dead() -> CardIndex {
+    card_index("aa959340-c869-4caa-92c7-572bd8d23eef")
+}
+
+fn fomori_vault() -> CardIndex {
+    card_index("622a53bd-d894-422c-a606-7126041afa02")
+}
+
+fn great_hall_of_starnheim() -> CardIndex {
+    card_index("75d8ef26-b745-448b-94b9-3c64668ce171")
+}
+
+fn hall_of_oracles() -> CardIndex {
+    card_index("0bb896ba-e15e-43a9-9120-e674d7ba003c")
+}
+
+fn hall_of_tagsin() -> CardIndex {
+    card_index("fd809587-773c-47ec-8676-cefef6d1e38f")
+}
+
+fn hanweir_battlements() -> CardIndex {
+    card_index("0e735ba6-7fd1-4d12-b20c-21525dc1e2b5")
+}
+
+fn haven_of_the_spirit_dragon() -> CardIndex {
+    card_index("acc9c16a-5e72-43bd-87e1-56a16aa892f5")
+}
+
+fn heart_of_yavimaya() -> CardIndex {
+    card_index("6c9a854c-0509-4ed4-9d94-c45b823b65e5")
+}
+
+fn hidden_hideout() -> CardIndex {
+    card_index("b639e1fe-d099-4cab-a0d0-a1b33c7f31dd")
+}
+
+fn ice_floe() -> CardIndex {
+    card_index("cfaaead2-09e8-47cb-9e39-8570b8d8de86")
+}
+
+fn junktown() -> CardIndex {
+    card_index("c470a802-931f-4b63-92fd-ef9cf2e796dd")
+}
+
+fn kjeldoran_outpost() -> CardIndex {
+    card_index("8b370db5-dfb9-4ea0-9017-bae3e767b041")
+}
+
+fn lava_tubes() -> CardIndex {
+    card_index("2ffb2647-60bb-4916-b919-cbcf18e5e424")
+}
+
+fn littjara_mirrorlake() -> CardIndex {
+    card_index("3b577179-10d0-43f1-ac17-9dd2d12c965d")
+}
+
+fn magosi_the_waterveil() -> CardIndex {
+    card_index("4bdffa67-e6b3-4588-b76e-c11db6f043ca")
+}
+
+fn maze_s_end() -> CardIndex {
+    card_index("49479778-c4c0-43ba-a7b7-45f00d067462")
+}
+
+fn mount_doom() -> CardIndex {
+    card_index("995c8dac-fd27-468a-abd4-02372cf0c850")
+}
+
+fn mudflat_village() -> CardIndex {
+    card_index("aeeab1df-0b8b-4bc4-a5f9-aac413449bec")
+}
+
+fn myriad_landscape() -> CardIndex {
+    card_index("2549bc57-9ffb-4053-9f10-f2a5f792b845")
+}
+
+fn nearby_planet() -> CardIndex {
+    card_index("19d34126-8266-4da1-b7ef-67ecfa2dbbee")
+}
+
+fn northampton_farm() -> CardIndex {
+    card_index("e05f1a43-16ce-4e88-b0ad-2202efb25516")
+}
+
+fn nykthos_shrine_to_nyx() -> CardIndex {
+    card_index("84dc18f0-8225-4b40-a165-b10321e41769")
+}
+
+fn oakhollow_village() -> CardIndex {
+    card_index("177b7fe4-8565-4631-b4d9-8b2b4282f3ac")
+}
+
+fn oscorp_industries() -> CardIndex {
+    card_index("f432eb6a-f1bf-4ce7-b915-1488dccb4bb9")
+}
+
+fn petrified_hamlet() -> CardIndex {
+    card_index("78a2972c-14f4-41f3-99f9-167948bdd73a")
+}
+
+fn port_of_karfell() -> CardIndex {
+    card_index("f500a8a4-6135-448c-9116-bd2695a72229")
+}
+
+fn river_delta() -> CardIndex {
+    card_index("4c6c064c-da61-4c7a-9607-8fb4490ff9a6")
+}
+
+fn rockface_village() -> CardIndex {
+    card_index("7e103748-3f76-42ce-a063-d0256b2dce2b")
+}
+
+fn rustic_clachan() -> CardIndex {
+    card_index("cde68428-0033-4ede-92f1-ab91de0a41fb")
+}
+
+fn safe_haven() -> CardIndex {
+    card_index("8f7f4061-8998-40e9-b980-c63f27e7a5cd")
+}
+
+fn scrying_sheets() -> CardIndex {
+    card_index("0f98e055-ab61-4314-aae8-9d3c19f66acf")
+}
