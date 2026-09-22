@@ -175,6 +175,74 @@ fn time_sieve() -> CardIndex {
     card_index("3da5977a-36d4-4f32-ab9b-8b93809d818d")
 }
 
+fn the_meathook_massacre() -> CardIndex {
+    card_index("127de52b-df75-4342-95a0-20d84c5bf916")
+}
+
+fn underworld_breach() -> CardIndex {
+    card_index("27e0948b-9916-473b-8d8c-a51bdfbc7457")
+}
+
+fn profane_procession() -> CardIndex {
+    card_index("a656ad7f-133f-4d93-919a-43bcf1f815f3")
+}
+
+fn retreat_to_kazandu() -> CardIndex {
+    card_index("3f8e5ff1-af89-427e-924c-19a44f9a3788")
+}
+
+fn temur_ascendancy() -> CardIndex {
+    card_index("e68dc47c-692f-4420-9799-eee104017273")
+}
+
+fn virtue_of_knowledge() -> CardIndex {
+    card_index("f0bbcabf-29e7-4c7e-893f-86b64d3620a9")
+}
+
+fn erode() -> CardIndex {
+    card_index("2e467fab-e808-44d3-99bf-e3621baeb7cb")
+}
+
+fn malakir_rebirth() -> CardIndex {
+    card_index("a731e87b-8d99-4b64-8ee3-8e540d652366")
+}
+
+fn revitalizing_repast() -> CardIndex {
+    card_index("8dd6d060-d023-48a6-85cb-7a5521b6257b")
+}
+
+fn spikefield_hazard() -> CardIndex {
+    card_index("81036c9f-fe0a-45a7-bcd5-0d344f31055a")
+}
+
+fn vastwood_fortification() -> CardIndex {
+    card_index("ce148a0c-6c63-49d5-a156-99efae4e367a")
+}
+
+fn hero_s_downfall() -> CardIndex {
+    card_index("03df6a57-37c9-46d3-83b3-4a6240100714")
+}
+
+/// Casts the **front** face of a modal double-faced card off floating mana.
+///
+/// [`cast_from_hand`] is enough for a card with one way out of the hand; a
+/// card whose other face is a land is asked which one is being played, and a
+/// test that meant the spell has to say so rather than take whatever the
+/// first option happens to be.
+#[track_caller]
+fn cast_front_face(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
+    cast_with_floating(engine, seat, card);
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let slot = options
+            .iter()
+            .position(|o| matches!(o.kind, CastModeKind::Face(0)))
+            .expect("the front face is one of the ways to play this card");
+        engine
+            .apply(seat, PlayerAction::ChooseMode(slot))
+            .expect("the front face is a legal choice");
+    }
+}
+
 fn shaleskin_bruiser() -> CardIndex {
     card_index("b90e370a-5080-485e-a957-93d5f60e6cdb")
 }

@@ -3452,3 +3452,234 @@ fn muscle_burst_counts_the_copies_in_an_opponents_graveyard_too() {
          a count of your own graveyard alone would be +3/+3"
     );
 }
+
+/// Virtue of Knowledge: a permanent entering makes an enter trigger happen
+/// twice.
+///
+/// `ReplacementRule::TriggerMultiplier` is the whole front face, and the only
+/// way to see a replacement that multiplies a trigger is to count what the
+/// trigger did: Lumra mills four on arrival, so it mills eight here. The
+/// Adventure half is refused by name and is not on this board.
+#[test]
+fn virtue_of_knowledge_makes_an_enter_trigger_happen_twice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(411, forest())
+        .battlefield(
+            0,
+            &[
+                virtue_of_knowledge(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[lumra_bellow_of_the_woods()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = library_size(&engine, p0);
+    cast_from_hand(&mut engine, p0, lumra_bellow_of_the_woods());
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "both copies of the enter trigger resolve"
+    );
+
+    assert_eq!(
+        library_size(&engine, p0),
+        before - 8,
+        "\"that ability triggers an additional time\": mill four, twice"
+    );
+}
+
+/// Profane Procession: the exile it claims, which is the front face's
+/// activated ability.
+///
+/// The transform half needs a count of what is exiled *with* the permanent
+/// and is refused by name; `{3}{W}{B}: Exile target creature` is expressible
+/// and is what a game can show.
+#[test]
+fn profane_procession_exiles_a_creature_for_five() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(412, plains())
+        .battlefield(
+            0,
+            &[
+                profane_procession(),
+                plains(),
+                plains(),
+                plains(),
+                swamp(),
+                swamp(),
+            ],
+        )
+        .battlefield(1, &[rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("the Wurm is seated");
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, profane_procession(), 0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .expect("the Wurm is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, rootbreaker_wurm()).is_none(),
+        "the Wurm is off the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p1, rootbreaker_wurm()).is_none(),
+        "and exiled rather than destroyed, so it is not in the graveyard"
+    );
+}
+
+/// Vastwood Fortification, cast as its **front** face: one +1/+1 counter.
+///
+/// A modal double-faced card is two cards in one, and the half that is not
+/// `play_land_face` is this one: the spell is cast out of the same hand the
+/// land would have been played from, and the counter is what says which face
+/// the engine took.
+#[test]
+fn vastwood_fortification_puts_a_counter_on_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(413, forest())
+        .battlefield(0, &[forest(), forest(), llanowar_elves()])
+        .hand(0, &[vastwood_fortification()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, vastwood_fortification());
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        1,
+        "one +1/+1 counter, which is the whole of the front face"
+    );
+    assert_eq!(pt(&engine, elf), (2, 2), "so a 1/1 is a 2/2");
+}
+
+/// Revitalizing Repast, front face: a counter **and** indestructible, which
+/// only a destruction can tell apart from the counter alone.
+///
+/// The card is `Coverage::Implemented` and the second clause is the one a
+/// test that stopped at the counter would never read — so the Elf is shot at
+/// after it is pumped, and survives.
+#[test]
+fn revitalizing_repast_leaves_its_target_indestructible() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(414, forest())
+        .battlefield(0, &[forest(), forest(), llanowar_elves()])
+        .hand(0, &[revitalizing_repast()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, revitalizing_repast());
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        1,
+        "the counter is on"
+    );
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, hero_s_downfall());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is a legal target");
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the removal resolves"
+    );
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "\"It gains indestructible until end of turn\" — Destroy does nothing \
+         (CR 702.12b), and a card that had only put the counter on would have \
+         lost the Elf here"
+    );
+}
+
+/// Spikefield Hazard, front face: one damage, which is the half it claims.
+///
+/// The "exile it instead of dying" replacement is refused by name, so what a
+/// game shows is a 1/1 taking one damage and going to the graveyard — where
+/// the printed card would have exiled it.
+#[test]
+fn spikefield_hazard_deals_one_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(415, mountain())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[spikefield_hazard()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("the Elf is seated");
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, spikefield_hazard());
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "one damage on a 1/1 is lethal (CR 704.5g)"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "and it is in the graveyard, which is the half the card refuses: the \
+         printing exiles it instead"
+    );
+}
+
+/// Malakir Rebirth, played as its **back** face: a land that enters tapped
+/// and makes black.
+///
+/// The front face's granted death trigger is refused by name, so the back is
+/// where this printing is testable — and the two halves of what a modal
+/// double-faced land carries are exactly `EnterModifier::Tapped` and the mana
+/// ability behind it.
+#[test]
+fn malakir_caverns_enters_tapped_and_makes_black() {
+    let (engine, land) = play_land_face(malakir_rebirth(), 1).expect("the back face is a land");
+    assert!(
+        is_tapped(&engine, land),
+        "\"This land enters tapped\" is an enter modifier and not a line the \
+         harness can place around"
+    );
+}

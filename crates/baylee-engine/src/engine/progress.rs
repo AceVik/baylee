@@ -597,6 +597,31 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
         for (id, controller, from_zone) in events {
+            // CR 107.3m in one place, before anything reads it. The rule
+            // gives an entering permanent's own abilities the X announced
+            // for *the spell that became it*, and gives the permanent
+            // itself an X of 0 — so the field means "the spell's number, or
+            // nothing", and the one moment that is decidable is here, where
+            // the arrival still knows which zone it came from. A Walking
+            // Ballista that died at X = 1 and was reanimated, or one blinked
+            // back from exile, was announced by nobody and comes down as the
+            // 0/0 it prints (CR 107.3g: a card anywhere but the stack has an
+            // X of 0); `move_object` deliberately carries the spell-shaped
+            // fields through a zone change, so without this the old number
+            // would still be sitting there.
+            //
+            // Normalised rather than guarded at each reader, because there
+            // are now two of them and they are not alike: `WithCounters`
+            // below is a replacement effect and could ask `from_zone`
+            // itself, while an enters-the-battlefield *triggered* ability
+            // is put on the stack by `collect_triggers` — a later step of
+            // this same pass, with no arrival in its hands to ask.
+            if from_zone != Zone::Stack
+                && let Some(obj) = self.state.object_mut(id)
+                && obj.x_value != 0
+            {
+                obj.x_value = 0;
+            }
             // Daybound's first static ability (CR 702.145b): if it is
             // night, a permanent represented by a double-faced card
             // *enters* transformed. It is done here rather than left to
@@ -822,16 +847,13 @@ impl<L: CardLookup> Engine<L> {
                     // not two (CR 614.16).
                     EnterModifier::WithCounters { kind, amount } => {
                         // CR 107.3m: a replacement effect on a permanent that
-                        // refers to X uses the X chosen for *the spell that
-                        // became that object as it resolved*, and the value of
-                        // X for the permanent itself is 0. `x_value` is that
-                        // announced number, and it is only the spell's while
-                        // the arrival came off the stack — the same Walking
-                        // Ballista reanimated out of a graveyard or blinked
-                        // back from exile was never announced and comes down
-                        // as the 0/0 it prints (CR 107.3g).
-                        let x = (from_zone == Zone::Stack)
-                            .then(|| self.state.object(id).map_or(0, |o| o.x_value));
+                        // refers to X uses the X chosen for the spell that
+                        // became that object as it resolved. `x_value` is
+                        // that announced number and asks nothing further
+                        // here, because the top of this loop has already put
+                        // it back to 0 for an arrival that came from
+                        // anywhere but the stack.
+                        let x = Some(self.state.object(id).map_or(0, |o| o.x_value));
                         let n = crate::eval::amount(amount, &self.state, controller, id, x);
                         if n > 0 {
                             let n = u16::try_from(n).unwrap_or(u16::MAX);

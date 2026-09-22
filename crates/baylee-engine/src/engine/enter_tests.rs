@@ -662,9 +662,16 @@ fn a_spell_cast_for_x_enters_with_that_many_counters() {
 /// only when a permanent leaves the battlefield, and it deliberately spares
 /// the spell-shaped fields so a permanent resolving off the stack still has
 /// them. So a reader that simply took `x_value` would reanimate this 0/0 as
-/// a 1/1 for ever, off a number chosen one zone change ago — which is why
-/// the engine reads it only when the arrival came **from the stack**
-/// (CR 107.3g: a card anywhere else has an X of 0).
+/// a 1/1 for ever, off a number chosen one zone change ago.
+///
+/// What stops it is one normalisation at the arrival
+/// (`apply_enter_modifiers`), not a question each reader asks: an entry
+/// that did not come from the stack puts the field back to 0, so every
+/// reader of CR 107.3m downstream is a plain read. That is why the last
+/// assertion here is about the **field** and not about the counters. The
+/// counters are one reader; an enters-the-battlefield triggered ability is
+/// another, and it is stacked a step later with no arrival left to ask
+/// (CR 107.3g: a card anywhere but the stack has an X of 0).
 #[test]
 fn a_reanimated_body_brings_none_of_the_x_it_was_cast_for() {
     let (seat, foe) = (PlayerId::new(0), PlayerId::new(1));
@@ -767,5 +774,19 @@ fn a_reanimated_body_brings_none_of_the_x_it_was_cast_for() {
          back as a 0/0 and dies again — it is on the battlefield with \
          {} +1/+1 counters, off an X chosen a zone change ago",
         on_battlefield(&engine, seat, walking_ballista()).map_or(0, |id| plus_ones(&engine, id))
+    );
+
+    // And the field itself, which is what every reader of CR 107.3m now
+    // takes at face value. It was 1 when the spell was cast, it rode
+    // through the first death untouched, and the entry off the graveyard
+    // put it back — so reading it in the graveyard after the second death
+    // is reading the normalisation and nothing else. Asserting the
+    // counters alone would leave a triggered ability free to announce a 1.
+    let dead = in_graveyard(&engine, seat, walking_ballista()).expect("it died a second time");
+    assert_eq!(
+        engine.state().object(dead).map_or(u32::MAX, |o| o.x_value),
+        0,
+        "the X belongs to the spell that became the permanent, and no spell \
+         became this one"
     );
 }

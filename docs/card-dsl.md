@@ -689,9 +689,27 @@ on it" is expressible and Walking Ballista is an ordinary card. CR 107.3m is
 what makes that a rule rather than a convenience: a replacement effect on a
 permanent that refers to X uses the value of X chosen for *the spell that
 became that object as it resolved*, and the value of X for the permanent
-itself is 0. So the engine reads the announced X off the entering object and
-only when the arrival came off the stack — the same card reanimated, blinked
-or put onto the battlefield by an effect arrives with nothing (CR 107.3g).
+itself is 0. So the engine reads the announced X off the entering object —
+the same card reanimated, blinked or put onto the battlefield by an effect
+arrives with nothing (CR 107.3g).
+
+That second half is **one normalisation at the arrival** rather than a
+question each reader asks. `apply_enter_modifiers` walks every permanent
+that entered and knows which zone it came from, so an entry from anywhere
+but the stack puts `x_value` back to 0 there, and every reader of CR 107.3m
+downstream is a plain read. It is written that way because there are two
+readers and only one of them could have asked: `WithCounters` is a
+replacement effect and has the arrival in its hands, while an
+enters-the-battlefield **triggered** ability is stacked a step later by
+`collect_triggers` with nothing left to ask. The Meathook Massacre is the
+card that proves it — `{X}{B}{B}`, "when this enters, each creature gets
+-X/-X" — and it read X as 0 for as long as the guard sat on the reader
+instead of on the field, which is a `Coverage::Implemented` sweeper that
+swept nothing. Only an object's **own** enter trigger takes the number
+(`Trigger::ETB`), because the rule says *its* enter trigger: a landfall
+`EntersBattlefield(&Filter::YOUR_LAND)` is about some other permanent and
+announces nothing.
+
 The counters go through `replacement::put_counters` like every other
 replacement effect, so a counter doubler has its say (CR 614.16): a Vivid
 land under a Doubling Season enters with four charge counters.

@@ -2287,3 +2287,198 @@ fn sylvan_library_draws_two_more_at_the_draw_step() {
         "and they came off the library"
     );
 }
+
+/// The Meathook Massacre: the X it announces sweeps the board, and the two
+/// drain triggers read which side a creature was on.
+///
+/// `{X}{B}{B}` plus `Amount::NegX` in a `PumpFilter` is the sweep, and the
+/// number is announced on casting (CR 601.2b) — so X is 1 here and the Elves
+/// on both sides are 1/1s that CR 704.5f puts in the graveyard. Both drain
+/// triggers then fire, in opposite directions, which is what separates the
+/// card from one that drained on every death.
+#[test]
+fn the_meathook_massacre_sweeps_for_the_x_it_announced_and_drains_both_ways() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(406, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), llanowar_elves()])
+        .hand(0, &[the_meathook_massacre()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, the_meathook_massacre());
+    let Pending::ChooseNumber { max, .. } = engine.pending().clone() else {
+        panic!("expected the X announcement, got {:?}", engine.pending())
+    };
+    assert!(max >= 1, "three Swamps pay {{X}}{{B}}{{B}} for X = 1");
+    engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the sweep and both drains resolve"
+    );
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none()
+            && on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "-1/-1 kills a 1/1 on either side (CR 704.5f)"
+    );
+    assert_eq!(
+        (
+            engine.state().players[0].life,
+            engine.state().players[1].life
+        ),
+        (21, 19),
+        "your creature dying drains them for one and theirs gains you one, so \
+         the two triggers are read by which side the creature was on"
+    );
+}
+
+/// Underworld Breach: the sentence it keeps is the one that takes it away.
+///
+/// Escape is refused by name — no `Modifier` grants a casting permission out
+/// of a graveyard with its own cost — so what is left is "at the beginning of
+/// the end step, sacrifice this enchantment", and a card that did nothing at
+/// all would sit on the battlefield forever.
+#[test]
+fn underworld_breach_sacrifices_itself_at_the_end_step() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(407, forest())
+        .battlefield(0, &[underworld_breach()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, underworld_breach()).is_some(),
+        "it is on the battlefield during the main phase"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, underworld_breach()).is_none(),
+        "and it sacrifices itself at the beginning of the end step"
+    );
+    assert!(
+        in_graveyard(&engine, p0, underworld_breach()).is_some(),
+        "a sacrifice puts it in its owner's graveyard"
+    );
+}
+
+/// Retreat to Kazandu: a landfall trigger with two modes, and the mode is
+/// chosen every time it triggers.
+///
+/// `modal_triggered!` is the shape, and the half worth playing is that both
+/// modes are reachable off the same land drop: the second land takes the
+/// other one, so the counter and the two life are the same ability answering
+/// two different questions.
+#[test]
+fn retreat_to_kazandu_offers_both_of_its_modes_on_a_land_drop() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(408, forest())
+        .battlefield(0, &[retreat_to_kazandu(), llanowar_elves()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let card = in_hand(&engine, p0, forest()).expect("the land is in hand");
+    engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected the mode choice, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 2, "\"choose one\" of two");
+    engine.apply(p0, PlayerAction::ChooseMode(0)).unwrap();
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        1,
+        "the first mode put a +1/+1 counter on the target"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the second mode's two life was not also taken"
+    );
+}
+
+/// Erode: the removal, and the land the *other* player is offered for it.
+///
+/// `Effect::OptionalBasicLandSearchFor { player: ControllerOfTarget }` is the
+/// half that is easy to write pointing at the wrong seat, so the assertion is
+/// on whose battlefield the basic arrives — and it is not the caster's.
+#[test]
+fn erode_destroys_a_creature_and_offers_its_controller_a_basic() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(409, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[erode()])
+        .battlefield(1, &[rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("the Wurm is seated");
+    let their_library = library_size(&engine, p1);
+    cast_from_hand(&mut engine, p0, erode());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .expect("the Wurm is a legal target");
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the search the other seat is offered is answered on the way"
+    );
+
+    assert!(
+        on_battlefield(&engine, p1, rootbreaker_wurm()).is_none(),
+        "the Wurm is destroyed"
+    );
+    assert!(
+        library_size(&engine, p1) < their_library,
+        "and it is the Wurm's controller whose library the basic came out of"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_size(&engine, p0),
+        "the caster searched nothing"
+    );
+}
+
+/// Temur Ascendancy: the haste it grants, on a creature that has just
+/// arrived.
+///
+/// The "power 4 or greater" draw trigger is refused by name, so the static is
+/// the card here — and it is a second printing of the same sentence Maelstrom
+/// Wanderer carries, which is why this one is asserted on the keyword and on
+/// the attacker list rather than on both again.
+#[test]
+fn temur_ascendancy_gives_a_freshly_cast_creature_haste() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(410, forest())
+        .battlefield(0, &[temur_ascendancy(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf arrived this turn");
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::HASTE),
+        "\"Creatures you control have haste\""
+    );
+}

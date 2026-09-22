@@ -1856,6 +1856,34 @@ impl<L: CardLookup> Engine<L> {
                 .object(source)
                 .map_or(&[][..], |o| o.abilities(&self.lookup))
         });
+        // CR 107.3m: an object's **own** enters-the-battlefield triggered
+        // ability that refers to X uses the X chosen for the spell that
+        // became that object, although X for the permanent itself is 0. The
+        // Meathook Massacre is the card that reads it — `{X}{B}{B}`, "when
+        // this enters, each creature gets -X/-X" — and without this the
+        // trigger resolved at nought: a `Coverage::Implemented` enchantment
+        // that swept no board. `Trigger::ETB` and not any entering trigger,
+        // because the rule says *its* enter trigger: a landfall
+        // `EntersBattlefield(&Filter::YOUR_LAND)` is about another permanent
+        // and announces nothing. Nothing is guarded here: a permanent's
+        // `x_value` is normalised the moment it enters
+        // (`progress::apply_enter_modifiers`), so on the battlefield the
+        // field already means "the X of the spell that became this, or
+        // nothing" and a reanimated body announces a 0.
+        let announced_x = matches!(
+            abilities.get(ability_index as usize),
+            Some(
+                baylee_cards_dsl::AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::ETB,
+                    ..
+                } | baylee_cards_dsl::AbilityDef::ModalTriggered {
+                    trigger: baylee_cards_dsl::Trigger::ETB,
+                    ..
+                }
+            )
+        )
+        .then(|| self.state.object(source).map_or(0, |o| o.x_value))
+        .unwrap_or(0);
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
                 id,
@@ -1869,6 +1897,7 @@ impl<L: CardLookup> Engine<L> {
                 base,
             );
             obj.own_abilities = Some(abilities);
+            obj.x_value = announced_x;
             obj
         });
         self.state
