@@ -28,6 +28,9 @@ card!(
         ),
         face!(
             name = "Metzali, Tower of Triumph",
+            // CR 712.8c: a nonmodal double-faced card is cast as its front
+            // face and reaches this one only by transforming.
+            castable_from_hand = false,
             types = TypeSet::LAND,
             supertypes = SupertypeSet::LEGENDARY,
             abilities = &[mana_ability!(&[Effect::mana_of_any_color()])],

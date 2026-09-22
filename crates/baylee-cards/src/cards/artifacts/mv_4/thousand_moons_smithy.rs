@@ -48,6 +48,9 @@ card!(
         ),
         face!(
             name = "Barracks of the Thousand",
+            // CR 712.8c: a nonmodal double-faced card is cast as its front
+            // face and reaches this one only by transforming.
+            castable_from_hand = false,
             types = TypeSet::ARTIFACT.union(TypeSet::LAND),
             supertypes = SupertypeSet::LEGENDARY,
             abilities = BACK_MANA,

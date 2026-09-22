@@ -2443,6 +2443,8 @@ struct PrintingTally {
     defined_pt: usize,
     /// Faces whose counted enters-tapped bound was held against the print.
     enters_tapped: usize,
+    /// Back faces whose castability was held against the printed layout.
+    back_faces: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -2545,6 +2547,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     type_lines: 1400,
     defined_pt: 4,
     enters_tapped: 38,
+    back_faces: 55,
 };
 
 /// What [`check_header_matches_code`]'s type segment reached, less a margin.
@@ -3004,6 +3007,57 @@ fn check_def_against_the_printing(
     check_type_line_matches_the_printing(slug, def, payload, tally, problems);
     check_optional_clauses_are_offered(slug, def, payload, tally, problems);
     check_enters_tapped_bound_matches_the_printing(slug, def, payload, tally, problems);
+    check_back_face_castability_matches_the_layout(slug, def, payload, tally, problems);
+}
+
+/// Whether a two-faced card's **back** may be played out of hand, against the
+/// kind of double-faced card the printing says it is.
+///
+/// CR 712.8a: a double-faced card in hand has only its front face's
+/// characteristics, and CR 712.8c spells out the consequence — a nonmodal
+/// (transforming) double-faced card is cast as its front face and reaches its
+/// back only by turning over. A modal one is the exception the player
+/// chooses between. `FaceDef::castable_from_hand` is the flag, it defaults to
+/// `true`, and the default is right for exactly one of those two kinds.
+///
+/// Nothing compared it, and the cost of that was not one card. A
+/// transforming card whose back face is a **land** is a land drop anybody can
+/// make: the engine offers the back out of hand, the arrival is a perfectly
+/// ordinary land, and every other check agrees, because the card is right
+/// about everything except which face a player may reach. The sweep in
+/// `card_tests::lands` cannot see it either — it plays every spell-fronted
+/// land back and asserts the arrival matches that face, which it does.
+///
+/// Scryfall's `layout` is the one place the two kinds are told apart, which
+/// is why this is a printing check and not a pool lint: a card file cannot
+/// state its own layout without a person deciding it, and a person deciding
+/// it is what went wrong twenty times.
+fn check_back_face_castability_matches_the_layout(
+    slug: &str,
+    def: &'static baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    let [_, back] = def.faces else { return };
+    let want = match payload.get("layout").and_then(serde_json::Value::as_str) {
+        Some("transform") => false,
+        Some("modal_dfc") => true,
+        // Every other layout either has one castable face (`normal`) or two
+        // that are both played out of hand (`adventure`, `split`, `flip`),
+        // and a meld back is a card of its own rather than a face here.
+        _ => return,
+    };
+    tally.back_faces += 1;
+    if back.castable_from_hand != want {
+        let kind = if want { "modal" } else { "transforming" };
+        println!(
+            "{slug}: the printing is a {kind} double-faced card (CR 712.8c), so its \
+             back face `{}` is castable_from_hand = {want} and the code says {}",
+            back.name, back.castable_from_hand
+        );
+        *problems += 1;
+    }
 }
 
 fn check_type_line_matches_the_printing(
@@ -4342,7 +4396,7 @@ fn report_what_the_sweeps_reached(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
          {} keyword, {} mana, {} oracle, {} cost, {} activation cost, {} player target, \
          {} target count, {} optional clause, {} printing, {} type line, \
-         {} ability-defined P/T, {} enters-tapped bound",
+         {} ability-defined P/T, {} enters-tapped bound, {} back face",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -4357,7 +4411,8 @@ fn report_what_the_sweeps_reached(
         tally.printings,
         tally.type_lines,
         tally.defined_pt,
-        tally.enters_tapped
+        tally.enters_tapped,
+        tally.back_faces
     );
     check_printing_floors(tally, problems);
     if unpinned > 0 {
@@ -4380,6 +4435,7 @@ fn report_what_the_sweeps_reached(
 fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
     for (what, seen, floor) in [
         ("payloads", tally.payloads, PRINTING_FLOOR.payloads),
+        ("back face", tally.back_faces, PRINTING_FLOOR.back_faces),
         ("loyalty", tally.loyalty, PRINTING_FLOOR.loyalty),
         ("color identity", tally.identity, PRINTING_FLOOR.identity),
         ("keyword", tally.keywords, PRINTING_FLOOR.keywords),

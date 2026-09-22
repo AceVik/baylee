@@ -23558,13 +23558,29 @@ const ARRIVALS_THAT_ASK: &[&str] = &[
     "Witch-Blessed Meadow",
 ];
 
-/// What the sweep reached when it was written, less a margin for a card
-/// leaving the pool: **58** played on 22.09.2026 over a pool of 2716,
-/// beside the fifteen in [`ARRIVALS_THAT_ASK`] that it does not play. Read
-/// off the sweep's own run rather than off a grep of the card files, for
-/// the reason `validate`'s enters-tapped floor is: a count taken by one
-/// instrument bounds nothing about another.
-const FLOOR: usize = 55;
+/// What the sweep reached, less a margin for a card leaving the pool: **35**
+/// played on 22.09.2026 over a pool of 2716, beside the fifteen in
+/// [`ARRIVALS_THAT_ASK`] that it does not play. Read off the sweep's own run
+/// rather than off a grep of the card files, for the reason `validate`'s
+/// enters-tapped floor is: a count taken by one instrument bounds nothing
+/// about another.
+///
+/// It reached 55 this morning, and the twenty that left are why this sweep
+/// needed a neighbour rather than a tighter assertion. A **transforming**
+/// double-faced card is cast as its front face and reaches its back only by
+/// turning over (CR 712.8c), so a land on the back of one is not a land drop
+/// at all — and `FaceDef::castable_from_hand` defaults to `true`, so
+/// twenty-one cards in the pool offered theirs out of hand. Twenty of those
+/// are spell-fronted and were counted here; the twenty-first, Havengul
+/// Laboratory, has a land front and this sweep never looked at it.
+///
+/// It could not see any of them and never could: it plays every
+/// spell-fronted land back and asserts that what arrives is that face's own
+/// types, which was perfectly true of all twenty. What tells a transforming
+/// card from a modal one is Scryfall's `layout`, which is a printing and not
+/// a rule a card file states, so the guard is in `xtask validate` and this
+/// number is what fell out of it.
+const FLOOR: usize = 32;
 
 const ROUND_J_MODAL_LANDS: &[fn() -> CardIndex] = &[
     revitalizing_repast,

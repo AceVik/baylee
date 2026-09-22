@@ -38,6 +38,9 @@ card!(
         ),
         face!(
             name = "Temple of Civilization",
+            // CR 712.8c: a nonmodal double-faced card is cast as its front
+            // face and reaches this one only by transforming.
+            castable_from_hand = false,
             types = TypeSet::LAND,
             abilities = TEMPLE_MANA,
         ),
