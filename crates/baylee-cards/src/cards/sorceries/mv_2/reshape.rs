@@ -2,7 +2,10 @@
 //! Oracle: As an additional cost to cast this spell, sacrifice an artifact.
 //! Oracle: Search your library for an artifact card with mana value X or less, put it onto the battlefield, then shuffle.
 //! Set: 2XM #64 — Double Masters | Scryfall ID: 8f8a8f14-bced-4388-b263-5e70431b191f | Oracle ID: 42a3855d-25ab-45b3-9e5d-9a0f3da35a05
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the search clause is built: `Filter::CmcAtMostX` is the bound the
+// spell announces for itself (CR 107.3a), the find enters untapped, and the
+// shuffle is derived rather than declared.
+// NOT SUPPORTED: As an additional cost to cast this spell, sacrifice an artifact.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,6 +19,11 @@ card!(
         mana_cost = mana!("{X}{U}{U}"),
         types = TypeSet::SORCERY,
     ),],
+    coverage =
+        Coverage::Partial("additional cost: CostPart::Sacrifice is payable on no spell cost list"),
+    abilities = &[spell!(&[Effect::SearchLibrary {
+        filter: &Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMostX]),
+        finds: &[Find::BATTLEFIELD],
+        optional: false,
+    }])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
