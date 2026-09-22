@@ -669,6 +669,9 @@ impl<L: CardLookup> Engine<L> {
                             self.apply_copy_choice(object, target);
                         }
                     }
+                    PlanKind::EntryReveal { .. } => {
+                        unreachable!("entry-reveal plans are answered beside Pending::ChooseCards")
+                    }
                     PlanKind::SyntheticTriggerTarget { trigger } => {
                         // No pop, unlike `PlanKind::Trigger` above. The
                         // ordinary targeted path publishes its question and
@@ -1118,6 +1121,28 @@ impl<L: CardLookup> Engine<L> {
                     // have already happened.
                     Some(PlanKind::UntapChoice) => {
                         self.finish_untap_step(&objects);
+                        return Ok(());
+                    }
+                    // A reveal land's entry clause. CR 701.20a shows the
+                    // card to every player and CR 701.20b leaves it in hand,
+                    // so nothing moves: the journal entry *is* the reveal,
+                    // and without it the card would have been shown to
+                    // nobody while the land still came down untapped.
+                    //
+                    // Naming nothing is how "you may" is declined (`min: 0`),
+                    // and that is the branch the printed "if you don't"
+                    // charges for.
+                    Some(PlanKind::EntryReveal { object }) => {
+                        if objects.is_empty() {
+                            if let Some(obj) = self.state.object_mut(object) {
+                                obj.status.insert(Status::TAPPED);
+                            }
+                        } else {
+                            self.state.journal.record(GameEvent::Revealed {
+                                player,
+                                cards: objects,
+                            });
+                        }
                         return Ok(());
                     }
                     other => self.pending_plan = other,

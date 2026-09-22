@@ -19,13 +19,18 @@ card!(
     scryfall_id = "e248204c-865d-42d9-b745-8ff73225b4a1",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     coverage = Coverage::Partial(
-        "the enter clause: no EnterModifier asks whether you revealed a card from your hand",
+        "the entry clause is a disjunction (revealed a Soldier or control one) and a face's modifier list is a conjunction",
     ),
     faces = &[face!(
         name = "Fortified Beachhead",
         types = TypeSet::LAND,
-        // NOT SUPPORTED: "you may reveal a Soldier card from your hand" — only
-        // the clause's "or you control a Soldier" half is written.
+        // NOT SUPPORTED: "tapped unless you revealed a Soldier card this way
+        // **or** you control a Soldier". Both halves are sayable on their own
+        // — `TappedUnlessReveal` and this `TappedUnless` — and putting both
+        // here would be wrong: the entry scan only ever *inserts* `TAPPED`,
+        // so a list of modifiers is an `and`. The control half alone is the
+        // stricter of the two readings a single modifier can give, which is
+        // the one to be wrong in the safe direction.
         enter_modifiers = &[EnterModifier::TappedUnless(&SOLDIERS_YOU_CONTROL)],
     )],
     abilities = &[

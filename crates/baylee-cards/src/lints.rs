@@ -2018,14 +2018,25 @@ mod tests {
     fn no_face_asks_two_questions_as_it_enters() {
         use baylee_cards_dsl::EnterModifier;
 
-        let asks = |m: &EnterModifier| {
-            matches!(
-                m,
-                EnterModifier::ChooseSubtype
-                    | EnterModifier::ChooseColor
-                    | EnterModifier::ChooseColorExcept(_)
-                    | EnterModifier::TappedOrPayLife(_)
-            )
+        // An exhaustive `match` and not a `matches!` list, which is the
+        // difference between a lint that grows with the DSL and one that
+        // quietly stops covering it. `TappedUnlessReveal` was added later
+        // and asks — under a positive list, eighteen lands would have
+        // entered the pool carrying a question this sweep could not see.
+        let asks = |m: &EnterModifier| match m {
+            EnterModifier::ChooseSubtype
+            | EnterModifier::ChooseColor
+            | EnterModifier::ChooseColorExcept(_)
+            | EnterModifier::TappedOrPayLife(_)
+            | EnterModifier::TappedUnlessReveal(_) => true,
+            EnterModifier::Tapped
+            | EnterModifier::TappedUnless(_)
+            | EnterModifier::TappedUnlessCount { .. }
+            | EnterModifier::TappedUnlessAtMost { .. }
+            | EnterModifier::TappedUnlessOpponents { .. }
+            | EnterModifier::TappedUnlessSomeoneAtOrBelow { .. }
+            | EnterModifier::Prepared
+            | EnterModifier::WithCounters { .. } => false,
         };
         let mut offenders = Vec::new();
         let mut asking = 0_usize;

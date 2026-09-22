@@ -38,8 +38,8 @@
 use super::synthetic::{SyntheticLookup, creature, preset};
 use super::testkit::{
     Duel, RegistryLookup, basic_forest, card_index, cast_from_hand, in_graveyard, in_hand,
-    keep_mulligans, on_battlefield, pass_until, play_land_face, pt, reach_main_phase,
-    stack_is_empty, tap_mana_except,
+    keep_mulligans, on_battlefield, pass_until, play_land_face, pt, quiet_creature,
+    reach_main_phase, stack_is_empty, tap_mana_except,
 };
 use super::*;
 use baylee_cards_dsl::{Amount, CardDef, CounterKind, EnterModifier, FaceDef};
@@ -788,5 +788,278 @@ fn a_reanimated_body_brings_none_of_the_x_it_was_cast_for() {
         0,
         "the X belongs to the spell that became the permanent, and no spell \
          became this one"
+    );
+}
+
+// ── The reveal lands: an entry clause read against a hidden zone ──────────
+
+/// Secluded Glen — "As this land enters, you may reveal a Faerie card from
+/// your hand. If you don't, this land enters tapped."
+fn secluded_glen() -> CardIndex {
+    card_index("09f52275-99e6-45e0-b2db-cafe26d5fb91")
+}
+
+/// Choked Estuary — the same clause over a *basic land type*.
+fn choked_estuary() -> CardIndex {
+    card_index("d473b507-8c33-4118-bc10-b0a268776074")
+}
+
+/// Scryb Sprites: a 1/1 Faerie, and the cheapest one in the pool.
+fn scryb_sprites() -> CardIndex {
+    card_index("a1f20695-6f08-4d5c-9fba-b0018bee298e")
+}
+
+/// Whether the journal records `player` having revealed exactly `card`.
+fn revealed(engine: &Engine<RegistryLookup>, player: PlayerId, card: ObjectId) -> bool {
+    engine.journal().entries().iter().any(|e| {
+        matches!(&e.event, GameEvent::Revealed { player: p, cards }
+            if *p == player && cards.as_slice() == [card])
+    })
+}
+
+/// [`EnterModifier::TappedUnlessReveal`], all four of its sentences.
+///
+/// This is the rule behind eighteen lands, and it is the first entry
+/// modifier whose filter is read against a **hidden** zone — every
+/// `TappedUnless…` sibling walks the battlefield. A sweep over the pool
+/// cannot see any of this: `enter_tests`' own census puts an asking
+/// modifier in the `Asks` bucket and moves on, which is exactly the bucket
+/// this rule would have hidden in.
+///
+/// Four games, because a seat plays one land a turn and each answer is a
+/// different game:
+///
+/// 1. **Reveal** → the land is untapped, the journal carries the reveal, and
+///    the card is still in hand (CR 701.20b — showing a card does not move
+///    it). All three, because dropping any one of them still passes the
+///    other two: a land that arrives untapped without a journal entry was
+///    shown to nobody, and a card that left the hand was discarded rather
+///    than revealed.
+/// 2. **Decline** → naming nothing is the legal way to say no (`min: 0`) and
+///    the land comes down tapped.
+/// 3. **Nothing to reveal** → no question is asked at all and the land is
+///    tapped. Asking would leak that the hand holds no Faerie, and a prompt
+///    whose only legal answer is "no" is not a choice.
+/// 4. **A creature that is not a Faerie is not on the menu.** The filter is
+///    one `HasSubtype` and no `Filter::CREATURE` beside it, which is the
+///    right shape for the printed words "a Faerie card" — Magic prints
+///    tribal instants and sorceries carrying a creature type, so the card
+///    type would refuse a card this land accepts. *This pool prints none of
+///    them* (measured: no face in 2716 cards carries a creature subtype
+///    without `TypeSet::CREATURE`), so that half is a reason and not a
+///    claim, and what is asserted here is the half that can be: the type
+///    must not have been read as "any creature" either.
+#[test]
+fn a_reveal_land_reads_the_hand_and_enters_on_what_it_finds() {
+    let p0 = PlayerId::new(0);
+
+    // ── 1. Reveal: untapped, journalled, and the card stays in hand.
+    {
+        let mut engine = Duel::new(71, basic_forest())
+            .hand(0, &[secluded_glen(), scryb_sprites()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = in_hand(&engine, p0, secluded_glen()).expect("the Glen is in hand");
+        let faerie = in_hand(&engine, p0, scryb_sprites()).expect("the Sprites are in hand");
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: land })
+            .unwrap();
+
+        let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            max,
+            prompt,
+        } = engine.pending().clone()
+        else {
+            panic!(
+                "a Faerie in hand makes the Glen ask, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(player, p0);
+        assert_eq!(
+            options,
+            vec![faerie],
+            "the menu is the matching cards in hand and nothing else"
+        );
+        assert_eq!((min, max), (0, 1), "\"you may reveal a card\"");
+        assert_eq!(prompt, crate::choice::ChoicePrompt::RevealOrEnterTapped);
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![faerie],
+                },
+            )
+            .expect("a Faerie is what it asked for");
+        pass_until(&mut engine, stack_is_empty);
+
+        let glen = on_battlefield(&engine, p0, secluded_glen()).expect("the Glen is in play");
+        assert!(
+            !engine
+                .state()
+                .object(glen)
+                .is_some_and(|o| o.status.contains(Status::TAPPED)),
+            "a revealed Faerie is what keeps the Glen untapped"
+        );
+        assert!(
+            revealed(&engine, p0, faerie),
+            "the reveal is only a reveal if somebody could have seen it"
+        );
+        assert!(
+            in_hand(&engine, p0, scryb_sprites()).is_some(),
+            "CR 701.20b: revealing a card does not move it"
+        );
+    }
+
+    // ── 2. Decline: naming nothing, and the land arrives tapped.
+    {
+        let mut engine = Duel::new(71, basic_forest())
+            .hand(0, &[secluded_glen(), scryb_sprites()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = in_hand(&engine, p0, secluded_glen()).expect("the Glen is in hand");
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: land })
+            .unwrap();
+        assert!(matches!(engine.pending(), Pending::ChooseCards { .. }));
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: Vec::new(),
+                },
+            )
+            .expect("min is 0, so naming nothing is a legal answer");
+        pass_until(&mut engine, stack_is_empty);
+
+        let glen = on_battlefield(&engine, p0, secluded_glen()).expect("the Glen is in play");
+        assert!(
+            engine
+                .state()
+                .object(glen)
+                .is_some_and(|o| o.status.contains(Status::TAPPED)),
+            "declining the reveal is what the printed \"if you don't\" charges for"
+        );
+    }
+
+    // ── 3. Nothing to reveal: no question, and tapped.
+    {
+        let mut engine = Duel::new(71, basic_forest())
+            .hand(0, &[secluded_glen()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = in_hand(&engine, p0, secluded_glen()).expect("the Glen is in hand");
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: land })
+            .unwrap();
+        assert!(
+            !matches!(engine.pending(), Pending::ChooseCards { .. }),
+            "a hand with no Faerie is not asked — the only legal answer would \
+             be \"no\", and asking would say out loud what the hand is missing"
+        );
+        pass_until(&mut engine, stack_is_empty);
+
+        let glen = on_battlefield(&engine, p0, secluded_glen()).expect("the Glen is in play");
+        assert!(
+            engine
+                .state()
+                .object(glen)
+                .is_some_and(|o| o.status.contains(Status::TAPPED)),
+            "no Faerie, no reveal, tapped"
+        );
+    }
+
+    // ── 4. The subtype is the whole of the question.
+    {
+        let mut engine = Duel::new(71, basic_forest())
+            .hand(0, &[secluded_glen(), scryb_sprites(), quiet_creature()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = in_hand(&engine, p0, secluded_glen()).expect("the Glen is in hand");
+        let faerie = in_hand(&engine, p0, scryb_sprites()).expect("the Sprites are in hand");
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: land })
+            .unwrap();
+        let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+            panic!("a Faerie in hand makes it ask, got {:?}", engine.pending())
+        };
+        assert_eq!(
+            options,
+            vec![faerie],
+            "Llanowar Elves is a creature and is not a Faerie, so it is not \
+             on the menu — the clause names a subtype, not a card type"
+        );
+    }
+}
+
+/// Choked Estuary reads a **basic land type**, over the same rule.
+///
+/// A separate game rather than a fifth arm above, because it is the other
+/// half of what `Filter::HasSubtype` has to reach: `subtypes` is one sorted
+/// range partitioned by kind, so a reader that had quietly bounded itself to
+/// the creature partition would pass every Faerie sentence and fail here.
+/// And the reveal is answered with a *basic Island*, which is the card a
+/// player actually holds when this land is in their deck.
+#[test]
+fn a_reveal_land_can_ask_for_a_basic_land_type() {
+    let p0 = PlayerId::new(0);
+    let island = baylee_cards::decks::by_name("Island").expect("the pool has basic Islands");
+
+    let mut engine = Duel::new(88, basic_forest())
+        .hand(0, &[choked_estuary(), island])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = in_hand(&engine, p0, choked_estuary()).expect("the Estuary is in hand");
+    let shown = in_hand(&engine, p0, island).expect("the Island is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: land })
+        .unwrap();
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!(
+            "an Island in hand makes the Estuary ask, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(options, vec![shown]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("an Island card is what it asked for");
+    pass_until(&mut engine, stack_is_empty);
+
+    let estuary = on_battlefield(&engine, p0, choked_estuary()).expect("the Estuary is in play");
+    assert!(
+        !engine
+            .state()
+            .object(estuary)
+            .is_some_and(|o| o.status.contains(Status::TAPPED)),
+        "a revealed Island keeps the Estuary untapped"
+    );
+    assert!(
+        revealed(&engine, p0, shown),
+        "and the Island was shown to the table"
+    );
+    assert!(
+        in_hand(&engine, p0, island).is_some(),
+        "a land revealed from hand is still a land drop the player may make"
     );
 }

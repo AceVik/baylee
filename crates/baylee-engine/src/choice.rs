@@ -311,6 +311,16 @@ pub enum ChoicePrompt {
     /// listing everything the player controls would ask them to re-confirm
     /// the whole board every turn.
     LeaveTapped,
+    /// "You may reveal a matching card from your hand; if you don't, this
+    /// land enters tapped."
+    ///
+    /// A prompt of its own rather than [`Self::Generic`] because declining
+    /// is never right: nothing is spent, the card stays in hand (CR 701.20b)
+    /// and the only thing given up is the information. The house AI keys on
+    /// exactly that — its `ChooseCards` rule answers `min` for a prompt it
+    /// does not recognise, so a generic one would have every AI reveal land
+    /// enter tapped for the rest of the game.
+    RevealOrEnterTapped,
     /// Generic selection.
     Generic,
 }

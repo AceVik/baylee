@@ -414,6 +414,12 @@ fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
                     baylee_cards_dsl::EnterModifier::TappedUnless(f) => *f,
                     baylee_cards_dsl::EnterModifier::TappedUnlessCount { filter, .. }
                     | baylee_cards_dsl::EnterModifier::TappedUnlessAtMost { filter, .. } => *filter,
+                    // Named rather than swept up by the catch-all, because
+                    // it is the one filter in this family that is *not* a
+                    // permanent filter: it reads a card in hand, where the
+                    // entering land has never been, so "would it count
+                    // itself" cannot be asked of it at all.
+                    baylee_cards_dsl::EnterModifier::TappedUnlessReveal(_) => continue,
                     _ => continue,
                 };
                 if i == 0 {

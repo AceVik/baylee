@@ -668,8 +668,30 @@ rule: a teammate is not an opponent and a player who has lost is out),
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
 `ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving
 cycle, the Gates — answer stored on `obj.chosen_color` and read back by
-`ManaSource::Chosen`), `Prepared` (Emeritus of Woe), and
+`ManaSource::Chosen`), `Prepared` (Emeritus of Woe),
+`TappedUnlessReveal(filter)` and
 `WithCounters { kind, amount }`.
+
+`TappedUnlessReveal(filter)` is the reveal lands — "as this land enters, you
+may reveal a Faerie card from your **hand**; if you don't, it enters
+tapped" — and it is the only modifier here whose filter is read against a
+**hidden** zone. Every `TappedUnless…` sibling walks the battlefield, which
+is why not one of them could say this sentence and why eighteen lands sat at
+`Coverage::Partial` entering untapped unconditionally, which is the half of
+the card that is pure upside. Write the filter as the printed words alone —
+`Filter::HasSubtype(subtypes::creature::FAERIE)`, with no `Filter::CREATURE`
+and no `ControlledByYou`: "a Faerie card" is the subtype (Magic prints tribal
+instants that carry a creature type), and the menu is built from the
+controller's own hand already. It is a *choice of card* rather than a
+yes-or-no because CR 701.20a shows the card to the table; naming nothing
+declines it, and a hand with no matching card is not asked at all.
+
+What it cannot say is a **disjunction**. Temple of the Dragon Queen and
+Fortified Beachhead print "tapped unless you revealed a Soldier this way *or*
+you control a Soldier", and a face carries a *list* of modifiers: every arm
+of the entry scan only ever inserts `TAPPED`, so two side by side are an
+`and`. Both stay `Coverage::Partial` with the control half written, which is
+the stricter of the two readings one modifier can give.
 
 **A modifier that asks a question is applied last**, whatever order the card
 prints it in, and that is a property of the engine rather than of the card:

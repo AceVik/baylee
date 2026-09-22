@@ -5,13 +5,13 @@ use super::{
     mana_pay, resolve, sba, trigger,
 };
 use crate::choice::{
-    CastModeDesc, CastModeKind, PlayerAction, PriorityHold, SeatAutomation, TargetPrompt,
-    YesNoPrompt,
+    CastModeDesc, CastModeKind, ChoicePrompt, PlayerAction, PriorityHold, SeatAutomation,
+    TargetPrompt, YesNoPrompt,
 };
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
-use baylee_cards_dsl::{PlayerRel, SpellMode, TargetReq, TargetSpec};
+use baylee_cards_dsl::{Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
 
@@ -871,7 +871,8 @@ impl<L: CardLookup> Engine<L> {
                     EnterModifier::ChooseSubtype
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
-                    | EnterModifier::TappedOrPayLife(_) => {
+                    | EnterModifier::TappedOrPayLife(_)
+                    | EnterModifier::TappedUnlessReveal(_) => {
                         asked.get_or_insert(modifier);
                     }
                 }
@@ -930,6 +931,52 @@ impl<L: CardLookup> Engine<L> {
                     if let Some(obj) = self.state.object_mut(id) {
                         obj.status.insert(Status::TAPPED);
                         changed = true;
+                    }
+                }
+                Some(EnterModifier::TappedUnlessReveal(filter)) => {
+                    // The one clause in this family read against a hidden
+                    // zone. Every `TappedUnless…` sibling asks
+                    // `controls_at_least`, which walks the battlefield; a
+                    // Faerie held in hand is on nobody's battlefield and the
+                    // question would always answer no.
+                    let filter: &Filter = filter;
+                    let options: Vec<ObjectId> = self
+                        .state
+                        .zones
+                        .list(ZoneLocation::Hand(controller))
+                        .iter()
+                        .filter(|card| {
+                            self.state.object(**card).is_some_and(|o| {
+                                eval::matches(filter, &self.state, o, controller, id)
+                            })
+                        })
+                        .copied()
+                        .collect();
+                    if options.is_empty() {
+                        // Nothing to show → tapped, and no question asked.
+                        // The same branch an unpayable `TappedOrPayLife`
+                        // takes, and for the same reason: a prompt whose
+                        // only legal answer is "no" is not a choice, and
+                        // offering it would hand the opponent the
+                        // information that the hand is empty of Faeries.
+                        if let Some(obj) = self.state.object_mut(id) {
+                            obj.status.insert(Status::TAPPED);
+                            changed = true;
+                        }
+                    } else {
+                        self.pending_plan = Some(PlanKind::EntryReveal { object: id });
+                        self.pending = Pending::ChooseCards {
+                            player: controller,
+                            options,
+                            // Naming nothing is how the offer is declined —
+                            // the card prints "you may", and a `min` of one
+                            // would make the reveal compulsory.
+                            min: 0,
+                            max: 1,
+                            prompt: ChoicePrompt::RevealOrEnterTapped,
+                        };
+                        self.awaiting_answer = true;
+                        return true; // one choice at a time
                     }
                 }
                 Some(_) => unreachable!("only the asking modifiers are recorded"),

@@ -305,6 +305,12 @@ enum PlanKind {
         /// Life to pay.
         amount: u16,
     },
+    /// A reveal land is asking which card from hand to show (CR 701.20a),
+    /// with naming nothing as the way to decline.
+    EntryReveal {
+        /// The entering land.
+        object: ObjectId,
+    },
     /// A delayed pay-or-lose decision (Pact of Negation).
     DelayedPay {
         /// The mana cost to pay.

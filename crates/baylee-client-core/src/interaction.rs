@@ -445,7 +445,7 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 
 /// What a card choice is *for*, as the noun it counts — both forms.
 ///
-/// [`ChoicePrompt`] has eleven variants and the prompt bar used to read one of
+/// [`ChoicePrompt`] has twelve variants and the prompt bar used to read one of
 /// them. A library search, a scry, a put-back and a wish are four different
 /// decisions and were four copies of the same sentence, so a player could not
 /// tell whether they were fetching something, burying it or bringing it in
@@ -471,6 +471,14 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 /// says what *not* choosing does, because the empty answer is the whole
 /// board untapping and a player shown "permanent to untap" over a menu of
 /// one would read the question backwards.
+///
+/// `RevealOrEnterTapped` is a reveal land asking which card from hand to
+/// show. Its noun says what happens to the card and not what declining
+/// costs, which is the opposite of `LeaveTapped`'s reasoning and right for
+/// the opposite reason: the menu holds only matching cards, so a player who
+/// sees "card to reveal" over their two Faeries already knows what the land
+/// wanted, and the price of naming nothing is on the land rather than on
+/// any of the cards listed.
 fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
@@ -494,6 +502,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentToLeaveTapped,
             Phrase::NounPermanentsToLeaveTapped,
         ),
+        ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }

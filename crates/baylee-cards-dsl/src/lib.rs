@@ -370,6 +370,24 @@ pub enum EnterModifier {
     },
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     TappedOrPayLife(u16),
+    /// "As this enters, you may reveal a matching card from your **hand**.
+    /// If you don't, this enters tapped" (the Lorwyn reveal lands and the
+    /// Shadows/M21 snarls).
+    ///
+    /// The one modifier in this family whose filter is read against a card
+    /// in a **hidden zone**. Every `TappedUnless…` sibling counts permanents
+    /// on the battlefield, which is why not one of them could say this
+    /// sentence and why nineteen lands sat at `Coverage::Partial` with the
+    /// clause dropped — they entered untapped unconditionally, which is the
+    /// half of the card that is pure upside.
+    ///
+    /// It is a *choice of card* rather than a yes-or-no, because CR 701.20a
+    /// shows the card to every player: a hand holding two Faeries reveals
+    /// one of them and the opponent learns which. Naming nothing is how the
+    /// offer is declined, so a hand with no matching card is not asked at
+    /// all — the same shape [`Self::TappedOrPayLife`] takes when the life
+    /// cannot be paid. CR 701.20b: the card does not leave the hand.
+    TappedUnlessReveal(&'static Filter),
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,

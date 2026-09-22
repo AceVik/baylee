@@ -212,6 +212,17 @@ impl HeuristicAgent {
         prompt: baylee_engine::choice::ChoicePrompt,
     ) -> Option<Vec<ObjectId>> {
         use baylee_engine::choice::ChoicePrompt;
+        // Ahead of the skill gate, because this one needs no skill: the card
+        // never leaves the hand (CR 701.20b), nothing is spent, and the only
+        // thing given up by revealing is the information. A profile that
+        // fell through to the `min` default below would answer zero and play
+        // every reveal land tapped for the whole game.
+        if prompt == ChoicePrompt::RevealOrEnterTapped {
+            let mut ranked = options.to_vec();
+            ranked.sort_unstable();
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
+        }
         if self.profile.mulligan_skill < 2 {
             return None;
         }

@@ -1216,6 +1216,10 @@ messages! {
         en: "permanents to leave tapped",
         de: "bleibende Karten, die getappt bleiben",
     },
+    /// card to reveal
+    NounCardToReveal { en: "card to reveal", de: "Karte, die aufgedeckt wird" },
+    /// cards to reveal
+    NounCardsToReveal { en: "cards to reveal", de: "Karten, die aufgedeckt werden" },
     /// Convoke: tap creatures or artifacts to help pay
     ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
@@ -2241,6 +2245,7 @@ mod tests {
                 Phrase::NounPermanentToLeaveTapped,
                 Phrase::NounPermanentsToLeaveTapped,
             ),
+            (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ];
         for (one, many) in pairs {
             for lang in Lang::ALL {

@@ -10,10 +10,15 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-// NOT SUPPORTED: "you may reveal a Dragon card from your hand" — no
-// `EnterModifier` reveals a card from hand, so the condition is read as
-// "unless you control a Dragon" alone and a Dragon held in hand does not
-// save the land from entering tapped.
+// NOT SUPPORTED: "tapped unless you revealed a Dragon card this way **or**
+// you control a Dragon." `EnterModifier::TappedUnlessReveal` can now say the
+// reveal, and `TappedUnless` says the control half, but the clause is a
+// *disjunction* and a face carries a list: every arm of the entry scan only
+// ever inserts `TAPPED`, so two modifiers side by side are an `and` — this
+// land would come down tapped unless both were satisfied, which is stricter
+// than the card. The second obstacle is in the same sentence: the reveal
+// asks a question and so does `ChooseColor`, and the scan answers the first
+// one only.
 
 card!(
     index = index::TEMPLE_OF_THE_DRAGON_QUEEN,
@@ -28,7 +33,7 @@ card!(
         ],
     ),],
     coverage = Coverage::Partial(
-        "the enters-tapped condition drops \"you may reveal a Dragon card from your hand\" — no EnterModifier reveals a card from hand",
+        "the entry clause is a disjunction (revealed a Dragon or control one) and a face's modifier list is a conjunction",
     ),
     abilities = &[mana_ability!(&[Effect::mana_chosen()])],
 );

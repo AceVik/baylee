@@ -2,26 +2,33 @@
 //! Oracle: As this land enters, you may reveal a Plains or Swamp card from your hand. If you don't, this land enters tapped.
 //! Oracle: {T}: Add {W} or {B}.
 //! Set: SOC #403 — Secrets of Strixhaven Commander | Scryfall ID: 7a198106-4d31-4e10-884a-bdf2316f8088 | Oracle ID: c9fc13d6-bd10-47bc-b2b6-7f67a1f3371e
-// PARTIAL — {T}: Add {W} or {B} is implemented; the entry clause is not, so
-// this land always enters untapped.
-// NOT SUPPORTED: "As this land enters, you may reveal a Plains or Swamp card
-// from your hand. If you don't, this land enters tapped." — EnterModifier has
-// Tapped, TappedUnless(filter), TappedUnlessCount { .. } and TappedOrPayLife,
-// and every one of them that reads a condition reads the battlefield:
-// TappedUnless asks about a permanent and is not a choice, so nothing can
-// look at a card in a hidden zone or make the arrival depend on that reveal.
+// IMPLEMENTED — reveal a Plains or Swamp card from hand or enter tapped; {W} or {B}.
 
 use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+/// The basic land type, not `Filter::BASIC_LAND`: "a Plains or Swamp card" is
+/// any card with the type, so a dual land or a shockland in hand
+/// reveals for this one exactly as a basic does.
+///
+/// `ControlledByYou` would be noise — the menu is built from the
+/// controller's own hand.
+static REVEAL: Filter = Filter::Or(&[
+    Filter::HasSubtype(subtypes::land::PLAINS),
+    Filter::HasSubtype(subtypes::land::SWAMP),
+]);
 
 card!(
     index = index::SHINESHADOW_SNARL,
     oracle_id = "c9fc13d6-bd10-47bc-b2b6-7f67a1f3371e",
     scryfall_id = "7a198106-4d31-4e10-884a-bdf2316f8088",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    faces = &[face!(name = "Shineshadow Snarl", types = TypeSet::LAND,)],
-    coverage = Coverage::Partial(
-        "the printed entry clause is not expressible — no EnterModifier reads a card in a hidden zone or offers the player a choice (the nearest, TappedUnless(filter), is mandatory and asks about a permanent on the battlefield), so this land enters untapped instead of entering tapped unless a Plains or Swamp card is revealed from hand"
-    ),
+    faces = &[face!(
+        name = "Shineshadow Snarl",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnlessReveal(&REVEAL)],
+    )],
+    coverage = Coverage::Implemented,
     abilities = &[mana_ability!(&[Effect::mana_choice(&[
         ManaColor::White,
         ManaColor::Black,
