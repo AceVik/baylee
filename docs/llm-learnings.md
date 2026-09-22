@@ -1320,3 +1320,100 @@ ready to pay for the other.
 Every one of those is **meant to fail** one day, and the commit that closes
 the gap is the commit that deletes the assertion. A pin is cheaper than a
 `// TODO` because it cannot rot in silence.
+
+
+## 22.09.2026 — the pin that reads the pool, and a lock the DSL could not say
+
+Two findings, and the first one is about **every** test in this repo that
+says a card does not offer something.
+
+### `legal.abilities` is filtered by `can_afford`, which reads the pool
+
+`abilities.rs` pushes an entry only `if self.can_afford(player, id, cost)`,
+and `can_afford` reads the **mana pool** — not the untapped lands beside it.
+So a missing ability with any mana cost at all is absent from the offer
+whatever the board looks like, and a test asserting
+
+```rust
+assert_eq!(legal.abilities.iter().filter(|(id, _)| *id == land).count(), 1);
+```
+
+over an untapped board would keep passing the day the ability was written.
+It proves nothing, and it looks exactly like a pin that works.
+
+Measured rather than reasoned about. An `activated!` injected into Dungeon
+Descent came back **absent** from the offer at `cost!("{4}", TapSelf)`, at
+`cost!("{1}", TapSelf)` and at `cost!("{4}")` alike, with six untapped
+permanents standing there — and **present** at `cost!(TapSelf)` and at
+`Cost::FREE`. The first repair was to put more lands on the battlefield,
+which is the same vacuous pin with a longer board; the second was
+`tap_mana_except(&mut engine, seat, land)`, keeping the land itself untapped
+because that is what both the mana ability and the missing one tap.
+
+Three pins in `lands.rs` were standing on it (Grove of the Guardian, Dungeon
+Descent, Howltooth Hollow) and each now goes red under an injected ability
+at the card's own printed price. The pool is read as a **delta** afterwards,
+because a seat with mana floating already has some of the colour the mana
+ability makes.
+
+The same trap has a second door: `!legal.castable.contains(&x)`. A
+Counterspell with an empty stack is refused for having no target, so a
+Silence test built on one passed against an engine with the rule removed.
+Both halves are now in `prompts/tests-gemini.md` and
+`prompts/tests-deepseek.md` as rule 3a and rule 9, because the lanes were
+writing this shape by themselves — six of the twenty-two tests that came
+back in the first two chunks of the test-debt run assert on `legal.abilities`
+with nothing floating.
+
+### `Modifier::OpponentsCantCast`, which three cards had already named
+
+Ranger-Captain of Eos carried the gap in its own `// NOT SUPPORTED:` line:
+"no Modifier says the effect's opponents can't cast this kind of spell".
+That is a permission rather than a timing rule, so it is its own variant
+beside `OpponentsCastAsSorcery` and its own `CastError::Forbidden` — a
+player told "sorcery-speed timing not met" on their own main phase with an
+empty stack goes looking for a rule that is not there.
+
+The filter is what turns one bit into a sentence: `Filter::Any` is Silence,
+`Filter::NONCREATURE` is the Ranger-Captain, and Drannith Magistrate needed
+no new rule at all — "from anywhere other than their hands" is
+`Filter::Not(&Filter::InZone(ZoneRef::Hand))`, which makes a commander, a
+flashback card and an adventure in exile one sentence. Stubs 72 → 70, and
+the Ranger-Captain left `Coverage::Partial`.
+
+The blocker-entry lesson holds a fifth time: this was not a missing
+subsystem. `timing_allows` already read two player-scoped modifiers,
+`eval::matches` already answered `InZone`, and what was missing was one
+variant that says "and not at all".
+
+### The number CR 602.2b announces, which nobody was asking for
+
+The pin written for Lair of the Hydra was the finding. `{X}{G}: this land
+becomes an X/X` was paid as `{G}`: `abilities.rs` reached
+`Pending::ChooseNumber` only through `counter_x_part`, which reads the
+storage lands' "remove X storage counters" and nothing about mana, so X was
+0, the land became a 0/0 and a state-based action buried it before anybody
+could attack. Three more cards made the same silent zero — Treasure Vault
+sacrificed itself for no Treasures, Kessig Wolf Run pumped by nothing, Blast
+Zone added no charge counters — and all four read as correct from every
+other side: right header, right effect, right price, `Coverage::Implemented`
+on three of them.
+
+What made it invisible is that a pump of zero and a pump that never happened
+are the same board. The existing Kessig Wolf Run test asserted the trample it
+also grants and said "with X=0" in its own doc comment, which is a test
+documenting the bug it was standing on.
+
+Two halves, and the second is where an activation differs from a cast.
+`pay_cost` now pays `cost.mana.with_x(x)` — without it the variable pip is
+worth nothing, which is a no-op on the cast path, whose wizard substitutes
+before it gets there, and the whole of the cost on an activated one. And the
+question is **bounded by what the pool can pay** rather than offered up to
+`X_CEILING`: a cast that cannot pay unwinds back to the player, an
+activation has nothing to unwind to, so the bound is the legality.
+
+One answer means one question, so a cost carrying both kinds of X would take
+the counter bound and pay the mana with it. No cost in the pool does, and
+`lints::no_cost_announces_two_different_xs` is the guard that fails with the
+card's name the day one prints both — the sibling of the lint that already
+holds the announcement's *order* against the storage lands.

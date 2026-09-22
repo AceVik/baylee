@@ -298,6 +298,34 @@ that is the right answer rather than a hole: a plan that guessed at X would
 tap a land for mana that never arrived. The mana **bubble** asks the smaller
 question and still draws the pip.
 
+#### The other X, six days later (2026-09-22)
+
+The section below closed the counter half and said, in its first paragraph,
+that `PayLifeX` was the only other X an activation could carry. That was a
+reading of the `CostPart` list and not of the cost: a mana `{X}` in an
+activation cost is a third kind, it was in the pool the whole time, and
+nobody was asked for it. `{X}{G}` was paid as `{G}`.
+
+Four cards, and three of them read as `Coverage::Implemented` from every
+side — right header, right effect, right price. Lair of the Hydra animated
+itself into a 0/0 and died to CR 704.5a; Treasure Vault sacrificed itself
+for no Treasures; Kessig Wolf Run pumped by nothing, under a test whose own
+doc comment said "with X=0"; Blast Zone added no charge counters.
+
+The fix is the same stage one paragraph further down, with two differences.
+`pay_cost` now pays `cost.mana.with_x(x)` — CR 107.3a, second sentence — and
+without it the variable pip is worth nothing, which is a no-op on the cast
+path and the whole of the cost on an activated one. And `max` is what the
+**pool** can pay rather than `X_CEILING`: a cast that cannot pay unwinds
+back to the player through the wizard, an activation has nothing to unwind
+to, so the bound is the legality, which is where this engine puts every
+other one.
+
+One field holds one answer, so a cost carrying both kinds would take the
+counter bound and pay the mana with it — the right number by CR 107.3i and
+the wrong bound. No cost in the pool does, and
+`baylee-cards::lints::no_cost_announces_two_different_xs` is the guard.
+
 #### The X half, and what it cost (2026-09-16)
 
 The audit's remaining half was "the storage lands need an X in an *activation*

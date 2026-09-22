@@ -1142,6 +1142,47 @@ impl<L: CardLookup> Engine<L> {
             self.awaiting_answer = true;
             return Ok(());
         }
+        // The *mana* {X}, and it sits beside the counter question above
+        // because CR 602.2b announces both in the same breath. Until this
+        // was written only the counter half existed, so `{X}{G}` was paid
+        // as `{G}` with nobody asked: Lair of the Hydra became a 0/0 and
+        // died to a state-based action, and Treasure Vault, Kessig Wolf Run
+        // and Blast Zone made the same silent zero.
+        //
+        // One answer, so one question: `activation_x` is a single field and
+        // the guard is the same `is_none()`. A cost carrying *both* kinds of
+        // X would take the counter bound and pay the mana with it — the
+        // right *number* by CR 107.3i, under which all instances of X on an
+        // object normally have one value, but bounded by the counters alone,
+        // so the payment below could fail after the ability had been
+        // announced. No cost in the pool does, and
+        // `lints::no_cost_announces_two_different_xs` is what keeps it that
+        // way.
+        if cost.mana.has_variable() && self.activation_x.is_none() {
+            // Bounded by what the pool can actually pay, which is where an
+            // activation differs from a cast. The cast wizard offers
+            // `X_CEILING` and validates at the end, because a cast that
+            // cannot pay unwinds back to the player; an activation has no
+            // wizard to unwind to — `pay_cost` below would return
+            // `IllegalAction` and the ability would already have been
+            // announced. So the question is the legality, which is where
+            // this engine puts every other one.
+            let max = (0..=crate::engine::cast_wizard::X_CEILING)
+                .take_while(|x| self.can_pay_mana(player, &cost.mana.with_x(*x)))
+                .last()
+                .unwrap_or(0);
+            self.pending_plan = Some(PlanKind::ChooseActivationX {
+                source,
+                ability_index,
+            });
+            self.pending = Pending::ChooseNumber {
+                player,
+                min: 0,
+                max,
+            };
+            self.awaiting_answer = true;
+            return Ok(());
+        }
         // Targets, unless the answer is already in hand — and it is in hand
         // when *either* half of it is. Asking only about the objects sent an
         // ability whose targets are all players straight back to the same
@@ -1571,11 +1612,18 @@ impl<L: CardLookup> Engine<L> {
     ) -> Result<(), EngineError> {
         let mut answers = chosen.iter().copied();
         if !cost.mana.is_empty() {
+            // CR 107.3a, second half: while an activated ability is on the
+            // stack, any X in its activation cost equals the announced
+            // value. Without `with_x` the variable pip is worth nothing and
+            // every X in an activation cost was free — a no-op for the cast
+            // path, whose caller substitutes before it gets here, and the
+            // whole of the cost for an activated one.
+            let mana = cost.mana.with_x(x);
             // Mycosynth Lattice: any mana pays any pip (read before the pool
             // is borrowed mutably).
             let wild = casting::mana_is_wild(&self.state);
             let pool = &mut self.state.players[player.get() as usize].mana_pool;
-            if !casting::pay_with(wild, pool, &cost.mana) {
+            if !casting::pay_with(wild, pool, &mana) {
                 return Err(EngineError::IllegalAction("not enough mana"));
             }
         }

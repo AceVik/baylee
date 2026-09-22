@@ -387,6 +387,18 @@ express at all yet.
   parentheses". The order of the parts is the printed order and is
   load-bearing: `docs/cost-model.md` has the rule and the lint that holds it.
 
+  A **mana `{X}`** in an activation cost is the other half of that same
+  announcement and needs nothing written beside it: `cost!("{X}{G}")` is
+  asked for at CR 602.2b exactly as the counter part is, bounded above by
+  what the pool can pay rather than by what is on the permanent, and read
+  back by the effects as the same `Amount::X`. So Kessig Wolf Run's
+  `+X/+0`, Treasure Vault's X Treasures and Blast Zone's X charge counters
+  are ordinary cards. Two things it still cannot say: a **lower** bound, so
+  Lair of the Hydra's "X can't be 0" is a `Coverage::Partial` reason, and
+  *both* kinds of X in one cost, because one announcement is held in one
+  field — `lints::no_cost_announces_two_different_xs` is the guard, and it
+  fails with the card's name the day one prints both.
+
   **Which counter** is a `CounterKind`, and there are three ways to name one.
   Nine counters have a variant because the rules know them by a word —
   `Loyalty`, `Lore`, `Time`, `Charge`, `Poison`, `Energy`, `Rad`,

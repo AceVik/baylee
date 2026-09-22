@@ -8435,6 +8435,103 @@ fn treasure_vault_enters_as_artifact_land_and_taps_for_colorless() {
     assert!(is_tapped(&engine, vault));
 }
 
+/// Treasure Vault's second ability, which is the one the card is played
+/// for: "{{X}}{{X}}, {{T}}, Sacrifice this land: Create X Treasure tokens."
+///
+/// `{{X}}{{X}}` is the shape that says the substitution is per **symbol**
+/// and not per cost: CR 107.3i makes every instance of X on the object one
+/// value, so four mana buys X = 2 and not X = 4. The neighbouring test asserts only
+/// that the ability is *offered* with nothing floating, which is true and
+/// stays true — an announcement of 0 is legal and creates no Treasure.
+/// Nothing said what the number was worth until CR 602.2b was implemented;
+/// before it, this card sacrificed itself for nothing at all.
+#[test]
+fn treasure_vault_pays_two_x_symbols_out_of_one_announced_number() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[treasure_vault(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vault = on_battlefield(&engine, p0, treasure_vault()).expect("vault on battlefield");
+    tap_all_mana_but(&mut engine, p0, Some(treasure_vault()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+    assert!(
+        !is_tapped(&engine, vault),
+        "the {{T}} in the cost is still there to pay"
+    );
+
+    activate(&mut engine, p0, treasure_vault(), 1);
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the announced X, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "four mana pays two X symbols at X = 2, not one at X = 4"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(2))
+        .expect("announce X = 2");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, treasure_vault()).is_some());
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        2,
+        "X Treasures, with X the number announced as the cost was paid"
+    );
+}
+
+/// Blast Zone: "This land enters with a charge counter on it." / "{{T}}: Add
+/// {{C}}." / "{{X}}{{X}}, {{T}}: Put X charge counters on this land."
+///
+/// The counters are what the card is for — its third ability destroys every
+/// nonland permanent whose mana value equals them, and that clause is the
+/// whole of its remaining `Coverage::Partial`. The second ability was
+/// therefore an ability that tapped the land, spent nothing and changed
+/// nothing, which is the shape a test asserting only "it was offered" cannot
+/// see.
+#[test]
+fn blast_zone_adds_the_charge_counters_it_announces() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[blast_zone(), forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let zone = on_battlefield(&engine, p0, blast_zone()).expect("zone on battlefield");
+    assert_eq!(
+        counters_on(&engine, zone, CounterKind::Charge),
+        1,
+        "it enters with one"
+    );
+
+    tap_all_mana_but(&mut engine, p0, Some(blast_zone()));
+    activate(&mut engine, p0, blast_zone(), 1);
+    let Pending::ChooseNumber { max, .. } = engine.pending().clone() else {
+        panic!("expected the announced X, got {:?}", engine.pending());
+    };
+    assert_eq!(max, 2);
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(2))
+        .expect("announce X = 2");
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        counters_on(&engine, zone, CounterKind::Charge),
+        3,
+        "the one it entered with, plus the two announced"
+    );
+    assert!(is_tapped(&engine, zone));
+}
+
 /// Watermarket: "{T}: Add {C}{C}. Spend this mana only to cast spells with watermarks."
 /// Under `Coverage::Partial`, watermark spend restrictions are unsupported and the mana is made unrestricted.
 /// Activating Watermarket's printed mana ability adds two colorless mana to the pool and taps the land.
@@ -10384,11 +10481,22 @@ fn hall_of_heliod_s_generosity_puts_enchantment_on_top_of_library() {
     assert!(is_tapped(&engine, hall));
 }
 
-/// Kessig Wolf Run: "{T}: Add {C}." / "{X}{R}{G}, {T}: Target creature gets +X/+0 and gains trample until end of turn."
-/// With mana from a Forest and a Mountain, the second ability is activated targeting Llanowar Elves with X=0.
-/// Upon resolution, Llanowar Elves gains trample until end of turn and the land is tapped.
+/// Kessig Wolf Run: "{T}: Add {C}." / "{X}{R}{G}, {T}: Target creature gets
+/// +X/+0 and gains trample until end of turn."
+///
+/// Written for the trample and reaching X = 0, because that is all the card
+/// could do: the announcement CR 602.2b asks for did not exist, so every
+/// `Amount::X` on an activated ability in this pool was a zero. It is played
+/// for X = 1 now — three mana float here, the Forest, the Mountain and the
+/// Elves' own {G} — and the +1/+0 is the half that would have gone unnoticed
+/// forever, since a pump of nothing is indistinguishable from a pump that
+/// was never applied.
+///
+/// The number comes **before** the target (CR 601.2b, then 601.2c), which is
+/// the order this test now walks and the reason the storage lands' cost has
+/// a lint of its own.
 #[test]
-fn kessig_wolf_run_grants_trample_to_target_creature() {
+fn kessig_wolf_run_pumps_by_the_x_it_announces() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(115, forest())
         .battlefield(
@@ -10404,7 +10512,20 @@ fn kessig_wolf_run_grants_trample_to_target_creature() {
     assert!(!keywords(&engine, elves).contains(KeywordSet::TRAMPLE));
 
     tap_mana_except(&mut engine, p0, wolf_run);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "a Forest, a Mountain and the Elves, which is {{X}}{{R}}{{G}} with X = 1"
+    );
     activate(&mut engine, p0, kessig_wolf_run(), 1);
+
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the announced X, got {:?}", engine.pending());
+    };
+    assert_eq!((min, max), (0, 1));
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(1))
+        .expect("announce X = 1");
 
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("expected target choice, got {:?}", engine.pending());
@@ -10422,7 +10543,11 @@ fn kessig_wolf_run_grants_trample_to_target_creature() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(keywords(&engine, elves).contains(KeywordSet::TRAMPLE));
-    assert_eq!(pt(&engine, elves), (1, 1));
+    assert_eq!(
+        pt(&engine, elves),
+        (2, 1),
+        "+X/+0 with X announced as 1, against the 1/1 it prints"
+    );
     assert!(is_tapped(&engine, wolf_run));
 }
 
@@ -25038,28 +25163,29 @@ fn inkmoth_nexus_animates_into_a_flying_artifact_blinkmoth() {
 /// prints `{{T}}: Add {{G}}`, and `{{X}}{{G}}: Until end of turn, this land
 /// becomes an X/X green Hydra creature. It's still a land. X can't be 0.`
 ///
-/// **X is never announced**, and that is the finding rather than the test's
-/// problem. CR 602.2b puts a number announced with an activation exactly
-/// where CR 601.2b puts one announced with a spell, and the engine asks
-/// only for the counter kind — `abilities.rs` reaches `Pending::ChooseNumber`
-/// through `counter_x_part`, which reads "remove X storage counters" and
-/// nothing about mana. So `{{X}}{{G}}` is paid as `{{G}}`, X is 0, and the
-/// land becomes a 0/0 that a state-based action puts in the graveyard
-/// before anybody can attack with it: this card cannot do the thing it
-/// prints, whatever number its controller had in mind.
+/// This test was written as its own opposite and is kept as the thing it
+/// became. Until CR 602.2b was implemented **X was never announced**: the
+/// engine reached `Pending::ChooseNumber` only through `counter_x_part`,
+/// which reads "remove X storage counters" and nothing about mana, so
+/// `{{X}}{{G}}` was paid as `{{G}}` and the land became a 0/0 that a
+/// state-based action put in the graveyard before anybody could attack with
+/// it. The card could not do the thing it prints, whatever number its
+/// controller had in mind. Three other cards carried the same silent zero —
+/// Treasure Vault, Kessig Wolf Run and Blast Zone — so it was one rule and
+/// four cards.
 ///
-/// Measured, not reasoned about: the pool goes 3 → 2 across the activation
-/// and the pending is `Priority` rather than `ChooseNumber`. Three other
-/// cards in the pool carry a mana `{{X}}` in an activation cost — Treasure
-/// Vault, Kessig Wolf Run and Blast Zone — so this is one rule and four
-/// cards.
+/// What is asserted now is the announcement itself and not merely the
+/// outcome, because a 2/2 is also what a hard-coded two would produce. The
+/// bound is the interesting half: `max` is what the **pool** can pay, which
+/// is where an activation differs from a cast — the cast wizard offers
+/// `X_CEILING` and validates at the end, an activation has nothing to unwind
+/// to.
 ///
-/// **This test is meant to fail** the day the activation path announces X.
-/// When it does, the assertions below become the 2/2 the card prints, and
-/// the `Coverage::Partial` reason goes back to being about "X can't be 0"
-/// alone.
+/// `min` is 0 and the card says X can't be 0, which is the whole of its
+/// remaining `Coverage::Partial`: a lower bound printed on the card has no
+/// field on a cost.
 #[test]
-fn lair_of_the_hydra_is_a_zero_zero_because_x_is_never_announced() {
+fn a_mana_x_in_an_activation_cost_is_announced_and_bounded_by_the_pool() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[lair_of_the_hydra(), forest(), forest(), forest()])
@@ -25086,29 +25212,58 @@ fn lair_of_the_hydra_is_a_zero_zero_because_x_is_never_announced() {
         "three Forests, which is {{X}}{{G}} with X = 2"
     );
     activate(&mut engine, p0, lair_of_the_hydra(), 1);
-    assert!(
-        !matches!(engine.pending(), Pending::ChooseNumber { .. }),
-        "the number CR 602.2b announces is not asked for: {:?}",
-        engine.pending()
+
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "CR 602.2b announces the number with the activation, and the \
+             pending is {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "three mana floating pays {{X}}{{G}} up to X = 2, and the lower \
+         bound the card prints has nowhere to be written"
     );
+    assert!(
+        engine.apply(p0, PlayerAction::ChooseNumber(3)).is_err(),
+        "a number the pool cannot pay is refused at the question rather \
+         than at the payment"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(2))
+        .expect("announce X = 2");
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
-        2,
-        "only the {{G}} was taken, so X was 0 and two of the three are left \
-         standing in the pool"
+        0,
+        "the announced number *is* the cost by the time it is paid, so all \
+         three were spent"
     );
 
     pass_until(&mut engine, stack_is_empty);
+    let lair = on_battlefield(&engine, p0, lair_of_the_hydra())
+        .expect("a 2/2 stays on the battlefield where a 0/0 did not");
+    let chars = engine
+        .state()
+        .object(lair)
+        .expect("lair exists")
+        .characteristics();
+    assert!(chars.types.contains(TypeSet::CREATURE));
     assert!(
-        on_battlefield(&engine, p0, lair_of_the_hydra()).is_none(),
-        "a 0/0 creature dies to a state-based action (CR 704.5a), and this \
-         land became one"
+        chars.types.contains(TypeSet::LAND),
+        "\"It's still a land.\""
     );
     assert!(
-        in_graveyard(&engine, p0, lair_of_the_hydra()).is_some(),
-        "it is in its owner's graveyard, which is where the card the \
-         printing describes would never have gone"
+        chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::HYDRA)
     );
+    assert_eq!(pt(&engine, lair), (2, 2), "an X/X with X announced as 2");
 }
 
 /// Lavaclaw Reaches enters tapped, prints `{{T}}: Add {{B}} or {{R}}`, and

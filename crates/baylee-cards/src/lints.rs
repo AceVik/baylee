@@ -46,7 +46,7 @@
 //! is before it is written a hundredth time.
 
 use crate::dsl::ability::{AbilityDef, SpellMode};
-use crate::dsl::cost::CostPart;
+use crate::dsl::cost::{Cost, CostPart};
 use crate::dsl::effect::{Effect, ManaSource, TargetSpec};
 use crate::dsl::filter::Filter;
 use crate::dsl::static_ability::{Layer, Modifier};
@@ -642,9 +642,19 @@ fn cost_order_fault(parts: &[CostPart]) -> Option<(CostPart, CostPart)> {
 /// [`layer_fault`] reaches a modifier — from the static ability, and from
 /// every effect that creates one.
 fn cost_lists(ability: &AbilityDef) -> Vec<&'static [CostPart]> {
+    costs(ability).into_iter().map(|cost| cost.parts).collect()
+}
+
+/// The same walk as [`cost_lists`], before it throws the mana away.
+///
+/// Split out rather than copied, because the two would answer "which costs
+/// does an ability have" differently the first time a door was added to one
+/// of them — which is the whole finding [`cost_lists`]'s own sweep is built
+/// to catch, and it would be blind to a second reader drifting from it.
+fn costs(ability: &AbilityDef) -> Vec<Cost> {
     let own = match ability {
         AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            vec![cost.parts]
+            vec![*cost]
         }
         _ => Vec::new(),
     };
@@ -663,11 +673,45 @@ fn cost_lists(ability: &AbilityDef) -> Vec<&'static [CostPart]> {
                         .map(|(_, modifier)| modifier),
                 )
                 .filter_map(|modifier| match modifier {
-                    Modifier::GrantActivated { cost, .. } => Some(cost.parts),
+                    Modifier::GrantActivated { cost, .. } => Some(cost),
                     _ => None,
                 }),
         )
         .collect()
+}
+
+/// A cost that would have the player announce **two different numbers for
+/// one `X`**, as the counter part that asks for the first.
+///
+/// CR 601.2b, reached for an activation through CR 602.2b, announces the
+/// number once, and CR 107.3i makes every instance of X on the object that
+/// one value. This engine holds that one answer in a single field
+/// (`Engine::activation_x`) and asks for it at whichever of the two shapes
+/// it meets first — the counter part, which is bounded by what is on the
+/// permanent, or the mana `{X}`, which is bounded by the pool. A cost
+/// carrying both would be asked about under the counter bound alone and
+/// could announce a number the mana cannot pay, which `pay_cost` refuses
+/// *after* the ability has been announced.
+///
+/// There is a **third** kind of X and it is guarded elsewhere:
+/// `CostPart::PayLifeX` is paid by the casting wizard and skipped by
+/// `pay_cost`, which is right for a spell and would hand an activation half
+/// its cost for free, so the engine's own
+/// `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`
+/// keeps it off an activated ability altogether. It is not a finding here,
+/// because on a *spell* the wizard announces both and they agree.
+///
+/// So the engine's single field rests on a property of the pool, and this
+/// is that property written where a build fails on it — the same bargain as
+/// [`announced_number_beside_a_target`], one rule further along.
+fn two_xs_in_one_cost(cost: &Cost) -> Option<CostPart> {
+    if !cost.mana.has_variable() {
+        return None;
+    }
+    cost.parts
+        .iter()
+        .find(|part| matches!(part, CostPart::RemoveCounterSelfX { .. }))
+        .copied()
 }
 
 /// An activated ability that **announces a number as it is activated and
@@ -723,9 +767,15 @@ fn announced_number_beside_a_target(
 /// [`no_cost_announces_a_number_on_an_ability_that_also_targets`] rather than
 /// by reading, which is the argument for that guard.
 fn face_cost_lists(def: &CardDef) -> Vec<&'static [CostPart]> {
+    face_costs(def).into_iter().map(|cost| cost.parts).collect()
+}
+
+/// The face-level door with its mana still on it, for the same reason
+/// [`costs`] exists beside [`cost_lists`].
+fn face_costs(def: &CardDef) -> Vec<Cost> {
     def.faces
         .iter()
-        .flat_map(|face| face.alternative_costs.iter().map(|alt| alt.cost.parts))
+        .flat_map(|face| face.alternative_costs.iter().map(|alt| alt.cost))
         .collect()
 }
 
@@ -1636,6 +1686,101 @@ mod tests {
             announced_number_beside_a_target(&storage(&COUNTED, Some(A_CREATURE))),
             None,
             "a fixed number announces nothing, so the order cannot be observed"
+        );
+    }
+
+    /// Both branches of [`two_xs_in_one_cost`], because a sweep that finds
+    /// nothing says nothing until the shape it looks for has been seen to
+    /// fire.
+    #[test]
+    fn a_cost_with_two_xs_is_found_and_a_cost_with_one_is_not() {
+        use crate::dsl::counters::STORAGE;
+
+        static STORAGE_X: [CostPart; 1] = [CostPart::RemoveCounterSelfX { kind: STORAGE }];
+        static TAP: [CostPart; 1] = [CostPart::TapSelf];
+
+        let cost = |mana: &str, parts: &'static [CostPart]| Cost {
+            mana: ManaCost::parse(mana),
+            parts,
+        };
+
+        assert_eq!(
+            two_xs_in_one_cost(&cost("{X}{G}", &STORAGE_X)),
+            Some(CostPart::RemoveCounterSelfX { kind: STORAGE }),
+            "one announced number would have to be two: a mana {{X}} bounded \
+             by the pool and a counter X bounded by the permanent"
+        );
+        assert_eq!(
+            two_xs_in_one_cost(&cost("{X}{G}", &TAP)),
+            None,
+            "Lair of the Hydra: a mana {{X}} and nothing else to announce"
+        );
+        assert_eq!(
+            two_xs_in_one_cost(&cost("{1}", &STORAGE_X)),
+            None,
+            "the storage lands as printed: a counter X and a fixed price"
+        );
+    }
+
+    /// **No cost in the pool announces one `X` in two places.**
+    ///
+    /// `Engine::activation_x` is one field holding one answer, and the
+    /// engine asks for it at whichever shape it meets first — see
+    /// [`two_xs_in_one_cost`] for what a cost carrying both would do. This
+    /// is the pool-side half of that, and it walks the same three doors the
+    /// sweep above does: an ability's own cost, the cost of an ability a
+    /// continuous effect grants, and a face's alternative cost.
+    #[test]
+    fn no_cost_announces_two_different_xs() {
+        let mut wrong = Vec::new();
+        let mut variable = 0usize;
+
+        let mut check = |who: &str, cost: &Cost| {
+            if cost.mana.has_variable() {
+                variable += 1;
+            }
+            if let Some(part) = two_xs_in_one_cost(cost) {
+                wrong.push(format!("{who} — {} and {part:?}", cost.mana));
+            }
+        };
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    for cost in costs(ability) {
+                        check(def.name(), &cost);
+                    }
+                }
+            }
+            for cost in face_costs(def) {
+                check(def.name(), &cost);
+            }
+        }
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                for cost in costs(ability) {
+                    check(token.name, &cost);
+                }
+            }
+        }
+
+        // Four activation costs in the pool print a mana `{X}` — Blast
+        // Zone, Kessig Wolf Run, Lair of the Hydra and Treasure Vault,
+        // counted on 2026-09-22. Without the floor this passes over a
+        // reader that opened no door at all, which is how the sweep beside
+        // it was found reading none.
+        assert!(
+            variable >= 4,
+            "read {variable} costs with a mana {{X}} out of the pool, and              four cards print one"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} cost(s) announce one X in two places (CR 107.3i makes every \
+             instance of X on an object one value, and CR 601.2b through \
+             602.2b announces it once). The counter bound would be the only \
+             one asked about, so the player could name a number the mana \
+             cannot pay:\n{}",
+            wrong.len(),
+            wrong.join("\n")
         );
     }
 
