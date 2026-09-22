@@ -3096,3 +3096,950 @@ fn time_sieve_sacrifices_five_different_artifacts_for_its_extra_turn() {
         "and the extra turn is queued"
     );
 }
+
+/// `Dowsing Dagger` // `Lost Vale` (`Coverage::Partial`): "When this Equipment enters, target
+/// opponent creates two 0/2 green Plant creature tokens with defender. Equipped creature gets
+/// +2/+1. Whenever equipped creature deals combat damage to a player, you may transform this
+/// Equipment. Equip {2} // {T}: Add three mana of any one color."
+///
+/// Under `Coverage::Partial`, the enters-trigger is omitted, but the static +2/+1 pump, the
+/// `Trigger::DealsCombatDamageToPlayer` transform trigger, and equip {2} are implemented. The test
+/// equips `Dowsing Dagger` to an elf, confirms the +2/+1 pump, attacks an opponent with the
+/// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` transforms into
+/// `Lost Vale` as a land on face 1.
+#[test]
+fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(235, forest())
+        .battlefield(0, &[forest(), forest(), dowsing_dagger(), llanowar_elves()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 controls the elf");
+    let dagger = on_battlefield(&engine, p0, dowsing_dagger()).expect("dagger on battlefield");
+    assert_eq!(pt(&engine, elf), (1, 1), "elf starts as a 1/1");
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    // Ability index 2 corresponds to `equip!("{2}")` (after static and triggered abilities).
+    activate(&mut engine, p0, dowsing_dagger(), 2);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected equip target prompt, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&elf), "elf is a legal equip target");
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(dagger)
+            .is_some_and(|o| o.attached_to == Some(elf))
+    });
+
+    assert_eq!(pt(&engine, elf), (3, 2), "equipped creature receives +2/+1");
+
+    // Advance to combat and declare the equipped elf as an attacker against p1.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    // Not `stack_is_empty`: the stack is already empty the moment attackers
+    // are declared, so that predicate stops the walk *before* the combat
+    // damage step and every life total still reads 20. The end step is past
+    // damage (CR 510.2) and is what the assertion below needs.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "opponent took 3 combat damage from the equipped elf"
+    );
+
+    let vale = on_battlefield(&engine, p0, dowsing_dagger()).expect("Lost Vale on battlefield");
+    assert_eq!(
+        engine.state().object(vale).map(|o| o.face_index),
+        Some(1),
+        "dagger transformed to face 1 (Lost Vale)"
+    );
+    let t = types(&engine, vale);
+    assert!(
+        t.contains(TypeSet::LAND),
+        "Lost Vale is a land after transforming"
+    );
+    assert!(
+        !t.contains(TypeSet::ARTIFACT),
+        "Lost Vale is not an artifact"
+    );
+}
+
+/// `Dowsing Device` // `Geode Grotto` (`Coverage::Partial`): "Whenever this artifact or another
+/// artifact you control enters, up to one target creature you control gets +1/+0 and gains
+/// haste until end of turn. Then transform this artifact if you control four or more artifacts.
+/// // {T}: Add {R}. {2}{R}, {T}: Until end of turn, target creature gains haste and gets +X/+0,
+/// where X is the number of artifacts you control. Activate only as a sorcery."
+///
+/// Under `Coverage::Partial`, the conditional transform clause is omitted, while the ETB trigger
+/// targeting up to one creature you control for +1/+0 and `KeywordSet::HASTE` is implemented.
+/// The test casts `Dowsing Device` from hand, targets a controlled creature, verifies that the
+/// opponent's creature cannot be targeted via `Filter::YOUR_CREATURE`, confirms the +1/+0 pump
+/// and granted haste, and verifies that `Dowsing Device` remains on face 0.
+#[test]
+fn dowsing_device_triggers_on_entry_to_pump_and_grant_haste_to_controlled_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(146, mountain())
+        .battlefield(0, &[mountain(), mountain(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[dowsing_device()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 controls an elf");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("p1 controls an elf");
+
+    assert_eq!(pt(&engine, my_elf), (1, 1), "elf starts as a 1/1");
+    assert!(
+        !keywords(&engine, my_elf).contains(KeywordSet::HASTE),
+        "elf does not have haste yet"
+    );
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, dowsing_device());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target prompt, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&my_elf),
+        "controlled creature is a legal target"
+    );
+    assert!(
+        !options.contains(&their_elf),
+        "opponent's creature is not a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_elf],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, my_elf),
+        (2, 1),
+        "controlled creature received +1/+0 pump"
+    );
+    assert!(
+        keywords(&engine, my_elf).contains(KeywordSet::HASTE),
+        "controlled creature gained haste"
+    );
+
+    let device = on_battlefield(&engine, p0, dowsing_device()).expect("device on battlefield");
+    assert_eq!(
+        engine.state().object(device).map(|o| o.face_index),
+        Some(0),
+        "device remains on front face 0 without the transform clause"
+    );
+}
+
+/// `Tarrian's Journal` // `The Tomb of Aclazotz` (`Coverage::Partial`): "{T}, Sacrifice another
+/// artifact or creature: Draw a card. Activate only as a sorcery. {2}, {T}, Discard your hand:
+/// Transform Tarrian's Journal. // {T}: Add {B}. {T}: You may cast a creature spell from your
+/// graveyard this turn. If you do, it enters with a finality counter on it and is a Vampire in
+/// addition to its other types."
+///
+/// Under `Coverage::Partial`, the front-face sorcery-speed activated ability to tap and sacrifice
+/// another artifact or creature to draw a card is implemented. The test activates ability 0,
+/// confirms that `ChoicePrompt::CostSacrifice` prompts for the sacrifice, verifies that `Tarrian's Journal`
+/// cannot sacrifice itself via `Filter::Another`, sacrifices a controlled creature, and confirms
+/// that the creature is buried while a card is drawn.
+#[test]
+fn tarrians_journal_taps_and_sacrifices_another_creature_to_draw_card() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(126, swamp())
+        .battlefield(0, &[swamp(), tarrian_s_journal(), quiet_creature()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_elf = on_battlefield(&engine, p0, quiet_creature()).expect("p0 controls an elf");
+    let their_elf = on_battlefield(&engine, p1, quiet_creature()).expect("p1 controls an elf");
+    let journal = on_battlefield(&engine, p0, tarrian_s_journal()).expect("journal on battlefield");
+    let lib_before = library_size(&engine, p0);
+
+    assert!(!is_tapped(&engine, journal), "journal starts untapped");
+
+    // Ability 0 requires only {T} and sacrificing another artifact or creature; no mana is spent.
+    activate(&mut engine, p0, tarrian_s_journal(), 0);
+
+    let Pending::ChooseCards {
+        options,
+        prompt,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected sacrifice prompt, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "the cost prompt is ChoicePrompt::CostSacrifice"
+    );
+    assert_eq!((min, max), (1, 1), "costs exactly one sacrifice");
+    assert!(
+        options.contains(&my_elf),
+        "controlled creature is legal sacrifice fodder"
+    );
+    assert!(
+        !options.contains(&journal),
+        "the journal cannot sacrifice itself due to Filter::Another"
+    );
+    assert!(
+        !options.contains(&their_elf),
+        "opponent's creature cannot be sacrificed by p0"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_elf],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, journal),
+        "journal tapped to pay its activation cost"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_some(),
+        "the sacrificed creature is in the graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 1,
+        "a card was drawn from the library"
+    );
+}
+
+/// `Thaumatic Compass` // `Spires of Orazca` (`Coverage::Partial`): "{3}, {T}: Search your library
+/// for a basic land card, reveal it, put it into your hand, then shuffle. At the beginning of
+/// your end step, if you control seven or more lands, transform this artifact. // {T}: Add {C}.
+/// {T}: Untap target attacking creature an opponent controls and remove it from combat."
+///
+/// Under `Coverage::Partial`, `Spires of Orazca`'s combat removal ability is omitted, while
+/// the land search and the end-step transform under `Condition::ControlCount(&Filter::LAND, 7)`
+/// are fully implemented. The test uses `Thaumatic Compass` to fetch a 7th basic land to hand,
+/// plays that land, advances to the end step, and confirms that `Thaumatic Compass` transforms into
+/// `Spires of Orazca` on face 1 as a land.
+#[test]
+fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(249, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                thaumatic_compass(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let compass = on_battlefield(&engine, p0, thaumatic_compass()).expect("compass on battlefield");
+    assert_eq!(
+        engine.state().object(compass).map(|o| o.face_index),
+        Some(0),
+        "compass starts on face 0"
+    );
+
+    // Tap 3 Forests to activate the {3}, {T} search ability.
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, thaumatic_compass(), 0);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected search prompt, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::SearchLibrary,
+        "search library prompt"
+    );
+    assert!(
+        !options.is_empty(),
+        "library contains basic lands to search"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let fetched_land = in_hand(&engine, p0, forest()).expect("searched land is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: fetched_land })
+        .unwrap();
+
+    assert_eq!(
+        lands_of(&engine, p0).len(),
+        7,
+        "p0 now controls seven lands"
+    );
+
+    // Advance to the end step: with 7 lands, the transform trigger fires and resolves.
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, thaumatic_compass())
+            .is_some_and(|id| e.state().object(id).map(|o| o.face_index) == Some(1))
+    });
+
+    let spires = on_battlefield(&engine, p0, thaumatic_compass()).expect("spires on battlefield");
+    let t = types(&engine, spires);
+    assert!(t.contains(TypeSet::LAND), "transformed permanent is a land");
+    assert!(
+        !t.contains(TypeSet::ARTIFACT),
+        "transformed permanent is no longer an artifact"
+    );
+}
+
+/// `Treasure Map` // `Treasure Cove` (`Coverage::Partial`): "{1}, {T}: Scry 1. Put a landmark
+/// counter on this artifact. Then if there are three or more landmark counters on it, remove
+/// those counters, transform this artifact, and create three Treasure tokens. // {T}: Add {C}.
+/// {T}, Sacrifice a Treasure: Draw a card."
+///
+/// Under `Coverage::Partial`, the landmark counter, counter-count branch, and transform are
+/// omitted because landmark counters have no id in `baylee_cards_dsl::counters`. The front-face
+/// `{1}, {T}: Scry 1` ability is fully functional. The test activates ability 0, answers the
+/// `ChoicePrompt::ScryBottom` prompt to bottom the top card, and verifies the bottomed card,
+/// the tapped state, and that `Treasure Map` remains on face 0.
+#[test]
+fn treasure_map_activates_to_scry_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(267, forest())
+        .battlefield(0, &[forest(), forest(), treasure_map()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let map = on_battlefield(&engine, p0, treasure_map()).expect("map on battlefield");
+    assert!(!is_tapped(&engine, map), "map starts untapped");
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, treasure_map(), 0);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until only stops on card choice")
+    };
+    assert_eq!(player, p0, "the map's controller scries");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::ScryBottom,
+        "prompt is ScryBottom"
+    );
+    assert_eq!((min, max), (0, 1), "Scry 1 allows bottoming 0 or 1 cards");
+    assert_eq!(options.len(), 1, "top card of library is inspected");
+    let top_card = options[0];
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![top_card],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, map),
+        "map tapped to activate its ability"
+    );
+    let library = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .clone();
+    assert_eq!(
+        library.first().copied(),
+        Some(top_card),
+        "the inspected card was put on the bottom of the library"
+    );
+    assert_eq!(
+        engine.state().object(map).map(|o| o.face_index),
+        Some(0),
+        "map remains on face 0 under Coverage::Partial"
+    );
+}
+
+/// `Brass's Tunnel-Grinder` // `Tecutlan, the Searing Rift` (`Coverage::Partial`):
+/// "When `Brass's Tunnel-Grinder` enters, discard any number of cards, then draw that many
+/// cards plus one. At the beginning of your end step, if you descended this turn, put a
+/// bore counter on `Brass's Tunnel-Grinder`. Then if there are three or more bore counters
+/// on it, remove those counters and transform it. // `{{T}}`: Add `{{R}}`. Whenever you cast a
+/// permanent spell using mana produced by `Tecutlan`, discover X, where X is that spell's mana value."
+///
+/// Under `Coverage::Partial`, the front-face enter trigger and end-step transform are omitted,
+/// leaving the front face as a `{2}{R}` legendary artifact with no abilities. The test casts
+/// `Brass's Tunnel-Grinder` from hand, verifies that it resolves to the battlefield as a legendary
+/// artifact on face 0, confirms that no enter trigger fires (hand remains empty and library size is unchanged),
+/// and confirms that with floating mana `LegalActions::abilities` offers no activated abilities on it.
+#[test]
+fn brass_s_tunnel_grinder_casts_and_enters_as_legendary_artifact_without_enter_trigger() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(301, mountain())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[brass_s_tunnel_grinder()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lib_before = library_size(&engine, p0);
+    cast_from_hand(&mut engine, p0, brass_s_tunnel_grinder());
+    pass_until(&mut engine, stack_is_empty);
+
+    let grinder = on_battlefield(&engine, p0, brass_s_tunnel_grinder())
+        .expect("Brass's Tunnel-Grinder resolved to the battlefield");
+    assert_eq!(
+        engine.state().object(grinder).map(|o| o.face_index),
+        Some(0),
+        "grinder is on face 0"
+    );
+
+    let t = types(&engine, grinder);
+    assert!(t.contains(TypeSet::ARTIFACT), "grinder is an artifact");
+    assert!(!t.contains(TypeSet::LAND), "grinder is not a land");
+    assert!(
+        engine
+            .state()
+            .object(grinder)
+            .expect("grinder exists")
+            .characteristics()
+            .supertypes
+            .contains(SupertypeSet::LEGENDARY),
+        "grinder is legendary"
+    );
+
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before,
+        "under `Coverage::Partial` no card is drawn on entry"
+    );
+    assert!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).is_empty(),
+        "hand is empty after casting with no discard or draw"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "two remaining mountains floated mana"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == grinder),
+        "grinder offers no activated abilities on face 0 with mana floating"
+    );
+}
+
+/// `Conqueror's Galleon` // `Conqueror's Foothold` (`Coverage::Partial`):
+/// "When this Vehicle attacks, exile it at end of combat, then return it to the battlefield
+/// transformed under your control. Crew 4 (Tap any number of creatures you control with total
+/// power 4 or more: This Vehicle becomes an artifact creature until end of turn.)
+/// // `{{T}}`: Add `{{C}}`. `{{2}}`, `{{T}}`: Draw a card, then discard a card.
+/// `{{4}}`, `{{T}}`: Draw a card. `{{6}}`, `{{T}}`: Return target card from your graveyard to your hand."
+///
+/// Under `Coverage::Partial`, Crew 4 and the attack-transform trigger are omitted, leaving
+/// `Conqueror's Galleon` as a `{4}` artifact vehicle with printed power 2 and toughness 10.
+/// The test casts `Conqueror's Galleon` from hand, confirms its 2/10 body and non-creature artifact
+/// status, confirms that `LegalActions::abilities` offers no crew ability with mana floating,
+/// and confirms that it cannot be declared as an attacker in `Pending::ChooseAttackers`.
+#[test]
+fn conqueror_s_galleon_casts_as_uncrewed_vehicle_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(306, plains())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), plains(), plains()],
+        )
+        .hand(0, &[conqueror_s_galleon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, conqueror_s_galleon());
+    pass_until(&mut engine, stack_is_empty);
+
+    let galleon = on_battlefield(&engine, p0, conqueror_s_galleon())
+        .expect("Conqueror's Galleon on battlefield");
+    assert_eq!(pt(&engine, galleon), (2, 10), "printed 2/10 body");
+
+    let t = types(&engine, galleon);
+    assert!(t.contains(TypeSet::ARTIFACT), "Galleon is an artifact");
+    assert!(
+        !t.contains(TypeSet::CREATURE),
+        "uncrewed vehicle is not a creature"
+    );
+    assert!(!t.contains(TypeSet::LAND), "Galleon is not a land");
+
+    // Float mana from remaining Plains and verify that no crew ability is offered.
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == galleon),
+        "under `Coverage::Partial` no crew ability is offered"
+    );
+
+    // Advance to combat and verify that Galleon cannot attack.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    assert!(
+        !attackers.contains(&galleon),
+        "uncrewed vehicle cannot be declared as an attacker"
+    );
+}
+
+/// `Matzalantli, the Great Door` // `The Core` (`Coverage::Partial`):
+/// "`{{T}}`: Draw a card, then discard a card. `{{4}}`, `{{T}}`: Transform `Matzalantli`.
+/// Activate only if there are four or more permanent types among cards in your graveyard.
+/// // Fathomless descent — `{{T}}`: Add X mana of any one color, where X is the number
+/// of permanent cards in your graveyard."
+///
+/// Under `Coverage::Partial`, the `{{4}}`, `{{T}}` transform ability is omitted because no
+/// condition counts permanent types in a graveyard, leaving the front-face `{{T}}` loot ability.
+/// The test verifies that with four mana floating and `Matzalantli` untapped, `LegalActions::abilities`
+/// offers only ability 0 and no transform ability. It then activates ability 0, answers the
+/// `ChoicePrompt::Generic` card-choice prompt to discard, and confirms the drawn card and graveyard entry.
+#[test]
+fn matzalantli_the_great_door_draws_and_discards_and_omits_transform() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(302, forest())
+        .battlefield(
+            0,
+            &[
+                matzalantli_the_great_door(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let door = on_battlefield(&engine, p0, matzalantli_the_great_door())
+        .expect("Matzalantli on battlefield");
+    assert!(!is_tapped(&engine, door), "Matzalantli starts untapped");
+
+    // Float four mana to verify that no {4}, {T} transform ability is offered.
+    tap_mana_except(&mut engine, p0, door);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four mana floating in pool"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    let door_abilities: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(src, _)| *src == door)
+        .map(|(_, idx)| *idx)
+        .collect();
+    assert_eq!(
+        door_abilities,
+        vec![0],
+        "under `Coverage::Partial` only ability 0 is offered; the {{4}}, {{T}} transform is omitted"
+    );
+
+    // Ability 0: "{T}: Draw a card, then discard a card."
+    activate(&mut engine, p0, matzalantli_the_great_door(), 0);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on card choice");
+    };
+    assert_eq!(player, p0, "p0 must choose a card to discard");
+    assert_eq!((min, max), (1, 1), "must discard exactly one card");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::Generic,
+        "prompt is ChoicePrompt::Generic"
+    );
+    assert_eq!(
+        options.len(),
+        2,
+        "hand has the initial card plus the drawn card"
+    );
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, door), "Matzalantli tapped to pay cost");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        1,
+        "hand size returned to 1 after drawing and discarding"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        1,
+        "discarded card is in the graveyard"
+    );
+}
+
+/// `Primal Amulet` // `Primal Wellspring` (`Coverage::Partial`):
+/// "Instant and sorcery spells you cast cost `{{1}}` less to cast. Whenever you cast an instant
+/// or sorcery spell, put a charge counter on this artifact. Then if there are four or more charge
+/// counters on it, you may remove those counters and transform it. // `{{T}}`: Add one mana of any color.
+/// When that mana is spent to cast an instant or sorcery spell, copy that spell and you may choose
+/// new targets for the copy."
+///
+/// Under `Coverage::Partial`, the cost reduction, four-counter transform, and copy rider are omitted,
+/// leaving the `Trigger::SpellCast` trigger that places a charge counter when you cast an instant or sorcery.
+/// The test casts `dark_ritual()` from hand, verifies that `Primal Amulet` receives a `CounterKind::Charge` counter,
+/// and verifies that an opponent's instant spell does not trigger the controller's `Primal Amulet`.
+#[test]
+fn primal_amulet_gains_charge_counter_on_your_instant_cast_and_ignores_opponents() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(303, swamp())
+        .battlefield(0, &[primal_amulet(), swamp()])
+        .hand(0, &[dark_ritual()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let amulet =
+        on_battlefield(&engine, p0, primal_amulet()).expect("Primal Amulet on battlefield");
+    assert_eq!(
+        counters_on(&engine, amulet, CounterKind::Charge),
+        0,
+        "starts with zero charge counters"
+    );
+
+    // p0 casts Dark Ritual; Primal Amulet triggers and puts a charge counter on itself.
+    cast_from_hand(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, amulet, CounterKind::Charge),
+        1,
+        "gained one charge counter after casting an instant spell"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        3,
+        "Dark Ritual resolved and added three black mana"
+    );
+
+    // Advance to p1's turn and have p1 cast an instant.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, amulet, CounterKind::Charge),
+        1,
+        "opponent casting an instant does not trigger your Primal Amulet"
+    );
+}
+
+/// `The One Ring` (`Coverage::Partial`):
+/// "Indestructible. When `The One Ring` enters, if you cast it, you gain protection from
+/// everything until your next turn. At the beginning of your upkeep, you lose 1 life for
+/// each burden counter on `The One Ring`. `{{T}}`: Put a burden counter on `The One Ring`,
+/// then draw a card for each burden counter on `The One Ring`."
+///
+/// Under `Coverage::Partial`, burden counters, the ETB protection clause, and the tap-draw
+/// ability are omitted, implementing `KeywordSet::INDESTRUCTIBLE` on a legendary artifact.
+/// The test verifies that `The One Ring` possesses `KeywordSet::INDESTRUCTIBLE` on the
+/// battlefield and survives a destroy effect from an opponent's `vindicate()`.
+#[test]
+fn the_one_ring_has_indestructible_and_survives_destroy_effects() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(304, plains())
+        .battlefield(0, &[the_one_ring()])
+        .battlefield(1, &[plains(), swamp(), plains()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ring = on_battlefield(&engine, p0, the_one_ring()).expect("The One Ring on battlefield");
+    assert!(
+        keywords(&engine, ring).contains(KeywordSet::INDESTRUCTIBLE),
+        "The One Ring has indestructible"
+    );
+
+    // Advance to p1's main phase to cast Vindicate targeting The One Ring.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, vindicate());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for Vindicate, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&ring),
+        "The One Ring is a legal target for Vindicate"
+    );
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    // Indestructible prevents destruction (CR 702.12b).
+    assert!(
+        on_battlefield(&engine, p0, the_one_ring()).is_some(),
+        "The One Ring survives on the battlefield due to indestructible"
+    );
+    assert!(
+        in_graveyard(&engine, p0, the_one_ring()).is_none(),
+        "The One Ring was not put into the graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p1, vindicate()).is_some(),
+        "Vindicate resolved and was put into p1's graveyard"
+    );
+}
+
+/// `Thousand Moons Smithy` // `Barracks of the Thousand` (`Coverage::Partial`):
+/// "When `Thousand Moons Smithy` enters, create a white Gnome Soldier artifact creature token
+/// with 'This token's power and toughness are each equal to the number of artifacts and/or
+/// creatures you control.' At the beginning of your first main phase, you may tap five untapped
+/// artifacts and/or creatures you control. If you do, transform `Thousand Moons Smithy`.
+/// // `{{T}}`: Add `{{W}}`. Whenever you cast an artifact or creature spell using mana produced
+/// by `Barracks of the Thousand`, create a white Gnome Soldier artifact creature token …"
+///
+/// Under `Coverage::Partial`, the enter-trigger Gnome Soldier token, the first-main-phase
+/// transform, and the mana-produced cast trigger are omitted, leaving the front face as a
+/// `{2}{W}{W}` legendary artifact with no abilities. The test casts `Thousand Moons Smithy`
+/// from hand, confirms that it enters as a legendary artifact on face 0 without creating tokens,
+/// confirms that with mana floating `LegalActions::abilities` offers no abilities on it,
+/// and confirms that it remains on face 0 in the subsequent turn's main phase.
+#[test]
+fn thousand_moons_smithy_casts_and_enters_as_legendary_artifact_without_token() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(305, plains())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), plains(), plains()],
+        )
+        .hand(0, &[thousand_moons_smithy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, thousand_moons_smithy());
+    pass_until(&mut engine, stack_is_empty);
+
+    let smithy = on_battlefield(&engine, p0, thousand_moons_smithy())
+        .expect("Thousand Moons Smithy on battlefield");
+    assert_eq!(
+        engine.state().object(smithy).map(|o| o.face_index),
+        Some(0),
+        "Smithy is on face 0"
+    );
+
+    let t = types(&engine, smithy);
+    assert!(t.contains(TypeSet::ARTIFACT), "Smithy is an artifact");
+    assert!(!t.contains(TypeSet::LAND), "Smithy is not a land");
+    assert!(
+        engine
+            .state()
+            .object(smithy)
+            .expect("Smithy exists")
+            .characteristics()
+            .supertypes
+            .contains(SupertypeSet::LEGENDARY),
+        "Smithy is legendary"
+    );
+
+    // Under Coverage::Partial, the enter trigger token creation is omitted.
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "under `Coverage::Partial` no Gnome Soldier token is created on entry"
+    );
+
+    // Two Plains remain untapped; float mana and verify no abilities on the front face.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "two Plains floated mana"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == smithy),
+        "front face offers no activated abilities with floating mana"
+    );
+
+    // Advance to the next turn's first main phase and verify no transform occurs.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        engine.state().object(smithy).map(|o| o.face_index),
+        Some(0),
+        "Smithy remains on face 0 in the following turn"
+    );
+}
+
+/// What The One Ring does **not** do, which is three of its four sentences.
+///
+/// The card is `Coverage::Partial` with indestructible and nothing else: the
+/// cast-triggered protection, the upkeep drain per burden counter and the
+/// `{T}` draw are each refused by name at the foot of the card file. The
+/// test above plays the sentence that works. This one pins the three that do
+/// not, because a keyword is the one characteristic that keeps reading
+/// correctly while everything around it is missing — and an artifact whose
+/// whole reputation is drawing cards would look fine in a board state that
+/// never asked it to.
+#[test]
+fn the_one_ring_offers_no_ability_and_costs_no_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(305, plains())
+        .battlefield(0, &[the_one_ring(), plains(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ring = on_battlefield(&engine, p0, the_one_ring()).expect("The One Ring is out");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == ring),
+        "`{{T}}: Put a burden counter on this, then draw a card for each` is \
+         not written, so the Ring offers nothing to activate"
+    );
+
+    // Two of its own upkeeps, which is where the drain would show. It has no
+    // burden counters either, so the two halves agree: nothing counts and
+    // nothing is lost.
+    let life = engine.state().players[0].life;
+    pass_until(&mut engine, |e| {
+        e.state().turn.number >= 3 && e.state().turn.active == p0
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        life,
+        "no upkeep trigger is written, so no life is lost for a burden \
+         counter that is never placed"
+    );
+    assert_eq!(
+        counters_on(&engine, ring, CounterKind::Charge),
+        0,
+        "and nothing put one there"
+    );
+}

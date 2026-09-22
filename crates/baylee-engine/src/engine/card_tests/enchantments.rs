@@ -2482,3 +2482,961 @@ fn temur_ascendancy_gives_a_freshly_cast_creature_haste() {
         "\"Creatures you control have haste\""
     );
 }
+
+/// `Druid Class` (`Coverage::Partial`):
+/// "Landfall — Whenever a land you control enters, you gain 1 life.
+/// `{{2}}{{G}}`: Level 2. You may play an additional land on each of your turns.
+/// `{{4}}{{G}}`: Level 3. When this Class becomes level 3, target land you control becomes
+/// a creature with haste and 'This creature's power and toughness are each equal to the
+/// number of lands you control.' It's still a land."
+///
+/// Under `Coverage::Partial`, the level 2 extra land drop and level 3 animation trigger are
+/// omitted, while the Landfall trigger and both level-up activated abilities are implemented.
+/// The test verifies that playing a land triggers Landfall to gain 1 life, and that activating
+/// level 2 with `{{2}}{{G}}` puts a level counter on `Druid Class`.
+#[test]
+fn druid_class_triggers_landfall_and_levels_to_level_two() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(102, forest())
+        .battlefield(0, &[druid_class(), forest(), forest(), forest()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert_eq!(engine.state().players[0].life, 20, "starts at 20 life");
+    let class = on_battlefield(&engine, p0, druid_class()).expect("Druid Class on battlefield");
+    assert_eq!(
+        counters_on(&engine, class, CounterKind::Level),
+        0,
+        "starts at level 1 with 0 level counters"
+    );
+
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        21,
+        "Landfall trigger gained 1 life"
+    );
+
+    tap_mana_except(&mut engine, p0, class);
+    activate(&mut engine, p0, druid_class(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, class, CounterKind::Level),
+        1,
+        "one level counter, so Druid Class is level 2"
+    );
+}
+
+/// `Garruk's Uprising` (`Coverage::Partial`):
+/// "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.
+/// Creatures you control have trample. Whenever a creature you control with power 4 or greater enters,
+/// draw a card."
+///
+/// Under `Coverage::Partial`, the enchantment's own enter draw trigger is omitted, while the trample
+/// anthem and the enter draw trigger for creatures with power 4 or greater are implemented.
+/// The test verifies that controlled creatures gain trample while the opponent's creature does not,
+/// that casting a 1/1 `llanowar_elves()` draws no card, and that casting a 6/6 `rootbreaker_wurm()`
+/// triggers the draw ability.
+#[test]
+fn garruk_s_uprising_grants_trample_and_draws_on_power_four_or_greater() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(105, forest())
+        .battlefield(
+            0,
+            &[
+                garruk_s_uprising(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[llanowar_elves(), rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let their_elf =
+        on_battlefield(&engine, p1, llanowar_elves()).expect("opponent's elf on battlefield");
+    assert!(
+        !keywords(&engine, their_elf).contains(KeywordSet::TRAMPLE),
+        "Garruk's Uprising only grants trample to creatures you control"
+    );
+
+    let lib_start = library_size(&engine, p0);
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my elf on battlefield");
+    assert!(
+        keywords(&engine, my_elf).contains(KeywordSet::TRAMPLE),
+        "controlled creature has trample from the anthem"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_start,
+        "a 1/1 entering does not trigger the draw trigger"
+    );
+
+    cast_from_hand(&mut engine, p0, rootbreaker_wurm());
+    pass_until(&mut engine, stack_is_empty);
+
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("wurm on battlefield");
+    assert!(
+        keywords(&engine, wurm).contains(KeywordSet::TRAMPLE),
+        "wurm has trample"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_start - 1,
+        "a 6/6 creature entering triggers the draw ability"
+    );
+}
+
+/// `Grasping Shadows` // `Shadows' Lair` (`Coverage::Partial`):
+/// "Whenever a creature you control attacks alone, it gains deathtouch and lifelink until
+/// end of turn. Put a dread counter on this enchantment. Then if there are three or more dread
+/// counters on it, transform it. // `{{T}}`: Add `{{B}}`. `{{B}}`, `{{T}}`, Remove a dread counter
+/// from this land: You draw a card and you lose 1 life."
+///
+/// Under `Coverage::Partial`, the lone-attacker trigger and the back face's dread-counter ability
+/// are omitted, leaving the front face as a `{{3}}{{B}}` enchantment with no abilities. The test
+/// casts `Grasping Shadows` from hand, confirms it enters as an enchantment on face 0, verifies that
+/// with floating mana `LegalActions::abilities` offers no activated abilities on it, and confirms
+/// that an attacking creature gains neither deathtouch nor lifelink under `Coverage::Partial`.
+#[test]
+fn grasping_shadows_casts_and_enters_as_enchantment_without_lone_attacker_trigger() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(109, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[grasping_shadows()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Llanowar Elves on battlefield");
+    // Not `cast_from_hand`: it taps every mana source, and Llanowar Elves is
+    // one — a tapped creature cannot be declared an attacker (CR 508.1a), so
+    // the Elf has to be kept out of the payment it is not needed for.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, grasping_shadows());
+    pass_until(&mut engine, stack_is_empty);
+
+    let shadows =
+        on_battlefield(&engine, p0, grasping_shadows()).expect("Grasping Shadows on battlefield");
+    assert_eq!(
+        engine.state().object(shadows).map(|o| o.face_index),
+        Some(0),
+        "Grasping Shadows is on face 0"
+    );
+
+    let t = types(&engine, shadows);
+    assert!(
+        t.contains(TypeSet::ENCHANTMENT),
+        "Grasping Shadows is an enchantment"
+    );
+    assert!(!t.contains(TypeSet::LAND), "Grasping Shadows is not a land");
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == shadows),
+        "front face offers no activated abilities with floating mana"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let kw = keywords(&engine, elf);
+    assert!(
+        !kw.contains(KeywordSet::DEATHTOUCH),
+        "under `Coverage::Partial` attacking alone does not grant deathtouch"
+    );
+    assert!(
+        !kw.contains(KeywordSet::LIFELINK),
+        "under `Coverage::Partial` attacking alone does not grant lifelink"
+    );
+    assert_eq!(
+        engine.state().object(shadows).map(|o| o.face_index),
+        Some(0),
+        "Grasping Shadows remains on face 0"
+    );
+}
+
+/// `Growing Rites of Itlimoc` // `Itlimoc, Cradle of the Sun` (`Coverage::Partial`):
+/// "When `Growing Rites of Itlimoc` enters, look at the top four cards of your library. You may
+/// reveal a creature card from among them and put it into your hand. Put the rest on the bottom
+/// of your library in any order. At the beginning of your end step, if you control four or more
+/// creatures, transform `Growing Rites of Itlimoc`. // `{{T}}`: Add `{{G}}`. `{{T}}`: Add `{{G}}` for
+/// each creature you control."
+///
+/// Under `Coverage::Partial`, the enter look-at-four trigger is omitted, while the end-step
+/// transform trigger and the back face's mana abilities are implemented. The test sets up four
+/// controlled creatures, advances to the end step where the transform condition is met, verifies
+/// the enchantment transforms into the legendary land `Itlimoc, Cradle of the Sun` on face 1,
+/// and activates Itlimoc's second mana ability to produce green mana equal to the creature count.
+#[test]
+fn growing_rites_of_itlimoc_transforms_at_four_creatures_and_taps_for_creature_count() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(106, forest())
+        .battlefield(
+            0,
+            &[
+                growing_rites_of_itlimoc(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    pass_until(&mut engine, stack_is_empty);
+
+    let itlimoc =
+        on_battlefield(&engine, p0, growing_rites_of_itlimoc()).expect("Itlimoc on battlefield");
+    assert_eq!(
+        engine.state().object(itlimoc).map(|o| o.face_index),
+        Some(1),
+        "Growing Rites of Itlimoc transformed to face 1"
+    );
+
+    let t = types(&engine, itlimoc);
+    assert!(t.contains(TypeSet::LAND), "Itlimoc is a land");
+    assert!(
+        !t.contains(TypeSet::ENCHANTMENT),
+        "Itlimoc is not an enchantment"
+    );
+
+    activate(&mut engine, p0, growing_rites_of_itlimoc(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        4,
+        "Itlimoc added four green mana for the four creatures controlled"
+    );
+}
+
+/// `Hadana's Climb` // `Winged Temple of Orazca` (`Coverage::Partial`):
+/// "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control.
+/// Then if that creature has three or more +1/+1 counters on it, transform `Hadana's Climb`.
+/// // `{{T}}`: Add one mana of any color. `{{1}}{{G}}{{U}}`, `{{T}}`: Target creature you control
+/// gains flying and gets +X/+X until end of turn, where X is its power."
+///
+/// Under `Coverage::Partial`, the transform clause is omitted, while the combat-begin trigger
+/// placing a +1/+1 counter on a controlled creature is implemented. The test advances to the
+/// combat phase, targets a controlled 1/1 `llanowar_elves()`, verifies that the counter is placed
+/// and its projected power and toughness become 2/2, and confirms that `Hadana's Climb` remains
+/// on face 0.
+#[test]
+fn hadana_s_climb_puts_plus_one_counter_on_controlled_creature_at_combat() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(107, forest())
+        .battlefield(0, &[hadana_s_climb(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Llanowar Elves on battlefield");
+    assert_eq!(pt(&engine, elf), (1, 1), "starts as a 1/1");
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        0,
+        "starts with 0 counters"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&elf),
+        "the controlled creature is a legal target"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        1,
+        "one +1/+1 counter placed on the target"
+    );
+    assert_eq!(pt(&engine, elf), (2, 2), "elf is now 2/2");
+
+    let climb =
+        on_battlefield(&engine, p0, hadana_s_climb()).expect("Hadana's Climb on battlefield");
+    assert_eq!(
+        engine.state().object(climb).map(|o| o.face_index),
+        Some(0),
+        "Hadana's Climb remains on face 0"
+    );
+    assert!(
+        types(&engine, climb).contains(TypeSet::ENCHANTMENT),
+        "Hadana's Climb is an enchantment"
+    );
+}
+
+/// `Journey to Eternity` // `Atzal, Cave of Eternity` (`Coverage::Implemented`):
+/// "Enchant creature you control. When enchanted creature dies, return it to the battlefield
+/// under your control, then return this card to the battlefield transformed under your control.
+/// // `{{T}}`: Add one mana of any color. `{{3}}{{B}}{{G}}`, `{{T}}`: Return target creature card
+/// from your graveyard to the battlefield."
+///
+/// Under `Coverage::Implemented`, casting `Journey to Eternity` targets and attaches to a controlled
+/// creature. When that creature dies (sacrificed to `ashnods_altar()`), the dies trigger returns the
+/// creature to the battlefield and returns `Journey to Eternity` transformed as the legendary land
+/// `Atzal, Cave of Eternity` on face 1, which then activates its `{{T}}` mana ability for black mana.
+#[test]
+fn journey_to_eternity_returns_creature_and_transforms_into_atzal() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(101, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                swamp(),
+                plains(),
+                llanowar_elves(),
+                ashnods_altar(),
+            ],
+        )
+        .hand(0, &[journey_to_eternity()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Llanowar Elves on battlefield");
+    cast_from_hand(&mut engine, p0, journey_to_eternity());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for Aura spell, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&elf),
+        "the controlled creature is a legal target"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let aura = on_battlefield(&engine, p0, journey_to_eternity())
+        .expect("Journey to Eternity on battlefield");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(elf),
+        "Journey to Eternity is attached to the creature"
+    );
+
+    let altar =
+        on_battlefield(&engine, p0, ashnods_altar()).expect("Ashnod's Altar on battlefield");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: altar,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards { prompt, .. } = engine.pending().clone() else {
+        panic!(
+            "expected sacrifice choice for Ashnod's Altar, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(prompt, ChoicePrompt::CostSacrifice);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the enchanted creature returned to the battlefield under your control"
+    );
+    let atzal = on_battlefield(&engine, p0, journey_to_eternity())
+        .expect("Atzal, Cave of Eternity returned transformed");
+    assert_eq!(
+        engine.state().object(atzal).map(|o| o.face_index),
+        Some(1),
+        "Atzal is on face 1"
+    );
+
+    let t = types(&engine, atzal);
+    assert!(t.contains(TypeSet::LAND), "Atzal is a land");
+    assert!(
+        !t.contains(TypeSet::ENCHANTMENT),
+        "Atzal is no longer an enchantment"
+    );
+
+    activate(&mut engine, p0, journey_to_eternity(), 0);
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!(
+            "expected color choice for Atzal mana ability, got {:?}",
+            engine.pending()
+        );
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "Atzal produced one black mana"
+    );
+}
+
+/// `Path of Mettle` // `Metzali, Tower of Triumph` (`Coverage::Partial`):
+/// "When `Path of Mettle` enters, it deals 1 damage to each creature that doesn't have
+/// first strike, double strike, vigilance, or haste. Whenever you attack with at least two
+/// creatures that have first strike, double strike, vigilance, and/or haste, transform
+/// `Path of Mettle`. // `{{T}}`: Add one mana of any color. `{{1}}{{R}}`, `{{T}}`: `Metzali` deals
+/// 2 damage to each opponent. `{{2}}{{W}}`, `{{T}}`: Choose a creature at random that attacked
+/// this turn. Destroy that creature."
+///
+/// Under `Coverage::Partial`, the enter damage trigger, the combat transform trigger, and the
+/// back face's damage and destruction abilities are omitted, leaving the front face as a
+/// `{{R}}{{W}}` legendary enchantment with no abilities. The test casts `Path of Mettle` from
+/// hand, confirms it enters as a legendary enchantment on face 0 without damaging a 1/1
+/// `llanowar_elves()`, verifies that with floating mana `LegalActions::abilities` offers no
+/// activated abilities on it, and confirms it remains on face 0 in the following turn.
+#[test]
+fn path_of_mettle_casts_and_enters_as_legendary_enchantment_without_damage_trigger() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(103, mountain())
+        .battlefield(0, &[mountain(), plains(), mountain(), llanowar_elves()])
+        .hand(0, &[path_of_mettle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Llanowar Elves on battlefield");
+    cast_from_hand(&mut engine, p0, path_of_mettle());
+    pass_until(&mut engine, stack_is_empty);
+
+    let mettle =
+        on_battlefield(&engine, p0, path_of_mettle()).expect("Path of Mettle on battlefield");
+    assert_eq!(
+        engine.state().object(mettle).map(|o| o.face_index),
+        Some(0),
+        "Path of Mettle is on face 0"
+    );
+
+    let t = types(&engine, mettle);
+    assert!(
+        t.contains(TypeSet::ENCHANTMENT),
+        "Path of Mettle is an enchantment"
+    );
+    assert!(!t.contains(TypeSet::LAND), "Path of Mettle is not a land");
+    assert!(
+        engine
+            .state()
+            .object(mettle)
+            .expect("Path of Mettle exists")
+            .characteristics()
+            .supertypes
+            .contains(SupertypeSet::LEGENDARY),
+        "Path of Mettle is legendary"
+    );
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "under `Coverage::Partial` no enter-damage trigger fires, so the 1/1 elf survives"
+    );
+    assert_eq!(pt(&engine, elf), (1, 1), "elf remains an undamaged 1/1");
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == mettle),
+        "front face offers no activated abilities with floating mana"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        engine.state().object(mettle).map(|o| o.face_index),
+        Some(0),
+        "Path of Mettle remains on face 0 in the following turn"
+    );
+}
+
+/// `Search for Azcanta` // `Azcanta, the Sunken Ruin` (`Coverage::Partial`):
+/// "At the beginning of your upkeep, surveil 1. Then if you have seven or more cards in your
+/// graveyard, you may transform `Search for Azcanta`. // `{{T}}`: Add `{{U}}`. `{{2}}{{U}}`, `{{T}}`: Look
+/// at the top four cards of your library. You may reveal a noncreature, nonland card from among
+/// them and put it into your hand. Put the rest on the bottom of your library in any order."
+///
+/// Under `Coverage::Partial`, the transform clause and the back face's card-selection ability
+/// are omitted, while the upkeep surveil 1 trigger is implemented. The test advances to upkeep,
+/// intercepts the surveil 1 prompt (`ChoicePrompt::SurveilGraveyard`), chooses to put the top
+/// card into the graveyard, verifies the card arrives in the graveyard, and confirms that
+/// `Search for Azcanta` remains on face 0.
+#[test]
+fn search_for_azcanta_surveils_at_upkeep_and_remains_on_face_zero() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(104, forest())
+        .battlefield(0, &[search_for_azcanta(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SurveilGraveyard,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        options,
+        prompt,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected surveil choice, got {:?}", engine.pending());
+    };
+    assert_eq!(prompt, ChoicePrompt::SurveilGraveyard);
+    assert_eq!(min, 0, "surveil allows choosing 0 cards for graveyard");
+    assert_eq!(max, 1, "surveil 1 allows at most 1 card");
+    assert_eq!(
+        options.len(),
+        1,
+        "surveil 1 looks at the top card of library"
+    );
+
+    let milled_card = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![milled_card],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let azcanta = on_battlefield(&engine, p0, search_for_azcanta())
+        .expect("Search for Azcanta on battlefield");
+    assert_eq!(
+        engine.state().object(azcanta).map(|o| o.face_index),
+        Some(0),
+        "Search for Azcanta remains on face 0"
+    );
+    assert!(
+        types(&engine, azcanta).contains(TypeSet::ENCHANTMENT),
+        "Search for Azcanta is an enchantment"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        1,
+        "the surveilled card was put into the graveyard"
+    );
+}
+
+/// `Sidequest: Catch a Fish` // `Cooking Campsite` (`Coverage::Partial`):
+/// "At the beginning of your upkeep, look at the top card of your library. If it's an artifact or
+/// creature card, you may reveal it and put it into your hand. If you put a card into your hand
+/// this way, create a Food token and transform this enchantment. // `{{T}}`: Add `{{W}}`. `{{3}}`, `{{T}}`,
+/// Sacrifice an artifact: Put a +1/+1 counter on each creature you control. Activate only as a sorcery."
+///
+/// Under `Coverage::Partial`, the front-face upkeep reveal-and-transform trigger is omitted,
+/// leaving the front face as a `{{2}}{{W}}` enchantment with no abilities. The test casts
+/// `Sidequest: Catch a Fish` from hand, confirms it enters as an enchantment on face 0, verifies
+/// that with floating mana `LegalActions::abilities` offers no activated abilities on it, and
+/// advances to the following turn's upkeep and main phase confirming no trigger fires and it remains on face 0.
+#[test]
+fn sidequest_catch_a_fish_casts_and_enters_as_enchantment_without_upkeep_trigger() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(108, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[sidequest_catch_a_fish()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lib_before = library_size(&engine, p0);
+    cast_from_hand(&mut engine, p0, sidequest_catch_a_fish());
+    pass_until(&mut engine, stack_is_empty);
+
+    let quest = on_battlefield(&engine, p0, sidequest_catch_a_fish())
+        .expect("Sidequest: Catch a Fish on battlefield");
+    assert_eq!(
+        engine.state().object(quest).map(|o| o.face_index),
+        Some(0),
+        "Sidequest is on face 0"
+    );
+
+    let t = types(&engine, quest);
+    assert!(
+        t.contains(TypeSet::ENCHANTMENT),
+        "Sidequest is an enchantment"
+    );
+    assert!(!t.contains(TypeSet::LAND), "Sidequest is not a land");
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == quest),
+        "front face offers no activated abilities with floating mana"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 1,
+        "two turns pass, so p0 draws once for its own draw step (CR 504.1) — \
+         and under `Coverage::Partial` the upkeep trigger adds no second card"
+    );
+    assert_eq!(
+        engine.state().object(quest).map(|o| o.face_index),
+        Some(0),
+        "Sidequest remains on face 0 in the following turn"
+    );
+}
+
+/// `Storm the Vault` // `Vault of Catlacan` (`Coverage::Implemented`):
+/// "Whenever one or more creatures you control deal combat damage to a player, create a Treasure
+/// token. At the beginning of your end step, if you control five or more artifacts, transform
+/// `Storm the Vault`. // `{{T}}`: Add one mana of any color. `{{T}}`: Add `{{U}}` for each artifact
+/// you control."
+///
+/// Under `Coverage::Implemented`, controlling five artifacts satisfies the end-step transform
+/// condition. The test sets up five `quiet_artifact()`s, advances to the end step where the
+/// transform trigger resolves, verifies `Storm the Vault` transforms into the legendary land
+/// `Vault of Catlacan` on face 1, and activates its second mana ability to produce blue mana
+/// equal to the artifact count.
+#[test]
+fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(110, island())
+        .battlefield(
+            0,
+            &[
+                storm_the_vault(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    pass_until(&mut engine, stack_is_empty);
+
+    let vault =
+        on_battlefield(&engine, p0, storm_the_vault()).expect("Vault of Catlacan on battlefield");
+    assert_eq!(
+        engine.state().object(vault).map(|o| o.face_index),
+        Some(1),
+        "Storm the Vault transformed to face 1"
+    );
+
+    let t = types(&engine, vault);
+    assert!(t.contains(TypeSet::LAND), "Vault of Catlacan is a land");
+    assert!(
+        !t.contains(TypeSet::ENCHANTMENT),
+        "Vault of Catlacan is not an enchantment"
+    );
+
+    activate(&mut engine, p0, storm_the_vault(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        5,
+        "Vault of Catlacan produced five blue mana for the five artifacts controlled"
+    );
+}
+
+/// `Vance's Blasting Cannons` // `Spitfire Bastion` (`Coverage::Partial`):
+/// "At the beginning of your upkeep, exile the top card of your library. If it's a nonland card,
+/// you may cast that card this turn. Whenever you cast your third spell in a turn, you may transform
+/// `Vance's Blasting Cannons`. // `{{T}}`: Add `{{R}}`. `{{2}}{{R}}`, `{{T}}`: `Spitfire Bastion` deals
+/// 3 damage to any target."
+///
+/// Under `Coverage::Partial`, the upkeep exile-and-cast trigger is omitted, while the third-spell
+/// transform trigger and the back face's abilities are implemented. The test casts three spells
+/// in one turn using `dark_ritual()`, intercepts the optional transform prompt on the third cast,
+/// accepts the transformation into the legendary land `Spitfire Bastion` on face 1, and taps
+/// `Spitfire Bastion` for red mana.
+#[test]
+fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(111, swamp())
+        .battlefield(0, &[vance_s_blasting_cannons(), swamp(), swamp(), swamp()])
+        .hand(0, &[dark_ritual(), dark_ritual(), dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Spell 1
+    cast_from_hand(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+
+    // Spell 2
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+
+    // Spell 3 triggers the third-spell MayDo transform trigger
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let bastion = on_battlefield(&engine, p0, vance_s_blasting_cannons())
+        .expect("Spitfire Bastion on battlefield");
+    assert_eq!(
+        engine.state().object(bastion).map(|o| o.face_index),
+        Some(1),
+        "Vance's Blasting Cannons transformed to face 1"
+    );
+
+    let t = types(&engine, bastion);
+    assert!(t.contains(TypeSet::LAND), "Spitfire Bastion is a land");
+    assert!(
+        !t.contains(TypeSet::ENCHANTMENT),
+        "Spitfire Bastion is no longer an enchantment"
+    );
+
+    activate(&mut engine, p0, vance_s_blasting_cannons(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "Spitfire Bastion tapped for one red mana"
+    );
+}
+
+/// `Fable of the Mirror-Breaker` // `Reflection of Kiki-Jiki` (`Coverage::Partial`):
+/// "I — Create a 2/2 red Goblin Shaman creature token with 'Whenever this token attacks,
+/// create a Treasure token.'
+/// II — You may discard up to two cards. If you do, draw that many cards.
+/// III — Exile this Saga, then return it to the battlefield transformed under your control. //
+/// `{{1}}`, `{{T}}`: Create a token that's a copy of another target nonlegendary creature you
+/// control, except it has haste. Sacrifice it at the beginning of the next end step."
+///
+/// Under `Coverage::Partial`, chapters I and II and the back face's copy ability are omitted.
+/// Chapter III (`Effect::ExileSelfReturnAsFace { face: 1 }`) is implemented.
+/// The test casts `Fable of the Mirror-Breaker`, tracks lore counters advancing across turns,
+/// and verifies that chapter III exiles the Saga and returns it transformed as
+/// `Reflection of Kiki-Jiki` on face 1 as a 2/2 creature.
+#[test]
+fn fable_of_the_mirror_breaker_advances_to_chapter_three_and_transforms() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(101, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[fable_of_the_mirror_breaker()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, fable_of_the_mirror_breaker());
+    pass_until(&mut engine, stack_is_empty);
+
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
+        .expect("Fable of the Mirror-Breaker on battlefield");
+    assert_eq!(
+        counters_on(&engine, saga, CounterKind::Lore),
+        1,
+        "enters with one lore counter"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
+        .expect("Fable on battlefield in turn 2");
+    assert_eq!(
+        counters_on(&engine, saga, CounterKind::Lore),
+        2,
+        "second lore counter added in precombat main phase"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    // Chapter III triggered at the start of turn 3's precombat main phase; resolve it.
+    pass_until(&mut engine, stack_is_empty);
+
+    let kiki = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
+        .expect("Reflection of Kiki-Jiki on battlefield");
+    assert_eq!(
+        engine
+            .state()
+            .object(kiki)
+            .expect("object exists")
+            .face_index,
+        1,
+        "transformed to face 1"
+    );
+    assert_eq!(
+        pt(&engine, kiki),
+        (2, 2),
+        "Reflection of Kiki-Jiki is a 2/2"
+    );
+    assert!(
+        types(&engine, kiki).contains(TypeSet::CREATURE),
+        "Reflection of Kiki-Jiki is a creature"
+    );
+}
+
+/// `Welcome to . . .` // `Jurassic Park` (`Coverage::Partial`):
+/// "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4
+/// Wall artifact creature with defender for as long as you control this Saga.
+/// II — Create a 3/3 green Dinosaur creature token with trample. It gains haste until end of turn.
+/// III — Destroy all Walls. Exile this Saga, then return it to the battlefield transformed under
+/// your control. // `{{T}}`: Add `{{G}}` for each Dinosaur you control."
+///
+/// Under `Coverage::Partial`, chapters I and II and the graveyard escape grant are omitted.
+/// Chapter III and the back face's Dinosaur-scaled mana ability are implemented.
+/// The test casts `Welcome to . . .` with a Dinosaur (`Carnage Tyrant`) on the battlefield,
+/// advances lore counters to chapter III, resolves the transformation to `Jurassic Park` on face 1,
+/// and taps `Jurassic Park` to produce one green mana for the controlled Dinosaur.
+#[test]
+fn welcome_to_advances_to_chapter_three_and_taps_for_dinosaur_mana() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(102, forest())
+        .battlefield(0, &[forest(), forest(), forest(), carnage_tyrant()])
+        .hand(0, &[welcome_to()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, welcome_to());
+    pass_until(&mut engine, stack_is_empty);
+
+    let saga = on_battlefield(&engine, p0, welcome_to()).expect("Welcome to . . . on battlefield");
+    assert_eq!(
+        counters_on(&engine, saga, CounterKind::Lore),
+        1,
+        "enters with one lore counter"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let saga = on_battlefield(&engine, p0, welcome_to())
+        .expect("Welcome to . . . on battlefield in turn 2");
+    assert_eq!(
+        counters_on(&engine, saga, CounterKind::Lore),
+        2,
+        "second lore counter added in precombat main phase"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    // Chapter III triggered at the start of turn 3's precombat main phase; resolve it.
+    pass_until(&mut engine, stack_is_empty);
+
+    let jp = on_battlefield(&engine, p0, welcome_to()).expect("Jurassic Park on battlefield");
+    assert_eq!(
+        engine.state().object(jp).expect("object exists").face_index,
+        1,
+        "transformed to face 1"
+    );
+    assert!(
+        types(&engine, jp).contains(TypeSet::LAND),
+        "Jurassic Park is a land"
+    );
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        0,
+        "mana pool is empty before activating Jurassic Park"
+    );
+
+    activate(&mut engine, p0, welcome_to(), 0);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "produced 1 green mana for 1 controlled Dinosaur (Carnage Tyrant)"
+    );
+}

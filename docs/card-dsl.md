@@ -759,6 +759,28 @@ is the guard, so a card that reaches for a new one fails the build rather
 than a player; the fix is to read the spec in that arm, not to work around
 it in the card.
 
+`EventObject` is the **second** implicit spec and has two homes, which is
+what makes it easy to get wrong. As a trigger's own *target requirement*
+(`targets = Some(TargetReq::one(TargetSpec::EventObject))`) it is filled from
+the triggering object when the trigger is stacked, and five cards in the pool
+are written that way — Storm of Saruman, Reflections of Littjara, both halves
+of Jin-Gitaxias. On an **effect's** field it is the same story as
+`ThisObject`: `spec_object` reads it and nothing else does. Journey to
+Eternity's "when enchanted creature dies, return **it** to the battlefield"
+names no target (CR 115.1), so its `GraveyardToBattlefield` read an empty
+answer, left the creature in the graveyard, and returned only its own back
+face transformed — `Coverage::Implemented` and half a card. Note which way
+the fix went: the effect learned to read the spec, and the card was **not**
+given a target requirement, because that would have turned a sentence that
+does not target into one that does.
+
+The catch-all in `spec_object` is gone with it. It was `_ =>
+res.targets.first()`, and a spec that *names* something rather than asking
+for it reads there as "nobody chose anything" — which is how the second one
+hid behind the fix for the first. Every variant is listed, so a third gets a
+compile error instead of a card that quietly does nothing, and
+`every_event_object_in_the_pool_is_one_the_engine_reads` counts both homes.
+
 Where an effect exists that acts on the source by name, prefer it:
 `SacrificeSelf`, `ExileSource`, `PutSourceOnTopOfLibrary`, `UntapSelf`. And
 do **not** reach for `targets = Some(TargetReq::one(TargetSpec::ThisObject))`

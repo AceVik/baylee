@@ -996,7 +996,9 @@ pub enum Effect {
     /// Put a graveyard card onto the battlefield under your control
     /// (reanimation).
     GraveyardToBattlefield {
-        /// What (`CardInGraveyard`).
+        /// What: a `CardInGraveyard` the spell or ability targeted, or an
+        /// `EventObject` for the card that just died (Journey to Eternity's
+        /// "return it to the battlefield", which names no target).
         target: TargetSpec,
     },
     /// Create a token that gets +P/+T for each filter-matching permanent

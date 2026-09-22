@@ -467,3 +467,233 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
         "and the same trigger grants haste until end of turn"
     );
 }
+
+/// `Grist, the Hunger Tide` (`Coverage::Partial`):
+/// "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types.
+/// +1: Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way,
+/// put a loyalty counter on Grist and repeat this process.
+/// −2: You may sacrifice a creature. When you do, destroy target creature or planeswalker.
+/// −5: Each opponent loses life equal to the number of creature cards in your graveyard."
+///
+/// Under `Coverage::Partial`, the static zone animation, +1 loop, and −2 reflexive sacrifice are omitted,
+/// leaving the −5 loyalty ability. With `Doubling Season` on the battlefield, `Grist, the Hunger Tide` enters
+/// with 6 loyalty counters (doubling its starting loyalty of 3). Two creature cards are seeded into the graveyard
+/// via `seed_graveyard`, and activating Grist's −5 ability reduces its loyalty to 1 and causes the opponent to lose 2 life.
+#[test]
+fn grist_the_hunger_tide_activates_minus_five_to_drain_life_for_graveyard_creatures() {
+    let p0 = PlayerId::new(0);
+    let doubling_season = card_index("01546b7d-a233-4176-8843-d732074dc5b6");
+    let mut engine = Duel::new(103, quiet_creature())
+        .battlefield(0, &[doubling_season, swamp(), forest(), swamp()])
+        .hand(0, &[grist_the_hunger_tide()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
+    pass_until(&mut engine, stack_is_empty);
+
+    let grist = on_battlefield(&engine, p0, grist_the_hunger_tide()).expect("Grist on battlefield");
+    assert_eq!(
+        counters_on(&engine, grist, CounterKind::Loyalty),
+        6,
+        "Doubling Season doubled starting loyalty to 6"
+    );
+
+    seed_graveyard(&mut engine, p0, 2);
+
+    activate(&mut engine, p0, grist_the_hunger_tide(), 0);
+    assert_eq!(
+        counters_on(&engine, grist, CounterKind::Loyalty),
+        1,
+        "paid 5 loyalty, leaving 1"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "opponent lost 2 life from 2 creature cards in graveyard"
+    );
+}
+
+/// `Oko, Thief of Crowns` (`Coverage::Partial`):
+/// "+2: Create a Food token.
+/// +1: Target artifact or creature loses all abilities and becomes a green Elk creature with base power and toughness 3/3.
+/// −5: Exchange control of target artifact or creature you control and target creature an opponent controls with power 3 or less."
+///
+/// Under `Coverage::Partial`, the +1 elk transformation and −5 control exchange are omitted.
+/// The +2 ability is implemented. The test casts `Oko, Thief of Crowns` with 4 starting loyalty,
+/// activates the +2 loyalty ability to tick Oko up to 6 loyalty, and confirms that a Food artifact token
+/// is created under the player's control.
+#[test]
+fn oko_thief_of_crowns_ticks_up_and_creates_food_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(104, forest())
+        .battlefield(0, &[forest(), island(), forest()])
+        .hand(0, &[oko_thief_of_crowns()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, oko_thief_of_crowns());
+    pass_until(&mut engine, stack_is_empty);
+
+    let oko = on_battlefield(&engine, p0, oko_thief_of_crowns()).expect("Oko on battlefield");
+    assert_eq!(
+        counters_on(&engine, oko, CounterKind::Loyalty),
+        4,
+        "starts with 4 loyalty counters"
+    );
+
+    activate(&mut engine, p0, oko_thief_of_crowns(), 0);
+    assert_eq!(
+        counters_on(&engine, oko, CounterKind::Loyalty),
+        6,
+        "increased loyalty to 6"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one token was created");
+    assert!(
+        types(&engine, tokens[0]).contains(TypeSet::ARTIFACT),
+        "created token is an artifact"
+    );
+}
+
+/// `Wrenn and Realmbreaker` (`Coverage::Partial`):
+/// "Lands you control have '{T}: Add one mana of any color.'
+/// +1: Up to one target land you control becomes a 3/3 Elemental creature with vigilance, hexproof, and haste until your next turn. It's still a land.
+/// −2: Mill three cards. You may put a permanent card from among the milled cards into your hand.
+/// −7: You get an emblem with 'You may play lands and cast permanent spells from your graveyard.'"
+///
+/// Under `Coverage::Partial`, the any-color land static, −2 milled-card selection, and −7 permanent spell graveyard permission are omitted.
+/// The +1 land animation is implemented. The test casts `Wrenn and Realmbreaker`, activates its +1 ability targeting
+/// a controlled `Forest`, verifies that Wrenn ticks up from 4 to 5 loyalty, and confirms that the targeted land becomes
+/// a 3/3 Elemental creature retaining its land type with vigilance, hexproof, and haste.
+#[test]
+fn wrenn_and_realmbreaker_plus_one_animates_land_with_vigilance_hexproof_haste() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(105, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[wrenn_and_realmbreaker()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, wrenn_and_realmbreaker());
+    pass_until(&mut engine, stack_is_empty);
+
+    let wrenn =
+        on_battlefield(&engine, p0, wrenn_and_realmbreaker()).expect("Wrenn on battlefield");
+    assert_eq!(
+        counters_on(&engine, wrenn, CounterKind::Loyalty),
+        4,
+        "starts with 4 loyalty counters"
+    );
+
+    let land = on_battlefield(&engine, p0, forest()).expect("Forest on battlefield");
+    assert!(
+        !types(&engine, land).contains(TypeSet::CREATURE),
+        "target land is not initially a creature"
+    );
+
+    activate(&mut engine, p0, wrenn_and_realmbreaker(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for +1 ability, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&land), "controlled land is a legal target");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, wrenn, CounterKind::Loyalty),
+        5,
+        "loyalty ticked up to 5"
+    );
+    assert!(
+        types(&engine, land).contains(TypeSet::LAND),
+        "target is still a land"
+    );
+    assert!(
+        types(&engine, land).contains(TypeSet::CREATURE),
+        "target became a creature"
+    );
+    assert_eq!(pt(&engine, land), (3, 3), "target is a 3/3");
+
+    let kw = keywords(&engine, land);
+    assert!(kw.contains(KeywordSet::VIGILANCE), "gained vigilance");
+    assert!(kw.contains(KeywordSet::HEXPROOF), "gained hexproof");
+    assert!(kw.contains(KeywordSet::HASTE), "gained haste");
+}
+
+/// What Grist does **not** offer, which is the other half of its
+/// `Coverage::Partial` and the half a card test cannot see by playing.
+///
+/// Three of its four printed sentences are refused by name — the static that
+/// animates it outside the battlefield, the `+1` mill loop, and the `-2`
+/// reflexive sacrifice — and the test above proves the fourth. A card that
+/// silently grew a half-written `+1` would pass that test unchanged, so the
+/// refusal is pinned here instead: **one** loyalty ability is offered, and it
+/// is the one that costs five.
+///
+/// This is a limitation written as a test rather than as a comment, so the
+/// day the `+1` is implemented the build says so. Going red is the success.
+#[test]
+fn grist_offers_only_the_ability_that_is_written() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(104, quiet_creature())
+        .battlefield(0, &[swamp(), forest(), swamp()])
+        .hand(0, &[grist_the_hunger_tide()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
+    pass_until(&mut engine, stack_is_empty);
+    let grist = on_battlefield(&engine, p0, grist_the_hunger_tide()).expect("Grist arrived");
+
+    // Five loyalty is more than the three it entered with, so the one ability
+    // it has is not activatable yet — which is what makes this a statement
+    // about the card and not about the board.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let mine: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(src, _)| *src == grist)
+        .map(|(_, index)| *index)
+        .collect();
+    assert!(
+        mine.is_empty(),
+        "a -5 cannot be paid at three loyalty, so nothing of Grist's is \
+         offered here: {mine:?}"
+    );
+
+    // And the pool's own view of the card: exactly one ability is written on
+    // it, so the three refusals above are still refusals.
+    let def = baylee_cards::by_index(grist_the_hunger_tide()).expect("Grist is in the pool");
+    assert_eq!(
+        def.abilities.len(),
+        1,
+        "Grist prints four sentences and this pool writes one of them — if \
+         that number has moved, the `NOT SUPPORTED` notes on the card and \
+         this test both need rereading"
+    );
+}

@@ -171,6 +171,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
     const READ: &[&str] = &[
         "ReturnToHand { target: ThisObject }",
         "Destroy { target: ThisObject }",
+        "GraveyardToBattlefield { target: ThisObject }",
     ];
 
     let mut unread = Vec::new();
@@ -204,5 +205,64 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
          `PutSourceOnTopOfLibrary`).\n{}",
         unread.len(),
         unread.join("\n")
+    );
+}
+
+/// The same census for `EventObject`, which is the **second** implicit spec
+/// and was found the same way.
+///
+/// A trigger fills [`Resolution::targets`] from the event object when its
+/// own *target requirement* says `EventObject` — five cards in the pool are
+/// written that way and all of them work. Writing it on an **effect's**
+/// field instead is the other half, and it is read by
+/// [`resolve::zones::spec_object`] and by nothing else: Journey to Eternity
+/// spelled `GraveyardToBattlefield { target: EventObject }`, resolved, and
+/// left the creature in the graveyard while returning its own back face
+/// transformed — `Coverage::Implemented`, half of what it prints, and
+/// invisible to `xtask validate` because the card says the right thing.
+///
+/// Read off `Debug` for the reason the sibling gives: a match table over the
+/// variants carrying a `TargetSpec` goes blind on a new one and reports
+/// zero. Both spellings are counted here, because the point is that every
+/// `EventObject` in the pool is in *one* of the two places that reads it.
+#[test]
+fn every_event_object_in_the_pool_is_one_the_engine_reads() {
+    // A declared target requirement (filled by `progress::stack_triggers`)
+    // and the effect fields `spec_object` reads. Written as `Debug`, so an
+    // arm added to the resolver and forgotten here fails on the next card
+    // rather than on the next player.
+    const READ: &[&str] = &[
+        "spec: EventObject",
+        "GraveyardToBattlefield { target: EventObject }",
+    ];
+
+    let mut unread = Vec::new();
+    let mut seen = 0_usize;
+    for def in baylee_cards::all() {
+        let text = format!("{def:?}");
+        let total = text.matches("EventObject").count();
+        if total == 0 {
+            continue;
+        }
+        let read: usize = READ.iter().map(|shape| text.matches(shape).count()).sum();
+        seen += total;
+        if read < total {
+            unread.push(format!(
+                "{}: {total} `EventObject`, {read} of them somewhere the engine reads",
+                def.name()
+            ));
+        }
+    }
+    assert!(
+        seen >= 6,
+        "only {seen} `EventObject` found in the whole pool — six cards spell \
+         it, so this reader has gone blind and an empty sweep proves nothing"
+    );
+    assert!(
+        unread.is_empty(),
+        "{} card(s) name the triggering object where nothing reads it, so the \
+         effect resolves and does nothing:\n  {}",
+        unread.len(),
+        unread.join("\n  ")
     );
 }

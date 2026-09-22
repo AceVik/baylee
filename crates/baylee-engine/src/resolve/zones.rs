@@ -32,10 +32,36 @@ use super::*;
 /// the creature the ability was granted *to*, not the land that granted it.
 /// So "destroy this creature" destroys the creature, which is both the
 /// printed sentence and what a granted ability's source means.
+///
+/// [`TargetSpec::EventObject`] is the **second** implicit one, and it was
+/// found the same way a second time. A triggered ability fills `res.targets`
+/// from the event object only when its *target requirement* says
+/// `EventObject`, and "when enchanted creature dies, return it to the
+/// battlefield" names no target at all (CR 115.1: an ability targets only
+/// where it says "target"). So Journey to Eternity read an empty list, left
+/// the creature in the graveyard, and returned its own back face
+/// transformed — a `Coverage::Implemented` card doing half of what it
+/// prints, silent for exactly the reason the three above were.
+///
+/// Which is why the catch-all is gone. The arm that hid this one was
+/// `_ => res.targets.first()`, and a spec that names something rather than
+/// asking for it reads as "nobody chose anything" there. Every variant is
+/// listed now, so the next implicit spec is a compile error instead of a
+/// card that quietly does nothing.
 fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
     match target {
         TargetSpec::ThisObject => Some(res.source),
-        _ => res.targets.first().copied(),
+        TargetSpec::EventObject => res.event_object,
+        TargetSpec::Object(_)
+        | TargetSpec::Spell(_)
+        | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::AbilityOnStack(_)
+        | TargetSpec::SpellOrAbility(_)
+        | TargetSpec::Player(_)
+        | TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent
+        | TargetSpec::AnyTarget => res.targets.first().copied(),
     }
 }
 
@@ -230,8 +256,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::GraveyardToBattlefield { .. } => {
-            if let Some(&target_id) = res.targets.first() {
+        Effect::GraveyardToBattlefield { target } => {
+            if let Some(target_id) = spec_object(res, target) {
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
                     obj.set_controller(you);

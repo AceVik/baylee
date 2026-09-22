@@ -1830,3 +1830,1156 @@ fn mizzixs_mastery_exiles_a_card_from_your_graveyard_and_then_itself() {
          lying in the graveyard it just took a card out of"
     );
 }
+
+/// `Agadeem's Awakening` // `Agadeem, the Undercrypt` (`Coverage::Partial`): "Return from
+/// your graveyard to the battlefield any number of target creature cards that each have a
+/// different mana value X or less. // As this land enters, you may pay 3 life. If you don't,
+/// it enters tapped. {T}: Add {B}."
+///
+/// Under `Coverage::Partial`, the front-face reanimation clause is not expressible in the
+/// DSL, but the back face (`Agadeem, the Undercrypt`) is fully modeled. The test plays the
+/// land face, pays 3 life on the `EnterModifier::TappedOrPayLife(3)` prompt to have it enter
+/// untapped, and immediately activates its mana ability to add `{B}`.
+#[test]
+fn agadeem_the_undercrypt_pays_three_life_to_enter_untapped_and_taps_for_black() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) =
+        play_land_face(agadeem_s_awakening(), 1).expect("plays as Agadeem, the Undercrypt");
+    if matches!(engine.pending(), Pending::YesNo { .. }) {
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    }
+
+    assert!(
+        !is_tapped(&engine, land),
+        "3 life was paid, so it entered untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        17,
+        "paid 3 life to enter untapped"
+    );
+
+    let black_before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Black);
+    activate(&mut engine, p0, agadeem_s_awakening(), 0);
+
+    assert!(is_tapped(&engine, land), "tapped to activate mana ability");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        black_before + 1,
+        "adds one black mana to the pool"
+    );
+}
+
+/// `Bala Ged Recovery` // `Bala Ged Sanctuary` (`Coverage::Implemented`): "Return target
+/// card from your graveyard to your hand. // This land enters tapped. {T}: Add {G}."
+///
+/// Marked `Coverage::Implemented`, casting the front face for `{2}{G}` targets a card in
+/// your graveyard via `TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You)`.
+/// The test verifies that only cards in the caster's graveyard are offered, choosing the
+/// seeded card and confirming it returns to hand upon resolution.
+#[test]
+fn bala_ged_recovery_returns_target_card_from_own_graveyard_to_hand() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(473, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[bala_ged_recovery()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 1);
+
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let p0_target = engine.state().zones.list(ZoneLocation::Graveyard(p0))[0];
+    let p1_other = engine.state().zones.list(ZoneLocation::Graveyard(p1))[0];
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, bala_ged_recovery());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target prompt, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&p0_target),
+        "card in caster's graveyard is a legal target"
+    );
+    assert!(
+        !options.contains(&p1_other),
+        "card in opponent's graveyard is not a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![p0_target],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&p0_target),
+        "targeted card returned to caster's hand"
+    );
+    assert!(
+        in_graveyard(&engine, p0, bala_ged_recovery()).is_some(),
+        "Bala Ged Recovery resolved to graveyard"
+    );
+}
+
+/// `Bridgeworks Battle` // `Tanglespan Bridgeworks` (`Coverage::Partial`): "Target creature
+/// you control gets +2/+2 until end of turn. It fights up to one target creature you don't
+/// control. // As this land enters, you may pay 3 life. If you don't, it enters tapped.
+/// {T}: Add {G}."
+///
+/// Under `Coverage::Partial`, the front-face pump effect is implemented while the fight
+/// clause is omitted. The test casts `Bridgeworks Battle` targeting a controlled creature,
+/// confirms that an opponent's creature cannot be targeted by `Filter::YOUR_CREATURE`, and
+/// verifies the target receives +2/+2 until end of turn while the opponent's creature survives.
+#[test]
+fn bridgeworks_battle_pumps_controlled_creature_and_omits_fight() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(474, forest())
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[bridgeworks_battle()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 has an elf");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("p1 has an elf");
+    assert_eq!(pt(&engine, my_elf), (1, 1));
+    assert_eq!(pt(&engine, their_elf), (1, 1));
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_front_face(&mut engine, p0, bridgeworks_battle());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target prompt, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&my_elf),
+        "controlled creature is a legal target"
+    );
+    assert!(
+        !options.contains(&their_elf),
+        "opponent creature cannot be targeted"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_elf],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, my_elf),
+        (3, 3),
+        "controlled creature gets +2/+2 until end of turn"
+    );
+    assert_eq!(
+        pt(&engine, their_elf),
+        (1, 1),
+        "opponent creature is not pumped"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "under `Coverage::Partial` no fight occurred so opponent creature survives"
+    );
+    assert!(
+        in_graveyard(&engine, p0, bridgeworks_battle()).is_some(),
+        "Bridgeworks Battle moves to graveyard after resolution"
+    );
+}
+
+/// `Maelstrom Pulse` (`Coverage::Partial`): "Destroy target nonland permanent and all
+/// other permanents with the same name as that permanent."
+///
+/// Under `Coverage::Partial`, `Maelstrom Pulse` destroys the targeted nonland permanent
+/// while the same-name sweep is omitted due to lack of a name filter in the DSL.
+/// The test targets one of two opponent `llanowar_elves()`, verifies that lands cannot be
+/// targeted, and confirms that only the targeted permanent is destroyed upon resolution.
+#[test]
+fn maelstrom_pulse_destroys_target_nonland_permanent_and_omits_name_sweep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(475, forest())
+        .battlefield(0, &[swamp(), swamp(), forest()])
+        .battlefield(1, &[forest(), llanowar_elves(), llanowar_elves()])
+        .hand(0, &[maelstrom_pulse()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let their_land = on_battlefield(&engine, p1, forest()).expect("opponent land");
+    let their_elves = all_on_battlefield(&engine, p1, llanowar_elves());
+    assert_eq!(their_elves.len(), 2, "opponent has two elves");
+
+    cast_from_hand(&mut engine, p0, maelstrom_pulse());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target prompt, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&their_elves[0]),
+        "nonland permanent is a legal target"
+    );
+    assert!(
+        !options.contains(&their_land),
+        "lands are not legal targets for Maelstrom Pulse"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_elves[0]],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    // By id and not by card: there are several Elves here, so
+    // `on_battlefield(.., llanowar_elves())` would find one of the others
+    // and say nothing about the one that was targeted. And off the
+    // battlefield rather than out of the arena — a destroyed permanent is
+    // still an object, which is a token's test and not this one.
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .contains(&their_elves[0]),
+        "the targeted creature was destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "and it is in its owner's graveyard"
+    );
+    assert!(
+        engine.state().object(their_elves[1]).is_some(),
+        "under `Coverage::Partial` the other permanent with the same name survives"
+    );
+    assert!(
+        in_graveyard(&engine, p0, maelstrom_pulse()).is_some(),
+        "Maelstrom Pulse moved to graveyard after resolving"
+    );
+}
+
+/// `Makindi Stampede` // `Makindi Mesas` (`Coverage::Implemented`): "Creatures you control
+/// get +2/+2 until end of turn. // This land enters tapped. {T}: Add {W}."
+///
+/// Marked `Coverage::Implemented`, casting the front face for `{3}{W}{W}` executes
+/// `Effect::PumpFilter` over `Filter::YOUR_CREATURE`. The test verifies that controlled
+/// creatures receive the +2/+2 buff until end of turn while an opponent's creature is
+/// untouched, and confirms the spell resolves to the graveyard.
+#[test]
+fn makindi_stampede_pumps_controlled_creatures_only() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(478, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[makindi_stampede()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("controlled elf");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("opponent elf");
+    assert_eq!(pt(&engine, my_elf), (1, 1));
+    assert_eq!(pt(&engine, their_elf), (1, 1));
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_front_face(&mut engine, p0, makindi_stampede());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, my_elf),
+        (3, 3),
+        "controlled creature gets +2/+2 until end of turn"
+    );
+    assert_eq!(
+        pt(&engine, their_elf),
+        (1, 1),
+        "opponent creature is not pumped"
+    );
+    assert!(
+        in_graveyard(&engine, p0, makindi_stampede()).is_some(),
+        "Makindi Stampede moved to graveyard after resolving"
+    );
+}
+
+/// `Pelakka Predation` // `Pelakka Caverns` (`Coverage::Partial`): "Target opponent reveals
+/// their hand. You choose a card from it with mana value 3 or greater. That player discards
+/// that card. // This land enters tapped. {T}: Add {B}."
+///
+/// Under `Coverage::Partial`, the front-face targeted discard clause is not expressible in
+/// the DSL, but the back face (`Pelakka Caverns`) is fully implemented. The test plays the
+/// land face, confirms it enters tapped, advances to the next turn so it untaps, and
+/// activates its mana ability to add `{B}`.
+#[test]
+fn pelakka_caverns_enters_tapped_and_taps_for_black_mana() {
+    let (mut engine, caverns) =
+        play_land_face(pelakka_predation(), 1).expect("plays as Pelakka Caverns");
+    assert!(is_tapped(&engine, caverns), "Pelakka Caverns enters tapped");
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, caverns), "untaps on next turn");
+    let black_before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Black);
+
+    activate(&mut engine, p0, pelakka_predation(), 0);
+
+    assert!(
+        is_tapped(&engine, caverns),
+        "tapped to activate mana ability"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        black_before + 1,
+        "adds one black mana to the pool"
+    );
+}
+
+/// `Stump Stomp` // `Burnwillow Clearing` (`Coverage::Partial`): "Target creature you control
+/// deals damage equal to its power to target creature or planeswalker you don't control.
+/// // This land enters tapped. {T}: Add {R} or {G}."
+///
+/// Under `Coverage::Partial`, the front-face fight-like effect is not expressible in the
+/// DSL, but the back face (`Burnwillow Clearing`) is fully implemented. The test plays the
+/// land face, verifies it enters tapped, advances to the next turn so it untaps, and
+/// activates its mana ability choosing `{G}` from `Pending::ChooseColor`.
+#[test]
+fn burnwillow_clearing_enters_tapped_and_taps_for_chosen_mana() {
+    let (mut engine, land) =
+        play_land_face(stump_stomp(), 1).expect("plays as Burnwillow Clearing");
+    assert!(
+        is_tapped(&engine, land),
+        "Burnwillow Clearing enters tapped"
+    );
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+    let green_before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Green);
+
+    activate(&mut engine, p0, stump_stomp(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::Red, ManaColor::Green],
+        "offers Red and Green"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land), "tapped to activate mana ability");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        green_before + 1,
+        "adds one green mana to the pool"
+    );
+}
+
+/// `Sundering Eruption` // `Volcanic Fissure` (`Coverage::Partial`): "Destroy target land.
+/// Its controller may search their library for a basic land card, put it onto the battlefield
+/// tapped, then shuffle. Creatures without flying can't block this turn. // As this land
+/// enters, you may pay 3 life. If you don't, it enters tapped. {T}: Add {R}."
+///
+/// Under `Coverage::Partial`, land destruction and the opponent's basic land search are
+/// implemented via `Effect::OptionalBasicLandSearchFor`, while the blocking restriction is
+/// omitted. The test destroys an opponent's land, verifies creatures cannot be targeted,
+/// resolves the opponent's basic-land search putting it onto the battlefield tapped, and
+/// confirms the original land was destroyed.
+#[test]
+fn sundering_eruption_destroys_land_and_gives_opponent_tapped_basic() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(476, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .hand(0, &[sundering_eruption()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let target_land = on_battlefield(&engine, p1, forest()).expect("opponent land");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("opponent elf");
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, sundering_eruption());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target prompt, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&target_land),
+        "target land is a legal target"
+    );
+    assert!(
+        !options.contains(&elf),
+        "creature is not a legal target for land destruction"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target_land],
+            },
+        )
+        .unwrap();
+
+    for _ in 0..8 {
+        if matches!(engine.pending(), Pending::ChooseCards { .. }) {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected basic land search prompt, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        player, p1,
+        "the basic-land search belongs to the destroyed land's controller"
+    );
+    assert_eq!((min, max), (0, 1), "may search for up to one basic land");
+    let found_land = options[0];
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![found_land],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .contains(&target_land),
+        "the targeted land was destroyed — it is off the battlefield, not \
+         out of the arena, because a destroyed permanent is still an object"
+    );
+    assert!(
+        is_tapped(&engine, found_land),
+        "the searched basic land enters tapped"
+    );
+    assert_eq!(
+        engine.state().object(found_land).map(|o| o.controller),
+        Some(p1),
+        "the searched basic land is controlled by the opponent"
+    );
+    assert!(
+        in_graveyard(&engine, p0, sundering_eruption()).is_some(),
+        "Sundering Eruption moves to graveyard after resolving"
+    );
+}
+
+/// `Thoughtseize` (`Coverage::Partial`): "Target player reveals their hand. You choose
+/// a nonland card from it. That player discards that card. You lose 2 life."
+///
+/// Under `Coverage::Partial`, the target player requirement and the caster's 2 life loss
+/// are implemented via `Effect::LoseLife`. The opponent is targeted, confirming they are
+/// among `player_options`, and the caster's life drops by 2 upon resolution, while the
+/// unmodeled reveal-and-discard clause leaves the opponent's hand unchanged.
+#[test]
+fn thoughtseize_targets_player_and_causes_caster_to_lose_two_life() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(472, forest())
+        .battlefield(0, &[swamp()])
+        .hand(0, &[thoughtseize()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let life_before = engine.state().players[0].life;
+    let p1_hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+
+    cast_from_hand(&mut engine, p0, thoughtseize());
+
+    // A spell whose only target is a player asks `ChoosePlayer` and not
+    // `ChooseTargets` — the object list would be empty either way, and the
+    // engine offers the seats rather than an empty target requirement.
+    let Pending::ChoosePlayer { options, .. } = engine.pending().clone() else {
+        panic!("expected the player choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&p1),
+        "the opponent is one of the seats offered"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p1))
+        .expect("the opponent is a legal choice");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before - 2,
+        "caster lost 2 life"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        p1_hand_before,
+        "under `Coverage::Partial` the opponent hand is untouched"
+    );
+    assert!(
+        in_graveyard(&engine, p0, thoughtseize()).is_some(),
+        "Thoughtseize moves to graveyard after resolving"
+    );
+}
+
+/// `Yawgmoth's Will` (`Coverage::Partial`): "Until end of turn, you may play lands and
+/// cast spells from your graveyard. If a card would be put into your graveyard from
+/// anywhere this turn, exile that card instead."
+///
+/// Under `Coverage::Partial`, the continuous grant of `Modifier::PlayLandsFromGraveyard`
+/// is implemented for the turn, while casting spells from the graveyard and the exile
+/// replacement rule are omitted. The test verifies that a graveyard land is not offered
+/// before casting, is offered in `legal.lands` once `Yawgmoth's Will` resolves, and can be
+/// successfully played onto the battlefield.
+#[test]
+fn yawgmoth_s_will_allows_playing_land_from_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(477, forest())
+        .battlefield(0, &[swamp(), swamp(), swamp()])
+        .hand(0, &[yawgmoth_s_will()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let gy_land = in_graveyard(&engine, p0, forest()).expect("forest in graveyard");
+
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.lands.contains(&gy_land),
+        "before Yawgmoth's Will, graveyard land cannot be played"
+    );
+
+    cast_from_hand(&mut engine, p0, yawgmoth_s_will());
+    pass_until(&mut engine, stack_is_empty);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!(
+            "expected priority after resolution, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        legal.lands.contains(&gy_land),
+        "after Yawgmoth's Will resolves, graveyard land is offered in legal.lands"
+    );
+
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: gy_land })
+        .unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, forest()).is_some(),
+        "forest entered the battlefield from graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_none(),
+        "forest is no longer in the graveyard"
+    );
+}
+
+/// `Emeria's Call` // `Emeria, Shattered Skyclave` (`Coverage::Partial`): "Create two 4/4 white
+/// Angel Warrior creature tokens with flying. Non-Angel creatures you control gain indestructible
+/// until your next turn. // As this land enters, you may pay 3 life. If you don't, it enters tapped.
+/// {T}: Add {W}."
+///
+/// Under `Coverage::Partial`, the tokens are created as 4/4 white Angels with flying (omitting
+/// the Warrior subtype), and `Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE)` is applied to
+/// all controlled non-Angel creatures. The test casts the front face, verifies that two 4/4
+/// flying tokens are created, confirms that the caster's non-Angel creature gains indestructible,
+/// and verifies that neither the Angel tokens nor the opponent's creature gain indestructible.
+#[test]
+fn emerias_call_creates_two_angel_tokens_and_grants_indestructible_to_non_angels() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(471, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[emeria_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 controls an elf");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("p1 controls an elf");
+
+    assert!(
+        !keywords(&engine, my_elf).contains(KeywordSet::INDESTRUCTIBLE),
+        "elf does not have indestructible before the spell"
+    );
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_front_face(&mut engine, p0, emeria_s_call());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let created_tokens = tokens_of(&engine, p0);
+    assert_eq!(created_tokens.len(), 2, "creates exactly two tokens");
+    for token in &created_tokens {
+        assert_eq!(pt(&engine, *token), (4, 4), "each Angel token is 4/4");
+        assert!(
+            keywords(&engine, *token).contains(KeywordSet::FLYING),
+            "each Angel token has flying"
+        );
+        assert!(
+            !keywords(&engine, *token).contains(KeywordSet::INDESTRUCTIBLE),
+            "Angel tokens do not gain indestructible (non-Angel restriction)"
+        );
+    }
+
+    assert!(
+        keywords(&engine, my_elf).contains(KeywordSet::INDESTRUCTIBLE),
+        "controlled non-Angel creature gains indestructible"
+    );
+    assert!(
+        !keywords(&engine, their_elf).contains(KeywordSet::INDESTRUCTIBLE),
+        "opponent's creature does not gain indestructible"
+    );
+    assert!(
+        in_graveyard(&engine, p0, emeria_s_call()).is_some(),
+        "the sorcery resolved to the graveyard"
+    );
+}
+
+/// `Ondu Inversion` // `Ondu Skyruins` (`Coverage::Implemented`): "Destroy all nonland
+/// permanents. // This land enters tapped. {T}: Add {W}."
+///
+/// Under `Coverage::Implemented`, casting the front-face sorcery destroys all nonland permanents
+/// across both battlefields via `Effect::DestroyAll` with `Filter::NONLAND`. The test sets up
+/// creatures and artifacts on both sides alongside lands, casts `Ondu Inversion`, and verifies
+/// that all creatures and artifacts are destroyed while all lands remain on the battlefield.
+#[test]
+fn ondu_inversion_destroys_all_nonland_permanents_on_both_sides() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(718, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+                quiet_artifact(),
+            ],
+        )
+        .battlefield(1, &[plains(), llanowar_elves(), quiet_artifact()])
+        .hand(0, &[ondu_inversion()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "p0 starts with an elf"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "p1 starts with an elf"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "p0 starts with an artifact"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "p1 starts with an artifact"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, ondu_inversion());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "p0's creature was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "p1's creature was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_none(),
+        "p0's artifact was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "p1's artifact was destroyed"
+    );
+
+    assert!(
+        on_battlefield(&engine, p0, plains()).is_some(),
+        "p0's lands survive the nonland wipe"
+    );
+    assert!(
+        on_battlefield(&engine, p1, plains()).is_some(),
+        "p1's lands survive the nonland wipe"
+    );
+    assert!(
+        in_graveyard(&engine, p0, ondu_inversion()).is_some(),
+        "the sorcery resolved to the graveyard"
+    );
+}
+
+/// `Sea Gate Restoration` // `Sea Gate, Reborn` (`Coverage::Partial`): "Draw cards equal to the
+/// number of cards in your hand plus one. You have no maximum hand size for the rest of the game.
+/// // As this land enters, you may pay 3 life. If you don't, it enters tapped. {T}: Add {U}."
+///
+/// Under `Coverage::Partial`, the front-face draw clause cannot be expressed in the DSL, but the
+/// back face (`Sea Gate, Reborn`) is fully modeled. The test plays the land face via
+/// `play_land_face`, pays 3 life on the `EnterModifier::TappedOrPayLife(3)` prompt to enter
+/// untapped, and immediately activates its mana ability to add `{U}` to the pool.
+#[test]
+fn sea_gate_reborn_pays_three_life_to_enter_untapped_and_taps_for_blue() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) =
+        play_land_face(sea_gate_restoration(), 1).expect("plays as Sea Gate, Reborn");
+    if matches!(engine.pending(), Pending::YesNo { .. }) {
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    }
+
+    assert!(
+        !is_tapped(&engine, land),
+        "3 life was paid, so it entered untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        17,
+        "paid 3 life to enter untapped"
+    );
+
+    let blue_before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Blue);
+    activate(&mut engine, p0, sea_gate_restoration(), 0);
+
+    assert!(is_tapped(&engine, land), "tapped to activate mana ability");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        blue_before + 1,
+        "adds one blue mana to the pool"
+    );
+}
+
+/// `Song-Mad Treachery` // `Song-Mad Ruins` (`Coverage::Implemented`): "Gain control of target
+/// creature until end of turn. Untap that creature. It gains haste until end of turn. // This
+/// land enters tapped. {T}: Add {R}."
+///
+/// Under `Coverage::Implemented`, the front-face sorcery executes all three clauses in sequence:
+/// it gains control of an opponent's creature via `Modifier::GainControl`, untaps that creature
+/// via `Effect::UntapTarget`, and grants it `KeywordSet::HASTE` until end of turn. The test
+/// lets the opponent tap their creature during their turn, casts `Song-Mad Treachery` on the
+/// following turn, and verifies control transfer, the untap state, and granted haste.
+#[test]
+fn song_mad_treachery_steals_untaps_and_grants_haste_to_opponent_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(815, mountain())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[song_mad_treachery()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // Advance to p1's main phase so Llanowar Elves loses summoning sickness and taps for mana.
+    reach_their_main_phase(&mut engine, p1);
+    let victim = on_battlefield(&engine, p1, llanowar_elves()).expect("p1 controls the creature");
+    tap_all_mana(&mut engine, p1);
+    assert!(is_tapped(&engine, victim), "p1 tapped the elf for mana");
+
+    // Advance to p0's main phase: only p0's permanents untap, leaving the victim tapped.
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        is_tapped(&engine, victim),
+        "victim remains tapped across the turn boundary"
+    );
+    assert_eq!(
+        engine.state().object(victim).map(|o| o.controller),
+        Some(p1),
+        "p1 still controls the victim before the spell resolves"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, song_mad_treachery());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target selection, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&victim),
+        "the opponent's creature is a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(victim).map(|o| o.controller),
+        Some(p0),
+        "p0 gained control of the creature"
+    );
+    assert!(
+        !is_tapped(&engine, victim),
+        "the creature was untapped by the spell"
+    );
+    assert!(
+        keywords(&engine, victim).contains(KeywordSet::HASTE),
+        "the creature gained haste"
+    );
+    assert!(
+        in_graveyard(&engine, p0, song_mad_treachery()).is_some(),
+        "the sorcery resolved to the graveyard"
+    );
+}
+
+/// `Suppression Ray` // `Orderly Plaza` (`Coverage::Partial`): "Tap all creatures target player
+/// controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped
+/// this way. Put a stun counter on each of them. // This land enters tapped. {T}: Add {W} or {U}."
+///
+/// Under `Coverage::Partial`, the front-face effect is omitted, but the back face (`Orderly Plaza`)
+/// is fully implemented. The test plays the land face via `play_land_face`, verifies that it enters
+/// tapped, advances two turns until it untaps, and activates its mana ability to choose `{W}`
+/// from `Pending::ChooseColor`.
+#[test]
+fn orderly_plaza_enters_tapped_and_taps_for_chosen_mana() {
+    let (mut engine, land) = play_land_face(suppression_ray(), 1).expect("plays as Orderly Plaza");
+    assert!(is_tapped(&engine, land), "Orderly Plaza enters tapped");
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+    let white_before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::White);
+
+    activate(&mut engine, p0, suppression_ray(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::White, ManaColor::Blue],
+        "offers White and Blue"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land), "tapped to activate mana ability");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        white_before + 1,
+        "adds one white mana to the pool"
+    );
+}
+
+/// `Zof Consumption` // `Zof Bloodbog` (`Coverage::Implemented`): "Each opponent loses 4 life and
+/// you gain 4 life. // This land enters tapped. {T}: Add {B}."
+///
+/// Under `Coverage::Implemented`, casting `Zof Consumption` causes each opponent to lose 4 life
+/// via `Effect::LoseLife` and the caster to gain 4 life via `Effect::gain_life`. The spell has no
+/// targets and resolves directly, leaving the card in the caster's graveyard.
+#[test]
+fn zof_consumption_drains_opponent_for_four_life_and_caster_gains_four() {
+    // Only the caster is named: both life totals are read off the seat list
+    // by index below, which is what the card is about.
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(984, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[swamp()])
+        .hand(0, &[zof_consumption()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "caster starts at 20 life"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "opponent starts at 20 life"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, zof_consumption());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "opponent lost 4 life from Zof Consumption"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        24,
+        "caster gained 4 life from Zof Consumption"
+    );
+    assert!(
+        in_graveyard(&engine, p0, zof_consumption()).is_some(),
+        "the sorcery card is in the graveyard after resolving"
+    );
+}
+
+/// `Bloodsoaked Insight` // `Sanguine Morass` (`Coverage::Partial`):
+/// "This spell costs {1} less to cast for each 1 life your opponents have lost this turn.
+/// Target opponent exiles the top three cards of their library. Until the end of your next turn,
+/// you may play those cards. If you cast a spell this way, mana of any type can be spent to cast it. //
+/// This land enters tapped. `{{T}}`: Add `{{B}}` or `{{R}}`."
+///
+/// Under `Coverage::Partial`, the front-face sorcery is omitted, while the back-face land
+/// (`Sanguine Morass`) is implemented in full. The test plays the back face as a land, confirms it
+/// enters tapped, advances to the next turn so it untaps, activates its mana ability, chooses
+/// `ManaColor::Black`, and asserts that one black mana is produced.
+#[test]
+fn sanguine_morass_enters_tapped_and_taps_for_black_or_red_mana() {
+    let (mut engine, land) =
+        play_land_face(bloodsoaked_insight(), 1).expect("plays as Sanguine Morass");
+    assert!(is_tapped(&engine, land), "Sanguine Morass enters tapped");
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    activate(&mut engine, p0, bloodsoaked_insight(), 0);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected color choice for dual mana, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&ManaColor::Black), "offers black mana");
+    assert!(options.contains(&ManaColor::Red), "offers red mana");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land), "tapped to produce mana");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "one black mana in pool"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        0,
+        "no red mana in pool"
+    );
+}
+
+/// `Shatterskull Smashing` // `Shatterskull, the Hammer Pass` (`Coverage::Partial`):
+/// "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures
+/// and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided
+/// as you choose among them instead. // As this land enters, you may pay 3 life. If you don't,
+/// it enters tapped. `{{T}}`: Add `{{R}}`."
+///
+/// Under `Coverage::Partial`, the front-face sorcery is not expressible in the DSL, while the
+/// back-face land (`Shatterskull, the Hammer Pass`) is implemented in full. The test plays the back
+/// face as a land, pays 3 life to arrive untapped, and activates its mana ability to add `{{R}}`.
+#[test]
+fn shatterskull_the_hammer_pass_pays_three_life_to_enter_untapped_and_taps_for_red() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) =
+        play_land_face(shatterskull_smashing(), 1).expect("plays as Shatterskull, the Hammer Pass");
+    if matches!(engine.pending(), Pending::YesNo { .. }) {
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    }
+
+    assert!(
+        !is_tapped(&engine, land),
+        "paid 3 life, so it entered untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        17,
+        "life reduced from 20 to 17"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 0,
+            },
+        )
+        .expect("the land taps for mana");
+
+    assert!(is_tapped(&engine, land), "tapped for mana");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "one red mana added to pool"
+    );
+}
+
+/// `Turntimber Symbiosis` // `Turntimber, Serpentine Wood` (`Coverage::Partial`):
+/// "Look at the top seven cards of your library. You may put a creature card from among them onto the
+/// battlefield. If that card has mana value 3 or less, it enters with three additional +1/+1 counters
+/// on it. Put the rest on the bottom of your library in a random order. // As this land enters, you may
+/// pay 3 life. If you don't, it enters tapped. `{{T}}`: Add `{{G}}`."
+///
+/// Under `Coverage::Partial`, the front-face creature search is omitted, while the back-face land
+/// (`Turntimber, Serpentine Wood`) is implemented in full. The test plays the back face as a land,
+/// declines paying 3 life so that it enters tapped without life loss, advances to the next turn so it
+/// untaps, and activates its mana ability to add `{{G}}`.
+#[test]
+fn turntimber_serpentine_wood_enters_tapped_on_declined_life_and_taps_for_green() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let (mut engine, land) =
+        play_land_face(turntimber_symbiosis(), 1).expect("plays as Turntimber, Serpentine Wood");
+    if matches!(engine.pending(), Pending::YesNo { .. }) {
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    }
+
+    assert!(
+        is_tapped(&engine, land),
+        "declined paying 3 life, so it entered tapped"
+    );
+    assert_eq!(engine.state().players[0].life, 20, "life remains at 20");
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 0,
+            },
+        )
+        .expect("the land taps for mana");
+
+    assert!(is_tapped(&engine, land), "tapped for mana");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one green mana added to pool"
+    );
+}

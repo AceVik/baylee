@@ -15141,3 +15141,339 @@ fn maelstrom_wanderer_gives_a_freshly_cast_creature_haste() {
     );
     let _ = p1;
 }
+
+/// `Aclazotz, Deepest Betrayal` // `Temple of the Dead` (`Coverage::Partial`):
+/// "Flying, lifelink. Whenever `Aclazotz` attacks, each opponent discards a card. For each opponent
+/// who can't, you draw a card. Whenever an opponent discards a land card, create a 1/1 black Bat
+/// creature token with flying. When `Aclazotz` dies, return it to the battlefield tapped and transformed
+/// under its owner's control. // `{{T}}`: Add `{{B}}`. `{{2}}{{B}}`, `{{T}}`: Transform this land."
+///
+/// Under `Coverage::Partial`, the draw rider, bat token creation on land discard, and dies-return are omitted,
+/// while `KeywordSet::FLYING`, `KeywordSet::LIFELINK`, and the attack-trigger `Effect::DiscardForPlayers` are implemented.
+/// The test declares `Aclazotz` as an attacker against an opponent holding a card, answers the resulting
+/// `Pending::ChooseCards` discard prompt, and confirms that combat damage deals 4 damage and gains 4 life via lifelink.
+#[test]
+fn aclazotz_attacks_to_cause_discard_and_gains_life_from_combat_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(310, forest())
+        .battlefield(0, &[aclazotz_deepest_betrayal()])
+        .hand(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let bat =
+        on_battlefield(&engine, p0, aclazotz_deepest_betrayal()).expect("Aclazotz on battlefield");
+    let kw = keywords(&engine, bat);
+    assert!(kw.contains(KeywordSet::FLYING), "Aclazotz has flying");
+    assert!(kw.contains(KeywordSet::LIFELINK), "Aclazotz has lifelink");
+    assert_eq!(pt(&engine, bat), (4, 4), "Aclazotz is a 4/4");
+
+    // Advance to combat and declare Aclazotz as an attacker against p1.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bat, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    // The attack trigger resolves: opponent must discard a card.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on ChooseCards");
+    };
+    assert_eq!(player, p1, "p1 is prompted to discard");
+    assert_eq!((min, max), (1, 1), "p1 must discard one card");
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+
+    // Not `stack_is_empty`: the stack is already empty the moment attackers
+    // are declared, so that predicate stops the walk *before* the combat
+    // damage step and every life total still reads 20. The end step is past
+    // damage (CR 510.2) and is what the assertion below needs.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    // Opponent discarded their card.
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "p1's card was discarded to their graveyard"
+    );
+    // Unblocked combat damage of 4 was dealt to p1.
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "p1 took 4 combat damage"
+    );
+    // Lifelink triggered and gained 4 life for p0.
+    assert_eq!(
+        engine.state().players[0].life,
+        24,
+        "p0 gained 4 life via lifelink"
+    );
+}
+
+/// `Fanatic of Rhonas` (`Coverage::Partial`):
+/// "`{{T}}`: Add `{{G}}`. Ferocious — `{{T}}`: Add `{{G}}{{G}}{{G}}{{G}}`. Activate only
+/// if you control a creature with power 4 or greater. Eternalize `{{2}}{{G}}{{G}}`."
+///
+/// Under `Coverage::Partial`, the ferocious condition and eternalize from graveyard are omitted,
+/// leaving the printed 1/4 body and the unconditional `{{T}}`: Add `{{G}}` mana ability.
+/// The test verifies that `Fanatic of Rhonas` has 1/4 stats, that `tap_all_mana` taps it for
+/// exactly one green mana, and that it is tapped after producing mana.
+#[test]
+fn fanatic_of_rhonas_taps_for_one_green_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(307, forest())
+        .battlefield(0, &[fanatic_of_rhonas()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let snake =
+        on_battlefield(&engine, p0, fanatic_of_rhonas()).expect("Fanatic of Rhonas on battlefield");
+    assert_eq!(pt(&engine, snake), (1, 4), "Fanatic is a 1/4 creature");
+    assert!(!is_tapped(&engine, snake), "Fanatic starts untapped");
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "mana pool starts empty"
+    );
+
+    let taken = tap_all_mana(&mut engine, p0);
+    assert_eq!(taken, 1, "tapped exactly one mana route");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "produced exactly one mana"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "produced green mana"
+    );
+    assert!(
+        is_tapped(&engine, snake),
+        "Fanatic is tapped after activating its mana ability"
+    );
+}
+
+/// `Nissa, Resurgent Animist` (`Coverage::Partial`):
+/// "Landfall — Whenever a land you control enters, add one mana of any color. Then if this
+/// is the second time this ability has resolved this turn, reveal cards from the top of your
+/// library until you reveal an Elf or Elemental card. Put that card into your hand and the rest
+/// on the bottom of your library in a random order."
+///
+/// Under `Coverage::Partial`, the second-resolution reveal-until clause is omitted, leaving the
+/// landfall mana trigger `Effect::mana_of_any_color()` with `Filter::YOUR_LAND`. The test plays a
+/// forest under p0's control, answers the resulting `Pending::ChooseColor` prompt with `ManaColor::Blue`,
+/// confirms that one blue mana enters the pool, and verifies that an opponent playing a land does not trigger it.
+#[test]
+fn nissa_resurgent_animist_adds_chosen_mana_on_landfall_and_ignores_opponents_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(308, forest())
+        .battlefield(0, &[nissa_resurgent_animist()])
+        .hand(0, &[forest()])
+        .hand(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let nissa =
+        on_battlefield(&engine, p0, nissa_resurgent_animist()).expect("Nissa on battlefield");
+    assert_eq!(pt(&engine, nissa), (3, 3), "Nissa has 3/3 stats");
+
+    // p0 plays a land; Nissa triggers and asks for a color choice upon resolution.
+    play_land(&mut engine, p0, forest());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseColor");
+    };
+    assert_eq!(player, p0, "p0 chooses the color");
+    assert!(
+        options.contains(&ManaColor::Blue),
+        "blue is among all five colors"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "Nissa added one blue mana on landfall"
+    );
+
+    // Advance to p1's turn and have p1 play a land. Filter::YOUR_LAND must not trigger for opponent's land.
+    reach_their_main_phase(&mut engine, p1);
+    play_land(&mut engine, p1, forest());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "opponent playing a land does not trigger Nissa"
+    );
+}
+
+/// `Ojer Axonil, Deepest Might` // `Temple of Power` (`Coverage::Partial`):
+/// "Trample. If a red source you control would deal an amount of noncombat damage less than
+/// `Ojer Axonil`'s power to an opponent, that source deals damage equal to `Ojer Axonil`'s power instead.
+/// When `Ojer Axonil` dies, return it to the battlefield tapped and transformed under its owner's
+/// control. // `{{T}}`: Add `{{R}}`. `{{2}}{{R}}`, `{{T}}`: Transform this land. Activate only if red sources
+/// you controlled dealt 4 or more noncombat damage this turn and only as a sorcery."
+///
+/// Under `Coverage::Partial`, the noncombat damage replacement and transform-back are omitted,
+/// leaving `KeywordSet::TRAMPLE` on a 4/4 God and the dies-trigger `Effect::ExileSelfReturnAsFace`.
+/// The test verifies that `Ojer Axonil` starts with trample, is destroyed by an opponent's
+/// `heroes_downfall()`, and returns to the battlefield transformed as the land `Temple of Power` on face 1.
+#[test]
+fn ojer_axonil_deepest_might_dies_and_returns_as_temple_of_power() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(309, swamp())
+        .battlefield(0, &[ojer_axonil_deepest_might()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[heroes_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let god = on_battlefield(&engine, p0, ojer_axonil_deepest_might())
+        .expect("Ojer Axonil on battlefield");
+    assert_eq!(pt(&engine, god), (4, 4), "starts as a 4/4 God");
+    assert!(
+        keywords(&engine, god).contains(KeywordSet::TRAMPLE),
+        "Ojer Axonil has trample"
+    );
+
+    // Advance to p1's main phase and cast Hero's Downfall targeting Ojer Axonil.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, heroes_downfall());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![god],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let temple = on_battlefield(&engine, p0, ojer_axonil_deepest_might())
+        .expect("returned to battlefield transformed");
+    assert_eq!(
+        engine.state().object(temple).map(|o| o.face_index),
+        Some(1),
+        "returned as face 1 (Temple of Power)"
+    );
+
+    let t = types(&engine, temple);
+    assert!(t.contains(TypeSet::LAND), "Temple of Power is a land");
+    assert!(
+        !t.contains(TypeSet::CREATURE),
+        "Temple of Power is not a creature"
+    );
+    assert!(
+        in_graveyard(&engine, p0, ojer_axonil_deepest_might()).is_none(),
+        "the card is on the battlefield and not in the graveyard"
+    );
+}
+
+/// `Ojer Taq, Deepest Foundation` // `Temple of Civilization` (`Coverage::Partial`):
+/// "Vigilance. If one or more creature tokens would be created under your control, three times
+/// that many of those tokens are created instead. When `Ojer Taq` dies, return it to the battlefield
+/// tapped and transformed under its owner's control. // `{{T}}`: Add `{{W}}`. `{{2}}{{W}}`, `{{T}}`: Transform
+/// this land. Activate only if you attacked with three or more creatures this turn and only as a sorcery."
+///
+/// Under `Coverage::Partial`, the token tripler, dies-transform, and transform-back are omitted,
+/// leaving `KeywordSet::VIGILANCE` on a 6/6 God. The test verifies that `Ojer Taq` has 6/6 stats and vigilance,
+/// attacks an opponent to deal 6 combat damage, and remains untapped afterwards due to vigilance.
+#[test]
+fn ojer_taq_deepest_foundation_attacks_with_vigilance_and_remains_untapped() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(311, plains())
+        .battlefield(0, &[ojer_taq_deepest_foundation()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let god = on_battlefield(&engine, p0, ojer_taq_deepest_foundation())
+        .expect("Ojer Taq on battlefield");
+    assert_eq!(pt(&engine, god), (6, 6), "Ojer Taq is a 6/6 God");
+    assert!(
+        keywords(&engine, god).contains(KeywordSet::VIGILANCE),
+        "Ojer Taq has vigilance"
+    );
+    assert!(!is_tapped(&engine, god), "starts untapped");
+
+    // Advance to combat and declare Ojer Taq as an attacker against p1.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(god, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    // Not `stack_is_empty`: the stack is already empty the moment attackers
+    // are declared, so that predicate stops the walk *before* the combat
+    // damage step and every life total still reads 20. The end step is past
+    // damage (CR 510.2) and is what the assertion below needs.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        14,
+        "opponent took 6 combat damage"
+    );
+    assert!(
+        !is_tapped(&engine, god),
+        "vigilance keeps Ojer Taq untapped after attacking"
+    );
+}
