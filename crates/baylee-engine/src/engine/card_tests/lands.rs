@@ -24679,51 +24679,84 @@ fn jidoor_is_played_as_the_town_and_taps_for_blue() {
 ///
 /// Both carry a `Coverage::Partial` for a mechanic with no vocabulary at all
 /// — venturing into the dungeon, and hideaway — and both of those hang off a
-/// *second* activated ability. So the ability list is read: one ability
+/// **second** activated ability. So the ability list is read: one entry
 /// each, which is the gap made countable rather than described.
+///
+/// The board is what makes that count mean something. `can_afford` gates
+/// every entry in the offer, so a count taken where the second ability could
+/// not have been paid for would keep reading one after the ability was
+/// written. Dungeon Descent's is "{4}, {T}, Tap an untapped legendary
+/// creature you control", so four Forests and Jin-Gitaxias stand beside it;
+/// Howltooth Hollow's is "{B}, {T}", and its own tap is part of that price,
+/// so the black comes from a Swamp. Both are asked in a main phase with an
+/// empty stack, which is the sorcery timing one of them needs.
 #[test]
 fn the_last_two_shelf_taplands_enter_tapped_and_offer_one_ability_each() {
     let p0 = PlayerId::new(0);
 
-    for (card, colour) in [
-        (dungeon_descent(), ManaColor::Colorless),
-        (howltooth_hollow(), ManaColor::Black),
+    for (card, colour, payment) in [
+        (
+            dungeon_descent(),
+            ManaColor::Colorless,
+            &[forest(), forest(), forest(), forest(), jin_gitaxias()][..],
+        ),
+        (howltooth_hollow(), ManaColor::Black, &[swamp()][..]),
     ] {
-        let mut engine = Duel::new(SEED, forest()).hand(0, &[card]).start();
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, payment)
+            .hand(0, &[card])
+            .start();
         keep_mulligans(&mut engine);
         assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
         let land = play_land(&mut engine, p0, card);
         assert!(entered_tapped(&engine, land), "\"This land enters tapped\"");
 
         cross_into_the_next_own_main(&mut engine, p0);
+        // The price is **floated**, not merely stood on the board:
+        // `can_afford` reads the pool, so an ability with any mana cost at
+        // all is absent from an offer taken over untapped lands — which is
+        // how this pin first passed for the wrong reason. Everything but the
+        // land itself is tapped, because the land is what both the mana
+        // ability and the missing one tap.
+        tap_mana_except(&mut engine, p0, land);
         let Pending::Priority { legal, .. } = engine.pending().clone() else {
             panic!("expected priority, got {:?}", engine.pending())
         };
         assert_eq!(
             legal.abilities.iter().filter(|(id, _)| *id == land).count(),
             1,
-            "the mana ability, and not the venture or hideaway one beside it"
+            "the mana ability, and not the venture or hideaway one beside it \
+             — whose price is floating in this pool"
         );
 
+        let before = engine.state().players[0].mana_pool.available(colour);
+        let before_total = engine.state().players[0].mana_pool.total();
         activate(&mut engine, p0, card, 0);
         assert_eq!(
             engine.state().players[0].mana_pool.available(colour),
-            1,
+            before + 1,
             "the one colour its mana ability prints"
         );
-        assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            before_total + 1
+        );
     }
 }
 
-/// Grove of the Guardian's token ability costs "Tap two untapped creatures
-/// you control", and `CostPart::TapOther` names exactly one permanent and
-/// carries no count — so the file is `Coverage::Partial` and the land offers
-/// its mana ability and nothing else.
+/// Grove of the Guardian's token ability costs "{3}{G}{W}, {T}, Tap two
+/// untapped creatures you control, Sacrifice this land", and
+/// `CostPart::TapOther` names exactly one permanent and carries no count —
+/// so the file is `Coverage::Partial` and the land offers its mana ability
+/// and nothing else.
 ///
-/// That is what this pins, with two untapped creatures and five lands
-/// standing there to pay a price nobody is asked for. The assertion is not
-/// about a rule working; it is about a gap staying where the coverage flag
-/// says it is, and it is **meant to fail** the day the cost can be written.
+/// The board is built so that the **price** is not the reason. `can_afford`
+/// gates every entry in the offer, so a pin standing on a board that could
+/// not pay would keep passing after the ability was written and prove
+/// nothing: three Forests and two Plains are the {3}{G}{W} in the two
+/// colours it names, and two untapped creatures are standing there to be
+/// tapped. What is missing is the sentence, and this is **meant to fail**
+/// the day a `CostPart` can carry a count.
 #[test]
 fn grove_of_the_guardian_offers_only_the_half_its_coverage_says_is_built() {
     let p0 = PlayerId::new(0);
@@ -24737,22 +24770,30 @@ fn grove_of_the_guardian_offers_only_the_half_its_coverage_says_is_built() {
                 forest(),
                 forest(),
                 forest(),
-                forest(),
-                forest(),
+                plains(),
+                plains(),
             ],
         )
         .start();
     keep_mulligans(&mut grove);
     reach_main_phase(&mut grove, p0);
     let land = on_battlefield(&grove, p0, grove_of_the_guardian()).expect("the land is in play");
+    // `can_afford` reads the pool and not the board, so the {3}{G}{W} is
+    // floated off the five lands beside it — while the land itself and the
+    // two creatures stay untapped, because those are what the missing
+    // ability taps. (Llanowar Elves makes mana too, which is exactly why
+    // this is `tap_mana_where` and not `tap_mana_except`.)
+    let creatures = all_on_battlefield(&grove, p0, quiet_creature());
+    assert_eq!(creatures.len(), 2, "the two the ability would tap");
+    tap_mana_where(&mut grove, p0, |id| id != land && !creatures.contains(&id));
     let Pending::Priority { legal, .. } = grove.pending().clone() else {
         panic!("expected priority, got {:?}", grove.pending())
     };
     assert_eq!(
         legal.abilities.iter().filter(|(id, _)| *id == land).count(),
         1,
-        "only the mana ability, although two untapped creatures and five \
-         lands are standing here to pay for the other one"
+        "only the mana ability, although the {{3}}{{G}}{{W}} is floating and \
+         the two untapped creatures are standing here"
     );
     activate(&mut grove, p0, grove_of_the_guardian(), 0);
     assert_eq!(

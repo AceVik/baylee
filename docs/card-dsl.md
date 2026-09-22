@@ -1244,6 +1244,15 @@ What is genuinely absent today:
 - Stickers and attractions.
 - Subgames, and ante.
 
+And one thing this list used to call absent that is not absent but is a
+footgun: **multiplayer**. `PlayerRel::Opponent` takes the *first* opponent —
+the whole answer at a duel, and an unannounced choice at three seats or more,
+which `resolve`'s own comment says where it takes `.first()`: "a duel
+assumption and is wrong at a bigger table; the fix is a `Pending` and not an
+index." A card whose printed sentence is "an opponent" of your choosing
+writes `PlayerRel::Chosen`, which asks through `Pending::ChoosePlayer`;
+`Opponent` is for a sentence where no choice is announced.
+
 When you hit one of these: implement everything expressible, then
 `Coverage::Partial("…")` + `// NOT SUPPORTED:` on the specific line. When
 you hit a sentence this file says is impossible and the card it names looks
