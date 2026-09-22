@@ -120,6 +120,20 @@ pub enum Condition {
     /// so a land that left the battlefield between the trigger and its
     /// resolution leaves "this land is tapped" with nothing to be true of.
     SourceMatches(&'static Filter),
+    /// At least one of these holds ("activate only if this land entered
+    /// this turn **or** if you control a basic land" — the Gathering Place
+    /// cycle).
+    ///
+    /// A combinator rather than a flag on each variant, because the two
+    /// halves of that sentence are different kinds of question — one reads
+    /// the source, the other counts the board — and a variant that carried
+    /// "or you control a basic land" would have to be added to every
+    /// `Condition` the cycle could ever pair it with.
+    ///
+    /// There is no `All`: an activation already takes one condition, and two
+    /// conditions that must both hold are a sentence no card in this pool
+    /// prints. It is added the day one does, and not before.
+    Any(&'static [Condition]),
 }
 
 /// Trigger conditions for triggered abilities.

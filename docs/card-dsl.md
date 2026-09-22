@@ -602,9 +602,19 @@ not activation-specific — it was called `ActivationCondition` after its one
 reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
 `CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
-permanent the ability is printed on, and `SourceMatches(&filter)` points a
-filter back at that permanent — "if this land is tapped". One reader
-answers all of them, `eval::condition_holds`.
+permanent the ability is printed on, `SourceMatches(&filter)` points a
+filter back at that permanent — "if this land is tapped" — and
+`Any(&[..])` holds while **one** of the conditions it names does. One
+reader answers all of them, `eval::condition_holds`.
+
+There is no `All`, and that is not an omission. The printed sentence that
+needs a disjunction is real and prints as one — "activate only if this land
+entered this turn or you control a basic land" is Gathering Place, Gleaming
+Bastion and Hidden Lair — while a conjunction has never appeared on a card
+in this pool: a second clause is written as a second sentence, and a second
+sentence is a second `condition` on a second ability. Add `All` the day a
+card prints one, not before, so that every variant here stands for a
+sentence somebody printed.
 
 `triggered!` and `modal_triggered!` take the same vocabulary as
 `condition = Some(…)`, and there it is the printed **intervening `if`**
@@ -825,8 +835,20 @@ opponent and no choice at all — is a different card.
 `IsColorless`, `Monocolored`, `IsToken`, `ControlledByYou`,
 `ControlledByOpponent`, `OwnedByYou`, `Tapped`, `Untapped`, `Attacking`,
 `HasKeyword`, `CmcAtMost`, `CmcAtLeast`, `MatchesChosenTypeOfSource`
-(Roaming Throne & co.), `Named(&str)`, `InZone(ZoneRef)` (incl.
-`NotBattlefield` for cross-zone effects).
+(Roaming Throne & co.), `Named(&str)`, `EnteredThisTurn`,
+`InZone(ZoneRef)` (incl. `NotBattlefield` for cross-zone effects).
+
+`EnteredThisTurn` is the one filter that asks about **history** rather than
+a characteristic — "target creature that entered this turn" (Drannith
+Ruins), "each creature that entered this turn" (Novijen), "activate only if
+this land entered this turn" (Mirrex). Every other filter reads the object
+in front of it; this one reads the journal from `state.turn_start_seq` for
+a `ZoneChanged` into the battlefield naming that object. Two consequences.
+It costs a scan rather than a field compare, so it belongs in the narrow
+half of an `And` and not the wide one. And a `PlayerView` carries no
+journal, so `baylee_ai::filter` answers `None` for it and the client's
+targeting reader refuses it: a seat cannot pre-compute the legal targets of
+an ability that asks this, and takes the engine's enumeration instead.
 
 `Named` is the one filter that carries a **name** rather than a handle, and
 it carries a `&'static str` on purpose: CR 201.2 compares what an object is

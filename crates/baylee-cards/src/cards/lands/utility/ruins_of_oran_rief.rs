@@ -3,9 +3,20 @@
 //! Oracle: {T}: Add {C}. ({C} represents colorless mana.)
 //! Oracle: {T}: Put a +1/+1 counter on target colorless creature that entered this turn.
 //! Set: CMM #1023 — Commander Masters | Scryfall ID: d1159ef6-f3ac-42a0-ae46-7d5eb9b3a6eb | Oracle ID: 7140f396-1bfa-4b28-ba28-fa15eba74652
-// PARTIAL — enters tapped and {T}: Add {C} are built; putting a counter on a creature that entered this turn has no DSL filter.
+// IMPLEMENTED — enters tapped, {T}: Add {C}, and the +1/+1 counter on a
+// colorless creature that entered this turn.
 
 use baylee_cards_dsl::prelude::*;
+
+/// "target colorless creature that entered this turn" — three clauses, and
+/// the third is history rather than a characteristic. `Filter::IsColorless`
+/// reads the projected colours, so a creature an effect has made colourless
+/// is on the menu exactly as a printed one is.
+static ARRIVED_COLORLESS: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::IsColorless,
+    Filter::EnteredThisTurn,
+]);
 
 card!(
     index = index::RUINS_OF_ORAN_RIEF,
@@ -16,11 +27,16 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "putting a counter on a creature that entered this turn is not expressible: Filter has no variant for objects that entered the battlefield this turn"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: "{T}: Put a +1/+1 counter on target colorless creature that entered this turn."
+        activated!(
+            Cost::TAP,
+            &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
+            target = Some(TargetSpec::Object(&ARRIVED_COLORLESS)),
+        ),
     ],
 );

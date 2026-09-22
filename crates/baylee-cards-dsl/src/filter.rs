@@ -74,6 +74,20 @@ pub enum Filter {
     Untapped,
     /// Currently attacking (in combat).
     Attacking,
+    /// Entered the battlefield during the current turn (Oran-Rief, the
+    /// Vastwood; Ruins of Oran-Rief; Novijen, Heart of Progress).
+    ///
+    /// History rather than a characteristic: nothing on the object says it,
+    /// and there is no field to read. The engine answers it by scanning the
+    /// journal from `turn_start_seq`, which is the shape
+    /// `Effect::IfNotLostLifeThisTurn` already uses for "lost life this
+    /// turn" — so no state is added and no snapshot changes shape.
+    ///
+    /// A view cannot answer it at all: a `PlayerView` carries no journal, so
+    /// `baylee-ai` and the client say "don't know" and take the engine's
+    /// enumerated options instead, which is what they already do for every
+    /// filter they cannot read.
+    EnteredThisTurn,
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,

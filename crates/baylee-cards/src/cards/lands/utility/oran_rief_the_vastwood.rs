@@ -8,6 +8,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
+/// "each green creature that entered this turn", everybody's — the colour
+/// is read off the projection, so an anthem that made a creature green
+/// puts it under this land exactly as a printed green one is.
+static ARRIVED_GREEN: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::HasColor(ColorSet::from_slice(&[Color::Green])),
+    Filter::EnteredThisTurn,
+]);
+
 card!(
     index = index::ORAN_RIEF_THE_VASTWOOD,
     oracle_id = "e88027a6-24cc-4a8b-86db-734f26149ea8",
@@ -18,15 +27,16 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "{T}: Put a +1/+1 counter on each green creature that entered this turn — no Filter variant says \"entered this turn\""
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // NOT SUPPORTED: "{T}: Put a +1/+1 counter on each green creature that
-        // entered this turn." The counter half is Effect::AddCounterFilter and
-        // the green half is a two-clause filter, but "entered this turn" is a
-        // history predicate no Filter carries — written as a plain green
-        // creature it would counter the whole board, so the ability comes off.
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+        activated!(
+            Cost::TAP,
+            &[Effect::AddCounterFilter {
+                filter: &ARRIVED_GREEN,
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
+        ),
     ],
 );

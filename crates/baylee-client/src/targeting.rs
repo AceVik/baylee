@@ -316,6 +316,9 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
+        // When a permanent arrived is history, and a view carries no
+        // journal — the same refusal as the rest of this list.
+        | Filter::EnteredThisTurn
         | Filter::InZone(_) => return None,
     })
 }

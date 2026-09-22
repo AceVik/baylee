@@ -16,7 +16,7 @@
 //! rule exists to prevent one level up, where an unread clause refuses the
 //! card instead of shipping a wrong one.
 //!
-//! Four variants are principled refusals rather than gaps to fill in later:
+//! Five variants are principled refusals rather than gaps to fill in later:
 //!
 //! - [`Filter::MatchesChosenTypeOfSource`] reads `chosen_subtype` off the
 //!   source object. The view carries no such field for any object, so there
@@ -36,7 +36,14 @@
 //!   card the search may not legally find, which is exactly the
 //!   considered-looking wrong decision above.
 //!
-//! [`Filter::IsToken`] is a fifth refusal, and only sometimes. The engine
+//! - [`Filter::EnteredThisTurn`] is history rather than a characteristic: the
+//!   engine reads its own journal from `turn_start_seq`, and a view carries
+//!   no journal at all. A seat can see that a permanent is on the
+//!   battlefield and not when it got there, so there is nothing to read
+//!   from — and guessing `true` would plan a pump for a creature the engine
+//!   will refuse as a target.
+//!
+//! [`Filter::IsToken`] is a sixth refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
 //! registry token, which says so through `token`; a permanent the seat may
 //! not look at, which has no card because it is not entitled to one; and a
@@ -153,12 +160,13 @@ impl HeuristicAgent {
             Filter::CmcAtLeast(n) => Some(object.mana_value >= *n),
             Filter::ToughnessAtMost(n) => Some(object.toughness.is_some_and(|t| t <= *n)),
             Filter::InZone(want) => Some(zone == *want),
-            // The four the view cannot answer. Named in this module's own
+            // The five the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
+            | Filter::EnteredThisTurn
             | Filter::SharesSubtypeWithCommander => None,
         }
     }

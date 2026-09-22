@@ -19,19 +19,20 @@ card!(
         subtypes = &[subtypes::land::SPHERE],
     ),],
     coverage = Coverage::Partial(
-        "the any-color mana ability is gated on this land having entered this \
-         turn, which no Condition and no Filter can express, and the 1/1 \
-         Phyrexian Mite token cannot be created: no such token is in \
+        "the 1/1 Phyrexian Mite token cannot be created: no such token is in \
          `crate::tokens`, toxic 1 is a keyword no rule reads, and no Modifier \
          says a creature can't block",
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: "{T}: Add one mana of any color. Activate only if
-        // this land entered this turn." — `Condition` carries no
-        // entered-this-turn variant and `Filter` has no predicate for it, so
-        // the ability could only be written to produce any colour at any
-        // time, which is a different and stronger card than the printed one.
+        // `SourceMatches` pointed at this land's own history — the gate is
+        // the whole of what separates this from a land that makes any colour
+        // every turn.
+        mana_ability!(
+            Cost::TAP,
+            &[Effect::mana_of_any_color()],
+            condition = Some(Condition::SourceMatches(&Filter::EnteredThisTurn))
+        ),
         // NOT SUPPORTED: "{3}, {T}: Create a 1/1 colorless Phyrexian Mite
         // artifact creature token with toxic 1 and 'This token can't
         // block.'" — a card file may not define its own `TokenDef` and no

@@ -2321,6 +2321,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(21);
             h.u128(k.bits());
         }
+        // Game state rather than a characteristic, and hashed all the same:
+        // two continuous effects that differ only in this filter are two
+        // different effects, and a tag table that left it out would make
+        // them one.
+        F::EnteredThisTurn => h.u8(30),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.

@@ -10287,47 +10287,6 @@ fn darkbore_pathway_back_face_taps_for_green() {
     assert!(is_tapped(&engine, land));
 }
 
-/// Drannith Ruins: "{T}: Add {C}." / "{2}, {T}: Put two +1/+1 counters on target non-Human creature that entered this turn."
-/// Under `Coverage::Partial`, the entering-this-turn condition is omitted and any non-Human creature may be targeted.
-/// Paid with two Forests, activating ability 1 targets Llanowar Elves and places two +1/+1 counters on it.
-#[test]
-fn drannith_ruins_places_counters_on_non_human_creature() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(124, forest())
-        .battlefield(0, &[drannith_ruins(), forest(), forest(), llanowar_elves()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let ruins = on_battlefield(&engine, p0, drannith_ruins()).expect("Ruins deployed");
-    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("Elves deployed");
-    assert_eq!(counters_on(&engine, elves, CounterKind::P1P1), 0);
-    assert_eq!(pt(&engine, elves), (1, 1));
-
-    tap_mana_except(&mut engine, p0, ruins);
-    activate(&mut engine, p0, drannith_ruins(), 1);
-
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!("expected target choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&elves));
-
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![elves],
-            },
-        )
-        .unwrap();
-
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(counters_on(&engine, elves, CounterKind::P1P1), 2);
-    assert_eq!(pt(&engine, elves), (3, 3));
-    assert!(is_tapped(&engine, ruins));
-}
-
 /// Dread Statuary: "{T}: Add {C}." / "{4}: This land becomes a 4/2 Golem artifact creature until end of turn. It's still a land."
 /// Paid with four Forests, activating ability 1 animates the land without tapping it.
 /// Upon resolution, the permanent has types Land, Creature, and Artifact, with 4/2 base P/T.
@@ -32491,4 +32450,774 @@ fn wandering_fumarole_enters_tapped_animates_and_switches_pt() {
         (1, 4),
         "power and toughness switched back to 1/4"
     );
+}
+
+/// Drannith Ruins prints `{{T}}: Add {{C}}.` and
+/// `{{2}}, {{T}}: Put two +1/+1 counters on target non-Human creature that entered this turn.`
+/// Under `Coverage::Implemented`, both abilities are supported.
+/// This test verifies that Drannith Ruins enters untapped, and when `{{2}}` floats alongside
+/// casting both a Human creature (`drannith_magistrate()`) and a non-Human creature (`llanowar_elves()`),
+/// ability 1 targets only the non-Human creature that entered this turn (excluding the Human and a
+/// seeded non-Human creature (`young_wolf()`) from setup), placing two +1/+1 counters. On the following
+/// turn, ability 0 taps for colorless mana.
+#[test]
+fn drannith_ruins_puts_two_counters_on_arrived_non_human_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                drannith_ruins(),
+                plains(),
+                plains(),
+                forest(),
+                forest(),
+                forest(),
+                young_wolf(),
+            ],
+        )
+        .hand(0, &[drannith_magistrate(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ruins =
+        on_battlefield(&engine, p0, drannith_ruins()).expect("Drannith Ruins on battlefield");
+    let seeded_wolf =
+        on_battlefield(&engine, p0, young_wolf()).expect("seeded wolf on battlefield");
+    assert!(!is_tapped(&engine, ruins), "Drannith Ruins enters untapped");
+
+    // Float mana keeping Drannith Ruins untapped (2 white and 3 green mana).
+    tap_all_mana_but(&mut engine, p0, Some(drannith_ruins()));
+    cast_with_floating(&mut engine, p0, drannith_magistrate());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+
+    let magistrate =
+        on_battlefield(&engine, p0, drannith_magistrate()).expect("magistrate on battlefield");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf on battlefield");
+
+    // Activate ability 1 ({2}, {T}).
+    activate(&mut engine, p0, drannith_ruins(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        options,
+        vec![elf],
+        "only the non-Human creature that entered this turn is a legal target"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("targeting the entered non-Human creature is legal");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        2,
+        "receives two +1/+1 counters"
+    );
+    assert_eq!(pt(&engine, elf), (3, 3), "grows to a 3/3");
+    assert_eq!(
+        counters_on(&engine, magistrate, CounterKind::P1P1),
+        0,
+        "Human creature is not targeted"
+    );
+    assert_eq!(
+        counters_on(&engine, seeded_wolf, CounterKind::P1P1),
+        0,
+        "seeded creature did not enter this turn"
+    );
+    assert!(is_tapped(&engine, ruins), "Drannith Ruins is tapped");
+
+    // On the following turn, ability 0 taps for colorless mana.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, ruins));
+
+    activate(&mut engine, p0, drannith_ruins(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "ability 0 adds {{C}}"
+    );
+    assert!(is_tapped(&engine, ruins));
+}
+
+/// Gathering Place prints `{{T}}: Add {{C}}.` and
+/// `{{T}}: Add {{G}} or {{W}}. Activate only if this land entered this turn or if you control a basic land.`
+/// Under `Coverage::Implemented`, both branches of the disjunction are supported.
+/// This test plays Gathering Place with no basic land on the battlefield, activates ability 1 for white mana
+/// on the turn it entered via the entry clause, passes to the next turn where ability 1 is withheld without
+/// a basic land, plays a basic `forest()`, and confirms ability 1 is now offered and produces green mana.
+#[test]
+fn gathering_place_activates_on_entry_turn_or_with_basic_land() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[gathering_place(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let gp = play_land(&mut engine, p0, gathering_place());
+    assert!(
+        !entered_tapped(&engine, gp),
+        "Gathering Place enters untapped"
+    );
+
+    // On the entry turn, ability 1 is legal via the entered-this-turn clause even with no basic land.
+    activate(&mut engine, p0, gathering_place(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Green));
+    assert!(options.contains(&ManaColor::White));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("choosing white mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+        "adds one white mana"
+    );
+    assert!(is_tapped(&engine, gp), "Gathering Place is tapped");
+
+    // On the following turn, Gathering Place untaps. Without a basic land and having not
+    // entered this turn, ability 1 is withheld while ability 0 remains available.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, gp), "untaps on next turn");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == gp && *idx == 1),
+        "ability 1 is withheld without basic land and not having entered this turn"
+    );
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == gp && *idx == 0),
+        "ability 0 is offered"
+    );
+
+    // Play a basic Forest to satisfy the second branch of the disjunction.
+    let _land = play_land(&mut engine, p0, forest());
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == gp && *idx == 1),
+        "ability 1 is offered now that a basic land is controlled"
+    );
+
+    activate(&mut engine, p0, gathering_place(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Green));
+    assert!(options.contains(&ManaColor::White));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .expect("choosing green mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "adds one green mana"
+    );
+    assert!(is_tapped(&engine, gp));
+}
+
+/// Gleaming Bastion prints `{{T}}: Add {{C}}.` and
+/// `{{T}}: Add {{W}} or {{U}}. Activate only if this land entered this turn or if you control a basic land.`
+/// Under `Coverage::Implemented`, both branches of the disjunction are supported.
+/// This test plays Gleaming Bastion with no basic land on the battlefield, activates ability 1 for blue mana
+/// on the turn it entered via the entry clause, passes to the next turn where ability 1 is withheld without
+/// a basic land, plays a basic `plains()`, and confirms ability 1 is now offered and produces white mana.
+#[test]
+fn gleaming_bastion_activates_on_entry_turn_or_with_basic_land() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .hand(0, &[gleaming_bastion(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let bastion = play_land(&mut engine, p0, gleaming_bastion());
+    assert!(
+        !entered_tapped(&engine, bastion),
+        "Gleaming Bastion enters untapped"
+    );
+
+    // On the entry turn, ability 1 is legal via the entered-this-turn clause even with no basic land.
+    activate(&mut engine, p0, gleaming_bastion(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Blue));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("choosing blue mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "adds one blue mana"
+    );
+    assert!(is_tapped(&engine, bastion), "Gleaming Bastion is tapped");
+
+    // On the following turn, Gleaming Bastion untaps. Without a basic land and having not
+    // entered this turn, ability 1 is withheld while ability 0 remains available.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, bastion), "untaps on next turn");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == bastion && *idx == 1),
+        "ability 1 is withheld without basic land and not having entered this turn"
+    );
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == bastion && *idx == 0),
+        "ability 0 is offered"
+    );
+
+    // Play a basic Plains to satisfy the second branch of the disjunction.
+    let _land = play_land(&mut engine, p0, plains());
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == bastion && *idx == 1),
+        "ability 1 is offered now that a basic land is controlled"
+    );
+
+    activate(&mut engine, p0, gleaming_bastion(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Blue));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("choosing white mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+        "adds one white mana"
+    );
+    assert!(is_tapped(&engine, bastion));
+}
+
+/// Hidden Lair prints `{{T}}: Add {{C}}.` and
+/// `{{T}}: Add {{U}} or {{B}}. Activate only if this land entered this turn or if you control a basic land.`
+/// Under `Coverage::Implemented`, both branches of the disjunction are supported.
+/// This test plays Hidden Lair with no basic land on the battlefield, activates ability 1 for black mana
+/// on the turn it entered via the entry clause, passes to the next turn where ability 1 is withheld without
+/// a basic land, plays a basic `swamp()`, and confirms ability 1 is now offered and produces blue mana.
+#[test]
+fn hidden_lair_activates_on_entry_turn_or_with_basic_land() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .hand(0, &[hidden_lair(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lair = play_land(&mut engine, p0, hidden_lair());
+    assert!(
+        !entered_tapped(&engine, lair),
+        "Hidden Lair enters untapped"
+    );
+
+    // On the entry turn, ability 1 is legal via the entered-this-turn clause even with no basic land.
+    activate(&mut engine, p0, hidden_lair(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Blue));
+    assert!(options.contains(&ManaColor::Black));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("choosing black mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "adds one black mana"
+    );
+    assert!(is_tapped(&engine, lair), "Hidden Lair is tapped");
+
+    // On the following turn, Hidden Lair untaps. Without a basic land and having not
+    // entered this turn, ability 1 is withheld while ability 0 remains available.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, lair), "untaps on next turn");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == lair && *idx == 1),
+        "ability 1 is withheld without basic land and not having entered this turn"
+    );
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == lair && *idx == 0),
+        "ability 0 is offered"
+    );
+
+    // Play a basic Swamp to satisfy the second branch of the disjunction.
+    let _land = play_land(&mut engine, p0, swamp());
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == lair && *idx == 1),
+        "ability 1 is offered now that a basic land is controlled"
+    );
+
+    activate(&mut engine, p0, hidden_lair(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Blue));
+    assert!(options.contains(&ManaColor::Black));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("choosing blue mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "adds one blue mana"
+    );
+    assert!(is_tapped(&engine, lair));
+}
+
+/// Mirrex prints `{{T}}: Add {{C}}.`,
+/// `{{T}}: Add one mana of any color. Activate only if this land entered this turn.`, and
+/// `{{3}}, {{T}}: Create a 1/1 colorless Phyrexian Mite artifact creature token...`
+/// Under `Coverage::Partial`, token creation is unsupported.
+/// This test plays Mirrex untapped, verifies that floating `{{3}}` with `tap_mana_except` does
+/// not offer the unsupported token ability, activates ability 1 to add one mana of any chosen color
+/// on the turn it entered, and advances to the next turn where ability 1 is no longer offered and
+/// ability 0 taps for colorless mana.
+#[test]
+fn mirrex_enters_untapped_adds_any_color_only_on_entry_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[mirrex()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, mirrex());
+    assert!(!entered_tapped(&engine, land), "Mirrex enters untapped");
+
+    // Float {3} mana keeping Mirrex untapped.
+    tap_mana_except(&mut engine, p0, land);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three green mana floating to afford potential costs"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+
+    // The unsupported token creation ability is not offered even with {3} floating.
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == 2),
+        "token creation ability is unsupported under `Coverage::Partial` even with {{3}} floating"
+    );
+
+    // Both ability 0 ({C}) and ability 1 (any color on entry turn) are available.
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == 0),
+        "ability 0 is offered"
+    );
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == 1),
+        "ability 1 is offered on the turn Mirrex entered"
+    );
+
+    // Activate ability 1 to produce blue mana.
+    activate(&mut engine, p0, mirrex(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5, "offers all 5 colors");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("choosing blue mana is legal");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "adds one blue mana"
+    );
+    assert!(is_tapped(&engine, land), "Mirrex tapped for ability 1");
+
+    // On the following turn, Mirrex did not enter this turn and ability 1 is withheld.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "Mirrex untaps on next turn");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == 1),
+        "ability 1 is withheld when Mirrex did not enter this turn"
+    );
+
+    // Ability 0 taps for colorless mana.
+    activate(&mut engine, p0, mirrex(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "ability 0 adds {{C}}"
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Novijen, Heart of Progress prints `{{T}}: Add {{C}}.` and
+/// `{{G}}{{U}}, {{T}}: Put a +1/+1 counter on each creature that entered this turn.`
+/// Under `Coverage::Implemented`, both abilities are supported.
+/// This test verifies that activating ability 1 with `{{G}}{{U}}` floating puts a +1/+1
+/// counter on a creature that entered this turn (`young_wolf()`), while excluding a seeded
+/// creature (`llanowar_elves()`) and an opponent's seeded creature from earlier turns.
+/// On the subsequent turn, Novijen untaps and taps for colorless mana via ability 0.
+#[test]
+fn novijen_heart_of_progress_adds_counters_to_each_creature_entered_this_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                novijen_heart_of_progress(),
+                forest(),
+                forest(),
+                island(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let novijen =
+        on_battlefield(&engine, p0, novijen_heart_of_progress()).expect("Novijen on battlefield");
+    let seeded_elf =
+        on_battlefield(&engine, p0, llanowar_elves()).expect("seeded elf on battlefield");
+    let opp_elf =
+        on_battlefield(&engine, p1, llanowar_elves()).expect("opponent elf on battlefield");
+
+    assert!(!is_tapped(&engine, novijen), "Novijen enters untapped");
+    assert_eq!(pt(&engine, seeded_elf), (1, 1));
+    assert_eq!(pt(&engine, opp_elf), (1, 1));
+
+    // Float mana keeping Novijen untapped: 2 Forests, 1 Island, and 1 Llanowar Elves
+    // produce 3 green and 1 blue mana.
+    tap_all_mana_but(&mut engine, p0, Some(novijen_heart_of_progress()));
+    cast_with_floating(&mut engine, p0, young_wolf());
+    pass_until(&mut engine, stack_is_empty);
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("young wolf on battlefield");
+    assert_eq!(pt(&engine, wolf), (1, 1), "newly arrived Young Wolf is 1/1");
+
+    // Activate ability 1 ({G}{U}, {T}) off the remaining floating mana.
+    activate(&mut engine, p0, novijen_heart_of_progress(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, wolf, CounterKind::P1P1),
+        1,
+        "creature that entered this turn gets a +1/+1 counter"
+    );
+    assert_eq!(pt(&engine, wolf), (2, 2), "grows to a 2/2");
+    assert_eq!(
+        counters_on(&engine, seeded_elf, CounterKind::P1P1),
+        0,
+        "creature from setup did not enter this turn"
+    );
+    assert_eq!(pt(&engine, seeded_elf), (1, 1));
+    assert_eq!(
+        counters_on(&engine, opp_elf, CounterKind::P1P1),
+        0,
+        "opponent creature from setup did not enter this turn"
+    );
+    assert_eq!(pt(&engine, opp_elf), (1, 1));
+    assert!(is_tapped(&engine, novijen), "Novijen is tapped");
+
+    // On the following turn, Novijen untaps and taps for colorless mana via ability 0.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, novijen), "Novijen untaps on next turn");
+
+    activate(&mut engine, p0, novijen_heart_of_progress(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "ability 0 adds {{C}}"
+    );
+    assert!(is_tapped(&engine, novijen));
+}
+
+/// Oran-Rief, the Vastwood prints `This land enters tapped.`, `{{T}}: Add {{G}}.`, and
+/// `{{T}}: Put a +1/+1 counter on each green creature that entered this turn.`
+/// Under `Coverage::Implemented`, both abilities and the entry modifier are supported.
+/// This test plays Oran-Rief tapped, untaps it on the next turn, floats mana to cast both a green
+/// creature (`young_wolf()`) and a colorless creature (`myr_retriever()`), activates ability 1 to place
+/// a +1/+1 counter on the newly arrived green creature while leaving the colorless creature and a seeded
+/// green creature (`llanowar_elves()`) untouched, and taps for green mana via ability 0 on the next turn.
+#[test]
+fn oran_rief_the_vastwood_enters_tapped_and_puts_counter_on_arrived_green_creatures() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
+        .hand(
+            0,
+            &[oran_rief_the_vastwood(), young_wolf(), myr_retriever()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, oran_rief_the_vastwood());
+    assert!(
+        entered_tapped(&engine, land),
+        "Oran-Rief, the Vastwood enters tapped"
+    );
+
+    // Untap on the next turn.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "land untaps on next turn");
+
+    let seeded_elf =
+        on_battlefield(&engine, p0, llanowar_elves()).expect("seeded elf on battlefield");
+
+    // Float mana keeping Oran-Rief untapped: 3 Forests and 1 Llanowar Elves provide 4 green mana.
+    tap_all_mana_but(&mut engine, p0, Some(oran_rief_the_vastwood()));
+    cast_with_floating(&mut engine, p0, young_wolf());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, myr_retriever());
+    pass_until(&mut engine, stack_is_empty);
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+    let myr = on_battlefield(&engine, p0, myr_retriever()).expect("myr on battlefield");
+
+    // Activate ability 1 ({T} for counter on each green creature that entered this turn).
+    activate(&mut engine, p0, oran_rief_the_vastwood(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, wolf, CounterKind::P1P1),
+        1,
+        "green creature that entered this turn gets a +1/+1 counter"
+    );
+    assert_eq!(pt(&engine, wolf), (2, 2), "grows to a 2/2");
+    assert_eq!(
+        counters_on(&engine, myr, CounterKind::P1P1),
+        0,
+        "colorless creature that entered this turn is not green"
+    );
+    assert_eq!(pt(&engine, myr), (1, 1));
+    assert_eq!(
+        counters_on(&engine, seeded_elf, CounterKind::P1P1),
+        0,
+        "seeded green creature did not enter this turn"
+    );
+    assert_eq!(pt(&engine, seeded_elf), (1, 1));
+    assert!(is_tapped(&engine, land), "Oran-Rief is tapped");
+
+    // On the following turn, ability 0 taps for green mana.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    activate(&mut engine, p0, oran_rief_the_vastwood(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "ability 0 adds {{G}}"
+    );
+    assert!(is_tapped(&engine, land));
+}
+
+/// Ruins of Oran-Rief prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and
+/// `{{T}}: Put a +1/+1 counter on target colorless creature that entered this turn.`
+/// Under `Coverage::Implemented`, both abilities and the entry modifier are supported.
+/// This test plays the land tapped, passes to the next turn so it untaps, floats mana to cast
+/// a colorless creature (`myr_retriever()`), activates ability 1 targeting the newly entered
+/// colorless creature to place a +1/+1 counter, verifies on the subsequent turn that the creature
+/// is no longer a valid target, and activates ability 0 to produce colorless mana.
+#[test]
+fn ruins_of_oran_rief_enters_tapped_and_puts_counter_on_arrived_colorless_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[ruins_of_oran_rief(), myr_retriever()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, ruins_of_oran_rief());
+    assert!(
+        entered_tapped(&engine, land),
+        "Ruins of Oran-Rief enters tapped"
+    );
+
+    // Pass turn to untap.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "land untaps on next turn");
+
+    // Before any creature entered this turn, ability 1 has no legal targets and is withheld.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == 1),
+        "ability 1 is withheld when no colorless creature entered this turn"
+    );
+
+    // Float mana keeping Ruins of Oran-Rief untapped, then cast Myr Retriever.
+    let myr = in_hand(&engine, p0, myr_retriever()).expect("myr in hand");
+    tap_all_mana_but(&mut engine, p0, Some(ruins_of_oran_rief()));
+    cast_with_floating(&mut engine, p0, myr_retriever());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, myr), (1, 1), "Myr Retriever is a 1/1");
+
+    // Ability 1 is now offered.
+    activate(&mut engine, p0, ruins_of_oran_rief(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        options,
+        vec![myr],
+        "the colorless creature that entered this turn is the sole target"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![myr] })
+        .expect("targeting the entered colorless creature is legal");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, myr, CounterKind::P1P1),
+        1,
+        "gains a +1/+1 counter"
+    );
+    assert_eq!(pt(&engine, myr), (2, 2), "grows to a 2/2");
+    assert!(is_tapped(&engine, land), "land tapped for ability 1");
+
+    // On the following turn, Myr Retriever did not enter this turn and cannot be targeted.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "land untaps");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == 1),
+        "ability 1 is withheld because the creature entered on an earlier turn"
+    );
+
+    // Ability 0 taps for colorless mana.
+    activate(&mut engine, p0, ruins_of_oran_rief(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "ability 0 adds {{C}}"
+    );
+    assert!(is_tapped(&engine, land), "land tapped for ability 0");
 }

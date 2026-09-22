@@ -7,6 +7,15 @@
 // any non-Human creature.
 
 use baylee_cards_dsl::prelude::*;
+
+/// "target non-Human creature that entered this turn". The `Not` is around
+/// the subtype alone, so a creature that is a Human *and* something else is
+/// still refused — which is what the printed word does.
+static ARRIVED_NON_HUMAN: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::Not(&Filter::HasSubtype(creature::HUMAN)),
+    Filter::EnteredThisTurn,
+]);
 use baylee_core::generated::subtypes::creature;
 
 card!(
@@ -14,24 +23,16 @@ card!(
     oracle_id = "d1f10cca-8dfa-4ea5-b227-4446cd8514a8",
     scryfall_id = "9c07dda8-06dd-499a-9825-dc6b9a73e455",
     faces = &[face!(name = "Drannith Ruins", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "the counter ability's target is not narrowed to creatures that entered this turn — no Filter variant reads when a permanent arrived"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: "target non-Human creature that entered this turn" —
-        // `Filter` has no variant for a permanent that entered this turn, so
-        // the target is every non-Human creature.
         activated!(
             cost!("{2}", TapSelf),
             &[Effect::AddCounter {
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(2),
             }],
-            target = Some(TargetSpec::Object(&Filter::And(&[
-                Filter::CREATURE,
-                Filter::Not(&Filter::HasSubtype(creature::HUMAN)),
-            ]))),
+            target = Some(TargetSpec::Object(&ARRIVED_NON_HUMAN)),
         ),
     ],
 );

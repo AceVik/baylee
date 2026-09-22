@@ -458,6 +458,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::EnteredThisTurn
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
