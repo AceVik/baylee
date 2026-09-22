@@ -15477,3 +15477,1311 @@ fn ojer_taq_deepest_foundation_attacks_with_vigilance_and_remains_untapped() {
         "vigilance keeps Ojer Taq untapped after attacking"
     );
 }
+
+fn bottle_gnomes() -> CardIndex {
+    card_index("54b5e429-7a44-480d-bea4-4f8eeb7449b5")
+}
+
+/// `Bottle Gnomes` prints `Sacrifice this creature: You gain 3 life.` with `Coverage::Implemented`.
+/// In this scenario, seat 0 starts at 15 life with `Bottle Gnomes` on the battlefield.
+/// Activating the ability pays the sacrifice cost immediately without needing floating mana or targets,
+/// moving the creature to the graveyard, and upon resolution increases seat 0's life total to 18.
+#[test]
+fn bottle_gnomes_sacrifices_itself_to_gain_three_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .life(0, 15)
+        .battlefield(0, &[bottle_gnomes()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert_eq!(engine.state().players[0].life, 15);
+    let gnomes = on_battlefield(&engine, p0, bottle_gnomes()).expect("gnomes seated");
+    assert_eq!(pt(&engine, gnomes), (1, 3));
+
+    activate(&mut engine, p0, bottle_gnomes(), 0);
+    assert!(
+        on_battlefield(&engine, p0, bottle_gnomes()).is_none(),
+        "paying the sacrifice cost moves `Bottle Gnomes` off the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, bottle_gnomes()).is_some(),
+        "`Bottle Gnomes` is in the graveyard as the cost was paid"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 18);
+}
+
+fn brass_secretary() -> CardIndex {
+    card_index("0d8c2d7b-7cce-4115-a3f8-18c23731544e")
+}
+
+/// `Brass Secretary` prints `{{2}}, Sacrifice this creature: Draw a card.` with `Coverage::Implemented`.
+/// With two `forest()` lands floating two mana into seat 0's mana pool, activating the ability
+/// pays the `{2}` mana and sacrifices the creature. Resolving the ability draws a card,
+/// increasing the hand size by one while `Brass Secretary` rests in the graveyard.
+#[test]
+fn brass_secretary_pays_two_mana_and_sacrifices_to_draw_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), brass_secretary()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let initial_hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    activate(&mut engine, p0, brass_secretary(), 0);
+    assert!(
+        on_battlefield(&engine, p0, brass_secretary()).is_none(),
+        "`Brass Secretary` is sacrificed upon activation"
+    );
+    assert!(in_graveyard(&engine, p0, brass_secretary()).is_some());
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the two mana floating paid the activation cost"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        initial_hand + 1,
+        "resolving the ability drew one card"
+    );
+}
+
+fn cathodion() -> CardIndex {
+    card_index("fcd4f816-2de1-4b30-82fb-cb87f45747ea")
+}
+
+/// `Cathodion` prints `When this creature dies, add {{C}}{{C}}{{C}}.` with `Coverage::Implemented`.
+/// In this scenario, seat 0 controls the 3/3 artifact creature while holding no floating mana.
+/// When the opponent destroys it with `vindicate()`, the dies trigger goes onto the stack,
+/// resolves, and leaves exactly three colorless mana in seat 0's mana pool while the creature lies in the graveyard.
+#[test]
+fn cathodion_adds_three_colorless_mana_when_it_dies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cathodion()])
+        .battlefield(1, &[plains(), swamp(), plains()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    let cat = on_battlefield(&engine, p0, cathodion()).expect("cathodion is seated");
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![cat] })
+        .expect("vindicate targets cathodion");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, cathodion()).is_some(),
+        "`Cathodion` should be in the graveyard"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        3,
+        "the dies trigger produced three colorless mana"
+    );
+    assert_eq!(pool.total(), 3, "and nothing else floats in seat 0's pool");
+}
+
+fn cobalt_golem() -> CardIndex {
+    card_index("1e50af57-e49d-4b94-a370-44846d9f6b33")
+}
+
+/// `Cobalt Golem` prints `{{1}}{{U}}: This creature gains flying until end of turn.`
+/// on a 2/3 artifact creature with `Coverage::Implemented`.
+/// In this scenario, two `island()` lands float the required mana to activate its ability.
+/// Upon resolution, the layer system recomputes the golem's characteristics and grants
+/// `KeywordSet::FLYING` while preserving its 2/3 base stats.
+#[test]
+fn cobalt_golem_gains_flying_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), cobalt_golem()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let golem = on_battlefield(&engine, p0, cobalt_golem()).expect("golem is seated");
+    assert_eq!(pt(&engine, golem), (2, 3));
+    assert!(!keywords(&engine, golem).contains(KeywordSet::FLYING));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    activate(&mut engine, p0, cobalt_golem(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, golem), (2, 3));
+    assert!(keywords(&engine, golem).contains(KeywordSet::FLYING));
+}
+
+fn coiled_tinviper() -> CardIndex {
+    card_index("b0bdc033-29f0-4dcb-87ff-ccd56126f7e5")
+}
+
+/// `Coiled Tinviper` prints `First strike` on a 2/1 artifact creature snake with `Coverage::Implemented`.
+/// When attacking into an opponent's 1/1 `llanowar_elves()`, first strike damage is dealt before regular damage,
+/// destroying the blocking Elf before it can deal its single point of lethal damage back.
+/// The snake survives the combat encounter on the battlefield while the blocker is sent to the graveyard.
+#[test]
+fn coiled_tinviper_kills_blocker_with_first_strike_and_survives() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[coiled_tinviper()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let viper = on_battlefield(&engine, p0, coiled_tinviper()).expect("viper is seated");
+    assert_eq!(pt(&engine, viper), (2, 1));
+    assert!(keywords(&engine, viper).contains(KeywordSet::FIRST_STRIKE));
+    let t = types(&engine, viper);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    let defender = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(viper, defender)],
+            },
+        )
+        .expect("untapped viper declares attack");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("elf stands");
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, viper)],
+            },
+        )
+        .expect("elf blocks viper");
+
+    // Advance past combat damage until the stack is quiet.
+    pass_until(&mut engine, |e| {
+        in_graveyard(e, p1, llanowar_elves()).is_some()
+    });
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the blocking 1/1 elf was destroyed by first strike damage"
+    );
+    assert!(
+        on_battlefield(&engine, p0, coiled_tinviper()).is_some(),
+        "`Coiled Tinviper` survives because first strike killed the blocker before regular damage"
+    );
+}
+
+fn copper_myr() -> CardIndex {
+    card_index("8b52f30c-5e38-4333-88ab-901b37105b36")
+}
+
+/// `Copper Myr` prints `{{T}}: Add {{G}}` on a 1/1 artifact creature with `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it stands untapped, unsick, and with no other mana sources
+/// present. When `tap_all_mana` is called, the Myr taps for mana directly without using the stack,
+/// providing exactly one green mana into seat 0's mana pool.
+#[test]
+fn copper_myr_taps_for_one_green_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[copper_myr()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let myr = on_battlefield(&engine, p0, copper_myr()).expect("copper myr is seated");
+    assert_eq!(pt(&engine, myr), (1, 1));
+    let t = types(&engine, myr);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&engine, myr));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana(&mut engine, p0);
+
+    assert!(is_tapped(&engine, myr));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(stack_is_empty(&engine));
+}
+
+fn coretapper() -> CardIndex {
+    card_index("66e37011-f3d2-41ed-8e09-7bba9464e8c3")
+}
+
+/// `Coretapper` prints two activated abilities targeting an artifact under `Coverage::Implemented`:
+/// `{{T}}: Put a charge counter on target artifact.` and `Sacrifice this creature: Put two charge counters on target artifact.`
+/// This test verifies both on `quiet_artifact()`: first tapping `Coretapper` to add one charge counter,
+/// and then sacrificing the tapped creature as the cost of its second ability to add two more charge counters,
+/// leaving three charge counters on the target and `Coretapper` in the graveyard.
+#[test]
+fn coretapper_taps_for_one_charge_counter_and_sacrifices_for_two_more() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[coretapper(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("sol ring is seated");
+    let tapper = on_battlefield(&engine, p0, coretapper()).expect("coretapper is seated");
+    assert_eq!(counters_on(&engine, ring, CounterKind::Charge), 0);
+
+    // Ability 0: {T}: Put a charge counter on target artifact.
+    activate(&mut engine, p0, coretapper(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for ability 0, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&ring));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .unwrap();
+    // After target is chosen, the tap cost is paid.
+    assert!(is_tapped(&engine, tapper));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, ring, CounterKind::Charge), 1);
+
+    // Ability 1: Sacrifice this creature: Put two charge counters on target artifact.
+    activate(&mut engine, p0, coretapper(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for ability 1, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&ring));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .unwrap();
+    // After target is chosen, the sacrifice cost is paid.
+    assert!(in_graveyard(&engine, p0, coretapper()).is_some());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, ring, CounterKind::Charge), 3);
+}
+
+fn crenellated_wall() -> CardIndex {
+    card_index("ca9e41e8-7830-4721-b131-07d0b60297ad")
+}
+
+/// `Crenellated Wall` prints `Defender` and `{{T}}: Target creature gets +0/+4 until end of turn.`
+/// on a 0/4 artifact creature wall with `Coverage::Implemented`.
+/// In this scenario, `Crenellated Wall` taps to target `quiet_creature()`. Upon resolution,
+/// the target's toughness increases by 4 (from 1/1 to 1/5) until end of turn, while `KeywordSet::DEFENDER`
+/// prevents the wall itself from being declared as an attacker.
+#[test]
+fn crenellated_wall_taps_to_give_target_creature_four_toughness() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[crenellated_wall(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p0, crenellated_wall()).expect("wall is seated");
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("elf is seated");
+    assert_eq!(pt(&engine, elf), (1, 1));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+    assert!(!is_tapped(&engine, wall));
+
+    activate(&mut engine, p0, crenellated_wall(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&elf));
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    assert!(is_tapped(&engine, wall));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elf), (1, 5));
+
+    // Defender prevents it from attacking when combat arrives.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    assert!(
+        !attackers.contains(&wall),
+        "`Crenellated Wall` cannot attack because it has defender"
+    );
+}
+
+fn dancing_scimitar() -> CardIndex {
+    card_index("82b13601-d460-45c5-94a1-07e146d463a9")
+}
+
+/// `Dancing Scimitar` prints `Flying` on a 1/5 artifact creature spirit with `Coverage::Implemented`.
+/// In this scenario, seat 0 attacks seat 1 with `Dancing Scimitar`. When the opponent attempts to
+/// declare blockers, their non-flying, non-reach `llanowar_elves()` cannot legally be assigned to block it.
+/// The unblocked flyer deals 1 combat damage directly to seat 1.
+#[test]
+fn dancing_scimitar_has_flying_evasion_in_combat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dancing_scimitar()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let scimitar = on_battlefield(&engine, p0, dancing_scimitar()).expect("scimitar is seated");
+    assert_eq!(pt(&engine, scimitar), (1, 5));
+    assert!(keywords(&engine, scimitar).contains(KeywordSet::FLYING));
+    let t = types(&engine, scimitar);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    let defender = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(scimitar, defender)],
+            },
+        )
+        .expect("untapped scimitar declares attack");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseBlockers");
+    };
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("elf stands");
+    let elf_can_block = blockers
+        .iter()
+        .any(|b| b.blocker == elf && b.attackers.contains(&scimitar));
+    assert!(
+        !elf_can_block,
+        "a non-flying, non-reach creature cannot block a creature with flying"
+    );
+
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("opponent cannot block");
+
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().players[1].life, 19);
+}
+
+fn dragon_engine() -> CardIndex {
+    card_index("727a6474-d5b5-42ab-ace3-352d28f499eb")
+}
+
+/// `Dragon Engine` prints `{{2}}: This creature gets +1/+0 until end of turn.` on a 1/3
+/// artifact creature with `Coverage::Implemented`.
+/// In this scenario, two `forest()` lands provide the mana to activate its pump ability.
+/// Upon resolution, the layer system recomputes its characteristics, raising its power
+/// from 1 to 2 while its toughness remains 3.
+#[test]
+fn dragon_engine_pumps_its_power_by_one_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), dragon_engine()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let deng = on_battlefield(&engine, p0, dragon_engine()).expect("dragon engine is seated");
+    assert_eq!(pt(&engine, deng), (1, 3));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    activate(&mut engine, p0, dragon_engine(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, deng),
+        (2, 3),
+        "`Dragon Engine` should now be a 2/3 until end of turn"
+    );
+}
+
+fn elf_replica() -> CardIndex {
+    card_index("2dda5011-aaa1-48d0-afa8-76998278ab75")
+}
+
+/// `Elf Replica` prints `{{1}}{{G}}, Sacrifice this creature: Destroy target enchantment.`
+/// with `Coverage::Implemented`.
+/// In this scenario, seat 0 floats two mana from two `forest()` lands to activate the ability,
+/// targeting the opponent's `their_enchantment()`. Choosing the target concludes the announcement,
+/// paying the sacrifice cost, and resolving the ability sends the enchantment to the graveyard.
+#[test]
+fn elf_replica_sacrifices_to_destroy_target_enchantment() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), elf_replica()])
+        .battlefield(1, &[their_enchantment()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ench = on_battlefield(&engine, p1, their_enchantment()).expect("target enchantment seated");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    activate(&mut engine, p0, elf_replica(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for enchantment, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&ench));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ench],
+            },
+        )
+        .unwrap();
+
+    // After target declaration, the sacrifice cost is paid.
+    assert!(in_graveyard(&engine, p0, elf_replica()).is_some());
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, their_enchantment()).is_none(),
+        "the enchantment was destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, their_enchantment()).is_some(),
+        "the destroyed enchantment lies in the opponent's graveyard"
+    );
+}
+
+fn energizer() -> CardIndex {
+    card_index("708b0321-7de9-4ffd-9d7a-9f4813dd542e")
+}
+
+/// `Energizer` prints `{{2}}, {{T}}: Put a +1/+1 counter on this creature.` on a 2/2
+/// artifact creature juggernaut with `Coverage::Implemented`.
+/// In this scenario, two `forest()` lands provide the mana to pay the activation cost.
+/// Because its ability is not a mana ability, `tap_all_mana` leaves `Energizer` untapped so that
+/// it can pay its own `TapSelf` cost. Resolving the ability places a `+1/+1` counter on it,
+/// increasing its power and toughness to 3/3.
+#[test]
+fn energizer_taps_and_pays_two_mana_to_gain_a_counter() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), energizer()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let jugg = on_battlefield(&engine, p0, energizer()).expect("energizer is seated");
+    assert_eq!(pt(&engine, jugg), (2, 2));
+    assert_eq!(counters_on(&engine, jugg, CounterKind::P1P1), 0);
+    assert!(!is_tapped(&engine, jugg));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(
+        !is_tapped(&engine, jugg),
+        "`Energizer` has no mana ability, so `tap_all_mana` does not tap it"
+    );
+
+    activate(&mut engine, p0, energizer(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, jugg));
+    assert_eq!(counters_on(&engine, jugg, CounterKind::P1P1), 1);
+    assert_eq!(pt(&engine, jugg), (3, 3));
+}
+
+fn goblin_replica() -> CardIndex {
+    card_index("0c5a7772-8358-4549-a583-f54246869e20")
+}
+
+/// `Goblin Replica` prints `{{3}}{{R}}, Sacrifice this creature: Destroy target artifact.`
+/// with `Coverage::Implemented`.
+/// In this scenario, seat 0 floats four red mana from four `mountain()` lands to activate the ability,
+/// targeting the opponent's `quiet_artifact()`. Choosing the target concludes the announcement,
+/// paying the sacrifice cost and spending the mana, and resolving the ability destroys the target artifact.
+#[test]
+fn goblin_replica_sacrifices_to_destroy_target_artifact() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                goblin_replica(),
+            ],
+        )
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ring = on_battlefield(&engine, p1, quiet_artifact()).expect("opponent artifact seated");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, goblin_replica(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for artifact, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&ring));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .unwrap();
+
+    // After target declaration, the sacrifice cost is paid.
+    assert!(in_graveyard(&engine, p0, goblin_replica()).is_some());
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "the artifact was destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "the destroyed artifact lies in the opponent's graveyard"
+    );
+}
+
+fn gold_myr() -> CardIndex {
+    card_index("bd6af7b3-b30f-4a65-a18f-8655f778e76a")
+}
+
+/// `Gold Myr` prints `{{T}}: Add {{W}}` on a 1/1 artifact creature with `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it stands untapped, unsick, and with no other mana sources
+/// present. When `tap_all_mana` is called, the Myr taps for mana directly without using the stack,
+/// providing exactly one white mana into seat 0's mana pool.
+#[test]
+fn gold_myr_taps_for_one_white_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gold_myr()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let myr = on_battlefield(&engine, p0, gold_myr()).expect("gold myr is seated");
+    assert_eq!(pt(&engine, myr), (1, 1));
+    let t = types(&engine, myr);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&engine, myr));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana(&mut engine, p0);
+
+    assert!(is_tapped(&engine, myr));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(stack_is_empty(&engine));
+}
+
+fn hematite_golem() -> CardIndex {
+    card_index("f2e1bb32-de4c-4abc-ac15-6e6deaa8fe5f")
+}
+
+/// `Hematite Golem` prints `{{1}}{{R}}: This creature gets +2/+0 until end of turn.` on a 1/4
+/// artifact creature with `Coverage::Implemented`.
+/// In this scenario, two `mountain()` lands float the required mana to activate the ability.
+/// Upon resolution, the layer system recomputes the golem's power from 1 to 3 while its toughness remains 4.
+#[test]
+fn hematite_golem_pumps_power_by_two_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), hematite_golem()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let golem = on_battlefield(&engine, p0, hematite_golem()).expect("golem is seated");
+    assert_eq!(pt(&engine, golem), (1, 4));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    activate(&mut engine, p0, hematite_golem(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, golem),
+        (3, 4),
+        "`Hematite Golem` should now be a 3/4 until end of turn"
+    );
+}
+
+fn hopping_automaton() -> CardIndex {
+    card_index("7848e040-e1b4-4f81-922e-b1eca8fe4398")
+}
+
+/// `Hopping Automaton` prints `{{0}}: This creature gets -1/-1 and gains flying until end of turn.`
+/// on a 2/2 artifact creature with `Coverage::Implemented`.
+/// In this scenario, the zero-mana activated ability is activated on an empty pool.
+/// When the ability resolves, the creature becomes a 1/1 and gains `KeywordSet::FLYING`
+/// until end of turn as projected by the continuous layer system.
+#[test]
+fn hopping_automaton_shrinks_by_one_one_and_gains_flying() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[hopping_automaton()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let automaton = on_battlefield(&engine, p0, hopping_automaton()).expect("automaton is seated");
+    assert_eq!(pt(&engine, automaton), (2, 2));
+    assert!(!keywords(&engine, automaton).contains(KeywordSet::FLYING));
+
+    activate(&mut engine, p0, hopping_automaton(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, automaton), (1, 1));
+    assert!(keywords(&engine, automaton).contains(KeywordSet::FLYING));
+}
+
+fn iron_myr() -> CardIndex {
+    card_index("6c5cbab6-ee27-46f5-97a7-df85698d1e9f")
+}
+
+/// `Iron Myr` prints `{{T}}: Add {{R}}` on a 1/1 artifact creature with `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it stands untapped, unsick, and with no other mana sources
+/// present. When `tap_all_mana` is called, the Myr taps for mana directly without using the stack,
+/// providing exactly one red mana into seat 0's mana pool.
+#[test]
+fn iron_myr_taps_for_one_red_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[iron_myr()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let myr = on_battlefield(&engine, p0, iron_myr()).expect("iron myr is seated");
+    assert_eq!(pt(&engine, myr), (1, 1));
+    let t = types(&engine, myr);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&engine, myr));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana(&mut engine, p0);
+
+    assert!(is_tapped(&engine, myr));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(stack_is_empty(&engine));
+}
+
+fn leaden_myr() -> CardIndex {
+    card_index("f62cabf0-df0d-4c4f-a93a-9340967d1775")
+}
+
+/// `Leaden Myr` prints `{{T}}: Add {{B}}` on a 1/1 artifact creature with `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it stands untapped, unsick, and with no other mana sources
+/// present. When `tap_all_mana` is called, the Myr taps for mana directly without using the stack,
+/// providing exactly one black mana into seat 0's mana pool.
+#[test]
+fn leaden_myr_taps_for_one_black_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[leaden_myr()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let myr = on_battlefield(&engine, p0, leaden_myr()).expect("leaden myr is seated");
+    assert_eq!(pt(&engine, myr), (1, 1));
+    let t = types(&engine, myr);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&engine, myr));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana(&mut engine, p0);
+
+    assert!(is_tapped(&engine, myr));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(stack_is_empty(&engine));
+}
+
+fn manakin() -> CardIndex {
+    card_index("d2343af0-468b-42bc-8a0c-347c10f7e2f3")
+}
+
+/// `Manakin` prints `{{T}}: Add {{C}}` on a 1/1 artifact creature construct with `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it stands untapped, unsick, and with no other mana sources
+/// present. When `tap_all_mana` is called, the construct taps for mana directly without using the stack,
+/// providing exactly one colorless mana into seat 0's mana pool.
+#[test]
+fn manakin_taps_for_one_colorless_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[manakin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let construct = on_battlefield(&engine, p0, manakin()).expect("manakin is seated");
+    assert_eq!(pt(&engine, construct), (1, 1));
+    let t = types(&engine, construct);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&engine, construct));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana(&mut engine, p0);
+
+    assert!(is_tapped(&engine, construct));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(stack_is_empty(&engine));
+}
+
+fn myr_moonvessel() -> CardIndex {
+    card_index("3e922661-80df-4e84-a12a-524bc74e6c9d")
+}
+
+/// `Myr Moonvessel` prints `When this creature dies, add {{C}}.` with `Coverage::Implemented`.
+/// In this scenario, seat 0 controls the 1/1 artifact creature while holding no floating mana.
+/// When the opponent destroys it with `vindicate()`, the dies trigger goes onto the stack,
+/// resolves, and leaves exactly one colorless mana in seat 0's mana pool while the creature lies in the graveyard.
+#[test]
+fn myr_moonvessel_adds_colorless_mana_when_it_dies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[myr_moonvessel()])
+        .battlefield(1, &[plains(), swamp(), plains()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    let myr = on_battlefield(&engine, p0, myr_moonvessel()).expect("myr is seated");
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![myr] })
+        .expect("vindicate targets the myr");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, myr_moonvessel()).is_some(),
+        "`Myr Moonvessel` should be in the graveyard"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        1,
+        "the dies trigger produced one colorless mana"
+    );
+    assert_eq!(pool.total(), 1, "and nothing else floats in seat 0's pool");
+}
+
+fn nim_replica() -> CardIndex {
+    card_index("68c3aa66-85f2-494c-8fb2-ad0348814506")
+}
+
+/// `Nim Replica` prints `{{2}}{{B}}, Sacrifice this creature: Target creature gets -1/-1 until end of turn.`
+/// with `Coverage::Implemented`.
+/// In this scenario, seat 0 floats three black mana from three `swamp()` lands to activate the ability,
+/// targeting the opponent's 1/1 `quiet_creature()`. Choosing the target concludes the announcement,
+/// paying the sacrifice cost, and resolving the ability reduces the elf's toughness to zero so that
+/// state-based actions send it to the graveyard.
+#[test]
+fn nim_replica_sacrifices_to_give_target_creature_minus_one_minus_one() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), nim_replica()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p1, quiet_creature()).expect("opponent creature seated");
+    assert_eq!(pt(&engine, elf), (1, 1));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    activate(&mut engine, p0, nim_replica(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for creature, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&elf));
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    // After target declaration, the sacrifice cost is paid.
+    assert!(in_graveyard(&engine, p0, nim_replica()).is_some());
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, quiet_creature()).is_none(),
+        "the 1/1 elf died from having 0 toughness"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_creature()).is_some(),
+        "the elf is now in the graveyard"
+    );
+}
+
+fn patagia_golem() -> CardIndex {
+    card_index("85308fb8-e5a1-4ff1-8606-283cf2056895")
+}
+
+/// `Patagia Golem` prints `{{3}}: This creature gains flying until end of turn.` on a 2/3
+/// artifact creature with `Coverage::Implemented`.
+/// In this scenario, three `forest()` lands float the required generic mana to activate the ability.
+/// Upon resolution, the layer system recomputes the characteristics, granting `KeywordSet::FLYING`
+/// while maintaining its base 2/3 power and toughness.
+#[test]
+fn patagia_golem_gains_flying_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), patagia_golem()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let golem = on_battlefield(&engine, p0, patagia_golem()).expect("golem is seated");
+    assert_eq!(pt(&engine, golem), (2, 3));
+    assert!(!keywords(&engine, golem).contains(KeywordSet::FLYING));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    activate(&mut engine, p0, patagia_golem(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, golem), (2, 3));
+    assert!(keywords(&engine, golem).contains(KeywordSet::FLYING));
+}
+
+fn rustspore_ram() -> CardIndex {
+    card_index("a45b3934-1c9b-4cff-98b1-c9ac2f7759ea")
+}
+
+/// `Rustspore Ram` prints `When this creature enters, destroy target Equipment.`
+/// with `Coverage::Implemented`.
+/// Cast from hand off four `forest()` lands, `Rustspore Ram` enters the battlefield and its
+/// enters trigger goes onto the stack, prompting for an Equipment target.
+/// Targeting the opponent's `lightning_greaves()` and resolving the trigger destroys the Equipment,
+/// sending it to the opponent's graveyard while the ram remains on the battlefield.
+#[test]
+fn rustspore_ram_destroys_target_equipment_on_entering() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[rustspore_ram()])
+        .battlefield(1, &[lightning_greaves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let greaves = on_battlefield(&engine, p1, lightning_greaves()).expect("equipment seated");
+
+    cast_from_hand(&mut engine, p0, rustspore_ram());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseTargets");
+    };
+    assert!(options.contains(&greaves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![greaves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, lightning_greaves()).is_none(),
+        "the equipment was destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, lightning_greaves()).is_some(),
+        "the destroyed equipment is in the opponent's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rustspore_ram()).is_some(),
+        "`Rustspore Ram` remains on the battlefield"
+    );
+}
+
+fn shifting_wall() -> CardIndex {
+    card_index("7c852dfe-8238-461e-814e-9667807f2cf5")
+}
+
+/// `Shifting Wall` is an artifact creature wall with `Coverage::Implemented`.
+/// It prints `{X}` as its mana cost, `KeywordSet::DEFENDER`, and enters the battlefield
+/// with `X` `+1/+1` counters. Casting it with three floating mana from three `forest()`
+/// lands prompts for `Pending::ChooseNumber`, and choosing 3 puts a 3/3 artifact wall with
+/// defender onto the battlefield that cannot be declared as an attacker.
+#[test]
+fn shifting_wall_enters_with_x_counters_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[shifting_wall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, shifting_wall());
+
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!(
+            "expected `Pending::ChooseNumber`, got {:?}",
+            engine.pending()
+        );
+    };
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let wall = on_battlefield(&engine, p0, shifting_wall()).expect("wall resolved");
+    assert_eq!(counters_on(&engine, wall, CounterKind::P1P1), 3);
+    assert_eq!(pt(&engine, wall), (3, 3));
+    let kw = keywords(&engine, wall);
+    assert!(kw.contains(KeywordSet::DEFENDER));
+    let t = types(&engine, wall);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+
+    // Defender prevents it from attacking when combat arrives.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    assert!(
+        !attackers.contains(&wall),
+        "defender prevents `Shifting Wall` from being offered as an attacker"
+    );
+}
+
+fn silver_myr() -> CardIndex {
+    card_index("66e8f7f8-3a6d-46ba-837c-b9713ddf7f40")
+}
+
+/// `Silver Myr` prints `{{T}}: Add {{U}}` on a 1/1 artifact creature with `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it stands untapped, unsick, and with no other mana sources
+/// present. When `tap_all_mana` is called, the Myr taps for mana directly without using the stack,
+/// providing exactly one blue mana into seat 0's mana pool.
+#[test]
+fn silver_myr_taps_for_one_blue_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[silver_myr()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let myr = on_battlefield(&engine, p0, silver_myr()).expect("silver myr is seated");
+    assert_eq!(pt(&engine, myr), (1, 1));
+    let t = types(&engine, myr);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(!is_tapped(&engine, myr));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana(&mut engine, p0);
+
+    assert!(is_tapped(&engine, myr));
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(pool.total(), 1);
+    assert!(stack_is_empty(&engine));
+}
+
+fn steel_wall() -> CardIndex {
+    card_index("5ccb57e1-ca94-4b5a-8e5f-b8b5e692cfb9")
+}
+
+/// `Steel Wall` prints `Defender` on a 0/4 artifact creature wall with `Coverage::Implemented`.
+/// Cast from hand using mana from a `forest()`, it resolves onto the battlefield with 0 power,
+/// 4 toughness, and both `TypeSet::ARTIFACT` and `TypeSet::CREATURE` types.
+/// When combat arrives, `KeywordSet::DEFENDER` ensures it cannot be declared as an attacker.
+#[test]
+fn steel_wall_enters_as_a_zero_four_defender_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[steel_wall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, steel_wall());
+    pass_until(&mut engine, stack_is_empty);
+
+    let wall = on_battlefield(&engine, p0, steel_wall()).expect("wall resolved");
+    assert_eq!(pt(&engine, wall), (0, 4));
+    let t = types(&engine, wall);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+
+    // Defender prevents it from attacking when combat arrives.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    assert!(
+        !attackers.contains(&wall),
+        "`Steel Wall` cannot attack because it has defender"
+    );
+}
+
+fn straw_golem() -> CardIndex {
+    card_index("6e48981b-8971-4b7c-ae05-29c7e4091a05")
+}
+
+/// `Straw Golem` prints `When an opponent casts a creature spell, sacrifice this creature.`
+/// under `Coverage::Implemented`. In this test, seat 0 controls the 2/3 artifact creature.
+/// When the opponent casts `llanowar_elves()`, the trigger triggers, goes on the stack, and
+/// upon resolution forces seat 0 to sacrifice `Straw Golem` to their graveyard.
+#[test]
+fn straw_golem_sacrifices_itself_when_opponent_casts_a_creature_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[straw_golem()])
+        .battlefield(1, &[forest()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(on_battlefield(&engine, p0, straw_golem()).is_some());
+
+    cast_from_hand(&mut engine, p1, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, straw_golem()).is_none(),
+        "`Straw Golem` should no longer be on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, straw_golem()).is_some(),
+        "`Straw Golem` should be sacrificed to the graveyard"
+    );
+}
+
+fn thermal_navigator() -> CardIndex {
+    card_index("355c2840-2cb8-431a-bcdc-f4b8824a1f5d")
+}
+
+/// `Thermal Navigator` prints `Sacrifice an artifact: This creature gains flying until end of turn.`
+/// with `Coverage::Implemented`.
+/// In this scenario, seat 0 controls `Thermal Navigator` and another artifact (`quiet_artifact()`).
+/// Activating the ability prompts for an artifact to sacrifice as a cost via `Pending::ChooseCards`.
+/// Choosing the other artifact sends it to the graveyard, and upon resolution, `Thermal Navigator`
+/// gains `KeywordSet::FLYING` until end of turn.
+#[test]
+fn thermal_navigator_sacrifices_an_artifact_to_gain_flying() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thermal_navigator(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let nav = on_battlefield(&engine, p0, thermal_navigator()).expect("navigator is seated");
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("sol ring is seated");
+    assert!(!keywords(&engine, nav).contains(KeywordSet::FLYING));
+
+    activate(&mut engine, p0, thermal_navigator(), 0);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected choice of artifact to sacrifice, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&ring));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .unwrap();
+
+    // After cost is paid, the sacrificed artifact is in the graveyard.
+    assert!(in_graveyard(&engine, p0, quiet_artifact()).is_some());
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, nav).contains(KeywordSet::FLYING));
+    assert_eq!(pt(&engine, nav), (2, 2));
+}
+
+fn wall_of_spears() -> CardIndex {
+    card_index("ed836d84-ff1e-4af8-b4b8-314569b3faec")
+}
+
+/// `Wall of Spears` prints `Defender` and `First strike` on a 2/3 artifact creature wall
+/// under `Coverage::Implemented`.
+/// Seated on the battlefield from turn one, it possesses 2 power, 3 toughness, both
+/// `TypeSet::ARTIFACT` and `TypeSet::CREATURE` types, and the combination of `KeywordSet::DEFENDER`
+/// and `KeywordSet::FIRST_STRIKE`. When combat arrives, `KeywordSet::DEFENDER` ensures it cannot
+/// attack.
+#[test]
+fn wall_of_spears_has_first_strike_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wall_of_spears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p0, wall_of_spears()).expect("wall is seated");
+    assert_eq!(pt(&engine, wall), (2, 3));
+    let t = types(&engine, wall);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+    let kw = keywords(&engine, wall);
+    assert!(kw.contains(KeywordSet::DEFENDER));
+    assert!(kw.contains(KeywordSet::FIRST_STRIKE));
+
+    // Defender prevents it from attacking when combat arrives.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    assert!(
+        !attackers.contains(&wall),
+        "defender prevents `Wall of Spears` from being declared as an attacker"
+    );
+}
+
+fn yotian_soldier() -> CardIndex {
+    card_index("645571f1-a775-4834-8b79-8852d38c9587")
+}
+
+/// `Yotian Soldier` prints `Vigilance` on a 1/4 artifact creature soldier with `Coverage::Implemented`.
+/// When declared as an attacker in combat, `KeywordSet::VIGILANCE` ensures that attacking does not
+/// cause it to tap. It deals 1 combat damage to the defending opponent and remains untapped.
+#[test]
+fn yotian_soldier_attacks_without_tapping_due_to_vigilance() {
+    let (p0, _p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[yotian_soldier()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let soldier = on_battlefield(&engine, p0, yotian_soldier()).expect("soldier is seated");
+    assert_eq!(pt(&engine, soldier), (1, 4));
+    assert!(keywords(&engine, soldier).contains(KeywordSet::VIGILANCE));
+    assert!(!is_tapped(&engine, soldier));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers");
+    };
+    let defender = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(soldier, defender)],
+            },
+        )
+        .expect("untapped soldier declares attack");
+
+    // Vigilance prevents tapping when declared as an attacker.
+    assert!(
+        !is_tapped(&engine, soldier),
+        "`Yotian Soldier` must not tap when attacking because of vigilance"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().players[1].life, 19);
+    assert!(!is_tapped(&engine, soldier));
+}
