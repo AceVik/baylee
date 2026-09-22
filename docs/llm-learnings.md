@@ -1124,3 +1124,90 @@ None of the three is a card defect and all three read like one, which is the
 argument for the coordinator compiling before believing a red test — and for
 the cross rule, since a lane checking its own card would have "fixed" the
 card instead.
+
+## Round K — the lane hits its floor, and what a floor looks like
+
+Seventy fresh stubs to DeepSeek in two batches of thirty-five. **Seven cards
+came back and six were kept**, all `Coverage::Partial`; the other sixty-three
+are honest refusals. Round I ran at roughly two in three written, round J at four in
+five over its first batches. Two in twenty is not a worse lane — it is the
+same lane meeting a residue that no longer contains anything a reader can
+write, and that is the number this round is for.
+
+The refusals are the evidence, not the yield. Grouped by what they name,
+sixty-three refusals over two batches produce **no entry above thirteen**,
+and the two largest are a filter and a search destination rather than a
+mechanic: `Effect::SearchLibrary` (13 mentions) and `Filter::CmcAtMost`
+carrying a fixed `u32` where the card prints X (6). Everything else is a
+singleton — Rooms and their doors, devotion, a delayed triggered ability, a
+counted sacrifice, a draw limit, dilemmas. `transcode-report --stubs` says
+the same thing from the other side: its top entry over the pool's own stubs
+is `AlternateMode:` at eleven, which CLAUDE.md already measured as the worst
+buy on the list, and the rest of the top twenty is ones and twos.
+
+### A lane cannot see a pin
+
+The seventh card was Crop Rotation, and it is the one worth reading. The
+lane wrote it as a `Partial` whose unwritten clause is its printed
+additional cost, "sacrifice a land" — and a dropped *cost* is not a weaker
+card than the printing, it is a cheaper one. An earlier session had already
+found exactly that, reverted the card to a stub, and left the reason behind
+as a test: `crop_rotation_is_a_stub_until_a_spell_can_charge_more_than_mana`
+pins `Coverage::Unimplemented` until a spell cost list can charge something
+that is not mana. That test went red on the lane's card, and the card is a
+stub again.
+
+No lane runs cargo, so **no lane can see a pin**, and the refusal shelf that
+`pick.py` reconstructs is built from `feat(cards)` commit bodies — which is
+a record of what a lane refused, not of what a person decided. The guard is
+the only thing between "a previous session decided this" and the card
+quietly coming back on the next length-sorted pick. Keep such decisions in a
+test, never in a comment on the stub: codegen rewrites every file carrying
+the stub marker, so a note left in one does not survive the next run.
+
+So the lane is finished as a volume instrument, and the two gaps it named
+loudest were worth closing by hand the same afternoon.
+
+**`Amount::BasicLandTypesAmong`** — domain. Three stubs printed "for each
+basic land type among lands you control" and none of the amounts already
+there could say it: `CountOf` counts objects, so two Forests answer 2 where
+the card wants 1 and a Tundra 1 where it wants 2, and a land is colourless,
+so `DistinctColorsAmong` answers 0 for any board of them. Domain is an
+ability word with no rules meaning of its own (CR 207.2c), so the count sits
+on the card and the variant takes a filter rather than hiding "lands you
+control" in the engine. `SubtypeSet::BASIC_LANDS` was already CR 305.6's
+five, which is the reason no sixth list of Plains/Island/Swamp/Mountain/
+Forest was written — the pool has four of those and they are a mapping to
+mana, not this question.
+
+**`Filter::CmcAtMostX`** — "a creature card with mana value X or less". The
+bound is read off the ability's **source**, because `eval::matches` is
+handed `this` and no announced number beside it, and `cast_wizard` already
+writes the announcement to `x_value` there. Threading `x` through the
+matcher would have touched every call site in four crates to reach the same
+value. Three readers had to learn the variant and two of them answer *no*:
+`baylee-ai` and the client's `targeting.rs` both refuse it, because a
+`PlayerView` carries no announced X and answering `true` would let a planner
+count on a tutor finding a card the search may not legally find.
+
+Five cards came out of the two: Gaea's Might, Evasive Action, Power Armor,
+Chord of Calling, and Green Sun's Zenith as a `Partial` — nothing moves a
+resolving spell anywhere but the graveyard, so its own shuffle-back clause
+is still unsayable.
+
+### The test lane has a session size, and it is eleven
+
+Round I's tests were handed over in worklists of thirty-four. The first such
+session wrote **1 of 34** in 10.3 minutes over 101 steps: it read the
+framework, read the cards, announced it had everything it needed, wrote one
+file and ended. The ten-card pilot before it wrote 10 of 10, and the
+thirty-four-card session before that wrote 10. Eleven is the size that
+finishes; thirty-four is a session that spends its steps orienting and then
+runs out while writing.
+
+That is also the last measurement of the day, because both `agy` model
+families answered `RESOURCE_EXHAUSTED (code 429)` within three minutes of
+each other — `claude-sonnet-4-6` first and `gemini-3.8-flash-high` on the
+retry, with a shared reset about four and a half hours out. The cross rule
+has no way around that: DeepSeek wrote these cards and may not test them, so
+the debt waits for the quota rather than moving to the other lane.
