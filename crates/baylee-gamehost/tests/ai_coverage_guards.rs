@@ -532,9 +532,7 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
                 continue;
             }
             mana_sites += 1;
-            if cost.mana != baylee_core::mana::ManaCost::ZERO
-                || cost.parts.iter().any(|p| !matches!(p, CostPart::TapSelf))
-            {
+            if !baylee_cards_dsl::tap_only(cost) {
                 priced.push(def.faces[0].name);
             }
         }
@@ -552,13 +550,31 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
         "the walk found {mana_sites} granted *mana* abilities and there were \
          three, so the assertion below is over a list too short to fail"
     );
-    assert!(
-        priced.is_empty(),
-        "{priced:?} grants a mana ability that charges more than `{{T}}`, and \
-         `simple_mana` reads it as free. `PublicObject::granted_mana` would \
-         project mana the engine will not hand over for nothing — see #168 \
-         for the same hole on the planner's side, and `docs/protocol.md` \
-         §\"Granted mana\" for why an offer and a projection may not disagree"
+    // What used to stand here was `priced.is_empty()` — no card in the pool
+    // may grant a priced mana ability — and Forgotten Monument broke it the
+    // day it was written, correctly: the card really does sell its Caves a
+    // colour for `{T}` and a life. The hole was never the card's. It was that
+    // `GrantedMana` has no field for a price, so `granted_mana` reported the
+    // grant as free.
+    //
+    // `tap_only` is now that rule, read by the projection and asserted here
+    // from the other end. This test therefore says the thing that is still
+    // worth saying: whatever the pool grants, the predicate the projection
+    // uses is the predicate this walk applies, so a card that starts charging
+    // for a grant is silently dropped from the view rather than misreported.
+    // `view::granted_mana_refuses_a_priced_grant` is the same sentence with a
+    // board under it.
+    // Named and not counted, so the list falls in both directions: a card
+    // that stops charging drops out of it, and a card that starts charging
+    // walks into a view that cannot describe it and owes the same board-level
+    // test Forgotten Monument has.
+    assert_eq!(
+        priced,
+        ["Forgotten Monument"],
+        "the pool's priced granted mana abilities have changed. Each one is \
+         dropped from `PublicObject::granted_mana` rather than reported free \
+         — see `baylee_cards_dsl::tap_only` — and each owes a test with a \
+         board under it, because this walk cannot see a projection"
     );
 }
 

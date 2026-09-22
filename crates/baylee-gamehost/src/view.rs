@@ -266,7 +266,14 @@ fn granted_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::GrantedM
     baylee_engine::effects::granted_activated(state, id)
         .take(baylee_engine::choice::GRANTED_SLOTS as usize)
         .enumerate()
-        .filter(|(_, g)| g.mana_ability)
+        // `tap_only` and not merely `mana_ability`: a `GrantedMana` has no
+        // field for a price, so a grant that charges more than `{T}` —
+        // Forgotten Monument sells its Caves a colour for `{T}` and a life —
+        // can only be reported as free, and a planner that believed it would
+        // tap the land and fail the payment. The ability is still offered in
+        // `LegalActions`, so nothing is taken away from the player; what is
+        // withheld is a claim the view cannot make honestly.
+        .filter(|(_, g)| g.mana_ability && baylee_cards_dsl::tap_only(&g.cost))
         .find_map(|(slot, g)| {
             let mana = baylee_cards_dsl::simple_mana(&g.cost, g.effects)?;
             Some(baylee_view::GrantedMana {
@@ -1662,6 +1669,90 @@ mod tests {
                 assert!(
                     legal.mana_abilities.contains(&land),
                     "and offers it as a mana ability, which is why it needs no stack"
+                );
+                return;
+            }
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        }
+        panic!("seat 0 never got priority");
+    }
+
+    /// Forgotten Monument grants its other Caves `{T}`, pay 1 life: add one
+    /// mana of any colour — and the view says **nothing** about it, on
+    /// purpose.
+    ///
+    /// [`baylee_view::GrantedMana`] carries a slot, the colours and the
+    /// amount and has no field for a price, because an ability printed on no
+    /// card has nowhere else to put one. Reporting this grant would therefore
+    /// tell a planner it may tap the Cave for free; it would tap it, and the
+    /// life would never be offered to pay. Saying nothing costs the planner
+    /// one land and costs the player nothing at all, which is the asymmetry
+    /// `baylee_cards_dsl::tap_only` encodes.
+    ///
+    /// The second assertion is what keeps the first from being a way to hide
+    /// a broken grant: the engine still **offers** the ability under
+    /// `GRANTED_ABILITY`, so what the view withholds is a claim, not the
+    /// player's button.
+    #[test]
+    fn granted_mana_refuses_a_priced_grant() {
+        use baylee_engine::choice::{Pending, PlayerAction};
+
+        let monument = by_oracle_id("71393988-ad6f-43fd-9978-c0de15ae8e87")
+            .expect("Forgotten Monument is in the pool")
+            .index;
+        let maw = by_oracle_id("952ab8fe-f7d3-4673-89de-8c6d3f8a081f")
+            .expect("Cavernous Maw is in the pool")
+            .index;
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = vec![
+            DeckEntry {
+                card: maw,
+                print: PrintRef::new(0),
+            },
+            DeckEntry {
+                card: monument,
+                print: PrintRef::new(0),
+            },
+        ];
+
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+        let view = player_view(
+            engine.state(),
+            PlayerId::new(0),
+            1,
+            None,
+            &SeatContext::default(),
+        );
+        let cave = view
+            .battlefield
+            .iter()
+            .find(|o| o.card.is_some_and(|c| c.index == maw))
+            .expect("the Cave is on the battlefield");
+        assert!(
+            cave.granted_mana.is_none(),
+            "the grant charges a life beside its {{T}} and `GrantedMana` has \
+             nowhere to say so, so the view must withhold it rather than \
+             report mana the engine will not hand over for nothing"
+        );
+
+        for _ in 0..30 {
+            let Pending::Priority { player, legal } = engine.pending().clone() else {
+                break;
+            };
+            if player == PlayerId::new(0) {
+                assert!(
+                    legal
+                        .abilities
+                        .contains(&(cave.id, baylee_engine::choice::GRANTED_ABILITY)),
+                    "the engine still offers the granted ability the view \
+                     declined to describe: {:?}",
+                    legal.abilities
                 );
                 return;
             }

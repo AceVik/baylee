@@ -54,7 +54,7 @@
 //! first, and weighing them is a planner's judgement; this module reports a
 //! shape and never a price.
 
-use crate::cost::Cost;
+use crate::cost::{Cost, CostPart};
 use crate::effect::{Amount, Effect, ManaSource};
 use baylee_core::mana::{ManaColor, ManaCost};
 
@@ -65,6 +65,29 @@ pub struct SimpleMana {
     pub colors: Vec<ManaColor>,
     /// How much, of whichever colour is chosen.
     pub amount: u8,
+}
+
+/// Whether a cost is the bare `{T}` and nothing else.
+///
+/// The question only a **granted** mana ability has to answer, and it is
+/// about the *view* rather than about the rules. `GrantedMana` carries a
+/// slot, the colours and the amount and has no field for a price, because an
+/// ability that is printed on no card has nowhere else to put one. So a
+/// projection that reported a priced grant would be telling a planner it may
+/// tap for free, and the payment would fail at the moment it is spent —
+/// which is worse than reporting nothing, since the ability is offered in
+/// `LegalActions` either way and a player can still press it.
+///
+/// A *printed* ability needs no such guard: its cost is on the card the
+/// client already has, so `{1}, {T}: Add {W}{U}` reads correctly through
+/// [`simple_mana`] and must keep doing so.
+#[must_use]
+pub fn tap_only(cost: &Cost) -> bool {
+    cost.mana == ManaCost::ZERO
+        && cost
+            .parts
+            .iter()
+            .all(|part| matches!(part, CostPart::TapSelf))
 }
 
 /// Reads a free, single-effect mana ability, or decides it is not one a
