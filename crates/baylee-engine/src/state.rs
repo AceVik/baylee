@@ -1583,7 +1583,22 @@ impl GameState {
             .copied()
             .unwrap_or(0)
             == 0;
+        let already = self
+            .per_turn
+            .draws
+            .get(player.get() as usize)
+            .copied()
+            .unwrap_or(0);
+        let limit = self.draw_limit(player);
         for _ in 0..n {
+            // CR 121.2b, and the loop is where it belongs: the effect
+            // "applies to individual card draws", so "draw three cards"
+            // under a limit of one is partially carried out rather than
+            // refused. `already` is read once because `per_turn.draws` is
+            // not written until the loop is over.
+            if limit.is_some_and(|cap| already + drawn.len() as u32 >= cap) {
+                break;
+            }
             let Some(&top) = self.zones.list(ZoneLocation::Library(player)).last() else {
                 if let Some(p) = self.players.get_mut(player.get() as usize) {
                     p.tried_empty_draw = true;
@@ -1617,6 +1632,33 @@ impl GameState {
             });
         }
         drawn
+    }
+
+    /// How many cards `player` may draw this turn, or `None` for no limit.
+    ///
+    /// The **lowest** limit wins rather than the newest or the sum, because
+    /// "can't" is not a number being modified: two Spirits of the Labyrinth
+    /// are one limit of one, and a limit of one beside a limit of two is a
+    /// limit of one (CR 101.2).
+    ///
+    /// The relation is read from each effect's own controller, so one
+    /// Leovold limits that seat's opponents and says nothing about its
+    /// controller, while one Spirit limits the table including whoever
+    /// played it.
+    #[must_use]
+    pub fn draw_limit(&self, player: PlayerId) -> Option<u32> {
+        self.effects
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::DrawLimitPerTurn { who, limit } = fx.modifier
+                else {
+                    return None;
+                };
+                crate::eval::players(who, self, fx.controller)?
+                    .contains(&player)
+                    .then_some(u32::from(limit))
+            })
+            .min()
     }
 
     /// Streaming xxh3 hash over the entire deterministic state.
@@ -2446,6 +2488,89 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    /// A draw limit, registered by hand rather than played off a card.
+    ///
+    /// Spirit of the Labyrinth is the card and it has a test of its own; this
+    /// is the rule, asked without one, because what CR 121.2b actually says
+    /// is about the *loop* and not about the card: "such an effect applies to
+    /// individual card draws. Instructions to draw multiple cards may still
+    /// be partially carried out." A card test proves the limit exists; only
+    /// this shape proves that draw-three under a limit of one draws one
+    /// rather than nothing.
+    fn limit_draws(state: &mut GameState, who: baylee_cards_dsl::PlayerRel, limit: u8) {
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: PlayerId::new(0),
+            layer: baylee_cards_dsl::Layer::Text,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+            modifier: baylee_cards_dsl::Modifier::DrawLimitPerTurn { who, limit },
+        });
+    }
+
+    /// A state at the start of a turn.
+    ///
+    /// `from_preset` has already dealt the opening hands and those went
+    /// through `draw_cards`, so `per_turn.draws` reads seven before a turn
+    /// has begun. `progress.rs` zeroes it at every untap step, which is why
+    /// this is a fixture and not a finding.
+    fn at_a_fresh_turn(seed: u64) -> GameState {
+        let mut state = GameState::from_preset(&make_preset(seed), &RegistryLookup).unwrap();
+        state.per_turn.reset();
+        state
+    }
+
+    #[test]
+    fn a_draw_limit_is_partially_carried_out_rather_than_refused() {
+        let mut state = at_a_fresh_turn(11);
+        let me = PlayerId::new(0);
+        assert_eq!(state.draw_limit(me), None, "no effect, no limit");
+        assert_eq!(state.draw_cards(me, 3).len(), 3);
+
+        let mut state = at_a_fresh_turn(11);
+        limit_draws(&mut state, baylee_cards_dsl::PlayerRel::EachPlayer, 1);
+        assert_eq!(state.draw_limit(me), Some(1));
+        assert_eq!(
+            state.draw_cards(me, 3).len(),
+            1,
+            "CR 121.2b: the instruction is partially carried out, not refused"
+        );
+        assert_eq!(
+            state.draw_cards(me, 1).len(),
+            0,
+            "and the second instruction this turn draws nothing at all"
+        );
+    }
+
+    /// The relation is read from the **effect's** controller, so the same
+    /// modifier limits the table or only the other side of it.
+    #[test]
+    fn a_draw_limit_on_the_opponents_leaves_its_own_controller_alone() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut state = at_a_fresh_turn(12);
+        limit_draws(&mut state, baylee_cards_dsl::PlayerRel::EachOpponent, 1);
+
+        assert_eq!(state.draw_limit(me), None, "Leovold does not limit Leovold");
+        assert_eq!(state.draw_limit(them), Some(1));
+        assert_eq!(state.draw_cards(me, 3).len(), 3);
+        assert_eq!(state.draw_cards(them, 3).len(), 1);
+    }
+
+    /// Two limits are not a sum and not a newest-wins: "can't" is CR 101.2,
+    /// so the lowest number is the one that holds.
+    #[test]
+    fn the_lowest_draw_limit_is_the_one_that_holds() {
+        let mut state = at_a_fresh_turn(13);
+        let me = PlayerId::new(0);
+        limit_draws(&mut state, baylee_cards_dsl::PlayerRel::EachPlayer, 2);
+        limit_draws(&mut state, baylee_cards_dsl::PlayerRel::EachPlayer, 1);
+        assert_eq!(state.draw_limit(me), Some(1));
+        assert_eq!(state.draw_cards(me, 4).len(), 1);
     }
 
     #[test]

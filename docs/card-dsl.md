@@ -950,7 +950,26 @@ Modal/sequence: `Sequence(&[..])`.
 `CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
-`MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`.
+`MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
+`DrawLimitPerTurn`.
+
+`DrawLimitPerTurn { who, limit }` is "each player can't draw more than one
+card each turn" (Spirit of the Labyrinth) and its opponents-only twin
+(Leovold). `who` is an ordinary `PlayerRel` read from the **effect's**
+controller, so `EachPlayer` includes whoever played the card and
+`EachOpponent` does not — a card written from the wrong sentence stops its
+own draws or fails to stop them.
+
+What makes it a variant rather than a replacement effect is the second
+sentence of CR 121.2b: the limit "applies to individual card draws", so an
+instruction to draw three under a limit of one is **partially carried out** —
+one card arrives and the other two do not. The engine enforces it inside
+`GameState::draw_cards`'s own loop for exactly that reason. Two such effects
+do not add up and the newest does not win: the lowest limit holds, which is
+what "can't" means (CR 101.2). The half CR 121.2b spends its own second half
+on is not covered — a player under the limit also cannot *choose* to draw
+more, nor pay a cost that draws more — and no card in the pool prints either
+today.
 
 `DoesNotUntap` is Basalt Monolith's whole special clause and needs neither a
 filter beyond `Filter::This` nor a duration. It changes a **rule** and not a

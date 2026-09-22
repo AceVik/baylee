@@ -125,6 +125,34 @@ pub enum Modifier {
     /// from the **effect's** controller, so "noncreature spells" is
     /// `Filter::NONCREATURE` and "spells" is `Filter::Any`.
     OpponentsCantCast(&'static crate::Filter),
+    /// No player the relation names may draw more than `limit` cards in a
+    /// turn (Spirit of the Labyrinth: every player and one; Leovold,
+    /// Emissary of Trest: the opponents).
+    ///
+    /// CR 121.2b is the whole of it and it is unusually specific: the effect
+    /// "applies to individual card draws", so an instruction to draw three
+    /// under a limit of one is **partially carried out** — the player draws
+    /// their first card and the rest do not happen. That is what makes this
+    /// a prohibition on the draw rather than a replacement of the
+    /// instruction, and why it lives beside the draw itself instead of in
+    /// `replacement`.
+    ///
+    /// The relation is read from the **effect's** controller, so
+    /// `EachPlayer` includes that controller and `EachOpponent` does not.
+    /// The count is the payload rather than the variant because the rule is
+    /// written with a number in it, and two such effects do not add up:
+    /// the lowest limit wins, which is what "can't" means (CR 101.2).
+    ///
+    /// Not covered, and the sentence CR 121.2b spends its second half on: a
+    /// player under this limit also cannot *choose* to draw more, nor pay a
+    /// cost that draws more. This engine offers no such choice and prints no
+    /// such cost today.
+    DrawLimitPerTurn {
+        /// Whose draws are limited, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// How many cards that player may draw in one turn.
+        limit: u8,
+    },
     /// Players can't lose the game this turn (Everybody Lives!).
     PlayersCantLose,
     /// The controller can't lose life this turn (Everybody Lives!).
@@ -378,6 +406,7 @@ impl Modifier {
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::OpponentsCantCast(_)
+            | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife
             | Self::PreventDamageToIt

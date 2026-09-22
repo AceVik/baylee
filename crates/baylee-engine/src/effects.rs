@@ -128,6 +128,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife
         | Modifier::PreventDamageToIt
@@ -593,6 +594,10 @@ mod tests {
             Modifier::CantActivateArtifacts,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+            Modifier::DrawLimitPerTurn {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                limit: 1,
+            },
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife,
             Modifier::PreventDamageToIt,
@@ -643,7 +648,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            40,
+            41,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -695,7 +700,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-two
-    /// modifiers lock the objects they found, eighteen do not.
+    /// modifiers lock the objects they found, nineteen do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -703,10 +708,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_two_modifiers_lock_a_set_and_eighteen_do_not() {
+    fn twenty_two_modifiers_lock_a_set_and_nineteen_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (22, 18));
+        assert_eq!((locking, all.len() - locking), (22, 19));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
