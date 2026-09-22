@@ -1691,3 +1691,163 @@ fn exploration_allows_playing_additional_land() {
     };
     assert!(legal_after.lands.is_empty(), "no third land drop offered");
 }
+
+/// Dragonback Assault — "Landfall — Whenever a land you control enters,
+/// create a 4/4 red Dragon creature token with flying." Its enters-trigger
+/// (3 damage to each creature and each planeswalker) has no DSL spelling and
+/// the file says so, so landfall is the whole of what plays here.
+///
+/// "A land **you control**" is the word the board is built around: the
+/// opponent plays a land of their own first, and a trigger that read every
+/// land would have made a Dragon then. The token is checked as a token — an
+/// object with no card behind it — and then by its printed numbers and its
+/// flying, because a 4/4 flier and a 3/3 trampler are both "a Dragon" to a
+/// count of permanents.
+#[test]
+fn dragonback_assault_makes_a_dragon_on_your_own_land_and_not_on_theirs() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dragonback_assault()])
+        .hand(0, &[forest()])
+        .hand(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let tokens = |e: &Engine<RegistryLookup>| -> Vec<ObjectId> {
+        e.state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| e.state().object(*id).is_some_and(|o| o.card.is_none()))
+            .collect()
+    };
+    assert!(tokens(&engine).is_empty(), "no token is on the board yet");
+
+    // Their land first. A landfall trigger that forgot whose land it was
+    // about would resolve here, and the assertion after it would be the only
+    // thing that ever said so.
+    reach_their_main_phase(&mut engine, p1);
+    play_land(&mut engine, p1, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        tokens(&engine).is_empty(),
+        "\"a land you control\" is not \"a land\": the opponent's Forest \
+         makes nobody a Dragon"
+    );
+
+    reach_their_main_phase(&mut engine, p0);
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+
+    let made = tokens(&engine);
+    assert_eq!(made.len(), 1, "one land, one Dragon: {made:?}");
+    let dragon = made[0];
+    assert_eq!(
+        engine
+            .state()
+            .object(dragon)
+            .expect("just created")
+            .controller,
+        p0,
+        "it is created under the controller of the enchantment"
+    );
+    assert_eq!(pt(&engine, dragon), (4, 4), "a 4/4, as the card prints");
+    assert!(
+        engine
+            .state()
+            .object(dragon)
+            .expect("just created")
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::FLYING),
+        "with flying — the token the transcoder generated and not the one \
+         the pool writes by hand"
+    );
+    assert!(
+        types(&engine, dragon).contains(TypeSet::CREATURE),
+        "and it is a creature token"
+    );
+}
+
+/// Twists and Turns — "When a land you control enters, if you control seven
+/// or more lands, transform this enchantment." Explore is not in the DSL and
+/// the file says so, so the transform trigger is the whole of what this card
+/// does here — and it is two printed words wearing one clause: **a land you
+/// control** entering, and **you** controlling seven of them.
+///
+/// Both are only readable against a board that would fool the other reading.
+/// The opponent sits on six lands of their own, so a count that forgot whose
+/// permanents it was over would transform the enchantment on the sixth land
+/// rather than the seventh; the sixth is played first and has to leave an
+/// enchantment standing. `Condition::ControlCount` restricts to `you` before
+/// its filter runs, which is why the card writes plain `Filter::LAND` and is
+/// right to — this test is what says so.
+#[test]
+fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                twists_and_turns(),
+            ],
+        )
+        .battlefield(
+            1,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let enchantment = on_battlefield(&engine, p0, twists_and_turns()).expect("it is out");
+    assert!(
+        types(&engine, enchantment).contains(TypeSet::ENCHANTMENT),
+        "it starts as the face it prints"
+    );
+
+    // The sixth. Eleven lands are on the table by now and six of them are
+    // p0's, so a table-wide count would fire here.
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        types(&engine, enchantment).contains(TypeSet::ENCHANTMENT),
+        "six is not seven — and the six across the table are not yours"
+    );
+
+    // The seventh, next turn: one land drop per turn (CR 305.2), so the
+    // turn has to go round before the second Forest can be played.
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+
+    let transformed = on_battlefield(&engine, p0, twists_and_turns())
+        .expect("the card is still on the battlefield, as Mycoid Maze");
+    assert!(
+        types(&engine, transformed).contains(TypeSet::LAND),
+        "the seventh land turns it over: Mycoid Maze is a Land — Cave"
+    );
+    assert!(
+        !types(&engine, transformed).contains(TypeSet::ENCHANTMENT),
+        "and it is no longer the enchantment — a transform is not an addition"
+    );
+    activate(&mut engine, p0, twists_and_turns(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "Mycoid Maze's own {{T}}: Add {{G}}, which is the back face's ability \
+         and not the front's"
+    );
+}

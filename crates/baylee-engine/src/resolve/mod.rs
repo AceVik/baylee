@@ -1653,11 +1653,31 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::ChangeController { new_controller } => {
-            if let Some(&target_id) = res.targets.first() {
-                // Control-change ops always favor the effect's controller
-                // (Gilded Drake-style exchanges get a dedicated op in S7).
-                let _ = new_controller;
-                change_controller(state, target_id, you);
+            // Two readings that were both wrong, and each looked right from
+            // the other side. The seat was *always* the effect's controller,
+            // so `new_controller` was a field a card could write and nothing
+            // would read — Wishclaw Talisman's "An opponent gains control of
+            // this artifact" is the whole price of a repeatable tutor, and it
+            // was handing the artifact back to the player who activated it.
+            // And the object was always `res.targets.first()`, so an ability
+            // saying "this artifact" rather than "target permanent" changed
+            // the control of nothing at all and resolved quietly.
+            //
+            // `players_of` for `PlayerMayPayOr`'s reason: a seat named
+            // relative to the ability is not a seat the state alone can
+            // answer. A relation nobody is (no opponent left) changes
+            // nothing, which is the honest outcome and not a panic.
+            //
+            // `.first()` and not a question: at a duel a relation naming an
+            // opponent names exactly one seat, and the only card in this
+            // pool writing this effect prints "an opponent" — which at three
+            // seats is a choice the controller announces on resolution (CR
+            // 608.2d). Taking the first is a duel assumption and is
+            // wrong at a bigger table; it is written down here rather than
+            // guessed at, because the fix is a `Pending` and not an index.
+            let subject = res.targets.first().copied().unwrap_or(res.source);
+            if let Some(&seat) = players_of(new_controller, state, you, res).first() {
+                change_controller(state, subject, seat);
             }
             None
         }

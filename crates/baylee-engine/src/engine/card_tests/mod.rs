@@ -2329,3 +2329,23 @@ fn chord_of_calling() -> CardIndex {
 fn green_suns_zenith() -> CardIndex {
     card_index("0d96b60b-a060-48ee-bb83-93f1c4a10669")
 }
+
+fn midgar_city_of_mako() -> CardIndex {
+    card_index("4e34a49d-f031-48ac-a458-97b79124b76c")
+}
+
+fn agatha_s_soul_cauldron() -> CardIndex {
+    card_index("c259e16f-2a44-4552-8678-815f757a02e8")
+}
+
+fn wishclaw_talisman() -> CardIndex {
+    card_index("81c70ae7-3c18-4c9b-8505-e4db9e0e6518")
+}
+
+fn dragonback_assault() -> CardIndex {
+    card_index("413fb2db-f1a1-4d22-ac37-a52821d35ca2")
+}
+
+fn twists_and_turns() -> CardIndex {
+    card_index("740aa9d9-91a9-431e-8bf9-1344e5273e27")
+}
