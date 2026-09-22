@@ -443,8 +443,13 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         // state rather than a characteristic a continuous effect writes; no
         // modifier grants a supertype; and mana value comes off the printed
         // cost, which only copying rewrites — and a copy effect's own filter
-        // names an object rather than reading one of these.
+        // names an object rather than reading one of these. A *name* is the
+        // same case as mana value: layer 3 (CR 613.1c) writes one and this
+        // vocabulary has no such modifier, `BecomeCopyOf` being layer 1 and
+        // applied before any of this. The day a text-changing modifier
+        // exists, `Named` is what leaves this list.
         Filter::Any
+        | Filter::Named(_)
         | Filter::This
         | Filter::Another
         | Filter::HasSupertype(_)
@@ -484,6 +489,17 @@ fn apply(
             }
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
+            // CR 613.1: every earlier layer is already applied, and for the
+            // object being projected that result lives in `c` and not yet in
+            // its cache — `recompute_with` walks one object through all the
+            // layers, so its cached characteristics are the *previous*
+            // projection until this one is written back. Ashaya, Soul of the
+            // Wild is the card that reads the difference: it makes your
+            // nontoken creatures into lands at layer 4 and is then as big as
+            // the lands you control at 7c, so it has to count **itself**, and
+            // a count off the cache left it one short for exactly one
+            // refresh. Every other object is read from the cache, which is
+            // that object's own finished projection.
             let count = state
                 .zones
                 .list(crate::zone::ZoneLocation::Battlefield)
@@ -491,7 +507,18 @@ fn apply(
                 .filter(|id| {
                     state.object(**id).is_some_and(|o| {
                         o.controller == fx.controller
-                            && crate::eval::matches(filter, state, o, fx.controller, **id)
+                            && if o.id == obj.id {
+                                crate::eval::matches_projected(
+                                    filter,
+                                    state,
+                                    o,
+                                    c,
+                                    fx.controller,
+                                    **id,
+                                )
+                            } else {
+                                crate::eval::matches(filter, state, o, fx.controller, **id)
+                            }
                     })
                 })
                 .count();

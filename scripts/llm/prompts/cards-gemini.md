@@ -54,6 +54,20 @@ Stub, weil der Deckbauer sie dann als spielbar anbietet und ein Spieler sie
 mitten in einer Partie kaputt vorfindet. Erfinde **niemals** eine
 DSL-Variante, die du nicht in `baylee-cards-dsl` gelesen hast.
 
+**Eine weggelassene *Kosten*-Klausel ist dabei niemals `Partial`.** Die Regel
+oben gilt für Klauseln, deren Fehlen die Karte **schwächer** macht — eine
+Fähigkeit, die der Spieler dann eben nicht bekommt. Eine Klausel, die etwas
+**kostet**, macht die Karte beim Weglassen **stärker** als den Druck, und
+dafür gibt es keine ehrliche Teilfassung: dann bleibt die Datei unverändert.
+Dazu zählen „As an additional cost to cast this spell, …", jeder Teil einer
+Aktivierungskosten-Zeile links vom Doppelpunkt, jedes „unless you pay …",
+„you lose N life", „sacrifice …", „discard …", „exile …", und jede
+Timing-Einschränkung („Activate only as a sorcery"). Prüfe vor jedem
+`Partial`: *ist die Karte, die ich schreibe, besser als die gedruckte?* Wenn
+ja, ist sie ein Stub. Crop Rotation kam einmal als `Partial` zurück, ohne
+sein „sacrifice a land" — ein Ein-Mana-Tutor umsonst, und jeder gespielte
+Test dazu wäre grün gewesen.
+
 **3. Der generierte Kopf bleibt Byte für Byte stehen.** Die `//!`-Zeilen, und
 in `card!` die Felder `index`, `oracle_id`, `scryfall_id`, `faces` samt
 `name`, `mana_cost`, `types`, `supertypes`, `subtypes`, `power`, `toughness`.

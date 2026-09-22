@@ -51,6 +51,9 @@ pub fn matches_projected(
         Filter::HasColor(c) => chars.colors.intersects(*c),
         Filter::IsColorless => chars.colors.is_colorless(),
         Filter::Monocolored => chars.colors.len() == 1,
+        // CR 201.2: the name an object has *now*, read off its projected
+        // characteristics, so a clone answers to what it copied.
+        Filter::Named(name) => state.names.get(chars.name) == *name,
         Filter::IsToken => obj.card.is_none(),
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
@@ -215,6 +218,9 @@ pub fn amount(
         // The magnitude, like every other arm here: the sign is
         // `Amount::is_negative`'s question and no caller of this reads one.
         Amount::Negated(inner) => self::amount(inner, state, you, this, x),
+        Amount::Plus { base, offset } => {
+            self::amount(base, state, you, this, x).saturating_add(*offset)
+        }
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
             x.unwrap_or(0)

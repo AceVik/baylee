@@ -98,3 +98,47 @@ fn every_negated_amount_in_the_pool_sits_in_a_field_that_reads_the_sign() {
         unread.join("\n")
     );
 }
+
+/// `Amount::Plus` offsets a **magnitude**, and the pool may not hand it a
+/// negative one.
+///
+/// `eval::amount` adds the offset to whatever the base evaluates to, and the
+/// base evaluates to a magnitude — `Negated` answers its own magnitude and
+/// leaves the sign to `Amount::is_negative`, which reads `Plus` as positive
+/// because that is what the addition computes. So `Plus { base: Negated(n),
+/// offset: 3 }` would resolve as `n + 3` upwards, where a card printing it
+/// would mean `3 − n`. Neither reading is worth guessing at, so the
+/// combination is refused here rather than given a meaning no printing asked
+/// for: the day a card needs it, the arithmetic is the commit and this test
+/// is the sentence that has to change.
+///
+/// Read off `Debug` for the same reason the sweep above is — a match table
+/// over `Effect` goes blind on a variant and reports nothing — and floored
+/// for the same reason, because a sweep finding no `Plus` at all would pass
+/// without having read the pool.
+#[test]
+fn no_amount_in_the_pool_offsets_a_negative() {
+    let mut offenders = Vec::new();
+    let mut seen = 0_usize;
+    for def in baylee_cards::all() {
+        let text = format!("{def:?}");
+        seen += text.matches("Plus {").count();
+        let negated = text.matches("Plus { base: Negated(").count()
+            + text.matches("Plus { base: NegX").count();
+        if negated > 0 {
+            offenders.push(format!("{}: {negated}", def.name()));
+        }
+    }
+    assert!(
+        seen >= 1,
+        "no `Amount::Plus` found in the whole pool — Muscle Burst writes one, \
+         so this reader has gone blind and an empty sweep proves nothing"
+    );
+    assert!(
+        offenders.is_empty(),
+        "{} card(s) add a constant to a negative amount, which resolves \
+         upwards by the magnitude:\n{}",
+        offenders.len(),
+        offenders.join("\n")
+    );
+}

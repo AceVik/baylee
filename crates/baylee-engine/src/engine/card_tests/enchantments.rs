@@ -1965,3 +1965,325 @@ fn legions_landing_makes_no_vampire_because_the_pool_has_no_such_token() {
          delete this the day `crate::tokens` has one"
     );
 }
+
+/// Rancor: the whole card, which is three sentences and a return trip.
+///
+/// The Aura is cast on a creature, the creature is +2/+0 with trample, and
+/// when the Aura goes to the graveyard it comes back to its owner's hand —
+/// the last of which is what makes this the card it is, and the only way to
+/// see it is to kill the host.
+#[test]
+fn rancor_pumps_its_host_and_comes_back_when_it_dies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(397, forest())
+        .battlefield(0, &[forest(), llanowar_elves()])
+        .hand(0, &[rancor()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    cast_from_hand(&mut engine, p0, rancor());
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal host");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, elf), (3, 1), "a 1/1 with +2/+0 is a 3/1");
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "and it tramples"
+    );
+
+    // The host leaves, so the Aura is put into the graveyard (CR 704.5m) and
+    // its own trigger sends it home.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, swords_to_plowshares());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is a legal target");
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the removal and the Aura's trigger both resolve"
+    );
+
+    assert!(
+        in_hand(&engine, p0, rancor()).is_some(),
+        "the Aura went to the graveyard and its trigger returned it to hand"
+    );
+    assert!(
+        in_graveyard(&engine, p0, rancor()).is_none(),
+        "so it is not lying in the graveyard"
+    );
+}
+
+/// Fastbond: "any number of lands", which is the half the card claims.
+///
+/// `Modifier::ExtraLandDrops(u8::MAX)` is the whole expressible sentence; the
+/// damage trigger is refused by name for want of a "you play a land" event.
+/// Three lands in one turn is what separates it from Aesi's single extra
+/// drop, and from no Fastbond at all.
+#[test]
+fn fastbond_plays_three_lands_in_one_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(398, forest())
+        .battlefield(0, &[fastbond()])
+        .hand(0, &[forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    for nth in 1..=3 {
+        let card = in_hand(&engine, p0, forest()).expect("a Forest is in hand");
+        engine
+            .apply(p0, PlayerAction::PlayLand { card })
+            .unwrap_or_else(|err| panic!("land drop {nth} was refused: {err:?}"));
+        pass_until(&mut engine, stack_is_empty);
+    }
+
+    let lands = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.characteristics().types.intersects(TypeSet::LAND))
+        })
+        .count();
+    assert_eq!(
+        lands, 3,
+        "three land drops in one turn, and no damage taken"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "the printed \"deals 1 damage to you\" is refused by name, so nothing \
+         charged for the second and third"
+    );
+}
+
+/// Mirri's Guile: the upkeep question, and the library it leaves alone.
+///
+/// "You may look at the top three cards of your library, then put them back
+/// in any order" moves no card between zones, so the only thing a game can
+/// observe is that the question is asked and that answering it changes no
+/// count — which is exactly what `Effect::ReorderTopLibrary` promises.
+#[test]
+fn mirri_s_guile_asks_at_upkeep_and_moves_no_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(399, forest())
+        .battlefield(0, &[mirri_s_guile()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let before = library_size(&engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the reorder is answered on the way"
+    );
+
+    assert_eq!(
+        library_size(&engine, p0),
+        before,
+        "three cards were looked at and put back, so the library is the size \
+         it was"
+    );
+}
+
+/// Arguel's Blood Fast: "{1}{B}, Pay 2 life: Draw a card."
+///
+/// The transform trigger and the back face's sacrifice ability are refused by
+/// name; the draw is the card's front half and charges in two currencies at
+/// once, which is what the assertion has to read.
+#[test]
+fn arguel_s_blood_fast_charges_two_life_for_its_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(400, forest())
+        .battlefield(0, &[arguel_s_blood_fast(), swamp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = library_size(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, arguel_s_blood_fast(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(library_size(&engine, p0), before - 1, "one card drawn");
+    assert_eq!(
+        engine.state().players[0].life,
+        18,
+        "and two life paid for it"
+    );
+}
+
+/// Steely Resolve: the type is chosen as it enters, and only that type is
+/// untargetable.
+///
+/// `EnterModifier::ChooseSubtype` plus a filter that reads the choice is the
+/// whole card, and the pair is only proved by a board with a creature of the
+/// chosen type and one of another: the Elf gains shroud and the Beast beside
+/// it does not.
+#[test]
+fn steely_resolve_shrouds_only_the_type_it_was_given() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(401, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), llanowar_elves(), rootbreaker_wurm()],
+        )
+        .hand(0, &[steely_resolve()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the Wurm is seated");
+    cast_from_hand(&mut engine, p0, steely_resolve());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseSubtype { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::creature::ELF),
+        )
+        .expect("Elf is a creature type");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::SHROUD),
+        "the Elf is of the chosen type"
+    );
+    assert!(
+        !keywords(&engine, wurm).contains(KeywordSet::SHROUD),
+        "and the Wurm is not, so the choice is read rather than ignored"
+    );
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&wurm) && !options.contains(&elf),
+        "shroud is what the offer reads, not a keyword nobody asks about: \
+         {options:?}"
+    );
+}
+
+/// Sterling Grove: the tutor puts the card **on top**, and the enchantments
+/// beside it are untargetable.
+///
+/// Both halves are on one board because the second is what the first costs:
+/// the Grove sacrifices itself, so the shroud it was granting goes with it.
+#[test]
+fn sterling_grove_shrouds_its_neighbours_and_tutors_to_the_top() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(402, forest())
+        // Fastbond and not an Aura: an Aura seated with no host is put into
+        // the graveyard by state-based actions (CR 704.5m) before anything
+        // can be asked about it.
+        .battlefield(0, &[sterling_grove(), fastbond(), forest()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let neighbour =
+        on_battlefield(&engine, p0, fastbond()).expect("the other enchantment is there");
+    assert!(
+        keywords(&engine, neighbour).contains(KeywordSet::SHROUD),
+        "\"Other enchantments you control have shroud\""
+    );
+    let grove = on_battlefield(&engine, p0, sterling_grove()).expect("the Grove is there");
+    assert!(
+        !keywords(&engine, grove).contains(KeywordSet::SHROUD),
+        "and \"other\" leaves the Grove itself out"
+    );
+
+    let before = library_size(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, sterling_grove(), 1);
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the search is answered on the way"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        before,
+        "the tutored card goes on top of the library rather than out of it"
+    );
+    assert!(
+        on_battlefield(&engine, p0, sterling_grove()).is_none(),
+        "and the Grove sacrificed itself to do it"
+    );
+    let _ = p1;
+}
+
+/// Sylvan Library: the two extra cards, which is the half the card claims.
+///
+/// The put-back-or-pay-4-life rider is refused by name, so what is left is a
+/// draw step that draws three instead of one — and the `MayDo` in front of it
+/// is what makes the assertion a decision rather than a side effect.
+#[test]
+fn sylvan_library_draws_two_more_at_the_draw_step() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(403, forest())
+        .battlefield(0, &[sylvan_library()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the trigger resolves"
+    );
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 2,
+        "two additional cards, on top of whatever the draw step itself drew"
+    );
+    assert!(
+        library_size(&engine, p0) <= before - 2,
+        "and they came off the library"
+    );
+}

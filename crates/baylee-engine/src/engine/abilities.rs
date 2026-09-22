@@ -681,7 +681,26 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_) => {
-                    if cost_wizard::options(&self.state, player, source, part).is_empty() {
+                    // **As many candidates as the cost asks questions.** A
+                    // cost may print the same one more than once — Time
+                    // Sieve's "Sacrifice five artifacts" is five
+                    // `CostPart::Sacrifice` parts, one permanent and one
+                    // question each — and each answer is a *different*
+                    // permanent, because `cost_wizard` takes what was chosen
+                    // out of the list before it asks again. Asking each
+                    // occurrence whether the list is non-empty said yes to
+                    // five sacrifices with one artifact on the table, and the
+                    // payment then refused the second: the engine offered a
+                    // thing and took it back, which is exactly the
+                    // contradiction `offer_tests` exists to catch.
+                    //
+                    // Parts that are *equal* are counted, not parts of the
+                    // same kind: two `Sacrifice` parts over different filters
+                    // are two questions with two lists, and the overlap
+                    // between them is a matching problem this does not
+                    // pretend to solve. Nothing in the pool prints one.
+                    let asked = cost.parts.iter().filter(|other| *other == part).count();
+                    if cost_wizard::options(&self.state, player, source, part).len() < asked {
                         return false;
                     }
                 }

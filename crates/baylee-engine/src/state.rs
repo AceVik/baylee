@@ -2333,6 +2333,13 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(24);
             h.u8(*z as u8);
         }
+        // Length-prefixed, so `Named("a") + Named("bc")` inside an `And`
+        // cannot hash as `Named("ab") + Named("c")`.
+        F::Named(name) => {
+            h.u8(29);
+            h.u32(u32::try_from(name.len()).unwrap_or(u32::MAX));
+            h.bytes(name.as_bytes());
+        }
     }
 }
 

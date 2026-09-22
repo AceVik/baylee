@@ -720,6 +720,17 @@ impl<L: CardLookup> Engine<L> {
                         obj.base_mut().subtypes.insert(subtype);
                     }
                 }
+                // The choice is an input to the *layer system*, not only to
+                // this object: `Filter::MatchesChosenTypeOfSource` reads it,
+                // so Steely Resolve's "creatures of the chosen type have
+                // shroud" matches a different set of permanents the instant
+                // the type is named. The generation compare that guards the
+                // refresh tracks the effect **table**, which did not change
+                // here — the static was registered when the enchantment
+                // entered, one question earlier — so without this every
+                // creature on the board keeps the projection it had before
+                // anybody chose, and the card does nothing at all.
+                self.state.invalidate_projections();
                 Ok(())
             }
             // Two questions wear one `Pending`. This arm is the entering

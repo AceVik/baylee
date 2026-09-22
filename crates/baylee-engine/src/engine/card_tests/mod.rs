@@ -167,6 +167,102 @@ fn rootbreaker_wurm() -> CardIndex {
     card_index("d3edbb47-6892-4853-badc-cc01499d4e55")
 }
 
+fn muscle_burst() -> CardIndex {
+    card_index("97487ea5-2bbd-4ef6-a870-7e9f2db5e5e0")
+}
+
+fn time_sieve() -> CardIndex {
+    card_index("3da5977a-36d4-4f32-ab9b-8b93809d818d")
+}
+
+fn shaleskin_bruiser() -> CardIndex {
+    card_index("b90e370a-5080-485e-a957-93d5f60e6cdb")
+}
+
+fn sphinx_of_the_final_word() -> CardIndex {
+    card_index("d4246e4d-390d-4925-a5a8-89cd096a237c")
+}
+
+fn tyrranax_rex() -> CardIndex {
+    card_index("6e42da0c-151e-468d-91cb-5a5b117a9298")
+}
+
+fn maelstrom_wanderer() -> CardIndex {
+    card_index("ad9b7fbc-61c8-43ee-a65c-99206fd1e4df")
+}
+
+fn rancor() -> CardIndex {
+    card_index("9d2d6479-531c-4ce1-b52b-00e36fa63b64")
+}
+
+fn fastbond() -> CardIndex {
+    card_index("e27193b7-1a47-4555-865d-b1fd4c6d597f")
+}
+
+fn mirri_s_guile() -> CardIndex {
+    card_index("7f89c0ee-b914-406c-8a3f-98424a52ae14")
+}
+
+fn arguel_s_blood_fast() -> CardIndex {
+    card_index("be2a4bc4-8af6-48c5-9421-32d26272e71a")
+}
+
+fn steely_resolve() -> CardIndex {
+    card_index("48c127f0-2857-4c36-97bc-1291b6fe4a82")
+}
+
+fn sterling_grove() -> CardIndex {
+    card_index("2c275a85-5a15-46cd-a6e7-add63f9b853d")
+}
+
+fn sylvan_library() -> CardIndex {
+    card_index("92eed395-62ca-4293-882b-8565c40daab5")
+}
+
+fn oboro_envoy() -> CardIndex {
+    card_index("be70c6e8-6f9f-49fb-ab40-c6ce0ec2077c")
+}
+
+fn thrun_the_last_troll() -> CardIndex {
+    card_index("1149e5ac-554a-41b1-84ae-bac42579c1aa")
+}
+
+fn world_shaper() -> CardIndex {
+    card_index("3c075bb6-1831-4521-bd8d-4ed2825ae796")
+}
+
+fn ashaya_soul_of_the_wild() -> CardIndex {
+    card_index("162572f2-1757-42e9-bd97-e6bd9a762c0e")
+}
+
+fn thrun_breaker_of_silence() -> CardIndex {
+    card_index("789b7af5-ac15-40b6-b5b7-f3fcdcfb52e1")
+}
+
+fn aesi_tyrant_of_gyre_strait() -> CardIndex {
+    card_index("6511f317-bd38-46d0-b800-7125a3f420da")
+}
+
+fn disciple_of_freyalise() -> CardIndex {
+    card_index("2699005b-a471-429f-a9d8-fbf2077ee2fd")
+}
+
+fn lumra_bellow_of_the_woods() -> CardIndex {
+    card_index("97a84e9d-bfc4-4ca2-b1e8-908dba56ccdb")
+}
+
+fn muldrotha_the_gravetide() -> CardIndex {
+    card_index("e4625704-1d52-44e4-804f-2f45644d76ac")
+}
+
+fn primeval_titan() -> CardIndex {
+    card_index("ae83ef2c-960f-4c5b-97cc-52465c687c18")
+}
+
+fn drowner_of_truth() -> CardIndex {
+    card_index("db19a27a-ee22-4931-ae3c-0ce21f456ea6")
+}
+
 fn irradiate() -> CardIndex {
     card_index("84d45389-a085-44bc-a3fb-1a5f7cc6cbe0")
 }

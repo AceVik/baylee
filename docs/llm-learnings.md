@@ -1417,3 +1417,40 @@ the counter bound and pay the mana with it. No cost in the pool does, and
 `lints::no_cost_announces_two_different_xs` is the guard that fails with the
 card's name the day one prints both — the sibling of the lint that already
 holds the announcement's *order* against the storage lands.
+
+## Round M, 22.09.2026 — sixteen stubs at the cheap lane, and two came back
+
+The Gemini quota was spent for three hours, so the test debt went to the
+coordinator by hand and the DeepSeek lane was pointed at the *stub residue*
+instead: sixteen of the 68 cards the transcoder could not write, picked by
+reading their printed text for sentences the DSL looks able to say.
+
+**Two came back as cards and fourteen as named refusals**, which is the
+expected shape for this population and the reason the batch was worth
+sending anyway: a refusal here is a sentence about the DSL, and fourteen of
+them cost a few cents. Time Sieve is written in full — "{T}, Sacrifice five
+artifacts" is five `CostPart::Sacrifice` parts, one permanent and one
+question each. The refusals name real gaps, and three of them are one rule
+apiece: an `Amount` for the greatest mana value among a filter (Accelerated
+Mutation), an `Amount` reading the *target's* toughness with a branch on it
+(Blood Lust), and a `Modifier` that reduces activation costs with a floor of
+one mana (Training Grounds).
+
+### Dropping a **cost** is not a `Partial`
+
+Crop Rotation came back `Coverage::Partial`, with the printed additional
+cost — "sacrifice a land" — refused by name in a comment and the search
+written in full. That was rejected and the file put back to its stub.
+
+The rule the lane had no way to know, and that the authoring contract now
+has to say: `Partial` is for a clause whose absence makes the card **weaker**
+— a missing ability is an ability the player does not get. A missing *cost*
+makes the card **stronger** than the printing, and a one-mana instant that
+tutors a land onto the battlefield for free is a different and better card
+than the one Wizards printed. There is no honest partial version of that, so
+the coverage is `Unimplemented` and the card stays a stub.
+
+This card is the one the repo had already learnt it on:
+`instants::crop_rotation_is_a_stub_until_a_spell_can_charge_more_than_mana`
+is a pinned limitation that says so, and it is what caught the regression —
+a played test would have passed, because the card *does* find a land.

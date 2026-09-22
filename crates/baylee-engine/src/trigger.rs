@@ -201,24 +201,45 @@ static PROWESS_PUMP: &[baylee_cards_dsl::Effect] =
 /// first target).
 static WARD_COUNTER: baylee_cards_dsl::Effect =
     baylee_cards_dsl::Effect::CounterTargetSpellOrAbility;
-static WARD2_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
-    &[baylee_cards_dsl::Effect::PlayerMayPayOr {
+const fn ward_pay_or_counter(n: u32) -> [baylee_cards_dsl::Effect; 1] {
+    [baylee_cards_dsl::Effect::PlayerMayPayOr {
         player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
-        mana: baylee_cards_dsl::Amount::Fixed(2),
+        mana: baylee_cards_dsl::Amount::Fixed(n),
         effect: &WARD_COUNTER,
-    }];
-static WARD1_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
-    &[baylee_cards_dsl::Effect::PlayerMayPayOr {
-        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
-        mana: baylee_cards_dsl::Amount::Fixed(1),
-        effect: &WARD_COUNTER,
-    }];
-static WARD3_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
-    &[baylee_cards_dsl::Effect::PlayerMayPayOr {
-        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
-        mana: baylee_cards_dsl::Amount::Fixed(3),
-        effect: &WARD_COUNTER,
-    }];
+    }]
+}
+
+/// One synthetic effect list per generic ward cost, **indexed by the cost**.
+///
+/// It was three hand-written statics for ward {1}, {2} and {3}, with anything
+/// else falling through a `continue` — and Tyrranax Rex prints ward {4}, so
+/// the card sat there `Coverage::Partial` about its toxic and silently
+/// carrying no ward at all. A table indexed by the number cannot go one
+/// short the next time a set prints a bigger one, and the ceiling is still a
+/// refusal rather than a guess: a cost above this is skipped, exactly as a
+/// *coloured* ward is, because `Amount::Fixed` says generic mana and nothing
+/// else.
+static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
+    ward_pay_or_counter(0),
+    ward_pay_or_counter(1),
+    ward_pay_or_counter(2),
+    ward_pay_or_counter(3),
+    ward_pay_or_counter(4),
+    ward_pay_or_counter(5),
+    ward_pay_or_counter(6),
+    ward_pay_or_counter(7),
+    ward_pay_or_counter(8),
+    ward_pay_or_counter(9),
+    ward_pay_or_counter(10),
+];
+
+/// The largest generic ward cost [`WARD_PAY_OR_COUNTER`] can charge.
+///
+/// Read by `keyword_tests::every_ward_in_the_pool_is_one_the_engine_charges`,
+/// which is what turns "the table is long enough" from a thing somebody
+/// remembers into a build failure the day a set prints a bigger one.
+#[cfg(test)]
+pub(crate) const WARD_CEILING: usize = WARD_PAY_OR_COUNTER.len() - 1;
 
 /// The object an event is about, if any.
 fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
@@ -347,13 +368,11 @@ fn collect_for_objects(
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
-            let Some(synthetic) = (match mana {
-                1 => Some(WARD1_PAY_OR_COUNTER),
-                2 => Some(WARD2_PAY_OR_COUNTER),
-                3 => Some(WARD3_PAY_OR_COUNTER),
-                _ => None,
-            }) else {
-                continue; // unsupported ward cost (colored/generic>3)
+            let Some(synthetic) = WARD_PAY_OR_COUNTER
+                .get(usize::from(*mana))
+                .map(|effects| &effects[..])
+            else {
+                continue; // a ward cost past the table's ceiling
             };
             for entry in events {
                 let (target_obj, caster) = match &entry.event {

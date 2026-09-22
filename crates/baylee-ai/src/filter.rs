@@ -122,6 +122,11 @@ impl HeuristicAgent {
             Filter::HasColor(c) => Some(object.colors.intersects(*c)),
             Filter::IsColorless => Some(object.colors.is_colorless()),
             Filter::Monocolored => Some(object.colors.len() == 1),
+            // CR 201.2 reads the name an object has now, which is what the
+            // view already projects: a clone answers with what it copied,
+            // and a face-down permanent has no name to answer with
+            // (CR 708.2) rather than a name this seat may not see.
+            Filter::Named(name) => Some(object.name == *name),
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a
             // registry token never carries one.

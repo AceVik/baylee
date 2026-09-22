@@ -61,6 +61,24 @@ action made for it. An action is therefore an ordinary re-entry into the
 machine rather than an exception to it, which is the property the three
 failures above all came from lacking.
 
+A projection reads the *board*, and there are two ways for it to read a
+stale one. `recompute_with` walks **one object through all the layers**, so
+while it runs, that object's cached characteristics are still the previous
+projection — and a modifier that counts permanents (`ModifyPTPerCount`) used
+to read its own source off that cache. Ashaya, Soul of the Wild makes your
+nontoken creatures into lands at layer 4 and is then as big as the lands you
+control at 7c, so it has to count itself: it came down one short. The object
+under projection is now matched against the in-progress characteristics
+(`eval::matches_projected`), which is what CR 613.1 says; every other object
+is read from its own finished projection. The other way is the generation
+compare itself: it watches the effect **table**, so an input the filters read
+that is *not* an effect leaves every projection stale. Naming a creature type
+is one — Steely Resolve's static is registered as the enchantment enters and
+the type is chosen one question later — so `ChooseSubtype` calls
+`GameState::invalidate_projections`, as anything writing a counter already
+does. `card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
+is the guard for both: a recompute may not disagree with the cache.
+
 Layer 2 is not cached separately: the refresh writes the projected
 controller straight into `GameObject::controller`, so every rule that asks
 "who controls this" reads one field and none of them has to know that

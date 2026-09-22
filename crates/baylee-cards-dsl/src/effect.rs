@@ -219,6 +219,23 @@ pub enum Amount {
         /// Where to count.
         zone: ZoneSel,
     },
+    /// Another amount with a constant added to it: Muscle Burst's "3 plus
+    /// the number of cards named Muscle Burst in all graveyards".
+    ///
+    /// A wrapper for the same reason [`Self::Negated`] is one — the offset
+    /// is said once instead of doubling every counting amount there is — and
+    /// it saturates rather than wraps, because a count is a count.
+    ///
+    /// The base is a **magnitude**: [`Self::is_negative`] reads a `Plus` as
+    /// positive, because that is what the addition computes, and
+    /// `amount_sign_tests::no_amount_in_the_pool_offsets_a_negative` is what
+    /// keeps a negative base out rather than letting it resolve upwards.
+    Plus {
+        /// The amount being offset.
+        base: &'static Amount,
+        /// What is added to it.
+        offset: u32,
+    },
     /// The negation of another amount: "-1/-1 for each artifact you control"
     /// (Irradiate).
     ///

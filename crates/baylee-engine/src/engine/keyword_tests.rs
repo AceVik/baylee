@@ -918,3 +918,50 @@ fn no_card_mentions_a_keyword_the_engine_ignores() {
          sweep is reading no further than `all_keywords` already did"
     );
 }
+
+/// Every ward in the pool is one the engine can actually charge.
+///
+/// `AbilityDef::Ward { mana }` is served out of a table indexed by the cost,
+/// and a cost past its end is skipped — silently, because the skip is a
+/// `continue` in a trigger collector and nothing downstream knows a ward was
+/// meant to be there. Tyrranax Rex printed ward {4} against a table that
+/// stopped at {3} and was `Coverage::Partial` about its toxic alone: a card
+/// that claimed a keyword no rule read, which is the fault this file exists
+/// for.
+///
+/// The floor is the other half. A sweep that found no ward at all would pass
+/// on an empty answer, and the pool prints several.
+#[test]
+fn every_ward_in_the_pool_is_one_the_engine_charges() {
+    let mut seen = 0_usize;
+    let mut past = Vec::new();
+    for def in baylee_cards::all() {
+        for ability in def
+            .abilities
+            .iter()
+            .chain(def.faces.iter().flat_map(|face| face.abilities.iter()))
+        {
+            let baylee_cards_dsl::AbilityDef::Ward { mana } = ability else {
+                continue;
+            };
+            seen += 1;
+            if usize::from(*mana) > crate::trigger::WARD_CEILING {
+                past.push(format!("{}: ward {{{mana}}}", def.name()));
+            }
+        }
+    }
+    assert!(
+        seen >= 4,
+        "only {seen} ward abilities found in the whole pool — Twining Twins, \
+         Roaming Throne, Storm of Saruman and Tyrranax Rex print one each, so \
+         this reader has gone blind"
+    );
+    assert!(
+        past.is_empty(),
+        "{} card(s) print a ward cost past the table's ceiling of {{{}}}, so \
+         the keyword is on the card and no trigger charges for it:\n{}",
+        past.len(),
+        crate::trigger::WARD_CEILING,
+        past.join("\n")
+    );
+}

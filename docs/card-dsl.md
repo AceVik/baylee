@@ -763,8 +763,16 @@ opponent and no choice at all — is a different card.
 `IsColorless`, `Monocolored`, `IsToken`, `ControlledByYou`,
 `ControlledByOpponent`, `OwnedByYou`, `Tapped`, `Untapped`, `Attacking`,
 `HasKeyword`, `CmcAtMost`, `CmcAtLeast`, `MatchesChosenTypeOfSource`
-(Roaming Throne & co.), `InZone(ZoneRef)` (incl. `NotBattlefield` for
-cross-zone effects).
+(Roaming Throne & co.), `Named(&str)`, `InZone(ZoneRef)` (incl.
+`NotBattlefield` for cross-zone effects).
+
+`Named` is the one filter that carries a **name** rather than a handle, and
+it carries a `&'static str` on purpose: CR 201.2 compares what an object is
+*called*, so a clone, a face-down permanent turned face up and a card a
+text-changing effect has renamed all answer by the name they carry now — a
+`CardIndex` would answer by the card they were printed as.
+`docs/card-identity.md` is normative on which handle may be stored where,
+and a name is the one that may not be.
 
 **Write them with `f!`, adjectives then noun.**
 
@@ -1071,6 +1079,24 @@ the Time Spiral storage lands print "Add X mana in any combination of {W}
 and/or {U}", where X is what their own `RemoveCounterSelfX` announced, and
 `resolve::mana::add_mana` splits whatever the amount evaluates to into that
 many picks of one.
+
+An amount with a **constant in front of it** is `Amount::Plus`, wrapping the
+amount it offsets — Muscle Burst's "3 plus the number of cards named Muscle
+Burst in all graveyards":
+
+```rust
+static COPIES: Amount = Amount::Plus {
+    base: &Amount::CountOf {
+        filter: &Filter::Named("Muscle Burst"),
+        zone: ZoneSel::GraveyardAll,
+    },
+    offset: 3,
+};
+```
+
+It saturates rather than wraps, because a count is a count. It is a wrapper
+for the same reason the next one is: the offset is said once instead of
+doubling every counting amount there is.
 
 An amount that counts **downwards** is `Amount::Negated`, wrapping the amount
 it negates:

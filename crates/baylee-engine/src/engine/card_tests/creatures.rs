@@ -14459,3 +14459,685 @@ fn spirit_of_the_labyrinth_lets_a_draw_two_draw_one() {
     );
     assert_eq!(engine.state().per_turn.draws[0], 1);
 }
+
+// ---------------------------------------------------------------------------
+// c11: eleven cards written by the DeepSeek lane, played here by the
+// coordinator. The cross rule (scripts/llm/README.md) puts the test in
+// another hand than the card, and with the Gemini lane's quota spent for the
+// next three hours that hand is this one.
+// ---------------------------------------------------------------------------
+
+/// Oboro Envoy: the shrink is read **after** the land it charges has landed
+/// in the hand it counts.
+///
+/// "…gets -X/-0 until end of turn, where X is the number of cards in your
+/// hand" with a cost of "return a land you control to its owner's hand" is a
+/// sentence that answers itself: the returned land is in the hand by the time
+/// the ability resolves, because a cost is paid on activation (CR 601.2h) and
+/// the amount is read on resolution (CR 608.2f). Two cards in hand plus the
+/// land is three, so the wurm is a 3/6 — a reader counting the hand at
+/// announcement would leave it a 4/6.
+#[test]
+fn oboro_envoy_counts_the_land_it_returned_to_pay_for_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(381, forest())
+        .battlefield(0, &[forest(), forest(), forest(), oboro_envoy()])
+        .hand(0, &[island(), island()])
+        .battlefield(1, &[rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("the wurm is seated");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        2,
+        "two cards in hand before the ability is paid for"
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, oboro_envoy(), 0);
+    // The cost picks the land, then the ability picks its target.
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the driver answered every question the card asked"
+    );
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        3,
+        "the returned land is the third card in hand"
+    );
+    assert_eq!(
+        pt(&engine, wurm),
+        (3, 6),
+        "three cards in hand is -3/-0 on a 6/6, and toughness is untouched"
+    );
+}
+
+/// Thrun, the Last Troll: "this spell can't be countered", read the way this
+/// engine reads it — the counterspell is never castable at all.
+///
+/// `eval::target_options` leaves an uncounterable spell out of
+/// `TargetSpec::Spell`, so a Counterspell with nothing else on the stack has
+/// no legal target and is not offered. That is a *negative*, so the same
+/// hand casts the same Counterspell at an ordinary creature spell one step
+/// earlier and is offered it: the difference between the two offers is the
+/// keyword, and nothing about the board or the mana.
+#[test]
+fn thrun_the_last_troll_leaves_a_counterspell_no_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(382, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[llanowar_elves(), thrun_the_last_troll()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let counter = in_hand(&engine, p1, counterspell()).expect("the counterspell is in hand");
+    tap_all_mana(&mut engine, p0);
+
+    // The control: an ordinary creature spell, and the counterspell is there.
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&counter),
+        "an ordinary creature spell is a target, so the mana and the hand are \
+         not the reason for what happens below"
+    );
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    // The subject: the same counterspell, the same floating mana, a spell
+    // that can't be countered.
+    cast_with_floating(&mut engine, p0, thrun_the_last_troll());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&counter),
+        "the troll can't be countered, so the counterspell has no legal \
+         target and is not offered: {:?}",
+        legal.castable
+    );
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, thrun_the_last_troll()).is_some(),
+        "and the troll arrived"
+    );
+}
+
+/// Thrun, Breaker of Silence: the same keyword on a second card, and the
+/// trample the first one does not print.
+///
+/// The control for the negative half is the test above, on the other Thrun;
+/// what is new here is that the permanent that arrives carries **both**
+/// printed keywords, which is the part a `Coverage::Partial` on the two
+/// unexpressible clauses says nothing about.
+#[test]
+fn thrun_breaker_of_silence_arrives_with_trample_and_no_counterspell_to_stop_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(383, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .hand(0, &[thrun_breaker_of_silence()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let counter = in_hand(&engine, p1, counterspell()).expect("the counterspell is in hand");
+    cast_from_hand(&mut engine, p0, thrun_breaker_of_silence());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&counter),
+        "nothing on the stack may be countered"
+    );
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let thrun = on_battlefield(&engine, p0, thrun_breaker_of_silence()).expect("the troll arrived");
+    assert!(
+        keywords(&engine, thrun).contains(KeywordSet::TRAMPLE),
+        "and it tramples, which is the half of the printing that is not the \
+         reason it got here"
+    );
+    assert_eq!(pt(&engine, thrun), (5, 5), "a 5/5 as printed");
+}
+
+/// Ashaya, Soul of the Wild: the type change feeds the count that sizes it.
+///
+/// Both halves are one board. "Nontoken creatures you control are Forest
+/// lands" makes Ashaya and the Elf beside it lands, and "power and toughness
+/// each equal to the number of lands you control" then counts five: three
+/// Forests, the Elf, and Ashaya itself. A reader applying the count before
+/// the type change — or one that exempted the source from its own static —
+/// would say three.
+#[test]
+fn ashaya_counts_the_creatures_its_own_static_made_into_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(384, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+                ashaya_soul_of_the_wild(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ashaya = on_battlefield(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    assert!(
+        engine
+            .state()
+            .object(elf)
+            .expect("the Elf is still there")
+            .characteristics()
+            .types
+            .intersects(TypeSet::LAND),
+        "the Elf is a land in addition to its other types"
+    );
+    assert_eq!(
+        pt(&engine, ashaya),
+        (5, 5),
+        "three Forests, the Elf and Ashaya itself are five lands, on a 0/0 body"
+    );
+}
+
+/// Aesi, Tyrant of Gyre Strait: the extra land drop and the landfall draw,
+/// which only a turn that plays two lands can tell apart.
+///
+/// The second land is the one that proves `ExtraLandDrops(1)` — CR 305.2
+/// allows one a turn — and each of the two asks the "you may draw a card"
+/// question, so the hand is down two lands and up two draws.
+#[test]
+fn aesi_plays_a_second_land_and_draws_off_each_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(385, forest())
+        .battlefield(0, &[aesi_tyrant_of_gyre_strait()])
+        .hand(0, &[forest(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = library_size(&engine, p0);
+    for land in [forest(), island()] {
+        let card = in_hand(&engine, p0, land).expect("the land is in hand");
+        engine
+            .apply(p0, PlayerAction::PlayLand { card })
+            .expect("the land drop is allowed");
+        pass_until(&mut engine, stack_is_empty);
+    }
+
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter(|id| engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.characteristics().types.intersects(TypeSet::LAND)))
+            .count(),
+        2,
+        "both lands are on the battlefield, so the second drop was allowed"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        before - 2,
+        "and landfall drew a card for each of them"
+    );
+}
+
+/// Lumra, Bellow of the Woods: the enter trigger mills four, and the body is
+/// the lands you control.
+///
+/// The mill is the expressible half of a trigger whose second sentence the
+/// card refuses by name, and the P/T is the count — four Forests, so a 4/4 on
+/// a 0/0 printed body.
+#[test]
+fn lumra_mills_four_on_arrival_and_is_as_big_as_your_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(386, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[lumra_bellow_of_the_woods()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = library_size(&engine, p0);
+    cast_from_hand(&mut engine, p0, lumra_bellow_of_the_woods());
+    pass_until(&mut engine, stack_is_empty);
+
+    let lumra = on_battlefield(&engine, p0, lumra_bellow_of_the_woods()).expect("Lumra arrived");
+    assert_eq!(
+        library_size(&engine, p0),
+        before - 4,
+        "four cards milled off the top"
+    );
+    assert_eq!(
+        pt(&engine, lumra),
+        (6, 6),
+        "six Forests on a 0/0 printed body"
+    );
+}
+
+/// Muldrotha, the Gravetide: the land half of the sentence, which is the half
+/// the card claims.
+///
+/// `Modifier::PlayLandsFromGraveyard` is a permission and nothing else, so
+/// the test is that a land in the graveyard is playable — and that it is
+/// still the one land drop a turn allows, which is what separates this from
+/// Aesi above.
+#[test]
+fn muldrotha_lets_you_play_a_land_out_of_your_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(387, forest())
+        .battlefield(0, &[muldrotha_the_gravetide()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    // The library filler is a Forest, so the graveyard is one land.
+    seed_graveyard(&mut engine, p0, 1);
+
+    let land = engine.state().zones.list(ZoneLocation::Graveyard(p0))[0];
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: land })
+        .expect("Muldrotha permits the land drop out of the graveyard");
+    assert_eq!(
+        engine
+            .state()
+            .object(land)
+            .expect("the land is still an object")
+            .zone,
+        Zone::Battlefield,
+        "and the land is on the battlefield rather than back in the graveyard"
+    );
+}
+
+/// Primeval Titan: the enter trigger finds two lands and they arrive tapped.
+///
+/// "…put them onto the battlefield tapped" is the half a search that found
+/// the cards would still get wrong, and `Find::BATTLEFIELD_TAPPED` twice is
+/// what the card writes for it.
+#[test]
+fn primeval_titan_fetches_two_lands_and_both_arrive_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(388, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[primeval_titan()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = library_size(&engine, p0);
+    let seated: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Battlefield).clone();
+    cast_from_hand(&mut engine, p0, primeval_titan());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, max, .. } = engine.pending().clone() else {
+        unreachable!("pass_until only stops on the search")
+    };
+    assert_eq!(
+        max, 2,
+        "\"up to two land cards\" is the offer the card makes"
+    );
+    let found: Vec<ObjectId> = options.into_iter().take(2).collect();
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: found })
+        .expect("two lands are a legal answer");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        before - 2,
+        "two land cards left the library"
+    );
+    // The six Forests the board started with were tapped for the Titan's own
+    // cost, so "tapped" alone says nothing: what is asked is the two objects
+    // that were not on the battlefield before.
+    let arrived: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| !seated.contains(id))
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.characteristics().types.intersects(TypeSet::LAND))
+        })
+        .collect();
+    assert_eq!(arrived.len(), 2, "two lands arrived from the library");
+    assert!(
+        arrived.iter().all(|id| is_tapped(&engine, *id)),
+        "and both of them arrived tapped"
+    );
+}
+
+/// Disciple of Freyalise, played as its back face: the land pays 3 life to
+/// arrive untapped and then makes green.
+///
+/// The front face's enter trigger is off the card by name, so the back is
+/// where this printing is testable at all — and it is the shape a modal
+/// double-faced land carries: `EnterModifier::TappedOrPayLife(3)` asks, and
+/// the answer decides whether the mana is available this turn.
+#[test]
+fn garden_of_freyalise_pays_three_life_to_arrive_untapped() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) =
+        play_land_face(disciple_of_freyalise(), 1).expect("the back face is a land");
+    if matches!(engine.pending(), Pending::YesNo { .. }) {
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    }
+
+    assert!(
+        !is_tapped(&engine, land),
+        "3 life was paid, so it entered untapped"
+    );
+    assert_eq!(engine.state().players[0].life, 17, "and the 3 life is gone");
+    // A *printed* mana ability is enumerated into `LegalActions::abilities`
+    // like any other activated ability; `mana_abilities` is the CR 305.6 land
+    // shortcut and what a continuous effect granted.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 0,
+            },
+        )
+        .expect("the land taps for mana");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one green in the pool"
+    );
+}
+
+/// Drowner of Truth, played as its back face: a land that enters tapped and
+/// then chooses between two colours.
+///
+/// The front face's cast trigger reads what the spell was paid with, which
+/// the engine does not track and the card refuses by name; the devoid static
+/// and the back face are what is left, and the back face is the half a game
+/// can show.
+#[test]
+fn drowned_jungle_enters_tapped_and_taps_for_either_colour() {
+    let (engine, land) = play_land_face(drowner_of_truth(), 1).expect("the back face is a land");
+    assert!(
+        is_tapped(&engine, land),
+        "the printed \"This land enters tapped\" is an enter modifier and not a \
+         line the harness can place around"
+    );
+}
+
+/// World Shaper: the attack trigger, which is the half of the card that is
+/// not refused by name.
+///
+/// "…you may mill three cards" is a `MayDo`, so the question is asked and
+/// answering it is the test: three cards leave the library for the graveyard
+/// only because a seat said yes.
+#[test]
+fn world_shaper_mills_three_when_it_attacks() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(389, forest())
+        .battlefield(0, &[world_shaper()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let shaper = on_battlefield(&engine, p0, world_shaper()).expect("the Shaper is seated");
+    let before = library_size(&engine, p0);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(shaper, Defender::Player(PlayerId::new(1)))],
+            },
+        )
+        .expect("the Shaper attacks");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        before - 3,
+        "three cards milled off the attack trigger"
+    );
+}
+
+/// Shaleskin Bruiser: the trample it keeps, and the pump it refuses by name.
+///
+/// `Coverage::Partial` here is about an `Amount` that multiplies a count, so
+/// what a game can show is the 4/4 body with trample — and, on a board with
+/// two other attacking Beasts, that it is still a 4/4 afterwards. The second
+/// half is the honest half of a refusal: a card that quietly pumped by one
+/// per Beast instead of three would read as "nearly right" and is the thing
+/// the `NOT SUPPORTED` note says was refused rather than approximated.
+#[test]
+fn shaleskin_bruiser_tramples_and_does_not_grow_beside_other_beasts() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(393, forest())
+        .battlefield(0, &[shaleskin_bruiser(), shaleskin_bruiser()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let board: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Battlefield).clone();
+    let beasts: Vec<ObjectId> = board
+        .into_iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == shaleskin_bruiser()))
+        })
+        .collect();
+    assert_eq!(
+        beasts.len(),
+        2,
+        "two Beasts, so \"each other\" is one of them"
+    );
+    assert!(
+        keywords(&engine, beasts[0]).contains(KeywordSet::TRAMPLE),
+        "trample is printed and kept"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: beasts
+                    .iter()
+                    .map(|id| (*id, Defender::Player(p1)))
+                    .collect(),
+            },
+        )
+        .expect("both Beasts attack");
+
+    assert_eq!(
+        pt(&engine, beasts[0]),
+        (4, 4),
+        "the attack trigger is off the card, so a 4/4 attacks as a 4/4 — and \
+         an approximation of +1/+0 per Beast would show up here as a 5/4"
+    );
+}
+
+/// Sphinx of the Final Word: hexproof, read as a target offer.
+///
+/// The two "can't be countered" clauses are refused by name; hexproof and
+/// flying are what the card carries, and hexproof is the one a game can put a
+/// number on. An opponent's Swords to Plowshares is offered the Elf beside
+/// the Sphinx and not the Sphinx — a difference in one creature's keywords
+/// and in nothing else about the board.
+#[test]
+fn sphinx_of_the_final_word_is_no_target_for_an_opponents_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(394, forest())
+        .battlefield(0, &[sphinx_of_the_final_word(), llanowar_elves()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sphinx =
+        on_battlefield(&engine, p0, sphinx_of_the_final_word()).expect("the Sphinx is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    assert!(
+        keywords(&engine, sphinx).contains(KeywordSet::FLYING),
+        "flying is printed"
+    );
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&elf),
+        "the Elf across the table is a target, so the spell reaches this side"
+    );
+    assert!(
+        !options.contains(&sphinx),
+        "and the Sphinx is not, which is hexproof (CR 702.11b): {options:?}"
+    );
+}
+
+/// Tyrranax Rex: ward {4} charges an opponent for the privilege.
+///
+/// `AbilityDef::Ward` is a triggered ability that counters the spell unless
+/// its controller pays, so the played proof is the question: the opponent is
+/// asked for `{4}` they cannot pay off one Plains, and the Rex is still
+/// standing when the dust settles.
+#[test]
+fn tyrranax_rex_wards_an_opponents_removal_for_four() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(395, forest())
+        .battlefield(0, &[tyrranax_rex()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let rex = on_battlefield(&engine, p0, tyrranax_rex()).expect("the Rex is seated");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&rex),
+        "ward does not stop the targeting, only charges for it"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![rex],
+                players: vec![],
+            },
+        )
+        .expect("the Rex is a legal target");
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the ward trigger is answered on the way"
+    );
+
+    assert!(
+        on_battlefield(&engine, p0, tyrranax_rex()).is_some(),
+        "one Plains cannot pay {{4}}, so the spell was countered by ward and \
+         the Rex is still there"
+    );
+}
+
+/// Maelstrom Wanderer: "creatures you control have haste", which is only
+/// visible on a creature that has just arrived.
+///
+/// The two cascades are refused by name, so the static is the card here — and
+/// a creature cast this turn attacking is the shape that separates a granted
+/// haste from a board the harness happened to seat early.
+#[test]
+fn maelstrom_wanderer_gives_a_freshly_cast_creature_haste() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(396, forest())
+        .battlefield(0, &[maelstrom_wanderer(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf arrived this turn");
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::HASTE),
+        "the Wanderer grants haste to the creatures you control"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until only stops on the attacker declaration")
+    };
+    assert!(
+        attackers.contains(&elf),
+        "and CR 302.6 lets it attack the turn it arrived: {attackers:?}"
+    );
+    let _ = p1;
+}

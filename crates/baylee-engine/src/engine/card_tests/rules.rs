@@ -687,3 +687,185 @@ fn a_pump_on_a_permanent_that_stays_put_lasts_until_end_of_turn() {
          cleanup step is the other thing that must keep working"
     );
 }
+
+/// CR 613.1, the half a cache can lose: a finished projection is a
+/// **fixpoint**, so recomputing one from scratch must return what the object
+/// already carries.
+///
+/// `layers::recompute_with` walks one object through all the layers, so while
+/// it runs, that object's *cached* characteristics are still the previous
+/// projection. A modifier that counts objects and reads them off the cache
+/// therefore reads its own source at the layer it had last time — and Ashaya,
+/// Soul of the Wild is the printing where that is visible, because it makes
+/// your nontoken creatures into lands at layer 4 and is then as big as the
+/// lands you control at 7c. It has to count itself, and it came down one
+/// short: cached 4/4 beside a fresh 5/5 on the very same board.
+///
+/// The card's own test asserts the 5/5. This one asserts the property the
+/// defect broke, for every object on the board and without naming a number:
+/// a second opinion may not disagree with the first. Anything counting over
+/// the battlefield from inside the layer system fails here the day it reads a
+/// stale self, whether or not anybody thought to write its card's test.
+///
+/// **And it caught a second one.** Keywords are compared beside power and
+/// types because the same sentence has a second way to come out false: a
+/// projection can be stale rather than mis-derived, and Steely Resolve is
+/// that shape — its static was registered when the enchantment entered and
+/// the creature type it reads was named one question later, which changed
+/// what the filter matches without touching the effect table the generation
+/// compare watches. `steely_resolve_is_read_after_the_type_is_named` below
+/// is that board.
+#[test]
+fn a_cached_projection_is_what_a_fresh_one_would_compute() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(390, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+                ashaya_soul_of_the_wild(),
+            ],
+        )
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .start();
+    // The game is walked to a quiet priority first, deliberately: the defect
+    // this guards is a *stale* cache, and a board that has never been
+    // refreshed twice has no stale cache to be caught with — the first
+    // projection and a fresh one are then wrong in the same way and agree.
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let board = engine.state().zones.list(ZoneLocation::Battlefield).clone();
+    assert!(
+        board.len() >= 7,
+        "the board this is read over is {} objects, which is fewer than it \
+         was built with — the reader, not the rule",
+        board.len()
+    );
+    for id in board {
+        let object = engine.state().object(id).expect("the object is seated");
+        let fresh = crate::layers::recompute(engine.state(), object);
+        assert_eq!(
+            (fresh.characteristics.power, fresh.characteristics.toughness),
+            (
+                object.characteristics().power,
+                object.characteristics().toughness
+            ),
+            "{:?} projects differently the second time, so the cache is not a \
+             fixpoint",
+            object.card.map(|c| c.index)
+        );
+        assert_eq!(
+            fresh.characteristics.types,
+            object.characteristics().types,
+            "{:?} changes type on a recompute",
+            object.card.map(|c| c.index)
+        );
+        assert_eq!(
+            fresh.characteristics.keywords,
+            object.characteristics().keywords,
+            "{:?} gains or loses a keyword on a recompute",
+            object.card.map(|c| c.index)
+        );
+    }
+}
+
+/// The same property on the board that showed its second face: a choice only
+/// a **filter** reads still has to refresh the board.
+///
+/// Steely Resolve's "creatures of the chosen type have shroud" is one static,
+/// registered as the enchantment enters — before anybody has been asked which
+/// type. Naming the type changes which permanents the filter matches and
+/// nothing about the effect table, and the refresh is guarded by a generation
+/// compare over that table, so every creature kept the projection it had from
+/// before the question: the Elf beside it had no shroud, and a fresh
+/// recompute of the very same object said it did.
+///
+/// This is the played half. `Engine::apply`'s `ChooseSubtype` arm calls
+/// `invalidate_projections`, and without that call this test reads the
+/// difference as a disagreement between the cache and a recompute.
+#[test]
+fn steely_resolve_is_read_after_the_type_is_named() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(405, forest())
+        .battlefield(0, &[forest(), forest(), llanowar_elves()])
+        .hand(0, &[steely_resolve()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    cast_from_hand(&mut engine, p0, steely_resolve());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseSubtype { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::creature::ELF),
+        )
+        .expect("Elf is a creature type");
+    pass_until(&mut engine, stack_is_empty);
+
+    let object = engine.state().object(elf).expect("the Elf is still there");
+    let fresh = crate::layers::recompute(engine.state(), object);
+    assert_eq!(
+        object.characteristics().keywords,
+        fresh.characteristics.keywords,
+        "the cache and a recompute disagree, so naming the type refreshed \
+         nothing"
+    );
+    assert!(
+        object
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::SHROUD),
+        "and both of them say shroud, which is what the card prints"
+    );
+}
+
+/// A cost that asks the same question five times needs five answers on the
+/// table before the ability is offered at all.
+///
+/// `can_afford` used to ask each `CostPart::Sacrifice` whether *anything*
+/// could pay it, which is true of all five parts while one artifact stands
+/// there — and `cost_wizard` takes each answer out of the list before asking
+/// again, so the second question found nothing and the activation was refused
+/// after being offered. `offer_tests::every_offered_ability_can_be_activated`
+/// found it on the pool sweep's own board; this is the played half, with the
+/// number moved by one across the line.
+///
+/// Time Sieve is the example and not the subject: it is the pool's only
+/// printing that asks one question five times.
+#[test]
+fn an_ability_asking_one_question_five_times_needs_five_answers() {
+    let p0 = PlayerId::new(0);
+    let offered = |artifacts: usize| {
+        let mut board = vec![time_sieve()];
+        board.extend(std::iter::repeat_n(quiet_artifact(), artifacts));
+        let mut engine = Duel::new(404, forest()).battlefield(0, &board).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let sieve = on_battlefield(&engine, p0, time_sieve()).expect("the Sieve is seated");
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        legal.abilities.iter().any(|(id, _)| *id == sieve)
+    };
+
+    // Four artifacts beside the Sieve is five artifacts in total — one of
+    // which is the Sieve, and CR 701.16a lets it sacrifice itself — so the
+    // line sits between three and four.
+    assert!(
+        !offered(3),
+        "four artifacts cannot pay for five sacrifices, so the ability is not \
+         offered"
+    );
+    assert!(
+        offered(4),
+        "and five can, so the board and not the reader is what moved"
+    );
+}

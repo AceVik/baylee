@@ -50,6 +50,16 @@ pub enum Filter {
     IsColorless,
     /// Exactly one color (Vanishing Verse).
     Monocolored,
+    /// An object whose **name** is this one (Muscle Burst counting copies of
+    /// itself in every graveyard).
+    ///
+    /// The name is a rules characteristic and not a handle, so this is a
+    /// `&str` and not a `CardIndex`: CR 201.2 compares what an object is
+    /// *called*, so a clone, a face-down turned face up and a card whose
+    /// name a text-changing effect has rewritten all answer by the name they
+    /// carry now. `docs/card-identity.md` is normative on which handle may
+    /// be stored where, and a name is the one that may not.
+    Named(&'static str),
     /// Is a token (Sheoldred's Edict: "creature token").
     IsToken,
     /// Controlled by `you`.
