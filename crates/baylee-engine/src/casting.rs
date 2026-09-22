@@ -900,42 +900,108 @@ pub fn play_land(
     Ok(())
 }
 
-/// Mana color produced by a land with exactly one basic land subtype
-/// (CR 305.6).
+/// Every mana color a land's **basic types** entitle it to (CR 305.6), in
+/// the rules' own order.
 ///
-/// `None` for a land with no basic subtype and for one with several: both
-/// are served by the `AddManaChoice` ability printed on the card, which can
-/// offer the choice this shortcut cannot.
+/// One entry per basic type present, because CR 305.6 gives the land one
+/// mana ability per type and the controller picks which to activate. Empty
+/// for a land with no basic type and for anything that is not a land.
+///
+/// **A land can gain a basic type it was not printed with**, and that is why
+/// this returns a list rather than an `Option`. It used to answer `None` for
+/// a land with several — deliberately, so that Godless Shrine would not tap
+/// for white and never for black — and the dual was left to the
+/// `AddManaChoice` ability printed on its card, which does ask. That works
+/// for a card whose *printed* type line carries both types. It cannot work
+/// for a type a continuous effect adds: a basic Forest under Urborg, Tomb of
+/// Yawgmoth is a Forest Swamp, and the only ability it prints is the green
+/// one, so the black CR 305.6 gives it existed nowhere. The land kept making
+/// green and silently made no black at all — which is the shape of this
+/// defect and worth stating precisely, because "Urborg turns off your
+/// lands" would have been the wrong reading and the wrong fix. Four cards in
+/// this pool add a basic land type: Urborg, Yavimaya, Blanket of Night and
+/// Ashaya.
 #[must_use]
-pub fn intrinsic_mana(state: &GameState, source: ObjectId) -> Option<ManaColor> {
-    let obj = state.object(source)?;
+pub fn intrinsic_mana_colors(state: &GameState, source: ObjectId) -> Vec<ManaColor> {
+    let Some(obj) = state.object(source) else {
+        return Vec::new();
+    };
     if !obj.characteristics().types.contains(TypeSet::LAND) {
-        return None;
+        return Vec::new();
     }
     let s = &obj.characteristics().subtypes;
-    let mut only = None;
-    for (subtype, color) in [
+    [
         (land::PLAINS, ManaColor::White),
         (land::ISLAND, ManaColor::Blue),
         (land::SWAMP, ManaColor::Black),
         (land::MOUNTAIN, ManaColor::Red),
         (land::FOREST, ManaColor::Green),
-    ] {
-        if s.contains(subtype) {
-            // CR 305.6 gives a land one mana ability *per* basic type, so a
-            // dual has two of them and its controller picks which to
-            // activate. This shortcut cannot ask, and answering on the
-            // player's behalf is worse than not answering at all: Godless
-            // Shrine used to tap for white and never for black, whatever the
-            // player needed. A land with more than one basic type is left to
-            // the printed `AddManaChoice` ability on its card, which does ask.
-            if only.is_some() {
-                return None;
-            }
-            only = Some(color);
+    ]
+    .into_iter()
+    .filter(|(subtype, _)| s.contains(*subtype))
+    .map(|(_, color)| color)
+    .collect()
+}
+
+/// The colors the CR 305.6 shortcut may still offer for this land: its basic
+/// types, less whatever its own card already prints a mana ability for.
+///
+/// **The subtraction is the whole of it.** The ten original duals print a
+/// `Add {R} or {G}` ability that codegen wrote off the very same type line
+/// this rule reads — one ability, rendered twice — so a shortcut that
+/// ignored the card would offer Taiga two ways to tap and `land_mana_tests`
+/// would say so, ten times over. What the subtraction keeps is the half the
+/// card *cannot* print: a basic Forest under Urborg, Tomb of Yawgmoth is a
+/// Forest Swamp, prints nothing at all, and needs the rule for both colours;
+/// Taiga under the same Urborg needs it for the black alone, beside the
+/// printed ability that still makes its red and green. Three mana abilities
+/// on one land is what CR 305.6 actually says, and this is the only reader
+/// that can count them.
+///
+/// Read through [`baylee_cards_dsl::mana_made`] and not `simple_mana`,
+/// because a restricted printed ability is still a printed one: what is
+/// being asked is "does the card already say this colour", not "may a
+/// planner spend it".
+#[must_use]
+pub fn intrinsic_mana_offer(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    source: ObjectId,
+) -> Vec<ManaColor> {
+    let mut colors = intrinsic_mana_colors(state, source);
+    if colors.len() < 2 {
+        // One basic type is the case this shortcut has always served, and no
+        // land in the pool prints an ability duplicating its single type —
+        // leaving it alone keeps every existing offer byte for byte.
+        return colors;
+    }
+    let Some(obj) = state.object(source) else {
+        return Vec::new();
+    };
+    for ability in obj.abilities(lookup) {
+        let (baylee_cards_dsl::AbilityDef::Activated { cost, effects, .. }
+        | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, effects, .. }) = ability
+        else {
+            continue;
+        };
+        if let Some((made, _restricted)) = baylee_cards_dsl::mana_made(cost, effects) {
+            colors.retain(|c| !made.colors.contains(c));
         }
     }
-    only
+    colors
+}
+
+/// The one color a land's basic types entitle it to, where there is exactly
+/// one and so nothing to ask.
+///
+/// `None` where the land has several, which is a question and not an answer;
+/// [`intrinsic_mana_colors`] is what a caller that can ask reads instead.
+#[must_use]
+pub fn intrinsic_mana(state: &GameState, source: ObjectId) -> Option<ManaColor> {
+    match intrinsic_mana_colors(state, source).as_slice() {
+        [only] => Some(*only),
+        _ => None,
+    }
 }
 
 /// CR 903.8's tax on casting `card` from the command zone, in generic mana:
@@ -1091,7 +1157,7 @@ pub fn can_activate_mana(state: &GameState, player: PlayerId, source: ObjectId) 
         // Arbor, an animated manland), whose intrinsic {T} is an activated
         // ability of a creature like any other (CR 302.6).
         && !crate::combat::summoning_sick(state, obj)
-        && intrinsic_mana(state, source).is_some()
+        && !intrinsic_mana_colors(state, source).is_empty()
 }
 
 /// Taps a basic land for its intrinsic mana (CR 305.6).
@@ -1109,7 +1175,33 @@ pub fn activate_mana(
     if !can_activate_mana(state, player, source) {
         return Err(CastFailure::Legality(CastError::BadTiming));
     }
-    let color = intrinsic_mana(state, source).expect("checked above");
+    let colors = intrinsic_mana_colors(state, source);
+    let [color] = colors.as_slice() else {
+        // Several basic types is a question, and this function cannot ask
+        // one: `actions.rs` taps the land and publishes `Pending::ChooseColor`
+        // instead, then finishes here through `add_intrinsic_mana`. Reaching
+        // this arm means a caller skipped that fork.
+        return Err(CastFailure::Legality(CastError::BadTiming));
+    };
+    add_intrinsic_mana(state, player, source, *color);
+    Ok(())
+}
+
+/// Taps a land for one mana of `color` and pays it into the pool — the half
+/// of [`activate_mana`] that happens once the colour is settled.
+///
+/// Its own function because the colour arrives two ways: straight out of the
+/// land's one basic type, or out of a `Pending::ChooseColor` the player
+/// answered because the land has several. One door, so the two cannot come
+/// out as different events — the tap is journalled under [`Cause::Cost`] and
+/// the mana under [`GameEvent::ManaProduced`] either way, and a trigger
+/// watching for either sees the same thing.
+pub fn add_intrinsic_mana(
+    state: &mut GameState,
+    player: PlayerId,
+    source: ObjectId,
+    color: ManaColor,
+) {
     state.set_tapped(source, true);
     state.journal.record(GameEvent::ObjectTapped {
         object: source,
@@ -1133,7 +1225,6 @@ pub fn activate_mana(
         amount: 1,
         source: Some(source),
     });
-    Ok(())
 }
 
 /// Casting/playing failure.
@@ -1604,12 +1695,16 @@ mod tests {
         );
     }
 
-    /// CR 305.6 gives a land one mana ability **per** basic type, so this
-    /// shortcut answers only where there is nothing to choose. Answering on
-    /// the player's behalf is worse than not answering: Godless Shrine used
-    /// to tap for white and never for black, whatever the player needed.
+    /// CR 305.6 gives a land one mana ability **per** basic type, so a land
+    /// with two of them is a question rather than an answer — and the two
+    /// readers say so differently on purpose. `intrinsic_mana` is the
+    /// single-answer shortcut and stays `None`, because answering on the
+    /// player's behalf is worse than not answering: Godless Shrine used to
+    /// tap for white and never for black, whatever the player needed.
+    /// `intrinsic_mana_colors` is what a caller that *can* ask reads, and it
+    /// names both.
     #[test]
-    fn a_land_with_two_basic_types_is_not_answered_for_the_player() {
+    fn a_land_with_two_basic_types_is_a_question_and_not_an_answer() {
         let mut state = state();
         let plains = basic_land(&mut state, "Plains", &[land::PLAINS]);
         let shrine = basic_land(&mut state, "Godless Shrine", &[land::PLAINS, land::SWAMP]);
@@ -1620,10 +1715,25 @@ mod tests {
         assert_eq!(
             intrinsic_mana(&state, shrine),
             None,
-            "the dual is left to the printed ability that asks"
+            "the shortcut does not pick for the player"
         );
         assert_eq!(intrinsic_mana(&state, waste), None, "no basic type");
         assert_eq!(intrinsic_mana(&state, bear), None, "not a land at all");
+
+        assert_eq!(
+            intrinsic_mana_colors(&state, plains),
+            vec![ManaColor::White]
+        );
+        assert_eq!(
+            intrinsic_mana_colors(&state, shrine),
+            vec![ManaColor::White, ManaColor::Black],
+            "both abilities the dual has, in the rules' own order"
+        );
+        assert!(
+            intrinsic_mana_colors(&state, waste).is_empty(),
+            "no basic type is no ability at all — Wastes prints its own"
+        );
+        assert!(intrinsic_mana_colors(&state, bear).is_empty());
     }
 
     /// CR 903.8: `{2}` for each previous cast of *this* commander from the

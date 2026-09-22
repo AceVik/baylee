@@ -685,7 +685,7 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
                     }
-                    PlanKind::ChooseColor { .. } => {
+                    PlanKind::ChooseColor { .. } | PlanKind::IntrinsicMana { .. } => {
                         unreachable!("color plans are answered via ChooseColor")
                     }
                     PlanKind::PlayLandFace { .. } => {
@@ -741,6 +741,23 @@ impl<L: CardLookup> Engine<L> {
             // guarded on the plan rather than ordered by luck: the arm below
             // takes the suspended `Resolution`, and there is none while a
             // permanent is entering.
+            (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
+                if *p == player
+                    && matches!(self.pending_plan, Some(PlanKind::IntrinsicMana { .. })) =>
+            {
+                if !options.contains(&color) {
+                    return Err(EngineError::IllegalAction("color not allowed"));
+                }
+                let Some(PlanKind::IntrinsicMana { source }) = self.pending_plan.take() else {
+                    unreachable!("guarded above");
+                };
+                // The land was tapped when the question was published, so
+                // what is left is the mana — through the same door the
+                // one-type land goes through.
+                casting::add_intrinsic_mana(&mut self.state, player, source, color);
+                self.after_action(player);
+                Ok(())
+            }
             (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
                 if *p == player
                     && matches!(self.pending_plan, Some(PlanKind::ChooseColor { .. })) =>
@@ -1184,7 +1201,33 @@ impl<L: CardLookup> Engine<L> {
                 // top of its own basic type still taps for its own colour
                 // unless the player names the other ability by index.
                 if casting::can_activate_mana(&self.state, player, source) {
-                    casting::activate_mana(&mut self.state, player, source)?;
+                    // CR 305.6 gives the land one mana ability per basic
+                    // type, so a land with several is a question. It is
+                    // asked *here* and not inside `activate_mana`, which is
+                    // a state function with no way to publish a pending —
+                    // and it is asked after the tap, because the tap is the
+                    // cost and the colour is the effect, exactly as a
+                    // printed "add one mana of any color" pays first and
+                    // asks second.
+                    let colors = casting::intrinsic_mana_offer(&self.state, &self.lookup, source);
+                    if colors.len() > 1 {
+                        self.state.set_tapped(source, true);
+                        self.state.journal.record(GameEvent::ObjectTapped {
+                            object: source,
+                            cause: Cause::Cost,
+                        });
+                        self.pending_plan = Some(PlanKind::IntrinsicMana { source });
+                        self.pending = Pending::ChooseColor {
+                            player,
+                            options: colors,
+                        };
+                        self.awaiting_answer = true;
+                        return Ok(());
+                    }
+                    let [only] = colors.as_slice() else {
+                        return Err(EngineError::IllegalAction("mana ability not activatable"));
+                    };
+                    casting::add_intrinsic_mana(&mut self.state, player, source, *only);
                     self.after_action(player);
                     return Ok(());
                 }

@@ -357,6 +357,17 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing which color a land's own basic types make (CR 305.6).
+    ///
+    /// The third reason `Pending::ChooseColor` is asked, and the one with no
+    /// `Resolution` behind it at all: a mana ability uses no stack, and this
+    /// one is not even printed on a card — it is the rule the land's type
+    /// line gives it. The land is already tapped when this plan is set, so
+    /// the answer only has to say which mana the tap made.
+    IntrinsicMana {
+        /// The land that was tapped.
+        source: ObjectId,
+    },
     /// Choosing which land face of an MDFC to play (pathways).
     PlayLandFace {
         /// The card being played.
