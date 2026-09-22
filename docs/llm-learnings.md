@@ -1211,3 +1211,112 @@ each other — `claude-sonnet-4-6` first and `gemini-3.8-flash-high` on the
 retry, with a shared reset about four and a half hours out. The cross rule
 has no way around that: DeepSeek wrote these cards and may not test them, so
 the debt waits for the quota rather than moving to the other lane.
+
+## Round L, 22.09.2026 — the contract was lying, and ten cards off a corrected one
+
+Round K ended with the DeepSeek card lane at its floor: 70 fresh stubs in, 7
+written. The obvious next move was to grow the DSL from
+`transcode-report --stubs`, and the ranking said the tail was flat — 81 stubs,
+top cause 7, then 5, 3, 2, 2, 2. Nothing there was worth a night.
+
+What was worth a night was **reading what the lane is told**. `scripts/llm/`
+packs `docs/card-dsl.md` into every card prompt as the authoring contract, and
+that file ends in a hand-kept list of mechanics "not supported yet (M3+)".
+Fourteen entries, each naming an example card.
+
+Thirteen of the fourteen named a card that is `Coverage::Implemented` today.
+
+Mox Opal carries the metalcraft activation condition the entry says cannot be
+written. Bleachbone Verge carries the same rule under the other name — and is
+one of the five example cards the DeepSeek prompt ships, so the lane was
+reading a finished use of a mechanic on one page and a sentence saying it is
+impossible on another. Urza's Saga has its chapters. Mirrorhall Mimic has its
+disturb. Chromatic Lantern has its land grant. Venser's emblem has its
+trigger. City of Brass has its becomes-tapped trigger. Opposition Agent has
+the real search takeover the entry describes as "approximated as a lock". Path
+of Ancestry, Padeem, Reflections of Littjara, Wizard Class, Everybody Lives!
+and the daybound villagers are the rest, most of them with no
+`// NOT SUPPORTED:` line at all. Only battles survived, on the strength of
+Invasion of Ikoria still being a stub.
+
+**A `Coverage::Partial` on a card the engine can play is the expensive kind of
+wrong**, which is why this is worth a section rather than a line. It is not a
+stub, so no residue ranking lists it. It reads as finished, so no sweep asks
+about it. The deckbuilder offers it as second-class and nothing anywhere says
+why. How many of them this list bought is not measurable after the fact — what
+is measurable is that it stopped being able to buy more.
+
+The check costs nothing and is the shape to repeat: an entry names a card, so
+open the card and read its `coverage` and its `// NOT SUPPORTED:` lines. Four
+greps and nine file reads settled all fourteen.
+
+### The residue after that is honest
+
+All 82 remaining stubs went back to the lane in three batches against the
+corrected contract. **Ten came back**, all `Partial` — 2, 4 and 4. That is
+roughly round K's rate and not a jump, which is the answer to "how much was
+the contract costing": on *this* residue, not much, because a stub is by
+construction a card no reader could write. The refusals now name a missing
+`Amount`, a missing `Effect`, a missing `Modifier`, one at a time, and the
+banding cluster (five cards wanting "bands with other legendary creatures")
+is the largest single thing left.
+
+Two of the ten are the afternoon's `Filter::CmcAtMostX` paying for itself
+without being aimed at anything: Reshape and Finale of Devastation both write
+it, and Whir of Invention is the third of the family. Nobody put those cards
+in front of the lane — they were in the batch because every stub was. **That
+is the argument for growing the vocabulary over picking cards**: the lane
+reaches a new word on its own, in a batch nobody aimed at it.
+
+### A blocker entry is a sentence, and `cmcLEX` is two of them
+
+`transcode-report --stubs` ranked `filter atom cmcLEX` at 3 and `cmcEQX` at 2,
+which reads like one rule worth five cards. Reading the five scripts says
+otherwise. `X` is an `SVar` and the five define it two different ways:
+`Count$xPaid` is the announced number, which `Filter::CmcAtMostX` already
+says, and `Sacrificed$CardManaCost/Plus.N` is the mana value of the permanent
+sacrificed as a cost, plus a constant — a different reading with no DSL shape
+at all. Two of the five are the first kind and three are the second, and
+`cmcEQX` is *entirely* the second.
+
+This is the fourth time the same lesson has been paid for (`Pump`, `Mana`,
+`Sacrifice`, now this), and it has a compact form: **a refused value is named
+by what it resolves through, never by its own spelling.** The report already
+does this for `TokenAmount$ X`; the filter atoms do not yet.
+
+### The quota is sometimes per model family and sometimes not
+
+`lane.py` recorded, measured on 22.09 in the afternoon, that a session
+refused by two `gemini-*` models was answered by `gpt-oss-120b-medium`
+through the same CLI in the same second — so a lane held by the quota has a
+way out that is not waiting. At 02:22 the next morning `gpt-oss-120b-medium`
+refused with the same `RESOURCE_EXHAUSTED (code 429)` and the gemini family
+was still reporting `Resets in 1h58m`. Both readings are true and the note
+now says so: try another family, it costs one probe, and be ready for the
+clock.
+
+The sharper half is how a refusal *looks*. `agy` retries an exhausted model
+for the whole `--print-timeout` and then exits **0** with partial output, so
+a two-minute probe that returns nothing is indistinguishable from a slow
+session. The reason is written in exactly one place: the session's own sqlite
+transcript under `~/.gemini/antigravity-cli/conversations`, one
+`API error (attempt N)` row per retry. A lane that is merely being refused
+looks exactly like a lane that is working, and forty minutes of a batch can
+go into finding that out the slow way.
+
+### Nineteen shelf cards and ten round-L cards were tested by hand
+
+The cross rule is not negotiable — a card and its test from one model share
+that model's misreading — so with both `agy` families out, the coordinator
+wrote all twenty-nine tests. That is slower per card than a lane and it
+produced tests a lane does not write, because a person can see what a
+`Coverage::Partial` is *for*: eight of the twenty-nine assert that a gap is
+still there. Land Cap untaps with a depletion counter on it, which the
+printing forbids. Legion's Landing adds exactly one permanent, there being no
+Vampire token to make. Collector Ouphe watches an artifact's ability resolve.
+Grove of the Guardian offers one ability with two untapped creatures standing
+ready to pay for the other.
+
+Every one of those is **meant to fail** one day, and the commit that closes
+the gap is the commit that deletes the assertion. A pin is cheaper than a
+`// TODO` because it cannot rot in silence.

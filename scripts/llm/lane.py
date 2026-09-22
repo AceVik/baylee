@@ -43,13 +43,27 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 GEMINI_CONVERSATIONS = pathlib.Path(
     os.path.expanduser("~/.gemini/antigravity-cli/conversations")
 )
-# The model the `agy` lane asks for, overridable because the quota is **per
-# model family and not per account**: measured 22.09.2026, a session that
-# `gemini-3.8-flash-high` and `gemini-3.7-flash-high` both refused with
-# `RESOURCE_EXHAUSTED … Resets in 3h` was answered by `gpt-oss-120b-medium`
-# through the same CLI, the same second. So a lane held by the quota has a
-# way out that is not waiting, and the cross rule is satisfied by any model
-# that is not the one which wrote the cards. `agy models` lists them.
+# The model the `agy` lane asks for. Overridable, and worth overriding on a
+# refusal — but **not** reliably: the quota is sometimes per model family and
+# sometimes not, and the two readings were measured a day apart.
+#
+# On 22.09.2026 in the afternoon a session that `gemini-3.8-flash-high` and
+# `gemini-3.7-flash-high` both refused with `RESOURCE_EXHAUSTED … Resets in
+# 3h` was answered by `gpt-oss-120b-medium` through the same CLI, the same
+# second. At 02:22 the next morning `gpt-oss-120b-medium` refused with the
+# same code and `gemini-3.8-flash-high` was still reporting `Resets in
+# 1h58m`, so the way out was closed and the only thing left was the clock.
+#
+# Two consequences for a caller. Try another family before waiting, because
+# it costs one probe and sometimes works. And **read the refusal**: the CLI
+# retries an exhausted model for the whole `--print-timeout` and then returns
+# partial output with exit 0, so a lane that is merely being refused looks
+# exactly like a lane that is working. The reason is in the session's own
+# sqlite transcript under `GEMINI_CONVERSATIONS`, one `API error (attempt N)`
+# row per retry, and that is the only place it is written down.
+#
+# The cross rule is satisfied by any model that is not the one which wrote
+# the cards. `agy models` lists them.
 GEMINI_MODEL = os.environ.get("BAYLEE_LLM_AGY_MODEL", "gemini-3.8-flash-high")
 DEEPSEEK_MODEL = "deepseek-flash[1m]"
 
