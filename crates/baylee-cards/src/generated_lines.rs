@@ -11126,8 +11126,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Barbarian Ring
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -11187,8 +11187,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Cephalid Coliseum
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -11495,8 +11495,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Nomad Stadium
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -12169,8 +12169,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Nantuko Monastery
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

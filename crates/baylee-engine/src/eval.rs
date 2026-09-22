@@ -349,6 +349,14 @@ pub fn condition_holds(
             .map(|i| PlayerId::new(i as u8))
             .filter(|id| state.is_opponent(*id, you))
             .any(|id| state.zones.list(ZoneLocation::Graveyard(id)).len() >= min as usize),
+        // Your own graveyard, and only yours — threshold counts the cards
+        // the *controller* of the ability has, so the seat is `you` and not
+        // a scan. The line above is the same question asked of an opponent
+        // and answers `any`, because "an opponent has seven" is true of a
+        // table where one of three does.
+        Condition::GraveyardCountAtLeast(min) => {
+            state.zones.list(ZoneLocation::Graveyard(you)).len() >= min as usize
+        }
         Condition::CountersOnSelf(kind, min) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),

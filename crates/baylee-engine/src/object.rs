@@ -112,7 +112,24 @@ impl Characteristics {
     #[allow(clippy::too_many_lines)] // the color scan is one flat table
     pub fn from_face(def: &CardDef, face: usize, name: NameRef) -> Self {
         let f = &def.faces[face.min(def.faces.len() - 1)];
-        let subtypes = SubtypeSet::from_slice(f.subtypes);
+        let mut subtypes = SubtypeSet::from_slice(f.subtypes);
+        // CR 702.73a: changeling is a **characteristic-defining ability** —
+        // "this object is every creature type" — and CR 604.3 makes a CDA
+        // work in every zone, even outside the game. The layer projection
+        // unions the same set (`layers::recompute_with`), but it only runs
+        // over the battlefield and the stack, so a changeling *card* was
+        // every creature type in play and none of them in a hand, a library
+        // or a graveyard.
+        //
+        // Nothing read those subtypes until a reveal land did, which is why
+        // this sat unnoticed: Rustic Clachan asks for a Kithkin card in
+        // hand, this pool prints no Kithkin at all, and Crib Swap — which
+        // *is* a Kithkin card by 702.73a — was not on the menu. The base is
+        // the right place because a CDA is not a continuous effect: it is
+        // part of what the object is, wherever it is.
+        if def.keywords_for_face(face).contains(KeywordSet::CHANGELING) {
+            subtypes = subtypes.union(SubtypeSet::ALL_CREATURE);
+        }
         let mut produced = ColorSet::EMPTY;
         let mut produced_colorless = false;
         let mut produced_chosen = false;

@@ -2,9 +2,8 @@
 //! Oracle: {T}: Add {U}. This land deals 1 damage to you.
 //! Oracle: Threshold — {U}, {T}, Sacrifice this land: Target player draws three cards, then discards three cards. Activate only if there are seven or more cards in your graveyard.
 //! Set: TDC #349 — Tarkir: Dragonstorm Commander | Scryfall ID: 03b9c9ed-fb6f-4f8d-bb1d-7999dec4245c | Oracle ID: c733873e-77db-471f-8061-139db24f7e7c
-// PARTIAL — the mana ability is built whole ({T}: Add {U}, then this land
-// deals 1 damage to you); the threshold half is left off, see the
-// NOT SUPPORTED line below.
+// IMPLEMENTED — the pain mana line, and draw-three-discard-three gated
+// on threshold.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -14,19 +13,8 @@ card!(
     scryfall_id = "03b9c9ed-fb6f-4f8d-bb1d-7999dec4245c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     faces = &[face!(name = "Cephalid Coliseum", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "threshold gate: no Condition states \"seven or more cards in your graveyard\""
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // NOT SUPPORTED: "Threshold — {U}, {T}, Sacrifice this land: Target
-        // player draws three cards, then discards three cards. Activate only
-        // if there are seven or more cards in your graveyard." The effects are
-        // sayable (AnyPlayer target, DrawCardsFor / DiscardForPlayers on
-        // PlayerRel::Chosen), but the gate is not: no Condition counts cards in
-        // your own graveyard — ControlCount counts permanents you control,
-        // OpponentGraveyardCountAtLeast counts an opponent's. Ungated, the
-        // ability would be activatable with an empty graveyard, i.e. strictly
-        // better than the printed card, so it comes off rather than ships.
         mana_ability!(&[
             Effect::mana(ManaColor::Blue, 1),
             Effect::DealDamage {
@@ -34,5 +22,24 @@ card!(
                 target: TargetSpec::Player(PlayerRel::You),
             },
         ]),
+        // "Target player draws three cards, then discards three cards."
+        // `PlayerRel::Chosen` is the seat the target named, so both halves
+        // read the same answer — and the order matters: a player who draws
+        // into seven cards discards from the eight they now hold.
+        activated!(
+            cost!("{U}", TapSelf, SacrificeSelf),
+            &[
+                Effect::DrawCardsFor {
+                    amount: Amount::Fixed(3),
+                    who: PlayerRel::Chosen,
+                },
+                Effect::DiscardForPlayers {
+                    who: PlayerRel::Chosen,
+                    count: 3,
+                },
+            ],
+            target = Some(TargetSpec::AnyPlayer),
+            condition = Some(Condition::GraveyardCountAtLeast(7)),
+        ),
     ],
 );

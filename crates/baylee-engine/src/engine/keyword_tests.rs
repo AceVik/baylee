@@ -965,3 +965,82 @@ fn every_ward_in_the_pool_is_one_the_engine_charges() {
         past.join("\n")
     );
 }
+
+/// Changeling is a characteristic-defining ability, so it works in a hand.
+///
+/// CR 702.73a: "Changeling is a characteristic-defining ability.
+/// 'Changeling' means 'This object is every creature type.' This ability
+/// works everywhere, even outside the game." CR 604.3 is the half that
+/// makes "everywhere" mean what it says.
+///
+/// The engine had it in one place only. `layers::recompute_with` unions
+/// `SubtypeSet::ALL_CREATURE` after the projection, and the projection pass
+/// walks the **battlefield and the stack** — by design, because projecting
+/// every card in every library after every counter moves is the difference
+/// between a long game and no game. So a changeling was every creature type
+/// in play and none of them in a hand, a library or a graveyard.
+///
+/// Nothing read a card-in-hand's subtypes until `TappedUnlessReveal` did,
+/// which is how this survived: an absence in one layer says nothing about
+/// the next, and the layer that owns a CDA is the object's **base**. Crib
+/// Swap is the case that found it — Rustic Clachan asks for a Kithkin card
+/// and this pool prints no Kithkin at all, so a changeling is the only card
+/// that can ever answer it.
+///
+/// Three zones and not one, because the base is shared by all of them and a
+/// test in hand alone would not say so.
+#[test]
+fn a_changeling_card_is_every_creature_type_outside_the_battlefield() {
+    use baylee_core::generated::subtypes::creature;
+    let p0 = PlayerId::new(0);
+    let crib_swap = card_index("2987c385-011a-4032-a516-a46d1e9dc9e8");
+    let mut engine = Duel::new(31, basic_forest()).hand(0, &[crib_swap]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = in_hand(&engine, p0, crib_swap).expect("Crib Swap is in hand");
+    for (subtype, name) in [
+        (creature::KITHKIN, "Kithkin"),
+        (creature::FAERIE, "Faerie"),
+        (creature::SHAPESHIFTER, "Shapeshifter"),
+    ] {
+        assert!(
+            engine
+                .state()
+                .object(card)
+                .is_some_and(|o| o.characteristics().subtypes.contains(subtype)),
+            "a changeling card in hand is a {name} card (CR 702.73a)"
+        );
+    }
+    // And it is not every *other* kind of subtype: `ALL_CREATURE` is the
+    // creature partition of one sorted range, so a union that reached past
+    // it would make Crib Swap a Swamp.
+    assert!(
+        !engine.state().object(card).is_some_and(|o| o
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::SWAMP)),
+        "every *creature* type, and nothing beyond that partition"
+    );
+
+    // The graveyard reads the same base. Discarding is the cheapest way
+    // there and needs no card but this one.
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may move a card");
+    state
+        .move_object(
+            card,
+            crate::zone::ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    assert!(
+        engine
+            .state()
+            .object(card)
+            .is_some_and(|o| o.characteristics().subtypes.contains(creature::KITHKIN)),
+        "and in a graveyard, where no projection runs either"
+    );
+}

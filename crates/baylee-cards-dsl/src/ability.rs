@@ -85,6 +85,24 @@ pub enum Condition {
     /// An opponent has at least N cards in their graveyard (Sheoldred's
     /// flip condition).
     OpponentGraveyardCountAtLeast(u8),
+    /// **Your** graveyard holds at least N cards — threshold, always seven.
+    ///
+    /// Threshold has **no CR rule** and deliberately no keyword bit: the
+    /// glossary says it "used to be a keyword ability. It is now an ability
+    /// word and has no rules meaning", and every card printed with it was
+    /// errata'd into the words it stands for. So the condition is the whole
+    /// of it, the count is a parameter rather than a fixed 7, and nothing
+    /// here may read the word.
+    ///
+    /// The sibling of the line above and not a parameter on it, because the
+    /// two count different players and no card asks the question with the
+    /// seat left open. Its absence was not a card sitting unwritten: Cabal
+    /// Pit and Centaur Garden shipped the gated ability **ungated**, which
+    /// is a land strictly stronger than the one printed, while Barbarian
+    /// Ring left the same ability off entirely. One missing variant, two
+    /// opposite wrong answers — which is the argument for the variant rather
+    /// than for a house style.
+    GraveyardCountAtLeast(u8),
     /// The source has at least N counters of a kind (Luminarch
     /// Ascension's quest counters).
     CountersOnSelf(crate::effect::CounterKind, u8),

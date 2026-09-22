@@ -403,6 +403,12 @@ fn a_slow_land_counts_the_other_lands_and_never_itself() {
 /// second implementation of "does this match" is exactly the thing that would
 /// agree with itself and not with the engine. Both directions are asserted:
 /// an unexpected land is a new cycle, a missing one is a list gone stale.
+///
+/// The catch-all skips [`EnterModifier::TappedUnlessReveal`] with the rest,
+/// and that one is skipped for a reason of its own: it is the only filter in
+/// this family that is *not* a permanent filter. It reads a card in hand,
+/// where the entering land has never been, so "would it count itself" cannot
+/// be asked of it at all.
 #[test]
 fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
     let mut clauses = Vec::new();
@@ -414,12 +420,6 @@ fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
                     baylee_cards_dsl::EnterModifier::TappedUnless(f) => *f,
                     baylee_cards_dsl::EnterModifier::TappedUnlessCount { filter, .. }
                     | baylee_cards_dsl::EnterModifier::TappedUnlessAtMost { filter, .. } => *filter,
-                    // Named rather than swept up by the catch-all, because
-                    // it is the one filter in this family that is *not* a
-                    // permanent filter: it reads a card in hand, where the
-                    // entering land has never been, so "would it count
-                    // itself" cannot be asked of it at all.
-                    baylee_cards_dsl::EnterModifier::TappedUnlessReveal(_) => continue,
                     _ => continue,
                 };
                 if i == 0 {
@@ -4102,10 +4102,6 @@ fn willowrush_verge() -> CardIndex {
 }
 
 // oracle_id = "a3fb7228-e76b-4e96-a40e-20b5fed75685"
-fn mountain() -> CardIndex {
-    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
-}
-
 /// Whether printed ability `index` of `card` is on the table right now.
 ///
 /// The mirror of [`activate`], which panics when it is not — and the half
@@ -7068,10 +7064,6 @@ enum Feed {
     HandCard,
     /// The land is its own feed.
     Itself,
-}
-
-fn baleful_strix() -> CardIndex {
-    card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
 }
 
 fn gateway_plaza() -> CardIndex {
@@ -11313,74 +11305,6 @@ fn agna_qel_a_enters_untapped_with_basic_and_loots() {
     assert!(is_tapped(&engine, agna));
 }
 
-/// Ancient Amphitheater: "As this land enters, you may reveal a Giant card from your hand. If you don't, this land enters tapped." / "{T}: Add {R} or {W}."
-/// Under `Coverage::Partial`, the hand-reveal entry modifier is omitted, allowing the land to enter untapped.
-/// Activating Ancient Amphitheater prompts for Red or White and adds {R} to the mana pool.
-#[test]
-fn ancient_amphitheater_enters_untapped_and_taps_for_red() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(134, forest())
-        .hand(0, &[ancient_amphitheater()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, ancient_amphitheater());
-    assert!(
-        !entered_tapped(&engine, land),
-        "enters untapped under partial coverage"
-    );
-
-    activate(&mut engine, p0, ancient_amphitheater(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Red));
-    assert!(options.contains(&ManaColor::White));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
-        .unwrap();
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Red), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Auntie's Hovel: "As this land enters, you may reveal a Goblin card from your hand. If you don't, this land enters tapped." / "{T}: Add {B} or {R}."
-/// Under `Coverage::Partial`, the Goblin reveal clause is omitted, so the land enters untapped.
-/// Activating Auntie's Hovel prompts for Black or Red and adds {B} to the mana pool.
-#[test]
-fn auntie_s_hovel_enters_untapped_and_taps_for_black() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(135, forest())
-        .hand(0, &[auntie_s_hovel()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, auntie_s_hovel());
-    assert!(
-        !entered_tapped(&engine, land),
-        "enters untapped under partial coverage"
-    );
-
-    activate(&mut engine, p0, auntie_s_hovel(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Black));
-    assert!(options.contains(&ManaColor::Red));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .unwrap();
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Black), 1);
-    assert!(is_tapped(&engine, land));
-}
-
 /// Cradle of the Accursed: "{T}: Add {C}." / "{3}, {T}, Sacrifice this land: Create a 2/2 black Zombie creature token."
 /// Under `Coverage::Partial`, the Zombie token creation ability is omitted.
 /// Activating the implemented ability taps the land for {C} and adds colorless mana to the pool.
@@ -11509,40 +11433,6 @@ fn gathering_place_with_basic_land_produces_colored_mana() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::White), 1);
     assert!(is_tapped(&engine, gp));
-}
-
-/// Gilt-Leaf Palace: "As this land enters, you may reveal an Elf card from your hand. If you don't, this land enters tapped." / "{T}: Add {B} or {G}."
-/// Under `Coverage::Partial`, the hand-reveal entry modifier is omitted, so the land enters untapped.
-/// Activating the mana ability prompts for Black or Green, and selecting Green adds {G} to the pool.
-#[test]
-fn gilt_leaf_palace_enters_untapped_and_taps_for_green() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(131, forest())
-        .hand(0, &[gilt_leaf_palace()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let palace = play_land(&mut engine, p0, gilt_leaf_palace());
-    assert!(
-        !entered_tapped(&engine, palace),
-        "enters untapped under partial coverage"
-    );
-
-    activate(&mut engine, p0, gilt_leaf_palace(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Black));
-    assert!(options.contains(&ManaColor::Green));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
-        .unwrap();
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Green), 1);
-    assert!(is_tapped(&engine, palace));
 }
 
 /// Gleaming Bastion: "{T}: Add {C}." / "{T}: Add {W} or {U}. Activate only if this land entered this turn or if you control a basic land."
@@ -12129,38 +12019,6 @@ fn sea_gate_wreckage_taps_for_colorless_mana() {
     assert!(is_tapped(&engine, land));
 }
 
-/// Secluded Glen: "As this land enters, you may reveal a Faerie card from your hand. If you don't, this land enters tapped." / "{T}: Add {U} or {B}."
-/// Under `Coverage::Partial`, the hidden-zone Faerie reveal condition is omitted, so the land enters untapped.
-/// Activating Secluded Glen prompts for Blue or Black and adds {U} to the mana pool.
-#[test]
-fn secluded_glen_enters_untapped_and_taps_for_blue() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(136, forest()).hand(0, &[secluded_glen()]).start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, secluded_glen());
-    assert!(
-        !entered_tapped(&engine, land),
-        "enters untapped under partial coverage"
-    );
-
-    activate(&mut engine, p0, secluded_glen(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Blue));
-    assert!(options.contains(&ManaColor::Black));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
-        .unwrap();
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Blue), 1);
-    assert!(is_tapped(&engine, land));
-}
-
 /// Secret Base: "{T}: Add {C}." / "{T}: Add one mana of any color. Spend this mana only to cast a spell that shares a watermark with this land."
 /// Under `Coverage::Partial`, the watermark-restricted mana ability is omitted because watermarks cannot be read by filters.
 /// Activating Secret Base produces {C} and leaves the land tapped.
@@ -12429,36 +12287,6 @@ fn cathedral_of_war_enters_tapped_and_taps_for_colorless() {
     assert!(is_tapped(&engine, land));
 }
 
-/// Choked Estuary: "As this land enters, you may reveal an Island or Swamp card from your hand. If you don't, this land enters tapped." / "{T}: Add {U} or {B}."
-/// Under `Coverage::Partial`, revealing a card from hand as an entry modifier is unsupported, so the land enters untapped.
-/// Activating Choked Estuary offers a choice between Blue and Black mana and adds the chosen mana.
-#[test]
-fn choked_estuary_enters_untapped_and_taps_for_blue() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(113, forest())
-        .hand(0, &[choked_estuary()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, choked_estuary());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, choked_estuary(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Blue));
-    assert!(options.contains(&ManaColor::Black));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Blue), 1);
-    assert!(is_tapped(&engine, land));
-}
-
 /// Corrupted Crossroads: "{T}: Add {C}." / "{T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast a spell with devoid."
 /// Under `Coverage::Partial`, the devoid mana restriction is unsupported and that ability is omitted.
 /// Activating ability 0 produces one colorless mana and taps the land.
@@ -12528,154 +12356,6 @@ fn forbidden_orchard_taps_for_any_color() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 1);
     assert!(is_tapped(&engine, orchard));
-}
-
-/// Foreboding Ruins: "As this land enters, you may reveal a Swamp or Mountain card from your hand. If you don't, this land enters tapped." / "{T}: Add {B} or {R}."
-/// Under `Coverage::Partial`, the hand-reveal entry modifier is unsupported, allowing Foreboding Ruins to enter untapped.
-/// Activating ability 0 prompts for Black or Red and adds the selected color to the mana pool.
-#[test]
-fn foreboding_ruins_enters_untapped_and_taps_for_black() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(114, forest())
-        .hand(0, &[foreboding_ruins()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, foreboding_ruins());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, foreboding_ruins(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Black));
-    assert!(options.contains(&ManaColor::Red));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Black), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Fortified Village: "As this land enters, you may reveal a Forest or Plains card from your hand. If you don't, this land enters tapped." / "{T}: Add {G} or {W}."
-/// Under `Coverage::Partial`, the hand-reveal entry clause is omitted so Fortified Village enters untapped.
-/// Activating the land's mana ability prompts for Green or White and adds `{G}` to the pool.
-#[test]
-fn fortified_village_enters_untapped_and_taps_for_green() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(115, forest())
-        .hand(0, &[fortified_village()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, fortified_village());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, fortified_village(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Green));
-    assert!(options.contains(&ManaColor::White));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Green), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Frostboil Snarl: "As this land enters, you may reveal an Island or Mountain card from your hand. If you don't, this land enters tapped." / "{T}: Add {U} or {R}."
-/// Under `Coverage::Partial`, the reveal-from-hand entry modifier is unsupported so Frostboil Snarl enters untapped.
-/// Activating ability 0 presents a color choice between Blue and Red, producing `{U}` and tapping the land.
-#[test]
-fn frostboil_snarl_enters_untapped_and_taps_for_blue() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(116, forest())
-        .hand(0, &[frostboil_snarl()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, frostboil_snarl());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, frostboil_snarl(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Blue));
-    assert!(options.contains(&ManaColor::Red));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Blue), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Furycalm Snarl: "As this land enters, you may reveal a Mountain or Plains card from your hand. If you don't, this land enters tapped." / "{T}: Add {R} or {W}."
-/// Under `Coverage::Partial`, the reveal-from-hand clause is unsupported and Furycalm Snarl enters untapped.
-/// Activating the land offers Red or White, adding `{R}` and leaving the land tapped.
-#[test]
-fn furycalm_snarl_enters_untapped_and_taps_for_red() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(117, forest())
-        .hand(0, &[furycalm_snarl()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, furycalm_snarl());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, furycalm_snarl(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Red));
-    assert!(options.contains(&ManaColor::White));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Red), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Game Trail: "As this land enters, you may reveal a Mountain or Forest card from your hand. If you don't, this land enters tapped." / "{T}: Add {R} or {G}."
-/// Under `Coverage::Partial`, the reveal entry condition is unsupported, allowing Game Trail to enter untapped.
-/// Activating ability 0 prompts for Red or Green and adds `{R}` to the mana pool.
-#[test]
-fn game_trail_enters_untapped_and_taps_for_red() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(118, forest()).hand(0, &[game_trail()]).start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, game_trail());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, game_trail(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Red));
-    assert!(options.contains(&ManaColor::Green));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Red), 1);
-    assert!(is_tapped(&engine, land));
 }
 
 /// Halimar Depths: "This land enters tapped." / "When this land enters, look at the top three cards of your library, then put them back in any order." / "{T}: Add {U}."
@@ -12949,36 +12629,6 @@ fn mouth_of_ronom_sacrifices_to_deal_damage_to_creature() {
     assert!(on_battlefield(&engine, p1, quiet_creature()).is_none());
 }
 
-/// Necroblossom Snarl: "As this land enters, you may reveal a Swamp or Forest card from your hand. If you don't, this land enters tapped." / "{T}: Add {B} or {G}."
-/// Under `Coverage::Partial`, the hand reveal clause is omitted and Necroblossom Snarl enters untapped.
-/// Activating the mana ability prompts for Black or Green, adding `{B}` and tapping the land.
-#[test]
-fn necroblossom_snarl_enters_untapped_and_taps_for_black() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(119, forest())
-        .hand(0, &[necroblossom_snarl()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, necroblossom_snarl());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, necroblossom_snarl(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Black));
-    assert!(options.contains(&ManaColor::Green));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Black), 1);
-    assert!(is_tapped(&engine, land));
-}
-
 /// Nesting Grounds: "{T}: Add {C}." / "{1}, {T}: Move a counter from target permanent you control onto a second target permanent. Activate only as a sorcery."
 /// Under `Coverage::Partial`, moving counters between permanents is unsupported, leaving only the mana ability.
 /// Activating ability 0 adds one colorless mana to the pool and taps the land.
@@ -12996,34 +12646,6 @@ fn nesting_grounds_taps_for_colorless_mana() {
 
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Port Town: "As this land enters, you may reveal a Plains or Island card from your hand. If you don't, this land enters tapped." / "{T}: Add {W} or {U}."
-/// Under `Coverage::Partial`, revealing from hand is unsupported and Port Town enters untapped.
-/// Activating ability 0 prompts for White or Blue, adding `{W}` and tapping the land.
-#[test]
-fn port_town_enters_untapped_and_taps_for_white() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(120, forest()).hand(0, &[port_town()]).start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, port_town());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, port_town(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::White));
-    assert!(options.contains(&ManaColor::Blue));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::White), 1);
     assert!(is_tapped(&engine, land));
 }
 
@@ -13095,36 +12717,6 @@ fn sequestered_stash_sacrifices_to_mill_five_cards() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(library_size(&engine, p0), lib_before - 5);
-}
-
-/// Shineshadow Snarl: "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don't, this land enters tapped." / "{T}: Add {W} or {B}."
-/// Under `Coverage::Partial`, the hand reveal clause is unsupported and Shineshadow Snarl enters untapped.
-/// Activating ability 0 prompts for White or Black, adding `{W}` and tapping the land.
-#[test]
-fn shineshadow_snarl_enters_untapped_and_taps_for_white() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(121, forest())
-        .hand(0, &[shineshadow_snarl()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, shineshadow_snarl());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, shineshadow_snarl(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::White));
-    assert!(options.contains(&ManaColor::Black));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::White), 1);
-    assert!(is_tapped(&engine, land));
 }
 
 /// Shrine of the Forsaken Gods: "{T}: Add {C}." / "{T}: Add {C}{C}. Spend this mana only to cast colorless spells. Activate only if you control seven or more lands."
@@ -13371,66 +12963,6 @@ fn urza_s_workshop_adds_mana_for_each_urza_land_with_metalcraft() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 3);
     assert!(is_tapped(&engine, workshop));
-}
-
-/// Vineglimmer Snarl: "As this land enters, you may reveal a Forest or Island card from your hand. If you don't, this land enters tapped." / "{T}: Add {G} or {U}."
-/// Under `Coverage::Partial`, the hand-reveal entry modifier is unsupported and Vineglimmer Snarl enters untapped.
-/// Activating ability 0 prompts for Green or Blue, adding `{G}` and tapping the land.
-#[test]
-fn vineglimmer_snarl_enters_untapped_and_taps_for_green() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(122, forest())
-        .hand(0, &[vineglimmer_snarl()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, vineglimmer_snarl());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, vineglimmer_snarl(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Green));
-    assert!(options.contains(&ManaColor::Blue));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Green), 1);
-    assert!(is_tapped(&engine, land));
-}
-
-/// Wanderwine Hub: "As this land enters, you may reveal a Merfolk card from your hand. If you don't, this land enters tapped." / "{T}: Add {W} or {U}."
-/// Under `Coverage::Partial`, the reveal-from-hand entry clause is unsupported and Wanderwine Hub enters untapped.
-/// Activating ability 0 prompts for White or Blue, adding `{W}` and tapping the land.
-#[test]
-fn wanderwine_hub_enters_untapped_and_taps_for_white() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(123, forest())
-        .hand(0, &[wanderwine_hub()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let land = play_land(&mut engine, p0, wanderwine_hub());
-    assert!(!entered_tapped(&engine, land));
-
-    activate(&mut engine, p0, wanderwine_hub(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::White));
-    assert!(options.contains(&ManaColor::Blue));
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
-        .unwrap();
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::White), 1);
-    assert!(is_tapped(&engine, land));
 }
 
 /// Zoetic Cavern: "{T}: Add {C}." / "Morph {2}"
@@ -17976,7 +17508,7 @@ fn flamekin_village_spends_red_and_its_own_tap_on_one_creatures_haste() {
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(), llanowar_elves(), llanowar_elves()])
         .battlefield(1, &[llanowar_elves()])
-        .hand(0, &[flamekin_village()])
+        .hand(0, &[flamekin_village(), solitude()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -17984,6 +17516,11 @@ fn flamekin_village_spends_red_and_its_own_tap_on_one_creatures_haste() {
     // A real `PlayLand`. `starting_battlefield` places a permanent with
     // `Cause::Setup`, which is a placement and no arrival at all.
     let village = play_land(&mut engine, p0, flamekin_village());
+    // The Elemental in hand, revealed: the haste ability taps the Village,
+    // so a Village that entered tapped could not be asked this question at
+    // all. Solitude is in the hand for that and is never cast.
+    let elemental = in_hand(&engine, p0, solitude()).expect("Solitude is in hand");
+    reveal_on_entry(&mut engine, p0, elemental);
 
     let elves = all_on_battlefield(&engine, p0, llanowar_elves());
     assert_eq!(elves.len(), 2, "two Elves, one of which stays plain");
@@ -19217,138 +18754,6 @@ fn mistrise_village_enters_tapped_without_a_forest_and_taps_for_blue_beside_one(
     assert!(
         stack_is_empty(&engine),
         "CR 605.3b: a mana ability never uses the stack"
-    );
-}
-
-/// Murmuring Bosk is a Forest that also prints "{T}: Add {W} or {B}. This
-/// land deals 1 damage to you", and the reveal-a-Treefolk-or-enter-tapped
-/// clause is the `Coverage::Partial` gap — no `EnterModifier` asks it, so the
-/// copy played here from hand arrives with nothing revealed. Both printed
-/// mana abilities are then played: the Forest half taps for green without
-/// asking a colour and without costing a life, and the pain half names its
-/// colour and takes the life. Only the life total tells the two apart, which
-/// is why the free tap is read first, in the same turn, off a second Bosk
-/// still standing beside it.
-#[test]
-#[allow(clippy::too_many_lines)] // one land, played through every clause it prints
-fn murmuring_bosk_taps_a_forest_for_green_and_pays_life_for_white_or_black() {
-    let p0 = PlayerId::new(0);
-    let _p1 = PlayerId::new(1);
-    let mut engine = Duel::new(211, forest())
-        .battlefield(0, &[murmuring_bosk()])
-        .hand(0, &[murmuring_bosk()])
-        .life(0, 20)
-        .life(1, 20)
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let seeded = on_battlefield(&engine, p0, murmuring_bosk()).expect("the first Bosk is out");
-    let played = play_land(&mut engine, p0, murmuring_bosk());
-    assert_ne!(seeded, played, "the played copy is a second permanent");
-
-    // The Forest half (CR 305.6), off the land left standing — `{T}` and
-    // nothing else: no colour is asked for and no life goes with it.
-    let taken = tap_mana_except(&mut engine, p0, played);
-    assert_eq!(
-        taken, 1,
-        "one other mana source on the board, and it tapped"
-    );
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Green),
-        1,
-        "the {{G}} the Forest type line makes"
-    );
-    assert_eq!(
-        engine.state().players[0].mana_pool.total(),
-        1,
-        "one tap, one mana"
-    );
-    assert_eq!(
-        engine.state().players[0].life,
-        20,
-        "and the Forest half is free"
-    );
-    assert!(is_tapped(&engine, seeded), "which is what tapped it");
-
-    // The printed pain half. Ability 0 is the green `mana_ability!` above and
-    // ability 1 is `Add {W} or {B}`; two Bosks stand on the board, so the
-    // source is named rather than looked up by printing.
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: played,
-                ability_index: 1,
-            },
-        )
-        .expect("an untapped Bosk with its {T} still free offers its second line");
-
-    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
-        panic!(
-            "`Add {{W}} or {{B}}` is a question, got {:?}",
-            engine.pending()
-        )
-    };
-    assert_eq!(player, p0, "the activating seat is the one that names it");
-    assert_eq!(
-        options.len(),
-        2,
-        "\"Add {{W}} or {{B}}\" is two colours and not five: {options:?}"
-    );
-    assert!(
-        options.contains(&ManaColor::White) && options.contains(&ManaColor::Black),
-        "both halves of the printed disjunction: {options:?}"
-    );
-    assert!(
-        !options.contains(&ManaColor::Green),
-        "the green belongs to the *other* ability, which never asks: {options:?}"
-    );
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .expect("black was one of the two colours it offered");
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Black),
-        1,
-        "the colour that was named, and not a default"
-    );
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Green),
-        1,
-        "beside the green the Forest half left floating"
-    );
-    assert_eq!(
-        engine.state().players[0].mana_pool.total(),
-        2,
-        "each of the two taps made exactly one mana"
-    );
-    assert_eq!(
-        engine.state().players[0].life,
-        19,
-        "\"This land deals 1 damage to you\" — one life off its controller, \
-         and nothing at all off the free green the other half made"
-    );
-    assert_eq!(
-        engine.state().players[1].life,
-        20,
-        "and the damage belongs to the activating player, never the opponent"
-    );
-    assert!(
-        is_tapped(&engine, played),
-        "the {{T}} was the other half of the price"
-    );
-    assert!(
-        stack_is_empty(&engine),
-        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
     );
 }
 
@@ -23656,58 +23061,6 @@ fn the_black_gate_enters_untapped_for_three_life_or_tapped_for_free() {
     }
 }
 
-fn revitalizing_repast() -> CardIndex {
-    card_index("8dd6d060-d023-48a6-85cb-7a5521b6257b")
-}
-
-fn vastwood_fortification() -> CardIndex {
-    card_index("ce148a0c-6c63-49d5-a156-99efae4e367a")
-}
-
-fn beyeen_veil() -> CardIndex {
-    card_index("b03de49d-246f-44e2-9487-9e4e43ec7be4")
-}
-
-fn jwari_disruption() -> CardIndex {
-    card_index("941a4b14-ea2a-4bd0-8cc2-d609f80df32c")
-}
-
-fn kabira_takedown() -> CardIndex {
-    card_index("0bb73c07-0220-4ba9-8d85-3c357c223833")
-}
-
-fn legion_leadership() -> CardIndex {
-    card_index("ad225ec2-ff3a-48f6-81a7-dfdd1b75e1f7")
-}
-
-fn fell_the_profane() -> CardIndex {
-    card_index("053a69d8-2b5e-4f14-8b02-ca405891dc4a")
-}
-
-fn waterlogged_teachings() -> CardIndex {
-    card_index("e6ad1be9-f13d-4590-b3db-e2d0fff46f03")
-}
-
-fn bala_ged_recovery() -> CardIndex {
-    card_index("d2075f58-b0e9-4e85-b7e6-0523a27a1d5b")
-}
-
-fn makindi_stampede() -> CardIndex {
-    card_index("342e08f9-d4d0-4408-8621-66e087058616")
-}
-
-fn song_mad_treachery() -> CardIndex {
-    card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
-}
-
-fn zof_consumption() -> CardIndex {
-    card_index("d9f11985-e460-425d-b083-9cb0edf1983a")
-}
-
-fn ondu_inversion() -> CardIndex {
-    card_index("15fc4e74-300e-4c2d-8ed7-004553b2f7c2")
-}
-
 /// The thirteen modal double-faced cards round J added, named rather than
 /// counted.
 ///
@@ -25539,8 +24892,10 @@ fn nantuko_monastery_offers_only_the_mana_ability_at_threshold() {
             .iter()
             .filter(|(id, _)| *id == monastery)
             .count(),
-        1,
-        "only the mana ability is offered, despite threshold being met"
+        2,
+        "the mana ability and the animation — this assertion read 1 for as \
+         long as `Condition` had no way to say \"seven or more cards in your \
+         graveyard\", and the ability was left off the card"
     );
 
     activate(&mut engine, p0, nantuko_monastery(), 0);
@@ -25995,6 +25350,12 @@ fn cabal_pit_activates_to_give_target_creature_minus_two_minus_two() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
+    // Seven cards, because the ability is gated on threshold now.
+    // This test read the ability as offered on an empty graveyard for
+    // as long as `Condition` could not say the sentence, which is a
+    // land strictly stronger than the printed one.
+    seed_graveyard(&mut engine, p0, 7);
+
     let cow = on_battlefield(&engine, p0, aurochs()).expect("aurochs on battlefield");
     assert_eq!(pt(&engine, cow), (2, 3));
 
@@ -26047,6 +25408,12 @@ fn centaur_garden_activates_to_give_target_creature_plus_three_plus_three() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+
+    // Seven cards, because the ability is gated on threshold now.
+    // This test read the ability as offered on an empty graveyard for
+    // as long as `Condition` could not say the sentence, which is a
+    // land strictly stronger than the printed one.
+    seed_graveyard(&mut engine, p0, 7);
 
     let cow = on_battlefield(&engine, p0, aurochs()).expect("aurochs on battlefield");
     assert_eq!(pt(&engine, cow), (2, 3));
@@ -29302,15 +28669,27 @@ fn rustic_clachan_enters_untapped_and_reinforces_from_hand() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), young_wolf()])
-        .hand(0, &[rustic_clachan(), rustic_clachan()])
+        .hand(0, &[rustic_clachan(), rustic_clachan(), crib_swap()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let clachan = play_land(&mut engine, p0, rustic_clachan());
+    // "You may reveal a Kithkin card from your hand." This pool prints no
+    // Kithkin at all, so the only card that answers is a changeling —
+    // CR 702.73a makes Crib Swap every creature type in every zone.
+    let kithkin = in_hand(&engine, p0, crib_swap()).expect("Crib Swap is in hand");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![kithkin],
+            },
+        )
+        .expect("a changeling is a Kithkin card");
     assert!(
         !entered_tapped(&engine, clachan),
-        "rustic clachan enters untapped under `Coverage::Partial`"
+        "revealing a Kithkin card keeps the Clachan untapped"
     );
 
     // Float {{1}}{{W}} from Forest and Rustic Clachan.
@@ -31157,5 +30536,1680 @@ fn witch_s_cottage_enters_untapped_with_three_swamps_and_recovers_creature() {
             .mana_pool
             .available(ManaColor::Black),
         4
+    );
+}
+
+// ── Threshold: the gate that was missing, and the six lands behind it ─────
+
+/// Cabal Pit at the boundary — six cards is not threshold and seven is.
+///
+/// This is the rule test for `Condition::GraveyardCountAtLeast`, and the
+/// boundary is the whole of it: an off-by-one here is a land that is either
+/// permanently switched on or permanently switched off, and a test that
+/// seeded ten cards would pass against both. So one game, seeded to six,
+/// asked, then seeded to seven and asked again — the same board, the same
+/// land, one card of difference.
+///
+/// It is also the regression test for what the missing variant actually
+/// did. Cabal Pit shipped the ability **ungated**, which is a strictly
+/// better land than the printed one, and Barbarian Ring shipped it not at
+/// all. Two opposite wrong answers to one missing sentence, and neither
+/// could be caught by `xtask validate`, which reads what a card *says*
+/// rather than when the engine offers it.
+#[test]
+fn cabal_pit_offers_its_ability_only_at_threshold() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(9, forest())
+        .battlefield(0, &[cabal_pit(), swamp(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let pit = on_battlefield(&engine, p0, cabal_pit()).expect("the Pit is in play");
+
+    // The mana first, and that is the whole care this test needs.
+    // `legal.abilities` lists what can be paid for out of the pool as it
+    // stands, not out of the lands that could fill it — so a negative
+    // assertion made with an empty pool is green because the {B} is
+    // missing and says nothing at all about the gate.
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are in play");
+    tap_mana_except(&mut engine, p0, pit);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "the Swamp is tapped and the black mana is floating, so the only \
+         thing left that can withhold the ability is the gate"
+    );
+
+    seed_graveyard(&mut engine, p0, 6);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority")
+    };
+    assert!(
+        !legal.abilities.contains(&(pit, 1)),
+        "six cards is not threshold — the printed gate says seven, and an \
+         ungated Cabal Pit is a land nobody printed"
+    );
+
+    seed_graveyard(&mut engine, p0, 1);
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority")
+    };
+    assert!(
+        legal.abilities.contains(&(pit, 1)),
+        "the seventh card is threshold"
+    );
+
+    // And it does what it says once it is on.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: pit,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("it targets a creature, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: Vec::new(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "a 1/1 given -2/-2 is a creature with toughness below one (CR 704.5f)"
+    );
+}
+
+/// Barbarian Ring: the ability that was not on the card at all.
+#[test]
+fn barbarian_ring_deals_two_only_once_the_graveyard_is_full() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(11, forest())
+        .battlefield(0, &[barbarian_ring(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ring = on_battlefield(&engine, p0, barbarian_ring()).expect("the Ring is in play");
+
+    // Floated first, for the reason Cabal Pit's test spells out: an empty
+    // pool withholds the ability by itself.
+    tap_mana_except(&mut engine, p0, ring);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority")
+    };
+    assert!(
+        !legal.abilities.contains(&(ring, 1)),
+        "an empty graveyard is not threshold"
+    );
+
+    seed_graveyard(&mut engine, p0, 7);
+    let life = engine.state().players[1].life;
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: ring,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseTargets { .. } = engine.pending().clone() else {
+        panic!("\"any target\", got {:?}", engine.pending())
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        life - 2,
+        "\"it deals 2 damage to any target\""
+    );
+    assert!(
+        on_battlefield(&engine, p0, barbarian_ring()).is_none(),
+        "sacrificing the land is part of the cost, so it is gone by resolution \
+         — and the damage still happens (CR 608.2g)"
+    );
+}
+
+// Nomad Stadium, Centaur Garden, Cephalid Coliseum and Nantuko Monastery: the
+// other four lands `Condition::GraveyardCountAtLeast` finished, each played
+// once. The gate itself is proved at the boundary in
+// `cabal_pit_offers_its_ability_only_at_threshold`; what each of these adds is
+// that the *effect* behind the gate is the printed one — a condition that let
+// the wrong ability through would pass a test that only asked whether
+// something was offered.
+
+/// Nomad Stadium: "You gain 4 life."
+#[test]
+fn nomad_stadium_gains_four_life_once_the_graveyard_is_full() {
+    let p0 = PlayerId::new(0);
+
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[nomad_stadium(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, nomad_stadium()).expect("in play");
+    tap_mana_except(&mut engine, p0, land);
+    seed_graveyard(&mut engine, p0, 7);
+    let life = engine.state().players[0].life;
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, life + 4);
+}
+
+/// Centaur Garden: "+3/+3 until end of turn", and it was ungated before.
+#[test]
+fn centaur_garden_pumps_by_three_only_at_threshold() {
+    let p0 = PlayerId::new(0);
+
+    let mut engine = Duel::new(17, forest())
+        .battlefield(0, &[centaur_garden(), forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, centaur_garden()).expect("in play");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("in play");
+
+    tap_mana_except(&mut engine, p0, land);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority")
+    };
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "an empty graveyard is not threshold, and the green mana is floating"
+    );
+
+    seed_graveyard(&mut engine, p0, 7);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: Vec::new(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elves), (4, 4), "a 1/1 with +3/+3");
+}
+
+/// Cephalid Coliseum: "Target player draws three cards, then discards three
+/// cards." Both halves read the *same* seat, which is what
+/// `PlayerRel::Chosen` is for — a card that drew for one player and made
+/// another discard would pass a test that only counted the draw.
+#[test]
+fn cephalid_coliseum_draws_and_discards_three_at_threshold() {
+    let p0 = PlayerId::new(0);
+
+    let mut engine = Duel::new(19, forest())
+        .battlefield(0, &[cephalid_coliseum(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, cephalid_coliseum()).expect("in play");
+    tap_mana_except(&mut engine, p0, land);
+    seed_graveyard(&mut engine, p0, 7);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let lib_before = library_size(&engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!("it targets a player, got {:?}", engine.pending())
+    };
+    assert!(player_options.contains(&p0));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+    drive_to_rest(&mut engine, p0);
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 3,
+        "three cards left the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "three drawn and three discarded is a hand the same size — which \
+         is the assertion a draw-only reading would fail"
+    );
+}
+
+/// Nantuko Monastery: a 4/4 first-striking Insect Monk that is still a land.
+#[test]
+fn nantuko_monastery_animates_only_at_threshold() {
+    let p0 = PlayerId::new(0);
+
+    let mut engine = Duel::new(23, forest())
+        .battlefield(0, &[nantuko_monastery(), forest(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, nantuko_monastery()).expect("in play");
+
+    // `{G}{W}` and no tap, so the Monastery itself may be tapped for
+    // mana too — the animation costs it nothing.
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority")
+    };
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "an empty graveyard is not threshold, and the mana is floating"
+    );
+
+    seed_graveyard(&mut engine, p0, 7);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let chars = engine
+        .state()
+        .object(land)
+        .expect("the Monastery is still there")
+        .characteristics()
+        .clone();
+    assert!(chars.types.contains(TypeSet::CREATURE));
+    assert!(chars.types.contains(TypeSet::LAND), "it's still a land");
+    assert_eq!(pt(&engine, land), (4, 4));
+    assert!(chars.keywords.contains(KeywordSet::FIRST_STRIKE));
+}
+
+/// Ancient Amphitheater prints "As this land enters, you may reveal a Giant card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{R}} or {{W}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Giant card in hand as it enters.
+/// Revealing `primeval_titan` satisfies the condition and allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Giant card in hand, it enters tapped.
+#[test]
+fn ancient_amphitheater_enters_untapped_by_revealing_giant() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(134, forest())
+        .hand(0, &[ancient_amphitheater(), primeval_titan()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, ancient_amphitheater());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let titan = in_hand(&engine, p0, primeval_titan()).expect("titan is in hand");
+    assert_eq!(options, vec![titan]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![titan],
+            },
+        )
+        .expect("reveal giant card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Giant lets Ancient Amphitheater enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, primeval_titan()).is_some(),
+        "revealed Giant remains in hand"
+    );
+
+    activate(&mut engine, p0, ancient_amphitheater(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Red));
+    assert!(options.contains(&ManaColor::White));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(135, forest())
+        .hand(0, &[ancient_amphitheater()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, ancient_amphitheater());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Giant in hand, Ancient Amphitheater enters tapped"
+    );
+}
+
+/// Auntie's Hovel prints "As this land enters, you may reveal a Goblin card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{B}} or {{R}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Goblin card in hand upon entry.
+/// Revealing `festering_goblin` satisfies the condition and allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Goblin card in hand, it enters tapped.
+#[test]
+fn auntie_s_hovel_enters_untapped_by_revealing_goblin() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(136, forest())
+        .hand(0, &[auntie_s_hovel(), festering_goblin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, auntie_s_hovel());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let goblin = in_hand(&engine, p0, festering_goblin()).expect("goblin is in hand");
+    assert_eq!(options, vec![goblin]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![goblin],
+            },
+        )
+        .expect("reveal goblin card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Goblin lets Auntie's Hovel enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, festering_goblin()).is_some(),
+        "revealed Goblin remains in hand"
+    );
+
+    activate(&mut engine, p0, auntie_s_hovel(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Black));
+    assert!(options.contains(&ManaColor::Red));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(137, forest())
+        .hand(0, &[auntie_s_hovel()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, auntie_s_hovel());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Goblin in hand, Auntie's Hovel enters tapped"
+    );
+}
+
+/// Choked Estuary prints "As this land enters, you may reveal an Island or Swamp card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{U}} or {{B}}.`
+///
+/// Under `Coverage::Implemented`, the land offers a reveal of an Island or Swamp card from hand upon entry.
+/// Revealing `island` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without an Island or Swamp card in hand, it enters tapped.
+#[test]
+fn choked_estuary_enters_untapped_by_revealing_island_or_swamp() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(138, forest())
+        .hand(0, &[choked_estuary(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, choked_estuary());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, island()).expect("island is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal island card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing an Island lets Choked Estuary enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, island()).is_some(),
+        "revealed Island remains in hand"
+    );
+
+    activate(&mut engine, p0, choked_estuary(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Blue));
+    assert!(options.contains(&ManaColor::Black));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(139, forest())
+        .hand(0, &[choked_estuary()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, choked_estuary());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Island or Swamp in hand, Choked Estuary enters tapped"
+    );
+}
+
+/// Flamekin Village prints "As this land enters, you may reveal an Elemental card from your hand. If you don't, this land enters tapped.", `{{T}}: Add {{R}}.`, and `{{R}}, {{T}}: Target creature gains haste until end of turn.`
+///
+/// Under `Coverage::Implemented`, the land checks for an Elemental card in hand upon entry.
+/// Revealing `solitude` satisfies the condition and allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces Red mana directly; without an Elemental card in hand, it enters tapped.
+#[test]
+fn flamekin_village_enters_untapped_by_revealing_elemental() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(140, forest())
+        .hand(0, &[flamekin_village(), solitude()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, flamekin_village());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let elemental = in_hand(&engine, p0, solitude()).expect("solitude is in hand");
+    assert_eq!(options, vec![elemental]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elemental],
+            },
+        )
+        .expect("reveal elemental card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing an Elemental lets Flamekin Village enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, solitude()).is_some(),
+        "revealed Elemental remains in hand"
+    );
+
+    activate(&mut engine, p0, flamekin_village(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(141, forest())
+        .hand(0, &[flamekin_village()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, flamekin_village());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Elemental in hand, Flamekin Village enters tapped"
+    );
+}
+
+/// Foreboding Ruins prints "As this land enters, you may reveal a Swamp or Mountain card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{B}} or {{R}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Swamp or Mountain card in hand upon entry.
+/// Revealing `swamp` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Swamp or Mountain card in hand, it enters tapped.
+#[test]
+fn foreboding_ruins_enters_untapped_by_revealing_swamp_or_mountain() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(142, forest())
+        .hand(0, &[foreboding_ruins(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, foreboding_ruins());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, swamp()).expect("swamp is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal swamp card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Swamp lets Foreboding Ruins enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, swamp()).is_some(),
+        "revealed Swamp remains in hand"
+    );
+
+    activate(&mut engine, p0, foreboding_ruins(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Black));
+    assert!(options.contains(&ManaColor::Red));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(143, forest())
+        .hand(0, &[foreboding_ruins()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, foreboding_ruins());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Swamp or Mountain in hand, Foreboding Ruins enters tapped"
+    );
+}
+
+/// Fortified Village prints "As this land enters, you may reveal a Forest or Plains card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{G}} or {{W}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Forest or Plains card in hand upon entry.
+/// Revealing `plains` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Forest or Plains card in hand, it enters tapped.
+#[test]
+fn fortified_village_enters_untapped_by_revealing_forest_or_plains() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(144, island())
+        .hand(0, &[fortified_village(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, fortified_village());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, plains()).expect("plains is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal plains card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Plains lets Fortified Village enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, plains()).is_some(),
+        "revealed Plains remains in hand"
+    );
+
+    activate(&mut engine, p0, fortified_village(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Green));
+    assert!(options.contains(&ManaColor::White));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(145, island())
+        .hand(0, &[fortified_village()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, fortified_village());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Forest or Plains in hand, Fortified Village enters tapped"
+    );
+}
+
+/// Frostboil Snarl prints "As this land enters, you may reveal an Island or Mountain card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{U}} or {{R}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for an Island or Mountain card in hand upon entry.
+/// Revealing `island` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without an Island or Mountain card in hand, it enters tapped.
+#[test]
+fn frostboil_snarl_enters_untapped_by_revealing_island_or_mountain() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(146, forest())
+        .hand(0, &[frostboil_snarl(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, frostboil_snarl());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, island()).expect("island is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal island card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing an Island lets Frostboil Snarl enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, island()).is_some(),
+        "revealed Island remains in hand"
+    );
+
+    activate(&mut engine, p0, frostboil_snarl(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Blue));
+    assert!(options.contains(&ManaColor::Red));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(147, forest())
+        .hand(0, &[frostboil_snarl()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, frostboil_snarl());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Island or Mountain in hand, Frostboil Snarl enters tapped"
+    );
+}
+
+/// Furycalm Snarl prints "As this land enters, you may reveal a Mountain or Plains card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{R}} or {{W}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Mountain or Plains card in hand upon entry.
+/// Revealing `plains` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Mountain or Plains card in hand, it enters tapped.
+#[test]
+fn furycalm_snarl_enters_untapped_by_revealing_mountain_or_plains() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(148, forest())
+        .hand(0, &[furycalm_snarl(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, furycalm_snarl());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, plains()).expect("plains is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal plains card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Plains lets Furycalm Snarl enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, plains()).is_some(),
+        "revealed Plains remains in hand"
+    );
+
+    activate(&mut engine, p0, furycalm_snarl(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Red));
+    assert!(options.contains(&ManaColor::White));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(149, forest())
+        .hand(0, &[furycalm_snarl()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, furycalm_snarl());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Mountain or Plains in hand, Furycalm Snarl enters tapped"
+    );
+}
+
+/// Game Trail prints "As this land enters, you may reveal a Mountain or Forest card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{R}} or {{G}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Mountain or Forest card in hand upon entry.
+/// Revealing `mountain` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Mountain or Forest card in hand, it enters tapped.
+#[test]
+fn game_trail_enters_untapped_by_revealing_mountain_or_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(150, island())
+        .hand(0, &[game_trail(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, game_trail());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, mountain()).expect("mountain is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal mountain card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Mountain lets Game Trail enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, mountain()).is_some(),
+        "revealed Mountain remains in hand"
+    );
+
+    activate(&mut engine, p0, game_trail(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Red));
+    assert!(options.contains(&ManaColor::Green));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(151, island()).hand(0, &[game_trail()]).start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, game_trail());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Mountain or Forest in hand, Game Trail enters tapped"
+    );
+}
+
+/// Gilt-Leaf Palace prints "As this land enters, you may reveal an Elf card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{B}} or {{G}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for an Elf card in hand upon entry.
+/// Revealing `llanowar_elves` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without an Elf card in hand, it enters tapped.
+#[test]
+fn gilt_leaf_palace_enters_untapped_by_revealing_elf() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(152, island())
+        .hand(0, &[gilt_leaf_palace(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, gilt_leaf_palace());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let elf = in_hand(&engine, p0, llanowar_elves()).expect("elf is in hand");
+    assert_eq!(options, vec![elf]);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("reveal elf card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing an Elf lets Gilt-Leaf Palace enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, llanowar_elves()).is_some(),
+        "revealed Elf remains in hand"
+    );
+
+    activate(&mut engine, p0, gilt_leaf_palace(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Black));
+    assert!(options.contains(&ManaColor::Green));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(153, island())
+        .hand(0, &[gilt_leaf_palace()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, gilt_leaf_palace());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Elf in hand, Gilt-Leaf Palace enters tapped"
+    );
+}
+
+/// Murmuring Bosk prints "As this land enters, you may reveal a Treefolk card from your hand. If you don't, this land enters tapped.", `({{T}}: Add {{G}}.)`, and `{{T}}: Add {{W}} or {{B}}. This land deals 1 damage to you.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Treefolk card in hand upon entry.
+/// Revealing a Treefolk card allows the land to enter untapped while keeping the card in hand, after which activating its pain ability produces White mana and deals 1 damage to its controller; without a Treefolk card in hand, it enters tapped.
+#[test]
+fn murmuring_bosk_enters_untapped_by_revealing_treefolk() {
+    let p0 = PlayerId::new(0);
+    let treefolk = card_index("04683bd7-b100-4fc8-8165-316c5508c255");
+    let mut engine = Duel::new(154, island())
+        .hand(0, &[murmuring_bosk(), treefolk])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, murmuring_bosk());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, treefolk).expect("treefolk is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal treefolk card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Treefolk lets Murmuring Bosk enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, treefolk).is_some(),
+        "revealed Treefolk remains in hand"
+    );
+
+    let before_life = engine.state().players[0].life;
+    activate(&mut engine, p0, murmuring_bosk(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Black));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert_eq!(engine.state().players[0].life, before_life - 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(155, island())
+        .hand(0, &[murmuring_bosk()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, murmuring_bosk());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Treefolk in hand, Murmuring Bosk enters tapped"
+    );
+}
+
+/// Necroblossom Snarl prints "As this land enters, you may reveal a Swamp or Forest card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{B}} or {{G}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Swamp or Forest card in hand upon entry.
+/// Revealing `swamp` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Swamp or Forest card in hand, it enters tapped.
+#[test]
+fn necroblossom_snarl_enters_untapped_by_revealing_swamp_or_forest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(156, island())
+        .hand(0, &[necroblossom_snarl(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, necroblossom_snarl());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, swamp()).expect("swamp is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal swamp card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Swamp lets Necroblossom Snarl enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, swamp()).is_some(),
+        "revealed Swamp remains in hand"
+    );
+
+    activate(&mut engine, p0, necroblossom_snarl(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Black));
+    assert!(options.contains(&ManaColor::Green));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(157, island())
+        .hand(0, &[necroblossom_snarl()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, necroblossom_snarl());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Swamp or Forest in hand, Necroblossom Snarl enters tapped"
+    );
+}
+
+/// Port Town prints "As this land enters, you may reveal a Plains or Island card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{W}} or {{U}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Plains or Island card in hand upon entry.
+/// Revealing `plains` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Plains or Island card in hand, it enters tapped.
+#[test]
+fn port_town_enters_untapped_by_revealing_plains_or_island() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(158, forest())
+        .hand(0, &[port_town(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, port_town());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, plains()).expect("plains is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal plains card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Plains lets Port Town enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, plains()).is_some(),
+        "revealed Plains remains in hand"
+    );
+
+    activate(&mut engine, p0, port_town(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Blue));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(159, forest()).hand(0, &[port_town()]).start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, port_town());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Plains or Island in hand, Port Town enters tapped"
+    );
+}
+
+/// Rustic Clachan prints "As this land enters, you may reveal a Kithkin card from your hand. If you don't, this land enters tapped.", `{{T}}: Add {{W}}.`, and `Reinforce 1—{{1}}{{W}}`.
+///
+/// Under `Coverage::Implemented`, the land checks for a Kithkin card in hand upon entry.
+/// Revealing a card with changeling (`Crib Swap`) satisfies the creature type check and allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces White mana; without a Kithkin card in hand, it enters tapped.
+#[test]
+fn rustic_clachan_enters_untapped_by_revealing_kithkin() {
+    let p0 = PlayerId::new(0);
+    let changeling = card_index("2987c385-011a-4032-a516-a46d1e9dc9e8");
+    let mut engine = Duel::new(160, forest())
+        .hand(0, &[rustic_clachan(), changeling])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, rustic_clachan());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, changeling).expect("changeling is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal kithkin card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Kithkin lets Rustic Clachan enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, changeling).is_some(),
+        "revealed card remains in hand"
+    );
+
+    activate(&mut engine, p0, rustic_clachan(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(161, forest())
+        .hand(0, &[rustic_clachan()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, rustic_clachan());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Kithkin in hand, Rustic Clachan enters tapped"
+    );
+}
+
+/// Secluded Glen prints "As this land enters, you may reveal a Faerie card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{U}} or {{B}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Faerie card in hand upon entry.
+/// Revealing `vendilion_clique` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Faerie card in hand, it enters tapped.
+#[test]
+fn secluded_glen_enters_untapped_by_revealing_faerie() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(162, forest())
+        .hand(0, &[secluded_glen(), vendilion_clique()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, secluded_glen());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let faerie = in_hand(&engine, p0, vendilion_clique()).expect("clique is in hand");
+    assert_eq!(options, vec![faerie]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![faerie],
+            },
+        )
+        .expect("reveal faerie card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Faerie lets Secluded Glen enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, vendilion_clique()).is_some(),
+        "revealed Faerie remains in hand"
+    );
+
+    activate(&mut engine, p0, secluded_glen(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Blue));
+    assert!(options.contains(&ManaColor::Black));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(163, forest()).hand(0, &[secluded_glen()]).start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, secluded_glen());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Faerie in hand, Secluded Glen enters tapped"
+    );
+}
+
+/// Shineshadow Snarl prints "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{W}} or {{B}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Plains or Swamp card in hand upon entry.
+/// Revealing `plains` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Plains or Swamp card in hand, it enters tapped.
+#[test]
+fn shineshadow_snarl_enters_untapped_by_revealing_plains_or_swamp() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(164, forest())
+        .hand(0, &[shineshadow_snarl(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, shineshadow_snarl());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, plains()).expect("plains is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal plains card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Plains lets Shineshadow Snarl enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, plains()).is_some(),
+        "revealed Plains remains in hand"
+    );
+
+    activate(&mut engine, p0, shineshadow_snarl(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Black));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(165, forest())
+        .hand(0, &[shineshadow_snarl()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, shineshadow_snarl());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Plains or Swamp in hand, Shineshadow Snarl enters tapped"
+    );
+}
+
+/// Vineglimmer Snarl prints "As this land enters, you may reveal a Forest or Island card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{G}} or {{U}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Forest or Island card in hand upon entry.
+/// Revealing `island` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Forest or Island card in hand, it enters tapped.
+#[test]
+fn vineglimmer_snarl_enters_untapped_by_revealing_forest_or_island() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(166, mountain())
+        .hand(0, &[vineglimmer_snarl(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, vineglimmer_snarl());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let shown = in_hand(&engine, p0, island()).expect("island is in hand");
+    assert_eq!(options, vec![shown]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shown],
+            },
+        )
+        .expect("reveal island card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing an Island lets Vineglimmer Snarl enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, island()).is_some(),
+        "revealed Island remains in hand"
+    );
+
+    activate(&mut engine, p0, vineglimmer_snarl(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Green));
+    assert!(options.contains(&ManaColor::Blue));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(167, mountain())
+        .hand(0, &[vineglimmer_snarl()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, vineglimmer_snarl());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Forest or Island in hand, Vineglimmer Snarl enters tapped"
+    );
+}
+
+/// Wanderwine Hub prints "As this land enters, you may reveal a Merfolk card from your hand. If you don't, this land enters tapped." and `{{T}}: Add {{W}} or {{U}}.`
+///
+/// Under `Coverage::Implemented`, the land checks for a Merfolk card in hand upon entry.
+/// Revealing `world_shaper` allows the land to enter untapped while keeping the card in hand, after which activating its mana ability produces the chosen color; without a Merfolk card in hand, it enters tapped.
+#[test]
+fn wanderwine_hub_enters_untapped_by_revealing_merfolk() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(168, forest())
+        .hand(0, &[wanderwine_hub(), world_shaper()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, wanderwine_hub());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected reveal prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::RevealOrEnterTapped);
+    let merfolk = in_hand(&engine, p0, world_shaper()).expect("world shaper is in hand");
+    assert_eq!(options, vec![merfolk]);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![merfolk],
+            },
+        )
+        .expect("reveal merfolk card");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, land),
+        "revealing a Merfolk lets Wanderwine Hub enter untapped"
+    );
+    assert!(
+        in_hand(&engine, p0, world_shaper()).is_some(),
+        "revealed Merfolk remains in hand"
+    );
+
+    activate(&mut engine, p0, wanderwine_hub(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected color choice, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::White));
+    assert!(options.contains(&ManaColor::Blue));
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1);
+    assert!(is_tapped(&engine, land));
+
+    let mut engine2 = Duel::new(169, forest())
+        .hand(0, &[wanderwine_hub()])
+        .start();
+    keep_mulligans(&mut engine2);
+    reach_main_phase(&mut engine2, p0);
+
+    let land2 = play_land(&mut engine2, p0, wanderwine_hub());
+    assert!(
+        is_tapped(&engine2, land2),
+        "with no Merfolk in hand, Wanderwine Hub enters tapped"
     );
 }

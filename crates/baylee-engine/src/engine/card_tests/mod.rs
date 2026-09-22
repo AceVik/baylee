@@ -43,6 +43,10 @@ use baylee_core::ids::{CardIndex, Defender, ObjectId};
 use baylee_core::mana::ManaColor;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
+fn crib_swap() -> CardIndex {
+    card_index("2987c385-011a-4032-a516-a46d1e9dc9e8")
+}
+
 fn forest() -> CardIndex {
     card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
 }
@@ -462,6 +466,24 @@ fn entered_tapped(engine: &Engine<RegistryLookup>, land: ObjectId) -> bool {
         .expect("the land is on the battlefield")
         .status
         .contains(Status::TAPPED)
+}
+
+/// Answer a reveal land's entry question by showing `card`.
+///
+/// [`EnterModifier::TappedUnlessReveal`] publishes a `Pending::ChooseCards`
+/// with `min: 0`, so the land is standing on the battlefield *unfinished*
+/// while this is unanswered: it is neither tapped nor untapped until the
+/// question is settled, and every assertion about it before that reads a
+/// half-built permanent.
+fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
+        .expect("a card the entry question put on the menu is a legal answer");
 }
 
 /// Plays `card` out of `seat`'s hand and answers with the object it became.

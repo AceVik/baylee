@@ -2,9 +2,9 @@
 //! Oracle: {T}: Add {B}. This land deals 1 damage to you.
 //! Oracle: Threshold — {B}, {T}, Sacrifice this land: Target creature gets -2/-2 until end of turn. Activate only if there are seven or more cards in your graveyard.
 //! Set: ODY #315 — Odyssey | Scryfall ID: 848d686a-e2f7-488d-947f-a555099b74b1 | Oracle ID: 92392467-a22f-4dd7-a0eb-393bef956dc0
-// PARTIAL — the mana line is exact: one mana ability that adds {B} and
-// deals the point of damage to its own controller. The Threshold ability is
-// built, but has no activation condition the DSL can state.
+// IMPLEMENTED — the pain mana line, and the -2/-2 gated on threshold.
+// The gate was missing and the ability shipped without it, which is a
+// land strictly stronger than the printed one.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -14,9 +14,7 @@ card!(
     scryfall_id = "848d686a-e2f7-488d-947f-a555099b74b1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     faces = &[face!(name = "Cabal Pit", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "Threshold — \"activate only if there are seven or more cards in your graveyard\": no Condition variant counts cards in a graveyard"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         // "{T}: Add {B}. This land deals 1 damage to you." One ability and
         // not two: the damage is part of the mana line, and CR 605.1a still
@@ -31,13 +29,6 @@ card!(
                 target: TargetSpec::Player(PlayerRel::You),
             },
         ]),
-        // NOT SUPPORTED: "Activate only if there are seven or more cards in
-        // your graveyard." `Condition` answers `ControlCount`,
-        // `OpponentGraveyardCountAtLeast`, `CountersOnSelf`,
-        // `CountersOnSelfExactly` and `SourceMatches`; none of them asks
-        // about the cards in *your* graveyard (`Amount::CountOf` can, but an
-        // amount is not a condition). So the ability below is offered with
-        // no threshold at all.
         activated!(
             cost!("{B}", TapSelf, SacrificeSelf),
             &[Effect::PumpTarget {
@@ -47,6 +38,7 @@ card!(
                 duration: Duration::UntilEndOfTurn,
             }],
             target = Some(TargetSpec::Object(&Filter::CREATURE)),
+            condition = Some(Condition::GraveyardCountAtLeast(7)),
         ),
     ],
 );

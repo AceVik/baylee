@@ -600,6 +600,9 @@ struct Tally {
     unwitnessable: usize,
     /// Numeric claims whose own paragraph prints a replacement for them.
     superseded: usize,
+    /// Claims whose amount no journal entry can be attributed to, because
+    /// the card prints **two** numbers of the same kind.
+    ambiguous: usize,
     /// Cards the engine offered exactly one thing to press.
     single: usize,
     /// Unconditional claims held to the presence arm on such a card.
@@ -621,6 +624,7 @@ impl Tally {
         self.quiet += other.quiet;
         self.unwitnessable += other.unwitnessable;
         self.superseded += other.superseded;
+        self.ambiguous += other.ambiguous;
         self.single += other.single;
         self.promised += other.promised;
         self.stalled += other.stalled;
@@ -747,6 +751,27 @@ fn disagreements(
             tally.superseded += 1;
             continue;
         }
+        // Two printed numbers of one kind, and a journal entry that says
+        // only which kind it was. Barbarian Ring prints "This land deals 1
+        // damage to you" on its mana line and "It deals 2 damage to any
+        // target" on its threshold ability; the probe board has an empty
+        // graveyard, so the only damage it can witness is the 1 — and
+        // holding the 2 against it reports a card that is exactly right.
+        //
+        // Skipped rather than guessed, and counted rather than dropped:
+        // this module's own rule is that a word too few costs a card
+        // falsely reported, which is what turns a checker off. Attribution
+        // would need the journal to name the ability that caused the entry,
+        // which is a `GameEvent` change and not a reading.
+        if claims
+            .iter()
+            .filter(|c| c.kind == claim.kind && c.amount.is_some())
+            .count()
+            > 1
+        {
+            tally.ambiguous += 1;
+            continue;
+        }
         if shows(seen, claim.kind) {
             tally.compared += 1;
             if !shows_exactly(seen, claim.kind, printed) {
@@ -833,6 +858,13 @@ fn sweep() -> (Vec<String>, Tally) {
     })
 }
 
+/// **Unattributable, added 2026-09-22: 16.** A card printing two numbers of
+/// one kind — Barbarian Ring's "deals 1 damage to you" beside its threshold
+/// ability's "deals 2 damage to any target" — leaves the journal saying only
+/// which kind it was, so neither claim can be checked against it. They were
+/// being compared anyway, and the first `Coverage::Partial` land to become
+/// `Implemented` reported a card that was exactly right.
+///
 /// How small the sweep may get before it is no longer measuring anything.
 ///
 /// The guard the whole tier is written around: a checker that finds nothing
@@ -861,7 +893,8 @@ fn what_a_card_says_in_english_is_what_the_journal_records() {
     let (offenders, tally) = sweep();
     println!(
         "{} cards claimed something, {} of them were played over {} presses; {} numbers \
-         compared, {} claims the journal never showed, {} unwitnessable, {} superseded; {} \
+         compared, {} claims the journal never showed, {} unwitnessable, {} superseded, {} \
+         unattributable; {} \
          cards had one button and were held to {} promises; {} stalled, {} refused, \
          unanswered: {:?}",
         tally.claimed,
@@ -871,6 +904,7 @@ fn what_a_card_says_in_english_is_what_the_journal_records() {
         tally.quiet,
         tally.unwitnessable,
         tally.superseded,
+        tally.ambiguous,
         tally.single,
         tally.promised,
         tally.stalled,
