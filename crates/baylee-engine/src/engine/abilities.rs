@@ -1652,18 +1652,14 @@ impl<L: CardLookup> Engine<L> {
             }
             match part {
                 CostPart::TapSelf => {
-                    if let Some(obj) = self.state.object_mut(source) {
-                        obj.status.insert(Status::TAPPED);
-                    }
+                    self.state.set_tapped(source, true);
                     self.state.journal.record(GameEvent::ObjectTapped {
                         object: source,
                         cause: Cause::Cost,
                     });
                 }
                 CostPart::UntapSelf => {
-                    if let Some(obj) = self.state.object_mut(source) {
-                        obj.status.remove(Status::TAPPED);
-                    }
+                    self.state.set_tapped(source, false);
                 }
                 CostPart::DiscardSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

@@ -194,9 +194,7 @@ pub(crate) fn pay(
     chosen: ObjectId,
 ) -> Result<(), EngineError> {
     if matches!(part, CostPart::TapOther(_)) {
-        if let Some(obj) = state.object_mut(chosen) {
-            obj.status.insert(Status::TAPPED);
-        }
+        state.set_tapped(chosen, true);
         state.journal.record(GameEvent::ObjectTapped {
             object: chosen,
             cause: Cause::Cost,

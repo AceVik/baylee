@@ -1,8 +1,8 @@
 use super::{
     AbilityDef, AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
     LossReason, ObjectId, ObjectKind, PaymentWindow, Pending, PlanKind, PlayerAction, PlayerId,
-    SmallVec, Status, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
-    resolve, sba,
+    SmallVec, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve,
+    sba,
 };
 use crate::choice::CastModeKind;
 
@@ -1028,8 +1028,8 @@ impl<L: CardLookup> Engine<L> {
                             new,
                             cause: Cause::Cost,
                         });
-                    } else if let Some(obj) = self.state.object_mut(object) {
-                        obj.status.insert(Status::TAPPED);
+                    } else {
+                        self.state.set_tapped(object, true);
                     }
                     return Ok(());
                 }
@@ -1134,9 +1134,7 @@ impl<L: CardLookup> Engine<L> {
                     // charges for.
                     Some(PlanKind::EntryReveal { object }) => {
                         if objects.is_empty() {
-                            if let Some(obj) = self.state.object_mut(object) {
-                                obj.status.insert(Status::TAPPED);
-                            }
+                            self.state.set_tapped(object, true);
                         } else {
                             self.state.journal.record(GameEvent::Revealed {
                                 player,
@@ -1376,9 +1374,7 @@ impl<L: CardLookup> Engine<L> {
                     .contains(baylee_cards_dsl::KeywordSet::VIGILANCE)
             });
             if !vigilance {
-                if let Some(obj) = self.state.object_mut(creature) {
-                    obj.status.insert(Status::TAPPED);
-                }
+                self.state.set_tapped(creature, true);
                 self.state.journal.record(GameEvent::ObjectTapped {
                     object: creature,
                     cause: Cause::TurnBased,
@@ -1394,6 +1390,11 @@ impl<L: CardLookup> Engine<L> {
                 defending,
             });
         }
+        // `Filter::Attacking` is read by the layer system (Orcish Oriflamme's
+        // "attacking creatures you control get +1/+0"), and which permanents
+        // match it just changed without the effect table moving — the same
+        // shape as a tap, and the same door.
+        self.state.board_state_changed();
         self.combat_declared = CombatDeclared::Attackers;
         self.passes = 0;
         self.priority_holder = None;

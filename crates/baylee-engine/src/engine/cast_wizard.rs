@@ -876,9 +876,7 @@ impl<L: CardLookup> Engine<L> {
             )?;
         }
         for &creature in &wizard.convoke_taps {
-            if let Some(obj) = self.state.object_mut(creature) {
-                obj.status.insert(crate::object::Status::TAPPED);
-            }
+            self.state.set_tapped(creature, true);
         }
         // Non-mana parts of the chosen alternative cost (pay life etc.).
         if let Some(CastModeKind::Alternative(i)) = wizard.option {

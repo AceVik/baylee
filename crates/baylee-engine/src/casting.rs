@@ -1098,10 +1098,7 @@ pub fn activate_mana(
         return Err(CastFailure::Legality(CastError::BadTiming));
     }
     let color = intrinsic_mana(state, source).expect("checked above");
-    {
-        let obj = state.object_mut(source).expect("checked above");
-        obj.status.insert(crate::object::Status::TAPPED);
-    }
+    state.set_tapped(source, true);
     state.journal.record(GameEvent::ObjectTapped {
         object: source,
         cause: Cause::Cost,
@@ -1472,11 +1469,7 @@ mod tests {
     }
 
     fn tap(state: &mut GameState, id: ObjectId) {
-        state
-            .object_mut(id)
-            .expect("on the battlefield")
-            .status
-            .insert(crate::object::Status::TAPPED);
+        state.set_tapped(id, true);
     }
 
     /// Convoke pays with untapped creatures and artifacts its caster

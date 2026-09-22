@@ -687,8 +687,8 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
             new,
             cause: Cause::Effect,
         });
-    } else if let Some(obj) = state.object_mut(res.source) {
-        obj.status.insert(Status::TAPPED);
+    } else {
+        state.set_tapped(res.source, true);
     }
     res.pc += 1;
     run(state, res)
@@ -817,9 +817,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     SearchDest::Battlefield => {
                         if let Some(obj) = state.object_mut(card) {
                             obj.kind = ObjectKind::Permanent;
-                            if tapped {
-                                obj.status.insert(Status::TAPPED);
-                            }
+                        }
+                        if tapped {
+                            state.set_tapped(card, true);
                         }
                         let _ = state.move_object(
                             card,
@@ -1461,9 +1461,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         Effect::PayLifeOrEnterTapped { amount } => {
             // Not payable at all → no choice, enters tapped (CR 614.1c).
             if !state.can_pay_life(you, i32::from(amount)) {
-                if let Some(obj) = state.object_mut(res.source) {
-                    obj.status.insert(Status::TAPPED);
-                }
+                state.set_tapped(res.source, true);
                 return None;
             }
             res.awaiting = Some(AwaitingOp::PayLifeOrTapSelf { amount });
@@ -1948,10 +1946,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::TapTarget => {
-            for &target in &res.targets {
-                if let Some(obj) = state.object_mut(target) {
-                    obj.status.insert(crate::object::Status::TAPPED);
-                }
+            for &target in &res.targets.clone() {
+                state.set_tapped(target, true);
             }
             None
         }
@@ -2132,9 +2128,7 @@ fn untap(state: &mut GameState, id: ObjectId) {
     if !tapped {
         return;
     }
-    if let Some(obj) = state.object_mut(id) {
-        obj.status.remove(crate::object::Status::TAPPED);
-    }
+    state.set_tapped(id, false);
     state.journal.record(GameEvent::ObjectUntapped {
         object: id,
         cause: Cause::Effect,

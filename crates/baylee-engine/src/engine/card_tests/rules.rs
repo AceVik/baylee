@@ -869,3 +869,199 @@ fn an_ability_asking_one_question_five_times_needs_five_answers() {
         "and five can, so the board and not the reader is what moved"
     );
 }
+
+fn giant_tortoise() -> CardIndex {
+    card_index("2dd50d7f-941f-4deb-a15c-ee2357844c35")
+}
+
+/// The same property again, one input further out: a **tap** changes which
+/// permanents a filter matches, and nothing about the effect table.
+///
+/// Giant Tortoise prints "this creature gets +0/+3 as long as it's untapped",
+/// one `static_ability!` over `Filter::And(&[This, Untapped])`. Attacking
+/// taps it (CR 508.1f) and the projection is guarded by a generation compare
+/// over the *effects*, so the 1/4 stayed a 1/4 while it was lying down:
+/// `GameState::set_tapped` is the door that says otherwise, and without it
+/// the cache and a fresh recompute of the very same object disagree.
+///
+/// Read as a rule rather than as this card. Nine other cards in the pool read
+/// their own tap status through a static — Castle, Spectral Cloak and the six
+/// storage lands — and every one of them was answering out of a stale cache.
+/// Seventeen sites wrote that bit before there was one door.
+#[test]
+fn a_static_that_reads_the_tap_is_refreshed_when_the_permanent_taps() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(407, forest())
+        .battlefield(0, &[giant_tortoise()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let turtle = on_battlefield(&engine, p0, giant_tortoise()).expect("the Turtle is seated");
+    assert_eq!(
+        pt(&engine, turtle),
+        (1, 4),
+        "a printed 1/1 standing up: +0/+3 while untapped"
+    );
+
+    // Its controller's next turn, so that summoning sickness is no longer
+    // what is being measured. Attacking is the tap: no vigilance is printed
+    // on this card, so declaring it is CR 508.1f taking it down.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseAttackers { attackers, .. } if attackers.contains(&turtle)
+        )
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(turtle, Defender::Player(p1))],
+            },
+        )
+        .expect("a Turtle that has been out since the turn began may attack");
+    assert!(is_tapped(&engine, turtle), "attacking tapped it");
+
+    let object = engine.state().object(turtle).expect("still on the table");
+    let fresh = crate::layers::recompute(engine.state(), object);
+    assert_eq!(
+        (
+            object.characteristics().power,
+            object.characteristics().toughness
+        ),
+        (fresh.characteristics.power, fresh.characteristics.toughness),
+        "the cache and a recompute disagree, so the tap refreshed nothing"
+    );
+    assert_eq!(
+        pt(&engine, turtle),
+        (1, 1),
+        "and both of them say the printed 1/1: the +0/+3 is gone with the \
+         untapped it was conditioned on"
+    );
+}
+
+/// `GameState::set_tapped` is the only writer of `Status::TAPPED`.
+///
+/// The rule above is a property of one door, and a door is only a door while
+/// nothing walks past it — so this counts the writers rather than asserting
+/// there are none elsewhere. A zero would pass over a tree this scan could
+/// not read at all, which is how eleven textual readers of the card pool were
+/// found answering a question they could not see.
+///
+/// It names **files** and a count, never line numbers: a reference that
+/// drifts on every unrelated edit to `state.rs` would go red by itself and be
+/// raised rather than read.
+#[test]
+fn nothing_writes_the_tapped_bit_except_the_one_door() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut writers: Vec<String> = Vec::new();
+    let mut files = 0usize;
+    let mut stack = vec![root.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).expect("the crate's own source is readable") {
+            let path = entry.expect("a directory entry").path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            files += 1;
+            let text = std::fs::read_to_string(&path).expect("a source file is readable");
+            for line in text.lines() {
+                // The spelling the `use`d and the fully-qualified forms share.
+                let writes = line.contains("status.insert(") || line.contains("status.remove(");
+                if writes && line.contains("TAPPED") {
+                    writers.push(
+                        path.strip_prefix(&root)
+                            .expect("under src")
+                            .display()
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    }
+    // A recursive walk and not a glob: `src/engine/` is two levels down and a
+    // non-recursive read would have found the bit nowhere and said so.
+    assert!(
+        files > 40,
+        "the walk read {files} files, which is not this crate"
+    );
+    writers.sort();
+    assert_eq!(
+        writers,
+        // Twice `state.rs` for the two lines of `GameState::set_tapped`, and
+        // once `object.rs` for its own test that the bit-flag set holds a bit.
+        ["object.rs", "state.rs", "state.rs"],
+        "those three are the whole list. A new entry is a site that taps a \
+         permanent without telling the layer projection, which is what \
+         `set_tapped` exists to stop — route it through the door instead of \
+         widening this list."
+    );
+}
+
+fn orcish_oriflamme() -> CardIndex {
+    card_index("0b16a650-68b0-44dc-a9e1-15b7966e0b18")
+}
+
+/// The other half of the same rule, on the other board-state filter.
+///
+/// Orcish Oriflamme is "attacking creatures you control get +1/+0" — one
+/// `static_ability!` over `Filter::Attacking`. Declaring an attacker changes
+/// which permanents that filter matches and touches no effect, so the anthem
+/// applied to nothing at all: the Elf swung as a 1/1 while a fresh recompute
+/// of the very same object said 2/1.
+///
+/// It is written beside the tap because they are one finding. Tap status and
+/// attack status are the two inputs the layer system reads off the *board*
+/// rather than off an effect, `state::filter_reads_board_state` names them
+/// together, and `GameState::board_state_changed` is the single gate both go
+/// through — so a fix for one that left the other alone would have been a
+/// sentence true at one and broken at two.
+#[test]
+fn an_anthem_that_reads_attacking_is_refreshed_when_the_attack_is_declared() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(408, forest())
+        .battlefield(0, &[llanowar_elves(), orcish_oriflamme()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "a printed 1/1 standing at home: the anthem names attackers"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseAttackers { attackers, .. } if attackers.contains(&elf)
+        )
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("an Elf that has been out since the turn began may attack");
+
+    let object = engine.state().object(elf).expect("still on the table");
+    let fresh = crate::layers::recompute(engine.state(), object);
+    assert_eq!(
+        object.characteristics().power,
+        fresh.characteristics.power,
+        "the cache and a recompute disagree, so declaring the attack \
+         refreshed nothing"
+    );
+    assert_eq!(
+        pt(&engine, elf),
+        (2, 1),
+        "and both of them say 2/1, which is what the enchantment prints"
+    );
+}

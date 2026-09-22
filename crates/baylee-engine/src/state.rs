@@ -1047,6 +1047,64 @@ impl GameState {
         self.characteristics_generation = u64::MAX;
     }
 
+    /// Taps or untaps a permanent — **the** door, and the reason it is one.
+    ///
+    /// A tap is an input to the layer projection wherever an effect's filter
+    /// reads it, and the generation compare in
+    /// [`Self::refresh_characteristics`] tracks the *effect table* rather
+    /// than the board: writing `Status::TAPPED` on an object therefore
+    /// leaves every projection that depends on it stale. Spectral Cloak
+    /// ("enchanted creature has shroud as long as it's untapped") kept its
+    /// shroud through the tap that was supposed to take it away, and so did
+    /// Castle, Giant Tortoise and the six storage lands that read
+    /// `Filter::Tapped`.
+    ///
+    /// Seventeen sites wrote that bit and each of them would have had to
+    /// remember — which is the positive list that goes quiet the day an
+    /// eighteenth is added. They all call this instead. The journal entry
+    /// stays with the caller: not every tap is an `ObjectTapped` event (a
+    /// cost-paid tap and a replacement-written one are recorded
+    /// differently), and widening this door to the journal would be a
+    /// second question wearing the first one's answer.
+    ///
+    /// Returns whether the status actually changed, which is what an untap
+    /// needs in order to record an event only for a permanent that was
+    /// tapped.
+    pub fn set_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {
+        let Some(obj) = self.object_mut(id) else {
+            return false;
+        };
+        let was = obj.status.contains(crate::object::Status::TAPPED);
+        if was == tapped {
+            return false;
+        }
+        if tapped {
+            obj.status.insert(crate::object::Status::TAPPED);
+        } else {
+            obj.status.remove(crate::object::Status::TAPPED);
+        }
+        self.board_state_changed();
+        true
+    }
+
+    /// Tells the projection that the board moved under it — something tapped,
+    /// something began or stopped attacking.
+    ///
+    /// The gate rather than a bare [`Self::invalidate_projections`]:
+    /// `refresh_characteristics` makes the same scan for cross-zone effects,
+    /// and a full re-projection per land tap is the cost this refuses. On a
+    /// board where no effect reads tap or attack status — nearly every board
+    /// — this is one walk of a short table and nothing else.
+    pub fn board_state_changed(&mut self) {
+        if self
+            .effects
+            .iter()
+            .any(|fx| matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f)))
+        {
+            self.invalidate_projections();
+        }
+    }
+
     /// Whether [`crate::zone::Zones::stack_projectable`] still agrees with
     /// the stack: same objects, abilities excluded.
     ///
@@ -2249,6 +2307,33 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Prepared => h.u8(10),
             Rider::SpellCopy => h.u8(11),
         }
+    }
+}
+
+/// Whether a DSL filter reads **board state** rather than a characteristic:
+/// whether an object is tapped, or whether it is attacking.
+///
+/// The sibling of [`filter_reaches_other_zones`], and it exists for the same
+/// reason: the projection cache is keyed on the *effect* generation, so an
+/// input that is not an effect has to announce itself. These two are such
+/// inputs — `Filter::Untapped` is Spectral Cloak's whole sentence
+/// ("enchanted creature has shroud as long as it's untapped"), `Filter::
+/// Attacking` is Orcish Oriflamme's — and a board where nothing reads them
+/// must not pay for the announcement, because tapping a land is the most
+/// frequent thing that happens in a game.
+///
+/// `Filter::EnteredThisTurn` is the third of this kind and is deliberately
+/// **not** here: no card in this pool reads it from a `static_ability!`, and
+/// the two moments it flips at — a permanent arriving, a turn beginning —
+/// both invalidate for their own reasons already. The day a static prints it,
+/// this is the list it joins and the turn boundary is what needs the door.
+pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::Tapped | Filter::Untapped | Filter::Attacking => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
+        Filter::Not(f) => filter_reads_board_state(f),
+        _ => false,
     }
 }
 

@@ -775,24 +775,18 @@ impl<L: CardLookup> Engine<L> {
             for modifier in face.enter_modifiers {
                 match modifier {
                     EnterModifier::Tapped => {
-                        if let Some(obj) = self.state.object_mut(id) {
-                            obj.status.insert(Status::TAPPED);
-                            changed = true;
-                        }
+                        self.state.set_tapped(id, true);
+                        changed = true;
                     }
                     EnterModifier::TappedUnless(filter) => {
-                        if !self.controls_at_least(filter, controller, id, 1)
-                            && let Some(obj) = self.state.object_mut(id)
-                        {
-                            obj.status.insert(Status::TAPPED);
+                        if !self.controls_at_least(filter, controller, id, 1) {
+                            self.state.set_tapped(id, true);
                             changed = true;
                         }
                     }
                     EnterModifier::TappedUnlessCount { filter, at_least } => {
-                        if !self.controls_at_least(filter, controller, id, usize::from(*at_least))
-                            && let Some(obj) = self.state.object_mut(id)
-                        {
-                            obj.status.insert(Status::TAPPED);
+                        if !self.controls_at_least(filter, controller, id, usize::from(*at_least)) {
+                            self.state.set_tapped(id, true);
                             changed = true;
                         }
                     }
@@ -800,10 +794,8 @@ impl<L: CardLookup> Engine<L> {
                     // down tapped once the board is *past* its bound, which is
                     // the sentence a slow land's arm would answer backwards.
                     EnterModifier::TappedUnlessAtMost { filter, at_most } => {
-                        if self.controls_count(filter, controller, id) > usize::from(*at_most)
-                            && let Some(obj) = self.state.object_mut(id)
-                        {
-                            obj.status.insert(Status::TAPPED);
+                        if self.controls_count(filter, controller, id) > usize::from(*at_most) {
+                            self.state.set_tapped(id, true);
                             changed = true;
                         }
                     }
@@ -817,10 +809,8 @@ impl<L: CardLookup> Engine<L> {
                     EnterModifier::TappedUnlessOpponents { at_least } => {
                         let opponents = eval::players(PlayerRel::Opponent, &self.state, controller)
                             .map_or(0, |seats| seats.len());
-                        if opponents < usize::from(*at_least)
-                            && let Some(obj) = self.state.object_mut(id)
-                        {
-                            obj.status.insert(Status::TAPPED);
+                        if opponents < usize::from(*at_least) {
+                            self.state.set_tapped(id, true);
                             changed = true;
                         }
                     }
@@ -835,8 +825,8 @@ impl<L: CardLookup> Engine<L> {
                                     .get(seat.get() as usize)
                                     .is_some_and(|p| p.life <= *life)
                             });
-                        if !low && let Some(obj) = self.state.object_mut(id) {
-                            obj.status.insert(Status::TAPPED);
+                        if !low {
+                            self.state.set_tapped(id, true);
                             changed = true;
                         }
                     }
@@ -928,10 +918,8 @@ impl<L: CardLookup> Engine<L> {
                     }
                     // Unpayable → tapped without a choice, and the scan goes
                     // on: nothing was asked, so nothing was interrupted.
-                    if let Some(obj) = self.state.object_mut(id) {
-                        obj.status.insert(Status::TAPPED);
-                        changed = true;
-                    }
+                    self.state.set_tapped(id, true);
+                    changed = true;
                 }
                 Some(EnterModifier::TappedUnlessReveal(filter)) => {
                     // The one clause in this family read against a hidden
@@ -959,10 +947,8 @@ impl<L: CardLookup> Engine<L> {
                         // only legal answer is "no" is not a choice, and
                         // offering it would hand the opponent the
                         // information that the hand is empty of Faeries.
-                        if let Some(obj) = self.state.object_mut(id) {
-                            obj.status.insert(Status::TAPPED);
-                            changed = true;
-                        }
+                        self.state.set_tapped(id, true);
+                        changed = true;
                     } else {
                         self.pending_plan = Some(PlanKind::EntryReveal { object: id });
                         self.pending = Pending::ChooseCards {
@@ -2825,8 +2811,8 @@ impl<L: CardLookup> Engine<L> {
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
-                obj.status.remove(Status::TAPPED);
             }
+            self.state.set_tapped(spell, false);
             // CR 614.12a: a choice a replacement effect needs is made
             // *before* the permanent enters. Publishing a `Pending` returns
             // from here and the move is owed to the answer — see
@@ -3569,6 +3555,11 @@ impl<L: CardLookup> Engine<L> {
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),
             (_, Step::CombatEnd) => {
                 self.state.combat = crate::combat::CombatState::default();
+                // Nothing is attacking any more, so an anthem conditioned on
+                // it stops applying — and the removal below only bumps the
+                // effect generation when there *was* an until-end-of-combat
+                // effect to remove.
+                self.state.board_state_changed();
                 self.combat_declared = CombatDeclared::None;
                 self.state.effects.remove_where(|fx| {
                     matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat)
@@ -3780,9 +3771,7 @@ impl<L: CardLookup> Engine<L> {
                 .object(id)
                 .is_some_and(|o| o.controller == active && o.status.contains(Status::TAPPED));
             if tapped && !kept.contains(&id) && !self.keeps_tapped(id) {
-                if let Some(obj) = self.state.object_mut(id) {
-                    obj.status.remove(Status::TAPPED);
-                }
+                self.state.set_tapped(id, false);
                 self.state.journal.record(GameEvent::ObjectUntapped {
                     object: id,
                     cause: Cause::TurnBased,
@@ -3904,6 +3893,7 @@ impl<L: CardLookup> Engine<L> {
 
     pub(crate) fn end_cleanup(&mut self) {
         self.state.combat = crate::combat::CombatState::default();
+        self.state.board_state_changed();
         self.combat_declared = CombatDeclared::None;
         self.begin_turn(false);
     }
