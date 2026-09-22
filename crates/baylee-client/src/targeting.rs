@@ -255,6 +255,20 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         Filter::HasColor(c) => object.colors.intersects(*c),
         Filter::IsColorless => object.colors.is_colorless(),
         Filter::Monocolored => object.colors.len() == 1,
+        // CR 201.2 reads the name an object has *now*, which is the one
+        // thing this walk gets for free: `PublicObject::name` is projected,
+        // so a clone answers with what it copied. A face-down permanent
+        // never reaches here — the bail above refuses anything with neither
+        // a card nor a token, which is the same seat-entitlement question
+        // wearing a different shape.
+        //
+        // This arm was missing from the day `Filter::Named` was added
+        // (71417653) and nothing said so: `scripts/gate-rules.sh` excludes
+        // `baylee-client`, so a new variant on a public enum breaks the one
+        // crate the rules gate cannot see and leaves it green. The sibling
+        // reader in `baylee-ai` was taught in the same commit; this one was
+        // not, and only a `--workspace` build was ever going to say it.
+        Filter::Named(name) => object.name == *name,
         // The engine reads `card.is_none()` and a view must not: `card` is
         // also `None` for a permanent this seat is not entitled to look at,
         // which is a different fact wearing the same shape. `token` is the
