@@ -1214,28 +1214,38 @@ until-EOT layer-1 copies, extra turns, lifelink counters, search locks,
 no-max-hand-size, damage prevention, choose-a-type, ward, monarch,
 spell-copy target re-choice, sideboard / outside-the-game access.
 
-- Multiplayer player-choice for targeted triggers (protocol M3) — use
-  `PlayerRel::Opponent` (heads-up auto-resolve) + `Partial` note for MP.
-- Sagas (Urza's Saga chapters, The True Scriptures): lore counters,
-  chapter triggers, granted abilities, sacrifice after the last chapter.
-- Disturb (Mirrorhall Mimic's back): graveyard face-casting.
-- Activation conditions (Mox Opal metalcraft, Bleachbone Verge) — abilities
-  currently activate unconditionally (`Partial` note).
-- Mana-source tracking / restricted mana riders (Cavern of Souls
-  uncounterable, Path of Ancestry scry) — pool mana has no provenance.
-- Search takeover (Opposition Agent's real hijack; approximated as a lock).
-- Tap events (City of Brass's becomes-tapped trigger).
-- Comparative conditions (Padeem's greatest-cmc upkeep).
-- Ability-granting statics (Chromatic Lantern's land grant; also blocks
-  Urza's Saga ch. I/II).
-- Emblems with triggered abilities (Venser −8) — engine supports emblem
-  objects; trigger scan for command zone is pending.
-- Cost reducers (Surgical Metamorph's not-starting-player {1} less).
-- Permanent-spell copies resolving as tokens (Reflections of Littjara
-  rider).
-- Player hexproof (Everybody Lives! rider).
-- Day/night, dungeons, initiative, battles, classes (Wizard Class levels),
-  stickers/attractions, subgames, ante.
+**And thirteen more, which is why this list is read against the pool and not
+believed.** It carried fourteen entries until 22.09.2026, and each was
+checked that day the one way a hand-kept list can be: by opening the card it
+names and reading its `coverage` and its `// NOT SUPPORTED:` lines. Thirteen
+of the fourteen named a card that is `Coverage::Implemented` today — Mox Opal
+carries the metalcraft condition the entry said could not be written, Urza's
+Saga its chapters, Mirrorhall Mimic its disturb, Chromatic Lantern its land
+grant, Venser his emblem's trigger, Opposition Agent the real search
+takeover rather than the lock the entry described, and Path of Ancestry,
+Padeem, Reflections of Littjara, Wizard Class, City of Brass, Everybody
+Lives! and the daybound villagers the rest of it. Only battles survived, on
+the strength of Invasion of Ikoria still being a stub.
+
+That is not a bookkeeping slip, it is the expensive kind of stale. This file
+is handed verbatim to every card lane as its contract, so a sentence here
+saying a mechanic cannot be written is a sentence that makes a model write
+`Coverage::Partial` — or refuse the card — for a rule the engine has had for
+weeks. A list of what the DSL cannot say has to be re-read against the DSL,
+and an entry is cheap to check: it names a card, and the card says.
+
+What is genuinely absent today:
+
+- Battles (Invasion of Ikoria is a stub; `TypeSet::BATTLE` exists and
+  nothing plays one).
+- Dungeons and the venture mechanic.
+- The initiative and Undercity (`TakeInitiative` is a refused effect in
+  `transcode-report`).
+- Stickers and attractions.
+- Subgames, and ante.
 
 When you hit one of these: implement everything expressible, then
-`Coverage::Partial("…")` + `// NOT SUPPORTED:` on the specific line.
+`Coverage::Partial("…")` + `// NOT SUPPORTED:` on the specific line. When
+you hit a sentence this file says is impossible and the card it names looks
+finished, **believe the card** — and say so, so this list can lose another
+entry.
