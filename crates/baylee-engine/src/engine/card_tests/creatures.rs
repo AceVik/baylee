@@ -13140,3 +13140,1257 @@ fn drannith_magistrate_leaves_an_opponent_their_hand_and_nothing_else() {
         );
     }
 }
+
+fn courser_of_kruphix() -> CardIndex {
+    card_index("46779609-4fa7-4fd2-b5b4-7d4d749339e6")
+}
+
+/// `Courser of Kruphix` prints `Play with the top card of your library revealed.`, `You may play lands from the top of your library.`, and `Landfall — Whenever a land you control enters, you gain 1 life.`
+///
+/// Marked `Coverage::Partial`, its Landfall ability is implemented through `Trigger::EntersBattlefield` on `Filter::YOUR_LAND`, gaining 1 life when a `forest()` enters under your control.
+/// The unmodelled library-top land play ability is omitted, leaving `legal.lands` empty once the hand has no land cards.
+#[test]
+fn courser_of_kruphix_gains_life_on_land_entry_and_omits_library_play() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[courser_of_kruphix()])
+        .hand(0, &[forest()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let courser =
+        on_battlefield(&engine, p0, courser_of_kruphix()).expect("courser on battlefield");
+    assert_eq!(pt(&engine, courser), (2, 4));
+    assert_eq!(engine.state().players[0].life, 20);
+
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[0].life, 21, "landfall gained 1 life");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.lands.is_empty(),
+        "under `Coverage::Partial` playing lands from the top of the library is omitted"
+    );
+}
+
+fn dragon_s_rage_channeler() -> CardIndex {
+    card_index("0c016ccc-a341-4b76-87ba-69c639d2746d")
+}
+
+/// `Dragon's Rage Channeler` prints `Whenever you cast a noncreature spell, surveil 1.` and `Delirium — As long as there are four or more card types among cards in your graveyard, this creature gets +2/+2, has flying, and attacks each combat if able.`
+///
+/// Marked `Coverage::Partial`, casting a noncreature spell like `lightning_greaves()` triggers surveil 1 via `Trigger::SpellCast`.
+/// The trigger prompts through `Pending::ChooseCards` with `ChoicePrompt::SurveilGraveyard`, moving the top card into `ZoneLocation::Graveyard`, while the Delirium stat bonus and `KeywordSet::FLYING` are omitted.
+#[test]
+fn dragon_s_rage_channeler_surveils_on_noncreature_cast_and_omits_delirium() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dragon_s_rage_channeler(), plains(), plains()])
+        .hand(0, &[lightning_greaves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let drc = on_battlefield(&engine, p0, dragon_s_rage_channeler()).expect("drc seated");
+    assert_eq!(pt(&engine, drc), (1, 1));
+    assert!(!keywords(&engine, drc).contains(KeywordSet::FLYING));
+
+    cast_from_hand(&mut engine, p0, lightning_greaves());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        min,
+        max,
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseCards prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, crate::choice::ChoicePrompt::SurveilGraveyard);
+    assert_eq!((min, max), (0, 1));
+    assert!(!options.is_empty());
+
+    let binned = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![binned],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_some(),
+        "surveiled card was placed into the graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, lightning_greaves()).is_some(),
+        "lightning greaves resolved"
+    );
+    assert_eq!(
+        pt(&engine, drc),
+        (1, 1),
+        "under `Coverage::Partial` delirium is omitted, body remains 1/1"
+    );
+    assert!(!keywords(&engine, drc).contains(KeywordSet::FLYING));
+}
+
+fn dryad_of_the_ilysian_grove() -> CardIndex {
+    card_index("bdbde5d0-f5e4-44da-b27c-b4ad6f374cc9")
+}
+
+/// `Dryad of the Ilysian Grove` prints `You may play an additional land on each of your turns.` and `Lands you control are every basic land type in addition to their other types.`
+///
+/// Marked `Coverage::Implemented`, its static abilities grant `Modifier::ExtraLandDrops` and `Modifier::AllBasicLandTypes`.
+/// In a single turn, its controller plays two `forest()` cards from hand, and the controlled land gains every basic land subtype (`subtypes::land::PLAINS`, `subtypes::land::ISLAND`, `subtypes::land::SWAMP`, `subtypes::land::MOUNTAIN`, `subtypes::land::FOREST`) while an opponent's land is unaffected.
+#[test]
+fn dryad_of_the_ilysian_grove_grants_extra_land_drop_and_all_basic_land_types() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dryad_of_the_ilysian_grove()])
+        .hand(0, &[forest(), forest()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let dryad = on_battlefield(&engine, p0, dryad_of_the_ilysian_grove()).expect("dryad seated");
+    assert_eq!(pt(&engine, dryad), (2, 4));
+
+    play_land(&mut engine, p0, forest());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.lands.is_empty(),
+        "extra land drop allows playing a second land"
+    );
+
+    play_land(&mut engine, p0, forest());
+    let Pending::Priority {
+        legal: legal_after, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal_after.lands.is_empty(),
+        "no third land drop is allowed"
+    );
+
+    let my_forest = on_battlefield(&engine, p0, forest()).expect("my forest on battlefield");
+    let my_subtypes = &engine
+        .state()
+        .object(my_forest)
+        .expect("my forest object")
+        .characteristics()
+        .subtypes;
+    assert!(my_subtypes.contains(baylee_core::generated::subtypes::land::PLAINS));
+    assert!(my_subtypes.contains(baylee_core::generated::subtypes::land::ISLAND));
+    assert!(my_subtypes.contains(baylee_core::generated::subtypes::land::SWAMP));
+    assert!(my_subtypes.contains(baylee_core::generated::subtypes::land::MOUNTAIN));
+    assert!(my_subtypes.contains(baylee_core::generated::subtypes::land::FOREST));
+
+    let their_forest =
+        on_battlefield(&engine, p1, forest()).expect("opponent forest on battlefield");
+    let their_subtypes = &engine
+        .state()
+        .object(their_forest)
+        .expect("their forest object")
+        .characteristics()
+        .subtypes;
+    assert!(
+        !their_subtypes.contains(baylee_core::generated::subtypes::land::PLAINS),
+        "opponent land is not affected by `Filter::YOUR_LAND`"
+    );
+}
+
+fn enduring_vitality() -> CardIndex {
+    card_index("3577c47e-76d3-4659-b922-31c4b74be3a0")
+}
+
+/// `Enduring Vitality` prints `Vigilance`, `Creatures you control have "{{T}}: Add one mana of any color."`, and an enduring return-on-death trigger.
+///
+/// Marked `Coverage::Partial`, it carries `KeywordSet::VIGILANCE` and its static ability grants a mana ability to `Filter::YOUR_CREATURE` via `Modifier::GrantActivated`.
+/// This offers `PlayerAction::ActivateManaAbility` in `legal.mana_abilities` on both `Enduring Vitality` and a controlled `young_wolf()`, prompting via `Pending::ChooseColor` to produce `ManaColor::Blue`, while an opponent's creature is excluded.
+#[test]
+fn enduring_vitality_has_vigilance_and_grants_mana_ability_to_controlled_creatures() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[enduring_vitality(), young_wolf()])
+        .battlefield(1, &[young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vitality =
+        on_battlefield(&engine, p0, enduring_vitality()).expect("vitality on battlefield");
+    let my_wolf = on_battlefield(&engine, p0, young_wolf()).expect("my wolf on battlefield");
+    let their_wolf = on_battlefield(&engine, p1, young_wolf()).expect("their wolf on battlefield");
+
+    assert_eq!(pt(&engine, vitality), (3, 3));
+    assert!(keywords(&engine, vitality).contains(KeywordSet::VIGILANCE));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.mana_abilities.contains(&my_wolf),
+        "controlled wolf receives granted mana ability in `legal.mana_abilities`"
+    );
+    assert!(
+        legal.mana_abilities.contains(&vitality),
+        "vitality also receives its own granted mana ability"
+    );
+    assert!(
+        !legal.mana_abilities.contains(&their_wolf),
+        "opponent's creature does not receive granted mana ability"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: my_wolf })
+        .unwrap();
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5, "all five colors can be chosen");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "one blue mana produced by granted mana ability"
+    );
+    assert!(is_tapped(&engine, my_wolf));
+}
+
+fn flamekin_harbinger() -> CardIndex {
+    card_index("d6585e30-4ca0-4701-b274-b24f3508dd97")
+}
+
+/// `Flamekin Harbinger` prints `When this creature enters, you may search your library for an Elemental card, reveal it, then shuffle and put that card on top.`
+///
+/// Marked `Coverage::Implemented`, its arrival trigger initiates an optional library search using `ChoicePrompt::SearchLibrary` with `(min: 0, max: 1)` through `Pending::ChooseCards`.
+/// Selecting a matching Elemental card places it directly on top of `ZoneLocation::Library`.
+#[test]
+fn flamekin_harbinger_searches_library_for_elemental_and_puts_on_top() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, flamekin_harbinger())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[flamekin_harbinger()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, flamekin_harbinger());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        min,
+        max,
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseCards prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    assert_eq!((min, max), (0, 1), "\"you may search\" is min 0 max 1");
+    assert!(
+        !options.is_empty(),
+        "elemental cards in library are offered"
+    );
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .expect("card on top of library");
+    assert_eq!(top, chosen, "chosen Elemental is on top of library");
+    let harbinger =
+        on_battlefield(&engine, p0, flamekin_harbinger()).expect("harbinger on battlefield");
+    assert_eq!(pt(&engine, harbinger), (1, 1));
+}
+
+fn golden_guardian() -> CardIndex {
+    card_index("58afb897-4d57-4b53-a5c3-b532cb3d5180")
+}
+
+/// `Golden Guardian` prints `Defender`, `{{2}}: This creature fights another target creature you control. When this creature dies this turn, return it to the battlefield transformed under your control.`, and transforms into `Gold-Forge Garrison`.
+///
+/// Marked `Coverage::Partial`, its front face carries `KeywordSet::DEFENDER` and a 4/4 body, which prevents it from being declared as an attacker in `Pending::ChooseAttackers` while `young_wolf()` can attack.
+/// With `{{2}}` floating mana and another creature controlled, the unmodelled fight/transform ability is omitted from `legal.abilities`.
+#[test]
+fn golden_guardian_has_defender_and_omits_fight_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[golden_guardian(), young_wolf(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let guardian = on_battlefield(&engine, p0, golden_guardian()).expect("guardian on battlefield");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+
+    assert_eq!(pt(&engine, guardian), (4, 4));
+    assert!(keywords(&engine, guardian).contains(KeywordSet::DEFENDER));
+
+    tap_mana_except(&mut engine, p0, guardian);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(!is_tapped(&engine, guardian));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == guardian),
+        "under `Coverage::Partial` the fight ability is not offered despite {{2}} floating and legal target"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        panic!("expected ChooseAttackers, got {:?}", engine.pending());
+    };
+    assert!(
+        attackers.contains(&wolf),
+        "young wolf without defender is a legal attacker"
+    );
+    assert!(
+        !attackers.contains(&guardian),
+        "golden guardian with defender cannot be declared as an attacker"
+    );
+}
+
+fn hexdrinker() -> CardIndex {
+    card_index("69bc2afd-9f53-47f2-b9c8-f12732784e10")
+}
+
+/// `Hexdrinker` prints `Level up {{1}} ({{1}}: Put a level counter on this. Level up only as a sorcery.)`, `LEVEL 3-7: 4/4, Protection from instants`, and `LEVEL 8+: 6/6, Protection from everything`.
+///
+/// Marked `Coverage::Partial`, its Level up activated ability uses `ActivationTiming::SorcerySpeed` to place a `CounterKind::Level` on itself when paid with `{{1}}`.
+/// Activating it three times raises its level counter count to 3, while its body remains 2/1 because the level bands are unmodelled.
+#[test]
+fn hexdrinker_levels_up_with_counters_and_omits_level_bands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[hexdrinker(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let snake = on_battlefield(&engine, p0, hexdrinker()).expect("hexdrinker seated");
+    assert_eq!(pt(&engine, snake), (2, 1));
+    assert_eq!(counters_on(&engine, snake, CounterKind::Level), 0);
+
+    tap_mana_except(&mut engine, p0, snake);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    for expected in 1..=3 {
+        activate(&mut engine, p0, hexdrinker(), 0);
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(counters_on(&engine, snake, CounterKind::Level), expected);
+    }
+
+    assert_eq!(
+        pt(&engine, snake),
+        (2, 1),
+        "under `Coverage::Partial` level bands are omitted, body remains 2/1"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "all three mana spent paying for level up"
+    );
+}
+
+fn ignoble_hierarch() -> CardIndex {
+    card_index("c8de43a3-ebd3-4000-b343-a6ffed11d34d")
+}
+
+/// `Ignoble Hierarch` prints `Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)` and `{{T}}: Add {{B}}, {{R}}, or {{G}}.`
+///
+/// Marked `Coverage::Partial`, activating its printed mana ability prompts via `Pending::ChooseColor` with `ManaColor::Black`, `ManaColor::Red`, and `ManaColor::Green`, producing the chosen mana and tapping `Ignoble Hierarch`.
+/// When a controlled `young_wolf()` attacks alone, Exalted is omitted under `Coverage::Partial`, leaving its body at 1/1.
+#[test]
+fn ignoble_hierarch_produces_mana_choice_and_omits_exalted() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ignoble_hierarch(), young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hierarch =
+        on_battlefield(&engine, p0, ignoble_hierarch()).expect("hierarch on battlefield");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+
+    assert_eq!(pt(&engine, hierarch), (0, 1));
+    assert_eq!(pt(&engine, wolf), (1, 1));
+
+    activate(&mut engine, p0, ignoble_hierarch(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::Black, ManaColor::Red, ManaColor::Green],
+        "hierarch offers Black, Red, or Green"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, hierarch));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(wolf, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, wolf),
+        (1, 1),
+        "under `Coverage::Partial` exalted is omitted, attacker receives no pump"
+    );
+}
+
+fn altered_ego() -> CardIndex {
+    card_index("7c35f3fd-c64e-4944-a4d5-37ce916d23c3")
+}
+
+/// `Altered Ego` prints `This spell can't be countered.` and `You may have this creature enter as a copy of any creature on the battlefield, except it enters with X additional +1/+1 counters on it.`
+///
+/// Marked `Coverage::Partial`, it carries `KeywordSet::UNCOUNTERABLE`, causing an attempted `counterspell()` to be refused for lack of legal target (CR 601.2c).
+/// Through `AbilityDef::CopyOnEnter`, it enters copying `young_wolf()`, but under `Coverage::Partial` the X additional `CounterKind::P1P1` counters are omitted.
+#[test]
+fn altered_ego_is_uncounterable_and_copies_creature_without_x_counters() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+                young_wolf(),
+            ],
+        )
+        .hand(0, &[altered_ego()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf deployed");
+    assert_eq!(pt(&engine, wolf), (1, 1));
+
+    tap_all_mana(&mut engine, p0);
+    let card = in_hand(&engine, p0, altered_ego()).expect("altered ego in hand");
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("expected ChooseNumber prompt, got {:?}", engine.pending());
+    };
+    engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let cs = in_hand(&engine, p1, counterspell()).expect("counterspell in hand");
+    assert!(
+        engine
+            .apply(p1, PlayerAction::CastSpell { card: cs })
+            .is_err(),
+        "Counterspell cannot target Altered Ego due to `KeywordSet::UNCOUNTERABLE`"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&wolf));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![wolf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let ego = on_battlefield(&engine, p0, altered_ego()).expect("altered ego on battlefield");
+    assert_ne!(ego, wolf);
+    assert_eq!(
+        pt(&engine, ego),
+        (1, 1),
+        "enters as a 1/1 copy of young wolf"
+    );
+    assert_eq!(
+        counters_on(&engine, ego, CounterKind::P1P1),
+        0,
+        "under `Coverage::Partial` X additional counters are omitted"
+    );
+}
+
+fn badgermole_cub() -> CardIndex {
+    card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
+}
+
+/// `Badgermole Cub` prints `When this creature enters, earthbend 1. (Target land you control becomes a 0/0 creature with haste that's still a land. Put a +1/+1 counter on it. When it dies or is exiled, return it to the battlefield tapped.)` and `Whenever you tap a creature for mana, add an additional {{G}}.`
+///
+/// Marked `Coverage::Partial`, its arrival trigger targets a controlled land via `Pending::ChooseTargets` under `Filter::YOUR_LAND`, adding `TypeSet::CREATURE`, `KeywordSet::HASTE`, base P/T 0/0, and one `CounterKind::P1P1`.
+/// The tapped animated land produces only its printed mana, omitting the unsupported additional `{{G}}` trigger.
+#[test]
+fn badgermole_cub_animates_land_and_omits_additional_mana() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[badgermole_cub()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_forests = all_on_battlefield(&engine, p0, forest());
+    let target_land = my_forests[0];
+    let their_land = on_battlefield(&engine, p1, forest()).expect("opponent forest");
+
+    tap_mana_except(&mut engine, p0, target_land);
+    cast_with_floating(&mut engine, p0, badgermole_cub());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&target_land), "controlled land is legal");
+    assert!(
+        !options.contains(&their_land),
+        "opponent land is not offered by `Filter::YOUR_LAND`"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target_land],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let t = types(&engine, target_land);
+    assert!(
+        t.contains(TypeSet::LAND) && t.contains(TypeSet::CREATURE),
+        "target becomes creature land"
+    );
+    assert!(
+        keywords(&engine, target_land).contains(KeywordSet::HASTE),
+        "target gains haste"
+    );
+    assert_eq!(
+        counters_on(&engine, target_land, CounterKind::P1P1),
+        1,
+        "target receives one +1/+1 counter"
+    );
+    assert_eq!(
+        pt(&engine, target_land),
+        (1, 1),
+        "0/0 base plus one counter is a 1/1"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: target_land,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "under `Coverage::Partial` the additional {{G}} trigger is omitted"
+    );
+}
+
+fn birgi_god_of_storytelling() -> CardIndex {
+    card_index("fb81e4d3-1d8c-4779-be62-87cf49277e51")
+}
+
+/// `Birgi, God of Storytelling` prints `Whenever you cast a spell, add {{R}}. Until end of turn, you don't lose this mana as steps and phases end.`, `Creatures you control can boast twice during each of your turns rather than once.`, and `Discard a card: Exile the top two cards of your library. You may play those cards this turn.`
+///
+/// Marked `Coverage::Partial`, casting a spell triggers `Trigger::SpellCast` under `Filter::ControlledByYou`, producing one `ManaColor::Red` via `Effect::mana`.
+/// Harnfel's discard-to-exile activated ability is omitted from `LegalActions::abilities`.
+#[test]
+fn birgi_god_of_storytelling_adds_red_mana_on_spell_cast_and_omits_harnfel() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[birgi_god_of_storytelling(), forest(), forest()])
+        .hand(0, &[young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let birgi =
+        on_battlefield(&engine, p0, birgi_god_of_storytelling()).expect("birgi on battlefield");
+    assert_eq!(pt(&engine, birgi), (3, 3));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        0
+    );
+
+    let my_forests = all_on_battlefield(&engine, p0, forest());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: my_forests[0],
+            },
+        )
+        .unwrap();
+
+    cast_with_floating(&mut engine, p0, young_wolf());
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, young_wolf()).is_some(),
+        "young wolf resolved"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "Birgi added {{R}} on spell cast"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == birgi),
+        "under `Coverage::Partial` Harnfel's activated ability is omitted"
+    );
+}
+
+fn bristly_bill_spine_sower() -> CardIndex {
+    card_index("d3b2d8a2-d3bc-448c-9cf6-6bead6010c28")
+}
+
+/// `Bristly Bill, Spine Sower` prints `Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.` and `{{3}}{{G}}{{G}}: Double the number of +1/+1 counters on each creature you control.`
+///
+/// Marked `Coverage::Partial`, entering lands trigger `Trigger::EntersBattlefield` with `Filter::YOUR_LAND`, placing a `CounterKind::P1P1` on target creature via `Pending::ChooseTargets`.
+/// With sufficient floating mana to pay `{{3}}{{G}}{{G}}`, `LegalActions::abilities` contains no doubling activation for `Bristly Bill, Spine Sower`.
+#[test]
+fn bristly_bill_spine_sower_triggers_landfall_counter_and_omits_doubling() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                bristly_bill_spine_sower(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let bill =
+        on_battlefield(&engine, p0, bristly_bill_spine_sower()).expect("bill on battlefield");
+    assert_eq!(pt(&engine, bill), (2, 2));
+    assert_eq!(counters_on(&engine, bill, CounterKind::P1P1), 0);
+
+    play_land(&mut engine, p0, forest());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&bill),
+        "Bristly Bill is a legal target creature"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bill],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, bill, CounterKind::P1P1), 1);
+    assert_eq!(pt(&engine, bill), (3, 3));
+
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        engine.state().players[0].mana_pool.total() >= 5,
+        "sufficient mana is floating for the {{3}}{{G}}{{G}} cost"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == bill),
+        "under `Coverage::Partial` the {{3}}{{G}}{{G}} counter doubling ability is omitted"
+    );
+}
+
+fn lake_town_lookout() -> CardIndex {
+    card_index("cf765efe-884c-48e2-9edb-9d45cf2756dd")
+}
+
+/// `Lake-town Lookout` prints `When this creature dies, recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)`
+///
+/// Marked `Coverage::Partial`, its death trigger fires `Trigger::Dies` with `Effect::draw(1)` and `Effect::DiscardForPlayers`.
+/// When destroyed by `heroes_downfall()`, the controller draws a card, answers `Pending::ChooseCards` to discard a card via `PlayerAction::ChooseObjects`, and under `Coverage::Partial` no Soldier creature token is created.
+#[test]
+fn lake_town_lookout_dies_draws_and_discards_without_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[lake_town_lookout(), swamp(), swamp(), swamp()])
+        .hand(0, &[heroes_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lookout = on_battlefield(&engine, p0, lake_town_lookout()).expect("lookout on battlefield");
+    assert_eq!(pt(&engine, lookout), (1, 1));
+    let initial_library_size = library_size(&engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let downfall = in_hand(&engine, p0, heroes_downfall()).expect("downfall in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: downfall })
+        .unwrap();
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets for downfall, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&lookout));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![lookout],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseCards prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(prompt, ChoicePrompt::Generic);
+    assert!(
+        in_graveyard(&engine, p0, lake_town_lookout()).is_some(),
+        "lookout is in graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        initial_library_size - 1,
+        "recruit drew one card before prompting for discard"
+    );
+
+    let to_discard = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![to_discard],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "under `Coverage::Partial` recruit token creation is omitted"
+    );
+}
+
+fn murderous_rider() -> CardIndex {
+    card_index("1080c5b5-6651-4c6a-93e6-099fbe389e26")
+}
+
+/// `Murderous Rider` prints `Lifelink`, `When this creature dies, put it on the bottom of its owner's library.`, and `Destroy target creature or planeswalker. You lose 2 life. (Then exile this card. You may cast the creature later from exile.)`
+///
+/// Marked `Coverage::Partial`, the front face carries `KeywordSet::LIFELINK`, while its adventure face `Swift End` is cast via `Pending::ChooseCastMode` with `CastModeKind::Face(1)`.
+/// Targeting an opponent's `llanowar_elves()` destroys the creature and subtracts 2 life, placing the card into the graveyard without the adventure frame.
+#[test]
+fn murderous_rider_lifelink_and_swift_end_destroys_target_and_loses_life() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[murderous_rider(), swamp(), swamp(), swamp()])
+        .hand(0, &[murderous_rider()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let rider = on_battlefield(&engine, p0, murderous_rider()).expect("rider deployed");
+    assert_eq!(pt(&engine, rider), (2, 3));
+    assert!(
+        keywords(&engine, rider).contains(KeywordSet::LIFELINK),
+        "front face has lifelink"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    let card = in_hand(&engine, p0, murderous_rider()).expect("rider in hand");
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseCastMode prompt, got {:?}", engine.pending());
+    };
+    let adventure_slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Face(1)))
+        .expect("Swift End adventure face");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(adventure_slot))
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("opponent elf");
+    assert!(
+        options.contains(&elf),
+        "opponent creature is a legal target"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "target creature was destroyed"
+    );
+    assert_eq!(engine.state().players[0].life, 18, "caster lost 2 life");
+    assert!(
+        in_graveyard(&engine, p0, murderous_rider()).is_some(),
+        "under `Coverage::Partial` Swift End lands in graveyard"
+    );
+}
+
+fn nantuko_mentor() -> CardIndex {
+    card_index("b79378e7-99db-403f-8f63-4d71ebdb3f6c")
+}
+
+/// `Nantuko Mentor` prints `{{2}}{{G}}, {{T}}: Target creature gets +X/+X until end of turn, where X is that creature's power.`
+///
+/// Marked `Coverage::Implemented`, paying `{{2}}{{G}}` and tapping `Nantuko Mentor` activates `Effect::PumpTarget` with `Amount::TargetPower`.
+/// Targeting `aurochs()` (2/3) grants +2/+2 until end of turn, elevating its body to 4/5.
+#[test]
+fn nantuko_mentor_doubles_target_creature_power_and_toughness() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[nantuko_mentor(), aurochs(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mentor = on_battlefield(&engine, p0, nantuko_mentor()).expect("mentor deployed");
+    let aurochs_obj = on_battlefield(&engine, p0, aurochs()).expect("aurochs deployed");
+    assert_eq!(pt(&engine, mentor), (1, 1));
+    assert_eq!(pt(&engine, aurochs_obj), (2, 3));
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        3
+    );
+    assert!(!is_tapped(&engine, mentor));
+
+    activate(&mut engine, p0, nantuko_mentor(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&aurochs_obj));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![aurochs_obj],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    assert!(is_tapped(&engine, mentor), "mentor tapped for its cost");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "mana spent on activation"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, aurochs_obj),
+        (4, 5),
+        "aurochs received +2/+2 matching its power of 2"
+    );
+}
+
+fn noble_hierarch() -> CardIndex {
+    card_index("98aa9424-5912-4bd6-9300-b3972a31d8af")
+}
+
+/// `Noble Hierarch` prints `Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)` and `{{T}}: Add {{G}}, {{W}}, or {{U}}.`
+///
+/// Marked `Coverage::Partial`, activating its printed mana ability prompts via `Pending::ChooseColor` with `ManaColor::Green`, `ManaColor::White`, and `ManaColor::Blue`, producing the chosen mana and tapping `Noble Hierarch`.
+/// When a controlled `young_wolf()` attacks alone, Exalted is omitted under `Coverage::Partial`, leaving its body at 1/1.
+#[test]
+fn noble_hierarch_produces_mana_choice_and_omits_exalted() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[noble_hierarch(), young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hierarch = on_battlefield(&engine, p0, noble_hierarch()).expect("hierarch on battlefield");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+
+    assert_eq!(pt(&engine, hierarch), (0, 1));
+    assert_eq!(pt(&engine, wolf), (1, 1));
+
+    activate(&mut engine, p0, noble_hierarch(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::Green, ManaColor::White, ManaColor::Blue],
+        "hierarch offers Green, White, or Blue"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert!(is_tapped(&engine, hierarch));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(wolf, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, wolf),
+        (1, 1),
+        "under `Coverage::Partial` exalted is omitted, attacker receives no pump"
+    );
+}
+
+fn rishkar_peema_renegade() -> CardIndex {
+    card_index("761021ce-4559-464e-aa03-85c2fe78e267")
+}
+
+/// `Rishkar, Peema Renegade` prints `When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.` and `Each creature you control with a counter on it has "{{T}}: Add {{G}}."`
+///
+/// Marked `Coverage::Partial`, its arrival trigger fires `Trigger::ETB` placing a `CounterKind::P1P1` on up to two targets chosen through `Pending::ChooseTargets`.
+/// The creatures each grow by +1/+1, while the unsupported static granting `{{T}}: Add {{G}}` to creatures with counters is omitted from `LegalActions::mana_abilities`.
+#[test]
+fn rishkar_peema_renegade_distributes_counters_and_omits_mana_grant() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), young_wolf()])
+        .hand(0, &[rishkar_peema_renegade()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, rishkar_peema_renegade());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert_eq!((min, max), (0, 2), "up to two target creatures");
+
+    let rishkar =
+        on_battlefield(&engine, p0, rishkar_peema_renegade()).expect("rishkar on battlefield");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("wolf on battlefield");
+    assert!(options.contains(&rishkar));
+    assert!(options.contains(&wolf));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![rishkar, wolf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, rishkar, CounterKind::P1P1), 1);
+    assert_eq!(counters_on(&engine, wolf, CounterKind::P1P1), 1);
+    assert_eq!(pt(&engine, rishkar), (3, 3));
+    assert_eq!(pt(&engine, wolf), (2, 2));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.mana_abilities.contains(&rishkar),
+        "under `Coverage::Partial` Rishkar is not granted a mana ability"
+    );
+    assert!(
+        !legal.mana_abilities.contains(&wolf),
+        "under `Coverage::Partial` wolf is not granted a mana ability"
+    );
+}
+
+fn tireless_provisioner() -> CardIndex {
+    card_index("ab8d5f5c-1976-4f77-8ed2-8d28ee666741")
+}
+
+/// `Tireless Provisioner` prints `Landfall — Whenever a land you control enters, create a Food token or a Treasure token. (Food is an artifact with "{{2}}, {{T}}, Sacrifice this token: You gain 3 life." Treasure is an artifact with "{{T}}, Sacrifice this token: Add one mana of any color.")`
+///
+/// Marked `Coverage::Implemented`, playing a land triggers `Trigger::EntersBattlefield` with `Filter::YOUR_LAND`, presenting a modal choice via `Pending::ChooseCastMode`.
+/// Choosing mode 1 creates an artifact Treasure token verified by `tokens_of`.
+#[test]
+fn tireless_provisioner_creates_treasure_token_on_landfall() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[tireless_provisioner()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let prov = on_battlefield(&engine, p0, tireless_provisioner()).expect("provisioner deployed");
+    assert_eq!(pt(&engine, prov), (3, 2));
+    assert!(tokens_of(&engine, p0).is_empty());
+
+    play_land(&mut engine, p0, forest());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseCastMode prompt, got {:?}", engine.pending());
+    };
+    let modes: Vec<usize> = options
+        .iter()
+        .filter_map(|o| match o.kind {
+            CastModeKind::Mode(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        modes,
+        vec![0, 1],
+        "offers Food (mode 0) and Treasure (mode 1)"
+    );
+
+    let treasure_slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("treasure mode");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(treasure_slot))
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one token created");
+    assert!(
+        types(&engine, tokens[0]).contains(TypeSet::ARTIFACT),
+        "token has artifact type"
+    );
+}
+
+fn wayward_swordtooth() -> CardIndex {
+    card_index("3875aef0-3102-4fbf-be90-e4139f7a2348")
+}
+
+/// `Wayward Swordtooth` prints `Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)`, `You may play an additional land on each of your turns.`, and `This creature can't attack or block unless you have the city's blessing.`
+///
+/// Marked `Coverage::Partial`, its static ability grants `Modifier::ExtraLandDrops(1)`, permitting two land drops in a single turn before `LegalActions::lands` empties.
+/// Because ascend and the city's blessing are omitted under `Coverage::Partial`, the creature is legally offered in `Pending::ChooseAttackers` despite controlling fewer than ten permanents.
+#[test]
+fn wayward_swordtooth_grants_extra_land_drop_and_omits_ascend_restriction() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wayward_swordtooth()])
+        .hand(0, &[forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let dino = on_battlefield(&engine, p0, wayward_swordtooth()).expect("swordtooth deployed");
+    assert_eq!(pt(&engine, dino), (5, 5));
+
+    play_land(&mut engine, p0, forest());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.lands.is_empty(),
+        "extra land drop allows playing a second land"
+    );
+
+    play_land(&mut engine, p0, forest());
+    let Pending::Priority {
+        legal: legal_after, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal_after.lands.is_empty(),
+        "no third land drop is allowed"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseAttackers prompt, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        attackers.contains(&dino),
+        "under `Coverage::Partial` the attack restriction is omitted"
+    );
+}

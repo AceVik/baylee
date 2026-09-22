@@ -2933,3 +2933,118 @@ fn wishclaw_talisman_spends_a_wish_counter_and_hands_itself_to_an_opponent() {
         "and the {{1}} it charges was paid"
     );
 }
+
+fn aether_vial() -> CardIndex {
+    card_index("fc148e1e-dff0-448e-9f16-625341754356")
+}
+
+/// `Aether Vial` prints `At the beginning of your upkeep, you may put a charge counter on this artifact.` and `{{T}}: You may put a creature card with mana value equal to the number of charge counters on this artifact from your hand onto the battlefield.`
+///
+/// Marked `Coverage::Partial`, its upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
+/// The unmodelled `{{T}}` creature put ability is excluded from `legal.abilities` even while `Aether Vial` stands untapped.
+#[test]
+fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[aether_vial()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // The Vial is already on the battlefield, so its own upkeep trigger asks
+    // its question on turn one, before anybody reaches a main phase.
+    // Declined here, which is what makes the counter asserted below the one
+    // the *next* upkeep put there.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    reach_main_phase(&mut engine, p0);
+
+    let vial = on_battlefield(&engine, p0, aether_vial()).expect("aether vial on battlefield");
+    assert_eq!(counters_on(&engine, vial, CounterKind::Charge), 0);
+
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        panic!("expected YesNo prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(counters_on(&engine, vial, CounterKind::Charge), 1);
+    assert!(!is_tapped(&engine, vial));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == vial),
+        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted from `legal.abilities`"
+    );
+}
+
+fn conduit_of_worlds() -> CardIndex {
+    card_index("ed14be15-8f8d-4fe3-a147-f5da8ed873bf")
+}
+
+/// `Conduit of Worlds` prints `You may play lands from your graveyard.` and `{{T}}: Choose target nonland permanent card in your graveyard. If you haven't cast a spell this turn, you may cast that card. If you do, you can't cast additional spells this turn. Activate only as a sorcery.`
+///
+/// Marked `Coverage::Partial`, its static ability grants `Modifier::PlayLandsFromGraveyard`, allowing a `forest()` card in the graveyard to be offered in `legal.lands` and played via `PlayerAction::PlayLand`.
+/// The unmodelled `{{T}}` activated ability is omitted from `legal.abilities` even while `Conduit of Worlds` stands untapped.
+#[test]
+fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[conduit_of_worlds()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let gy_forest = in_graveyard(&engine, p0, forest()).expect("forest in graveyard");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.lands.contains(&gy_forest),
+        "graveyard land offered as legal land play"
+    );
+
+    let conduit = on_battlefield(&engine, p0, conduit_of_worlds()).expect("conduit on battlefield");
+    assert!(!is_tapped(&engine, conduit));
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == conduit),
+        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted"
+    );
+
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: gy_forest })
+        .unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, forest()).is_some(),
+        "forest entered battlefield from graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_none(),
+        "forest no longer in graveyard"
+    );
+}
