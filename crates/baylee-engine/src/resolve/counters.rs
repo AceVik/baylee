@@ -31,9 +31,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     match op {
         Effect::AddCounter { kind, amount } => {
             let n = amount2(&amount, state, you, res) as u16;
-            // No subject: the ability said "target" and got none.
-            let target_id = this_object(res)?;
-            crate::replacement::put_counters(state, target_id, kind, n);
+            // "Put a +1/+1 counter on **each of** up to two target
+            // creatures": every target, not the first. `this_object` answers
+            // `res.targets.first()`, which is the whole truth for a
+            // one-subject effect and silently dropped the second of
+            // Rishkar, Peema Renegade's two — the only card in the pool that
+            // names more than one. `Effect::UntapTarget` has walked
+            // `res.targets` since it was written, so this is a sibling
+            // reader that asked fewer questions rather than a rule nobody
+            // had.
+            //
+            // The untargeted spelling still falls back to the source, which
+            // is what "put a counter on this creature" needs; and a targeted
+            // ability whose targets all became illegal resolves with an
+            // empty list and puts nothing anywhere, which is the same
+            // no-subject answer `this_object` gave by returning `None`.
+            if res.targeted {
+                for &target in &res.targets {
+                    crate::replacement::put_counters(state, target, kind, n);
+                }
+            } else {
+                crate::replacement::put_counters(state, this_object(res)?, kind, n);
+            }
             None
         }
         Effect::AddCounterFilter {

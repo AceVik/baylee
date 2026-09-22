@@ -298,6 +298,25 @@ that is the right answer rather than a hole: a plan that guessed at X would
 tap a land for mana that never arrived. The mana **bubble** asks the smaller
 question and still draws the pip.
 
+#### One counter for two targets (2026-09-22)
+
+`Effect::AddCounter` read `resolve::this_object`, which answers
+`res.targets.first()`. That is the whole truth for a one-subject effect and
+it silently dropped the second of Rishkar, Peema Renegade's two: "put a
++1/+1 counter on each of up to two target creatures" put one counter on the
+first target and nothing anywhere else.
+
+`Effect::UntapTarget` has walked `res.targets` since it was written, which is
+what makes this a sibling reader that asked fewer questions rather than a
+rule nobody had. The fix is the same loop, with `res.targeted` deciding
+between it and the source fallback `this_object`'s third arm provides.
+
+Nothing swept for it. `target_tests` asks whether an ability reached **more**
+than its target and reports a board of untouched bystanders as clean, which
+is exactly what an ability reaching too few produces; `lints::target_reuse`
+reads the static half and sees a filter, not a count. The card's own test
+found it, which is the argument for playing every card once.
+
 #### The other X, six days later (2026-09-22)
 
 The section below closed the counter half and said, in its first paragraph,

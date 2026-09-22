@@ -15,6 +15,21 @@
 //! that reads a filter the *engine* widened; this sweep cannot see an ability
 //! nothing on its board could reach. Neither is redundant.
 //!
+//! # The direction this module does not look
+//!
+//! It asks whether an ability reached **more** than its target, and there is
+//! an opposite question it is blind to by construction: whether it reached
+//! all of them. `Effect::AddCounter` read `this_object`, which answers
+//! `res.targets.first()`, so Rishkar, Peema Renegade's "put a +1/+1 counter
+//! on each of up to two target creatures" put one counter on the first
+//! target and nothing on the second — and every bystander in this sweep came
+//! back untouched, which is what it is built to report as clean. The card's
+//! own test in `card_tests::creatures` is what caught it, and
+//! `Effect::UntapTarget` had been walking `res.targets` since it was
+//! written. Two cards in the pool name more than one target today, so a
+//! sweep for the shape would carry a population of two; the note is here
+//! because the blind spot is the module's, not the pool's.
+//!
 //! # Why the assertion is read off the object and not the journal
 //!
 //! The plan called for this one to be asserted from the journal, and the
