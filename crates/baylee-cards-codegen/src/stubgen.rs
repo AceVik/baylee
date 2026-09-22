@@ -465,6 +465,7 @@ fn render_face(
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
     is_back: bool,
+    layout: Option<&str>,
 ) -> Result<String, CodegenError> {
     let (types, supers, subtype_paths, unknown) = type_expr(&f.type_line, cats);
     let subtypes = if subtype_paths.is_empty() {
@@ -501,13 +502,28 @@ fn render_face(
             enter_modifiers.join(", ")
         ));
     }
-    // CR 712.2 vs. 712.4a: an MDFC's back is castable, a transforming DFC's
-    // back is not — and nothing in a `CardDef` says which layout a card is,
-    // so the *printed cost* is what tells them apart. Every castable back
-    // prints one (MDFC, disturb, adventure); a transform back prints none.
-    // Left to the default, a back face with no cost is a spell the cast
-    // wizard offers for `{0}` — which it did, for a 9/7 Demon.
-    if is_back && !types.contains("TypeSet::LAND") && f.mana_cost.is_empty() {
+    // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
+    // a nonmodal (transforming) one's back is not — in hand the card has
+    // only its front face's characteristics (CR 712.8a), and the back is
+    // reached by turning it over (CR 712.8c).
+    //
+    // The **layout** answers that, and the printed cost only nearly does.
+    // Every castable back prints a cost (MDFC, disturb, adventure) and a
+    // transform back prints none, which is true of every back that is a
+    // spell and says nothing at all about a back that is a *land* — a land
+    // prints no cost whichever kind of card it is on. So the cost test had
+    // to exclude lands, and with them excluded twenty-one transforming
+    // lands (Azcanta, Itlimoc, Lost Vale, the Ojer temples) were a turn-one
+    // land drop straight out of hand. They were repaired in twenty-one card
+    // files, and the next `codegen` run took the repair back out of every
+    // machine-owned one of them, silently, because this is the rule that
+    // writes the field.
+    //
+    // Both tests are kept: the layout is the rule, and the cost is what
+    // still catches a meld back or any other layout whose back prints no
+    // cost and is no land.
+    let transforming = matches!(layout, Some("transform" | "meld"));
+    if is_back && (transforming || (!types.contains("TypeSet::LAND") && f.mana_cost.is_empty())) {
         fields.push("castable_from_hand = false".to_string());
     }
 
@@ -652,6 +668,8 @@ fn transcode_card(
 ///
 /// # Errors
 /// [`CodegenError::Mana`] when a mana cost fails validation.
+// One card written out end to end, with the reason for each field beside it.
+#[allow(clippy::too_many_lines)]
 pub fn render_stub(
     card: &ScryfallCard,
     row: &LedgerEntry,
@@ -755,7 +773,14 @@ pub fn render_stub(
             (Some(body), 0) => body.enter_modifiers.as_slice(),
             _ => &[],
         };
-        face_defs.push_str(&render_face(&card.name, f, cats, enters, i > 0)?);
+        face_defs.push_str(&render_face(
+            &card.name,
+            f,
+            cats,
+            enters,
+            i > 0,
+            card.layout.as_deref(),
+        )?);
     }
     let literal = render_card_literal(
         card,
@@ -1281,8 +1306,12 @@ mod tests {
         .unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
 
-        // A land back is played, not cast; the wizard skips it on its own.
-        card.card_faces = Some(vec![front, back("Land", None)]);
+        // A land back prints no cost whichever kind of card it is on, so the
+        // cost cannot answer for it and the layout has to. A modal one —
+        // every Pathway, Jwari Ruins — is a land drop its owner may make out
+        // of hand, and must keep the default.
+        card.card_faces = Some(vec![front.clone(), back("Land", None)]);
+        card.layout = Some("modal_dfc".to_string());
         let (_, text) = render_stub(
             &card,
             &row(0, "FRONT"),
@@ -1294,6 +1323,30 @@ mod tests {
         )
         .unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
+
+        // And a **transforming** one is not, which is the case the cost test
+        // could never see: Azcanta, Itlimoc, Lost Vale and the Ojer temples
+        // were a turn-one land drop straight out of hand, repaired by hand in
+        // twenty-one card files, and this is the rule that used to take the
+        // repair back out on the next run.
+        card.layout = Some("transform".to_string());
+        let (_, text) = render_stub(
+            &card,
+            &row(0, "FRONT"),
+            &IndexLedger::default(),
+            &cats,
+            None,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
+        assert!(text.contains("castable_from_hand = false"), "{text}");
+        assert_eq!(
+            text.matches("castable_from_hand").count(),
+            1,
+            "the front face is what the card is, so the line would be a lie \
+             there: {text}"
+        );
     }
 
     /// `coverage` is never emitted: `CardDef::DEFAULT` is

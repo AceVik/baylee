@@ -709,6 +709,9 @@ impl Tx<'_> {
     /// Every parameter a rule reads is *taken* from `p`; the caller then
     /// refuses the card if anything is left, which is what stops an ignored
     /// `NoRegen$ True` from generating a card that does the wrong thing.
+    // One arm per reference API, and the reasons a reading is what it is
+    // live beside the arm that makes it.
+    #[allow(clippy::too_many_lines)]
     fn effect_of(
         &mut self,
         api: &str,
@@ -772,9 +775,27 @@ impl Tx<'_> {
                     self.has_x,
                 )?;
                 // `AddCounter` puts them on the first target, or on the
-                // source when the ability has none — which is exactly what
-                // `Defined` means here.
+                // source when the ability has none. That is the API's own
+                // default and so is the right reading of a line with no
+                // `Defined$` at all — but `Defined$ Self` says the *source*,
+                // and on a line that also targets those are two different
+                // permanents.
+                //
+                // Consumptive Goo is the card that proved it: "{2}{B}{B}:
+                // Target creature gets -1/-1 until end of turn. Put a +1/+1
+                // counter on this creature." Read as `AddCounter` the counter
+                // landed on the *target*, where it cancelled the -1/-1 it was
+                // paired with exactly — so the ability resolved, charged four
+                // mana and changed nothing at all that a test could see.
+                // `AddCounterFilter` over `Filter::This` is the spelling that
+                // names the source whatever the ability targets.
                 match p.take("Defined").as_deref() {
+                    Some("Self") if target.is_some() => {
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &Filter::This, \
+                             kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
                     None | Some("Self") => {}
                     Some(_) => return None,
                 }
@@ -5144,6 +5165,54 @@ mod tests {
             transcode(&here, &cats(), None).is_some(),
             "the same trigger on the battlefield: {:?}",
             refusal_reason(&here, &cats(), None)
+        );
+    }
+
+    /// `Defined$ Self` on a line that also targets is the **source**, and
+    /// `Effect::AddCounter` cannot say so.
+    ///
+    /// That effect puts its counters on the first target when there is one,
+    /// which is the right reading of a `PutCounter` line with no `Defined$`
+    /// at all and the wrong one the moment the script names a subject. Both
+    /// spellings were accepted and emitted identically, so Consumptive Goo —
+    /// "{2}{B}{B}: Target creature gets -1/-1 until end of turn. Put a +1/+1
+    /// counter on this creature." — put its counter on the creature it was
+    /// shrinking, where the two cancelled each other exactly. The card
+    /// compiled, claimed `Coverage::Implemented`, charged four mana and
+    /// changed nothing any test could see.
+    ///
+    /// Both directions, because the fix is a *distinction*: the same line
+    /// without a target must keep the simpler spelling, or one rule would
+    /// have been traded for another.
+    #[test]
+    fn defined_self_beside_a_target_puts_the_counter_on_the_source() {
+        let targeted = read(
+            "Name:Goo\nManaCost:B B\nTypes:Creature Ooze\nPT:1/1\n\
+             A:AB$ Pump | Cost$ 2 B B | ValidTgts$ Creature | NumAtt$ -1 | \
+             NumDef$ -1 | SubAbility$ DBCounter\n\
+             SVar:DBCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | \
+             CounterNum$ 1\n",
+        );
+        let text = targeted.abilities.join("\n");
+        assert!(
+            text.contains("Effect::AddCounterFilter { filter: &Filter::This"),
+            "the counter is the source's, not the target's: {text}"
+        );
+        assert!(
+            !text.contains("Effect::AddCounter {"),
+            "and the spelling that would land it on the target is gone: {text}"
+        );
+
+        let untargeted = read(
+            "Name:Vault\nManaCost:no cost\nTypes:Land\n\
+             A:AB$ PutCounter | Cost$ T | Defined$ Self | CounterType$ STORAGE | \
+             CounterNum$ 1\n",
+        );
+        let text = untargeted.abilities.join("\n");
+        assert!(
+            text.contains("Effect::AddCounter {"),
+            "with no target the source is already what `AddCounter` means, and \
+             the simpler spelling is the one to keep: {text}"
         );
     }
 

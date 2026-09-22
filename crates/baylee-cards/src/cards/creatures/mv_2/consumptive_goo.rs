@@ -29,7 +29,8 @@ card!(
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             },
-            Effect::AddCounter {
+            Effect::AddCounterFilter {
+                filter: &Filter::This,
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1)
             }
