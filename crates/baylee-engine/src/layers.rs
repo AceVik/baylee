@@ -537,6 +537,7 @@ fn apply(
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
+        | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife
         | Modifier::PreventDamageToIt

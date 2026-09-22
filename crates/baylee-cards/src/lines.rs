@@ -355,6 +355,18 @@ mod tests {
     /// so the answer stands and the trigger is now the rate, not the count.
     /// #162 carries the decision so it is scheduled rather than rediscovered
     /// by whoever this test stops next.
+    ///
+    /// Read again on 22.09.2026, at **twelve**, and the jump is not what it
+    /// looks like: nine of the nine new names were already in the pool and
+    /// the table had no row for them, because `generated_lines.rs` is
+    /// rebuilt from the compiled pool by hand and nobody had rebuilt it.
+    /// Three was never the population — it was what a stale table could
+    /// see, and this pin under-reported by four times for as long as that
+    /// lasted. So the number moves and the reading does not: what #162 asks
+    /// is whether the population grows, and a count taken off a table that
+    /// is only refreshed sometimes cannot answer that. The guard is in
+    /// `the_table_is_parallel_to_the_registry`, which now refuses a card
+    /// with abilities and no row at all.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -369,7 +381,20 @@ mod tests {
             .collect();
         assert_eq!(
             named,
-            ["Hostile Hostel", "Sheoldred", "Balamb Garden, SeeD Academy"],
+            [
+                "Conqueror's Galleon",
+                "Treasure Map",
+                "Vance's Blasting Cannons",
+                "Hadana's Climb",
+                "Journey to Eternity",
+                "Hostile Hostel",
+                "Sheoldred",
+                "Dowsing Device",
+                "Ojer Kaslem, Deepest Growth",
+                "Ojer Pakpatiq, Deepest Epoch",
+                "Balamb Garden, SeeD Academy",
+                "Sidequest: Catch a Fish"
+            ],
             "the back faces that reach the stack"
         );
     }
@@ -393,6 +418,22 @@ mod tests {
                 def.name(),
                 def.faces.len(),
                 card.len()
+            );
+            // An empty row is "this card has no abilities", and it was also
+            // "nobody has rebuilt this table since the card was written" —
+            // one spelling for two things, which is how nine cards sat here
+            // with no row and `the_back_of_a_card_is_a_rarity` counted three
+            // where the pool held twelve. The table is two-phase, so this is
+            // red between the codegen run that adds a card and the one after
+            // it; that is the same bargain `decks::name_table_tests` already
+            // takes, and it is what makes the counts below measurements
+            // rather than a reading of whatever was last written down.
+            assert!(
+                !card.is_empty() || def.abilities.is_empty(),
+                "{} has {} abilities and no row at all — run \
+                 `cargo run -p xtask -- codegen --tables` twice",
+                def.name(),
+                def.abilities.len()
             );
             for (face, lines) in card.iter().enumerate() {
                 assert!(
@@ -434,9 +475,15 @@ mod tests {
     /// the number a chooser falls back to is the honest label. A named
     /// list rather than a tolerance, so that a modal card added tomorrow
     /// that reads as unknown stops a build and is looked at, rather than
-    /// joining these two in silence.
-    const MODES_PRINTED_INLINE: &[&str] =
-        &["Derevi, Empyrial Tactician", "Inspirit, Flagship Vessel"];
+    /// joining these two in silence. Tireless Provisioner is the third and
+    /// arrived exactly that way — "create a Food token or a Treasure token"
+    /// is one sentence and two modes, read and admitted rather than
+    /// tolerated.
+    const MODES_PRINTED_INLINE: &[&str] = &[
+        "Derevi, Empyrial Tactician",
+        "Inspirit, Flagship Vessel",
+        "Tireless Provisioner",
+    ];
 
     /// Every mode and every alternative cost in the pool knows which
     /// sentence it is, or there is a printed reason it cannot.

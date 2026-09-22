@@ -2,9 +2,9 @@
 //! Oracle: When this creature enters, you may search your library for a creature card with mana value 1 or less, reveal it, put it into your hand, then shuffle.
 //! Oracle: Sacrifice this creature: Your opponents can't cast noncreature spells this turn.
 //! Set: MH1 #21 — Modern Horizons | Scryfall ID: af3928b4-813a-4120-8799-de34235d60ac | Oracle ID: cada3481-cc2b-4412-b9b5-0436af53aad2
-// PARTIAL — the ETB search is built (optional, one creature card with mana
-// value ≤ 1 to hand; reveal and shuffle are derived). The sacrifice ability
-// is not expressible — see the // NOT SUPPORTED: line.
+// IMPLEMENTED — the ETB search (optional, one creature card with mana value
+// ≤ 1 to hand; reveal and shuffle are derived) and the sacrifice ability,
+// which is Modifier::OpponentsCantCast over Filter::NONCREATURE.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,9 +14,7 @@ card!(
     oracle_id = "cada3481-cc2b-4412-b9b5-0436af53aad2",
     scryfall_id = "af3928b4-813a-4120-8799-de34235d60ac",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Partial(
-        "Sacrifice this creature: Your opponents can't cast noncreature spells this turn."
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ranger-Captain of Eos",
         mana_cost = mana!("{1}{W}{W}"),
@@ -38,10 +36,16 @@ card!(
                 optional: true,
             }]
         ),
-        // NOT SUPPORTED: "Sacrifice this creature: Your opponents can't cast
-        // noncreature spells this turn." — no Modifier says "the effect's
-        // opponents can't cast this kind of spell": Modifier::OpponentsCastAsSorcery
-        // restricts *when* they may cast, not which cards. The ability is off
-        // the card rather than offered as an activation that does nothing.
+        // "Your opponents can't cast noncreature spells this turn": the
+        // filter is what separates this from Silence, which carries
+        // `Filter::Any`.
+        activated!(
+            cost!(SacrificeSelf),
+            &[Effect::continuous(
+                &Filter::This,
+                Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+                Duration::UntilEndOfTurn,
+            )]
+        ),
     ],
 );

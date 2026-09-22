@@ -10333,11 +10333,14 @@ fn ranger_captain_of_eos() -> CardIndex {
 /// has something to find and the assertions can say exactly where the found
 /// card went — the object chosen out of the library is the object that turns up
 /// in the hand, with the library one shorter and the hand one longer.
-/// The Sol Ring beside it is the clean control for the card's `Coverage::Partial`
-/// half: it prints an activated ability and is offered on the very board where
-/// "Sacrifice this creature: your opponents can't cast noncreature spells this
-/// turn" is offered nowhere, so an empty offer on the Captain is a fact about
-/// the card rather than about a quiet priority round.
+/// The tail is the half that **moved**. It pinned the card's
+/// `Coverage::Partial`: "Sacrifice this creature: your opponents can't cast
+/// noncreature spells this turn" was on no offer, with the Sol Ring beside
+/// it as the control saying the board offered activations at all. The
+/// sentence is now `Modifier::OpponentsCantCast`, so the pin is inverted
+/// rather than deleted — a limitation that was written down is a test that
+/// has to move, and the move is the record of it. What the ability *does*
+/// is the test below this one.
 #[allow(clippy::too_many_lines)] // one search answered, and the ability that is not there
 #[test]
 fn ranger_captain_of_eos_searches_up_a_one_mana_creature_and_is_never_offered_its_sacrifice() {
@@ -10455,11 +10458,80 @@ fn ranger_captain_of_eos_searches_up_a_one_mana_creature_and_is_never_offered_it
         legal.abilities
     );
     assert!(
-        !legal.abilities.iter().any(|(source, _)| *source == captain),
-        "\"Sacrifice this creature: …\" is the clause the card file leaves \
-         off, so there is nothing to press: {:?}",
+        legal.abilities.iter().any(|(source, _)| *source == captain),
+        "\"Sacrifice this creature: …\" is on the card now, and its price is \
+         the Captain itself — which is standing right here: {:?}",
         legal.abilities
     );
+}
+
+/// What the Ranger-Captain's sacrifice actually does: "Your opponents can't
+/// cast noncreature spells this turn."
+///
+/// One board taken twice, and the only difference between the rows is
+/// whether p0 pressed the ability — so the refusal cannot be the price, the
+/// phase or the priority round. Brainstorm is the opponent's spell because
+/// it needs no target: a counterspell with nothing to counter is refused for
+/// a reason that has nothing to do with this card, and the negative would
+/// have been true either way.
+///
+/// The second Island is held back through the first phase on purpose. A
+/// pool empties at the end of a phase (CR 500.4), and the row that matters
+/// is read after p0 has had a priority of its own — so the mana that pays
+/// for the Brainstorm has to be floated *after* that, and is asserted to be
+/// floating when the refusal is read.
+#[test]
+fn the_ranger_captains_sacrifice_takes_an_opponents_noncreature_spells() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for sacrificed in [false, true] {
+        let mut engine = Duel::new(2024, llanowar_elves())
+            .battlefield(0, &[ranger_captain_of_eos()])
+            .battlefield(1, &[island()])
+            .hand(1, &[brainstorm()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+        let captain =
+            on_battlefield(&engine, p0, ranger_captain_of_eos()).expect("the Captain is out");
+        if sacrificed {
+            activate(&mut engine, p0, ranger_captain_of_eos(), 1);
+            pass_until(&mut engine, stack_is_empty);
+            assert!(
+                in_graveyard(&engine, p0, ranger_captain_of_eos()).is_some(),
+                "the price is the Captain itself"
+            );
+            assert!(
+                on_battlefield(&engine, p0, ranger_captain_of_eos()).is_none(),
+                "and it is off the battlefield: {captain:?}"
+            );
+        }
+
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+                && e.state().zones.stack_is_empty()
+        });
+        tap_all_mana(&mut engine, p1);
+        assert_eq!(
+            engine.state().players[1]
+                .mana_pool
+                .available(ManaColor::Blue),
+            1,
+            "the {{U}} the Brainstorm costs is floating, sacrificed {sacrificed}"
+        );
+
+        let storm = in_hand(&engine, p1, brainstorm()).expect("the Brainstorm is in hand");
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected p1's priority, got {:?}", engine.pending())
+        };
+        assert_eq!(
+            legal.castable.contains(&storm),
+            !sacrificed,
+            "\"your opponents can't cast noncreature spells this turn\", \
+             sacrificed {sacrificed}: {:?}",
+            legal.castable
+        );
+    }
 }
 
 fn renegade_rallier() -> CardIndex {
@@ -12994,4 +13066,64 @@ fn fatehold_chronologist_enters_prepared_and_carries_the_offer_that_buys() {
          offer is the prepared marker and nothing else: {:?}",
         legal.abilities
     );
+}
+
+/// Drannith Magistrate: "Your opponents can't cast spells from anywhere
+/// other than their hands."
+///
+/// The zone is the whole sentence, so the test is one board read twice: a
+/// Sol Ring in the opponent's hand and a commander in their command zone,
+/// with four Swamps floating that pay for either of them. Without the
+/// Magistrate both are offered; with it, the hand card alone — which is
+/// what makes this a statement about the *zone* and not about the price or
+/// about commanders.
+#[test]
+fn drannith_magistrate_leaves_an_opponent_their_hand_and_nothing_else() {
+    let p1 = PlayerId::new(1);
+    for magistrate in [false, true] {
+        let mut board = vec![plains(), plains()];
+        if magistrate {
+            board.push(drannith_magistrate());
+        }
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &board)
+            .commander(1, &[sheoldred_the_apocalypse()])
+            .battlefield(1, &[swamp(), swamp(), swamp(), swamp()])
+            .hand(1, &[quiet_artifact()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_their_main_phase(&mut engine, p1);
+        tap_all_mana(&mut engine, p1);
+        assert_eq!(
+            engine.state().players[1]
+                .mana_pool
+                .available(ManaColor::Black),
+            4,
+            "{{2}}{{B}}{{B}} for the commander and {{1}} for the Sol Ring are \
+             both floating, so the price refuses neither"
+        );
+
+        let ring = in_hand(&engine, p1, quiet_artifact()).expect("the Sol Ring is in hand");
+        let boss = engine
+            .state()
+            .zones
+            .list(ZoneLocation::Command(p1))
+            .first()
+            .copied()
+            .expect("the commander is in the command zone");
+        let Pending::Priority { player, legal } = engine.pending().clone() else {
+            panic!("expected p1's priority, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p1, "p1's own main phase");
+        assert!(
+            legal.castable.contains(&ring),
+            "a card in hand is castable either way, Magistrate {magistrate}"
+        );
+        assert_eq!(
+            legal.castable.contains(&boss),
+            !magistrate,
+            "the command zone is \"anywhere other than their hands\", \
+             Magistrate {magistrate}"
+        );
+    }
 }

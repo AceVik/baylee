@@ -127,6 +127,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
+        | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife
         | Modifier::PreventDamageToIt
@@ -591,6 +592,7 @@ mod tests {
             Modifier::ExtraLandDrops(2),
             Modifier::CantActivateArtifacts,
             Modifier::OpponentsCastAsSorcery,
+            Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife,
             Modifier::PreventDamageToIt,
@@ -641,7 +643,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            39,
+            40,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -653,7 +655,7 @@ mod tests {
     }
 
     /// **CR 611.2c and CR 613.1 draw one line, and the two readers of it
-    /// agree on thirty-eight of thirty-nine.** The rule locks a set for an
+    /// agree on thirty-nine of forty.** The rule locks a set for an
     /// effect that modifies characteristics or changes control; the layer
     /// system puts exactly those effects on a layer of their own and parks
     /// everything else on `Layer::Text`, which
@@ -693,11 +695,18 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-two
-    /// modifiers lock the objects they found, seventeen do not.
+    /// modifiers lock the objects they found, eighteen do not.
+    ///
+    /// The second number is counted off the list and not written as
+    /// `39 - locking`, which is what it said until a modifier was added: a
+    /// difference between one pinned total and one measured count is a
+    /// check against a reference that moves, and it kept reporting
+    /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_two_modifiers_lock_a_set_and_seventeen_do_not() {
-        let locking = every_modifier().iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, 39 - locking), (22, 17));
+    fn twenty_two_modifiers_lock_a_set_and_eighteen_do_not() {
+        let all = every_modifier();
+        let locking = all.iter().filter(|m| locks_its_set(m)).count();
+        assert_eq!((locking, all.len() - locking), (22, 18));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

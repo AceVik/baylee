@@ -67,6 +67,14 @@ fn counterspell() -> CardIndex {
     card_index("cc187110-1148-4090-bbb8-e205694a39f5")
 }
 
+fn silence() -> CardIndex {
+    card_index("8aed54cb-d1bb-45ad-adbe-38e55d84ff31")
+}
+
+fn drannith_magistrate() -> CardIndex {
+    card_index("aadd10d0-6dd0-4bdc-8d93-ff08e29a5863")
+}
+
 fn jin_gitaxias() -> CardIndex {
     card_index("f5daadc1-98ff-480a-82bb-fe7bfaa7b60e")
 }

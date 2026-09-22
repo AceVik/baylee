@@ -44,6 +44,15 @@ pub enum CastError {
     /// for a fourth land.
     #[error("no way to cast this spell")]
     NoWayToCast,
+    /// A continuous effect forbids this cast outright (CR 601.3a): Silence,
+    /// Ranger-Captain of Eos.
+    ///
+    /// Its own variant rather than [`Self::BadTiming`], which is what a
+    /// sorcery-speed lock answers: a player told "sorcery-speed timing not
+    /// met" on their own main phase with an empty stack goes looking for a
+    /// rule that is not there.
+    #[error("an effect forbids casting this spell")]
+    Forbidden,
 }
 
 /// Whether any effect lets mana be spent as though it were mana of any
@@ -485,6 +494,32 @@ pub(crate) fn timing_allows(
     true
 }
 
+/// Whether a continuous effect forbids `player` casting `obj` at all
+/// (CR 601.3a).
+///
+/// `Modifier::OpponentsCantCast` is player-scoped like Teferi's lock above,
+/// and unlike it names *which* spells: Silence forbids every one, and
+/// Ranger-Captain of Eos only the noncreature ones. The filter is evaluated
+/// from the **effect's** controller, because "noncreature spells" is that
+/// player's sentence about somebody else's card — and `this` is the effect's
+/// own source, so a filter naming `Filter::This` means the forbidding
+/// permanent rather than the card being cast.
+fn cast_is_forbidden(state: &GameState, player: PlayerId, obj: &crate::object::GameObject) -> bool {
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
+            return false;
+        };
+        state.is_opponent(fx.controller, player)
+            && crate::eval::matches(
+                filter,
+                state,
+                obj,
+                fx.controller,
+                fx.source.unwrap_or(obj.id),
+            )
+    })
+}
+
 /// Whether a continuous effect grants `card` flashback (CR 702.34) right now.
 ///
 /// One reader, because a grant arrives in either of two shapes and a caller
@@ -568,6 +603,14 @@ pub fn can_cast(
     // Lands can never be cast as spells (CR 305.1).
     if c.types.contains(TypeSet::LAND) {
         return Err(CastError::BadTiming);
+    }
+    // A cast an effect forbids outright (CR 601.3a), asked before timing
+    // because the two answers are different and only one of them is true:
+    // Silence does not move a spell to sorcery speed, it removes the
+    // permission, and a player reading "sorcery-speed timing not met" on
+    // their own main phase would go looking for a rule that is not there.
+    if cast_is_forbidden(state, player, obj) {
+        return Err(CastError::Forbidden);
     }
     // Timing (CR 601.3). Read off the projected characteristics, so a
     // granted flash counts.
@@ -1321,6 +1364,86 @@ mod tests {
             "the lock leaves an opponent their own main phase"
         );
         assert!(timing_allows(&state, me(), TypeSet::SORCERY, no_keywords()));
+    }
+
+    /// A card of the given types in `owner`'s hand, carrying nothing else.
+    fn card_in_hand(
+        state: &mut GameState,
+        owner: PlayerId,
+        name: &str,
+        types: TypeSet,
+    ) -> ObjectId {
+        let name = state.names.intern(name);
+        let id = state.create_bare(owner, ObjectKind::Card, name, ZoneLocation::Hand(owner));
+        state.object_mut(id).expect("just made it").base_mut().types = types;
+        id
+    }
+
+    /// A cast an effect forbids outright is a different answer from a
+    /// sorcery-speed lock, which is the whole reason `OpponentsCantCast` is
+    /// its own variant: every row below is taken in `me()`'s own main phase
+    /// with an empty stack, the one moment `timing_allows` says yes to
+    /// everything.
+    ///
+    /// Three rows, each alone the point. The spell is castable before the
+    /// effect exists — so the refusal is the effect and not the setup. It is
+    /// refused while an opponent's effect names it. And it is **not**
+    /// refused for the seat that controls the effect, because "your
+    /// opponents" is asked per seat and never reaches you.
+    #[test]
+    fn a_cast_lock_is_asked_per_seat_and_not_of_its_own_controller() {
+        let mut state = state();
+        main_phase_of(&mut state, me());
+        let spell = card_in_hand(&mut state, me(), "Probe", TypeSet::INSTANT);
+
+        let obj = state.object(spell).expect("just made it");
+        assert!(
+            !cast_is_forbidden(&state, me(), obj),
+            "nothing forbids it yet"
+        );
+
+        register(
+            &mut state,
+            them(),
+            Modifier::OpponentsCantCast(&Filter::Any),
+        );
+        let obj = state.object(spell).expect("still there");
+        assert!(
+            cast_is_forbidden(&state, me(), obj),
+            "an opponent's lock reaches this seat"
+        );
+        assert!(
+            !cast_is_forbidden(&state, them(), obj),
+            "and not the seat that controls it — \"your opponents\" is asked \
+             per seat"
+        );
+    }
+
+    /// The filter the lock carries is read, and is read from the **effect's**
+    /// controller: Ranger-Captain of Eos forbids noncreature spells, so a
+    /// creature card in the same hand is still castable. Without this the
+    /// variant would be a bit rather than a sentence, and Silence and the
+    /// Ranger-Captain would be the same card.
+    #[test]
+    fn a_cast_lock_forbids_only_what_its_filter_names() {
+        let mut state = state();
+        main_phase_of(&mut state, me());
+        let instant = card_in_hand(&mut state, me(), "Probe", TypeSet::INSTANT);
+        let creature = card_in_hand(&mut state, me(), "Bear", TypeSet::CREATURE);
+        register(
+            &mut state,
+            them(),
+            Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+        );
+
+        assert!(
+            cast_is_forbidden(&state, me(), state.object(instant).expect("there")),
+            "an instant is a noncreature spell"
+        );
+        assert!(
+            !cast_is_forbidden(&state, me(), state.object(creature).expect("there")),
+            "and a creature is not"
+        );
     }
 
     /// A face with no text, carrying only the three fields these probes read.

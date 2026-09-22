@@ -115,6 +115,16 @@ pub enum Modifier {
     /// The effect's opponents can cast spells only as though they were
     /// sorceries (Teferi).
     OpponentsCastAsSorcery,
+    /// The effect's opponents can't cast spells matching the filter at all
+    /// (Silence, Ranger-Captain of Eos).
+    ///
+    /// A permission and not a timing rule, which is why it is its own
+    /// variant beside `OpponentsCastAsSorcery`: a spell this forbids stays
+    /// forbidden on its controller's own main phase with an empty stack,
+    /// where a sorcery-speed lock would let it through. The filter is read
+    /// from the **effect's** controller, so "noncreature spells" is
+    /// `Filter::NONCREATURE` and "spells" is `Filter::Any`.
+    OpponentsCantCast(&'static crate::Filter),
     /// Players can't lose the game this turn (Everybody Lives!).
     PlayersCantLose,
     /// The controller can't lose life this turn (Everybody Lives!).
@@ -367,6 +377,7 @@ impl Modifier {
             | Self::PlayLandsFromGraveyard
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
+            | Self::OpponentsCantCast(_)
             | Self::PlayersCantLose
             | Self::CantLoseLife
             | Self::PreventDamageToIt
