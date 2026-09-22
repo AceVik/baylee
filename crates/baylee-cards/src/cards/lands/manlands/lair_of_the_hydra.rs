@@ -16,8 +16,11 @@ card!(
     scryfall_id = "b670bb0f-680f-4036-bdb6-ac73e866a398",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     coverage = Coverage::Partial(
-        "\"X can't be 0\" is not expressible: an activation cost has no \
-         vocabulary for a minimum X, so X = 0 is offered and accepted"
+        "X is never announced at all: the engine asks for a number on an \
+         activation only for a counter cost (CR 602.2b is unimplemented for \
+         mana), so {X}{G} is paid as {G} and this land becomes a 0/0 that \
+         dies. \"X can't be 0\" is the smaller half and is also not \
+         expressible, because a Cost says no minimum for its X"
     ),
     faces = &[face!(
         name = "Lair of the Hydra",
@@ -29,9 +32,14 @@ card!(
     )],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        // NOT SUPPORTED: "X can't be 0." — nothing in a `Cost` says a
-        // minimum for its X, so the wizard offers 0 and the land becomes a
-        // 0/0 that dies, where the printing refuses the activation outright.
+        // NOT SUPPORTED: the announced X. `abilities.rs` reaches
+        // `Pending::ChooseNumber` for an activation only through
+        // `counter_x_part`, which reads a counter cost and nothing about
+        // mana — so nobody is asked, X is 0, and the land becomes a 0/0
+        // that a state-based action buries. "X can't be 0" is the second
+        // half and needs a minimum a `Cost` cannot say. Three more cards in
+        // this pool price an activation with a mana {X}: Treasure Vault,
+        // Kessig Wolf Run and Blast Zone.
         activated!(
             cost!("{X}{G}"),
             &[
