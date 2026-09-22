@@ -23824,3 +23824,687 @@ fn midgar_city_of_mako_enters_tapped_and_makes_the_one_colour_it_prints() {
     );
     assert!(is_tapped(&engine, land), "its own tap symbol was the cost");
 }
+
+/// Brokers Hideout is two triggers reading as one sentence: "When this land
+/// enters, sacrifice it. When you do, search your library for a basic
+/// Forest, Plains, or Island card, put it onto the battlefield tapped, then
+/// shuffle and you gain 1 life." The first half is written as
+/// `Trigger::ETB`, the second as this land's own
+/// `Trigger::LeavesBattlefield` — which is the reading worth playing, since
+/// a land that sacrificed itself and then searched nothing looks exactly
+/// like a land that never entered.
+///
+/// The filter is checked by the branch that finds **nothing**: with a deck
+/// of Mountains the search has no legal card, and Mountain is a basic land
+/// — so a card written as "search for a basic land" would still find one
+/// here. Both engines gain the life, because "you gain 1 life" is a
+/// separate clause and not a consequence of the search.
+#[test]
+fn brokers_hideout_sacrifices_itself_and_finds_one_of_the_three_types_it_names() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[brokers_hideout()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let life_before = engine.state().players[0].life;
+    let library_before = library_size(&engine, p0);
+    play_land(&mut engine, p0, brokers_hideout());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the search asks which land, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the land's controller searches");
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert!(!options.is_empty(), "this deck is made of Forests");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("a card the search offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, brokers_hideout()).is_none(),
+        "\"sacrifice it\" — the land it entered as is gone"
+    );
+    assert!(
+        in_graveyard(&engine, p0, brokers_hideout()).is_some(),
+        "and it went to its owner's graveyard"
+    );
+    let found = on_battlefield(&engine, p0, forest()).expect("the Forest it searched up");
+    assert!(
+        is_tapped(&engine, found),
+        "\"put it onto the battlefield tapped\""
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "one card left the library, and the shuffle moved none"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before + 1,
+        "\"and you gain 1 life\""
+    );
+
+    // The other branch: a deck of Mountains is a deck of basic lands this
+    // card may not find, so the search asks nothing at all.
+    let mut lean = Duel::new(SEED, mountain())
+        .hand(0, &[brokers_hideout()])
+        .start();
+    keep_mulligans(&mut lean);
+    assert!(walk_to_own_main(&mut lean, p0), "p0 reaches its own main");
+    let lean_life = lean.state().players[0].life;
+    let lean_library = library_size(&lean, p0);
+    play_land(&mut lean, p0, brokers_hideout());
+    pass_until(&mut lean, |e| at_rest(e, p0));
+
+    assert_eq!(
+        library_size(&lean, p0),
+        lean_library,
+        "a Mountain is a basic land and is not a Forest, Plains or Island"
+    );
+    assert!(
+        in_graveyard(&lean, p0, brokers_hideout()).is_some(),
+        "the sacrifice does not depend on the search finding anything"
+    );
+    assert_eq!(
+        lean.state().players[0].life,
+        lean_life + 1,
+        "and neither does the life, which is its own clause"
+    );
+}
+
+/// Basilisk Gate's pump counts **Gates you control**, and the number is read
+/// as the ability resolves. Two on the battlefield is what makes that
+/// readable at all: at one Gate, "the number of Gates you control" and "one"
+/// and "the source itself" are the same number, and a card counting any of
+/// the three would pass. The source counts itself, so two Gates is +2/+2.
+///
+/// The `{2}` is paid from lands that are not the Gate, because its own tap
+/// symbol is part of the cost — a test that let `tap_all_mana` take the Gate
+/// would be asserting that an ability nobody could activate does nothing.
+#[test]
+fn basilisk_gate_pumps_by_the_number_of_gates_and_counts_itself() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                basilisk_gate(),
+                basilisk_gate(),
+                quiet_creature(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the creature to point at");
+    let base = pt(&engine, creature);
+    let gate = on_battlefield(&engine, p0, basilisk_gate()).expect("a Gate to activate");
+
+    tap_mana_except(&mut engine, p0, gate);
+    activate(&mut engine, p0, basilisk_gate(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the pump asks for a target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&creature),
+        "\"target creature\" — the creature on the board is one"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![creature],
+                players: vec![],
+            },
+        )
+        .expect("a target the ability offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        pt(&engine, creature),
+        (base.0 + 2, base.1 + 2),
+        "two Gates you control, and the Gate that paid counts itself"
+    );
+    assert!(
+        is_tapped(&engine, gate),
+        "its own tap symbol was part of the price"
+    );
+}
+
+/// Blighted Woodland: "{3}{G}, {T}, Sacrifice this land: Search your library
+/// for up to two basic land cards, put them onto the battlefield tapped,
+/// then shuffle."
+///
+/// "Up to two" is the word this plays. The DSL says it as two
+/// `Find::BATTLEFIELD_TAPPED` slots with `optional: true`, and the two
+/// halves of that spelling fail differently: a card that found exactly two
+/// would refuse a player who wanted one, and a card that found one would
+/// quietly halve every copy in the pool. So the search is answered with
+/// **both** cards and the count is asserted, and the offer's own bounds are
+/// read to show that one was allowed.
+#[test]
+fn blighted_woodland_finds_up_to_two_basic_lands_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[blighted_woodland(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = on_battlefield(&engine, p0, blighted_woodland()).expect("the land deployed");
+    let library_before = library_size(&engine, p0);
+    let forests_before = all_on_battlefield(&engine, p0, forest());
+
+    tap_mana_except(&mut engine, p0, land);
+    activate(&mut engine, p0, blighted_woodland(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("the search asks which lands, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "\"up to two\" — naming none is an answer and three is not"
+    );
+    assert!(options.len() >= 2, "this deck is made of Forests");
+    let found = vec![options[0], options[1]];
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: found })
+        .expect("two cards the search offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let arrived = all_on_battlefield(&engine, p0, forest());
+    assert_eq!(
+        arrived.len(),
+        forests_before.len() + 2,
+        "both of the two it was allowed to find arrived"
+    );
+    // The lands already on the board paid the {3}{G} and are tapped too, so
+    // "everything is tapped" would be true of a card that put its finds down
+    // untapped. The two new objects are named instead.
+    let new: Vec<_> = arrived
+        .iter()
+        .copied()
+        .filter(|id| !forests_before.contains(id))
+        .collect();
+    assert_eq!(new.len(), 2, "two objects that were not there before");
+    assert!(
+        new.iter().all(|id| is_tapped(&engine, *id)),
+        "\"put them onto the battlefield tapped\""
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 2,
+        "two cards left the library"
+    );
+    assert!(
+        in_graveyard(&engine, p0, blighted_woodland()).is_some(),
+        "\"Sacrifice this land\" was part of the cost"
+    );
+}
+
+/// Cori Mountain Monastery is a checkland with the unusual pair — "unless you
+/// control a Plains **or** an Island" on a land that taps for {R} — and a
+/// condition is untested until both of its branches fire, so it is played
+/// twice off one board difference. The Island is the half worth having,
+/// because a reader that took only the first of the two printed types would
+/// pass the Plains test and fail nothing.
+///
+/// The file is `Coverage::Partial` for the {3}{R} impulse ability, which is
+/// invisible from here by construction: nothing in this scenario reaches an
+/// activated ability other than the mana one, and the entry condition is a
+/// replacement that runs before any of it.
+#[test]
+fn cori_mountain_monastery_checks_for_a_plains_or_an_island_and_taps_for_red() {
+    let p0 = PlayerId::new(0);
+
+    // Neither type on the board: the printed default applies.
+    let mut bare = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[cori_mountain_monastery()])
+        .start();
+    keep_mulligans(&mut bare);
+    assert!(walk_to_own_main(&mut bare, p0), "p0 reaches its own main");
+    let tapped = play_land(&mut bare, p0, cori_mountain_monastery());
+    assert!(
+        entered_tapped(&bare, tapped),
+        "a Forest is neither a Plains nor an Island"
+    );
+
+    // An Island, which is the second of the two types the card names.
+    let mut checked = Duel::new(SEED, forest())
+        .battlefield(0, &[island()])
+        .hand(0, &[cori_mountain_monastery()])
+        .start();
+    keep_mulligans(&mut checked);
+    assert!(
+        walk_to_own_main(&mut checked, p0),
+        "p0 reaches its own main"
+    );
+    let untapped = play_land(&mut checked, p0, cori_mountain_monastery());
+    assert!(
+        !entered_tapped(&checked, untapped),
+        "\"unless you control a Plains or an Island\" — the Island is the or"
+    );
+
+    activate(&mut checked, p0, cori_mountain_monastery(), 0);
+    assert_eq!(
+        checked.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "{{T}}: Add {{R}}"
+    );
+    assert_eq!(
+        checked.state().players[0].mana_pool.total(),
+        1,
+        "and nothing else: this land makes one colour"
+    );
+}
+
+/// Arid Archway: "This land enters tapped. When this land enters, return a
+/// land you control to its owner's hand." The bounce is **mandatory** and
+/// the land it returns is chosen, so the assertion with teeth is that the
+/// choice is offered at all and that what it names actually leaves the
+/// battlefield — a trigger that resolved against nothing looks identical to
+/// a land that simply entered tapped.
+///
+/// The archway is itself a land its controller controls, so it is on its own
+/// offer, and that is the printing rather than an oversight. The Forest is
+/// named instead, which is also what makes the departure readable.
+///
+/// The file is `Coverage::Partial` for the surveil rider, which needs a
+/// second Desert to have been returned — there is one Desert here and the
+/// clause could not fire even on a finished card.
+#[test]
+fn arid_archway_enters_tapped_and_bounces_a_land_its_controller_names() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[arid_archway()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let archway = play_land(&mut engine, p0, arid_archway());
+    assert!(
+        entered_tapped(&engine, archway),
+        "\"This land enters tapped\" is unconditional"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the bounce asks which land, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "\"a land you control\" — its controller chooses"
+    );
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "the sentence is mandatory and names one land"
+    );
+    let grove = on_battlefield(&engine, p0, forest()).expect("the Forest is on the board");
+    assert!(
+        options.contains(&grove),
+        "the Forest is a land its controller controls"
+    );
+    assert!(
+        options.contains(&archway),
+        "and so is the archway, which the printing does not exclude"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![grove],
+            },
+        )
+        .expect("a land the trigger offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, forest()).is_none(),
+        "the Forest it named left the battlefield"
+    );
+    assert!(
+        in_hand(&engine, p0, forest()).is_some(),
+        "\"to its owner's hand\" and not to a graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, arid_archway()).is_some(),
+        "and the archway stayed, having named something else"
+    );
+
+    // A tapped land makes no mana, so the second sentence waits for the
+    // untap step and the main phase after it.
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, archway),
+        "an ordinary untap step untaps it"
+    );
+    // Ability 1: the ETB trigger is this card's ability 0.
+    activate(&mut engine, p0, arid_archway(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "{{T}}: Add {{C}}{{C}} — two, which is what pays for the bounce"
+    );
+}
+
+/// Scorched Ruins makes four colourless off one tap, which is the whole
+/// reason the card has a drawback, and the drawback is the half this file
+/// cannot write: "If this land would enter, sacrifice two untapped lands
+/// instead" is a replacement charging a price in permanents and
+/// `EnterModifier` has no variant for it.
+///
+/// So the land is put onto the battlefield directly, which is the honest
+/// scenario for a `Coverage::Partial` of this shape: the entry is the part
+/// that does not exist, and starting the land in play neither asserts that
+/// it works nor pretends it was paid for. What is asserted is the four —
+/// **and** that they are four of one kind, because a land that made one of
+/// each colour would have the same total.
+#[test]
+fn scorched_ruins_taps_for_four_colourless() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[scorched_ruins()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ruins = on_battlefield(&engine, p0, scorched_ruins()).expect("the land is in play");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing is floating before the tap"
+    );
+    activate(&mut engine, p0, scorched_ruins(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        4,
+        "{{T}}: Add {{C}}{{C}}{{C}}{{C}}"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "and all four are colourless"
+    );
+    assert!(is_tapped(&engine, ruins), "its own tap symbol was the cost");
+}
+
+/// Three shelf lands with one printed sentence between them — "this land
+/// enters tapped" — and two of them a mana ability to go with it. They are
+/// played together because the assertion that matters is the pair: a land
+/// that entered untapped would still make its mana, and a colour is only a
+/// claim beside a total.
+///
+/// Cryptic Spires is the third and carries **no ability at all**, which is
+/// its `Coverage::Partial` made visible: "add one mana of either of the
+/// circled colors" names a choice made while building a deck, and the DSL
+/// has no deck-construction vocabulary — so a card that quietly gave it a
+/// colour would be inventing one. The empty ability list is asserted rather
+/// than assumed.
+#[test]
+fn three_shelf_taplands_enter_tapped_and_make_the_colour_they_print() {
+    let p0 = PlayerId::new(0);
+
+    for (card, colour) in [
+        (dakmor_salvage(), ManaColor::Black),
+        (spinerock_knoll(), ManaColor::Red),
+    ] {
+        let mut engine = Duel::new(SEED, forest()).hand(0, &[card]).start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+        let land = play_land(&mut engine, p0, card);
+        assert!(
+            entered_tapped(&engine, land),
+            "\"This land enters tapped\" is unconditional on this card"
+        );
+
+        cross_into_the_next_own_main(&mut engine, p0);
+        activate(&mut engine, p0, card, 0);
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(colour),
+            1,
+            "the one colour this land's ability prints"
+        );
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            1,
+            "and nothing beside it"
+        );
+    }
+
+    let mut spires = Duel::new(SEED, forest())
+        .hand(0, &[cryptic_spires()])
+        .start();
+    keep_mulligans(&mut spires);
+    assert!(walk_to_own_main(&mut spires, p0), "p0 reaches its own main");
+    let land = play_land(&mut spires, p0, cryptic_spires());
+    assert!(entered_tapped(&spires, land), "it enters tapped too");
+
+    cross_into_the_next_own_main(&mut spires, p0);
+    assert!(
+        !is_tapped(&spires, land),
+        "and untaps like any other permanent"
+    );
+    let Pending::Priority { legal, .. } = spires.pending().clone() else {
+        panic!("expected priority, got {:?}", spires.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(id, _)| *id == land),
+        "Cryptic Spires offers nothing: the colours are circled as a deck is \
+         built, and that is the half this card does not have"
+    );
+}
+
+/// Shizo, Death's Storehouse is a **legendary** land, and the type line is
+/// the part worth playing: CR 704.5j applies the legend rule to any
+/// permanent with the supertype, not only to creatures, and a land written
+/// as a plain `Land` would sit on the battlefield in pairs with every other
+/// reading of it correct.
+///
+/// So two are played, one turn apart, and the survivor is the one its
+/// controller keeps. The mana ability is asserted on that survivor, because
+/// a land that lost the legend rule and a land that never made mana are
+/// different failures and the test should not be able to confuse them.
+///
+/// The file is `Coverage::Partial` for the {B}, {T} fear grant — fear is a
+/// keyword bit no rule reads — and nothing here activates it.
+#[test]
+fn shizo_is_legendary_and_the_survivor_still_taps_for_black() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[shizo_death_s_storehouse(), shizo_death_s_storehouse()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let first = play_land(&mut engine, p0, shizo_death_s_storehouse());
+    assert!(
+        !entered_tapped(&engine, first),
+        "Shizo prints no enters-tapped clause"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, shizo_death_s_storehouse()).len(),
+        1,
+        "one is one"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    let second = play_land(&mut engine, p0, shizo_death_s_storehouse());
+
+    // CR 704.5j is a state-based action that asks rather than picks: the
+    // controller keeps one. Keeping the newcomer is the answer that makes
+    // the assertion below about the rule and not about which object the
+    // engine happened to leave alone.
+    let Pending::LegendChoice { player, options } = engine.pending().clone() else {
+        panic!(
+            "two legendary permanents ask the legend rule, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "their controller chooses");
+    assert_eq!(options.len(), 2, "both Shizos are on the offer");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![second],
+            },
+        )
+        .expect("the one it named was one of the two");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let standing = all_on_battlefield(&engine, p0, shizo_death_s_storehouse());
+    assert_eq!(
+        standing.len(),
+        1,
+        "the legend rule (CR 704.5j) is about permanents and not about creatures"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        1,
+        "and the one that lost went to its owner's graveyard"
+    );
+
+    activate(&mut engine, p0, shizo_death_s_storehouse(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "{{T}}: Add {{B}} on the one that is still there"
+    );
+}
+
+/// Vesuva: "You may have this land enter tapped as a copy of any land on the
+/// battlefield." The copy is what this plays, and the card is
+/// `Coverage::Partial` for the "tapped" half — `AbilityDef::CopyOnEnter`
+/// carries no enter modifier, so what arrives is the copy untapped.
+///
+/// A **Forest** is the land to copy, because the copy has to be readable
+/// from two sides that a wrong answer separates: the types it now has, and
+/// the mana its intrinsic ability makes (CR 305.6, which is a land's type
+/// line and not an ability anybody copied). A Vesuva that took the name and
+/// not the type line would tap for nothing.
+#[test]
+fn vesuva_enters_as_a_copy_of_a_land_on_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[vesuva()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let model = on_battlefield(&engine, p0, forest()).expect("a Forest to copy");
+    engine
+        .apply(
+            p0,
+            PlayerAction::PlayLand {
+                card: in_hand(&engine, p0, vesuva()).expect("Vesuva is in hand"),
+            },
+        )
+        .expect("a land drop");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the copy asks which land, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&model),
+        "\"any land on the battlefield\" — the Forest is one"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![model],
+                players: vec![],
+            },
+        )
+        .expect("a land the ability offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    // The object is still Vesuva's card — a copy effect changes an object's
+    // characteristics and not which card it came off (CR 707.2), so it is
+    // found by its own index and read through the layer system.
+    let copy = on_battlefield(&engine, p0, vesuva()).expect("Vesuva is on the battlefield");
+    assert_ne!(copy, model, "and it is not the Forest it copied");
+    let chars = engine
+        .state()
+        .object(copy)
+        .expect("the copy exists")
+        .characteristics();
+    assert_eq!(
+        engine.state().names.get(chars.name),
+        "Forest",
+        "a copy takes the copiable values, name included (CR 707.2)"
+    );
+
+    assert_eq!(
+        types(&engine, copy),
+        types(&engine, model),
+        "and the whole type line with it"
+    );
+
+    activate(&mut engine, p0, vesuva(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "and taps for green off the type line it copied (CR 305.6)"
+    );
+}

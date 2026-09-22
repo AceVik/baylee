@@ -2349,3 +2349,47 @@ fn dragonback_assault() -> CardIndex {
 fn twists_and_turns() -> CardIndex {
     card_index("740aa9d9-91a9-431e-8bf9-1344e5273e27")
 }
+
+fn brokers_hideout() -> CardIndex {
+    card_index("bd002797-a545-4bee-88bf-b878436e7cca")
+}
+
+fn basilisk_gate() -> CardIndex {
+    card_index("8733a4fc-4068-4af4-9598-dc3d895e8556")
+}
+
+fn blighted_woodland() -> CardIndex {
+    card_index("02679a2e-303d-412f-87d8-0a37a8ca259c")
+}
+
+fn cori_mountain_monastery() -> CardIndex {
+    card_index("35c60b66-8c85-432e-90fe-99c19d21ed15")
+}
+
+fn arid_archway() -> CardIndex {
+    card_index("3be3d7e6-7860-438a-b8c8-ef154c18c163")
+}
+
+fn scorched_ruins() -> CardIndex {
+    card_index("6ee68855-c8c5-422b-88da-163c09a96416")
+}
+
+fn cryptic_spires() -> CardIndex {
+    card_index("6d6a25fb-0432-4c7d-b0e6-e787ddc71218")
+}
+
+fn dakmor_salvage() -> CardIndex {
+    card_index("cdc4048a-73ec-4ec1-a179-2b36c397bf1a")
+}
+
+fn shizo_death_s_storehouse() -> CardIndex {
+    card_index("008f2698-1721-45a3-8353-10f2f400dc8f")
+}
+
+fn spinerock_knoll() -> CardIndex {
+    card_index("690c7f8e-fea2-4920-afa7-02ff120701a1")
+}
+
+fn vesuva() -> CardIndex {
+    card_index("4001b868-ada1-43f4-92e2-27ab0e80c913")
+}
