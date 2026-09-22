@@ -328,15 +328,27 @@ fn requirement_is_reachable(
         || req.count_is_x
         || matches!(
             req.spec,
-            baylee_cards_dsl::TargetSpec::AnyPlayer
-                | baylee_cards_dsl::TargetSpec::AnyOpponent
-                | baylee_cards_dsl::TargetSpec::Player(_)
-                | baylee_cards_dsl::TargetSpec::ThisObject
+            baylee_cards_dsl::TargetSpec::Player(_) | baylee_cards_dsl::TargetSpec::ThisObject
         )
     {
         return true;
     }
-    crate::eval::target_options(&req.spec, state, player, card).len() >= req.min as usize
+    // **Both** readers, because the question a target menu asks is one
+    // question over two lists. `Pending::ChooseTargets` carries `options` and
+    // `player_options` and a target is picked out of their union (CR 115.4),
+    // so counting objects alone made an offer and a refusal disagree:
+    // `TargetSpec::AnyTarget` used to be short-circuited to "reachable" by
+    // name beside `AnyPlayer` and `AnyOpponent`, which hid it — and the day
+    // it stopped being on that list, Lightning Bolt was uncastable at a board
+    // with no creature on it, with the opponent sitting right there and on
+    // the menu the wizard would have printed.
+    //
+    // Derived rather than listed, for the same reason: a new `TargetSpec` is
+    // counted by whichever of the two readers knows about it, and a spec
+    // neither knows is unreachable, which is the honest answer.
+    let objects = crate::eval::target_options(&req.spec, state, player, card).len();
+    let players = crate::eval::target_player_options(state, &req.spec, player).len();
+    objects + players >= req.min as usize
 }
 
 /// Whether `pool` covers `cost`, honouring a mana-conversion effect.

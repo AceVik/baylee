@@ -1065,3 +1065,91 @@ fn an_anthem_that_reads_attacking_is_refreshed_when_the_attack_is_declared() {
         "and both of them say 2/1, which is what the enchantment prints"
     );
 }
+
+fn lightning_bolt() -> CardIndex {
+    card_index("4457ed35-7c10-48c8-9776-456485fdf070")
+}
+
+/// "Any target" is reachable while a player is sitting there, and the
+/// castable offer has to say so.
+///
+/// `Pending::ChooseTargets` carries two lists — `options` and
+/// `player_options` — and CR 115.4 picks one target out of their union. The
+/// gate that decides whether a spell is offered at all counted only the
+/// first, and `TargetSpec::AnyTarget` was short-circuited to "reachable" by
+/// name beside `AnyPlayer` and `AnyOpponent`, which is what hid it. With the
+/// name removed the count was left alone with the objects: Lightning Bolt
+/// became uncastable at a board holding no creature, with the opponent on the
+/// menu the wizard would have printed the moment it was pressed. Sixty-one
+/// cards in this pool say "any target".
+///
+/// The empty board is the whole scenario, because a board with any creature
+/// on it answers the question through the wrong list.
+#[test]
+fn a_spell_that_may_target_a_player_is_offered_on_a_creatureless_board() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(409, forest())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .all(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| !o.characteristics().types.contains(TypeSet::CREATURE))),
+        "the premise: not one creature anywhere, so the object list is empty"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    let spell = in_hand(&engine, p0, lightning_bolt()).expect("the Bolt is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&spell),
+        "an opponent is a legal target for \"any target\", so the spell is \
+         offered: {:?}",
+        legal.castable
+    );
+
+    // And pressing it agrees, which is the half that says the offer was not
+    // merely generous: an offer the wizard then refuses is the same defect
+    // wearing the other face.
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the Bolt targets, got {:?}", engine.pending())
+    };
+    assert!(options.is_empty(), "no object is on the menu: {options:?}");
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "both seats are (CR 115.4): {player_options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opponent was on the menu");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "three damage, at a board where the spell could not be cast at all"
+    );
+}
