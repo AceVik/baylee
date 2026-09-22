@@ -44093,7 +44093,7 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         0,
-        "die {{2}} kamen aus dem Pool"
+        "the {{2}} came from the Pool"
     );
 
     // The mana line on the copy that is still untapped, with an empty pool.
@@ -44108,7 +44108,7 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
             engine.pending()
         )
     };
-    assert_eq!(player, p0, "der Sitz, der tappt, nennt die Farbe");
+    assert_eq!(player, p0, "the seat that taps names the colour");
     assert!(
         options.contains(&ManaColor::Red) && options.contains(&ManaColor::Green),
         "\"{{R}} or {{G}}\": {options:?}"
@@ -44119,7 +44119,7 @@ fn sheltered_thicket_enters_tapped_cycles_for_two_and_offers_red_or_green() {
         .expect("Grün war eines der angebotenen Felder");
 
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Green), 1, "die genannte Farbe");
+    assert_eq!(pool.available(ManaColor::Green), 1, "the named colour");
     assert_eq!(pool.total(), 1, "ein Mana, ein Tap, und sonst nichts");
     assert!(is_tapped(&engine, standing), "the {{T}} was the price");
     assert!(
@@ -48663,7 +48663,7 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
     let Pending::ChooseColor { player, options } = engine.pending().clone() else {
         panic!("`any color` ist eine Frage, got {:?}", engine.pending())
     };
-    assert_eq!(player, p0, "der aktivierende Sitz benennt die Farbe");
+    assert_eq!(player, p0, "the activating seat names the colour");
     for color in [
         ManaColor::White,
         ManaColor::Blue,
@@ -48716,7 +48716,7 @@ fn henge_of_ramos_taps_for_colorless_and_pays_two_for_any_color() {
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         0,
-        "der Pool ist mit dem Schritt geleert worden (CR 500.5)"
+        "the Pool was emptied with the step (CR 500.5)"
     );
 
     activate(&mut engine, p0, henge_of_ramos(), 0);
@@ -56988,4 +56988,1441 @@ fn yavimaya_coast_adds_colored_mana_and_deals_damage_to_controller() {
         1
     );
     assert_eq!(engine.state().players[0].life, 19);
+}
+
+fn abandoned_outpost() -> CardIndex {
+    card_index("5a70ccfa-d12d-4e62-a1a4-f05cda2fd442")
+}
+
+/// `Abandoned Outpost` enters tapped, taps for `{{W}}`, and sacrifices for `{{T}}` to add one mana
+/// of any color under `Coverage::Implemented`.
+/// After entering tapped and untapping on the following turn, activating ability 1 without floating
+/// any mana prompts for a color choice via `Pending::ChooseColor`.
+/// Choosing black mana sacrifices the land to the graveyard and adds exactly one black mana to
+/// an otherwise empty mana pool.
+#[test]
+fn abandoned_outpost_enters_tapped_and_sacrifices_for_any_color() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2336, forest())
+        .hand(0, &[abandoned_outpost()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, abandoned_outpost());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    activate(&mut engine, p0, abandoned_outpost(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Black));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .unwrap();
+
+    assert!(in_graveyard(&engine, p0, abandoned_outpost()).is_some());
+    assert!(on_battlefield(&engine, p0, abandoned_outpost()).is_none());
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+}
+
+fn blood_crypt() -> CardIndex {
+    card_index("43985bbc-a0f6-4812-984e-392bc8562633")
+}
+
+/// `Blood Crypt` enters untapped for 2 life or tapped for free under `Coverage::Implemented`.
+/// In the first game, declining the payment leaves the land tapped with no life lost.
+/// In the second game, paying 2 life allows it to enter untapped at the cost of 2 life.
+#[test]
+fn blood_crypt_enters_untapped_for_two_life_or_tapped_for_free() {
+    let p0 = PlayerId::new(0);
+
+    // Arm 1: decline -> enters tapped, no life lost.
+    {
+        let mut engine = Duel::new(2310, forest()).hand(0, &[blood_crypt()]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, blood_crypt());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before);
+    }
+
+    // Arm 2: accept -> enters untapped, costs 2 life.
+    {
+        let mut engine = Duel::new(2311, forest()).hand(0, &[blood_crypt()]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, blood_crypt());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(!is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+fn breeding_pool() -> CardIndex {
+    card_index("20283c4a-f1f0-42f0-bc08-6da87474426b")
+}
+
+/// `Breeding Pool` enters untapped for 2 life or tapped for free under `Coverage::Implemented`.
+/// In the first game, declining the payment leaves the land tapped with no life lost.
+/// In the second game, paying 2 life allows it to enter untapped at the cost of 2 life.
+#[test]
+fn breeding_pool_enters_untapped_for_two_life_or_tapped_for_free() {
+    let p0 = PlayerId::new(0);
+
+    // Arm 1: decline -> enters tapped, no life lost.
+    {
+        let mut engine = Duel::new(2312, forest())
+            .hand(0, &[breeding_pool()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, breeding_pool());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before);
+    }
+
+    // Arm 2: accept -> enters untapped, costs 2 life.
+    {
+        let mut engine = Duel::new(2313, forest())
+            .hand(0, &[breeding_pool()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, breeding_pool());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(!is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+fn deathcap_glade() -> CardIndex {
+    card_index("f6d24565-5b32-4eff-b2e0-6e2c25516ff0")
+}
+
+/// `Deathcap Glade` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn deathcap_glade_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2322, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[deathcap_glade(), deathcap_glade()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, deathcap_glade());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, deathcap_glade());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn dreamroot_cascade() -> CardIndex {
+    card_index("dd8538e6-cd5f-4a88-aff5-eb5e76ce8ddb")
+}
+
+/// `Dreamroot Cascade` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn dreamroot_cascade_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2323, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[dreamroot_cascade(), dreamroot_cascade()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, dreamroot_cascade());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, dreamroot_cascade());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn haunted_ridge() -> CardIndex {
+    card_index("e2a37967-4212-4553-9f77-bcb613405807")
+}
+
+/// `Haunted Ridge` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn haunted_ridge_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2324, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[haunted_ridge(), haunted_ridge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, haunted_ridge());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, haunted_ridge());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn overgrown_farmland() -> CardIndex {
+    card_index("709d2f10-1585-48c3-9058-ddd5f62f0452")
+}
+
+/// `Overgrown Farmland` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn overgrown_farmland_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2325, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[overgrown_farmland(), overgrown_farmland()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, overgrown_farmland());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, overgrown_farmland());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn overgrown_tomb() -> CardIndex {
+    card_index("975ec9a3-6f20-4177-8211-82526e092538")
+}
+
+/// `Overgrown Tomb` enters untapped for 2 life or tapped for free under `Coverage::Implemented`.
+/// In the first game, declining the payment leaves the land tapped with no life lost.
+/// In the second game, paying 2 life allows it to enter untapped at the cost of 2 life.
+#[test]
+fn overgrown_tomb_enters_untapped_for_two_life_or_tapped_for_free() {
+    let p0 = PlayerId::new(0);
+
+    // Arm 1: decline -> enters tapped, no life lost.
+    {
+        let mut engine = Duel::new(2314, forest())
+            .hand(0, &[overgrown_tomb()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, overgrown_tomb());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before);
+    }
+
+    // Arm 2: accept -> enters untapped, costs 2 life.
+    {
+        let mut engine = Duel::new(2315, forest())
+            .hand(0, &[overgrown_tomb()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, overgrown_tomb());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(!is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+fn rockfall_vale() -> CardIndex {
+    card_index("185c70c1-8403-4ae5-b45d-3679d4ee092a")
+}
+
+/// `Rockfall Vale` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn rockfall_vale_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2326, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[rockfall_vale(), rockfall_vale()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, rockfall_vale());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, rockfall_vale());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn sacred_foundry() -> CardIndex {
+    card_index("45181cb8-2090-4471-ba90-e5a8f04d525f")
+}
+
+/// `Sacred Foundry` enters untapped for 2 life or tapped for free under `Coverage::Implemented`.
+/// In the first game, declining the payment leaves the land tapped with no life lost.
+/// In the second game, paying 2 life allows it to enter untapped at the cost of 2 life.
+#[test]
+fn sacred_foundry_enters_untapped_for_two_life_or_tapped_for_free() {
+    let p0 = PlayerId::new(0);
+
+    // Arm 1: decline -> enters tapped, no life lost.
+    {
+        let mut engine = Duel::new(2316, forest())
+            .hand(0, &[sacred_foundry()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, sacred_foundry());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before);
+    }
+
+    // Arm 2: accept -> enters untapped, costs 2 life.
+    {
+        let mut engine = Duel::new(2317, forest())
+            .hand(0, &[sacred_foundry()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, sacred_foundry());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(!is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+fn shattered_sanctum() -> CardIndex {
+    card_index("c854ecb0-cc60-4c48-a9aa-7f2348a7a8c6")
+}
+
+/// `Shattered Sanctum` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn shattered_sanctum_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2327, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[shattered_sanctum(), shattered_sanctum()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, shattered_sanctum());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, shattered_sanctum());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn shimmering_grotto() -> CardIndex {
+    card_index("bae49475-fe01-400b-8959-f0dde959577c")
+}
+
+/// `Shimmering Grotto` enters untapped, taps for `{{C}}`, and filters `{{1}}` into any color
+/// under `Coverage::Implemented`.
+/// With a Forest providing floating mana, activating ability 1 spends the floating mana,
+/// prompts for a color choice via `Pending::ChooseColor`, and adds the chosen mana.
+#[test]
+fn shimmering_grotto_filters_mana_of_any_color() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2309, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[shimmering_grotto()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, shimmering_grotto());
+    assert!(!entered_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(shimmering_grotto()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+
+    activate(&mut engine, p0, shimmering_grotto(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&ManaColor::Red));
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .unwrap();
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+}
+
+fn shipwreck_marsh() -> CardIndex {
+    card_index("5f42b67f-87fd-4f98-a0e8-0c8313f4bbc8")
+}
+
+/// `Shipwreck Marsh` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn shipwreck_marsh_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2328, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[shipwreck_marsh(), shipwreck_marsh()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, shipwreck_marsh());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, shipwreck_marsh());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn steam_vents() -> CardIndex {
+    card_index("17039058-822d-409f-938c-b727a366ba63")
+}
+
+/// `Steam Vents` enters untapped for 2 life or tapped for free under `Coverage::Implemented`.
+/// In the first game, declining the payment leaves the land tapped with no life lost.
+/// In the second game, paying 2 life allows it to enter untapped at the cost of 2 life.
+#[test]
+fn steam_vents_enters_untapped_for_two_life_or_tapped_for_free() {
+    let p0 = PlayerId::new(0);
+
+    // Arm 1: decline -> enters tapped, no life lost.
+    {
+        let mut engine = Duel::new(2318, forest()).hand(0, &[steam_vents()]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, steam_vents());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before);
+    }
+
+    // Arm 2: accept -> enters untapped, costs 2 life.
+    {
+        let mut engine = Duel::new(2319, forest()).hand(0, &[steam_vents()]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, steam_vents());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(!is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+fn stomping_ground() -> CardIndex {
+    card_index("16052b52-ade1-406f-a06b-ce7ea607fb63")
+}
+
+/// `Stomping Ground` enters untapped for 2 life or tapped for free under `Coverage::Implemented`.
+/// In the first game, declining the payment leaves the land tapped with no life lost.
+/// In the second game, paying 2 life allows it to enter untapped at the cost of 2 life.
+#[test]
+fn stomping_ground_enters_untapped_for_two_life_or_tapped_for_free() {
+    let p0 = PlayerId::new(0);
+
+    // Arm 1: decline -> enters tapped, no life lost.
+    {
+        let mut engine = Duel::new(2320, forest())
+            .hand(0, &[stomping_ground()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, stomping_ground());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before);
+    }
+
+    // Arm 2: accept -> enters untapped, costs 2 life.
+    {
+        let mut engine = Duel::new(2321, forest())
+            .hand(0, &[stomping_ground()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let life_before = engine.state().players[0].life;
+        let land = play_land(&mut engine, p0, stomping_ground());
+
+        let Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected PayLifeOrEnterTapped, got {:?}", engine.pending());
+        };
+        assert_eq!(player, p0);
+        assert_eq!(amount, 2);
+
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(!is_tapped(&engine, land));
+        assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+fn stormcarved_coast() -> CardIndex {
+    card_index("4722105b-0085-4bb8-bca1-9de0d3eb5600")
+}
+
+/// `Stormcarved Coast` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn stormcarved_coast_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2329, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[stormcarved_coast(), stormcarved_coast()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, stormcarved_coast());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, stormcarved_coast());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn sundown_pass() -> CardIndex {
+    card_index("5ad0b405-cca4-475e-985c-4d7e3599d87e")
+}
+
+/// `Sundown Pass` enters tapped unless you control two or more other lands under `Coverage::Implemented`.
+/// With only one other land in play, the first copy enters tapped without counting itself.
+/// On the following turn, with two other lands in play, the second copy enters untapped.
+#[test]
+fn sundown_pass_counts_other_lands_and_never_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2330, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
+        .hand(0, &[sundown_pass(), sundown_pass()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = play_land(&mut engine, p0, sundown_pass());
+    assert!(
+        entered_tapped(&engine, first),
+        "one Forest and this land are not two other lands"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let second = play_land(&mut engine, p0, sundown_pass());
+    assert!(
+        !entered_tapped(&engine, second),
+        "the Forest and the first land are two other lands"
+    );
+}
+
+fn temple_of_epiphany() -> CardIndex {
+    card_index("79f94050-d850-41ca-b1db-5ae0cf743f0a")
+}
+
+/// `Temple of Epiphany` enters tapped, scries 1 upon entering, and taps for `{{U}}` or `{{R}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_epiphany_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2301, forest())
+        .hand(0, &[temple_of_epiphany()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_epiphany());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_malady() -> CardIndex {
+    card_index("dc55421f-dee8-4263-9df0-2365df5f14bb")
+}
+
+/// `Temple of Malady` enters tapped, scries 1 upon entering, and taps for `{{B}}` or `{{G}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_malady_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2302, forest())
+        .hand(0, &[temple_of_malady()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_malady());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_malice() -> CardIndex {
+    card_index("7c439c18-31dc-41fe-b03d-3fca06e6fc0b")
+}
+
+/// `Temple of Malice` enters tapped, scries 1 upon entering, and taps for `{{B}}` or `{{R}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_malice_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2303, forest())
+        .hand(0, &[temple_of_malice()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_malice());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_mystery() -> CardIndex {
+    card_index("7e26f0b7-20e6-46d5-8130-d98c14d6aa29")
+}
+
+/// `Temple of Mystery` enters tapped, scries 1 upon entering, and taps for `{{G}}` or `{{U}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_mystery_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2304, forest())
+        .hand(0, &[temple_of_mystery()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_mystery());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_plenty() -> CardIndex {
+    card_index("e521322b-0e83-458c-8936-7021a80ee279")
+}
+
+/// `Temple of Plenty` enters tapped, scries 1 upon entering, and taps for `{{G}}` or `{{W}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_plenty_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2305, forest())
+        .hand(0, &[temple_of_plenty()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_plenty());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_silence() -> CardIndex {
+    card_index("e6e6fce8-0f6a-4b84-865e-d4e4a4182f9f")
+}
+
+/// `Temple of Silence` enters tapped, scries 1 upon entering, and taps for `{{W}}` or `{{B}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_silence_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2306, forest())
+        .hand(0, &[temple_of_silence()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_silence());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn temple_of_triumph() -> CardIndex {
+    card_index("6f0d94d9-64bb-4175-83bc-301e8f79f54f")
+}
+
+/// `Temple of Triumph` enters tapped, scries 1 upon entering, and taps for `{{R}}` or `{{W}}`
+/// under `Coverage::Implemented`.
+/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
+#[test]
+fn temple_of_triumph_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2307, forest())
+        .hand(0, &[temple_of_triumph()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, temple_of_triumph());
+    assert!(entered_tapped(&engine, land));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+}
+
+fn the_autonomous_furnace() -> CardIndex {
+    card_index("e2dd05d5-312e-47f1-873e-c0741ee6ef4a")
+}
+
+/// `The Autonomous Furnace` enters tapped, taps for `{{R}}`, and sacrifices for `{{1}}{{R}}, {{T}}`
+/// to draw a card under `Coverage::Implemented`.
+/// After entering tapped, walking to the controller's next turn allows activating ability 1
+/// with floating mana from two Mountains, sacrificing the land and drawing a card.
+#[test]
+fn the_autonomous_furnace_enters_tapped_and_sacrifices_to_draw() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2331, forest())
+        .battlefield(0, &[mountain(), mountain()])
+        .hand(0, &[the_autonomous_furnace()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, the_autonomous_furnace());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(the_autonomous_furnace()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let before_lib = library_size(&engine, p0);
+    activate(&mut engine, p0, the_autonomous_furnace(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, the_autonomous_furnace()).is_some());
+    assert!(on_battlefield(&engine, p0, the_autonomous_furnace()).is_none());
+    assert_eq!(library_size(&engine, p0), before_lib - 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn the_dross_pits() -> CardIndex {
+    card_index("8110fe69-c66c-4e2c-86ee-dcc8dc9a13d1")
+}
+
+/// `The Dross Pits` enters tapped, taps for `{{B}}`, and sacrifices for `{{1}}{{B}}, {{T}}`
+/// to draw a card under `Coverage::Implemented`.
+/// After entering tapped, walking to the controller's next turn allows activating ability 1
+/// with floating mana from two Swamps, sacrificing the land and drawing a card.
+#[test]
+fn the_dross_pits_enters_tapped_and_sacrifices_to_draw() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2332, forest())
+        .battlefield(0, &[swamp(), swamp()])
+        .hand(0, &[the_dross_pits()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, the_dross_pits());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(the_dross_pits()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let before_lib = library_size(&engine, p0);
+    activate(&mut engine, p0, the_dross_pits(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, the_dross_pits()).is_some());
+    assert!(on_battlefield(&engine, p0, the_dross_pits()).is_none());
+    assert_eq!(library_size(&engine, p0), before_lib - 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn the_fair_basilica() -> CardIndex {
+    card_index("8618f8e8-fd86-47e3-905d-e6624b599b9b")
+}
+
+/// `The Fair Basilica` enters tapped, taps for `{{W}}`, and sacrifices for `{{1}}{{W}}, {{T}}`
+/// to draw a card under `Coverage::Implemented`.
+/// After entering tapped, walking to the controller's next turn allows activating ability 1
+/// with floating mana from two Plains, sacrificing the land and drawing a card.
+#[test]
+fn the_fair_basilica_enters_tapped_and_sacrifices_to_draw() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2333, forest())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[the_fair_basilica()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, the_fair_basilica());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(the_fair_basilica()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let before_lib = library_size(&engine, p0);
+    activate(&mut engine, p0, the_fair_basilica(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, the_fair_basilica()).is_some());
+    assert!(on_battlefield(&engine, p0, the_fair_basilica()).is_none());
+    assert_eq!(library_size(&engine, p0), before_lib - 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn the_hunter_maze() -> CardIndex {
+    card_index("b0ea4975-a944-4585-8711-60f203cffa4a")
+}
+
+/// `The Hunter Maze` enters tapped, taps for `{{G}}`, and sacrifices for `{{1}}{{G}}, {{T}}`
+/// to draw a card under `Coverage::Implemented`.
+/// After entering tapped, walking to the controller's next turn allows activating ability 1
+/// with floating mana from two Forests, sacrificing the land and drawing a card.
+#[test]
+fn the_hunter_maze_enters_tapped_and_sacrifices_to_draw() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2334, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[the_hunter_maze()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, the_hunter_maze());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(the_hunter_maze()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let before_lib = library_size(&engine, p0);
+    activate(&mut engine, p0, the_hunter_maze(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, the_hunter_maze()).is_some());
+    assert!(on_battlefield(&engine, p0, the_hunter_maze()).is_none());
+    assert_eq!(library_size(&engine, p0), before_lib - 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn the_surgical_bay() -> CardIndex {
+    card_index("db9c155f-b342-41bb-9e1a-50358fb9f40e")
+}
+
+/// `The Surgical Bay` enters tapped, taps for `{{U}}`, and sacrifices for `{{1}}{{U}}, {{T}}`
+/// to draw a card under `Coverage::Implemented`.
+/// After entering tapped, walking to the controller's next turn allows activating ability 1
+/// with floating mana from two Islands, sacrificing the land and drawing a card.
+#[test]
+fn the_surgical_bay_enters_tapped_and_sacrifices_to_draw() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2335, forest())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[the_surgical_bay()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, the_surgical_bay());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(the_surgical_bay()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+
+    let before_lib = library_size(&engine, p0);
+    activate(&mut engine, p0, the_surgical_bay(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p0, the_surgical_bay()).is_some());
+    assert!(on_battlefield(&engine, p0, the_surgical_bay()).is_none());
+    assert_eq!(library_size(&engine, p0), before_lib - 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+fn witherbloom_campus() -> CardIndex {
+    card_index("6cd58a88-6434-4c55-bf93-a739b5ed9bc1")
+}
+
+/// `Witherbloom Campus` enters tapped, taps for `{{B}}` or `{{G}}`, and scries 1 for `{{4}}, {{T}}`
+/// under `Coverage::Implemented`.
+/// After entering tapped and untapping on the next turn, floating four mana from basic lands
+/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+#[test]
+fn witherbloom_campus_enters_tapped_and_scries() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(2308, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[witherbloom_campus()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, witherbloom_campus());
+    assert!(entered_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert!(!is_tapped(&engine, land));
+
+    tap_all_mana_but(&mut engine, p0, Some(witherbloom_campus()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+
+    activate(&mut engine, p0, witherbloom_campus(), 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::ScryBottom,
+                ..
+            }
+        )
+    });
+
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
 }

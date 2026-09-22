@@ -5415,7 +5415,7 @@ fn artifact_blast_counters_a_sol_ring_on_the_stack_and_never_touches_the_permane
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(), mountain()])
         .hand(0, &[quiet_artifact(), artifact_blast()])
-        // Der Zwilling auf dem Brett: derselbe Kartenname, aber ein Permanent.
+        // The twin on the board: the same card name, but a permanent.
         .battlefield(1, &[quiet_artifact()])
         .start();
     keep_mulligans(&mut engine);
@@ -6150,13 +6150,13 @@ fn envelop_counters_the_sorcery_and_declines_the_instant_beside_it() {
         2,
         "two Islands, two blue mana"
     );
-    let counterspell = in_hand(&engine, p0, envelop()).expect("Envelop ist auf der Hand");
+    let counterspell = in_hand(&engine, p0, envelop()).expect("Envelop is in hand");
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("p0 holds priority, not {:?}", engine.pending())
     };
     assert!(
         legal.castable.contains(&counterspell),
-        "mit {{U}} im Pool ist der Konter spielbar: {:?}",
+        "with {{U}} in the pool the counterspell is playable: {:?}",
         legal.castable
     );
 
@@ -6976,7 +6976,7 @@ fn lightning_bolt_deals_three_to_a_creature_or_a_player() {
         "p0 erreicht seine eigene Main"
     );
 
-    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("ein Elf über dem Tisch");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("an Elf on the table");
     assert_eq!(
         pt(&engine, elf),
         (1, 1),
@@ -7029,7 +7029,7 @@ fn lightning_bolt_deals_three_to_a_creature_or_a_player() {
     assert_eq!(
         engine.state().players[1].life,
         20,
-        "und der Spieler hat keinen Punkt davon abbekommen"
+        "and the player got no point from it"
     );
 
     // The second Bolt at the other target: the same line, and the damage
@@ -7612,8 +7612,7 @@ fn reach_through_mists_draws_the_top_card_at_instant_speed() {
 
     let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
     let top = *library_before.last().expect("p0 has a library");
-    let spell =
-        in_hand(&engine, p0, reach_through_mists()).expect("der Spontanzauber liegt auf der Hand");
+    let spell = in_hand(&engine, p0, reach_through_mists()).expect("the instant is in hand");
 
     // First the mana into the pool, then the assertion: `LegalActions` is
     // filtered behind `can_afford` and reads the pool, not the untapped
@@ -8196,7 +8195,7 @@ fn spark_spray_cycles_itself_for_a_card_and_burns_a_creature_for_one() {
                 ability_index,
             },
         )
-        .expect("die angebotene Fähigkeit ist bezahlbar");
+        .expect("the offered ability is payable");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
     assert_eq!(
@@ -8248,7 +8247,7 @@ fn spark_spray_cycles_itself_for_a_card_and_burns_a_creature_for_one() {
     );
     assert!(
         player_options.contains(&p0) && player_options.contains(&p1),
-        "CR 115.4: auch ein Spieler ist ein \"any target\": {player_options:?}"
+        "CR 115.4: a player is an \"any target\" too: {player_options:?}"
     );
 
     engine

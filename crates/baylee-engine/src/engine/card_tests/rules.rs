@@ -1153,3 +1153,72 @@ fn a_spell_that_may_target_a_player_is_offered_on_a_creatureless_board() {
         "three damage, at a board where the spell could not be cast at all"
     );
 }
+
+fn urborg_tomb_of_yawgmoth() -> CardIndex {
+    card_index("db6174d7-211d-4817-b8e4-8384594c83f9")
+}
+
+/// CR 305.6 gives a land one mana ability **per** basic type, and a type a
+/// continuous effect adds counts.
+///
+/// The rule had a hole exactly the width of that last clause. The intrinsic
+/// shortcut answered only for a land with one basic type, and a land with
+/// several was left to the `AddManaChoice` ability printed on its card —
+/// which works for a card whose *printed* type line carries both, and not at
+/// all for a type Urborg hands out at runtime. A basic Forest under Urborg
+/// is a Forest Swamp; the only ability it prints is the green one; so the
+/// black the rule gives it existed nowhere and the land quietly made green
+/// and only green.
+///
+/// The fix is a subtraction rather than a second answer, and the two halves
+/// of this test are the two sides of it: the shortcut offers the colour the
+/// card does *not* print, and the printed ability keeps the one it does. One
+/// land, two mana abilities, which is what the rule says.
+#[test]
+fn a_land_makes_the_colour_of_a_basic_type_it_was_given_rather_than_printed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(521, plains())
+        .battlefield(0, &[forest(), urborg_tomb_of_yawgmoth()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wood = on_battlefield(&engine, p0, forest()).expect("the Forest is out");
+    assert!(
+        types(&engine, wood).contains(TypeSet::LAND),
+        "the premise: a land, and a basic one"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.mana_abilities.contains(&wood),
+        "the Swamp Urborg added has no printed ability to name, so it is the \
+         CR 305.6 shortcut or nothing: {:?}",
+        legal.mana_abilities
+    );
+    assert!(
+        legal.abilities.contains(&(wood, 0)),
+        "and the green one the card prints is still beside it: {:?}",
+        legal.abilities
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: wood })
+        .expect("the shortcut the offer named");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "black out of a Forest, which nothing else on this board could make"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "one tap, one mana — and no question, because after the subtraction \
+         the shortcut had exactly one colour left to give"
+    );
+    assert!(is_tapped(&engine, wood), "and it cost the Forest its tap");
+}
