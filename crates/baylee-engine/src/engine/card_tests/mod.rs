@@ -2421,3 +2421,43 @@ fn grove_of_the_guardian() -> CardIndex {
 fn collector_ouphe() -> CardIndex {
     card_index("0c4bc9ea-a5fd-4f44-96a1-5448eee228c4")
 }
+
+fn reshape() -> CardIndex {
+    card_index("42a3855d-25ab-45b3-9e5d-9a0f3da35a05")
+}
+
+fn finale_of_devastation() -> CardIndex {
+    card_index("69872a9a-fe54-4e58-940c-89395af71acd")
+}
+
+fn whir_of_invention() -> CardIndex {
+    card_index("152b91c9-cc07-4ca8-944f-9bc2242a2283")
+}
+
+fn land_cap() -> CardIndex {
+    card_index("bfec4d0a-3792-4bc3-bae1-e639da5bb9a6")
+}
+
+fn archdruid_s_charm() -> CardIndex {
+    card_index("3c1ef404-e2c6-486d-a5a2-d5779c71d498")
+}
+
+fn walk_in_closet() -> CardIndex {
+    card_index("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
+}
+
+fn legion_s_landing() -> CardIndex {
+    card_index("f7d8b91b-6541-4d3e-af51-7e000eac69c1")
+}
+
+fn mizzix_s_mastery() -> CardIndex {
+    card_index("40362fe0-a1a9-4d76-8c35-eac474b91af5")
+}
+
+fn ojer_pakpatiq_deepest_epoch() -> CardIndex {
+    card_index("34ef174e-1b3d-43d5-9f72-3d35befbdd7f")
+}
+
+fn fatehold_chronologist() -> CardIndex {
+    card_index("1063822f-47d3-42e9-8a21-f62b12609fe1")
+}

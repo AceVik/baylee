@@ -3148,3 +3148,132 @@ fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_th
         "it was put onto the battlefield, not into a graveyard"
     );
 }
+
+/// Whir of Invention — {X}{U}{U}{U}: "Search your library for an artifact
+/// card with mana value X or less, put it onto the battlefield, then
+/// shuffle." The third card in the pool to write `Filter::CmcAtMostX`, and
+/// the only one of the three that is an **instant** — so that is what this
+/// plays, on the opponent's turn, where a sorcery-speed reading would never
+/// have offered the spell at all.
+///
+/// The file is `Coverage::Partial` for improvise, and the shape of that gap
+/// is worth naming: improvise would let artifacts pay part of the cost, so
+/// what is missing makes the spell *dearer* and never cheaper. Four Islands
+/// pay {1}{U}{U}{U} here with nothing left over, which is the full printed
+/// price.
+#[test]
+fn whir_of_invention_is_an_instant_and_finds_an_artifact_within_its_x() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(41, quiet_artifact())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[whir_of_invention()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // The opponent's main phase, with priority back on p0: an instant may be
+    // cast here and a sorcery may not, which is the half of this card a mode
+    // flag could get wrong. The active player holds priority first (CR
+    // 117.3a), so the walk is to the pass after that and not to the phase.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1
+            && matches!(e.state().turn.phase, crate::turn::Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Islands, which is {{1}}{{U}}{{U}}{{U}} exactly"
+    );
+    cast_with_floating(&mut engine, p0, whir_of_invention());
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(1))
+        .expect("X = 1");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert!(
+        !options.is_empty(),
+        "Sol Ring is mana value 1 and the bound announced was 1"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "improvise is the half that is missing, and its absence can only make \
+         the spell dearer: the four Islands paid the whole printed cost"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("a card the search offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "the artifact arrived on the battlefield, on the opponent's turn"
+    );
+}
+
+/// Archdruid's Charm prints three modes and the file builds **one** — "Exile
+/// target artifact or enchantment" — because the other two need a search
+/// that forks on the found card's type and a mode that targets one creature
+/// you control and one you don't. So there is no mode question at all, and
+/// that is asserted rather than assumed: a spell offering a choice of one
+/// and a spell offering none are different objects, and only one of them is
+/// what this file wrote.
+///
+/// The target is an artifact an **opponent** controls, because
+/// `Filter::ARTIFACT_OR_ENCHANTMENT` carries no controller clause and the
+/// printing carries none either.
+#[test]
+fn archdruids_charm_builds_one_of_its_three_modes_and_asks_no_mode_question() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .battlefield(1, &[quiet_artifact()])
+        .hand(0, &[archdruid_s_charm()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their artifact");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, archdruid_s_charm());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "one built mode means the spell goes straight to its target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&theirs),
+        "\"target artifact or enchantment\" names no controller"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![theirs],
+                players: vec![],
+            },
+        )
+        .expect("a target the spell offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "\"Exile target artifact or enchantment\""
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_none(),
+        "exiled and not destroyed: a graveyard is the wrong zone"
+    );
+}

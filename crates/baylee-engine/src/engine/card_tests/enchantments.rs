@@ -1851,3 +1851,117 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
          and not the front's"
     );
 }
+
+/// Walk-In Closet's front door is one sentence — "You may play lands from
+/// your graveyard" — and it is played from both sides of the permission,
+/// because a static that is always on and a static that never fires look the
+/// same from inside one game. The same board with the enchantment absent
+/// refuses the land drop; with it on the battlefield, the graveyard's Forest
+/// is a land drop and is taken.
+///
+/// The file is `Coverage::Partial` for the Room mechanic itself — nothing
+/// unlocks a door, nothing charges a locked door's cost as a sorcery — and
+/// for Forgotten Cellar's whole trigger. Neither is reachable here: what is
+/// cast is the front half, as an ordinary enchantment.
+#[test]
+fn walk_in_closet_lets_its_controller_play_a_land_out_of_the_graveyard() {
+    let p0 = PlayerId::new(0);
+
+    // Without it, to show the offer is the enchantment's and not the board's.
+    let mut bare = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut bare);
+    reach_main_phase(&mut bare, p0);
+    seed_graveyard(&mut bare, p0, 1);
+    let buried = bare.state().zones.list(ZoneLocation::Graveyard(p0))[0];
+    let Pending::Priority { legal, .. } = bare.pending().clone() else {
+        panic!("expected priority, got {:?}", bare.pending())
+    };
+    assert!(
+        !legal.lands.contains(&buried),
+        "a land in a graveyard is not a land drop by itself"
+    );
+
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[walk_in_closet()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, walk_in_closet());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, walk_in_closet()).is_some(),
+        "the front half resolves as an ordinary enchantment"
+    );
+
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = engine.state().zones.list(ZoneLocation::Graveyard(p0))[0];
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.lands.contains(&buried),
+        "\"You may play lands from your graveyard\""
+    );
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: buried })
+        .expect("the land drop the enchantment granted");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&buried),
+        "and the Forest left the graveyard for the battlefield"
+    );
+}
+
+/// Legion's Landing is `Coverage::Partial` with **both** of its printed
+/// clauses in the reason — no trigger counts attacking creatures, and the
+/// pool has no 1/1 white Vampire token with lifelink for either clause to
+/// make — so the front face carries no ability at all, which is what this
+/// pins.
+///
+/// The enchantment is cast and the battlefield is counted before and after:
+/// one new permanent, which is the enchantment itself and no Vampire beside
+/// it. It is **meant to fail** the day the token exists. The legendary
+/// supertype is checked alongside, because it is the one printed
+/// characteristic the card does still carry and a `Partial` is not a licence
+/// to get the type line wrong.
+#[test]
+fn legions_landing_makes_no_vampire_because_the_pool_has_no_such_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[legion_s_landing()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let before = engine.state().zones.list(ZoneLocation::Battlefield).len();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, legion_s_landing());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let landing = on_battlefield(&engine, p0, legion_s_landing()).expect("it resolved");
+    assert!(
+        engine
+            .state()
+            .object(landing)
+            .expect("it exists")
+            .characteristics()
+            .supertypes
+            .contains(baylee_core::types::SupertypeSet::LEGENDARY),
+        "Legion's Landing is a legendary enchantment"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Battlefield).len(),
+        before + 1,
+        "one new permanent and no Vampire beside it: \"create a 1/1 white \
+         Vampire creature token with lifelink\" has no token to create — \
+         delete this the day `crate::tokens` has one"
+    );
+}
