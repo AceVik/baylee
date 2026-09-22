@@ -29,6 +29,19 @@ Kartendatei.
    die Klausel in der `// NOT SUPPORTED:`-Zeile. Die Lücke darfst du
    *gegenprüfen* (sie passiert nicht), aber dann mit einer Kontrolle, die das
    behauptete Ergebnis nicht aus einem anderen Grund erzeugt.
+3a. **Eine Verneinung über das Angebot muss den fehlenden Preis schweben
+   lassen.** `legal.abilities` ist in `abilities.rs` hinter
+   `can_afford(player, id, cost)` gefiltert, und `can_afford` liest den
+   **Mana-Pool** — nicht die ungetappten Länder. Eine fehlende Fähigkeit mit
+   *irgendeiner* Manakosten-Zeile fehlt im Angebot also sowieso, und
+   `assert_eq!(…count(), 1)` über ein Brett ohne schwebendes Mana bliebe
+   grün, wenn die Klausel morgen geschrieben würde: der Test prüft dann
+   nichts. Also vorher `tap_mana_except(&mut engine, seat, <die Karte
+   selbst>)` — die Karte bleibt ungetappt, weil sie ihr eigenes `{T}` noch
+   bezahlen muss —, und in die Meldung schreiben, dass der Preis hier steht.
+   Gleiches gilt für `!legal.castable.contains(&x)`: ein Zauber, der ein
+   Ziel braucht und keins hat, wird ohnehin abgelehnt, also nimm für so eine
+   Verneinung einen Zauber **ohne** Ziel.
 4. **Erst Mana in den Pool, dann behaupten.** Ob eine Fähigkeit angeboten
    oder ein Zauber spielbar ist, liest die Engine am *Mana-Pool* ab, nicht
    daran, was man noch tappen könnte: also `tap_all_mana` davor. Eine

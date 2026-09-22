@@ -55,6 +55,16 @@ Regeln:
    behauptete Ergebnis nicht aus einem *anderen* Grund erzeugt — ein Land,
    das von sich aus getappt ins Spiel kommt, beweist nichts über eine Karte,
    die Länder tappt.
+   Der häufigste andere Grund ist der **Preis**: `legal.abilities` ist
+   hinter `can_afford(player, id, cost)` gefiltert, und das liest den
+   Mana-Pool und nicht die ungetappten Länder. Eine fehlende Fähigkeit mit
+   irgendeiner Manakosten-Zeile fehlt im Angebot also sowieso, und
+   `assert_eq!(…count(), 1)` über ein Brett ohne schwebendes Mana bliebe
+   grün, wenn die Klausel morgen geschrieben würde. Vorher
+   `tap_mana_except(&mut engine, seat, <die Karte selbst>)`. Der zweite
+   Grund ist das **Ziel**: für `!legal.castable.contains(&x)` nimm einen
+   Zauber ohne Ziel, sonst lehnt die Engine ihn ab, weil nichts da ist,
+   worauf er zeigen kann.
 10. **Aktivierungs-Reihenfolge: erst das Ziel, dann die Kosten.** Ziele
    werden beim Ankündigen gewählt (CR 601.2c), die Kosten sind der
    *letzte* Schritt (CR 601.2h). Solange also `Pending::ChooseTargets`

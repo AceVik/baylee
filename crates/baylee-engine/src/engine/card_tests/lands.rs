@@ -8888,26 +8888,50 @@ fn hammerheim_taps_for_red_mana_and_omits_landwalk_removal() {
 fn labyrinth_of_skophos_taps_for_colorless_and_omits_combat_removal() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(127, forest())
-        .battlefield(0, &[labyrinth_of_skophos()])
+        // Four Forests for the {4} the missing ability costs — generic mana
+        // takes any colour — because the pin below is read off the offer and
+        // `can_afford` reads the pool.
+        .battlefield(
+            0,
+            &[
+                labyrinth_of_skophos(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let lab = on_battlefield(&engine, p0, labyrinth_of_skophos()).expect("Labyrinth deployed");
 
-    activate(&mut engine, p0, labyrinth_of_skophos(), 0);
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert!(is_tapped(&engine, lab));
-
+    // Read **before** the mana ability is pressed and with the price
+    // floating. It used to be read after, on an empty pool and a tapped
+    // land, so two separate things guaranteed the absence and neither of
+    // them was the card.
+    tap_mana_except(&mut engine, p0, lab);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "the {{4}} is standing in the pool"
+    );
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
         !legal.abilities.iter().any(|(s, ai)| *s == lab && *ai == 1),
-        "no second ability is offered"
+        "no second ability is offered, and its {{4}} is paid for right here: \
+         {:?}",
+        legal.abilities
     );
+
+    activate(&mut engine, p0, labyrinth_of_skophos(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, lab));
 }
 
 /// Lantern-Lit Graveyard: "{T}: Add {C}." / "{T}: Add {B} or {R}. This land doesn't untap during your next untap step."
@@ -9310,26 +9334,53 @@ fn rootwater_depths_produces_colored_mana_and_does_not_untap_next_untap_step() {
 fn stensia_bloodhall_taps_for_colorless_and_omits_damage_ability() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(130, forest())
-        .battlefield(0, &[stensia_bloodhall()])
+        // {3}{B}{R} is what the missing ability charges, and the offer is
+        // filtered by `can_afford` — which reads the pool. Two Swamps and
+        // three Mountains make exactly that price, in exactly those
+        // colours.
+        .battlefield(
+            0,
+            &[
+                stensia_bloodhall(),
+                swamp(),
+                swamp(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let hall = on_battlefield(&engine, p0, stensia_bloodhall()).expect("Bloodhall deployed");
 
-    activate(&mut engine, p0, stensia_bloodhall(), 0);
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert!(is_tapped(&engine, hall));
-
+    // Before the mana ability, not after it: the land's own {T} is part of
+    // the price too, so a pin read off a tapped land proves nothing twice
+    // over.
+    tap_mana_except(&mut engine, p0, hall);
+    let (black, red) = {
+        let pool = &engine.state().players[0].mana_pool;
+        (
+            pool.available(ManaColor::Black),
+            pool.available(ManaColor::Red),
+        )
+    };
+    assert_eq!((black, red), (2, 3), "the {{3}}{{B}}{{R}} is floating");
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
         !legal.abilities.iter().any(|(s, ai)| *s == hall && *ai == 1),
-        "no second ability is offered"
+        "no second ability is offered, and its price is standing here: {:?}",
+        legal.abilities
     );
+
+    activate(&mut engine, p0, stensia_bloodhall(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(is_tapped(&engine, hall));
 }
 
 /// Sunscorched Desert: "When this land enters, it deals 1 damage to target player or planeswalker." / "{T}: Add {C}."

@@ -9531,7 +9531,12 @@ fn lotleth_troll() -> CardIndex {
 fn lotleth_troll_trades_a_creature_card_for_a_counter_and_tramples() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(17, forest())
-        .battlefield(0, &[forest(), swamp()])
+        // A third land, and it is the {B} the regenerate line would cost.
+        // `cast_from_hand` taps everything and the Troll takes {B}{G}, so
+        // one black is left floating when the offer below is read — without
+        // it `can_afford` refuses a priced ability whatever the card says,
+        // and the pin would keep passing after the line was written.
+        .battlefield(0, &[forest(), swamp(), swamp()])
         .hand(0, &[lotleth_troll(), llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
@@ -9559,6 +9564,14 @@ fn lotleth_troll_trades_a_creature_card_for_a_counter_and_tramples() {
         matches!(offered[..], [(0, Deed::Ability(0))]),
         "the discard is the Troll's only activated ability, and it is offered \
          because a creature card is there to pay it: {offered:?}"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "and the {{B}} the missing regenerate line costs is floating, so the \
+         price is not what keeps it off that list"
     );
 
     activate(&mut engine, p0, lotleth_troll(), 0);
