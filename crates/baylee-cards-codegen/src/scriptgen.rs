@@ -637,15 +637,23 @@ impl Tx<'_> {
         })
     }
 
-    /// The same as [`Self::player_rel`], for an effect that sits in a chain
-    /// which *targets a player*.
+    /// The same as [`Self::player_rel`], for an effect on a line that may
+    /// *target a player itself*.
     ///
-    /// The corpus leaves `Defined$` off when the effect means the target, and only
-    /// the chain knows whether that target was a player. Reading the absent
-    /// key as `You` there is how Piranha Marsh — "target player loses 1 life"
-    /// — generated as a land that drains its own controller.
-    fn player_rel_of(defined: Option<&str>, target: Option<&str>) -> Option<&'static str> {
-        if defined.is_none() && target == Some("TargetSpec::Player(PlayerRel::Chosen)") {
+    /// The corpus leaves `Defined$` off when the effect means its own line's
+    /// target. Reading the absent key as `You` there is how Piranha Marsh —
+    /// "target player loses 1 life" — generated as a land that drains its
+    /// own controller.
+    ///
+    /// Its **own line's**, and never the chain's: a sub-ability inherits no
+    /// target from the line in front of it, and says `Defined$ Targeted`
+    /// when it means one. Last Caress is the card that proved it — "target
+    /// player loses 1 life and you gain 1 life. Draw a card." is a targeting
+    /// `LoseLife` followed by a bare `GainLife` and a bare `Draw`, and read
+    /// against the chain it generated as a sorcery whose target gained the
+    /// life and drew the card while its caster got neither.
+    fn player_rel_of(defined: Option<&str>, targets_a_player: bool) -> Option<&'static str> {
+        if defined.is_none() && targets_a_player {
             return Some("PlayerRel::Chosen");
         }
         Self::player_rel(defined)
@@ -657,7 +665,9 @@ impl Tx<'_> {
             return self.deny("an ability spec with no `$` in it".to_string());
         };
         p.drop_prose();
-        if let Some(valid) = p.take("ValidTgts") {
+        let valid = p.take("ValidTgts");
+        let targets_here = valid.is_some();
+        if let Some(valid) = valid {
             let Some(spec) = self.target_spec(&valid, &api) else {
                 return self.deny(format!("target `{valid}`"));
             };
@@ -679,8 +689,13 @@ impl Tx<'_> {
             Some(other) => Some(other.to_string()),
             None => None,
         };
+        // Whether an absent `Defined$` on this line means a chosen player:
+        // only where this line declared the player target itself.
+        let targets_a_player =
+            targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
 
-        let Some(effects) = self.effect_of(&api, &mut p, target.as_deref()) else {
+        let Some(effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
+        else {
             // An API with no rule at all is a different report than a rule
             // that met a value it cannot say — the first is a missing
             // effect, the second is a missing case in one that exists.
@@ -722,6 +737,7 @@ impl Tx<'_> {
         api: &str,
         p: &mut Params,
         target: Option<&str>,
+        targets_a_player: bool,
     ) -> Option<Vec<String>> {
         // What the effects below aim at when they take a target. `target` is
         // `None` when the chain declared none at all, which is a different
@@ -743,7 +759,7 @@ impl Tx<'_> {
             }
             "GainLife" => {
                 let n = plain_number(&p.take("LifeAmount")?, self.svars)?;
-                match Self::player_rel_of(p.take("Defined").as_deref(), target)? {
+                match Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
                     "PlayerRel::You" => vec![format!("Effect::gain_life({n})")],
                     who => vec![format!(
                         "Effect::GainLifeFor {{ amount: Amount::Fixed({n}), who: {who} }}"
@@ -752,12 +768,12 @@ impl Tx<'_> {
             }
             "LoseLife" => {
                 let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), target)?;
+                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Draw" => {
                 let n = plain_number(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
-                match Self::player_rel_of(p.take("Defined").as_deref(), target)? {
+                match Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
                     "PlayerRel::You" => vec![format!("Effect::draw({n})")],
                     who => vec![format!(
                         "Effect::DrawCardsFor {{ amount: Amount::Fixed({n}), who: {who} }}"
@@ -766,7 +782,7 @@ impl Tx<'_> {
             }
             "Mill" => {
                 let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), target)?;
+                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
@@ -865,8 +881,8 @@ impl Tx<'_> {
                     None => vec!["Effect::regenerate(TargetSpec::ThisObject)".to_string()],
                 }
             }
-            "Token" => self.token_effect(p, target)?,
-            "Investigate" => self.investigate_effect(p, target)?,
+            "Token" => self.token_effect(p, targets_a_player)?,
+            "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
             "ChangeZone" => self.change_zone(p, target)?,
@@ -981,18 +997,18 @@ impl Tx<'_> {
     /// Everything the token *is* — its colours, its size, its keywords — is
     /// read by [`crate::tokengen`] from the token script and never from this
     /// line, which carries none of it.
-    fn token_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+    fn token_effect(&mut self, p: &mut Params, targets_a_player: bool) -> Option<Vec<String>> {
         // Who gets it. The corpus writes `TokenOwner$ You` on 2220 of its
         // 3610 token lines and leaves the key off on 1154 — and absence is
         // **not** a synonym for you: Rootcast Apprenticeship says "target
         // player creates a 1/1 green Squirrel creature token" with no
-        // `TokenOwner$` at all, leaning on the chain's own target instead.
+        // `TokenOwner$` at all, leaning on its own line's target instead.
         // That is the trap [`Self::player_rel_of`] was written for, so the
         // absent key is read the same way it reads one there: as the target
-        // where the chain has a player to mean, and as you where it has not.
+        // where this line targets a player, and as you where it does not.
         let owner = match p.take("TokenOwner").as_deref() {
             Some("You") => "PlayerRel::You",
-            None => Self::player_rel_of(None, target)?,
+            None => Self::player_rel_of(None, targets_a_player)?,
             Some(who) => return self.deny(format!("token owner `{who}`")),
         };
         if owner != "PlayerRel::You" {
@@ -1077,7 +1093,11 @@ impl Tx<'_> {
     /// itself rather than a case being handled: "you may investigate" is a
     /// question this DSL cannot ask, and reading the key as its absence
     /// would be an inference wearing a reading's clothes.
-    fn investigate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+    fn investigate_effect(
+        &mut self,
+        p: &mut Params,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
         let who = match (p.take("Defined"), p.take("ValidPlayer")) {
             // Both keys on one line would be two answers to one question.
             // No line in the corpus writes both, which is what makes this a
@@ -1086,7 +1106,7 @@ impl Tx<'_> {
                 return self.deny("`Investigate` naming its player twice".to_string());
             }
             (Some(d), None) | (None, Some(d)) => Self::player_rel(Some(&d)),
-            (None, None) => Self::player_rel_of(None, target),
+            (None, None) => Self::player_rel_of(None, targets_a_player),
         };
         if who != Some("PlayerRel::You") {
             return self.deny("somebody other than you investigating".to_string());
@@ -4325,6 +4345,30 @@ mod tests {
             body.abilities,
             [
                 "triggered!(Trigger::ETB, &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+            ]
+        );
+    }
+
+    /// The other half of that rule: the absent key means the *line's* own
+    /// target, and a sub-ability inherits none. Last Caress — "target player
+    /// loses 1 life and you gain 1 life. Draw a card." — is a targeting
+    /// `LoseLife` and then a bare `GainLife` and a bare `Draw`, and read
+    /// against the chain's target it handed the life and the card to the
+    /// player it was draining.
+    #[test]
+    fn an_undefined_player_effect_after_the_targeting_line_means_you() {
+        let body = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ 1 | SubAbility$ DBGainLife | SpellDescription$ drain.\n\
+             SVar:DBGainLife:DB$ GainLife | LifeAmount$ 1 | SubAbility$ DBDraw\n\
+             SVar:DBDraw:DB$ Draw",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "spell!(&[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }, \
+                 Effect::gain_life(1), Effect::draw(1)], \
+                 targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
             ]
         );
     }

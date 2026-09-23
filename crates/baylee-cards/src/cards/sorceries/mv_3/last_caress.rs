@@ -23,14 +23,8 @@ card!(
                 amount: Amount::Fixed(1),
                 target: PlayerRel::Chosen
             },
-            Effect::GainLifeFor {
-                amount: Amount::Fixed(1),
-                who: PlayerRel::Chosen
-            },
-            Effect::DrawCardsFor {
-                amount: Amount::Fixed(1),
-                who: PlayerRel::Chosen
-            }
+            Effect::gain_life(1),
+            Effect::draw(1)
         ],
         targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
     ),],
