@@ -52,6 +52,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
@@ -687,7 +688,8 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
-                | CostPart::ReturnToHand(_) => {
+                | CostPart::ReturnToHand(_)
+                | CostPart::ExileFromGraveyard(_) => {
                     // **As many candidates as the cost asks questions.** A
                     // cost may print the same one more than once — Time
                     // Sieve's "Sacrifice five artifacts" is five
@@ -1843,7 +1845,8 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
-                | CostPart::ReturnToHand(_) => {
+                | CostPart::ReturnToHand(_)
+                | CostPart::ExileFromGraveyard(_) => {
                     let Some(card) = answers.next() else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",

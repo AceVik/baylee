@@ -150,7 +150,13 @@ fn a_variant_name_is_matched_as_a_whole_word() {
 /// one that vanishes means the probe broke.
 #[test]
 fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
-    let asks = ["Sacrifice(", "Discard(", "TapOther(", "ReturnToHand("];
+    let asks = [
+        "Sacrifice(",
+        "Discard(",
+        "TapOther(",
+        "ReturnToHand(",
+        "ExileFromGraveyard(",
+    ];
     let mut found = 0;
     for (oracle_id, def) in baylee_cards::generated::ALL {
         let faces = def.faces.iter().map(|f| f.abilities);

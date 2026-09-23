@@ -260,16 +260,17 @@ pub enum ChoicePrompt {
     /// (CR 702.66). Not a search and not a discard — the pile is offered so
     /// the caster can spend it.
     ///
-    /// The only prompt in this enum that is part of a *cost*, which is what
-    /// makes it worth telling apart: `options` is the whole graveyard, but
+    /// The first of the six prompts in this enum that are part of a *cost*,
+    /// and the only one that asks for a heap rather than one card, which is
+    /// what makes it worth telling apart: `options` is the whole graveyard, but
     /// `max` is the generic mana in the spell's total cost (CR 702.66a), and
     /// answering below it leaves a cast that cannot pay. The house AI reads
     /// this variant for exactly that reason.
     Delve,
     /// "Sacrifice a creature" in an activation cost (CR 701.21a).
     ///
-    /// The second, third and fourth prompts here that are part of a *cost*
-    /// rather than an effect, for the reason [`Self::Delve`] gives: a question a
+    /// The second of the prompts here that are part of a *cost* rather than
+    /// an effect, for the reason [`Self::Delve`] gives: a question a
     /// player is being asked in order to pay is a different question from a
     /// search, and a client that cannot tell them apart asks somebody to
     /// "choose a card" while what it means is "which one are you giving up".
@@ -284,7 +285,7 @@ pub enum ChoicePrompt {
     CostDiscard,
     /// "Tap an untapped creature you control" in an activation cost.
     ///
-    /// The one of the three whose answer is not destroyed, which is why it
+    /// The first cost prompt whose answer is not destroyed, which is why it
     /// needs its own word rather than sharing the sacrifice's: a player told
     /// "choose a permanent to sacrifice" over a menu of their own creatures
     /// would decline a cost that only taps one. CR 118.3 supplies the
@@ -301,6 +302,17 @@ pub enum ChoicePrompt {
     /// are on the menu — a tap wants an untapped one (CR 118.3), a return
     /// takes either, and tapping the Forest for mana *first* is the play.
     CostReturn,
+    /// "Exile a creature card from your graveyard" in an activation cost
+    /// (Moorland Haunt, Mines of Moria).
+    ///
+    /// Not [`Self::CostDiscard`], though both answers end up somewhere a
+    /// card is not played from: the noun has to say which pile the card
+    /// leaves, and a player told "card to discard" over their graveyard
+    /// would look for it in their hand. And not [`Self::Delve`], which
+    /// exiles from the same pile: delve's `max` is the generic mana in a
+    /// spell's cost and the house AI answers it with `max`, where this asks
+    /// for exactly one card per part.
+    CostExile,
     /// "Which of these do you want to leave tapped?" — the untap step's own
     /// determination (CR 502.3), on the permanents that print
     /// "you may choose not to untap".

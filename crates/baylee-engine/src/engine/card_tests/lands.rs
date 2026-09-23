@@ -7111,6 +7111,7 @@ fn ability_that_asks(engine: &Engine<RegistryLookup>, card: CardIndex) -> Option
                             | CostPart::Discard(_)
                             | CostPart::TapOther(_)
                             | CostPart::ReturnToHand(_)
+                            | CostPart::ExileFromGraveyard(_)
                     )
                 })
             })
@@ -12091,25 +12092,215 @@ fn lotus_field_enters_tapped_sacrifices_two_lands_and_adds_three_mana() {
     assert!(is_tapped(&engine, lotus));
 }
 
-/// Moorland Haunt: "{T}: Add {C}." / "{W}{U}, {T}, Exile a creature card from your graveyard: Create a 1/1 white Spirit creature token with flying."
-/// Under `Coverage::Partial`, the token creation ability with graveyard exile cost is omitted.
-/// Activating the land's implemented ability adds {C} to the mana pool and taps Moorland Haunt.
+/// Moorland Haunt prints two lines: "{T}: Add {C}" and "{W}{U}, {T}, Exile a
+/// creature card from your graveyard: Create a 1/1 white Spirit creature token
+/// with flying."
+///
+/// One board plays both, and each price is read where it lands.
+/// `legal.abilities` is filtered through `can_afford`, which reads the mana
+/// pool rather than the untapped lands — so the `{W}{U}` is floated *first*,
+/// which leaves the empty graveyard as the only thing that can be withholding
+/// the second line from the offer. The creature card seeded into the
+/// opponent's graveyard is then the control for "your graveyard", and the mana
+/// line has to wait a turn, because both printed lines cost the same `{T}`.
 #[test]
-fn moorland_haunt_taps_for_colorless_mana() {
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn moorland_haunt_taps_for_colorless_and_exiles_a_creature_card_for_a_spirit() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(133, forest())
-        .battlefield(0, &[moorland_haunt()])
+    let p1 = PlayerId::new(1);
+    // The library is the deck the graveyard is seeded out of, so its filler
+    // has to be a *creature card*: a basic land would leave the exile price
+    // unpayable for ever and this test could never reach the Spirit at all.
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[moorland_haunt(), island(), plains()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let land = on_battlefield(&engine, p0, moorland_haunt()).expect("Moorland Haunt deployed");
-    activate(&mut engine, p0, moorland_haunt(), 0);
+    let haunt = on_battlefield(&engine, p0, moorland_haunt()).expect("the Haunt is on the table");
+    assert!(!is_tapped(&engine, haunt), "a land enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing floats before a land is tapped"
+    );
 
+    // The {W}{U} is floated before anything is claimed about the offer, and
+    // the Haunt is named as the printing kept back: it prints its own
+    // `{T}: Add {C}`, so `tap_all_mana` would have spent the very activation
+    // the second line is about (#159).
+    tap_all_mana_but(&mut engine, p0, Some(moorland_haunt()));
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.total(), 1);
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert!(is_tapped(&engine, land));
+    assert_eq!(pool.available(ManaColor::White), 1, "one Plains, one white");
+    assert_eq!(pool.available(ManaColor::Blue), 1, "one Island, one blue");
+    assert_eq!(
+        pool.total(),
+        2,
+        "two lands tapped and nothing else on the board makes mana"
+    );
+
+    // With the {W}{U} already in the pool, affordability can no longer be the
+    // reason the second line is missing: `can_afford` refuses the exile price
+    // the way it refuses a mana cost it cannot pay.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(haunt, 0)),
+        "the {{T}}: Add {{C}} line is paid by its own tap and is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.contains(&(haunt, 1)),
+        "no creature card in the graveyard, so the exile cannot be paid and \
+         the second line is absent from the offer rather than refused: {:?}",
+        legal.abilities
+    );
+
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 1);
+    let fodder = in_graveyard(&engine, p0, llanowar_elves()).expect("p0's graveyard was seeded");
+    let theirs = in_graveyard(&engine, p1, llanowar_elves()).expect("p1's graveyard was seeded");
+    assert_ne!(fodder, theirs, "two cards of the same printing, two owners");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(haunt, 1)),
+        "a creature card in the graveyard and the {{W}}{{U}} floating: the \
+         whole printed price is payable: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, moorland_haunt(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the exile is a cost and the engine asks which card pays it, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat pays its own cost");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostExile,
+        "the variant is what tells a client this is a cost and not a search"
+    );
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature card, and the cost asks once"
+    );
+    assert_eq!(
+        options,
+        vec![fodder],
+        "the creature card in *your* graveyard is the whole menu — the same \
+         printing across the table is no price of yours"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "a seat exiles from its own graveyard, whatever the filter says"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .expect("the card the question offered pays the cost");
+
+    assert!(is_tapped(&engine, haunt), "{{T}} is part of the price");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{W}}{{U}} it charges came out of the pool"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .contains(&fodder),
+        "the exiled card left its graveyard for its owner's exile"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
+        "and it is no longer in the graveyard it was paid from"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Spirit arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Spirit");
+    let spirit = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Spirit is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(spirit.name, "Spirit", "the name the card gives it");
+    assert_eq!(
+        (spirit.power, spirit.toughness),
+        (Some(1), Some(1)),
+        "the 1/1 body the card prints"
+    );
+    assert!(
+        spirit.keywords.contains(KeywordSet::FLYING),
+        "the printed \"with flying\" reaches the token"
+    );
+    assert!(
+        spirit.colors.contains(baylee_core::color::Color::White),
+        "\"white\" is the first word of the token's type line"
+    );
+    assert!(
+        on_battlefield(&engine, p0, moorland_haunt()).is_some(),
+        "the land paid its tap and is still on the battlefield"
+    );
+
+    // The other printed line wants an untapped land, and the untap step is the
+    // only thing that gives it one back: both lines cost the same `{T}`.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, haunt),
+        "the untap step stood the Haunt back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended (CR 500.5)"
+    );
+
+    activate(&mut engine, p0, moorland_haunt(), 0);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    assert!(is_tapped(&engine, haunt), "the Haunt paid its own {{T}}");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        1,
+        "{{T}}: Add {{C}} — no basic land type on this board could have made it"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
 }
 
 /// Mutavault: "{T}: Add {C}." / "{1}: This land becomes a 2/2 creature with all creature types until end of turn. It's still a land."
@@ -12741,24 +12932,184 @@ fn halimar_depths_enters_tapped_and_reorders_top_cards() {
     assert_eq!(after.len(), library.len(), "nothing left the library");
 }
 
-/// Hostile Desert: "{T}: Add {C}." / "{2}, Exile a land card from your graveyard: This land becomes a 3/4 Elemental creature until end of turn. It's still a land."
-/// Under `Coverage::Partial`, exiling a land from the graveyard as an activation cost is unsupported, leaving only the mana ability.
-/// Activating ability 0 adds one colorless mana to the pool and taps the land.
+/// Hostile Desert — a Desert land printing "{T}: Add {C}" and "{2}, Exile a
+/// land card from your graveyard: this land becomes a 3/4 Elemental creature
+/// until end of turn, and it is still a land." The scenario proves the second
+/// ability is a transformation of the *same* battlefield object rather than a
+/// replacement: after it resolves that object reads as both a land and a
+/// creature carrying the printed 3/4 body, and both halves of its price really
+/// happened — two mana out of the pool and the named land card gone from the
+/// graveyard. The Forests pay for it and the Desert is the printing kept back,
+/// so the permanent that animates is the one that was never tapped.
 #[test]
-fn hostile_desert_taps_for_colorless_mana() {
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn hostile_desert_exiles_a_land_from_the_graveyard_to_become_a_three_four_elemental() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(104, forest())
-        .battlefield(0, &[hostile_desert()])
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                hostile_desert(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let desert = on_battlefield(&engine, p0, hostile_desert()).expect("Hostile Desert deployed");
-    activate(&mut engine, p0, hostile_desert(), 0);
+    // A creature card in the same graveyard, which "exile a *land* card"
+    // has to leave off the menu — without it the menu below would be the
+    // whole graveyard and would say nothing about the filter.
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("an Elf on the table");
+    crate::sba::destroy(
+        engine
+            .dev_state_mut(p0)
+            .expect("the test kit grants dev commands"),
+        elf,
+    );
+    let buried_elf = in_graveyard(&engine, p0, llanowar_elves()).expect("the Elf died");
 
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert!(is_tapped(&engine, desert));
+    let desert = on_battlefield(&engine, p0, hostile_desert()).expect("the Desert is seated");
+    let before = types(&engine, desert);
+    assert!(
+        before.contains(TypeSet::LAND) && !before.contains(TypeSet::CREATURE),
+        "a Desert that has made nothing of itself is a land and nothing else: {before:?}"
+    );
+    assert!(
+        engine
+            .state()
+            .object(desert)
+            .expect("the Desert is an object")
+            .characteristics()
+            .power
+            .is_none(),
+        "and it carries no body for the animation below to be given credit for"
+    );
+
+    // The land the ability costs: `seed_graveyard` moves the top of the
+    // 60-card backing deck — all Forests — into the graveyard, beside the
+    // Elf.
+    seed_graveyard(&mut engine, p0, 1);
+    let fodder = in_graveyard(&engine, p0, forest()).expect("a Forest was milled");
+
+    // Three Forests, one more than the {2} the ability charges. The Desert is
+    // named as the printing kept back, because it prints its own "{T}: Add
+    // {C}" whose whole price is its own tap (#159) and it is the permanent
+    // this test animates.
+    tap_all_mana_but(&mut engine, p0, Some(hostile_desert()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three tapped Forests, and the Desert paid nothing"
+    );
+
+    // Ability 0 is "{T}: Add {C}", so the transformation is index 1; the offer
+    // is read with the mana already floating, which is where `can_afford`
+    // reads it.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(desert, 1)),
+        "with {{2}} floating and a land to exile the line is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, hostile_desert(), 1);
+
+    // Exiling the land is a cost, so it is asked before it is paid
+    // (CR 601.2h), and the menu is the whole of what the filter admits.
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the exile is a cost and is asked before it is paid: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostExile,
+        "a cost and not a search, which is all a client has to tell the two apart"
+    );
+    assert_eq!((min, max), (1, 1), "one card, no more and no fewer");
+    assert_eq!(
+        options,
+        vec![fodder],
+        "the one land card in this seat's graveyard is the whole menu"
+    );
+    assert!(
+        !options.contains(&buried_elf),
+        "and the creature card lying beside it is not a land card"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .expect("the card the question offered pays the cost");
+
+    assert!(
+        !stack_is_empty(&engine),
+        "the animation is no mana ability, so it is waiting on the stack"
+    );
+    let unchanged = types(&engine, desert);
+    assert!(
+        unchanged.contains(TypeSet::LAND) && !unchanged.contains(TypeSet::CREATURE),
+        "and nothing has changed yet: the effect is the resolution, not the cost: {unchanged:?}"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{2}} came out of the three the Forests made"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_none(),
+        "the land the cost named left the graveyard"
+    );
+
+    // The same object, read again: a land *and* a creature, with the body the
+    // card prints — the whole of what "it's still a land" (CR 205.1b) means.
+    let after = types(&engine, desert);
+    assert!(
+        after.contains(TypeSet::LAND) && after.contains(TypeSet::CREATURE),
+        "it became a creature and is still a land: {after:?}"
+    );
+    assert_eq!(
+        pt(&engine, desert),
+        (3, 4),
+        "the body the ability prints, on a permanent that had none"
+    );
+
+    // "until end of turn": a turn later the Desert is a plain land again, so
+    // the animation was a duration and not a permanent type change.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, hostile_desert()).is_some(),
+        "the Desert outlives the turn it animated in"
+    );
+    let later = types(&engine, desert);
+    assert!(
+        later.contains(TypeSet::LAND) && !later.contains(TypeSet::CREATURE),
+        "the grant lasted the turn it was made in and no longer: {later:?}"
+    );
 }
 
 /// Leechridden Swamp: "Leechridden Swamp enters tapped." / "{B}, {T}: Each opponent loses 1 life. Activate only if you control two or more black permanents."
@@ -18436,60 +18787,252 @@ fn ghost_quarter_sacrifices_itself_to_destroy_a_land_and_its_controller_gets_the
     );
 }
 
-/// Great Arashin City is a land whose whole written life is one entry
-/// condition and one mana ability: it enters tapped unless you control a
-/// Forest or a Plains, and it taps for `{B}`. The third printed line —
-/// `{1}{B}, {T}, Exile a creature card from your graveyard: Create a 1/1
-/// white Spirit creature token` — is the `Coverage::Partial` gap, so nothing
-/// here presses it. The two boards differ by one bystander: a Forest, one of
-/// the two types the card names, against an Island, which is a basic land you
-/// control and neither of them — so the pair separates the printed filter
-/// from "a land you control", which is what a filter that had lost its
-/// subtype clause would leave behind. The black mana is read off the pool
-/// after every source on the board has been tapped, so nothing but the City's
-/// own `{T}` could have made it.
+/// Great Arashin City prints three lines and this scenario plays all three.
+/// It enters tapped unless its controller has a Forest or a Plains, so the
+/// City is played once beside a Forest — where it must arrive untapped with
+/// its `{T}` still free for the activated ability — and once beside an Island,
+/// a land this seat controls that is neither named type, where it must arrive
+/// tapped and therefore offers nothing until a later turn. The `{1}{B}` is a
+/// real price, claimed with the Forest and the Swamp already tapped and paid
+/// off with an empty pool; and "exile a **creature** card from **your**
+/// graveyard" is a cost question whose menu has to hold my Llanowar Elves and
+/// not the same card across the table.
 #[test]
-fn great_arashin_city_checks_for_a_forest_or_a_plains_and_taps_for_black() {
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn great_arashin_city_enters_by_its_own_condition_and_exiles_a_creature_card_for_a_spirit() {
     let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
 
-    // A Forest under the same seat: one of the two types the filter names.
-    let mut engine = Duel::new(307, forest())
-        .battlefield(0, &[forest()])
+    // The library is nothing but creature cards: `seed_graveyard` moves cards
+    // off the top of it, and the activated ability's price is a creature
+    // *card*, which a basic land would never be.
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[forest(), swamp()])
         .hand(0, &[great_arashin_city()])
         .start();
     keep_mulligans(&mut engine);
-    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 1);
+
     let city = play_land(&mut engine, p0, great_arashin_city());
     assert!(
         !entered_tapped(&engine, city),
-        "a Forest you control is one of the two types the land prints, so \
-         the unless-clause holds and it enters untapped"
+        "\"enters tapped unless you control a Forest or a Plains\": the Forest \
+         is already on the battlefield, so the City arrives untapped"
     );
 
-    let taken = tap_all_mana(&mut engine, p0);
-    assert_eq!(taken, 2, "the Forest and the City, each with its own {{T}}");
-    let pool = &engine.state().players[0].mana_pool;
+    // The City prints its own `{T}: Add {B}`, so `tap_all_mana` would spend the
+    // very tap the activated ability is about to charge. It is named as the one
+    // source kept back, and the two basic lands pay exactly the printed price:
+    // the Forest's {G} for the {1} and the Swamp's {B} for the {B}.
+    tap_all_mana_but(&mut engine, p0, Some(great_arashin_city()));
+    {
+        let pool = &engine.state().players[0].mana_pool;
+        assert_eq!(
+            pool.total(),
+            2,
+            "a Forest and a Swamp, and no mana off the City: {{G}} and {{B}}"
+        );
+        assert_eq!(
+            pool.available(ManaColor::Green),
+            1,
+            "the Forest's {{G}}, which is what pays the generic {{1}}"
+        );
+        assert_eq!(pool.available(ManaColor::Black), 1, "and the Swamp's {{B}}");
+    }
+
+    let fodder =
+        in_graveyard(&engine, p0, llanowar_elves()).expect("my creature card is in my graveyard");
+    let theirs = in_graveyard(&engine, p1, llanowar_elves()).expect("and one is in theirs");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(city, 1)),
+        "ability 0 is the mana line and ability 1 is the {{1}}{{B}} one, offered \
+         now that its mana is in the pool and a creature card is in the yard: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, great_arashin_city(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the exile is a cost and the engine asks which card, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
-        pool.available(ManaColor::Black),
-        1,
-        "{{T}}: Add {{B}} — and nothing else on this board makes black"
+        prompt,
+        ChoicePrompt::CostExile,
+        "a cost and not a search, which is all a client has to tell the two apart"
     );
-    assert_eq!(pool.total(), 2, "the Forest's green and the City's black");
-    assert!(is_tapped(&engine, city), "the City paid its own {{T}}");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature card, no more and no fewer"
+    );
+    assert!(
+        options.contains(&fodder),
+        "a creature card in my graveyard is the whole of the answer: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"from *your* graveyard\": the Elf across the table is the same card \
+         and is not mine to exile: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        1,
+        "and that one card is the whole menu: {options:?}"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "nothing is exiled while the cost question is still open"
+    );
 
-    // The control: an Island is a basic land this seat controls, and it is
-    // neither a Forest nor a Plains.
-    let mut engine = Duel::new(309, forest())
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .expect("a card the cost question offered is a legal answer");
+
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
+        "the exiled card left the graveyard"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .contains(&fodder),
+        "and it is in exile, which is where that price sends it"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "while the card the cost did not name never moved"
+    );
+    assert!(
+        is_tapped(&engine, city),
+        "{{T}} is the other half of the price, paid by the City itself"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{1}}{{B}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "creating a token is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Spirit arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Spirit");
+    let spirit = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Spirit is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(spirit.name, "Spirit", "the token the card names");
+    assert_eq!(
+        (spirit.power, spirit.toughness),
+        (Some(1), Some(1)),
+        "the printed 1/1 body"
+    );
+    assert!(
+        spirit.colors.contains(baylee_core::color::Color::White),
+        "\"a 1/1 white Spirit creature token\""
+    );
+    let kinds = types(&engine, tokens[0]);
+    assert!(
+        kinds.contains(TypeSet::CREATURE),
+        "and it is a creature: {kinds:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p0, great_arashin_city()).is_some(),
+        "the price was a tap and no sacrifice, so the City is still standing"
+    );
+
+    // The other branch of the printed entry condition needs a board where the
+    // Forest is replaced by a land that is neither a Forest nor a Plains: an
+    // Island satisfies "a land you control" and must still leave the City down,
+    // which a rule that had lost the subtypes would not do.
+    let mut second = Duel::new(SEED, forest())
         .battlefield(0, &[island()])
         .hand(0, &[great_arashin_city()])
         .start();
-    keep_mulligans(&mut engine);
-    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
-    let city = play_land(&mut engine, p0, great_arashin_city());
+    keep_mulligans(&mut second);
+    reach_main_phase(&mut second, p0);
+    let late_city = play_land(&mut second, p0, great_arashin_city());
     assert!(
-        entered_tapped(&engine, city),
-        "an Island is a land you control and neither named type, so the \
-         unless-clause does not hold and the land enters tapped"
+        entered_tapped(&second, late_city),
+        "\"unless you control a Forest or a Plains\": an Island is a land this \
+         seat controls and neither named type, so the City enters tapped"
+    );
+
+    // A land that came in tapped makes no mana until its controller's next
+    // untap step, so the printed `{T}: Add {B}` can only be read a turn later.
+    reach_their_main_phase(&mut second, p1);
+    reach_their_main_phase(&mut second, p0);
+    assert!(
+        !is_tapped(&second, late_city),
+        "the untap step stood the City back up"
+    );
+    assert_eq!(
+        second.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended (CR 500.5)"
+    );
+
+    // The Island is named as the printing kept back so that the City's own tap
+    // is still there to spend: the {B} that lands afterwards has no other
+    // source on this board, since an Island makes {U} and nothing else.
+    tap_all_mana_but(&mut second, p0, Some(great_arashin_city()));
+    assert_eq!(
+        second.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "the Island's {{U}}, and no black anywhere yet"
+    );
+    activate(&mut second, p0, great_arashin_city(), 0);
+    assert!(
+        matches!(second.pending(), Pending::Priority { player, .. } if *player == p0),
+        "`{{B}}` is fixed, so nothing is asked on the way (CR 605.1), got {:?}",
+        second.pending()
+    );
+    {
+        let pool = &second.state().players[0].mana_pool;
+        assert_eq!(pool.available(ManaColor::Black), 1, "\"{{T}}: Add {{B}}\"");
+        assert_eq!(
+            pool.total(),
+            2,
+            "one blue from the Island and one black off the City"
+        );
+    }
+    assert!(is_tapped(&second, late_city), "the City paid its own {{T}}");
+    assert!(
+        stack_is_empty(&second),
+        "CR 605.3b: a mana ability uses no stack, so the mana is here at once"
     );
 }
 
@@ -19058,82 +19601,239 @@ fn maze_of_shadows_arrives_untapped_and_taps_for_one_colorless() {
     assert!(is_tapped(&engine, maze), "the Maze paid its own {{T}}");
 }
 
-/// Mines of Moria prints three lines and two of them are written. The
-/// conditional entry — "enters tapped unless you control a legendary
-/// creature" — is played on two boards, once beside a legend and once beside
-/// a Llanowar Elves: the Elf is the control that says the filter reads
-/// *legendary* and not merely *a creature*. The untapped branch is also what
-/// lets the land pay its own `{T}: Add {R}` the same turn, off a board that
-/// holds no other source, so the red in the pool can only be the Mines'
-/// printed mana ability. The third line, the graveyard-exile Treasure mode,
-/// is the `Coverage::Partial` gap and is pressed nowhere here.
+/// Mines of Moria enters tapped unless you control a legendary creature, taps
+/// for {R}, and turns {3}{R}, its own tap and three cards out of *your*
+/// graveyard into two Treasures. The first game reads the whole card in one go:
+/// Thrun stands beside it, so the land is put onto the battlefield by a real
+/// `PlayLand` — a `starting_battlefield` placement never runs an entry clause —
+/// and arrives untapped, and the three exile questions are answered one at a
+/// time off a graveyard seeded on *both* sides, so "three cards" is three
+/// different cards and "your" keeps the opponent's pile where it is. The second
+/// game is the other half of that clause: the same land with no legendary
+/// creature anywhere arrives tapped and offers nothing until the untap step
+/// stands it back up.
 #[test]
-fn mines_of_moria_enters_untapped_for_a_legendary_creature_and_taps_for_red() {
+#[allow(clippy::too_many_lines)] // two entry branches, a mana line and a three-part cost
+fn mines_of_moria_enters_untapped_beside_a_legendary_creature_and_buys_two_treasures() {
     let p0 = PlayerId::new(0);
-
-    // A legend on the board: the "unless" holds and the land comes in
-    // untapped.
-    let mut with_legend = Duel::new(3301, forest())
-        .battlefield(0, &[sheoldred_the_apocalypse()])
+    let p1 = PlayerId::new(1);
+    let mut board = vec![mountain(); 4];
+    board.push(thrun_the_last_troll());
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
         .hand(0, &[mines_of_moria()])
         .start();
-    keep_mulligans(&mut with_legend);
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // A legendary creature is already on the table, so the printed "unless"
+    // does not hold.
+    let land = play_land(&mut engine, p0, mines_of_moria());
     assert!(
-        walk_to_own_main(&mut with_legend, p0),
-        "p0 reaches its own main phase"
+        on_battlefield(&engine, p0, mines_of_moria()).is_some(),
+        "the land was played onto the battlefield"
+    );
+    assert!(
+        !entered_tapped(&engine, land),
+        "\"enters tapped unless you control a legendary creature\": Thrun is a \
+         legendary creature this seat controls"
     );
 
-    let land = play_land(&mut with_legend, p0, mines_of_moria());
-    assert!(
-        !entered_tapped(&with_legend, land),
-        "\"enters tapped unless you control a legendary creature\" — with \
-         Sheoldred standing, the Mines arrive untapped"
-    );
+    // Ability 0 is the printed "{T}: Add {R}"; the activated line is ability 1.
+    activate(&mut engine, p0, mines_of_moria(), 0);
     assert_eq!(
-        with_legend.state().players[0].mana_pool.total(),
-        0,
-        "an entry and not an ability: nothing floated on the way in"
-    );
-
-    // {T}: Add {R}. The land is untapped and prints no other cost, so its
-    // one ability is on the offer — and this board has no other permanent
-    // that could have made red at all.
-    activate(&mut with_legend, p0, mines_of_moria(), 0);
-    assert_eq!(
-        with_legend.state().players[0]
+        engine.state().players[0]
             .mana_pool
             .available(ManaColor::Red),
         1,
         "{{T}}: Add {{R}}"
     );
-    assert_eq!(
-        with_legend.state().players[0].mana_pool.total(),
-        1,
-        "one tap, one mana and no second source on the table"
-    );
-    assert!(is_tapped(&with_legend, land), "which tapped the Mines");
+    assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
+
+    // The {T} is spent and the line below needs it back, so the scenario walks
+    // one turn cycle: the pool empties with the step that ends (CR 500.5) and
+    // the untap step stands the land up.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
     assert!(
-        stack_is_empty(&with_legend),
-        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+        !is_tapped(&engine, land),
+        "the untap step stood the land up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended"
     );
 
-    // The control: a creature, and not a legendary one. Same land, same
-    // phase, and the other branch of the same entry.
-    let mut with_elf = Duel::new(3302, forest())
-        .battlefield(0, &[quiet_creature()])
+    // Three cards in *my* graveyard and three in the opponent's: the cost
+    // prints "your graveyard", so the pile across the table is the witness.
+    seed_graveyard(&mut engine, p0, 3);
+    seed_graveyard(&mut engine, p1, 3);
+    let mine = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .clone();
+    let theirs_before = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+    assert_eq!(mine.len(), 3, "three cards were buried on my side");
+
+    // Four Mountains pay the {3}{R}, with the Mines named as the card kept
+    // back: its own {T} is half of the price below, so `tap_all_mana` would
+    // have spent it (#159).
+    tap_all_mana_but(&mut engine, p0, Some(mines_of_moria()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Mountains, four red, and the Mines still standing"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        4,
+        "and nothing of it came off the land"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(land, 1)),
+        "with the mana in the pool the activated line is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, mines_of_moria(), 1);
+
+    // The three ExileFromGraveyard parts are three questions, one card each,
+    // and each offers what the graveyard still holds after the previous answer.
+    let mut menus: Vec<Vec<ObjectId>> = Vec::new();
+    for _ in 0..12 {
+        match engine.pending().clone() {
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                prompt,
+            } => {
+                assert_eq!(player, p0, "the activating seat pays its own cost");
+                assert_eq!(
+                    prompt,
+                    crate::choice::ChoicePrompt::CostExile,
+                    "a cost and not a search, which is all a client has to tell apart"
+                );
+                assert_eq!((min, max), (1, 1), "one card per part");
+                assert_eq!(
+                    options.len(),
+                    3 - menus.len(),
+                    "each question offers what is left of my graveyard: {options:?}"
+                );
+                for id in &options {
+                    assert!(
+                        mine.contains(id),
+                        "\"from *your* graveyard\": {id:?} is no card of mine: {options:?}"
+                    );
+                }
+                menus.push(options.clone());
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![options[0]],
+                        },
+                    )
+                    .expect("a card the question offered pays the cost");
+            }
+            Pending::Priority { .. } if menus.len() == 3 => break,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the Mines' ability is paid for: {other:?}"),
+        }
+    }
+    assert_eq!(menus.len(), 3, "one question per ExileFromGraveyard part");
+
+    assert!(is_tapped(&engine, land), "{{T}} is part of the price");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{3}}{{R}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making tokens is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Treasures arrive on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let treasures = tokens_of(&engine, p0);
+    assert_eq!(treasures.len(), 2, "\"Create two Treasure tokens\"");
+    for token in &treasures {
+        let object = engine
+            .state()
+            .object(*token)
+            .expect("the token is an object");
+        assert!(
+            object.characteristics().types.contains(TypeSet::ARTIFACT),
+            "a Treasure is an artifact token"
+        );
+        assert_eq!(
+            object.token.expect("it knows which token it is").name,
+            "Treasure",
+            "and it is a Treasure and not some other token"
+        );
+    }
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .is_empty(),
+        "all three cards were exiled, so no card answered twice"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        theirs_before,
+        "and the graveyard across the table never moved: the cost says \"your\""
+    );
+
+    // The other half of the entry clause, on a board with no legendary creature
+    // anywhere: the same land arrives tapped and offers nothing.
+    let mut control = Duel::new(SEED, forest())
         .hand(0, &[mines_of_moria()])
         .start();
-    keep_mulligans(&mut with_elf);
+    keep_mulligans(&mut control);
+    reach_main_phase(&mut control, p0);
+    let alone = play_land(&mut control, p0, mines_of_moria());
     assert!(
-        walk_to_own_main(&mut with_elf, p0),
-        "p0 reaches its own main phase"
+        entered_tapped(&control, alone),
+        "\"enters tapped unless you control a legendary creature\" — and this \
+         seat controls no legendary creature"
+    );
+    let Pending::Priority { legal, .. } = control.pending().clone() else {
+        panic!("expected priority, got {:?}", control.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == alone),
+        "a land that arrived tapped has no {{T}} to pay with: {:?}",
+        legal.abilities
     );
 
-    let tapped_land = play_land(&mut with_elf, p0, mines_of_moria());
-    assert!(
-        entered_tapped(&with_elf, tapped_land),
-        "Llanowar Elves is a creature and no legend, so the same land enters \
-         tapped — the word the filter turns on is \"legendary\""
+    // A turn later the untap step gives the same {T} back, so the missing line
+    // above was the tap and not an ability the card does not have.
+    reach_their_main_phase(&mut control, p1);
+    reach_their_main_phase(&mut control, p0);
+    assert!(!is_tapped(&control, alone), "the untap step stood it up");
+    activate(&mut control, p0, mines_of_moria(), 0);
+    assert_eq!(
+        control.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "and the same {{T}} the tapped land withheld now makes its red"
     );
 }
 

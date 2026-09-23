@@ -79,6 +79,34 @@ pub enum CostPart {
     /// away. The six that do want an untapped one are all `UnlessCost$` on
     /// the karoo lands, which is a replacement on a trigger and not this.
     ReturnToHand(&'static Filter),
+    /// Exile a card matching the filter from **your** graveyard (Moorland
+    /// Haunt's creature card, Mines of Moria's three cards).
+    ///
+    /// **One card per part**, for [`CostPart::Sacrifice`]'s reason: "exile
+    /// three cards from your graveyard" is three equal parts and three
+    /// questions, `can_afford` counts the equal parts against the menu, and
+    /// each answer is taken off the menus that follow it.
+    ///
+    /// **Whose** is the variant's, not the filter's: the payer's graveyard
+    /// is the only zone `cost_wizard::options` reads for it. No rule
+    /// supplies that word the way CR 701.21a does for a sacrifice — the
+    /// cards print it, and every card in this pool that exiles from a
+    /// graveyard as a cost (Great Arashin City, Moorland Haunt, Mines of
+    /// Moria, Hostile Desert, Sunken Palace) says "your graveyard". The
+    /// reference spells "a graveyard" with a different key, and that
+    /// sentence is not this variant.
+    ///
+    /// **Not a target** (CR 115.10a): the answer is a `ChooseCards`, never a
+    /// `ChooseTargets`. And **not the source**: "exile this card from your
+    /// graveyard" is [`CostPart::ExileSelf`] on an ability activated from
+    /// the graveyard, which is a zone no ability is activated from yet.
+    ///
+    /// It belongs on an activated ability and on
+    /// `Effect::PlayerMayPayCostOr`, never on a spell's cost lists — a cast
+    /// has no stage that asks, and
+    /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`
+    /// is the build failure.
+    ExileFromGraveyard(&'static Filter),
     /// Exile a card from your hand matching the filter (pitch costs).
     ExileFromHand(&'static Filter),
     /// Pay life equal to the spell's X value (Toxic Deluge).

@@ -1521,3 +1521,15 @@ no witness. A clause with nothing on the board to read it passes whatever
 the rule does, so a reviewer checks every noun the sentence names against
 the board, not only the ones the test asserts about. Karn, the Great Creator
 was added, at loyalty 5 so that 3 damage leaves him standing to be read.
+
+The next four (24.09.2026, the four lands that exile from a graveyard as a
+cost) came back green on the first run too, which makes two batches in a
+row. The finding was the Dragonback one again in a smaller form. Hostile
+Desert's test seeded a graveyard off a library of Forests and asserted that
+the menu was "the one land card in this seat's graveyard". On that board
+the menu is the whole graveyard, so the assertion held under
+`Filter::Any` as well, and the word "land" had no witness. A Llanowar
+Elves was put into the same graveyard, and the test now fails when the
+card's filter is widened; that was injected and seen red. A menu
+assertion only tests a filter if the board also holds something the
+filter must refuse.

@@ -1143,6 +1143,7 @@ fn alternative_parts_payable(
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand

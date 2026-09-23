@@ -589,6 +589,35 @@ Physician. A bit per colour is the wrong shape for the third of those, which
 protects from a creature *type*, so this is a gap with a design question in
 it rather than a missing case.
 
+#### A cost paid out of the graveyard: four lands (2026-09-24)
+
+`CostPart::ExileFromGraveyard(&Filter)`, the fifth part that asks a
+question, and the `ExileFromGrave` in G1's row. It reads the **payer's own**
+graveyard and no other, which is `Discard`'s arrangement one pile over: the
+zone says whose, and the filter says only what kind of card. Every card in
+this pool that exiles from a graveyard as a cost prints "your graveyard" —
+Great Arashin City, Moorland Haunt, Mines of Moria, Hostile Desert and Sunken
+Palace — and the reference spells "a graveyard" with a different key, which
+this variant deliberately is not. One card per part, for the reason every
+asking part has: Mines of Moria's "three cards" is three parts, `can_afford`
+counts them against the menu, and each answer comes off the menus after it.
+
+The question arrives as `Pending::ChooseCards` under `ChoicePrompt::CostExile`:
+not `CostDiscard`, because the noun has to name the pile the card leaves, and
+not `Delve`, whose `max` is a spell's generic mana and which the house AI
+answers with `max`. Four of the five are `Coverage::Implemented`; Sunken
+Palace is still waiting on a mana rider that copies what it pays for.
+
+**The AI half was a defect of its own.** An "… unless you sacrifice a
+creature" price asks with `min: 0`, because naming nothing is the refusal,
+and `policy::select_cards` answered `CostSacrifice` and `CostDiscard` with
+`min` — so an expert seat declined every such price and lost the permanent it
+protected, on twelve implemented cards (Endless Wurm, Plant Elemental,
+Razormane Masticore, Rogue Elephant and eight more), silently, because
+declining is a legal answer. The arm now pays one card, the least valuable,
+and `CostExile` joins it; the transcoder's `asks_for_an_object` names the new
+part only because that fix is in the same commit.
+
 ### 2. G3 — no Surveil
 
 **(a)** The DSL can look at the library (`Effect::Scry`, `ScryFor`), mill it

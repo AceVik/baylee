@@ -914,6 +914,9 @@ fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
             CostPart::ExileFromHand(_) => Phrase::CostExileACard.text(lang).to_string(),
             CostPart::TapOther(_) => Phrase::CostTapAnother.text(lang).to_string(),
             CostPart::ReturnToHand(_) => Phrase::CostReturnAnother.text(lang).to_string(),
+            CostPart::ExileFromGraveyard(_) => {
+                Phrase::CostExileFromGraveyard.text(lang).to_string()
+            }
             CostPart::RemoveCounterSelf { n: 1, .. } => {
                 Phrase::CostRemoveCounter.text(lang).to_string()
             }

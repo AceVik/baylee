@@ -533,6 +533,171 @@ fn an_ability_whose_cost_asks_a_question_is_offered_and_paid() {
     );
 }
 
+/// A cost that exiles cards from a graveyard is offered only over enough
+/// of them, asks for them one at a time, and moves none until the last is
+/// named.
+///
+/// Mines of Moria prints "Exile three cards from your graveyard", which is
+/// three equal `ExileFromGraveyard` parts. With two cards in the graveyard
+/// the ability is not offered at all — CR 118.3, and `can_afford` counts
+/// the equal parts against the menu rather than asking each part whether
+/// the menu is empty, which would have said yes three times over one card.
+/// With three it is offered, and each question is one card shorter than
+/// the one before, because an answer comes off the menus after it.
+///
+/// Nothing moves until every question is answered: CR 601.2h pays the total
+/// cost at once, so after the first and the second answer the graveyard
+/// still holds all three. After the third they are in exile, the land is
+/// tapped and the four red are spent — and the ability, once it resolves,
+/// has made its two Treasures.
+#[allow(clippy::too_many_lines)] // a refusal, three questions and a payment
+#[test]
+fn a_cost_that_exiles_from_the_graveyard_is_offered_only_over_enough_cards() {
+    let p0 = PlayerId::new(0);
+    let mines = card_index("583cdebe-0195-45be-bd2e-5765f07cb902");
+    let mountain = card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685");
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let mut engine = Duel::new(SEED, forest)
+        .battlefield(0, &[mines, mountain, mountain, mountain, mountain])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "the board never reached seat 0's own main phase"
+    );
+    let source = on_battlefield(&engine, p0, mines).expect("Mines of Moria in play");
+    seed_graveyard(&mut engine, p0, 2);
+    tap_mana_except(&mut engine, p0, source);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Mountains, and the Mines kept back for its own ability"
+    );
+
+    let graveyard = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .clone()
+    };
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(source, 1)),
+        "two cards cannot pay for three: {:?}",
+        legal.abilities
+    );
+
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = graveyard(&engine);
+    assert_eq!(buried.len(), 3, "three cards in the graveyard now");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(source, 1)),
+        "three cards pay for three: {:?}",
+        legal.abilities
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 1,
+            },
+        )
+        .expect("what the engine offers, the engine accepts");
+
+    let mut named = Vec::new();
+    for asked in 0..3 {
+        let Pending::ChooseCards {
+            options,
+            min,
+            max,
+            prompt,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!(
+                "question {asked} asks which card to exile: {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(
+            prompt,
+            crate::choice::ChoicePrompt::CostExile,
+            "a cost paid out of the graveyard, and said so"
+        );
+        assert_eq!((min, max), (1, 1), "one card per part");
+        assert_eq!(
+            options.len(),
+            3 - asked,
+            "each answer comes off the menus after it: {options:?}"
+        );
+        assert!(
+            options
+                .iter()
+                .all(|id| buried.contains(id) && !named.contains(id)),
+            "every card on the menu is in the graveyard and not yet named: \
+             {options:?}"
+        );
+        assert_eq!(
+            graveyard(&engine),
+            buried,
+            "nothing has moved before the last answer (CR 601.2h)"
+        );
+        named.push(options[0]);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+            )
+            .expect("the first card on the menu is one of the answers");
+    }
+
+    for card in &buried {
+        assert!(
+            engine
+                .state()
+                .zones
+                .contains(*card, ZoneLocation::Exile(p0)),
+            "every card named is in its owner's exile"
+        );
+    }
+    assert!(graveyard(&engine).is_empty(), "and the graveyard is empty");
+    assert!(
+        engine
+            .state()
+            .object(source)
+            .is_some_and(|o| o.status.contains(Status::TAPPED)),
+        "{{T}} is part of the price"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and so is {{3}}{{R}}"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let treasures = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.card.is_none() && o.controller == p0)
+        })
+        .count();
+    assert_eq!(treasures, 2, "two Treasure tokens");
+}
+
 // The two guards this file used to carry here, and why they are gone.
 //
 // Until `cost_wizard` existed, `can_afford` refused `CostPart::Sacrifice`

@@ -470,10 +470,10 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 /// not a selection) and `Generic` is the plain noun, which is honest: the
 /// engine did not say what it was for either.
 ///
-/// The last four are the other thing that is part of a cost and, unlike
+/// The last five are the other thing that is part of a cost and, unlike
 /// delve, are one card rather than a heap of them: `CostSacrifice`,
-/// `CostDiscard`, `CostTap` and `CostReturn` arrive while CR 601.2h is being
-/// paid, so each
+/// `CostDiscard`, `CostTap`, `CostReturn` and `CostExile` arrive while
+/// CR 601.2h is being paid, so each
 /// gets a noun that says what happens to the card rather than sharing delve's
 /// "spend what you have" line. A player who is told only "choose 1 card"
 /// while paying for Survival of the Fittest cannot tell the discard from the
@@ -481,7 +481,10 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 /// *survives*, which nobody would guess from a sacrifice's wording. Those
 /// two are not one noun either: Quirion Ranger's Forest may already be
 /// tapped, and a player reading "untapped permanent to tap" over their own
-/// lands would look for the wrong one.
+/// lands would look for the wrong one. `CostExile` names its pile for the
+/// same kind of reason: delve exiles from the graveyard too, but a player
+/// told "card to discard" over Moorland Haunt's menu would look in their
+/// hand.
 ///
 /// `LeaveTapped` is the one that is neither: the untap step asking the
 /// active player which of their permanents stay tapped (CR 502.3). Its noun
@@ -511,6 +514,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentToReturn,
             Phrase::NounPermanentsToReturn,
         ),
+        ChoicePrompt::CostExile => (Phrase::NounCardToExile, Phrase::NounCardsToExile),
         ChoicePrompt::LeaveTapped => (
             Phrase::NounPermanentToLeaveTapped,
             Phrase::NounPermanentsToLeaveTapped,

@@ -996,6 +996,9 @@ fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
         // does not, but Flooded Shoreline's does) is still a sentence that
         // names this cost.
         CostPart::ReturnToHand(_) => lower.contains("return"),
+        CostPart::ExileFromGraveyard(_) => {
+            lower.contains("exile") && lower.contains("from your graveyard")
+        }
         _ => false,
     })
 }

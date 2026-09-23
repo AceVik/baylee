@@ -233,9 +233,19 @@ impl HeuristicAgent {
                 ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
                 usize::from(max)
             }
-            ChoicePrompt::CostSacrifice
-            | ChoicePrompt::CostDiscard
-            | ChoicePrompt::PutBackOnTop => {
+            // A price, paid with the least valuable card on the menu — and
+            // paid at all, which `min` would not do: "… unless you sacrifice
+            // a creature" asks with `min: 0` because naming nothing *is* the
+            // refusal, and an agent answering `min` there lost the permanent
+            // the price was protecting, every time and silently. An
+            // activation asks with `min: 1`, where this is the same answer.
+            ChoicePrompt::CostSacrifice | ChoicePrompt::CostDiscard | ChoicePrompt::CostExile => {
+                ranked.sort_by_key(|id| (value(id), *id));
+                usize::from(min.max(1).min(max))
+            }
+            // Not a price: `Effect::PutFromHandOnTop` asks with
+            // `min == max`, so `min` is the whole answer.
+            ChoicePrompt::PutBackOnTop => {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min)
             }

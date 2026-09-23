@@ -650,6 +650,7 @@ const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_)
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_) => false,
@@ -673,6 +674,7 @@ const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_)
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_) => false,

@@ -150,7 +150,10 @@ fn consumes(cost: &Cost) -> bool {
             // A permanent returned to a hand leaves the battlefield, so the
             // board shrinks the same way — more so than a tap, which leaves
             // the permanent where it was.
-            | CostPart::ReturnToHand(_) => true,
+            | CostPart::ReturnToHand(_)
+            // A card exiled out of the graveyard is gone for good, so the
+            // pile that pays for the next activation is one card shorter.
+            | CostPart::ExileFromGraveyard(_) => true,
             CostPart::PayLifeX => false,
         })
 }

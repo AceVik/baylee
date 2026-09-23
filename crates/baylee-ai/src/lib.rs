@@ -712,15 +712,22 @@ mod tests {
     /// answering it at `min` would sacrifice every Karoo land it played,
     /// and silently, since declining is a legal answer and nothing logs it.
     ///
-    /// It does not, and **not because the prompt is handled**:
-    /// `ChoicePrompt::CostReturn` and `CostTap` reach neither arm of
-    /// `policy::select_cards` and fall out of its `_`, and the answer comes
-    /// from the fallback's `_ if max <= 2 => max`. That is a correct outcome
-    /// resting on an unrelated shortcut, which is exactly the kind of thing
-    /// that is right until somebody tidies it. Adding the two prompts to
-    /// the policy was tried and reverted: with every option a land of the
-    /// same rank, the ordering it would impose is the one already there,
-    /// and a change no test can see fall is not a change.
+    /// For `ChoicePrompt::CostReturn` and `CostTap` that is **not because
+    /// the prompt is handled**: they reach no arm of `policy::select_cards`
+    /// and fall out of its `_`, and the answer comes from the fallback's
+    /// `_ if max <= 2 => max`. That is a correct outcome resting on an
+    /// unrelated shortcut, which is exactly the kind of thing that is right
+    /// until somebody tidies it. Adding the two prompts to the policy was
+    /// tried and reverted: with every option a land of the same rank, the
+    /// ordering it would impose is the one already there, and a change no
+    /// test can see fall is not a change.
+    ///
+    /// `CostSacrifice`, `CostDiscard` and `CostExile` *are* handled, by the
+    /// policy's own cost arm at `max(min, 1)` — and until that arm said
+    /// `max(min, 1)` it said `min`, and an expert seat declined every
+    /// "unless you sacrifice" price it was shown.
+    /// `a_price_that_may_be_declined_is_paid_with_the_least_valuable_card`
+    /// is that arm's test.
     ///
     /// Both directions are checked, because "pay it" alone would pass on an
     /// agent that pays every cost question at `max`: an activation cost
@@ -775,6 +782,69 @@ mod tests {
             1,
             "an activation cost takes what it asks for and not one permanent more"
         );
+    }
+
+    /// A price is paid, and paid with the card this seat misses least.
+    ///
+    /// "Sacrifice Endless Wurm unless you sacrifice an enchantment" asks
+    /// with `min: 0`, because naming nothing is the refusal, and the policy
+    /// used to answer these prompts with `min` — so an expert seat gave up
+    /// every permanent that carried such a price, twelve implemented cards
+    /// of them, and nothing logged it. An activation asks the same question
+    /// with `min: 1`, so both shapes are asked here.
+    ///
+    /// The menu lists Llanowar Elves first on purpose: the fallback answers
+    /// `options[0]`, so an agent that paid without ranking would pass the
+    /// "how many" half and fail this one. With no lands on the table the
+    /// Elves are worth 800 - 150 and the five-drop Wurm 800 - 750, so the
+    /// Wurm is what goes.
+    #[test]
+    fn a_price_that_may_be_declined_is_paid_with_the_least_valuable_card() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm) = (obj(1), obj(2));
+        let on_the_table = view(
+            0,
+            &[20, 20],
+            vec![
+                carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+                carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+            ],
+        );
+        let mut in_hand = view(0, &[20, 20], vec![]);
+        in_hand.hand = vec![hand_card(1, "Llanowar Elves"), hand_card(2, "Endless Wurm")];
+        let mut in_the_graveyard = view(0, &[20, 20], vec![]);
+        in_the_graveyard.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+        ];
+
+        for (prompt, view) in [
+            (ChoicePrompt::CostSacrifice, &on_the_table),
+            (ChoicePrompt::CostDiscard, &in_hand),
+            (ChoicePrompt::CostExile, &in_the_graveyard),
+        ] {
+            for min in [0, 1] {
+                let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                    view,
+                    &Pending::ChooseCards {
+                        player: view.seat,
+                        options: vec![elves, wurm],
+                        min,
+                        max: 1,
+                        prompt,
+                    },
+                );
+                assert_eq!(
+                    action,
+                    PlayerAction::ChooseObjects {
+                        objects: vec![wurm]
+                    },
+                    "{prompt:?} at min {min}: the price is paid, with the card \
+                     worth least"
+                );
+            }
+        }
     }
 
     #[test]

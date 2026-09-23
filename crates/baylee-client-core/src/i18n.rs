@@ -1192,6 +1192,16 @@ messages! {
         en: "permanents to return to their owners' hands",
         de: "bleibende Karten, die auf die Hand ihres Besitzers zurückgenommen werden",
     },
+    /// card to exile from your graveyard
+    NounCardToExile {
+        en: "card to exile from your graveyard",
+        de: "Karte aus deinem Friedhof, die ins Exil geschickt wird",
+    },
+    /// cards to exile from your graveyard
+    NounCardsToExile {
+        en: "cards to exile from your graveyard",
+        de: "Karten aus deinem Friedhof, die ins Exil geschickt werden",
+    },
     /// permanent to leave tapped
     NounPermanentToLeaveTapped {
         en: "permanent to leave tapped",
@@ -1715,6 +1725,15 @@ messages! {
     CostReturnAnother { en: "Return another", de: "Nimm eine andere zurück" },
     /// Exile a card
     CostExileACard { en: "Exile a card", de: "Schicke eine Karte ins Exil" },
+    /// Exile from your graveyard
+    ///
+    /// Not [`Self::CostExileACard`], which is the pitch cost out of the
+    /// hand: the label has to say which pile the card comes from, because a
+    /// player about to pay Moorland Haunt looks in the wrong one otherwise.
+    CostExileFromGraveyard {
+        en: "Exile from your graveyard",
+        de: "Schicke aus deinem Friedhof ins Exil",
+    },
     /// Tap another
     ///
     /// Not "{T}", which is the source tapping itself and is the symbol the
@@ -2261,6 +2280,7 @@ mod tests {
                 Phrase::NounPermanentToReturn,
                 Phrase::NounPermanentsToReturn,
             ),
+            (Phrase::NounCardToExile, Phrase::NounCardsToExile),
             (
                 Phrase::NounPermanentToLeaveTapped,
                 Phrase::NounPermanentsToLeaveTapped,

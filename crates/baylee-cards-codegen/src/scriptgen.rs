@@ -1839,11 +1839,11 @@ impl Tx<'_> {
 
     /// One cost part the player pays by naming an object.
     ///
-    /// Four spellings of one shape — `Sac<1/…>`, `Discard<1/…>`,
-    /// `tapXType<1/…>`, `Return<1/…>` — and they were worth writing once
-    /// rather than four times because what differs between them is two
-    /// facts: which `CostPart` they are, and whether the object has to be
-    /// one the payer controls.
+    /// Five spellings of one shape — `Sac<1/…>`, `Discard<1/…>`,
+    /// `tapXType<1/…>`, `Return<1/…>`, `ExileFromGrave<1/…>` — and they were
+    /// worth writing once rather than five times because what differs
+    /// between them is two facts: which `CostPart` they are, and whether the
+    /// object has to be one the payer controls.
     ///
     /// **One object per part**, which is what `CostPart` carries: 97 of the
     /// corpus's costs sacrifice two, three or X, and paying one of them
@@ -1856,7 +1856,11 @@ impl Tx<'_> {
     /// pay, so a filter without it would be the card and
     /// `cost_wizard::options` offering two different menus for one cost. A
     /// **discard** takes none of it: a card in a hand has no controller at
-    /// all, and the engine reads that zone by whose hand it is.
+    /// all, and the engine reads that zone by whose hand it is. An exile
+    /// from the graveyard is the same case one pile over, and
+    /// `ExileFromGrave<1/CARDNAME>` — eternalize's "exile this card from
+    /// your graveyard" — is refused by name, because it is paid from a zone
+    /// no ability is activated from yet.
     fn object_cost_part(&mut self, kind: &str, body: &str, token: &str) -> Option<String> {
         let mut fields = body.splitn(3, '/');
         let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
@@ -1869,6 +1873,7 @@ impl Tx<'_> {
             "Sac" => ("Sacrifice", true),
             "Discard" => ("Discard", false),
             "tapXType" => ("TapOther", true),
+            "ExileFromGrave" => ("ExileFromGraveyard", false),
             _ => ("ReturnToHand", true),
         };
         if spec == "CARDNAME" {
@@ -3599,7 +3604,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
 /// `Sac<1/CARDNAME…>` is deliberately not among them: it is matched one
 /// branch earlier as `SacrificeSelf`, which asks nobody anything.
 fn object_cost(token: &str) -> Option<(&'static str, &str)> {
-    for kind in ["Sac", "Discard", "tapXType", "Return"] {
+    for kind in ["Sac", "Discard", "tapXType", "Return", "ExileFromGrave"] {
         if let Some(body) = token
             .strip_prefix(kind)
             .and_then(|t| t.strip_prefix('<'))
@@ -3613,14 +3618,20 @@ fn object_cost(token: &str) -> Option<(&'static str, &str)> {
 
 /// Whether a cost part is paid by naming an object.
 ///
-/// The four `cost_wizard` puts a list up for, spelled as the emitter writes
+/// The five `cost_wizard` puts a list up for, spelled as the emitter writes
 /// them rather than as the engine matches them, because this side has a
 /// string and not a `CostPart`. `SacrificeSelf` and `ReturnSelfToHand` are
 /// deliberately not among them: they name the source and ask nothing.
 fn asks_for_an_object(part: &str) -> bool {
-    ["Sacrifice(", "Discard(", "TapOther(", "ReturnToHand("]
-        .iter()
-        .any(|kind| part.starts_with(kind))
+    [
+        "Sacrifice(",
+        "Discard(",
+        "TapOther(",
+        "ReturnToHand(",
+        "ExileFromGraveyard(",
+    ]
+    .iter()
+    .any(|kind| part.starts_with(kind))
 }
 
 /// Whether [`transcode`] has a rule for this effect API.
@@ -5549,6 +5560,57 @@ mod tests {
                 refusal_reason(&script, &cats(), None).as_deref(),
                 Some(format!("cost `{token}`").as_str()),
                 "and it refuses by its own name rather than by the rule's"
+            );
+        }
+    }
+
+    /// `Cost$ ExileFromGrave<1/Creature>` is a card the player names out of
+    /// their own graveyard, so it is the filter as written with no "you
+    /// control" added — the zone is the whole of the "your" — and the source
+    /// naming itself
+    /// is refused, because eternalize's "exile this card from your
+    /// graveyard" is paid from a zone no ability is activated from yet.
+    /// Three cards is three objects, which this reader refuses by name as it
+    /// does for every other kind.
+    #[test]
+    fn a_graveyard_exile_cost_is_a_filter_over_the_payers_own_pile() {
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Draw | Cost$ W U T ExileFromGrave<1/Creature> | NumCards$ 1\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "activated!(cost!(\"{W}{U}\", TapSelf, ExileFromGraveyard(&Filter::CREATURE)), \
+                 &[Effect::draw(1)])"
+            ],
+            "the spelling Moorland Haunt is written in by hand"
+        );
+        assert!(
+            body.statics.is_empty(),
+            "a named filter needs no static, and nothing was added to it: {}",
+            body.statics
+        );
+
+        for (cost, why) in [
+            (
+                "ExileFromGrave<1/CARDNAME/this card>",
+                "cost `ExileFromGrave<1/CARDNAME/this card>` naming itself",
+            ),
+            ("ExileFromGrave<3/Card>", "a cost naming `3` objects"),
+        ] {
+            let script = parse(&format!(
+                "Name:X\nTypes:Land\n\
+                 A:AB$ Draw | Cost$ 1 {cost} | NumCards$ 1\n"
+            ));
+            assert!(
+                transcode(&script, &cats(), None).is_none(),
+                "{cost} is refused, not paid with one card"
+            );
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(why),
+                "and it says so by name"
             );
         }
     }

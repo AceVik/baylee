@@ -8,7 +8,10 @@ enum CostPart { TapSelf, UntapSelf, SacrificeSelf, Sacrifice(&'static Filter),
                 PayLife(u16), PayLifeX, Discard(&'static Filter), DiscardSelf,
                 ExileSelf, ExileFromHand(&'static Filter), ReturnSelfToHand,
                 TapOther(&'static Filter), ReturnToHand(&'static Filter),
-                RemoveCounterSelf { kind: CounterKind, n: u16 } }
+                ExileFromGraveyard(&'static Filter),
+                RemoveCounterSelf { kind: CounterKind, n: u16 },
+                RemoveCounterSelfX { kind: CounterKind },
+                PutCounterSelf { kind: CounterKind, n: u16 } }
 ```
 
 That is the type as it stands (`baylee-cards-dsl/src/cost.rs`), and the

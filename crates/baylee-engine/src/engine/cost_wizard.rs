@@ -63,6 +63,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::Discard(_)
             | CostPart::TapOther(_)
             | CostPart::ReturnToHand(_)
+            | CostPart::ExileFromGraveyard(_)
     )
 }
 
@@ -108,6 +109,12 @@ pub(crate) fn asking_parts(cost: &Cost) -> impl Iterator<Item = &CostPart> {
 /// second half of the same answer rather than a substitute for it, which is
 /// Earthcraft's arrangement one variant up.
 ///
+/// [`CostPart::ExileFromGraveyard`] reads the payer's own graveyard and no
+/// other, which is [`CostPart::Discard`]'s arrangement: the zone says whose,
+/// so there is nothing for a controller check to add — a card in a
+/// graveyard has no controller (CR 108.4), and the only cards in a
+/// player's graveyard are that player's own (CR 400.3).
+///
 /// What it does *not* borrow from `TapOther` is "untapped". A Forest tapped
 /// for `{G}` is the cost Quirion Ranger was printed to pay, so the word is
 /// absent here and lives in the filter on the six costs that print it.
@@ -130,12 +137,14 @@ pub(crate) fn options(
         }
         CostPart::TapOther(_) => (ZoneLocation::Battlefield, true, true),
         CostPart::Discard(_) => (ZoneLocation::Hand(player), false, false),
+        CostPart::ExileFromGraveyard(_) => (ZoneLocation::Graveyard(player), false, false),
         _ => return Vec::new(),
     };
     let (CostPart::Sacrifice(filter)
     | CostPart::Discard(filter)
     | CostPart::TapOther(filter)
-    | CostPart::ReturnToHand(filter)) = part
+    | CostPart::ReturnToHand(filter)
+    | CostPart::ExileFromGraveyard(filter)) = part
     else {
         return Vec::new();
     };
@@ -160,6 +169,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::Discard(_) => ChoicePrompt::CostDiscard,
         CostPart::TapOther(_) => ChoicePrompt::CostTap,
         CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
+        CostPart::ExileFromGraveyard(_) => ChoicePrompt::CostExile,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -177,7 +187,9 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
 ///
 /// A return goes through the same door to a different zone, which is the
 /// `ReturnSelfToHand` arm of `pay_cost` one file over: a permanent bounced
-/// to pay a cost and one that bounced itself are the same event.
+/// to pay a cost and one that bounced itself are the same event. An exile
+/// from the graveyard is the `ExileSelf` arm's door the same way, into the
+/// owner's exile (CR 406.2).
 ///
 /// The part is passed in rather than inferred from the object, because the
 /// object cannot say it. A creature on the battlefield is a legal answer to
@@ -205,10 +217,10 @@ pub(crate) fn pay(
     // Owner's hand, never the payer's: CR 400.3 puts a returned card in the
     // zone of the player who owns it, and a Forest borrowed off somebody
     // else's battlefield goes home rather than joining the borrower's hand.
-    let to = if matches!(part, CostPart::ReturnToHand(_)) {
-        ZoneLocation::Hand(owner)
-    } else {
-        ZoneLocation::Graveyard(owner)
+    let to = match part {
+        CostPart::ReturnToHand(_) => ZoneLocation::Hand(owner),
+        CostPart::ExileFromGraveyard(_) => ZoneLocation::Exile(owner),
+        _ => ZoneLocation::Graveyard(owner),
     };
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
     Ok(())
@@ -314,6 +326,87 @@ mod tests {
             options(&state, me(), source, &CostPart::Discard(anything)),
             vec![in_my_hand],
             "the discard comes out of the payer's own hand"
+        );
+    }
+
+    /// A graveyard exile reads **the payer's** graveyard and nothing else,
+    /// through its filter: a creature card of mine is on the menu, a land
+    /// card of mine is not, and neither is a creature card in the other
+    /// graveyard or a creature on the battlefield. The zone is the whole of
+    /// the "your" — the filter here says only "creature", as the cards
+    /// write it.
+    #[test]
+    fn a_graveyard_exile_reads_only_the_payers_graveyard_through_its_filter() {
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Haunt");
+        let buried = creature(&mut state, me(), ZoneLocation::Graveyard(me()), "Buried");
+        let land = state.names.intern("Buried Land");
+        let land = state.create_bare(me(), ObjectKind::Card, land, ZoneLocation::Graveyard(me()));
+        state
+            .object_mut(land)
+            .expect("just made it")
+            .base_mut()
+            .types = TypeSet::LAND;
+        creature(
+            &mut state,
+            them(),
+            ZoneLocation::Graveyard(them()),
+            "Theirs",
+        );
+        creature(&mut state, me(), ZoneLocation::Battlefield, "Standing");
+
+        let part = CostPart::ExileFromGraveyard(&Filter::CREATURE);
+        assert!(needs_an_answer(&part), "a card has to be named to pay it");
+        assert_eq!(prompt(&part), ChoicePrompt::CostExile);
+        assert_eq!(
+            options(&state, me(), source, &part),
+            vec![buried],
+            "my creature card, and not my land card, their creature card or \
+             a creature on the battlefield"
+        );
+        assert_eq!(
+            options(
+                &state,
+                me(),
+                source,
+                &CostPart::ExileFromGraveyard(&Filter::Any)
+            ),
+            vec![buried, land],
+            "and the filter is what kept the land out"
+        );
+    }
+
+    /// The card goes to its owner's **exile** (CR 406.2), through the door
+    /// every cost uses and under [`Cause::Cost`] — not to the graveyard it
+    /// came from, which is where the other parts' fall-through would put it
+    /// and where it already is, so a payment that forgot the arm would move
+    /// nothing and report success.
+    #[test]
+    fn a_card_exiled_to_pay_goes_to_its_owners_exile_under_cause_cost() {
+        let mut state = state();
+        let buried = creature(&mut state, me(), ZoneLocation::Graveyard(me()), "Buried");
+
+        pay(
+            &mut state,
+            me(),
+            &CostPart::ExileFromGraveyard(&Filter::CREATURE),
+            buried,
+        )
+        .expect("a card in the payer's graveyard pays it");
+
+        assert!(state.zones.contains(buried, ZoneLocation::Exile(me())));
+        assert!(!state.zones.contains(buried, ZoneLocation::Graveyard(me())));
+        assert!(
+            state.journal.entries().iter().any(|e| matches!(
+                e.event,
+                GameEvent::ZoneChanged {
+                    object,
+                    from: crate::zone::Zone::Graveyard,
+                    to: crate::zone::Zone::Exile,
+                    cause: Cause::Cost,
+                } if object == buried
+            )),
+            "the move is journaled as a cost paid out of the graveyard"
         );
     }
 

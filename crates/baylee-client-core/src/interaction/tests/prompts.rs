@@ -273,6 +273,16 @@ fn four_card_choices_read_as_four_different_decisions() {
         line(ChoicePrompt::CostReturn, 1, 1, Lang::De),
         "Wähle 1 bleibende Karte, die auf die Hand ihres Besitzers zurückgenommen wird"
     );
+    // And the pile the card leaves, which delve's plain noun never had to
+    // say: Mines of Moria asks three times, one card at a time.
+    assert_eq!(
+        line(ChoicePrompt::CostExile, 1, 1, Lang::En),
+        "Choose 1 card to exile from your graveyard"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostExile, 1, 1, Lang::De),
+        "Wähle 1 Karte aus deinem Friedhof, die ins Exil geschickt wird"
+    );
 
     // And the whole of AS's second half: one card is never "card(s)".
     for lang in Lang::ALL {
