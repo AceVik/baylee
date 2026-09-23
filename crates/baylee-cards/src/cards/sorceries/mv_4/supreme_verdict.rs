@@ -18,7 +18,5 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
     keywords = KeywordSet::UNCOUNTERABLE,
     coverage = Coverage::Implemented,
-    abilities = &[spell!(&[Effect::DestroyAll {
-        filter: &Filter::CREATURE
-    }])],
+    abilities = &[spell!(&[Effect::destroy_all(&Filter::CREATURE)])],
 );

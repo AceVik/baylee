@@ -168,10 +168,16 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
     // Exactly the spellings `spec_object` is reached from. Written as the
     // `Debug` of the effect, so adding an arm there and forgetting this list
     // fails loudly on the next card rather than quietly on the next player.
+    //
+    // `Destroy` is spelled twice because its `no_regen` rider is part of the
+    // `Debug` and a prefix match would stop being a reading of the whole
+    // effect — which is the property this list is here for.
     const READ: &[&str] = &[
         "ReturnToHand { target: ThisObject }",
-        "Destroy { target: ThisObject }",
+        "Destroy { target: ThisObject, no_regen: false }",
+        "Destroy { target: ThisObject, no_regen: true }",
         "GraveyardToBattlefield { target: ThisObject }",
+        "Regenerate { target: ThisObject }",
     ];
 
     let mut unread = Vec::new();

@@ -8131,19 +8131,29 @@ fn desolate_lighthouse_loots_with_mana_and_tap() {
 }
 
 /// Elephant Graveyard: "{T}: Add {C}." / "{T}: Regenerate target Elephant."
-/// Under `Coverage::Partial`, regeneration shields are unsupported and the second ability is omitted.
-/// When played from hand, Elephant Graveyard offers only its colorless mana ability and taps for {C}.
+///
+/// The two abilities share one `{T}`, so no board can show both being used
+/// and the *menu* is what is worth reading instead. The Elf standing beside
+/// the Elephant is what gives the subtype filter something to refuse: a
+/// list of one on a board holding one creature would say nothing at all.
+///
+/// This was a pin on the missing shield, and it passed for the wrong
+/// reason — its board held no Elephant, so the ability was off the offer
+/// for want of a target rather than for want of a rule, and it would have
+/// gone on passing after regeneration was written.
 #[test]
-fn elephant_graveyard_taps_for_colorless_and_omits_regenerate() {
+fn elephant_graveyard_regenerates_an_elephant_and_not_the_elf_beside_it() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(34, forest())
         .hand(0, &[elephant_graveyard()])
+        .battlefield(0, &[wild_elephant(), llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let eg = play_land(&mut engine, p0, elephant_graveyard());
     assert!(!is_tapped(&engine, eg));
+    let elephant = on_battlefield(&engine, p0, wild_elephant()).expect("the 3/3 is seated");
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
@@ -8153,18 +8163,32 @@ fn elephant_graveyard_taps_for_colorless_and_omits_regenerate() {
         "colorless mana ability is offered"
     );
     assert!(
-        !legal.abilities.iter().any(|(s, i)| *s == eg && *i == 1),
-        "unsupported regenerate ability is omitted"
+        legal.abilities.contains(&(eg, 1)),
+        "and so is the regeneration, because an Elephant is there to point it at"
     );
 
-    activate(&mut engine, p0, elephant_graveyard(), 0);
+    activate(&mut engine, p0, elephant_graveyard(), 1);
+    let menu = aim_at(&mut engine, p0, elephant);
     assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        1
+        menu,
+        vec![elephant],
+        "the Elf is a creature and is not an Elephant, so it is not on the menu"
     );
-    assert!(is_tapped(&engine, eg));
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(elephant)
+            .expect("the Elephant is untouched by its own shield")
+            .regeneration_shields,
+        1,
+        "one shield, standing until the cleanup step"
+    );
+    assert!(
+        is_tapped(&engine, eg),
+        "and the land paid with the tap the mana ability would have wanted"
+    );
 }
 
 /// Geier Reach Sanitarium: "{2}, {T}: Each player draws a card, then discards a card."
@@ -8648,25 +8672,38 @@ fn witch_s_clinic_taps_for_colorless_and_omits_unsupported_lifelink() {
 }
 
 /// Yavimaya Hollow: "{T}: Add {C}." / "{G}, {T}: Regenerate target creature."
-/// Under `Coverage::Partial`, regeneration shields are unsupported and the second ability is omitted.
-/// When played from hand, Yavimaya Hollow offers only its colorless mana ability and taps for {C}.
+///
+/// "Target creature" and no subtype, which is the other half of the shape
+/// the Elephant Graveyard shows: here the menu is the whole board and the
+/// *price* is what has to be paid, so the `{G}` leaving the pool is the
+/// assertion the Graveyard cannot make.
+///
+/// This pinned the missing shield on a board with no creature at all, so
+/// the ability was absent for want of a target and the pin would never have
+/// noticed the rule arriving.
 #[test]
-fn yavimaya_hollow_taps_for_colorless_and_omits_unsupported_regenerate() {
+fn yavimaya_hollow_spends_a_green_to_shield_a_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(45, forest())
         .hand(0, &[yavimaya_hollow()])
-        .battlefield(0, &[forest()])
+        .battlefield(0, &[forest(), llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let hollow = play_land(&mut engine, p0, yavimaya_hollow());
     assert!(!is_tapped(&engine, hollow));
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are seated");
 
     // Everything but the land under test: `tap_all_mana` takes printed mana
     // abilities as well as the CR 305.6 shortcut (#159), so tapping it would
     // remove the very offer this asserts on.
     tap_mana_except(&mut engine, p0, hollow);
+    let green = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Green);
+    assert!(green >= 1, "the Forest is the {{G}} the price is paid with");
+
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -8675,18 +8712,34 @@ fn yavimaya_hollow_taps_for_colorless_and_omits_unsupported_regenerate() {
         "colorless mana ability is offered"
     );
     assert!(
-        !legal.abilities.iter().any(|(s, i)| *s == hollow && *i == 1),
-        "unsupported regenerate ability is omitted"
+        legal.abilities.contains(&(hollow, 1)),
+        "and the regeneration, with a green floating to pay for it"
     );
 
-    activate(&mut engine, p0, yavimaya_hollow(), 0);
+    activate(&mut engine, p0, yavimaya_hollow(), 1);
+    let menu = aim_at(&mut engine, p0, elf);
+    assert!(
+        menu.contains(&elf),
+        "`target creature` reaches every creature on the board: {menu:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(elf)
+            .expect("the Elves are still there")
+            .regeneration_shields,
+        1
+    );
+    assert!(is_tapped(&engine, hollow), "the {{T}} half of the cost");
     assert_eq!(
         engine.state().players[0]
             .mana_pool
-            .available(ManaColor::Colorless),
-        1
+            .available(ManaColor::Green),
+        green - 1,
+        "and the {{G}} half: one green went into the price"
     );
-    assert!(is_tapped(&engine, hollow));
 }
 
 /// Access Tunnel: "{T}: Add {C}." / "{3}, {T}: Target creature with power 3
@@ -14131,14 +14184,28 @@ fn shelldock_isle_enters_tapped_and_taps_for_blue() {
     assert!(is_tapped(&engine, land));
 }
 
-/// Spawning Pool: "This land enters tapped." / "{T}: Add {B}." / "{1}{B}: This land becomes a 1/1 black Skeleton creature with '{B}: Regenerate this creature' until end of turn. It's still a land."
-/// Under `Coverage::Partial`, the regenerate grant is omitted because no regenerate effect or keyword exists in the engine.
-/// Playing this land enters tapped, and paying `{1}{B}` after untapping turns it into a 1/1 black Skeleton creature that remains a land.
+/// Spawning Pool: "This land enters tapped." / "{T}: Add {B}." / "{1}{B}:
+/// This land becomes a 1/1 black Skeleton creature with '{B}: Regenerate
+/// this creature' until end of turn. It's still a land."
+///
+/// The regeneration here is not an ability the card has — it is one an
+/// animation *grants*, which is a different door: it arrives as a
+/// `Modifier::GrantActivated` and is offered under the synthetic
+/// `choice::GRANTED_ABILITY` index rather than at a place in the card's own
+/// list. So the assertion has to be made twice over: the printed ability 1
+/// is what animates, and the thing it hands the land is what makes a
+/// shield.
+///
+/// Three Swamps, because the animation eats `{1}{B}` and the grant then asks
+/// for a `{B}` of its own — and `mana_pay::pay_any` settles the generic half
+/// out of `ManaColor::ALL` in order, so it takes the black before it reaches
+/// the green standing beside it. Two Swamps leave the grant unaffordable and
+/// the offer would then be missing for the wrong reason.
 #[test]
-fn spawning_pool_enters_tapped_and_animates_into_skeleton() {
+fn spawning_pool_animates_into_a_skeleton_that_can_regenerate_itself() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(217, forest())
-        .battlefield(0, &[swamp(), forest()])
+        .battlefield(0, &[swamp(), swamp(), swamp(), forest()])
         .hand(0, &[spawning_pool()])
         .start();
     keep_mulligans(&mut engine);
@@ -14164,6 +14231,38 @@ fn spawning_pool_enters_tapped_and_animates_into_skeleton() {
     assert!(types.contains(TypeSet::CREATURE));
     assert!(types.contains(TypeSet::LAND));
     assert!(!is_tapped(&engine, pool));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal
+            .abilities
+            .contains(&(pool, crate::choice::GRANTED_ABILITY)),
+        "the animation granted an activated ability, and it is on offer: {:?}",
+        legal.abilities
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: pool,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("a black is still floating for the grant");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(pool)
+            .expect("the land is still a land")
+            .regeneration_shields,
+        1,
+        "the granted ability regenerates the thing that was granted it"
+    );
 }
 
 /// Spymaster's Vault: "This land enters tapped unless you control a Swamp." / "{T}: Add {B}." / "{B}, {T}: Target creature you control connives X..."
@@ -26512,21 +26611,29 @@ fn zanarkand_ancient_metropolis_enters_tapped_and_taps_for_green() {
     assert!(is_tapped(&engine, land));
 }
 
-/// Accursed Duneyard prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}: Regenerate target Shade,
-/// Skeleton, Specter, Spirit, Vampire, Wraith, or Zombie.`
+/// Accursed Duneyard prints `{{T}}: Add {{C}}.` and `{{2}}, {{T}}: Regenerate
+/// target Shade, Skeleton, Specter, Spirit, Vampire, Wraith, or Zombie.`
 ///
-/// Under `Coverage::Partial`, the regenerate ability is omitted because the engine's
-/// `Effect` enum carries no regeneration variant. With two green mana floating from
-/// `forest()` lands, Accursed Duneyard untapped, and a controlled Zombie creature
-/// (`festering_goblin()`), ability index 1 is not offered in `legal.abilities`.
-/// Activating ability 0 adds one colorless mana to `pool.available(ManaColor::Colorless)`.
+/// The longest of the four regenerating lands' filters — seven subtypes —
+/// and the only one with a mana price on top of the tap, so the board holds
+/// the `{{2}}` that price wants and the Elf that the seven subtypes refuse.
+///
+/// Unlike its three neighbours this pin was a real one: the Zombie was here
+/// and the `{{2}}` was floating, so it failed the day the rule was written,
+/// which is what a pin is for.
 #[test]
-fn accursed_duneyard_taps_for_colorless_and_omits_regenerate_ability() {
+fn accursed_duneyard_pays_two_to_shield_a_zombie_and_not_an_elf() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[accursed_duneyard(), forest(), forest(), festering_goblin()],
+            &[
+                accursed_duneyard(),
+                forest(),
+                forest(),
+                festering_goblin(),
+                llanowar_elves(),
+            ],
         )
         .start();
     keep_mulligans(&mut engine);
@@ -26534,10 +26641,14 @@ fn accursed_duneyard_taps_for_colorless_and_omits_regenerate_ability() {
 
     let duneyard =
         on_battlefield(&engine, p0, accursed_duneyard()).expect("accursed duneyard on battlefield");
+    let zombie = on_battlefield(&engine, p0, festering_goblin()).expect("the Zombie is seated");
 
-    // Float {2} from the two Forests while keeping Accursed Duneyard untapped.
+    // Float everything but the land under test, which has to stay untapped
+    // for the offer this reads. The Elves are a mana source too and tap
+    // along with the Forests; a tapped creature is a target all the same.
     tap_mana_except(&mut engine, p0, duneyard);
-    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    let floating = engine.state().players[0].mana_pool.total();
+    assert!(floating >= 2, "the two Forests pay the {{2}}: {floating}");
     assert!(!is_tapped(&engine, duneyard));
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
@@ -26548,16 +26659,33 @@ fn accursed_duneyard_taps_for_colorless_and_omits_regenerate_ability() {
         "ability 0 ({{T}}: Add {{C}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(duneyard, 1)),
-        "with {{2}} floating and a Zombie target present, ability 1 is omitted under `Coverage::Partial`"
+        legal.abilities.contains(&(duneyard, 1)),
+        "and ability 1, with the {{2}} floating and a Zombie to point it at"
     );
 
-    activate(&mut engine, p0, accursed_duneyard(), 0);
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert_eq!(pool.available(ManaColor::Green), 2);
-    assert_eq!(pool.total(), 3);
+    activate(&mut engine, p0, accursed_duneyard(), 1);
+    let menu = aim_at(&mut engine, p0, zombie);
+    assert_eq!(
+        menu,
+        vec![zombie],
+        "seven subtypes and the Elf is none of them"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(zombie)
+            .expect("the Zombie is still there")
+            .regeneration_shields,
+        1
+    );
     assert!(is_tapped(&engine, duneyard));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating - 2,
+        "and the generic {{2}} came out of the pool"
+    );
 }
 
 /// Amonkhet Raceway prints `Start your engines!`, `{{T}}: Add {{C}}.`, and
@@ -29828,22 +29956,29 @@ fn swarmyard() -> CardIndex {
     card_index("4b508087-99da-4eb1-8b12-29162f2ec85d")
 }
 
-/// `Swarmyard` prints `{{T}}: Add {{C}}.` and `{{T}}: Regenerate target Insect, Rat, Spider, or Squirrel.`
+/// `Swarmyard` prints `{{T}}: Add {{C}}.` and `{{T}}: Regenerate target Insect,
+/// Rat, Spider, or Squirrel.`
 ///
-/// Under `Coverage::Partial`, only the colorless mana ability is implemented because regenerate is not supported by the engine.
-/// With `Swarmyard` and a creature on the battlefield under `PlayerId::new(0)`, checking `legal.abilities` confirms that ability 0 is offered while ability 1 is omitted.
-/// Activating ability 0 produces one colorless mana and leaves `Swarmyard` tapped.
+/// Four subtypes joined with `Filter::Or`, which is a shape a single-subtype
+/// card cannot show is wrong: the Spider is one of the four and the Wolf is
+/// none of them, so the menu is the assertion.
+///
+/// The Wolf was already here when this pinned the missing shield — and it is
+/// exactly why that pin was hollow. `young_wolf()` is no Insect, Rat, Spider
+/// or Squirrel, so ability 1 was off the offer for want of a target and the
+/// pin passed on both sides of the rule it was watching.
 #[test]
-fn swarmyard_taps_for_colorless_and_omits_regenerate_ability() {
+fn swarmyard_regenerates_the_spider_and_not_the_wolf() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[swarmyard(), young_wolf()])
+        .battlefield(0, &[swarmyard(), rib_cage_spider(), young_wolf()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let yard = on_battlefield(&engine, p0, swarmyard()).expect("swarmyard on battlefield");
     assert!(!is_tapped(&engine, yard));
+    let spider = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
@@ -29853,14 +29988,27 @@ fn swarmyard_taps_for_colorless_and_omits_regenerate_ability() {
         "ability 0 ({{T}}: Add {{C}}) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(yard, 1)),
-        "regenerate ability is omitted under `Coverage::Partial`"
+        legal.abilities.contains(&(yard, 1)),
+        "and the regeneration, because one of the four subtypes is on the board"
     );
 
-    activate(&mut engine, p0, swarmyard(), 0);
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert_eq!(pool.total(), 1);
+    activate(&mut engine, p0, swarmyard(), 1);
+    let menu = aim_at(&mut engine, p0, spider);
+    assert_eq!(
+        menu,
+        vec![spider],
+        "the Wolf is a creature and none of the four vermin"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(spider)
+            .expect("the Spider is still there")
+            .regeneration_shields,
+        1
+    );
     assert!(is_tapped(&engine, yard));
 }
 

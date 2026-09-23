@@ -11,9 +11,13 @@ lifetime. It is the plan: mechanic families, the hook each one needs, an
 engine size class, a batch order, and it is meant to hold still. This file is
 re-derived whenever the pool moves, which is why the counts live here and not
 there — a family and its hook survive a card batch, a count does not. The
-roadmap proves that against itself: C2b is headed "no card in the pool needs
-it yet" and says "Nothing in the 194-card pool actually *regenerates*", while
-G19 below counts eight cards whose `//! Oracle:` header prints regeneration.
+roadmap proved that against itself: C2b was headed "no card in the pool needs
+it yet" and said "Nothing in the 194-card pool actually *regenerates*", while
+G19 below counted eight cards whose `//! Oracle:` header prints regeneration.
+Both closed on 23.09.2026 and the example is left standing, because what it
+illustrates is the drift and not the gap: seven cards in the pool make a
+shield today and eight print the clause that ignores one, with no card on
+both doors.
 
 The cross-reference therefore runs one way from here: §1 names which roadmap
 hook a gap is, and the roadmap carries no counts.
@@ -73,7 +77,7 @@ the same card being booked as a win in three rows.
 | **G16 Servo/Germ tokens, and a handle on a freshly created object** | `partial`#5, tests `nettlecyst`, `marionette_apprentice` |
 | **G17 A static with a condition** | `partial`#8 |
 | **G18 Ability removal, projected** | `partial`#9, test `tishana_s_tidebinder` |
-| **G19 Regeneration** | `dsl`#7 |
+| ~~**G19 Regeneration**~~ | `dsl`#7 — **closed 23.09.2026**, roadmap C2b |
 | **G20 Fight** | `dsl`#3 |
 | **G21 Impulse Draw** | `dsl`#6 |
 | **G22 Activation cost reduction** | `dsl`#8 (channel lands, Training Grounds) — **not** the same thing as G13 |
@@ -127,7 +131,7 @@ met where the ranking is.
 | 7 | **G7** "can't block / can't attack / can block only" | 10 (7 "can't block" headers by hand, plus Brazen Borrower and Glacial Chasm) | 1.5 | ~7 | **case** at `can_block`, **rule** at `can_attack` | — |
 | 8 | **G8** Removing, moving and proliferating counters as an effect | **contradictory: 1 against 13** | 1 | ? | **case** | G2 |
 | 9 | **G20** Fight | 5 headers (by hand), 5 `dsl` | 1 (the word) / 3 (the reach) | 5 | **case**, the reach bound to **G9** | 4 of the 5 also G9 |
-| 10 | **G19** Regeneration | 8 headers (by hand), 7 `dsl` | 2 | 4 | **new rule**, but with one funnel | Damn (`NoRegen$`) |
+| 10 | ~~**G19** Regeneration~~ **closed** | 8 headers (by hand), 7 `dsl` | 2 | 4 | **new rule**, but with one funnel | Damn (`NoRegen$`) |
 | 11 | **G21** Impulse Draw | 6 | 1.5 | 4 | **case** plus an expiry sweep | — |
 | 12 | **G9** Target slots (how many, and a second kind) | 5 (`offers`) + 6 (`dsl`) = 11 | 3 | 3.7 | **new rule** | G20 |
 | 13 | **G22** Activation cost reduction | 11 activated + 9 spells (`dsl`) | 2–3 | ~4 | spells: **case**; activation: **rule** (no seam) | — |
@@ -964,7 +968,10 @@ name for it):
 - **G14** — a choice at resolution that is expressly *not* a target choice, so
   that hexproof, shroud, ward and "becomes the target of" never see it.
 - **G19 Regeneration** — new, but with a single funnel (`sba::destroy`), which
-  makes it cheaper than its card count suggests.
+  makes it cheaper than its card count suggests. **Closed 23.09.2026, and the
+  funnel is why**: the rule is one branch inside `sba::destroy` and the rest
+  of the work was the seven cards and the `no_regen` flag the nine cards
+  already written against its absence needed.
 - **G12 Storm**, **G15 subtracting a subtype** (layer 4 writes only `types`
   today, not `subtypes`), **G18 ability removal** (`abilities` has to become a
   projected characteristic), **G22** for the activation half (for spells it is

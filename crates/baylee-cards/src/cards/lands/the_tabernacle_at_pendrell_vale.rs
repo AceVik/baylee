@@ -16,9 +16,7 @@ use baylee_cards_dsl::prelude::*;
 static TABERNACLE_TAX: &[Effect] = &[Effect::PlayerMayPayOr {
     player: PlayerRel::You,
     mana: Amount::Fixed(1),
-    effect: &Effect::Destroy {
-        target: TargetSpec::ThisObject,
-    },
+    effect: &Effect::destroy(TargetSpec::ThisObject),
 }];
 
 card!(

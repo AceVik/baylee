@@ -84,9 +84,7 @@ card!(
         chapter!(
             3,
             &[
-                Effect::DestroyAll {
-                    filter: &Filter::HasSubtype(creature::WALL),
-                },
+                Effect::destroy_all(&Filter::HasSubtype(creature::WALL)),
                 Effect::ExileSelfReturnAsFace { face: 1 },
             ]
         ),

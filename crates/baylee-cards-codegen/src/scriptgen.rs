@@ -24,6 +24,11 @@
 //! ability quietly dropped because its `NoRegen$ True` was ignored would be
 //! worse than no card at all, because the deckbuilder would offer it.
 //!
+//! That key is the worked example of why *consuming* a parameter is not the
+//! same as reading one. It was consumed as vacuous for as long as this
+//! engine had no regeneration — true then, and a card the reader would have
+//! written wrongly the moment a shield existed. It is read now.
+//!
 //! The corpus is read as an automated lookup only; no file of it is copied into
 //! this repository.
 
@@ -824,16 +829,41 @@ impl Tx<'_> {
             }
             "Mana" => self.mana_effect(p)?,
             "Destroy" => {
-                // `NoRegen$ True` is vacuous here and may be consumed:
-                // `Effect::Destroy` already destroys unconditionally,
-                // because the engine has no regeneration mechanic for a
-                // shield to be worth anything against. Any other value
-                // would be saying something about regeneration that this
-                // engine cannot say, so it refuses.
-                if p.take("NoRegen").is_some_and(|v| v != "True") {
+                // `NoRegen$ True` is **read** and no longer merely consumed.
+                // It was vacuous while this engine had no regeneration at
+                // all — one door, and every card printing "it can't be
+                // regenerated" was right for free — and the day a shield
+                // existed the two doors stopped being the same function
+                // (CR 701.19c). Any other value is a third thing the DSL
+                // cannot say, so it refuses.
+                let no_regen = match p.take("NoRegen").as_deref() {
+                    None => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                let verb = if no_regen {
+                    "destroy_no_regen"
+                } else {
+                    "destroy"
+                };
+                vec![format!("Effect::{verb}({aimed})")]
+            }
+            "Regenerate" => {
+                // Bare `AB$ Regenerate` is "regenerate CARDNAME" — 181 of
+                // the reference's 275 lines writing this API name no target
+                // at all — so the absent target is the source and not a
+                // missing one, the same reading `Untap` makes two arms
+                // below. `Defined$` names something else entirely (the
+                // enchanted creature, a remembered object; 33 lines) and is
+                // refused rather than guessed at, which leaves the 62 that
+                // carry a `ValidTgts$` as the targeted half.
+                if p.take("Defined").is_some() {
                     return None;
                 }
-                vec![format!("Effect::destroy({aimed})")]
+                match target {
+                    Some(t) => vec![format!("Effect::regenerate({t})")],
+                    None => vec!["Effect::regenerate(TargetSpec::ThisObject)".to_string()],
+                }
             }
             "Token" => self.token_effect(p, target)?,
             "Investigate" => self.investigate_effect(p, target)?,
@@ -3532,6 +3562,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Surveil",
     "Mana",
     "Destroy",
+    "Regenerate",
     "Tap",
     "Untap",
     "Counter",

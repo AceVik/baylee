@@ -2,14 +2,14 @@
 //! Oracle: Destroy target creature. A creature destroyed this way can't be regenerated.
 //! Oracle: Overload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change "target" in its text to "each.")
 //! Set: LCC #191 — The Lost Caverns of Ixalan Commander | Scryfall ID: 84056124-1a6f-4274-bee2-74cf0debddb5 | Oracle ID: b01d61cc-9844-4191-86a0-f2db6d42d6e5
-// IMPLEMENTED — single-target destroy or overloaded wrath. ("A creature
-// destroyed this way can't be regenerated" is vacuous: the engine has no
-// regeneration mechanic yet; noted for the roadmap's regeneration family.)
+// IMPLEMENTED — single-target destroy or overloaded wrath, and both halves
+// carry the no-regeneration rider (CR 701.19c). That clause was recorded
+// here as vacuous, which it was for exactly as long as no shield existed.
 
-static NORMAL_EFFECTS: &[Effect] = &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))];
-static OVERLOAD_EFFECTS: &[Effect] = &[Effect::DestroyAll {
-    filter: &Filter::CREATURE,
-}];
+static NORMAL_EFFECTS: &[Effect] = &[Effect::destroy_no_regen(TargetSpec::Object(
+    &Filter::CREATURE,
+))];
+static OVERLOAD_EFFECTS: &[Effect] = &[Effect::destroy_all_no_regen(&Filter::CREATURE)];
 
 use baylee_cards_dsl::prelude::*;
 

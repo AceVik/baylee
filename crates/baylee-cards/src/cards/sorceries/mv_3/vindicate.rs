@@ -1,7 +1,9 @@
 //! Vindicate — {1}{W}{B} — Sorcery
 //! Oracle: Destroy target permanent.
 //! Set: MH2 #294 — Modern Horizons 2 | Scryfall ID: 683c4e13-525c-45c9-8832-bfe67965c34e | Oracle ID: 63c1ac21-e3d8-40c2-8c09-3f31c52992ef
-// IMPLEMENTED — destroy any target permanent (can't be regenerated).
+// IMPLEMENTED — destroy any target permanent. The printing says nothing
+// about regeneration, so the permanent's own shield applies: this comment
+// claimed otherwise for as long as no shield existed.
 
 use baylee_cards_dsl::prelude::*;
 

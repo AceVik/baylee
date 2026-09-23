@@ -923,7 +923,8 @@ where the oracle sentence it encodes is a line above it.
 ### Effects (ops)
 
 **The common ones have a verb**, and the verb is the word the card prints:
-`Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`, `exile(t)`,
+`Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
+`destroy_no_regen(t)`, `regenerate(t)`, `exile(t)`,
 `blink(t)`, `bounce(t)`, and `continuous(filter, modifier, duration)`
 with the layer derived. `Effect::mana` is the precedent — 219 uses in the
 pool against zero raw `AddMana` literals.
@@ -949,11 +950,26 @@ A fixed count is the argument (83 of the pool's 84 draws are fixed);
 `{X}` and anything else writes the literal, the way `Effect::mana_dynamic`
 sits beside `Effect::mana`.
 
+**Destruction is two verbs and picking the wrong one is silent.**
+`Effect::destroy(t)` is a destruction a regeneration shield replaces;
+`Effect::destroy_no_regen(t)` is the one that prints "it can't be
+regenerated" (CR 701.19c), and `destroy_all` / `destroy_all_no_regen` are the
+same pair for a sweep. Write whichever sentence the card prints and nothing
+else — the two were the same function for as long as this engine had no
+regeneration, so a card written before 23.09.2026 proves nothing about which
+one it meant. `Effect::regenerate(t)` is the shield itself: it puts one on
+the target, and the *next* destruction this turn is replaced by tapping it,
+clearing its marked damage and removing it from combat. A shield does not
+survive the cleanup step, and it replaces **destruction** and nothing else: a
+creature at zero toughness is put into a graveyard without being destroyed
+(CR 704.5f) and dies through a shield, and so does one that is exiled or
+sacrificed, because neither of those is a destruction either.
+
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
 `RearrangeTopLibrary`/`ReorderTopLibrary`.
 Combat/damage: `DealDamage`, `DealDamageToTargetController`.
-Removal: `Destroy`, `DestroyAll`, `Exile`, `CounterTargetSpell`,
+Removal: `Destroy`, `DestroyAll`, `Regenerate`, `Exile`, `CounterTargetSpell`,
 `CounterTargetAbility`, `CounterTargetSpellOrAbility`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
 whose ability an *earlier* `CounterTargetAbility` in the same effect list

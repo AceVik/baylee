@@ -20,7 +20,7 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(
-        &[Effect::destroy(TargetSpec::Object(&TARGET1))],
+        &[Effect::destroy_no_regen(TargetSpec::Object(&TARGET1))],
         targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
     ),],
 );

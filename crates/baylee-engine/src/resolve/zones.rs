@@ -183,7 +183,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::DestroyAll { filter } => {
+        Effect::DestroyAll { filter, no_regen } => {
             let all: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Battlefield)
@@ -196,7 +196,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .copied()
                 .collect();
             for id in all {
-                sba::destroy(state, id);
+                if no_regen {
+                    sba::destroy_no_regen(state, id);
+                } else {
+                    sba::destroy(state, id);
+                }
             }
             None
         }
@@ -486,9 +490,30 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Destroy { target } => {
+        Effect::Destroy { target, no_regen } => {
             if let Some(target_id) = spec_object(res, target) {
-                sba::destroy(state, target_id);
+                if no_regen {
+                    sba::destroy_no_regen(state, target_id);
+                } else {
+                    sba::destroy(state, target_id);
+                }
+            }
+            None
+        }
+        // CR 701.19a: the shield is put on the permanent as this resolves,
+        // and does nothing until something would destroy it. `spec_object`
+        // answers both spellings from one field — `ThisObject` for
+        // "regenerate this creature", the chosen target for "regenerate
+        // target creature".
+        //
+        // Nothing checks that the permanent is a creature: "regenerate" is
+        // written about permanents (CR 701.19a) and a shield on an animated
+        // land that stops being one is simply a shield nothing spends.
+        Effect::Regenerate { target } => {
+            if let Some(target_id) = spec_object(res, target)
+                && let Some(obj) = state.object_mut(target_id)
+            {
+                obj.regeneration_shields = obj.regeneration_shields.saturating_add(1);
             }
             None
         }

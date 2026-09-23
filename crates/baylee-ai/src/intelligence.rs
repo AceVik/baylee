@@ -386,9 +386,7 @@ mod tests {
     /// "unless you pay".
     #[test]
     fn a_sweeper_is_found_however_deeply_a_clause_nests_it() {
-        const WRATH: Effect = Effect::DestroyAll {
-            filter: &Filter::CREATURE,
-        };
+        const WRATH: Effect = Effect::destroy_all(&Filter::CREATURE);
         const BARE: &[Effect] = &[WRATH];
         const IN_A_SEQUENCE: &[Effect] = &[Effect::Sequence(&[WRATH])];
         const IN_A_MAY: &[Effect] = &[Effect::MayDo { effects: &[WRATH] }];
@@ -417,9 +415,9 @@ mod tests {
     /// and a pump is one only where the toughness it hands out is negative.
     #[test]
     fn a_card_that_is_not_a_sweeper_is_not_read_as_one() {
-        const ONE_AT_A_TIME: &[Effect] = &[Effect::Destroy {
-            target: baylee_cards_dsl::TargetSpec::Object(&Filter::CREATURE),
-        }];
+        const ONE_AT_A_TIME: &[Effect] = &[Effect::destroy(baylee_cards_dsl::TargetSpec::Object(
+            &Filter::CREATURE,
+        ))];
         const ANTHEM: &[Effect] = &[Effect::PumpFilter {
             filter: &Filter::CREATURE,
             controlled_by: None,

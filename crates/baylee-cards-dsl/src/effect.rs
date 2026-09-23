@@ -604,10 +604,22 @@ pub enum Effect {
         /// Which cards qualify.
         filter: &'static Filter,
     },
-    /// Destroy a target permanent (can't be regenerated).
+    /// Destroy a target permanent (CR 701.8a).
     Destroy {
         /// What.
         target: TargetSpec,
+        /// Whether the printing adds "it can't be regenerated"
+        /// (CR 701.19c): a regeneration shield on the permanent is *not*
+        /// applied, and the destruction goes through.
+        ///
+        /// A field rather than two variants because it is a rider on one
+        /// sentence — eight cards in this pool print it and a hundred and
+        /// twenty-two do not, with no card on both doors — and
+        /// [`Effect::destroy`] supplies the `false`
+        /// so no card restates the default. The doc above this used to say
+        /// every destroy was unregeneratable, which was true only for as
+        /// long as no shield existed.
+        no_regen: bool,
     },
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
@@ -1006,6 +1018,28 @@ pub enum Effect {
     DestroyAll {
         /// What.
         filter: &'static Filter,
+        /// "They can't be regenerated" (CR 701.19c) — see
+        /// [`Effect::Destroy::no_regen`].
+        no_regen: bool,
+    },
+    /// Regenerate a permanent (CR 701.19a): the next time it would be
+    /// destroyed this turn, instead remove all damage marked on it, its
+    /// controller taps it, and if it is attacking or blocking it is
+    /// removed from combat.
+    ///
+    /// A **count** on the object rather than a flag, because each
+    /// resolution creates its own shield and a creature regenerated twice
+    /// survives being destroyed twice.
+    ///
+    /// [`TargetSpec::ThisObject`] is the self case — "Regenerate this
+    /// creature" names no target (CR 115.1), so Thrun and Lotleth Troll do
+    /// not go through the targeting machinery while Yavimaya Hollow's
+    /// "regenerate target creature" does. One variant rather than a
+    /// `RegenerateSelf` beside it, because `spec_object` already answers
+    /// both from the same field.
+    Regenerate {
+        /// Which permanent gets the shield.
+        target: TargetSpec,
     },
     /// Exile all cards from a player's graveyard (Bojuka Bog).
     ExileGraveyard {
@@ -1371,7 +1405,43 @@ impl Effect {
     /// "Destroy target …"
     #[must_use]
     pub const fn destroy(target: TargetSpec) -> Self {
-        Self::Destroy { target }
+        Self::Destroy {
+            target,
+            no_regen: false,
+        }
+    }
+
+    /// "Destroy target … It can't be regenerated." (CR 701.19c)
+    #[must_use]
+    pub const fn destroy_no_regen(target: TargetSpec) -> Self {
+        Self::Destroy {
+            target,
+            no_regen: true,
+        }
+    }
+
+    /// "Regenerate target …" / "Regenerate this creature."
+    #[must_use]
+    pub const fn regenerate(target: TargetSpec) -> Self {
+        Self::Regenerate { target }
+    }
+
+    /// "Destroy all …" — a wrath the survivors may regenerate from.
+    #[must_use]
+    pub const fn destroy_all(filter: &'static Filter) -> Self {
+        Self::DestroyAll {
+            filter,
+            no_regen: false,
+        }
+    }
+
+    /// "Destroy all … They can't be regenerated." (CR 701.19c)
+    #[must_use]
+    pub const fn destroy_all_no_regen(filter: &'static Filter) -> Self {
+        Self::DestroyAll {
+            filter,
+            no_regen: true,
+        }
     }
 
     /// "Exile target …"
@@ -1727,6 +1797,7 @@ impl Effect {
             | Effect::BecomeMonarch
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::PumpFilter { .. }
+            | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. } => (NONE, NONE),
         }
     }
@@ -1790,7 +1861,13 @@ mod verb_tests {
         );
 
         let target = TargetSpec::Object(&Filter::CREATURE);
-        assert_eq!(Effect::destroy(target), Effect::Destroy { target });
+        assert_eq!(
+            Effect::destroy(target),
+            Effect::Destroy {
+                target,
+                no_regen: false
+            }
+        );
         assert_eq!(Effect::exile(target), Effect::Exile { target });
         assert_eq!(Effect::blink(target), Effect::Blink { target });
         assert_eq!(Effect::bounce(target), Effect::ReturnToHand { target });

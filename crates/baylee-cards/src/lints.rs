@@ -155,7 +155,7 @@ fn branches(ability: &AbilityDef) -> Vec<Branch> {
 /// and a sweep inside a `Sequence` by only one of them.
 fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
     match effect {
-        Effect::DestroyAll { filter }
+        Effect::DestroyAll { filter, .. }
         | Effect::ReturnAllToHand { filter, .. }
         | Effect::SetPTFilter { filter, .. }
         | Effect::AddCounterFilter { filter, .. }
@@ -808,14 +808,10 @@ mod tests {
     }];
 
     /// A wrath: a sweep with nothing targeted.
-    static WRATH: [Effect; 1] = [Effect::DestroyAll {
-        filter: &Filter::CREATURE,
-    }];
+    static WRATH: [Effect; 1] = [Effect::destroy_all(&Filter::CREATURE)];
 
     /// A sweep beside a target, of two different kinds.
-    static OTHER_SWEEP: [Effect; 1] = [Effect::DestroyAll {
-        filter: &Filter::LAND,
-    }];
+    static OTHER_SWEEP: [Effect; 1] = [Effect::destroy_all(&Filter::LAND)];
 
     /// An ability that targets one artifact and animates every artifact.
     ///

@@ -26,7 +26,9 @@ card!(
     ),],
     abilities = &[activated!(
         Cost::TAP,
-        &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))],
+        &[Effect::destroy_no_regen(TargetSpec::Object(
+            &Filter::CREATURE
+        ))],
         target = Some(TargetSpec::Object(&Filter::CREATURE))
     ),],
 );

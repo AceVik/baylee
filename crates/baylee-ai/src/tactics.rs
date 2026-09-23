@@ -565,9 +565,9 @@ mod tests {
     /// which.
     #[test]
     fn removal_printed_inside_a_clause_is_still_removal() {
-        static DESTROY: [Effect; 1] = [Effect::Destroy {
-            target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
-        }];
+        static DESTROY: [Effect; 1] = [Effect::destroy(TargetSpec::Object(
+            &baylee_cards_dsl::Filter::CREATURE,
+        ))];
         static MAY: [Effect; 1] = [Effect::MayDo { effects: &DESTROY }];
         static KICKED: [Effect; 1] = [Effect::IfKicked {
             then: &DESTROY,

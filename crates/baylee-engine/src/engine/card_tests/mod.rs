@@ -163,6 +163,90 @@ fn festering_goblin() -> CardIndex {
     card_index("66fb4764-d309-4c30-a2a4-474f9030dc87")
 }
 
+/// Lotleth Troll — a 2/1 that shields itself for `{B}` and prints no
+/// hexproof, which is what makes it the creature every "it can't be
+/// regenerated" test kills.
+// oracle_id = "61b1d7e5-6155-4204-b110-35a890551ec8"
+fn lotleth_troll() -> CardIndex {
+    card_index("61b1d7e5-6155-4204-b110-35a890551ec8")
+}
+
+/// Buy one regeneration shield off `source`'s own ability, and prove it is
+/// standing before handing the board back.
+///
+/// Bought and never written in with `dev_state_mut`: a test about a spell
+/// that kills *through* a shield says nothing if the shield it ignored was
+/// put there by the harness rather than by a card, because then nothing in
+/// the test has read the rule at all.
+#[track_caller]
+fn raise_a_shield(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    source: ObjectId,
+    ability_index: u32,
+) {
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("the regeneration is offered and affordable");
+    pass_until(engine, |e| at_rest(e, seat));
+    assert_eq!(
+        engine
+            .state()
+            .object(source)
+            .expect("the permanent that shielded itself is still there")
+            .regeneration_shields,
+        1,
+        "one shield, standing over whatever comes next"
+    );
+}
+
+fn wild_elephant() -> CardIndex {
+    card_index("3b2ce431-7101-4256-827d-a14de9f867fd")
+}
+
+fn rib_cage_spider() -> CardIndex {
+    card_index("906cba93-3dac-4720-a482-987cf1b4e786")
+}
+
+/// Answer the target question an ability has just asked, and hand back the
+/// menu it offered.
+///
+/// Returned rather than merely answered, because on a card that names a
+/// subtype the menu *is* the card: a target named out of a list nobody read
+/// proves only that the engine accepted it, and a filter reaching one
+/// creature too far looks exactly the same from the outside.
+#[track_caller]
+fn aim_at(engine: &mut Engine<RegistryLookup>, seat: PlayerId, target: ObjectId) -> Vec<ObjectId> {
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, seat, "the activating seat names the target");
+    assert_eq!((min, max), (1, 1), "one target, and the ability asks once");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .expect("the named target was on the menu");
+    options
+}
+
 fn aurochs() -> CardIndex {
     card_index("3961ef7c-4eb4-482e-9cda-d49d6a29c5a9")
 }

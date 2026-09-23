@@ -206,21 +206,34 @@ Goad, melee, myriad, will of the council/vote, council's dilemma,
 temptation, join forces, assist, hidden agenda. Most need M3 protocol
 multi-target choices; engine support is otherwise small.
 
-### C2b — regeneration (P2, no card in the pool needs it yet)
+### C2b — regeneration (**done**, 23.09.2026)
 
-`Damn` and `Vindicate` both say "can't be regenerated", and the note in
-`damn.rs` promised this entry — which was never written, so the family
-was invisible. Nothing in the 194-card pool actually *regenerates*, so
-the clause is currently vacuous rather than wrong.
+Built exactly as this entry sized it, and the sizing is worth keeping
+because it held: a per-object shield count (`Object::regeneration_shields`)
+cleared at cleanup and on leaving the battlefield, consumed by `sba::destroy`
+instead of the object dying — tap it, remove it from combat, clear its marked
+damage (CR 701.19a) — and a `no_regen` flag on `Effect::Destroy` and
+`Effect::DestroyAll` for the clause eight cards in this pool print
+(CR 701.19c). `Effect::Regenerate` is the shield-making half.
 
-What it needs when a regenerating card arrives: a per-object shield count
-cleared at cleanup, consumed by destruction instead of the object dying
-(tap, remove from combat, clear marked damage — CR 701.19), and a flag on
-the destroying effect for the "can't be regenerated" clause that already
-appears on several cards. Size S–M. Deliberately not built ahead of a
-card: an effect with no card to exercise it is the exact shape of
-`NthSpellCast` and `once_per_turn`, which sat declared-but-dead for
-months.
+Seven cards were waiting on it and are `Coverage::Implemented` now:
+Elephant Graveyard, Swarmyard, Accursed Duneyard, Yavimaya Hollow, Lotleth
+Troll, Thrun the Last Troll and Spawning Pool, whose animation *grants* the
+ability rather than printing it.
+
+The one thing the entry did not foresee is the coupling that made the flag
+non-optional: nine cards were already `Coverage::Implemented` with a plain
+`Effect::destroy` **because no shield existed**, so shipping the shield
+without the flag in the same change would have made all nine quietly wrong.
+That is the general shape and not a detail about regeneration — a clause is
+vacuous only until the mechanic it names exists, and the commit that builds
+the mechanic is the last one that can still see which cards were relying on
+its absence.
+
+What it deliberately did **not** build: nothing in `baylee-view` carries the
+shield, so a client cannot draw one and the house AI fires removal into a
+shielded creature as if it were not there. That is a view change with a
+`VIEW_VERSION` bump behind it and no card needs it to be correct.
 
 ### C3 — newer-set families (P2, as needed)
 

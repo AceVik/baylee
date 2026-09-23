@@ -300,6 +300,37 @@ spell putting a counter on my creature is doubled by mine.
 Armies would need a choice of which one takes the counters, and amass has
 nowhere to ask it.
 
+### Regeneration, the replacement that is not in the funnel
+
+A regeneration shield (CR 701.19a) is a replacement effect and is read
+nowhere near the propose/apply funnel above, because the event it replaces is
+not proposed at all: destruction is reached from four places — the
+lethal-damage state-based action in `sba.rs`, and the three resolving
+effects in `resolve/` — and the one thing they share is `sba::destroy`. So the
+shield is a count on the object (`Object::regeneration_shields`) and
+`sba::destroy` is where it is spent — the creature is tapped through
+`GameState::set_tapped`, its marked damage and its deathtouch flag are
+cleared, and it is removed from combat. `sba::destroy_no_regen` is the same
+door with the shield skipped, which is CR 701.19c and the eight cards in the
+pool that print "it can't be regenerated".
+
+Three things about it are easy to get backwards:
+
+- **The shield answers destruction and nothing else.** Zero toughness
+  (CR 704.5f), a planeswalker at no loyalty (704.5i), the legend rule
+  (704.5j) and a sacrifice do not destroy, so they go through
+  `put_into_graveyard` and a shield does not see them. `sba::destroy` is the
+  *only* door that reads it, which is what keeps that true without a rule
+  per case.
+- **It is a count and not a flag**, because two activations in one turn are
+  two shields and the second has to survive the first destruction.
+- **It is cleared in the same two places `deathtouched` is** — the cleanup
+  step (CR 514.2, so "this turn" means what it says) and leaving the
+  battlefield — and it is in both `hash_object` and
+  `hash_object_situation`, because a board with a shield up is not the same
+  position as the board without one and loop detection would otherwise call
+  them equal.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing

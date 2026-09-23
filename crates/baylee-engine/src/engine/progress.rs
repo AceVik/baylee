@@ -3816,6 +3816,9 @@ impl<L: CardLookup> Engine<L> {
         for obj in self.state.arena.iter_mut_all() {
             obj.damage = 0;
             obj.deathtouched = false;
+            // "The next time it would be destroyed **this turn**"
+            // (CR 701.19a) — an unspent shield does not keep.
+            obj.regeneration_shields = 0;
             if obj.own_abilities_until_eot {
                 obj.own_abilities = None;
                 obj.own_abilities_until_eot = false;

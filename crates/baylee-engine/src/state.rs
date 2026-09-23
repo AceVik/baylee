@@ -1466,6 +1466,7 @@ impl GameState {
                 obj.status = crate::object::Status::NONE;
                 obj.damage = 0;
                 obj.deathtouched = false;
+                obj.regeneration_shields = 0;
                 obj.counters = crate::object::Counters::default();
                 obj.attached_to = None;
             }
@@ -2207,6 +2208,11 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // Status and the deathtouch mark share one word; bit 8 is out of the
     // status byte, so packing them cannot collide.
     h.u16(u16::from(obj.status.bits()) | (u16::from(obj.deathtouched) << 8));
+    // Its own byte rather than a third thing packed into the word above:
+    // a shield is a count and not a flag, so there is no width to argue
+    // about, and two boards that differ only in how many destructions a
+    // creature will survive are different situations.
+    h.u8(obj.regeneration_shields);
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -2268,6 +2274,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     // Status and the deathtouch mark share one word; bit 8 is out of the
     // status byte, so packing them cannot collide.
     h.u16(u16::from(obj.status.bits()) | (u16::from(obj.deathtouched) << 8));
+    h.u8(obj.regeneration_shields);
     h.option_u32(obj.attached_to.map(baylee_core::ids::ObjectId::slot));
     h.u64(obj.timestamp);
     h.u32(obj.version);

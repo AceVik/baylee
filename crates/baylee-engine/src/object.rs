@@ -535,6 +535,22 @@ pub struct GameObject {
     /// a creature that survived because it was indestructible does not
     /// die later in the turn when the indestructibility wears off.
     pub deathtouched: bool,
+    /// Regeneration shields standing on this permanent (CR 701.19a).
+    ///
+    /// A count and not a bit: each resolution of "regenerate" creates its
+    /// own shield, so a creature regenerated twice survives being destroyed
+    /// twice. [`crate::sba::destroy`] is the one door that spends one, which
+    /// is why lethal damage and "destroy target creature" are shielded by
+    /// the same line — and why the state-based actions that are *not*
+    /// destruction (toughness zero, loyalty zero, the legend rule, an Aura
+    /// attached to nothing) go past it through
+    /// [`crate::sba::put_into_graveyard`] and are not.
+    ///
+    /// It is cleared in the same two places `deathtouched` is: at the
+    /// cleanup step, because the shield lasts only "this turn", and when the
+    /// permanent leaves the battlefield, because what comes back is a new
+    /// object (CR 400.7).
+    pub regeneration_shields: u8,
     /// Status bits.
     pub status: Status,
     /// What this object is attached to (auras/equipment).
@@ -677,6 +693,7 @@ impl GameObject {
             counters: Counters::default(),
             damage: 0,
             deathtouched: false,
+            regeneration_shields: 0,
             status: Status::NONE,
             attached_to: None,
             timestamp: 0,

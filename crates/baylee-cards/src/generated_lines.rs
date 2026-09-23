@@ -839,8 +839,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Elephant Graveyard
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -8181,8 +8181,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Yavimaya Hollow
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -17837,8 +17837,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Swarmyard
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -21952,7 +21952,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Thrun, the Last Troll
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -23549,8 +23556,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Lotleth Troll
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -46474,8 +46481,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Accursed Duneyard
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

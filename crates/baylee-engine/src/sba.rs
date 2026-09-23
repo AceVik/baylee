@@ -475,12 +475,62 @@ pub fn apply_legend_choice(
 /// decides more than this call does — an indestructible creature is not a
 /// state-based action *performed*, and `outcome.changed` is what tells the
 /// fixpoint whether to run again.
+///
+/// A regeneration shield is spent here for the same reason (CR 701.19a):
+/// it replaces *destruction*, and destruction is what this function is.
+/// Lethal damage routes through here, so a shielded creature survives a
+/// Lightning Bolt and a "destroy target creature" by the same line.
 pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
+    destroy_with(state, id, true);
+}
+
+/// Destroys a permanent whose destruction a card said it could not be
+/// regenerated from (CR 701.19c).
+///
+/// Not "no shield is created": a shield already standing is simply not
+/// applied, and the card that said so is the one that decides, never the
+/// permanent. Eight cards in this pool print the clause — Terminate,
+/// Oxidize, Pillage, Fissure, Tunnel, Despotic Scepter, Visara and Damn's
+/// overload — and every one of them was correct for free while no shield
+/// existed at all.
+pub fn destroy_no_regen(state: &mut GameState, id: baylee_core::ids::ObjectId) {
+    destroy_with(state, id, false);
+}
+
+/// The two doors above, and the order the rules put their questions in.
+///
+/// Indestructible first, because a permanent that cannot be destroyed is
+/// never destroyed and so never spends a shield on it (CR 702.12b): a
+/// Darksteel creature with a regeneration shield still has that shield
+/// afterwards. Then the shield, which replaces the destruction
+/// (CR 701.19a) rather than preventing it — and the permanent stays on the
+/// battlefield tapped, undamaged and out of combat.
+///
+/// `damage` and `deathtouched` go together and both have to: the marked
+/// damage is what the rule removes, and a creature that kept the deathtouch
+/// mark would be judged lethal again by the very next state-based check,
+/// which would spend the next shield and then kill it.
+fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regeneratable: bool) {
     if state.object(id).is_some_and(|o| {
         o.characteristics()
             .keywords
             .contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE)
     }) {
+        return;
+    }
+    if regeneratable
+        && let Some(obj) = state.object_mut(id)
+        && obj.regeneration_shields > 0
+    {
+        obj.regeneration_shields -= 1;
+        obj.damage = 0;
+        obj.deathtouched = false;
+        // `set_tapped` and not the bit: tapping is what the layer
+        // projection has to hear about, and
+        // `rules::nothing_writes_the_tapped_bit_except_the_one_door` is the
+        // test that says so — it caught this line writing the bit directly.
+        state.set_tapped(id, true);
+        state.combat.remove_from_combat(id);
         return;
     }
     put_into_graveyard(state, id);

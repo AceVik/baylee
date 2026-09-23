@@ -17,7 +17,9 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(
-        &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))],
+        &[Effect::destroy_no_regen(TargetSpec::Object(
+            &Filter::CREATURE
+        ))],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
     ),],
 );

@@ -357,7 +357,7 @@ impl HeuristicAgent {
             | Effect::DestroyChosenForPlayers { who, filter } => {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
             }
-            Effect::DestroyAll { filter } => {
+            Effect::DestroyAll { filter, .. } => {
                 self.battlefield_has(filter, view, &everyone, Some(this))
             }
             _ => None,

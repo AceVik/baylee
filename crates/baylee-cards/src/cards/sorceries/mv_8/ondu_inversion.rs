@@ -31,7 +31,5 @@ card!(
         ),
     ],
     coverage = Coverage::Implemented,
-    abilities = &[spell!(&[Effect::DestroyAll {
-        filter: &Filter::NONLAND,
-    }])],
+    abilities = &[spell!(&[Effect::destroy_all(&Filter::NONLAND)])],
 );

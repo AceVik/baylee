@@ -9520,11 +9520,6 @@ fn ledger_shredder_flies_over_the_ground_and_never_connives() {
     );
 }
 
-// oracle_id = "61b1d7e5-6155-4204-b110-35a890551ec8"
-fn lotleth_troll() -> CardIndex {
-    card_index("61b1d7e5-6155-4204-b110-35a890551ec8")
-}
-
 /// Lotleth Troll — {B}{G} 2/1 Zombie Troll with trample — and the whole of
 /// what the engine writes of it: "Discard a creature card: Put a +1/+1
 /// counter on this creature."
@@ -9541,11 +9536,16 @@ fn lotleth_troll() -> CardIndex {
 /// The refused follow-up is the cost's other half. With the only creature
 /// card spent, no creature card is left in hand, the cost cannot be paid
 /// (CR 118.3) and the engine stops offering the ability at all — which is
-/// how this engine refuses every cost a board cannot meet. The `{B}`
-/// regeneration is the `Coverage::Partial` gap and is deliberately not
-/// asserted here.
+/// how this engine refuses every cost a board cannot meet. And the `{B}`
+/// regeneration standing beside that refusal is the point of the floating
+/// black: two abilities priced in different currencies, one of which the
+/// board can no longer afford and one of which it still can.
 #[test]
-fn lotleth_troll_trades_a_creature_card_for_a_counter_and_tramples() {
+// One scenario and not two: the second offer is worth reading only *after*
+// the first has been spent, so splitting it would mean building the same
+// board twice to assert half of it each time.
+#[allow(clippy::too_many_lines)]
+fn lotleth_troll_trades_a_creature_card_for_a_counter_and_regenerates() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(17, forest())
         // A third land, and it is the {B} the regenerate line would cost.
@@ -9578,17 +9578,17 @@ fn lotleth_troll_trades_a_creature_card_for_a_counter_and_tramples() {
     };
     let offered = deeds(&legal, &[troll]);
     assert!(
-        matches!(offered[..], [(0, Deed::Ability(0))]),
-        "the discard is the Troll's only activated ability, and it is offered \
-         because a creature card is there to pay it: {offered:?}"
+        matches!(offered[..], [(0, Deed::Ability(0)), (0, Deed::Ability(1))]),
+        "both printed abilities are offered: the discard because a creature \
+         card is there to pay it, the regeneration because a black is \
+         floating: {offered:?}"
     );
     assert_eq!(
         engine.state().players[0]
             .mana_pool
             .available(ManaColor::Black),
         1,
-        "and the {{B}} the missing regenerate line costs is floating, so the \
-         price is not what keeps it off that list"
+        "and that {{B}} is the regeneration's whole price"
     );
 
     activate(&mut engine, p0, lotleth_troll(), 0);
@@ -9655,6 +9655,40 @@ fn lotleth_troll_trades_a_creature_card_for_a_counter_and_tramples() {
         "with the only creature card spent, the cost cannot be paid and the \
          ability is no longer offered: {:?}",
         legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(troll, 1)),
+        "the regeneration is priced in mana and the {{B}} never moved, so it \
+         is still there: {:?}",
+        legal.abilities
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: troll,
+                ability_index: 1,
+            },
+        )
+        .expect("the floating {B} pays for it");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        engine
+            .state()
+            .object(troll)
+            .expect("the Troll is where it was")
+            .regeneration_shields,
+        1,
+        "`Regenerate this creature` needs no target and shields itself"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        0,
+        "and the black that had been floating all along is what paid"
     );
 }
 
@@ -14592,6 +14626,110 @@ fn thrun_the_last_troll_leaves_a_counterspell_no_target() {
         on_battlefield(&engine, p0, thrun_the_last_troll()).is_some(),
         "and the troll arrived"
     );
+}
+
+/// Thrun's third line — "{1}{G}: Regenerate this creature" — and the only
+/// one of the three that survives something.
+///
+/// A wrath its own controller casts, which is the cheapest way to put two
+/// creatures under one destruction and read the difference: the Elves and
+/// the Troll are destroyed by the same resolution, the Elves are in the
+/// graveyard and the Troll is not. Supreme Verdict prints no "can't be
+/// regenerated" clause, which is the whole reason it is the spell here —
+/// the eight cards in this pool that do print it would kill the Troll
+/// shield and all (CR 701.19c).
+///
+/// The shield is bought before the spell is cast rather than in response to
+/// it, because Thrun has hexproof and the wrath has no target: there is no
+/// window this test needs that the precombat main does not already give it.
+#[test]
+fn thrun_the_last_troll_regenerates_out_of_a_wrath_the_elves_die_to() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(384, forest())
+        .battlefield(
+            0,
+            &[
+                thrun_the_last_troll(),
+                llanowar_elves(),
+                forest(),
+                forest(),
+                // Three, not two. `mana_pay::pay_any` settles a generic
+                // symbol out of `ManaColor::ALL` in order, so the `{1}` of
+                // the regeneration eats a white before it reaches the green
+                // sitting right there -- with two Plains the wrath below is
+                // then one white short and refused as uncastable.
+                plains(),
+                plains(),
+                plains(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[supreme_verdict()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let troll = on_battlefield(&engine, p0, thrun_the_last_troll()).expect("the Troll is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are seated");
+
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: troll,
+                ability_index: 0,
+            },
+        )
+        .expect("{1}{G} is floating and the ability needs no target");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        engine
+            .state()
+            .object(troll)
+            .expect("nothing has happened to it yet")
+            .regeneration_shields,
+        1,
+        "one shield, bought and standing"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(elf)
+            .expect("nor to the Elves")
+            .regeneration_shields,
+        0,
+        "and the Elves have none, which is what makes them the control"
+    );
+
+    cast_with_floating(&mut engine, p0, supreme_verdict());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the wrath destroyed an unshielded creature"
+    );
+    let survivor = engine
+        .state()
+        .object(troll)
+        .expect("and did not destroy the shielded one");
+    assert!(
+        on_battlefield(&engine, p0, thrun_the_last_troll()).is_some(),
+        "the Troll is still on the battlefield"
+    );
+    assert_eq!(
+        survivor.regeneration_shields, 0,
+        "the shield was spent on that destruction"
+    );
+    assert!(
+        is_tapped(&engine, troll),
+        "and regenerating taps what it saves (CR 701.19a)"
+    );
+}
+
+fn supreme_verdict() -> CardIndex {
+    card_index("0230de18-8d15-4cfa-9d42-7ccddd9f9570")
 }
 
 /// Thrun, Breaker of Silence: the same keyword on a second card, and the
@@ -62346,5 +62484,64 @@ fn zuran_spellcaster_taps_to_deal_one_damage_to_any_target() {
         engine.state().players[1].life,
         20,
         "the damage went to the creature that was named, not to its controller"
+    );
+}
+
+fn visara_the_dreadful() -> CardIndex {
+    card_index("79b999bc-2d4b-41e1-b64e-f0c080a9a2c5")
+}
+
+/// Visara the Dreadful: "{T}: Destroy target creature. It can't be
+/// regenerated."
+///
+/// The clause on an *ability* rather than a spell, which is a different
+/// resolver path to the same door — and the one that repeats, since Visara
+/// untaps every turn while Terminate is cast once.
+///
+/// The Troll shields itself for `{B}` off the one Swamp, and Visara needs
+/// no mana at all, so the only thing standing between the two creatures is
+/// the sentence under test.
+#[test]
+fn visara_stares_through_a_regeneration_shield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(515, forest())
+        .battlefield(0, &[visara_the_dreadful(), lotleth_troll(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let visara = on_battlefield(&engine, p0, visara_the_dreadful()).expect("the Gorgon is seated");
+    let troll = on_battlefield(&engine, p0, lotleth_troll()).expect("the Troll is seated");
+    assert!(
+        keywords(&engine, visara).contains(KeywordSet::FLYING),
+        "flying is the card's other printed line"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    raise_a_shield(&mut engine, p0, troll, 1);
+    assert!(
+        !is_tapped(&engine, visara),
+        "Visara makes no mana, so tapping the board left her ability payable"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: visara,
+                ability_index: 0,
+            },
+        )
+        .expect("the tap is the whole cost");
+    aim_at(&mut engine, p0, troll);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p0, lotleth_troll()).is_some(),
+        "the shield did not save it"
+    );
+    assert!(
+        is_tapped(&engine, visara),
+        "and the Gorgon paid with her tap"
     );
 }

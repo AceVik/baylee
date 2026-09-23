@@ -1596,6 +1596,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ExileLibraryAndShuffleHand { .. }
         | Effect::Mill { .. }
         | Effect::Destroy { .. }
+        | Effect::Regenerate { .. }
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::DiscardForPlayers { .. }
         | Effect::SacrificeFilter { .. }
