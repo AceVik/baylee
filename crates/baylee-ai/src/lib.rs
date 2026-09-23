@@ -11,6 +11,7 @@
 
 mod activate;
 pub mod combat;
+mod fight;
 mod filter;
 pub mod intelligence;
 mod policy;
@@ -1083,6 +1084,134 @@ mod tests {
                 players: vec![]
             },
             "the smaller creature, because the bigger one would stop coming back"
+        );
+    }
+
+    /// Bridgeworks Battle's second question: "It fights up to one target
+    /// creature you don't control", asked after my 1/1 was named for the
+    /// +2/+2.
+    ///
+    /// The whole spell reads as beneficial, and read that way every creature
+    /// across the table is one the pump must not go to — so the agent
+    /// answered "up to one" with none and never fought. Asked per instance,
+    /// the 3/3 it will be kills their 2/2 and survives it; their 4/4 it
+    /// would not kill.
+    #[test]
+    fn a_fight_names_the_creature_its_fighter_kills_and_survives() {
+        use baylee_cards_dsl::{Amount, Duration, Effect, KeywordSet, TargetSlot};
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), me, 1),
+                permanent(obj(2), them, 2),
+                permanent(obj(3), them, 4),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(2), obj(3)],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [
+            Effect::PumpTarget {
+                power: Amount::Fixed(2),
+                toughness: Amount::Fixed(2),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn,
+            },
+            Effect::Fight {
+                fighter: TargetSlot::First,
+                foe: TargetSlot::Second,
+            },
+        ];
+        let context = DecisionContext {
+            effects: &effects,
+            second_instance: true,
+            first_targets: &[obj(1)],
+            ..Default::default()
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "the 2/2 dies to the pumped 3/3 and deals it only two"
+        );
+
+        // The same question with nothing it can kill: "up to one" is
+        // declined rather than spent on a bout that only loses the fighter.
+        let v = view(
+            0,
+            &[20, 20],
+            vec![permanent(obj(1), me, 1), permanent(obj(3), them, 6)],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(3)],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![]
+            },
+            "a 3/3 fighting a 6/6 kills nothing and dies"
+        );
+    }
+
+    /// Khalni Ambush's first question: which of my creatures fights. The
+    /// spell has no benefit and no damage of its own to rank by, so the
+    /// general ranking had no opinion and the fallback named whichever
+    /// creature was listed first — here the 1/1, which dies to their 2/2
+    /// without killing it. The 4/4 is the fighter with a fight worth having.
+    #[test]
+    fn a_fight_names_the_fighter_with_a_fight_worth_having() {
+        use baylee_cards_dsl::{Effect, TargetSlot};
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), me, 1),
+                permanent(obj(2), me, 4),
+                permanent(obj(3), them, 2),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::Fight {
+            fighter: TargetSlot::First,
+            foe: TargetSlot::Second,
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "the 4/4 kills the 2/2 and lives"
         );
     }
 

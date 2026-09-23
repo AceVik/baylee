@@ -24,6 +24,18 @@ pub struct DecisionContext<'a> {
     pub x: u32,
     /// Available distinct targets when the spell requires exactly X targets.
     pub x_targets: Option<u32>,
+    /// Whether the target question being asked is for the **second**
+    /// instance of the word "target" — what an effect names as
+    /// [`baylee_cards_dsl::TargetSlot::Second`].
+    ///
+    /// The same effects explain both questions, and they mean opposite
+    /// things to them: Bridgeworks Battle pumps its first target and fights
+    /// its second, so an agent reading "this spell is beneficial" for both
+    /// would decline to name any creature it is meant to fight.
+    pub second_instance: bool,
+    /// What the first instance already chose, while the second is asked —
+    /// the fighter an agent weighs each candidate against.
+    pub first_targets: &'a [ObjectId],
 }
 
 /// Effects of the chosen ability or mode. An unknown ability stays unknown.
@@ -48,61 +60,19 @@ impl<L: CardLookup> Engine<L> {
     #[must_use]
     pub fn decision_context(&self) -> DecisionContext<'_> {
         if let Some(wizard) = &self.cast_wizard {
-            let Some(def) = self
-                .state
-                .object(wizard.card)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-            else {
-                return DecisionContext::default();
-            };
-            let face = match wizard.option {
-                Some(CastModeKind::Face(i)) => i,
-                _ => 0,
-            };
-            let mode = match wizard.option {
-                Some(CastModeKind::Mode(i)) => Some(i),
-                _ => None,
-            };
-            return DecisionContext {
-                source: Some(wizard.card),
-                effects: def
-                    .abilities_for_face(face)
-                    .iter()
-                    .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
-                    .map_or(&[], |a| effects(a, mode)),
-                cost: wizard
-                    .options
-                    .iter()
-                    .find(|o| Some(o.kind) == wizard.option)
-                    .map(|o| o.cost),
-                life_x: def
-                    .faces
-                    .get(face)
-                    .is_some_and(|f| f.mandatory_additional_costs.contains(&CostPart::PayLifeX)),
-                x: wizard.x,
-                x_targets: self
-                    .wizard_target_req(wizard)
-                    .filter(|req| req.count_is_x)
-                    .map(|req| {
-                        let objects = crate::eval::target_options(
-                            &req.spec,
-                            &self.state,
-                            wizard.player,
-                            wizard.card,
-                        )
-                        .len();
-                        let players = crate::eval::target_player_options(
-                            &self.state,
-                            &req.spec,
-                            wizard.player,
-                        )
-                        .len();
-                        u32::try_from(objects + players).unwrap_or(u32::MAX)
-                    }),
-            };
+            return self.wizard_context(wizard);
         }
-        let handle = match self.pending_plan {
+        let mut first: &[ObjectId] = &[];
+        let handle = match &self.pending_plan {
+            Some(PlanKind::ActivateAbilitySecondTargets {
+                source,
+                ability_index,
+                targets,
+                ..
+            }) => {
+                first = targets;
+                Some((*source, *ability_index, None))
+            }
             Some(
                 PlanKind::ActivateAbility {
                     source,
@@ -116,12 +86,12 @@ impl<L: CardLookup> Engine<L> {
                     source,
                     ability_index,
                 },
-            ) => Some((source, ability_index, None)),
+            ) => Some((*source, *ability_index, None)),
             Some(PlanKind::Trigger {
                 source,
                 ability_index,
                 mode,
-            }) => Some((source, ability_index, mode.map(usize::from))),
+            }) => Some((*source, *ability_index, mode.map(usize::from))),
             _ => None,
         };
         if let Some((source, index, mode)) = handle {
@@ -136,6 +106,11 @@ impl<L: CardLookup> Engine<L> {
                     .and_then(|a| a.get(index as usize))
                     .map_or(&[], |a| effects(a, mode)),
                 x: self.activation_x.unwrap_or(0),
+                second_instance: matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ActivateAbilitySecondTargets { .. })
+                ),
+                first_targets: first,
                 ..DecisionContext::default()
             };
         }
@@ -147,5 +122,64 @@ impl<L: CardLookup> Engine<L> {
                 x: res.x.unwrap_or(0),
                 ..DecisionContext::default()
             })
+    }
+
+    /// [`Self::decision_context`] while a cast is being announced.
+    fn wizard_context<'a>(
+        &'a self,
+        wizard: &'a super::cast_wizard::CastWizard,
+    ) -> DecisionContext<'a> {
+        let Some(def) = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+        else {
+            return DecisionContext::default();
+        };
+        let face = match wizard.option {
+            Some(CastModeKind::Face(i)) => i,
+            _ => 0,
+        };
+        let mode = match wizard.option {
+            Some(CastModeKind::Mode(i)) => Some(i),
+            _ => None,
+        };
+        DecisionContext {
+            source: Some(wizard.card),
+            effects: def
+                .abilities_for_face(face)
+                .iter()
+                .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
+                .map_or(&[], |a| effects(a, mode)),
+            cost: wizard
+                .options
+                .iter()
+                .find(|o| Some(o.kind) == wizard.option)
+                .map(|o| o.cost),
+            life_x: def
+                .faces
+                .get(face)
+                .is_some_and(|f| f.mandatory_additional_costs.contains(&CostPart::PayLifeX)),
+            x: wizard.x,
+            x_targets: self
+                .wizard_target_req(wizard)
+                .filter(|req| req.count_is_x)
+                .map(|req| {
+                    let objects = crate::eval::target_options(
+                        &req.spec,
+                        &self.state,
+                        wizard.player,
+                        wizard.card,
+                    )
+                    .len();
+                    let players =
+                        crate::eval::target_player_options(&self.state, &req.spec, wizard.player)
+                            .len();
+                    u32::try_from(objects + players).unwrap_or(u32::MAX)
+                }),
+            second_instance: wizard.stage == super::cast_wizard::WizardStage::SecondTargets,
+            first_targets: &wizard.targets,
+        }
     }
 }

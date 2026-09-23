@@ -256,6 +256,16 @@ pub enum AbilityDef {
         effects: &'static [Effect],
         /// Target requirement, if any.
         targets: Option<crate::effect::TargetReq>,
+        /// The requirement for a **second** instance of the word "target"
+        /// (CR 115.3), chosen after the first and kept apart from it.
+        ///
+        /// Apart because every reader of the first list takes it to be one
+        /// instance: a fight's two creatures appended to `targets` would be
+        /// exiled together by an `Exile`, pumped together by a `PumpTarget`,
+        /// and narrowed together by CR 608.2b's re-check, which drops an
+        /// illegal target *and the position it held*. An effect reaches this
+        /// list only by naming [`crate::effect::TargetSlot::Second`].
+        second_targets: Option<crate::effect::TargetReq>,
     },
     /// Activated ability (`cost: effect`).
     Activated {
@@ -265,6 +275,9 @@ pub enum AbilityDef {
         effects: &'static [Effect],
         /// Target requirement.
         target: Option<TargetSpec>,
+        /// A second instance of the word "target", as on
+        /// [`AbilityDef::Spell::second_targets`] (Contested Cliffs).
+        second_targets: Option<crate::effect::TargetReq>,
         /// Timing restriction.
         timing: ActivationTiming,
         /// Mana abilities don't use the stack (CR 605.1).
@@ -312,6 +325,9 @@ pub enum AbilityDef {
         effects: &'static [crate::effect::Effect],
         /// Target requirement.
         target: Option<crate::effect::TargetSpec>,
+        /// A second instance of the word "target", as on the unconditional
+        /// twin.
+        second_targets: Option<crate::effect::TargetReq>,
         /// Instant/sorcery timing.
         timing: ActivationTiming,
         /// Whether this is a mana ability.
@@ -530,6 +546,7 @@ mod tests {
             cost: crate::cost::Cost::TAP,
             effects: NOTHING,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability,
             zone: ActivationZone::Battlefield,
@@ -542,6 +559,7 @@ mod tests {
             cost: crate::cost::Cost::TAP,
             effects: NOTHING,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability,
             zone: ActivationZone::Battlefield,
@@ -583,6 +601,7 @@ mod tests {
             AbilityDef::Spell {
                 effects: NOTHING,
                 targets: None,
+                second_targets: None,
             },
             AbilityDef::Triggered {
                 trigger: Trigger::ETB,

@@ -32,6 +32,9 @@ enum TargetLegality {
         objects: SmallVec<[ObjectId; 2]>,
         /// The chosen players that still are.
         players: SeatSet,
+        /// The objects chosen for the second instance of the word that
+        /// still are — a list of its own, narrowed by its own requirement.
+        second: SmallVec<[ObjectId; 1]>,
     },
     /// Every chosen target is now illegal: it does not resolve.
     AllIllegal,
@@ -2141,6 +2144,34 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// What the top of the stack may target with its **second** instance of
+    /// the word "target", read from the same places [`Self::stack_target_req`]
+    /// reads the first: the spell's own object, or the ability's definition.
+    ///
+    /// Two arms and not the whole list, because only two shapes can say it —
+    /// [`AbilityDef::Spell`] through the object and the activated twins here.
+    /// Both twins, for the reason `stack_target_req` gives.
+    fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
+        let obj = self.state.object(on_stack)?;
+        if obj.kind != ObjectKind::AbilityOnStack {
+            return obj.second_target_req();
+        }
+        let loc = obj.ability?;
+        if loc.index == AbilityRef::SYNTHETIC {
+            return None;
+        }
+        let abilities = obj.own_abilities.unwrap_or_else(|| {
+            self.state
+                .object(loc.source)
+                .map_or(&[][..], |o| o.abilities(&self.lookup))
+        });
+        match abilities.get(loc.index as usize)? {
+            AbilityDef::Activated { second_targets, .. }
+            | AbilityDef::ActivatedConditional { second_targets, .. } => *second_targets,
+            _ => None,
+        }
+    }
+
     /// CR 608.2b, asked of the top of the stack as it begins to resolve.
     ///
     /// > If the spell or ability specifies targets, it checks whether the
@@ -2148,12 +2179,8 @@ impl<L: CardLookup> Engine<L> {
     /// > of the word "target," are now illegal, the spell or ability doesn't
     /// > resolve.
     ///
-    /// The question is asked with the very enumeration that offered the
-    /// targets in the first place — `eval::target_options` and
-    /// `eval::target_player_options`, with the same `(you, this)` the cast
-    /// wizard and `ability_has_a_target` pass. One predicate read from both
-    /// ends: an offer and a re-check that disagreed would be a target the
-    /// engine let a player choose and then refused to resolve at.
+    /// Each instance is re-checked by [`Self::instance_legality`], which
+    /// says how; this is where the instances are put back together.
     ///
     /// **What this cannot see.** `GameObject::targets` holds a bare
     /// `ObjectId`, and a creature blinked in response really is back on the
@@ -2165,16 +2192,68 @@ impl<L: CardLookup> Engine<L> {
         let Some(obj) = self.state.object(on_stack) else {
             return TargetLegality::NotAsked;
         };
-        let Some(req) = self.stack_target_req(on_stack) else {
+        // "For every instance of the word 'target'": each instance is asked
+        // on its own, against its own requirement, and the spell fizzles
+        // only when every instance that chose something has lost all of it.
+        // A fight whose second creature was bounced still resolves — the
+        // first target is legal — and does nothing to either creature,
+        // which is CR 701.14b's business in the resolver and not this one's.
+        let first = self
+            .stack_target_req(on_stack)
+            .and_then(|req| self.instance_legality(obj, req, &obj.targets, true));
+        let second = self
+            .stack_second_target_req(on_stack)
+            .and_then(|req| self.instance_legality(obj, req, obj.second_targets(), false));
+        if first.is_none() && second.is_none() {
             return TargetLegality::NotAsked;
+        }
+        let lost = |kept: &Option<(SmallVec<[ObjectId; 2]>, SeatSet)>| {
+            kept.as_ref()
+                .is_none_or(|(objects, players)| objects.is_empty() && players.is_empty())
         };
+        if lost(&first) && lost(&second) {
+            return TargetLegality::AllIllegal;
+        }
+        // An instance that was not asked keeps what it holds.
+        let (objects, players) = first.unwrap_or_else(|| (obj.targets.clone(), obj.target_players));
+        let second = second.map_or_else(
+            || SmallVec::from_slice(obj.second_targets()),
+            |(objects, _)| objects.into_iter().collect(),
+        );
+        TargetLegality::Kept {
+            objects,
+            players,
+            second,
+        }
+    }
+
+    /// One instance of the word "target", re-checked: what it chose that is
+    /// still legal, or `None` when there is nothing of it to ask.
+    ///
+    /// The question is asked with the very enumeration that offered the
+    /// targets in the first place — `eval::target_options` and
+    /// `eval::target_player_options`, with the same `(you, this)` the cast
+    /// wizard and `ability_has_a_target` pass. One predicate read from both
+    /// ends: an offer and a re-check that disagreed would be a target the
+    /// engine let a player choose and then refused to resolve at.
+    ///
+    /// `players` is whether this instance is the one whose players ride in
+    /// `target_players` — the first, since a second instance is objects only
+    /// in every shape that can print one.
+    fn instance_legality(
+        &self,
+        obj: &crate::object::GameObject,
+        req: TargetReq,
+        chosen: &[ObjectId],
+        players: bool,
+    ) -> Option<(SmallVec<[ObjectId; 2]>, SeatSet)> {
         // Two specs name no *chosen* target. `EventObject` is the object the
         // trigger fired on, and `Player(rel)` derives its players from a
         // relation at resolution — `resolve::players_of` reads neither list
         // for it. Both enumerate empty by construction, so asking them this
         // question would read every target they have as illegal.
         if matches!(req.spec, TargetSpec::EventObject | TargetSpec::Player(_)) {
-            return TargetLegality::NotAsked;
+            return None;
         }
         // The player half exists only for the three specs that can name one,
         // which is exactly the set `target_player_options` answers for. The
@@ -2182,10 +2261,12 @@ impl<L: CardLookup> Engine<L> {
         // not targets at all, and folding it in unconditionally would put a
         // chosen player in front of an enumeration that never offered them.
         let mut chosen_players = SeatSet::new();
-        if matches!(
-            req.spec,
-            TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
-        ) {
+        if players
+            && matches!(
+                req.spec,
+                TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+            )
+        {
             chosen_players = obj.target_players;
             if let Some(player) = obj.chosen_player {
                 chosen_players.insert(player);
@@ -2195,34 +2276,29 @@ impl<L: CardLookup> Engine<L> {
         // minimum of zero, taken with nothing pointed at, has none to lose —
         // and an empty list satisfies "all of them are illegal" vacuously,
         // which would fizzle every untargeted half of the pool.
-        if obj.targets.is_empty() && chosen_players.is_empty() {
-            return TargetLegality::NotAsked;
+        if chosen.is_empty() && chosen_players.is_empty() {
+            return None;
         }
         let you = obj.controller;
         let this = if obj.kind == ObjectKind::AbilityOnStack {
-            obj.ability.map_or(on_stack, |loc| loc.source)
+            obj.ability.map_or(obj.id, |loc| loc.source)
         } else {
-            on_stack
+            obj.id
         };
         let legal_objects = eval::target_options(&req.spec, &self.state, you, this);
         let legal_players = eval::target_player_options(&self.state, &req.spec, you);
-        let objects: SmallVec<[ObjectId; 2]> = obj
-            .targets
+        let objects: SmallVec<[ObjectId; 2]> = chosen
             .iter()
             .copied()
             .filter(|id| legal_objects.contains(id))
             .collect();
-        let mut players = SeatSet::new();
+        let mut kept = SeatSet::new();
         for player in chosen_players.iter() {
             if legal_players.contains(&player) {
-                players.insert(player);
+                kept.insert(player);
             }
         }
-        if objects.is_empty() && players.is_empty() {
-            TargetLegality::AllIllegal
-        } else {
-            TargetLegality::Kept { objects, players }
-        }
+        Some((objects, kept))
     }
 
     /// CR 608.2b's removal: off the stack, without having resolved.
@@ -2307,14 +2383,23 @@ impl<L: CardLookup> Engine<L> {
             //
             // Safe to narrow because a `TargetReq` carries **one** spec: the
             // positions in `targets` are a set and not a tuple, and nothing
-            // in this crate reads one by index. Two separate instances of
-            // the word "target" — the Plague Spores shape the rule's own
-            // example uses — are not expressible in this DSL at all, so the
-            // half of CR 608.2b that needs them is not shipped here.
-            TargetLegality::Kept { objects, players } => {
+            // in this crate reads one by index. A second instance of the
+            // word "target" is the one place that would not hold, which is
+            // why it is a list of its own and is narrowed on its own line:
+            // a fight whose first creature became illegal must not find its
+            // second creature standing in the first one's place.
+            TargetLegality::Kept {
+                objects,
+                players,
+                second,
+            } => {
                 if let Some(obj) = self.state.object_mut(top) {
                     if obj.targets.len() != objects.len() {
                         obj.targets = objects;
+                    }
+                    if obj.second_targets().len() != second.len() {
+                        let req = obj.second_target_req();
+                        obj.set_second(second, req);
                     }
                     if obj.target_players != players {
                         obj.target_players = players;
@@ -2418,6 +2503,7 @@ impl<L: CardLookup> Engine<L> {
                     effects: resolve::flatten(synthetic),
                     pc: 0,
                     targets: obj.targets.clone(),
+                    second_targets: SmallVec::from_slice(obj.second_targets()),
                     x: None,
                     chosen_player: obj.chosen_player,
                     target_players: obj.target_players,
@@ -2446,6 +2532,7 @@ impl<L: CardLookup> Engine<L> {
                 effects: resolve::flatten(effects),
                 pc: 0,
                 targets: obj.targets.clone(),
+                second_targets: SmallVec::from_slice(obj.second_targets()),
                 // Zero on every ability the pool prints today, and read
                 // rather than assumed because an activation with a counter-X
                 // cost writes one here (`push_ability_to_stack`). `Some(0)`
@@ -2483,9 +2570,9 @@ impl<L: CardLookup> Engine<L> {
             })
             .and_then(|abilities| {
                 abilities.iter().find_map(|a| match a {
-                    AbilityDef::Spell { effects, targets } if !effects.is_empty() => {
-                        Some((*effects, targets.is_some()))
-                    }
+                    AbilityDef::Spell {
+                        effects, targets, ..
+                    } if !effects.is_empty() => Some((*effects, targets.is_some())),
                     _ => None,
                 })
             })
@@ -2513,6 +2600,7 @@ impl<L: CardLookup> Engine<L> {
                 effects: resolve::flatten(fx),
                 pc: 0,
                 targets: obj.targets.clone(),
+                second_targets: SmallVec::from_slice(obj.second_targets()),
                 x: Some(obj.x_value),
                 chosen_player: obj.chosen_player,
                 target_players: obj.target_players,

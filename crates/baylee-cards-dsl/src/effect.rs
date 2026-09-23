@@ -459,6 +459,32 @@ impl TargetReq {
     }
 }
 
+/// Which object an effect names when an ability says "target" twice.
+///
+/// Every other effect reads **one** instance of the word: `res.targets` is the
+/// list chosen for the ability's [`TargetReq`], and an effect that points at
+/// "the target" points at that list. A fight is the sentence that cannot be
+/// said that way — "target creature you control fights target creature you
+/// don't control" is two instances, each with its own requirement and its own
+/// answer (CR 115.3 lets one object be chosen for each), and the effect is a
+/// relation *between* them. So the two sides of it are named here rather than
+/// by adding positions to the one list: a second target appended to
+/// `targets` would change what every existing reader of it means.
+///
+/// [`TargetSlot::This`] is the third participant a fight can have — "this
+/// creature fights target creature" (CR 701.14a's first half) — and is what
+/// lets that shape be written with **one** requirement.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TargetSlot {
+    /// The source of the spell or ability.
+    This,
+    /// The object chosen for the ability's first instance of "target".
+    First,
+    /// The object chosen for its second instance
+    /// (`second_targets` on the ability).
+    Second,
+}
+
 /// What happens when restricted mana is spent on a matching spell.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SpendRider {
@@ -591,6 +617,34 @@ pub enum Effect {
         amount: Amount,
         /// To what.
         target: TargetSpec,
+    },
+    /// Two creatures fight (CR 701.14a): each deals damage equal to its power
+    /// to the other, at once, and none of it is combat damage (CR 701.14d).
+    ///
+    /// CR 701.14b is the half that is easy to get backwards: if either
+    /// creature has left the battlefield, stopped being a creature, or is an
+    /// illegal target as this resolves, **neither** deals damage — the one
+    /// that is still there does not hit the other on its own. A creature
+    /// fighting itself deals twice its power to itself (CR 701.14c), which
+    /// the two halves say without a special case.
+    Fight {
+        /// The creature told to fight.
+        fighter: TargetSlot,
+        /// The creature it fights.
+        foe: TargetSlot,
+    },
+    /// "`dealer` deals damage equal to its power to `to`" — the one-sided
+    /// half of a fight, which is not a fight: nothing is dealt back.
+    ///
+    /// Held to the same "both or nothing" as [`Effect::Fight`], but by
+    /// CR 608.2b rather than CR 701.14b: an illegal dealer is one whose power
+    /// the effect "fails to determine", so no damage happens, and an illegal
+    /// recipient is not affected by the part of the effect it is illegal for.
+    DamageEqualToPower {
+        /// The creature whose power is the amount, and which deals it.
+        dealer: TargetSlot,
+        /// What is dealt to — a creature, or a planeswalker (CR 306.8).
+        to: TargetSlot,
     },
     /// Deal damage to the first target's controller (Tuktuk Scrapper).
     DealDamageToTargetController {
@@ -1762,6 +1816,8 @@ impl Effect {
             | Effect::DrawCardsFor { .. }
             | Effect::ExileTargetsCreateTokens { .. }
             | Effect::DealDamage { .. }
+            | Effect::Fight { .. }
+            | Effect::DamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }

@@ -20,10 +20,10 @@ use baylee_cards_dsl::prelude::*;
 // would find two cards, and `Find` carries no condition.
 // NOT SUPPORTED: "Put a +1/+1 counter on target creature you control. It
 // deals damage equal to its power to target creature you don't control." —
-// a `TargetReq` carries one `spec`, so a mode requiring one target matching
-// `YOUR_CREATURE` *and* one matching "a creature you don't control" is not
-// sayable; and `Effect::DealDamage` takes a `TargetSpec`, with no way to aim
-// at the *second* chosen target nor to read that target's power as the amount.
+// the effect is `Effect::DamageEqualToPower { dealer: First, to: Second }` and
+// a spell or activation can carry the second instance of "target"
+// (`second_targets`), but a mode cannot: `ModeDef` has one `targets` and the
+// cast wizard offers the second instance to non-modal casts only.
 
 card!(
     index = index::ARCHDRUID_S_CHARM,
@@ -38,8 +38,9 @@ card!(
     coverage = Coverage::Partial(
         "two of the three modes are not expressible: no search destination \
          that forks on the found card's type (mode 1), and no mode that \
-         targets one creature you control plus one you don't, nor an amount \
-         read off the second target's power (mode 2)"
+         carries a second instance of \"target\", which mode 2's \
+         \"deals damage equal to its power to target creature you don't \
+         control\" needs"
     ),
     abilities = &[spell!(
         &[Effect::exile(TargetSpec::Object(

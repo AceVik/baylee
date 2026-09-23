@@ -189,6 +189,15 @@ pub struct Engine<L: CardLookup> {
     /// question forever. Every path that can refuse the activation clears it
     /// on the way out.
     activation_cost_choices: Vec<ObjectId>,
+    /// The answer to a pending activation's **second** "target" question,
+    /// once it has one (`Some(vec![])` is "up to one", answered with none).
+    ///
+    /// Accumulated rather than taken on entry, for `activation_cost_choices`'
+    /// reason: `start_activation` is re-entered after the answer and must see
+    /// it to move on to the cost. Cleared where a fresh activation begins and
+    /// taken where the ability reaches the stack, so an activation refused
+    /// in between cannot hand it to the next one.
+    activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
     /// The number a pending activation's counter cost was given (CR 601.2b).
     ///
     /// The third field in this family and the one asked *first*: a cost that
@@ -429,6 +438,22 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
+    /// An activation waiting for the targets of its second instance of the
+    /// word "target" (CR 601.2c, CR 115.3).
+    ///
+    /// Carries the first instance's answer back for `PayActivationCost`'s
+    /// reason: `start_activation` is re-entered with it, and the seats are
+    /// taken out of the engine on entry.
+    ActivateAbilitySecondTargets {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The first instance's targets, already chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The first instance's seats, put back before the re-entry.
+        target_players: Vec<PlayerId>,
+    },
     /// An activation waiting for one of its cost's answers (CR 601.2h).
     ///
     /// The whole answered half of the activation travels on the plan,
@@ -488,6 +513,7 @@ impl<L: CardLookup> Engine<L> {
             agreed_draw: false,
             loyalty_player_choice: None,
             activation_target_players: Vec::new(),
+            activation_second_targets: None,
             activation_cost_choices: Vec::new(),
             activation_x: None,
             activating_abilities: None,
@@ -818,6 +844,8 @@ mod day_night_tests;
 mod draw_tests;
 #[cfg(test)]
 mod enter_tests;
+#[cfg(test)]
+mod fight_tests;
 #[cfg(test)]
 mod flashback_tests;
 

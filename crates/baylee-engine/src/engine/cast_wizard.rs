@@ -34,6 +34,10 @@ pub(crate) enum WizardStage {
     XValue,
     /// Choosing targets.
     Targets,
+    /// Choosing the targets of a second instance of the word "target"
+    /// (CR 601.2c chooses each instance's; CR 115.3 lets one object be
+    /// chosen once for each). Skipped by any spell that says the word once.
+    SecondTargets,
     /// Choosing a target player.
     ChoosePlayer,
     /// Kicker yes/no.
@@ -59,6 +63,9 @@ pub(crate) struct CastWizard {
     pub option: Option<CastModeKind>,
     /// Chosen targets.
     pub targets: SmallVec<[ObjectId; 2]>,
+    /// Targets chosen for the second instance of the word, kept apart for
+    /// the reason `GameObject::second_targets` gives.
+    pub second_targets: SmallVec<[ObjectId; 1]>,
     /// Players chosen as targets, the other half of "any target".
     pub target_players: baylee_core::ids::SeatSet,
     /// Chosen target player, if any.
@@ -140,6 +147,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: None,
             targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -183,6 +191,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Miracle),
             targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -221,6 +230,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Normal),
             targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -549,7 +559,7 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::Targets => {
                 let Some(req) = self.wizard_target_req(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Kicker;
+                    wizard.stage = WizardStage::SecondTargets;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
@@ -572,7 +582,7 @@ impl<L: CardLookup> Engine<L> {
                     // choose is a `max` the board cannot fill, and that one
                     // is decided below, once they are.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Kicker;
+                    wizard.stage = WizardStage::SecondTargets;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -599,7 +609,7 @@ impl<L: CardLookup> Engine<L> {
                     // empty board. `collect_triggers` is the same rule on
                     // the trigger side.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Kicker;
+                    wizard.stage = WizardStage::SecondTargets;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -609,6 +619,46 @@ impl<L: CardLookup> Engine<L> {
                     player_options,
                     min,
                     max,
+                    reason: TargetPrompt::Targets,
+                };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::SecondTargets => {
+                // The second instance is asked the way the first is, and is
+                // its own question: its own requirement, its own count, and
+                // options that do **not** leave out what the first chose —
+                // CR 115.3 lets one object be the target of both instances
+                // as long as it fits both. The two spells that reach this
+                // today name disjoint sets ("you control" / "you don't"), so
+                // the sentence costs nothing there and is right for the card
+                // that doesn't.
+                let Some(req) = self.wizard_second_target_req(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Kicker;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                let options =
+                    eval::target_options(&req.spec, &self.state, wizard.player, wizard.card);
+                if options.len() < req.min as usize {
+                    self.cast_wizard = None;
+                    return Err(EngineError::IllegalAction("not enough legal targets"));
+                }
+                if options.is_empty() || req.max == 0 {
+                    // "Up to one" with nothing to point at: the empty answer
+                    // is the only one, for the reason the first stage gives.
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Kicker;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                self.pending = Pending::ChooseTargets {
+                    player: wizard.player,
+                    options,
+                    player_options: Vec::new(),
+                    min: req.min,
+                    max: req.max,
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
@@ -795,6 +845,34 @@ impl<L: CardLookup> Engine<L> {
                 _ => None,
             }),
         }
+    }
+
+    /// The spell's requirement for a second instance of the word "target",
+    /// if it prints one.
+    ///
+    /// Only [`AbilityDef::Spell`] can: a mode of a modal spell carries one
+    /// requirement, so a charm whose mode says "target" twice (Archdruid's
+    /// Charm) is not expressible yet and answers `None` here by construction.
+    pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
+        if matches!(wizard.option, Some(CastModeKind::Mode(_))) {
+            return None;
+        }
+        let def = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .expect("wizard card known");
+        let face_index = match wizard.option {
+            Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
+            _ => 0,
+        };
+        def.abilities_for_face(face_index)
+            .iter()
+            .find_map(|a| match a {
+                AbilityDef::Spell { second_targets, .. } => *second_targets,
+                _ => None,
+            })
     }
 
     fn wizard_pitch_filter(
@@ -987,6 +1065,7 @@ impl<L: CardLookup> Engine<L> {
         // during resolution (CR 707.10c), and the resolver has no card lookup
         // of its own to re-derive it from.
         let target_req = self.wizard_target_req(wizard);
+        let second_target_req = self.wizard_second_target_req(wizard);
         let card = wizard.card;
         {
             let obj = self.state.object_mut(card).expect("wizard card exists");
@@ -995,6 +1074,7 @@ impl<L: CardLookup> Engine<L> {
             obj.targets.clone_from(&wizard.targets);
             obj.target_players = wizard.target_players;
             obj.target_req = target_req;
+            obj.set_second(wizard.second_targets.clone(), second_target_req);
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));

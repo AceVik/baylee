@@ -56,7 +56,7 @@ impl Meaning {
 /// and it was the fourth copy of the same question in the workspace. The
 /// next negative amount added to the DSL would have been read here as a
 /// bonus, silently, in a heuristic nobody asserts a sign on.
-fn amount(n: Amount, x: u32) -> i32 {
+pub(crate) fn amount(n: Amount, x: u32) -> i32 {
     if let Amount::Negated(inner) = n {
         return -amount(*inner, x);
     }
@@ -440,6 +440,11 @@ impl HeuristicAgent {
         max: u8,
         context: &DecisionContext<'_>,
     ) -> Option<PlayerAction> {
+        // A fight's two questions are answered by what the fight would do,
+        // and never by the spell's overall sign — see `fight`.
+        if let Some(action) = self.fight_targets(view, objects, min, max, context) {
+            return Some(action);
+        }
         let m = meaning(context.effects, context.x);
         if m.benefit == 0 && m.damage == 0 && m.clock.is_none() {
             return None;

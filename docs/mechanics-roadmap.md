@@ -235,6 +235,24 @@ shield, so a client cannot draw one and the house AI fires removal into a
 shielded creature as if it were not there. That is a view change with a
 `VIEW_VERSION` bump behind it and no card needs it to be correct.
 
+### C2c — fight, and a second instance of "target" (**done**, 23.09.2026)
+
+`Effect::Fight` (CR 701.14) and its one-sided sibling
+`Effect::DamageEqualToPower`, both naming their creatures by `TargetSlot`,
+and the reach they were bound to: a second instance of "target" as its own
+list at every layer (CR 115.3), narrowed on its own (CR 608.2b), asked as its
+own stage in the cast wizard and in activation. Khalni Ambush, Bridgeworks
+Battle, Stump Stomp and Contested Cliffs play; the house AI chooses both
+creatures by what the fight would do (`baylee-ai/src/fight.rs`).
+
+Not built, and each is a smaller entry now: a **mode** carrying a second
+instance (Archdruid's Charm's second mode — `ModeDef` has one `targets`),
+CR 707.10c re-choosing the second instance on a copy (only the first is
+offered), Golden Guardian's delayed "dies this turn" return, and Arena's
+"target creature of an opponent's choice", which is a target the *opponent*
+chooses. Noncombat lifelink (CR 702.15b) is a separate gap that fight damage
+would reach first: no fighting card in the pool has lifelink yet.
+
 ### C3 — newer-set families (P2, as needed)
 
 Energy economy (counters exist; spend/gain effects), The Ring tempts

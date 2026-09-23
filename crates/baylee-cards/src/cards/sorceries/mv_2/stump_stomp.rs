@@ -5,15 +5,14 @@
 //! Set: MH3 #259 — Modern Horizons 3 | Scryfall ID: 49974246-0a3b-4ec9-b5ea-2a89df9bb0b5 | Oracle ID: eb7b1284-0b2c-4b6a-a389-b2b932838083
 //! Face: Stump Stomp — {1}{R/G} — Sorcery
 //! Face: Burnwillow Clearing —  — Land
-// PARTIAL — Burnwillow Clearing enters tapped and adds {R} or {G}; Stump
-// Stomp's clause has no effect variant.
-
 use baylee_cards_dsl::prelude::*;
 
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana_choice(&[
     ManaColor::Red,
     ManaColor::Green,
 ])])];
+
+static CREATURE_OR_PLANESWALKER_YOU_DONT_CONTROL: Filter = f!(not_yours CREATURE_OR_PLANESWALKER);
 
 card!(
     index = index::STUMP_STOMP,
@@ -33,9 +32,15 @@ card!(
             abilities = BACK_MANA,
         ),
     ],
-    coverage = Coverage::Partial(
-        "Stump Stomp: two different targets, one dealing damage equal to its power to the other — no Effect variant carries a second TargetSpec",
-    ),
-    // NOT SUPPORTED: Target creature you control deals damage equal to its
-    // power to target creature or planeswalker you don't control.
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::DamageEqualToPower {
+            dealer: TargetSlot::First,
+            to: TargetSlot::Second,
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE))),
+        second_targets = Some(TargetReq::one(TargetSpec::Object(
+            &CREATURE_OR_PLANESWALKER_YOU_DONT_CONTROL
+        ))),
+    )],
 );

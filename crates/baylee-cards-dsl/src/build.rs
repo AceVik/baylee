@@ -66,6 +66,9 @@ pub struct ActivatedParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub target: Option<TargetSpec>,
+    /// A second instance of the word "target", if the card prints one —
+    /// see [`AbilityDef::Activated::second_targets`].
+    pub second_targets: Option<TargetReq>,
     /// When it may be activated.
     pub timing: ActivationTiming,
     /// Whether it is a mana ability (CR 605.1 — does not use the stack).
@@ -101,6 +104,7 @@ impl ActivatedParts {
             cost,
             effects,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
@@ -126,6 +130,7 @@ impl ActivatedParts {
                 cost: self.cost,
                 effects: self.effects,
                 target: self.target,
+                second_targets: self.second_targets,
                 timing: self.timing,
                 mana_ability: self.mana_ability,
                 zone: self.zone,
@@ -135,6 +140,7 @@ impl ActivatedParts {
                 cost: self.cost,
                 effects: self.effects,
                 target: self.target,
+                second_targets: self.second_targets,
                 timing: self.timing,
                 mana_ability: self.mana_ability,
                 zone: self.zone,
@@ -233,6 +239,9 @@ pub struct SpellParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<TargetReq>,
+    /// A second instance of the word "target", if the card prints one —
+    /// see [`AbilityDef::Spell::second_targets`].
+    pub second_targets: Option<TargetReq>,
 }
 
 impl SpellParts {
@@ -242,6 +251,7 @@ impl SpellParts {
         Self {
             effects,
             targets: None,
+            second_targets: None,
         }
     }
 
@@ -251,6 +261,7 @@ impl SpellParts {
         AbilityDef::Spell {
             effects: self.effects,
             targets: self.targets,
+            second_targets: self.second_targets,
         }
     }
 }
@@ -510,6 +521,9 @@ macro_rules! f {
 macro_rules! __f_adjectives {
     ([$($acc:expr),*] your $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::ControlledByYou] $($rest)+)
+    };
+    ([$($acc:expr),*] not_yours $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Not(&$crate::Filter::ControlledByYou)] $($rest)+)
     };
     ([$($acc:expr),*] opponents $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::ControlledByOpponent] $($rest)+)
@@ -833,7 +847,7 @@ pub mod prelude {
     pub use crate::counters;
     pub use crate::effect::{
         Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,
-        SpendRider, TargetReq, TargetSpec, TokenDef, ZoneSel,
+        SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
     };
     pub use crate::filter::{Filter, ZoneRef};
     pub use crate::static_ability::{
@@ -918,6 +932,7 @@ mod tests {
                 cost: Cost::TAP,
                 effects: EFFECTS,
                 target: None,
+                second_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
@@ -931,6 +946,7 @@ mod tests {
                 cost: Cost::TAP,
                 effects: EFFECTS,
                 target: None,
+                second_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
@@ -988,6 +1004,7 @@ mod tests {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],
             target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
+            second_targets: None,
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,

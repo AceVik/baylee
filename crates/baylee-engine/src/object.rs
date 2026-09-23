@@ -468,6 +468,26 @@ pub enum Rider {
 /// Riders attached to an object.
 pub type RiderSet = SmallVec<[Rider; 2]>;
 
+/// The targets chosen for a **second** instance of the word "target"
+/// (CR 115.3) — `second_targets` on the ability that is on the stack — and
+/// the requirement they were chosen under.
+///
+/// Beside `targets` and never inside it, for the reason the DSL field gives:
+/// every reader of `targets` takes it to be one instance, and CR 608.2b's
+/// narrowing drops an illegal target from a list, which would slide a fight's
+/// second creature into the first one's place. Read by
+/// [`baylee_cards_dsl::TargetSlot::Second`] and nothing else.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SecondInstance {
+    /// What was chosen for it.
+    pub targets: SmallVec<[ObjectId; 1]>,
+    /// The spell's requirement for it, written by the cast wizard for the
+    /// reason `target_req` is: CR 608.2b re-checks it at resolution, by which
+    /// time the face and the copy status are settled on the object and not
+    /// in the card. An activated ability's is read off its definition.
+    pub req: Option<baylee_cards_dsl::TargetReq>,
+}
+
 /// A game object.
 ///
 /// The independent flags (`kicked`, `alt_cast`, `cast_from_hand`,
@@ -568,6 +588,15 @@ pub struct GameObject {
     /// without a card lookup (CR 707.10c). `None` for anything that does not
     /// target, and for objects that never went through the cast wizard.
     pub target_req: Option<baylee_cards_dsl::TargetReq>,
+    /// The **second** instance of the word "target" (CR 115.3), when the
+    /// ability on the stack says it twice — see [`SecondInstance`].
+    ///
+    /// Boxed because almost no object has one, and `GameState::clone` — the
+    /// AI's per-ply primitive — copies every object there is: inline, the two
+    /// fields cost 32 bytes on every card in every library, against 8 for a
+    /// pointer that is null everywhere but a fight on the stack
+    /// (`tests/footprint.rs`).
+    pub second: Option<Box<SecondInstance>>,
     /// What this object's base was before it became a copy; restored when it
     /// changes zones (CR 400.7), because the new object is not a copy.
     pub original_base: Option<Arc<Characteristics>>,
@@ -701,6 +730,7 @@ impl GameObject {
             riders: RiderSet::new(),
             targets: SmallVec::new(),
             target_req: None,
+            second: None,
             original_base: None,
             event_object: None,
             ability: None,
@@ -741,6 +771,42 @@ impl GameObject {
         obj.targets = targets;
         obj.zone = Zone::Stack;
         obj
+    }
+
+    /// Whether this spell or ability targets `id` through **either**
+    /// instance of the word "target".
+    ///
+    /// The question "does it target this" has two lists to read since an
+    /// ability could say the word twice, and a reader that asked `targets`
+    /// alone would miss the second creature of a fight: ward (CR 702.21a)
+    /// and "becomes the target" both trigger on *any* instance.
+    #[must_use]
+    pub fn targets_object(&self, id: ObjectId) -> bool {
+        self.targets.contains(&id) || self.second_targets().contains(&id)
+    }
+
+    /// What the second instance of "target" named — empty when the ability
+    /// has no second instance, and when an "up to one" was answered with none.
+    #[must_use]
+    pub fn second_targets(&self) -> &[ObjectId] {
+        self.second.as_ref().map_or(&[], |s| s.targets.as_slice())
+    }
+
+    /// The requirement the second instance was chosen under, if the cast
+    /// wizard wrote one.
+    #[must_use]
+    pub fn second_target_req(&self) -> Option<baylee_cards_dsl::TargetReq> {
+        self.second.as_ref().and_then(|s| s.req)
+    }
+
+    /// Writes the second instance, allocating only when there is one.
+    pub fn set_second(
+        &mut self,
+        targets: SmallVec<[ObjectId; 1]>,
+        req: Option<baylee_cards_dsl::TargetReq>,
+    ) {
+        self.second = (!targets.is_empty() || req.is_some())
+            .then(|| Box::new(SecondInstance { targets, req }));
     }
 
     /// Creates a card-less object (token, emblem).

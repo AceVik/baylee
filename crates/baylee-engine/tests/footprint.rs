@@ -39,7 +39,13 @@ const CACHE_BUDGET: usize = 32;
 /// 256-byte memcpy per object on every `GameState::clone` — the AI's
 /// per-ply primitive. Sharing also survives the copy: a token made from a
 /// permanent points at the same base until something writes to it.
-const OBJECT_BUDGET: usize = 272;
+///
+/// Raised 272 → 280 on 2026-09-23 by the second instance of the word
+/// "target" (CR 115.3, a fight's two creatures). Inline it was two fields
+/// and 32 bytes — the gate caught it at 304 — so it is one `Option<Box<…>>`,
+/// null on every object but a spell or ability that says "target" twice,
+/// and the eight bytes of that pointer are the whole cost.
+const OBJECT_BUDGET: usize = 280;
 
 #[test]
 fn game_object_stays_within_its_budget() {

@@ -67,7 +67,7 @@ the same card being booked as a win in three rows.
 | **G6 A chosen color** | `stubs`#5 |
 | **G7 Combat restrictions** | `partial`#10 (Brazen Borrower), `dsl`#5 ("can't block/can't attack") |
 | **G8 Removing, moving and proliferating counters as an *effect*** | `stubs`#7, partly `dsl`#2 |
-| **G9 Target slots** | `dsl`#4 (two kinds of target in one sentence), `offers`#3 (an activation knows exactly one target), `partial`#5 (`FightSide::Target(u8)` indexes exactly that list) |
+| **G9 Target slots** | `dsl`#4 (two kinds of target in one sentence) — **the second kind closed 23.09.2026** (`second_targets`), `offers`#3 (an activation's *first* target is still exactly one — still open), `partial`#5 |
 | **G10 An activation ceiling** | `stubs`#8, `offers`#4, test `liliana_the_repentant` (Exhaust) |
 | **G11 A graveyard cast with its own cost** | `partial`#2, tests `faithless_looting`, `open_communications`, `sevinne_s_reclamation` |
 | **G12 Storm / "copy the spell I belong to"** | `partial`#3, tests `flusterstorm`, `brain_freeze`, `sevinne_s_reclamation` |
@@ -78,7 +78,7 @@ the same card being booked as a win in three rows.
 | **G17 A static with a condition** | `partial`#8 |
 | **G18 Ability removal, projected** | `partial`#9, test `tishana_s_tidebinder` |
 | ~~**G19 Regeneration**~~ | `dsl`#7 — **closed 23.09.2026**, roadmap C2b |
-| **G20 Fight** | `dsl`#3 |
+| ~~**G20 Fight**~~ | `dsl`#3 — **closed 23.09.2026** with G9's second kind |
 | **G21 Impulse Draw** | `dsl`#6 |
 | **G22 Activation cost reduction** | `dsl`#8 (channel lands, Training Grounds) — **not** the same thing as G13 |
 | **G23 ActivationTiming is two-valued** | `offers`#5 |
@@ -130,10 +130,10 @@ met where the ranking is.
 | 6 | **G6** A chosen color | 29 headers (by hand, incl. "chosen color"), 24 script | 3 | ~10 | **new rule** | — |
 | 7 | **G7** "can't block / can't attack / can block only" | 10 (7 "can't block" headers by hand, plus Brazen Borrower and Glacial Chasm) | 1.5 | ~7 | **case** at `can_block`, **rule** at `can_attack` | — |
 | 8 | **G8** Removing, moving and proliferating counters as an effect | **contradictory: 1 against 13** | 1 | ? | **case** | G2 |
-| 9 | **G20** Fight | 5 headers (by hand), 5 `dsl` | 1 (the word) / 3 (the reach) | 5 | **case**, the reach bound to **G9** | 4 of the 5 also G9 |
+| 9 | ~~**G20** Fight~~ **closed** | 5 headers (by hand), 5 `dsl` | 1 (the word) / 3 (the reach) | 5 | **case**, the reach bound to **G9** | 4 of the 5 also G9 |
 | 10 | ~~**G19** Regeneration~~ **closed** | 8 headers (by hand), 7 `dsl` | 2 | 4 | **new rule**, but with one funnel | Damn (`NoRegen$`) |
 | 11 | **G21** Impulse Draw | 6 | 1.5 | 4 | **case** plus an expiry sweep | — |
-| 12 | **G9** Target slots (how many, and a second kind) | 5 (`offers`) + 6 (`dsl`) = 11 | 3 | 3.7 | **new rule** | G20 |
+| 12 | **G9** Target slots (how many — open; a second kind — **closed**) | 5 (`offers`) + 6 (`dsl`) = 11 | 3 | 3.7 | **new rule** | G20 |
 | 13 | **G22** Activation cost reduction | 11 activated + 9 spells (`dsl`) | 2–3 | ~4 | spells: **case**; activation: **rule** (no seam) | — |
 | 14 | **G23** The ActivationTiming window | 5 (`offers`) | 2 | 2.5 | **case** | — |
 | 15 | **G16** Servo/Germ + `last_created` | 2 | 1 (data) + 2 (handle) | ~2 | data: **case**; handle: **rule** | — |
@@ -940,7 +940,12 @@ name for it):
   a parameter, and `Amount::TargetPower`/`SourcePower` work out both numbers.
   **But:** 4 of the 5 cards print two different kinds of target and therefore
   hang on G9 as well, which is a new rule. So: *the word* is a case, *the
-  reach* is bound to a rule.
+  reach* is bound to a rule. **Closed 23.09.2026, both halves in one
+  commit**: `Effect::Fight` and `Effect::DamageEqualToPower` name their two
+  creatures by `TargetSlot` (this object, the first instance of "target", the
+  second), and Khalni Ambush, Bridgeworks Battle, Stump Stomp and Contested
+  Cliffs play. Golden Guardian is the fifth and still waits — not on the
+  fight but on the delayed "when this creature dies this turn" return.
 - **G21 Impulse Draw** — `Rider::PlayableFromExileFor` exists, is hashed and
   is read by both consumers; what is missing is the expiry and an effect that
   sets it.
@@ -962,7 +967,13 @@ name for it):
 - **G1** — the activation path has no stage at which to stop. The seam is
   there, the rule is not.
 - **G9** — `res.targets` is a flat list and `eval::target_options` is called
-  once per ability; there is nowhere a second target list.
+  once per ability; there is nowhere a second target list. **The second kind
+  closed 23.09.2026**: a second instance of "target" (CR 115.3) is its own
+  list at every layer — `second_targets` on the DSL, the object, the
+  resolution and the cast wizard — and never appended to `targets`, because
+  every reader takes that list to be one instance and a CR 608.2b narrowing
+  of the first would shift the second's positions. What stays open is the
+  *first* activation target being exactly one (`offers`#3).
 - **G6** — a new state field on the object, which has to go through
   serialisation and the view.
 - **G14** — a choice at resolution that is expressly *not* a target choice, so

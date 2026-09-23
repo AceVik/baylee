@@ -219,11 +219,18 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // `TargetRef` has had a `Player` arm since the view was written and
         // never carried one, because the engine's target list was objects
         // only. A burn spell aimed at a face now says so on the stack.
+        //
+        // A second instance of the word "target" is drawn on the same list:
+        // an arrow is an arrow, and a fight's two creatures are both what the
+        // spell points at. Which instance each came from is the engine's
+        // business at resolution and nobody's on the table, so the list
+        // stays one field and the view keeps its version.
         targets: obj
             .targets
             .iter()
             .map(|t| TargetRef::Object(*t))
             .chain(obj.target_players.iter().map(TargetRef::Player))
+            .chain(obj.second_targets().iter().map(|t| TargetRef::Object(*t)))
             .collect(),
         stack_item: stack_item(obj),
         // Permanents only, because the engine's answer is about a creature

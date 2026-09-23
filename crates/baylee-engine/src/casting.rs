@@ -239,11 +239,20 @@ pub fn face_has_a_legal_target(
             .iter()
             .any(|mode| requirement_is_reachable(mode.targets, state, player, card));
     }
-    let req = abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::Spell { targets, .. } => *targets,
+    let spell = abilities.iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::Spell {
+            targets,
+            second_targets,
+            ..
+        } => Some((*targets, *second_targets)),
         _ => None,
     });
+    let (req, second) = spell.unwrap_or_default();
+    // Every instance of the word has to be satisfiable (CR 601.2c): Khalni
+    // Ambush with no creature on the other side of the table is not a spell
+    // that can be cast, however many of the caster's own it could name.
     requirement_is_reachable(req, state, player, card)
+        && requirement_is_reachable(second, state, player, card)
 }
 
 /// Whether one mode of a modal spell (CR 700.2) can be pointed at anything.

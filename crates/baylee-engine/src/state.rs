@@ -2257,6 +2257,10 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     for t in &obj.targets {
         h.u32(position(*t));
     }
+    h.usize(obj.second_targets().len());
+    for t in obj.second_targets() {
+        h.u32(position(*t));
+    }
     match &obj.ability {
         Some(loc) => {
             h.u8(1);
@@ -2320,6 +2324,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     // Targets + ability location.
     h.usize(obj.targets.len());
     for t in &obj.targets {
+        h.u32(t.slot());
+    }
+    h.usize(obj.second_targets().len());
+    for t in obj.second_targets() {
         h.u32(t.slot());
     }
     match &obj.ability {

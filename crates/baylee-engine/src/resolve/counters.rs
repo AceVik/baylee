@@ -288,6 +288,7 @@ mod pump_tests {
             effects: vec![],
             pc: 0,
             targets: targets.iter().copied().collect(),
+            second_targets: SmallVec::new(),
             x: None,
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::new(),

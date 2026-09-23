@@ -129,6 +129,7 @@ mod tests {
                 effects: vec![baylee_cards_dsl::Effect::ControlRotation],
                 pc: 0,
                 targets: smallvec::SmallVec::new(),
+                second_targets: smallvec::SmallVec::new(),
                 x: None,
                 chosen_player: None,
                 target_players: SeatSet::default(),

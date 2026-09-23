@@ -101,6 +101,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::Fight { fighter, foe } => {
+            fight(state, res, fighter, foe);
+            None
+        }
+        Effect::DamageEqualToPower { dealer, to } => {
+            damage_equal_to_power(state, res, dealer, to);
+            None
+        }
         Effect::DealDamageToTargetController { amount } => {
             if let Some(&target_id) = res.targets.first() {
                 let controller = state.object(target_id).map_or(you, |o| o.controller);
@@ -111,6 +119,96 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         _ => unreachable!("not a life/damage effect"),
     }
+}
+
+/// `Effect::Fight` (CR 701.14a).
+fn fight(state: &mut GameState, res: &Resolution, fighter: TargetSlot, foe: TargetSlot) {
+    // CR 701.14b, both halves at once: a side that is gone — left the
+    // battlefield, stopped being a creature, or was dropped by CR 608.2b's
+    // re-check as an illegal target, which is what an empty slot means here —
+    // and *neither* creature deals damage.
+    let (Some(a), Some(b)) = (
+        fighting(state, slot_object(res, fighter)),
+        fighting(state, slot_object(res, foe)),
+    ) else {
+        return;
+    };
+    // Both amounts are read before either is dealt: the damage is dealt at
+    // once (CR 701.14a, "each of those creatures deals damage"), and a
+    // creature's power does not depend on the damage marked on it, so this is
+    // the order that cannot matter — which is what makes it the right one to
+    // write.
+    let (power_a, power_b) = (power_of(state, a), power_of(state, b));
+    // Each creature is the source of its own damage, which is what makes
+    // deathtouch and protection read the right object (CR 702.2b,
+    // CR 702.16e). A creature fighting itself runs both lines at itself —
+    // twice its power, as CR 701.14c says.
+    deal_to_object_with_loyalty(state, b, power_a, a);
+    deal_to_object_with_loyalty(state, a, power_b, b);
+}
+
+/// `Effect::DamageEqualToPower` — "deals damage equal to its power to".
+fn damage_equal_to_power(
+    state: &mut GameState,
+    res: &Resolution,
+    dealer: TargetSlot,
+    to: TargetSlot,
+) {
+    // Not a fight, so CR 701.14b does not govern it; CR 608.2b does, and it
+    // lands in the same place. An illegal dealer is one whose power the
+    // effect "fails to determine", so no damage happens, and an illegal
+    // recipient is not affected by the part of the effect it is illegal for.
+    // The recipient may be a planeswalker (Stump Stomp), which
+    // `deal_to_object_with_loyalty` turns into loyalty (CR 306.8), so only the
+    // dealer has to be a creature.
+    let Some(from) = fighting(state, slot_object(res, dealer)) else {
+        return;
+    };
+    let Some(target) = slot_object(res, to).filter(|id| {
+        state
+            .object(*id)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    }) else {
+        return;
+    };
+    let n = power_of(state, from);
+    deal_to_object_with_loyalty(state, target, n, from);
+}
+
+/// The object a [`TargetSlot`] names as the effect resolves, if there still
+/// is one.
+///
+/// Empty when the slot's target was dropped by CR 608.2b's re-check, and when
+/// a "choose up to one" was answered with none — the two are the same fact to
+/// every effect that reads it: there is nothing on that side.
+fn slot_object(res: &Resolution, slot: TargetSlot) -> Option<ObjectId> {
+    match slot {
+        TargetSlot::This => Some(res.source),
+        TargetSlot::First => res.targets.first().copied(),
+        TargetSlot::Second => res.second_targets.first().copied(),
+    }
+}
+
+/// `id`, if it is still a creature on the battlefield — CR 701.14b's two
+/// conditions for a creature to fight at all.
+fn fighting(state: &GameState, id: Option<ObjectId>) -> Option<ObjectId> {
+    id.filter(|id| {
+        state.object(*id).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+        })
+    })
+}
+
+/// "Damage equal to its power": the projected power, and nought for a
+/// negative one (CR 107.1b — a negative number of damage is no damage).
+fn power_of(state: &GameState, id: ObjectId) -> i16 {
+    state
+        .object(id)
+        .and_then(|o| o.characteristics().power)
+        .map_or(0, |p| p.max(0))
 }
 
 pub(super) fn gain_life(state: &mut GameState, player: PlayerId, n: i32) {

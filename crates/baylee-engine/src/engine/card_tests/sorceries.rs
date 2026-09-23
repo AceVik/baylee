@@ -1938,17 +1938,17 @@ fn bala_ged_recovery_returns_target_card_from_own_graveyard_to_hand() {
     );
 }
 
-/// `Bridgeworks Battle` // `Tanglespan Bridgeworks` (`Coverage::Partial`): "Target creature
-/// you control gets +2/+2 until end of turn. It fights up to one target creature you don't
-/// control. // As this land enters, you may pay 3 life. If you don't, it enters tapped.
-/// {T}: Add {G}."
+/// `Bridgeworks Battle` // `Tanglespan Bridgeworks`: "Target creature you
+/// control gets +2/+2 until end of turn. It fights up to one target creature
+/// you don't control."
 ///
-/// Under `Coverage::Partial`, the front-face pump effect is implemented while the fight
-/// clause is omitted. The test casts `Bridgeworks Battle` targeting a controlled creature,
-/// confirms that an opponent's creature cannot be targeted by `Filter::YOUR_CREATURE`, and
-/// verifies the target receives +2/+2 until end of turn while the opponent's creature survives.
+/// The first menu is my creatures only, the second theirs only and "up to
+/// one" (`min` 0). A 1/1 of mine is pumped to 3/3 and fights their 1/1: theirs
+/// dies, mine keeps one damage — at the pumped size, which is the resolution
+/// seeing its own pump. The declined and the gone-in-response halves are in
+/// `fight_tests`.
 #[test]
-fn bridgeworks_battle_pumps_controlled_creature_and_omits_fight() {
+fn bridgeworks_battle_pumps_my_creature_and_it_fights_theirs() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(474, forest())
         .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
@@ -1960,8 +1960,6 @@ fn bridgeworks_battle_pumps_controlled_creature_and_omits_fight() {
 
     let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 has an elf");
     let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("p1 has an elf");
-    assert_eq!(pt(&engine, my_elf), (1, 1));
-    assert_eq!(pt(&engine, their_elf), (1, 1));
 
     tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
     cast_front_face(&mut engine, p0, bridgeworks_battle());
@@ -1975,33 +1973,53 @@ fn bridgeworks_battle_pumps_controlled_creature_and_omits_fight() {
     );
     assert!(
         !options.contains(&their_elf),
-        "opponent creature cannot be targeted"
+        "opponent creature cannot be pumped"
     );
-
     engine
         .apply(
             p0,
-            PlayerAction::ChooseObjects {
+            PlayerAction::ChooseTargets {
                 objects: vec![my_elf],
+                players: vec![],
             },
         )
         .unwrap();
 
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected the fight's target prompt, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        vec![their_elf],
+        "only a creature I don't control is fought"
+    );
+    assert_eq!((min, max), (0, 1), "\"up to one\"");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![their_elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
+    assert_eq!(pt(&engine, my_elf), (3, 3), "+2/+2 until end of turn");
     assert_eq!(
-        pt(&engine, my_elf),
-        (3, 3),
-        "controlled creature gets +2/+2 until end of turn"
-    );
-    assert_eq!(
-        pt(&engine, their_elf),
-        (1, 1),
-        "opponent creature is not pumped"
+        engine.state().object(my_elf).map(|o| o.damage),
+        Some(1),
+        "the 1/1 across the table dealt its one back"
     );
     assert!(
-        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
-        "under `Coverage::Partial` no fight occurred so opponent creature survives"
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "three damage from the pumped Elves kill theirs"
     );
     assert!(
         in_graveyard(&engine, p0, bridgeworks_battle()).is_some(),
@@ -2175,14 +2193,14 @@ fn pelakka_caverns_enters_tapped_and_taps_for_black_mana() {
     );
 }
 
-/// `Stump Stomp` // `Burnwillow Clearing` (`Coverage::Partial`): "Target creature you control
-/// deals damage equal to its power to target creature or planeswalker you don't control.
-/// // This land enters tapped. {T}: Add {R} or {G}."
+/// `Stump Stomp` // `Burnwillow Clearing`: "Target creature you control deals
+/// damage equal to its power to target creature or planeswalker you don't
+/// control. // This land enters tapped. {T}: Add {R} or {G}."
 ///
-/// Under `Coverage::Partial`, the front-face fight-like effect is not expressible in the
-/// DSL, but the back face (`Burnwillow Clearing`) is fully implemented. The test plays the
-/// land face, verifies it enters tapped, advances to the next turn so it untaps, and
-/// activates its mana ability choosing `{G}` from `Pending::ChooseColor`.
+/// The back face: the test plays the land face, verifies it enters tapped,
+/// advances to the next turn so it untaps, and activates its mana ability
+/// choosing `{G}` from `Pending::ChooseColor`. The front face is the two
+/// tests below.
 #[test]
 fn burnwillow_clearing_enters_tapped_and_taps_for_chosen_mana() {
     let (mut engine, land) =
@@ -2222,6 +2240,114 @@ fn burnwillow_clearing_enters_tapped_and_taps_for_chosen_mana() {
             .available(ManaColor::Green),
         green_before + 1,
         "adds one green mana to the pool"
+    );
+}
+
+/// Stump Stomp, the front face, at a creature: my 4/4 deals four to their 2/2
+/// and is dealt nothing back, because this is one-sided and not a fight.
+#[test]
+fn stump_stomp_has_my_creature_deal_its_power_and_take_nothing_back() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2190, forest())
+        .battlefield(0, &[forest(), mountain(), fangren_hunter()])
+        .battlefield(1, &[wild_colos()])
+        .hand(0, &[stump_stomp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let hunter = on_battlefield(&engine, p0, fangren_hunter()).expect("my Hunter is out");
+    let colos = on_battlefield(&engine, p1, wild_colos()).expect("their Colos is out");
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, stump_stomp());
+    for chosen in [hunter, colos] {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![chosen],
+                    players: vec![],
+                },
+            )
+            .expect("each creature is on its own menu");
+    }
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, wild_colos()).is_some(),
+        "four damage kill the 2/2"
+    );
+    assert_eq!(
+        engine.state().object(hunter).map(|o| o.damage),
+        Some(0),
+        "nothing is dealt back"
+    );
+}
+
+/// Stump Stomp at a planeswalker: "target creature **or planeswalker** you
+/// don't control". Damage to a planeswalker removes that much loyalty
+/// (CR 306.8) — a 4/4 takes Karn from five to one — and my own creatures are
+/// not on the second menu at all.
+#[test]
+fn stump_stomp_can_hit_a_planeswalker_and_takes_its_loyalty() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2191, forest())
+        .battlefield(
+            0,
+            &[forest(), mountain(), fangren_hunter(), llanowar_elves()],
+        )
+        .battlefield(1, &[karn_the_great_creator()])
+        .hand(0, &[stump_stomp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let hunter = on_battlefield(&engine, p0, fangren_hunter()).expect("my Hunter is out");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let karn = on_battlefield(&engine, p1, karn_the_great_creator()).expect("their Karn is out");
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_front_face(&mut engine, p0, stump_stomp());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![hunter],
+                players: vec![],
+            },
+        )
+        .expect("my Hunter deals the damage");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected the second target question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&karn),
+        "a planeswalker I don't control is a target"
+    );
+    assert!(
+        !options.contains(&elves) && !options.contains(&hunter),
+        "and nothing of mine is"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![karn],
+                players: vec![],
+            },
+        )
+        .expect("Karn was offered");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(karn)
+            .map(|o| o.counters.get(CounterKind::Loyalty)),
+        Some(1),
+        "five loyalty less four damage"
     );
 }
 

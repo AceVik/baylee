@@ -384,7 +384,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.chosen_player = Some(chosen);
-                wizard.stage = cast_wizard::WizardStage::Kicker;
+                wizard.stage = cast_wizard::WizardStage::SecondTargets;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
@@ -406,6 +406,7 @@ impl<L: CardLookup> Engine<L> {
                 // collected to the next one.
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
+                self.activation_second_targets = None;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
             (Pending::Priority { player: p, legal }, PlayerAction::Suspend { card })
@@ -500,10 +501,15 @@ impl<L: CardLookup> Engine<L> {
                     if wizard.stage == cast_wizard::WizardStage::Convoke {
                         wizard.convoke_taps = objects.into_iter().collect();
                         wizard.stage = cast_wizard::WizardStage::Done;
+                    } else if wizard.stage == cast_wizard::WizardStage::SecondTargets {
+                        // The second instance of "target" is objects only in
+                        // every shape that prints one, so no seat is kept.
+                        wizard.second_targets = objects.into_iter().collect();
+                        wizard.stage = cast_wizard::WizardStage::Kicker;
                     } else {
                         wizard.targets = objects.into_iter().collect();
                         wizard.target_players = players.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::Kicker;
+                        wizard.stage = cast_wizard::WizardStage::SecondTargets;
                     }
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
@@ -537,6 +543,16 @@ impl<L: CardLookup> Engine<L> {
                     // answered somewhere else should have to say so here.
                     PlanKind::ChooseActivationX { .. } => {
                         unreachable!("activation-number plans are answered via ChooseNumber")
+                    }
+                    PlanKind::ActivateAbilitySecondTargets {
+                        source,
+                        ability_index,
+                        targets: first,
+                        target_players,
+                    } => {
+                        self.activation_second_targets = Some(targets.into_iter().collect());
+                        self.activation_target_players = target_players;
+                        self.start_activation(player, source, ability_index, first)?;
                     }
                     PlanKind::ActivateAbility {
                         source,

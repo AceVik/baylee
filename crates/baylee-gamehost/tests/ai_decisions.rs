@@ -653,6 +653,7 @@ fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine()
                 targets: Some(TargetReq::one(TargetSpec::Object(
                     &baylee_cards_dsl::Filter::CREATURE,
                 ))),
+                second_targets: None,
             }])),
             ..CardDef::DEFAULT
         }));

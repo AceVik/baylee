@@ -5,22 +5,17 @@
 //! Set: MH3 #249 — Modern Horizons 3 | Scryfall ID: ebef3db0-2b58-4581-a79c-fbca9a059e63 | Oracle ID: 9d581188-ce80-494e-bd38-f411e1f4efb5
 //! Face: Bridgeworks Battle — {2}{G} — Sorcery
 //! Face: Tanglespan Bridgeworks —  — Land
-// PARTIAL — the land face is complete ({G} without condition; enters tapped
-// unless its controller pays 3 life); the sorcery face pumps +2/+2 and cannot
-// fight.
-
 use baylee_cards_dsl::prelude::*;
 
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])];
+
+static CREATURE_YOU_DONT_CONTROL: Filter = f!(not_yours CREATURE);
 
 card!(
     index = index::BRIDGEWORKS_BATTLE,
     oracle_id = "9d581188-ce80-494e-bd38-f411e1f4efb5",
     scryfall_id = "ebef3db0-2b58-4581-a79c-fbca9a059e63",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Partial(
-        "the sorcery face's \"It fights up to one target creature you don't control\" clause is not expressible"
-    ),
     faces = &[
         face!(
             name = "Bridgeworks Battle",
@@ -34,18 +29,23 @@ card!(
             abilities = BACK_MANA,
         ),
     ],
-    // NOT SUPPORTED: "It fights up to one target creature you don't
-    // control." — the vocabulary has no fight effect (two targets each
-    // dealing damage equal to their own power to the other); `DealDamage`
-    // takes one target and one amount, and the second half would need the
-    // *other* target's power.
+    coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::PumpTarget {
-            power: Amount::Fixed(2),
-            toughness: Amount::Fixed(2),
-            keywords: KeywordSet::EMPTY,
-            duration: Duration::UntilEndOfTurn,
-        }],
-        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
+        &[
+            Effect::PumpTarget {
+                power: Amount::Fixed(2),
+                toughness: Amount::Fixed(2),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn,
+            },
+            Effect::Fight {
+                fighter: TargetSlot::First,
+                foe: TargetSlot::Second,
+            },
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE))),
+        second_targets = Some(TargetReq::up_to_one(TargetSpec::Object(
+            &CREATURE_YOU_DONT_CONTROL
+        ))),
     )],
 );

@@ -41,7 +41,7 @@ pub use build::{
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,
-    SpendRider, TargetReq, TargetSpec, TokenDef, ZoneSel,
+    SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{

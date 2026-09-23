@@ -375,6 +375,49 @@ Three more things the rule needs, each of which was wrong first:
   nothing, so nothing else would stop it pulling a card out of *exile* if
   somebody exiled it in response.
 
+## Two instances of "target", and a board that moves mid-resolution
+
+CR 115.3 counts targets per **instance of the word**: Khalni Ambush's "target
+creature you control fights target creature you don't control" is two
+requirements, each with its own filter, and the same object may be named once
+for each. `res.targets` had been one flat list read as one instance by every
+reader — ward, `BecomesTarget`, narrowing, the effect arms — so the second
+instance is a **second list at every layer** and is never appended to the
+first: `second_targets` on the DSL ability, on `GameObject` (with the
+requirement it was chosen under, `second_target_req`), on `Resolution` and on
+`CastWizard`. `GameObject::targets_object` is the one question "is this object
+targeted by it at all", and the readers that meant that ask it. Both lists are
+hashed, because two stacks that differ only in what the second instance named
+are two positions.
+
+It is asked as its own stage in both doors: `WizardStage::SecondTargets`
+after `Targets` for a cast, and `PlanKind::ActivateAbilitySecondTargets` after
+the first target for an activation, whose answer re-enters `start_activation`
+the way every other plan does. The offer asks both: a spell whose second
+instance has nothing legal to name is not castable (CR 601.2c), which
+`casting::face_has_a_legal_target` and the activation offer both check.
+
+Narrowing (CR 608.2b) is **per instance**. `progress::target_legality` asks
+each list separately and returns `AllIllegal` only when every instance that
+was asked lost everything; an instance that lost its one object is empty and
+the spell still resolves for the other. That is also why the lists stay
+apart — narrowing the first would otherwise shift the second's positions and
+hand a `TargetSlot::Second` whatever used to be third. `Effect::Fight` checks
+CR 701.14b on its own as well, battlefield and creature on both sides, because
+a `TargetSlot::This` fighter is not a target and is never narrowed. That half
+is a guard without a proof: no card in the pool fights with `This` yet, so
+the first one (Golden Guardian) owes the test of its source leaving in
+response.
+
+The other half is that **an effect list can change what the next effect
+reads**. The layer projection is a generation compare, refreshed between
+engine steps — and a resolution is one step. Bridgeworks Battle's +2/+2 was
+registered and its fight then read the stale power, so `resolve::run` now
+calls `refresh_characteristics` before every effect. It costs a `u64` compare
+when nothing changed, and it is the rule rather than the fight's: any
+sentence that reads a characteristic after an earlier sentence changed it was
+wrong the same way.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing

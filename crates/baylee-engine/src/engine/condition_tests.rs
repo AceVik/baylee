@@ -60,6 +60,7 @@ const TAP_FOR_MANA: AbilityDef = AbilityDef::Activated {
     cost: Cost::TAP,
     effects: MANA,
     target: None,
+    second_targets: None,
     timing: ActivationTiming::InstantSpeed,
     mana_ability: true,
     zone: ActivationZone::Battlefield,

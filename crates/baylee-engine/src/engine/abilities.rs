@@ -234,6 +234,7 @@ impl<L: CardLookup> Engine<L> {
                         timing,
                         zone,
                         target,
+                        second_targets,
                         limit,
                         ..
                     } => {
@@ -250,7 +251,8 @@ impl<L: CardLookup> Engine<L> {
                             player,
                             id,
                             target.map(baylee_cards_dsl::TargetReq::one),
-                        ) {
+                        ) || !self.ability_has_a_target(player, id, *second_targets)
+                        {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
@@ -263,6 +265,7 @@ impl<L: CardLookup> Engine<L> {
                         zone,
                         condition,
                         target,
+                        second_targets,
                         limit,
                         ..
                     } => {
@@ -282,7 +285,8 @@ impl<L: CardLookup> Engine<L> {
                             player,
                             id,
                             target.map(baylee_cards_dsl::TargetReq::one),
-                        ) {
+                        ) || !self.ability_has_a_target(player, id, *second_targets)
+                        {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
@@ -954,6 +958,7 @@ impl<L: CardLookup> Engine<L> {
                 effects: crate::resolve::flatten(effects),
                 pc: 0,
                 targets,
+                second_targets: SmallVec::new(),
                 x: None,
                 chosen_player: None,
                 target_players: baylee_core::ids::SeatSet::new(),
@@ -1057,7 +1062,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
         }
-        let (cost, effects, target, mana_ability, zone, limit) = {
+        let (cost, effects, (target, second), mana_ability, zone, limit) = {
             let obj = self
                 .state
                 .object(source)
@@ -1086,15 +1091,24 @@ impl<L: CardLookup> Engine<L> {
                     cost,
                     effects,
                     target,
+                    second_targets,
                     mana_ability,
                     zone,
                     limit,
                     ..
-                } => (*cost, *effects, *target, *mana_ability, *zone, *limit),
+                } => (
+                    *cost,
+                    *effects,
+                    (*target, *second_targets),
+                    *mana_ability,
+                    *zone,
+                    *limit,
+                ),
                 AbilityDef::ActivatedConditional {
                     cost,
                     effects,
                     target,
+                    second_targets,
                     mana_ability,
                     zone,
                     condition,
@@ -1104,7 +1118,14 @@ impl<L: CardLookup> Engine<L> {
                     if !crate::eval::condition_holds(&self.state, player, source, *condition) {
                         return Err(EngineError::IllegalAction("activation condition not met"));
                     }
-                    (*cost, *effects, *target, *mana_ability, *zone, *limit)
+                    (
+                        *cost,
+                        *effects,
+                        (*target, *second_targets),
+                        *mana_ability,
+                        *zone,
+                        *limit,
+                    )
                 }
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
@@ -1252,6 +1273,40 @@ impl<L: CardLookup> Engine<L> {
             self.awaiting_answer = true;
             return Ok(());
         }
+        // The second instance of the word "target" (Contested Cliffs), asked
+        // once the first has its answer and before anything is paid — both
+        // are CR 601.2c, and the cost is CR 601.2h. Its options leave in what
+        // the first instance chose, because CR 115.3 lets one object be
+        // chosen once for each instance.
+        if let Some(req) = second
+            && self.activation_second_targets.is_none()
+        {
+            let options = eval::target_options(&req.spec, &self.state, player, source);
+            if options.len() < req.min as usize {
+                self.activation_x = None;
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
+            if options.is_empty() || req.max == 0 {
+                self.activation_second_targets = Some(SmallVec::new());
+            } else {
+                self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
+                    source,
+                    ability_index,
+                    targets,
+                    target_players: chosen_players,
+                });
+                self.pending = Pending::ChooseTargets {
+                    player,
+                    options,
+                    player_options: Vec::new(),
+                    min: req.min,
+                    max: req.max,
+                    reason: TargetPrompt::Targets,
+                };
+                self.awaiting_answer = true;
+                return Ok(());
+            }
+        }
         if !self.can_afford(player, source, &cost) {
             self.activation_cost_choices.clear();
             self.activation_x = None;
@@ -1335,6 +1390,10 @@ impl<L: CardLookup> Engine<L> {
                 effects: resolve::flatten(effects),
                 pc: 0,
                 targets,
+                // CR 605.1a: a mana ability has no target, so it has no
+                // second one either — `lints::mana_ability_fault` refuses
+                // either list on one.
+                second_targets: SmallVec::new(),
                 // The number this activation announced, which is what every
                 // `Amount::X` in its effects reads: "Add {W} for each storage
                 // counter removed this way" is the counters that just came
@@ -1360,6 +1419,13 @@ impl<L: CardLookup> Engine<L> {
             }
         } else {
             let ability = self.push_ability_to_stack(player, source, ability_index, targets);
+            // The second instance's answer, taken so that it belongs to this
+            // activation and to no other.
+            if let Some(second) = self.activation_second_targets.take()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.set_second(second, None);
+            }
             // The number this activation announced, carried on the ability
             // the way a spell carries its own X (CR 601.2b). No card in the
             // pool prints a counter-X cost on an ability that uses the stack

@@ -871,9 +871,14 @@ f!(another nontoken CREATURE)
 f!(owned Filter::HasSubtype(ally::ALLY))  // an Ally you own
 ```
 
-The adjective list is closed — `your`, `opponents`, `owned`, `another`,
-`token`, `nontoken`, `tapped`, `untapped`, `attacking`, `colorless` — and
-each one is a single nullary `Filter` variant. Anything that takes an
+The adjective list is closed — `your`, `not_yours`, `opponents`, `owned`,
+`another`, `token`, `nontoken`, `tapped`, `untapped`, `attacking`,
+`colorless` — and each one is a single nullary `Filter` variant, except
+`not_yours`, which is `Not(&ControlledByYou)`. It is the one negation with an
+adjective of its own because "you don't control" is not "an opponent
+controls": at a table with sides (`dev-table --teams`) a teammate's creature
+is one you don't control and no opponent's, so spelling it `opponents` would
+be a different card that reads the same in a duel. Anything that takes an
 argument stays a variant (`Filter::HasColor(…)`, `Filter::CmcAtMost(1)`),
 because `f!` is a shorter spelling of the filters we already have and not a
 second filter language: it can say nothing `Filter` cannot.
@@ -988,7 +993,38 @@ undying and persist, which target nothing at all.
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
 `RearrangeTopLibrary`/`ReorderTopLibrary`.
-Combat/damage: `DealDamage`, `DealDamageToTargetController`.
+Combat/damage: `DealDamage`, `DealDamageToTargetController`, `Fight`,
+`DamageEqualToPower`.
+
+`Fight { fighter, foe }` (CR 701.14a) and `DamageEqualToPower { dealer, to }`
+name their creatures by `TargetSlot` — `This` (the source, not a target),
+`First` (the first instance of "target") and `Second` (the second) — because
+a fight is the one sentence whose two creatures are two *different* instances
+of "target": Khalni Ambush's "target creature you control fights target
+creature you don't control" is two requirements, not one requirement for two
+objects. The second is written `second_targets = Some(TargetReq::…)` on
+`spell!` or `activated!`, beside `targets`/`target` — never on a mana
+ability, which may not target at all (CR 605.1a) and which
+`lints::mana_ability_fault` refuses through either instance.
+It is asked after the first, is its own list at every layer, and is never
+appended to `targets`: every reader of that list takes it to be one instance.
+Each instance is narrowed on its own at resolution (CR 608.2b), and the spell
+fizzles only when *every* instance lost all it named; a fight whose one side
+is gone deals no damage at all (CR 701.14b), which the resolver checks on
+both sides whatever the narrowing did, because a `This` fighter is never
+narrowed. That last case is guarded by `resolve::life::fighting` and proved
+by nothing: no card in the pool fights with `This` yet (Golden Guardian is
+the one that will), and its first test is owed with it.
+
+Both read **projected** power at the moment they resolve, and the projection
+is refreshed before every effect in a list, so Bridgeworks Battle's
+`PumpTarget` followed by its `Fight` fights at the pumped power. Negative
+power deals 0 (CR 107.1b); damage to a planeswalker removes loyalty
+(CR 306.8), which is Stump Stomp's "creature or planeswalker"; each creature
+is the source of its own damage, so deathtouch and protection apply; and it
+is not combat damage (CR 701.14d), so combat-only lifelink does not fire —
+noncombat lifelink (CR 702.15b) is not implemented yet and no card in the
+pool that fights has it.
 Removal: `Destroy`, `DestroyAll`, `Regenerate`, `Exile`, `CounterTargetSpell`,
 `CounterTargetAbility`, `CounterTargetSpellOrAbility`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent

@@ -44,6 +44,7 @@ static BOUNCE_SELF: &[AbilityDef] = &[AbilityDef::Activated {
         target: TargetSpec::ThisObject,
     }],
     target: None,
+    second_targets: None,
     timing: ActivationTiming::InstantSpeed,
     mana_ability: false,
     zone: ActivationZone::Battlefield,

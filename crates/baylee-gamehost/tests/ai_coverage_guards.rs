@@ -194,7 +194,7 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
 #[test]
 #[allow(clippy::too_many_lines)] // one entry per table row, in one readable list
 fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
-    let rows: [(&str, usize); 26] = [
+    let rows: [(&str, usize); 27] = [
         (
             "Commander pair rules (plain Partner)",
             count(|def| matches!(def.partner, PartnerKind::Partner)),
@@ -212,6 +212,23 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
                         AbilityDef::ModalSpell { .. } | AbilityDef::ModalTriggered { .. }
                     )
                 })
+            }),
+        ),
+        (
+            // Paid, 23.09.2026: `a_fight_names_the_creature_its_fighter_\
+            // kills_and_survives` and `a_fight_names_the_fighter_with_a_\
+            // fight_worth_having` in `baylee-ai`. The first was the defect:
+            // Bridgeworks Battle's pump made the whole spell read as a
+            // benefit, so every creature across the table scored as one the
+            // spell must not reach and "up to one" was answered with none.
+            // Both instances of "target" are asked separately (CR 115.3), and
+            // `fight::fight_targets` answers each by what the fight would do.
+            "Modal and multi-target effects (a fight's two instances)",
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::Fight { .. } | Effect::DamageEqualToPower { .. }
+                )
             }),
         ),
         // **This counts compiled faces, not printings**, and the difference

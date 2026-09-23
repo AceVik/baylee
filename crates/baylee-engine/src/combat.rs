@@ -1410,6 +1410,7 @@ mod tests {
             effects: vec![baylee_cards_dsl::Effect::PhaseOut { target: None }],
             pc: 0,
             targets: smallvec::SmallVec::new(),
+            second_targets: smallvec::SmallVec::new(),
             x: None,
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::default(),

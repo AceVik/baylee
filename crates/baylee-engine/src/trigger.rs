@@ -494,7 +494,7 @@ fn collect_for_objects(
                 };
                 let targets_this = state
                     .object(target_obj)
-                    .is_some_and(|o| o.targets.contains(&permanent));
+                    .is_some_and(|o| o.targets_object(permanent));
                 if targets_this && caster != Some(obj.controller) {
                     triggers.push(PendingTrigger {
                         source: permanent,
@@ -742,9 +742,9 @@ fn matches(
         (Trigger::BecomesTarget, GameEvent::SpellCast { object, .. }) => {
             state
                 .object(*object)
-                .is_some_and(|o| o.targets.contains(&source))
+                .is_some_and(|o| o.targets_object(source))
                 || matches!(event, GameEvent::AbilityTriggered { object, .. } if {
-                    state.object(*object).is_some_and(|o| o.targets.contains(&source))
+                    state.object(*object).is_some_and(|o| o.targets_object(source))
                 })
         }
         (

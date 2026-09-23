@@ -278,6 +278,14 @@ fn wild_elephant() -> CardIndex {
     card_index("3b2ce431-7101-4256-827d-a14de9f867fd")
 }
 
+fn fangren_hunter() -> CardIndex {
+    card_index("c5dc5546-e9e5-4b5b-b812-5716d4bdee0e")
+}
+
+fn wild_colos() -> CardIndex {
+    card_index("cb6b8ce3-9f9d-418c-94b0-c4469a254938")
+}
+
 fn rib_cage_spider() -> CardIndex {
     card_index("906cba93-3dac-4720-a482-987cf1b4e786")
 }

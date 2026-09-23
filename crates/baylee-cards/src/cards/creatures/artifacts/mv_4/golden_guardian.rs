@@ -50,23 +50,22 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "the {2} ability is a fight plus a delayed \"dies this turn\" return \
-         transformed, and `Effect` has a variant for neither; the back face's \
-         {4}, {T} ability needs a 4/4 colorless Golem artifact creature token, \
-         which the token ledger does not have"
+        "the {2} ability fights and then returns this creature transformed \
+         if it dies this turn, and no variant registers that delayed trigger; \
+         the back face's {4}, {T} ability needs a 4/4 colorless Golem artifact \
+         creature token, which the token ledger does not have"
     ),
     keywords = KeywordSet::DEFENDER,
 );
 
 // NOT SUPPORTED: "{2}: This creature fights another target creature you
 // control. When this creature dies this turn, return it to the battlefield
-// transformed under your control." — no `Effect` fights (two permanents
-// dealing damage equal to their power to each other: `DealDamage` reaches one
-// target, and `TargetSpec::ThisObject` is read by neither `Destroy` nor
-// `ReturnToHand`, so the damage back onto the source is not sayable), and no
-// variant registers a delayed trigger on this creature's death this turn.
-// `Effect::ExileSelfReturnAsFace` is the exile-and-return sentence and reads
-// neither half of this one.
+// transformed under your control." — the fight is
+// `Effect::Fight { fighter: TargetSlot::This, foe: TargetSlot::First }`, but
+// no variant registers a delayed trigger on this creature's death this turn,
+// and the fight alone would be half the ability: the reason it is ever
+// activated is the return. `Effect::ExileSelfReturnAsFace` is the
+// exile-and-return sentence and reads neither half of this one.
 // NOT SUPPORTED: "{4}, {T}: Create a 4/4 colorless Golem artifact creature
 // token." — the token ledger has no such token, and a card file may not
 // define its own `TokenDef` (it would have no id and no art key).

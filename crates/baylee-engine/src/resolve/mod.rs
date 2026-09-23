@@ -15,7 +15,7 @@ use crate::object::{Characteristics, GameObject, ObjectKind, Status};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
-use baylee_cards_dsl::{Amount, CostPart, Effect, PlayerRel, SearchDest, TargetSpec};
+use baylee_cards_dsl::{Amount, CostPart, Effect, PlayerRel, SearchDest, TargetSlot, TargetSpec};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
@@ -60,6 +60,10 @@ pub struct Resolution {
     pub pc: usize,
     /// Targets chosen at cast/activation.
     pub targets: SmallVec<[ObjectId; 2]>,
+    /// Targets chosen for a second instance of the word "target", read
+    /// through [`baylee_cards_dsl::TargetSlot::Second`] and by nothing that
+    /// reads `targets` — see `GameObject::second_targets`.
+    pub second_targets: SmallVec<[ObjectId; 1]>,
     /// X value, if any.
     pub x: Option<u32>,
     /// Chosen target player, if any.
@@ -549,6 +553,15 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     }
     while res.pc < res.effects.len() {
         let op = res.effects[res.pc];
+        // Continuous effects apply at all times (CR 613), so an effect of
+        // this resolution sees what the one before it did: Bridgeworks
+        // Battle's "gets +2/+2 until end of turn. It fights …" is dealt at
+        // the pumped power. The projection used to be refreshed only between
+        // engine steps, which made every effect after a pump or a counter in
+        // the same resolution read the creature as it had been before it.
+        // One generation compare when nothing moved, which is every effect
+        // that did not just change a characteristic.
+        state.refresh_characteristics();
         if let Some(pending) = exec(state, res, op) {
             return Flow::Wait(pending);
         }
@@ -1529,6 +1542,7 @@ fn run_nested_with(
         effects,
         pc: 0,
         targets,
+        second_targets: res.second_targets.clone(),
         event_object: res.event_object,
         x: res.x,
         chosen_player: res.chosen_player,
@@ -1574,6 +1588,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::GainLifeDoubleX
         | Effect::LoseLife { .. }
         | Effect::DealDamage { .. }
+        | Effect::Fight { .. }
+        | Effect::DamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. } => life::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
@@ -2014,13 +2030,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // with the original's targets and its controller may then choose
             // new ones (CR 707.10c), so this can suspend on a choice.
             if let Some(&target_id) = res.targets.first() {
-                let (card, mut base, targets, target_req) = {
+                let (card, mut base, targets, target_req, second) = {
                     let obj = state.object(target_id)?;
                     (
                         obj.card,
                         (*obj.base).clone(),
                         obj.targets.clone(),
                         obj.target_req,
+                        obj.second.clone(),
                     )
                 };
                 for m in mods {
@@ -2042,6 +2059,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     obj.cast_from_hand = false;
                     obj.targets = targets;
                     obj.target_req = target_req;
+                    // A copy copies its targets (CR 707.10), both instances
+                    // of the word. Only the first is offered for re-choosing
+                    // below, which is a gap and not a reading: CR 707.10c
+                    // lets the controller change either, and the answer path
+                    // has one `CopyNewTargets` question. The second keeps
+                    // what the original chose rather than being dropped,
+                    // which is the choice a player declining would make.
+                    obj.second = second;
                     obj.zone = crate::zone::Zone::Stack;
                     // CR 704.5e: it stops existing the moment it is anywhere
                     // but the stack or the battlefield. Carrying the copied

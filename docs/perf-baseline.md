@@ -212,3 +212,15 @@ spell subset.
 Reproduce with `cargo bench -p baylee-engine --bench basics --
 zones/drain_stack --sample-size 20 --measurement-time 2 --warm-up-time 1`;
 use Criterion's `--save-baseline before` / `--baseline before` for comparison.
+
+## A second instance of "target" (23.09.2026)
+
+`GameObject` **272 → 280 B**. A fight names two creatures through two
+instances of the word "target" (CR 115.3), and the second instance's list and
+requirement were first written inline — 32 bytes on every object in every
+library, which `tests/footprint.rs` refused at 304 B. They are one
+`Option<Box<SecondInstance>>` now: null everywhere but a spell or ability on
+the stack that says "target" twice, so `GameState::clone` pays eight bytes per
+object and one allocation per such stack object. The budget was raised to 280
+deliberately. `state/clone` was **not** re-benched for it; eight bytes on 272
+is under 3 % of the object and the arena is not the whole state.

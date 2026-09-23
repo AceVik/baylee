@@ -81,7 +81,9 @@ fn branches(ability: &AbilityDef) -> Vec<Branch> {
             .collect()
     };
     match ability {
-        AbilityDef::Spell { effects, targets } => vec![Branch {
+        AbilityDef::Spell {
+            effects, targets, ..
+        } => vec![Branch {
             target: targets.map(|t| t.spec),
             effects,
         }],
@@ -320,14 +322,23 @@ fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
             mana_ability,
             effects,
             target,
+            second_targets,
             ..
         }
         | AbilityDef::ActivatedConditional {
             mana_ability,
             effects,
             target,
+            second_targets,
             ..
-        } => (*mana_ability, *effects, *target),
+        } => (
+            *mana_ability,
+            *effects,
+            // Whether it targets at all, through either instance of the
+            // word: CR 605.1a asks "doesn't target", not "has no first
+            // target", and a second requirement is a target like the first.
+            target.or(second_targets.map(|req| req.spec)),
+        ),
         _ => return None,
     };
     mana_ability_fault_of(claimed, effects, target)
@@ -851,6 +862,7 @@ mod tests {
         let wrath = AbilityDef::Spell {
             effects: &WRATH,
             targets: None,
+            second_targets: None,
         };
         assert!(target_reuse(&wrath).is_none(), "a wrath is not a mistake");
 
@@ -858,6 +870,7 @@ mod tests {
         let tutor = AbilityDef::Spell {
             effects: &OTHER_SWEEP,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+            second_targets: None,
         };
         assert!(
             target_reuse(&tutor).is_none(),
@@ -932,6 +945,7 @@ mod tests {
                 duration: Duration::UntilEndOfTurn,
             }],
             targets: None,
+            second_targets: None,
         };
         assert_eq!(
             layer_fault(&via_effect),
@@ -958,6 +972,7 @@ mod tests {
                 otherwise: &[],
             }],
             targets: None,
+            second_targets: None,
         };
         assert_eq!(
             layer_fault(&nested).map(|(declared, derived, _)| (declared, derived)),
@@ -1219,11 +1234,14 @@ mod tests {
                 amount: Amount::Fixed(1),
             },
         ];
+        static A_CREATURE: crate::dsl::effect::TargetReq =
+            crate::dsl::effect::TargetReq::one(TargetSpec::Object(&Filter::CREATURE));
 
         let unmarked = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &MANA,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
@@ -1240,6 +1258,7 @@ mod tests {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &MANA_AND_DRAW,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
@@ -1254,6 +1273,7 @@ mod tests {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &DRAW,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: ActivationZone::Battlefield,
@@ -1262,6 +1282,25 @@ mod tests {
         assert!(
             mana_ability_fault(&lying).is_some(),
             "a mana ability that makes no mana slipped through"
+        );
+
+        // CR 605.1a through the *second* instance of the word "target": a
+        // requirement there is a target like the first, and a lint that read
+        // only `target` would call this a mana ability that targets nothing.
+        let second_only = AbilityDef::Activated {
+            cost: crate::dsl::cost::Cost::TAP,
+            effects: &MANA,
+            target: None,
+            second_targets: Some(A_CREATURE),
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
+        };
+        assert_eq!(
+            mana_ability_fault(&second_only),
+            Some("claims a mana ability that targets (CR 605.1a)"),
+            "a mana ability targeting through its second instance slipped through"
         );
     }
 
@@ -1280,6 +1319,7 @@ mod tests {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &BLUE,
             target: None,
+            second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: ActivationZone::Battlefield,
@@ -1333,6 +1373,7 @@ mod tests {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &GREEN,
             target: None,
+            second_targets: None,
             timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
@@ -1354,6 +1395,7 @@ mod tests {
             },
             effects: &A_DRAW,
             target: None,
+            second_targets: None,
             timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
@@ -1662,6 +1704,7 @@ mod tests {
                 },
                 effects: &[],
                 target,
+                second_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
