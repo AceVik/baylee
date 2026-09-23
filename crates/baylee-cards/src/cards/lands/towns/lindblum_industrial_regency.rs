@@ -31,12 +31,14 @@ card!(
         ),
     ],
     // NOT SUPPORTED: "Create a 0/1 black Wizard creature token with 'Whenever you cast a
-    // noncreature spell, this token deals 1 damage to each opponent.'" — no Effect deals
-    // damage to each opponent (DealDamage reads the targets that were chosen, and
-    // PlayerRel::EachOpponent is a seat set no DealDamage arm reads), and the 0/1 black
-    // Wizard is not in the pool's token registry, so the token cannot be created either.
+    // noncreature spell, this token deals 1 damage to each opponent.'" — the token's own
+    // ability is sayable (`DealDamage { target: Player(EachOpponent) }` on a
+    // `Trigger::SpellCast`), but the 0/1 black Wizard is not in the pool's token registry
+    // and a card file may not define its own. And an Adventure land's card is exiled by
+    // CR 715.3d with nothing that lets it be played from there.
     coverage = Coverage::Partial(
-        "Mage Siege: no Effect deals damage to each opponent, and the 0/1 black Wizard token is not in the pool's registry",
+        "Mage Siege: the 0/1 black Wizard token is not in the pool's registry, and a land \
+         exiled by its Adventure cannot be played from exile",
     ),
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
 );

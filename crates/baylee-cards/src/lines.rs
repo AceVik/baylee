@@ -367,6 +367,12 @@ mod tests {
     /// is only refreshed sometimes cannot answer that. The guard is in
     /// `the_table_is_parallel_to_the_registry`, which now refuses a card
     /// with abilities and no row at all.
+    ///
+    /// Read again on 24.09.2026, at **thirteen**: Metzali, Tower of Triumph,
+    /// whose "deals 2 damage to each opponent" was written by hand in the
+    /// commit that gave its front face `DealDamageEach`. One card, arriving
+    /// with a DSL change rather than a generator round, so the rate #162
+    /// watches did not move.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -387,6 +393,7 @@ mod tests {
                 "Vance's Blasting Cannons",
                 "Hadana's Climb",
                 "Journey to Eternity",
+                "Path of Mettle",
                 "Hostile Hostel",
                 "Sheoldred",
                 "Dowsing Device",

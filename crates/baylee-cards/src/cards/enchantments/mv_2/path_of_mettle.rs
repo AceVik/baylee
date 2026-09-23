@@ -8,11 +8,23 @@
 //! Set: RIX #165 — Rivals of Ixalan | Scryfall ID: 66d9d524-3611-48d9-86c9-48e509e8ae70 | Oracle ID: db9ea3f9-c723-422f-98cc-a3ef7ca2c290
 //! Face: Path of Mettle — {R}{W} — Legendary Enchantment
 //! Face: Metzali, Tower of Triumph —  — Legendary Land
-// PARTIAL — of the four printed abilities only Metzali's "{T}: Add one mana of
-// any color" is sayable in the DSL; the other three are listed as
-// NOT SUPPORTED below, with the variant each one is missing.
+// PARTIAL — the enter trigger and both of Metzali's mana and damage lines
+// are built; the transform trigger and the random destroy are not (see NOT
+// SUPPORTED below).
 
 use baylee_cards_dsl::prelude::*;
+
+/// The four keywords that spare a creature. `HasKeyword` matches any of
+/// them, so its negation is "has none of the four".
+const METTLE: KeywordSet = KeywordSet::FIRST_STRIKE
+    .union(KeywordSet::DOUBLE_STRIKE)
+    .union(KeywordSet::VIGILANCE)
+    .union(KeywordSet::HASTE);
+
+/// "each creature that doesn't have first strike, double strike, vigilance,
+/// or haste".
+static WITHOUT_METTLE: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::HasKeyword(METTLE))]);
 
 card!(
     index = index::PATH_OF_METTLE,
@@ -25,6 +37,10 @@ card!(
             mana_cost = mana!("{R}{W}"),
             types = TypeSet::ENCHANTMENT,
             supertypes = SupertypeSet::LEGENDARY,
+            abilities = &[triggered!(
+                Trigger::ETB,
+                &[Effect::damage_each(1, &WITHOUT_METTLE)]
+            )],
         ),
         face!(
             name = "Metzali, Tower of Triumph",
@@ -33,30 +49,29 @@ card!(
             castable_from_hand = false,
             types = TypeSet::LAND,
             supertypes = SupertypeSet::LEGENDARY,
-            abilities = &[mana_ability!(&[Effect::mana_of_any_color()])],
+            abilities = &[
+                mana_ability!(&[Effect::mana_of_any_color()]),
+                activated!(
+                    cost!("{1}{R}", TapSelf),
+                    &[Effect::DealDamage {
+                        amount: Amount::Fixed(2),
+                        target: TargetSpec::Player(PlayerRel::EachOpponent),
+                    }]
+                ),
+            ],
         ),
     ],
     coverage = Coverage::Partial(
-        "no effect deals damage to every object matching a filter, no trigger counts attackers \
-         or asks what attacked this turn, nothing selects at random, and no effect transforms; \
-         only the back face's mana ability is built",
+        "no trigger counts attackers, nothing selects at random or asks what attacked this \
+         turn, and no effect transforms — so the front face never becomes Metzali",
     ),
 );
 
-// NOT SUPPORTED: "When Path of Mettle enters, it deals 1 damage to each
-// creature that doesn't have first strike, double strike, vigilance, or
-// haste." — Effect::DealDamage names one TargetSpec, and no effect damages
-// every object matching a filter (Effect::DestroyAll destroys rather than
-// deals damage); the filter itself is sayable, the op is not.
 // NOT SUPPORTED: "Whenever you attack with at least two creatures that have
 // first strike, double strike, vigilance, and/or haste, transform Path of
 // Mettle." — Trigger::Attacks(&filter) fires once per attacking object and
 // carries no "at least two" count, and transforming is not an effect
 // (Effect::ExileSelfReturnAsFace exiles and returns, which is a new object).
-// NOT SUPPORTED: "{1}{R}, {T}: Metzali deals 2 damage to each opponent." —
-// "each opponent" is not a target, so Effect::DealDamage has nothing to name;
-// Effect::LoseLife { target: PlayerRel::EachOpponent } would make players lose
-// life, which is a different instruction from taking damage.
 // NOT SUPPORTED: "{2}{W}, {T}: Choose a creature at random that attacked this
 // turn. Destroy that creature." — no selection in the DSL is random, and no
 // filter can ask what attacked this turn.

@@ -1511,3 +1511,13 @@ two lane doc blocks written as `//!` — an inner doc, which cannot sit
 mid-file and was dropped rather than turned into `///` — and demoted three
 test descriptions to plain `//` above a card's handle function instead of
 its test; both were recovered from the lane's own files.
+
+A four-card test batch for the damage-to-each cluster (24.09.2026) came back
+green on the first compile and the first run. That had not happened before
+with DeepSeek, and it earned one addition: Dragonback Assault's test played
+"each creature" on both sides of the table and never put a planeswalker
+anywhere. "And each planeswalker" was half of the printed sentence and had
+no witness. A clause with nothing on the board to read it passes whatever
+the rule does, so a reviewer checks every noun the sentence names against
+the board, not only the ones the test asserts about. Karn, the Great Creator
+was added, at loyalty 5 so that 3 damage leaves him standing to be read.

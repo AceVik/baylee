@@ -8382,46 +8382,104 @@ fn scavenger_grounds_sacrifices_a_desert_to_exile_all_graveyards() {
     assert!(on_battlefield(&engine, p0, scavenger_grounds()).is_none());
 }
 
-/// Shivan Gorge: "{T}: Add {C}." / "{2}{R}, {T}: Shivan Gorge deals 1 damage to each opponent."
-/// Under `Coverage::Partial`, dealing damage to each opponent is unsupported and omitted.
-/// Shivan Gorge is played as a legendary land and taps for {C}, offering no damage activation.
+/// Shivan Gorge is a legendary land printing two lines: "{T}: Add {C}" and
+/// "{2}{R}, {T}: Shivan Gorge deals 1 damage to each opponent."
+///
+/// The second line is the one worth playing, because "each opponent" is a rule
+/// that counts *seats*: at a two-seat table it would read the same way as
+/// "target opponent", and only a third seat tells the two apart. Both prices
+/// land where a zone can show them — three Mountains pay the {2}{R} down to an
+/// empty pool and the activation taps the Gorge itself — while the one damage is
+/// read on the two seats that are not the controller and on the one that is.
 #[test]
-fn shivan_gorge_taps_for_colorless_and_omits_unsupported_damage_ability() {
+fn shivan_gorge_taps_and_two_red_for_one_damage_to_every_opponent() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(28, forest())
-        .hand(0, &[shivan_gorge()])
-        .battlefield(0, &[mountain(), forest(), forest()])
+    let mut engine = Duel::table(SEED, forest(), 3)
+        .battlefield(0, &[shivan_gorge(), mountain(), mountain(), mountain()])
+        .life(0, 20)
+        .life(1, 20)
+        .life(2, 20)
         .start();
     keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
-    let gorge = play_land(&mut engine, p0, shivan_gorge());
-    assert!(!is_tapped(&engine, gorge));
+    let gorge = on_battlefield(&engine, p0, shivan_gorge()).expect("the Gorge is on the table");
+    assert!(!is_tapped(&engine, gorge), "a land enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and nothing is floating before anything is tapped"
+    );
 
-    // Everything but the land under test: `tap_all_mana` takes printed mana
-    // abilities as well as the CR 305.6 shortcut (#159), so tapping it would
-    // remove the very offer this asserts on.
-    tap_mana_except(&mut engine, p0, gorge);
+    // `LegalActions::abilities` is filtered through `can_afford`, and that reads
+    // the pool rather than the three untapped Mountains: with nothing floating
+    // the {2}{R} is unpayable, so only the mana line is offered at all.
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
     assert!(
         legal.abilities.contains(&(gorge, 0)),
-        "colorless mana ability is offered"
+        "{{T}}: Add {{C}} costs its own tap and is offered: {:?}",
+        legal.abilities
     );
     assert!(
-        !legal.abilities.iter().any(|(s, i)| *s == gorge && *i == 1),
-        "unsupported damage ability is omitted"
+        !legal.abilities.contains(&(gorge, 1)),
+        "{{2}}{{R}} is not three: the damage line is unpayable and absent from \
+         the offer: {:?}",
+        legal.abilities
     );
 
-    activate(&mut engine, p0, shivan_gorge(), 0);
+    // Three Mountains, and the Gorge itself named as the printing kept back: it
+    // prints its own `{{T}}: Add {{C}}`, so `tap_all_mana` would have spent the
+    // very tap the damage line charges (#159).
+    tap_all_mana_but(&mut engine, p0, Some(shivan_gorge()));
+    let pool = &engine.state().players[0].mana_pool;
     assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        1
+        pool.available(ManaColor::Red),
+        3,
+        "three Mountains tapped, three red"
     );
-    assert!(is_tapped(&engine, gorge));
+    assert_eq!(pool.total(), 3, "and nothing came off the Gorge");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(gorge, 1)),
+        "with three red floating the whole price is payable: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, shivan_gorge(), 1);
+    assert!(is_tapped(&engine, gorge), "{{T}} is half the price");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{2}}{{R}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "dealing damage is no mana ability, so the line is waiting on the stack"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and nothing has been dealt while it waits there"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "\"deals 1 damage to each opponent\": seat 1"
+    );
+    assert_eq!(engine.state().players[2].life, 19, "and seat 2 with it");
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "the damage belongs to the opponents and never to the controller"
+    );
 }
 
 /// Throne of the High City: "{4}, {T}, Sacrifice this land: You become the monarch."
@@ -20158,64 +20216,212 @@ fn skyline_cascade_enters_tapped_taps_for_blue_and_asks_nothing_of_the_creature_
     assert!(is_tapped(&engine, land), "which tapped the land for it");
 }
 
-/// Surtland Frostpyre prints three sentences and the card file writes two of
-/// them: "This land enters tapped" and `{T}: Add {R}`. Both are played here
-/// on one board, because each is the other's control — the copy that is
-/// *played* arrives tapped where the copy merely placed there is standing
-/// untapped, so the tap is the entry modifier and not the printing, and the
-/// standing copy is then what pays the `{T}` for a red. The third sentence,
-/// `{2}{U}{U}{R}, {T}, Sacrifice this land: Scry 2 …`, is the
-/// `Coverage::Partial` gap, so nothing here presses it.
+/// Surtland Frostpyre enters tapped and taps for {R}; for {2}{U}{U}{R}, its
+/// own tap and the land itself, it scries 2 and deals 2 damage to *each*
+/// creature — its controller's own included. The board pins both halves of
+/// that sentence at once: a printed 2/2 of mine dies while a printed 3/3 of
+/// mine survives, so the effect is two damage and not a destroy, and the Sol
+/// Ring across the table is never touched, because an artifact is no creature.
 #[test]
-fn surtland_frostpyre_enters_tapped_and_taps_for_red() {
-    let p0 = PlayerId::new(0);
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn surtland_frostpyre_enters_tapped_then_scries_two_and_burns_every_creature_for_two() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        // Placed, not played: `starting_battlefield` runs no enter modifier,
-        // which is what makes this copy the control for the land drop below.
-        .battlefield(0, &[surtland_frostpyre()])
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                mountain(),
+                katara_the_fearless(),
+                desert_drake(),
+            ],
+        )
+        .battlefield(1, &[quiet_creature(), quiet_artifact()])
         .hand(0, &[surtland_frostpyre()])
         .start();
     keep_mulligans(&mut engine);
-    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    reach_main_phase(&mut engine, p0);
 
-    let standing = on_battlefield(&engine, p0, surtland_frostpyre()).expect("the placed copy");
+    // "This land enters tapped." A land that came in untapped would offer its
+    // own {T} at this very moment, so the missing mana line is the entry
+    // modifier being read through a real `PlayLand` rather than assumed.
+    let land = play_land(&mut engine, p0, surtland_frostpyre());
     assert!(
-        !is_tapped(&engine, standing),
-        "a permanent seeded onto the battlefield entered nothing, so its \
-         status says nothing about what the card prints"
-    );
-
-    // The real land drop, which is the only path that runs `enter_modifiers`.
-    let dropped = play_land(&mut engine, p0, surtland_frostpyre());
-    assert!(
-        entered_tapped(&engine, dropped),
-        "\"This land enters tapped\" — and the same printing beside it is \
-         untapped, so it is the entry and not the card"
+        entered_tapped(&engine, land),
+        "the printed \"enters tapped\" is a real entry and not a placement"
     );
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!(
-            "a land drop leaves the seat holding priority, got {:?}",
+            "the land drop hands priority back, got {:?}",
             engine.pending()
         )
     };
     assert!(
-        !legal.abilities.iter().any(|(source, _)| *source == dropped),
-        "and a tapped land cannot pay its own {{T}}, so its mana ability is \
-         not on offer: {:?}",
+        !legal.abilities.iter().any(|(source, _)| *source == land)
+            && !legal.mana_abilities.contains(&land),
+        "a tapped land has no {{T}} left to pay its own mana ability with: {:?}",
         legal.abilities
     );
 
-    let taken = tap_all_mana(&mut engine, p0);
-    assert_eq!(
-        taken, 1,
-        "the untapped copy is the only mana source in play"
+    // A turn round the table and back: the untap step is what turns the printed
+    // line into an ability the seat is offered at all.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "the untap step stood it back up");
+
+    // "{T}: Add {R}" — a printed mana ability, so it is an ordinary entry in
+    // `abilities` with an index to name, never the CR 305.6 shortcut.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "an untapped land is a paid {{T}}, so the line is offered: {:?}",
+        legal.abilities
     );
+    activate(&mut engine, p0, surtland_frostpyre(), 0);
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Red), 1, "{{T}}: Add {{R}}");
     assert_eq!(pool.total(), 1, "one mana, off one tap");
     assert!(
         stack_is_empty(&engine),
         "CR 605.3b: a mana ability uses no stack"
+    );
+    assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
+
+    // A second turn: the land is standing again and the pool it filled is gone
+    // (CR 500.5), so the price below is paid out of five fresh lands.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "the untap step stood it back up");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the pool emptied with the step that ended (CR 500.5)"
+    );
+
+    // The whole price is {2}{U}{U}{R} *and* this land's {T} *and* the land
+    // itself, so the land is the one source kept back: four Islands and a
+    // Mountain are five mana, and no land can pay a tap symbol.
+    let taken = tap_mana_except(&mut engine, p0, land);
+    assert_eq!(
+        taken, 5,
+        "four Islands and one Mountain, and the land itself kept back"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 1, "the Mountain's red");
+    assert_eq!(
+        pool.total(),
+        5,
+        "exactly the {{2}}{{U}}{{U}}{{R}} the ability charges"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(land, 1)),
+        "ability 0 is the mana line above; ability 1 is the scry-and-burn, and \
+         with the mana floating the whole price is payable: {:?}",
+        legal.abilities
+    );
+
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let top = *library_before.last().expect("p0 has a library");
+    let second = library_before[library_before.len() - 2];
+
+    activate(&mut engine, p0, surtland_frostpyre(), 1);
+
+    // The ability names no target, so CR 601.2h pays the whole cost the moment
+    // it is announced: the mana, the {T} and the land itself.
+    assert!(
+        on_battlefield(&engine, p0, surtland_frostpyre()).is_none(),
+        "\"Sacrifice this land\" is part of the cost"
+    );
+    assert!(
+        in_graveyard(&engine, p0, surtland_frostpyre()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{2}}{{U}}{{U}}{{R}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "dealing damage is no mana ability, so the ability is on the stack"
+    );
+
+    // "Scry 2." The question is the top two cards, and answering it is what
+    // lets the second effect of the same ability happen at all.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing else here")
+    };
+    assert_eq!(player, p0, "the land's controller does the looking");
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(cards, vec![top, second], "the top two cards, top first");
+    assert_eq!(
+        piles,
+        scry_piles(2),
+        "either, both or neither of the two may be bottomed"
+    );
+    engine
+        .apply(p0, look_answer(&cards, &[top]))
+        .expect("one of the two cards just looked at");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert_eq!(
+        library.first().copied(),
+        Some(top),
+        "the chosen card is bottomed"
+    );
+    assert_eq!(
+        library.last().copied(),
+        Some(second),
+        "the other is the new top"
+    );
+    assert_eq!(
+        library.len(),
+        library_before.len(),
+        "scry draws nothing: two cards were looked at and none left the library"
+    );
+
+    // "This land deals 2 damage to each creature." Both sides of the table lose
+    // a body, and the two bodies that stay pin the number on both ends.
+    assert!(
+        in_graveyard(&engine, p0, desert_drake()).is_some(),
+        "a printed 2/2 of the activating seat's own is killed by its own land: \
+         the effect is neither one-sided nor one damage"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_creature()).is_some(),
+        "and so is a printed 1/1 across the table"
+    );
+    let survivor = on_battlefield(&engine, p0, katara_the_fearless()).expect(
+        "a printed 3/3 survives two damage, so the effect is damage and not \
+         \"destroy each creature\"",
+    );
+    assert_eq!(
+        pt(&engine, survivor),
+        (3, 3),
+        "and two damage marked does not shrink the body it was marked on"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "an artifact is no creature, so \"each creature\" never reaches it"
     );
 }
 

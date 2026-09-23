@@ -1003,8 +1003,32 @@ undying and persist, which target nothing at all.
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
 `RearrangeTopLibrary`/`ReorderTopLibrary`.
-Combat/damage: `DealDamage`, `DealDamageToTargetController`, `Fight`,
+Combat/damage: `DealDamage`, `DealDamageToTargetController`,
+`DealDamageEach` (`Effect::damage_each(n, &filter)`), `Fight`,
 `DamageEqualToPower`.
+
+Three damage sentences, three spellings, and none of them overlaps:
+
+- **"… to target X"** is `DealDamage` with the choice on the ability's
+  `targets`/`target`.
+- **"… to each opponent / each player / you"** is
+  `DealDamage { target: TargetSpec::Player(rel) }` with *no* `TargetReq`:
+  `Player(EachOpponent)` is every opponent and nobody chooses (Mount Doom,
+  Shivan Gorge).
+- **"… to each creature …"** is `DealDamageEach { amount, filter }`: every
+  permanent the filter matches as it resolves, none of them a target, so
+  hexproof does not stop it (CR 115.10a).
+
+A sentence naming both halves — "to you and each creature you control",
+"to each creature and each player" — is both effects in one list. Spell the
+filter with its **printed noun**: "each creature with flying" is
+`Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)])`,
+never `HasKeyword(FLYING)` alone. The resolver deals damage only to creatures
+and planeswalkers whatever the filter says, but that is a backstop and not a
+spelling to lean on — a flying planeswalker would be swept by the short one.
+Several keywords are one set chained with `.union` (`KeywordSet` has no `|`),
+and `HasKeyword` matches *any* bit of it, so `Not(&HasKeyword(set))` is "has
+none of them" (Path of Mettle).
 
 `Fight { fighter, foe }` (CR 701.14a) and `DamageEqualToPower { dealer, to }`
 name their creatures by `TargetSlot` — `This` (the source, not a target),

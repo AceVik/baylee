@@ -3,8 +3,11 @@
 
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
+use baylee_cards_dsl::Filter;
+use baylee_core::types::TypeSet;
 
 /// Executes one life/damage effect.
+#[allow(clippy::too_many_lines)] // the family is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
@@ -117,7 +120,39 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::DealDamageEach { amount, filter } => {
+            damage_each(state, res, &amount, filter);
+            None
+        }
         _ => unreachable!("not a life/damage effect"),
+    }
+}
+
+/// `Effect::DealDamageEach` — "deals N damage to each <noun>".
+fn damage_each(state: &mut GameState, res: &Resolution, amount: &Amount, filter: &Filter) {
+    // The amount and the set are both read once, before anything is dealt
+    // (CR 608.2h), and every recipient is dealt its share before the
+    // state-based actions look (CR 704.3) — which is what makes the loop
+    // simultaneous in effect (CR 608.2f).
+    //
+    // `battlefield_view` and not the raw zone list: a phased-out permanent is
+    // treated as though it does not exist (CR 702.26b). `DestroyAll` walks the
+    // raw list, which is #209.
+    let you = res.controller;
+    let n = amount2(amount, state, you, res) as i16;
+    let can_be_dealt = TypeSet::CREATURE.union(TypeSet::PLANESWALKER);
+    let hit: Vec<ObjectId> = state
+        .battlefield_view()
+        .into_iter()
+        .filter(|id| {
+            state.object(*id).is_some_and(|o| {
+                o.characteristics().types.intersects(can_be_dealt)
+                    && eval::matches(filter, state, o, you, res.source)
+            })
+        })
+        .collect();
+    for id in hit {
+        deal_to_object_with_loyalty(state, id, n, res.source);
     }
 }
 
@@ -567,5 +602,144 @@ mod tests {
         deal_to_object_with_loyalty(&mut state, unprotected, 3, source);
         assert_eq!(state.object(unprotected).expect("still there").damage, 3);
         assert_eq!(state.journal.len(), entries + 1);
+    }
+
+    /// A permanent of `types` on `seat`'s side, and nothing else about it.
+    fn typed(state: &mut GameState, seat: PlayerId, name: &str, types: TypeSet) -> ObjectId {
+        let name = state.names.intern(name);
+        let id = state.create_bare(seat, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+        state.object_mut(id).expect("just made it").base_mut().types = types;
+        id
+    }
+
+    /// A resolution of `source`, controlled by seat 0, targeting nothing.
+    fn untargeted(source: ObjectId) -> Resolution {
+        Resolution {
+            source,
+            on_stack: source,
+            controller: me(),
+            effects: vec![],
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+        }
+    }
+
+    /// "~ deals 2 damage to each …" over a filter that matches everything:
+    /// both sides' creatures are marked, the planeswalker loses loyalty, and
+    /// the land, the artifact and the phased-out creature get nothing.
+    ///
+    /// The filter is `Any` on purpose. A card's filter names its printed
+    /// noun, so no card in the pool would ever put a land in front of this
+    /// resolver — which is exactly why the type skip needs a test of its own:
+    /// `deal_to_object_with_loyalty` marks damage on anything that is not a
+    /// walker (CR 120.1a says it may not), and a phased-out permanent is
+    /// treated as though it does not exist (CR 702.26b).
+    #[test]
+    fn damage_to_each_reaches_what_can_be_dealt_damage_and_nothing_else() {
+        let mut state = state();
+        let them = PlayerId::new(1);
+        let source = permanent(&mut state, "Sweep");
+        let mine = typed(&mut state, me(), "Bear", TypeSet::CREATURE);
+        let theirs = typed(&mut state, them, "Ogre", TypeSet::CREATURE);
+        let walker = typed(&mut state, them, "Walker", TypeSet::PLANESWALKER);
+        state
+            .object_mut(walker)
+            .expect("just made it")
+            .counters
+            .set(baylee_cards_dsl::CounterKind::Loyalty, 5);
+        let land = typed(&mut state, them, "Land", TypeSet::LAND);
+        let relic = typed(&mut state, them, "Relic", TypeSet::ARTIFACT);
+        let gone = typed(&mut state, them, "Phased Bear", TypeSet::CREATURE);
+        state
+            .object_mut(gone)
+            .expect("just made it")
+            .status
+            .insert(crate::object::Status::PHASED_OUT);
+        let entries = state.journal.len();
+
+        let mut res = untargeted(source);
+        exec(
+            &mut state,
+            &mut res,
+            Effect::DealDamageEach {
+                amount: Amount::Fixed(2),
+                filter: &Filter::Any,
+            },
+        );
+
+        let damage = |id: ObjectId| state.object(id).expect("on the battlefield").damage;
+        assert_eq!(damage(mine), 2, "the controller's own creature is dealt it");
+        assert_eq!(damage(theirs), 2, "and so is the opponent's");
+        let walked = state.object(walker).expect("on the battlefield");
+        assert_eq!(
+            walked.counters.get(baylee_cards_dsl::CounterKind::Loyalty),
+            3,
+            "a planeswalker loses loyalty (CR 120.3c)"
+        );
+        assert_eq!(walked.damage, 0, "and has no damage marked");
+        assert_eq!(damage(land), 0, "a land is not dealt damage");
+        assert_eq!(damage(relic), 0, "nor an artifact");
+        assert_eq!(damage(gone), 0, "nor a phased-out creature");
+
+        let dealt: Vec<ObjectId> = state.journal.entries()[entries..]
+            .iter()
+            .filter_map(|e| match e.event {
+                GameEvent::DamageDealt {
+                    source: Some(from),
+                    target: DamageTarget::Object(to),
+                    is_combat: false,
+                    ..
+                } if from == source => Some(to),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            dealt,
+            vec![mine, theirs, walker],
+            "one damage event per recipient, and none for what was skipped"
+        );
+    }
+
+    /// Among what can be dealt damage, the filter decides: "each creature"
+    /// leaves a planeswalker alone, which is Surtland Frostpyre's sentence
+    /// and not Dragonback Assault's.
+    #[test]
+    fn damage_to_each_creature_leaves_a_planeswalker_alone() {
+        let mut state = state();
+        let source = permanent(&mut state, "Sweep");
+        let bear = typed(&mut state, me(), "Bear", TypeSet::CREATURE);
+        let walker = typed(&mut state, me(), "Walker", TypeSet::PLANESWALKER);
+        state
+            .object_mut(walker)
+            .expect("just made it")
+            .counters
+            .set(baylee_cards_dsl::CounterKind::Loyalty, 5);
+
+        let mut res = untargeted(source);
+        exec(
+            &mut state,
+            &mut res,
+            Effect::damage_each(2, &Filter::CREATURE),
+        );
+
+        assert_eq!(state.object(bear).expect("there").damage, 2);
+        assert_eq!(
+            state
+                .object(walker)
+                .expect("there")
+                .counters
+                .get(baylee_cards_dsl::CounterKind::Loyalty),
+            5
+        );
     }
 }

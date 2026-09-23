@@ -7045,8 +7045,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Shivan Gorge
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -29709,15 +29709,15 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 4,
-            stackable: 0,
-            lines: &[Some(1)],
+            stackable: 1,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -35024,8 +35024,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Surtland Frostpyre
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -46974,8 +46974,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Dragonback Assault
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[None],
+        stackable: 2,
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],

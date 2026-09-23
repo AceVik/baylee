@@ -379,8 +379,13 @@ pub enum TargetSpec {
     /// The object the triggering event was about (Wartime Protestors'
     /// "that creature").
     EventObject,
-    /// A player relative to the controller (You/Opponent; heads-up
-    /// auto-resolves for Opponent in two-player games).
+    /// The players a [`PlayerRel`] names, relative to the controller — every
+    /// one of them, and no choice. `Player(EachOpponent)` is "each opponent",
+    /// `Player(EachPlayer)` "each player", `Player(You)` "you": Mount Doom's
+    /// and Ramunap Ruins' "deals 1 damage to each opponent" is
+    /// `DealDamage { target: Player(EachOpponent) }`. With no `targets = …`
+    /// on the ability it is not a target (CR 115.10a); a printed "target
+    /// opponent" is [`Self::AnyOpponent`].
     Player(PlayerRel),
     /// Any player (choice via `Pending::ChoosePlayer`).
     AnyPlayer,
@@ -650,6 +655,31 @@ pub enum Effect {
     DealDamageToTargetController {
         /// How much.
         amount: Amount,
+    },
+    /// "~ deals N damage to each [filter]" — every permanent the filter
+    /// matches as this resolves, all at once (CR 608.2f), the set read once
+    /// (CR 608.2h), and none of them a target (CR 115.10a): hexproof and
+    /// shroud do not stop it, nothing is chosen, and it asks nobody anything.
+    ///
+    /// Only a creature or a planeswalker is dealt it, whatever the filter
+    /// says, for two different reasons. A matched land or artifact is skipped
+    /// because damage can't be dealt to one (CR 120.1a). A matched battle is
+    /// skipped because of an engine gap, not a rule: CR 120.3h removes
+    /// defense counters, and `CounterKind` has none. The skip is a backstop
+    /// and not the spelling — the filter names the printed noun, so "each
+    /// creature with flying" is `And(&[CREATURE, HasKeyword(FLYING)])` and
+    /// never `HasKeyword(FLYING)` alone. A planeswalker loses loyalty instead
+    /// of being marked (CR 120.3c).
+    ///
+    /// Objects only, on purpose. "…and each player", "to you and each
+    /// creature you control" and "to each opponent" are
+    /// `DealDamage { target: TargetSpec::Player(rel) }` in the same list, so
+    /// every sentence has one spelling rather than two.
+    DealDamageEach {
+        /// How much, read once before anything is dealt.
+        amount: Amount,
+        /// Which permanents.
+        filter: &'static Filter,
     },
     /// "You may reveal a card you own from outside the game, or choose a
     /// face-up card you own in exile. Put that card into your hand."
@@ -1520,6 +1550,16 @@ impl Effect {
         Self::Regenerate { target }
     }
 
+    /// "~ deals N damage to each …" (Surtland Frostpyre, Dragonback Assault).
+    /// A counted or `{X}` amount is the literal [`Self::DealDamageEach`].
+    #[must_use]
+    pub const fn damage_each(amount: u32, filter: &'static Filter) -> Self {
+        Self::DealDamageEach {
+            amount: Amount::Fixed(amount),
+            filter,
+        }
+    }
+
     /// "Destroy all …" — a wrath the survivors may regenerate from.
     #[must_use]
     pub const fn destroy_all(filter: &'static Filter) -> Self {
@@ -1819,6 +1859,7 @@ impl Effect {
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
+            | Effect::DealDamageEach { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary

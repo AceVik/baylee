@@ -163,6 +163,7 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
         | Effect::AddCounterFilter { filter, .. }
         | Effect::PumpFilter { filter, .. }
         | Effect::SacrificeFilter { filter, .. }
+        | Effect::DealDamageEach { filter, .. }
         | Effect::CreateContinuousEffect { filter, .. } => {
             if matches!(filter, Filter::This) {
                 Vec::new()
@@ -941,6 +942,23 @@ mod tests {
         assert!(
             target_reuse(&tutor).is_none(),
             "two different filters are not a reuse"
+        );
+    }
+
+    /// Damage to each creature beside a creature target is the same
+    /// mistake as the wrath above: "deals 2 damage to target creature"
+    /// written as a sweep over the target's filter.
+    #[test]
+    fn the_lint_reads_a_damage_sweep_as_a_sweep() {
+        static BURN_EVERY_ONE: [Effect; 1] = [Effect::damage_each(2, &Filter::CREATURE)];
+        let broken = AbilityDef::Spell {
+            effects: &BURN_EVERY_ONE,
+            targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+            second_targets: None,
+        };
+        assert!(
+            target_reuse(&broken).is_some(),
+            "a damage sweep over the target's own filter went unseen"
         );
     }
 

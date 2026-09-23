@@ -1692,82 +1692,173 @@ fn exploration_allows_playing_additional_land() {
     assert!(legal_after.lands.is_empty(), "no third land drop offered");
 }
 
-/// Dragonback Assault — "Landfall — Whenever a land you control enters,
-/// create a 4/4 red Dragon creature token with flying." Its enters-trigger
-/// (3 damage to each creature and each planeswalker) has no DSL spelling and
-/// the file says so, so landfall is the whole of what plays here.
+/// Dragonback Assault is `{3}{G}{U}{R}` for two printed sentences: an
+/// enters-trigger that deals 3 damage to each creature and each planeswalker,
+/// and landfall — a 4/4 red Dragon with flying whenever a land its
+/// controller's controls enters. The damage is read off three bodies on one
+/// board: a 3/3 of mine that has to die to three points, a 1/1 across the
+/// table that has to die to the same three, and a 7/5 of mine that has to
+/// survive them, which is what tells damage to each creature from a destroy
+/// and three points from one. The landfall half is then played rather than
+/// read: one of my lands enters and a Dragon arrives, while the same land drop
+/// by the other seat a turn later leaves the count where it was.
 ///
-/// "A land **you control**" is the word the board is built around: the
-/// opponent plays a land of their own first, and a trigger that read every
-/// land would have made a Dragon then. The token is checked as a token — an
-/// object with no card behind it — and then by its printed numbers and its
-/// flying, because a 4/4 flier and a 3/3 trampler are both "a Dragon" to a
-/// count of permanents.
+/// "And each planeswalker" is read off Karn, the Great Creator across the
+/// table: printed loyalty 5, so three damage leaves him standing at 2 with no
+/// damage marked (CR 120.3c) — a 3-loyalty walker would be in the graveyard
+/// before anything could look at it.
 #[test]
-fn dragonback_assault_makes_a_dragon_on_your_own_land_and_not_on_theirs() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn dragonback_assault_shoots_each_creature_and_makes_a_dragon_for_a_land_of_yours() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[dragonback_assault()])
-        .hand(0, &[forest()])
+        // Six lands, which is exactly {3}{G}{U}{R}, plus the two bodies the
+        // damage is measured against.
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+                mountain(),
+                katara_the_fearless(),
+                a_seven_five(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves(), karn_the_great_creator()])
+        // The Assault itself, and the land that is the landfall half.
+        .hand(0, &[dragonback_assault(), forest()])
+        // A land of their own, for the control at the end.
         .hand(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
 
-    let tokens = |e: &Engine<RegistryLookup>| -> Vec<ObjectId> {
-        e.state()
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
-            .filter(|id| e.state().object(*id).is_some_and(|o| o.card.is_none()))
-            .collect()
+    let katara = on_battlefield(&engine, p0, katara_the_fearless()).expect("Katara is out");
+    let wurm = on_battlefield(&engine, p0, a_seven_five()).expect("the big body is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    let karn = on_battlefield(&engine, p1, karn_the_great_creator()).expect("their Karn is out");
+    let loyalty = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .object(karn)
+            .expect("Karn is an object")
+            .counters
+            .get(baylee_cards_dsl::CounterKind::Loyalty)
     };
-    assert!(tokens(&engine).is_empty(), "no token is on the board yet");
-
-    // Their land first. A landfall trigger that forgot whose land it was
-    // about would resolve here, and the assertion after it would be the only
-    // thing that ever said so.
-    reach_their_main_phase(&mut engine, p1);
-    play_land(&mut engine, p1, forest());
-    pass_until(&mut engine, stack_is_empty);
-    assert!(
-        tokens(&engine).is_empty(),
-        "\"a land you control\" is not \"a land\": the opponent's Forest \
-         makes nobody a Dragon"
-    );
-
-    reach_their_main_phase(&mut engine, p0);
-    play_land(&mut engine, p0, forest());
-    pass_until(&mut engine, stack_is_empty);
-
-    let made = tokens(&engine);
-    assert_eq!(made.len(), 1, "one land, one Dragon: {made:?}");
-    let dragon = made[0];
+    assert_eq!(loyalty(&engine), 5, "Karn enters with his printed loyalty");
     assert_eq!(
-        engine
-            .state()
-            .object(dragon)
-            .expect("just created")
-            .controller,
-        p0,
-        "it is created under the controller of the enchantment"
+        pt(&engine, katara),
+        (3, 3),
+        "a printed 3/3 before any damage"
     );
-    assert_eq!(pt(&engine, dragon), (4, 4), "a 4/4, as the card prints");
+    assert_eq!(
+        pt(&engine, wurm),
+        (7, 5),
+        "and a body three points cannot kill"
+    );
+    assert_eq!(pt(&engine, elf), (1, 1), "with a 1/1 across the table");
     assert!(
-        engine
-            .state()
-            .object(dragon)
-            .expect("just created")
-            .characteristics()
-            .keywords
-            .contains(KeywordSet::FLYING),
-        "with flying — the token the transcoder generated and not the one \
-         the pool writes by hand"
+        tokens_of(&engine, p0).is_empty(),
+        "arriving is not a land entering: nothing has been made yet"
+    );
+
+    // Mana into the pool before the cast is claimed: `can_afford` reads the
+    // pool and not the untapped lands. Both creatures are named as the
+    // objects kept back, so the six on the pool are the six lands.
+    tap_mana_where(&mut engine, p0, |id| id != katara && id != wurm);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "three Forests, two Islands and a Mountain, and neither creature paid in"
+    );
+    cast_with_floating(&mut engine, p0, dragonback_assault());
+    // Let the spell resolve; the enters-trigger it puts on the stack behind
+    // itself is answered by the same walk.
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, dragonback_assault()).is_some(),
+        "the enchantment resolved onto the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, katara_the_fearless()).is_some(),
+        "3 damage on a printed 3/3 is lethal (CR 704.5f), and it is my own \
+         creature: \"each creature\" reaches this side of the table too"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "and the opponent's 1/1 died to the same trigger, so the damage is not \
+         \"each creature you control\""
+    );
+    assert_eq!(
+        pt(&engine, wurm),
+        (7, 5),
+        "while the 7/5 is still standing under the same three points: the \
+         trigger damages each creature rather than destroying them"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p1, karn_the_great_creator()),
+        Some(karn),
+        "Karn survives three points of his five"
+    );
+    assert_eq!(loyalty(&engine), 2, "\"and each planeswalker\": 5 - 3");
+    assert_eq!(
+        engine.state().object(karn).expect("Karn").damage,
+        0,
+        "damage to a planeswalker removes loyalty and is not marked (CR 120.3c)"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and still no Dragon — only a land entering makes one"
+    );
+
+    // The landfall half. The land is played rather than seated, because the
+    // trigger watches an entry and not a board.
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, |e| !tokens_of(e, p0).is_empty());
+
+    let dragons = tokens_of(&engine, p0);
+    assert_eq!(dragons.len(), 1, "one land, one Dragon");
+    let dragon = dragons[0];
+    assert_eq!(pt(&engine, dragon), (4, 4), "the printed 4/4 body");
+    assert!(
+        keywords(&engine, dragon).contains(KeywordSet::FLYING),
+        "and the flying the token is printed with"
     );
     assert!(
         types(&engine, dragon).contains(TypeSet::CREATURE),
-        "and it is a creature token"
+        "it is a creature token: {:?}",
+        types(&engine, dragon)
+    );
+    let printed = engine
+        .state()
+        .object(dragon)
+        .expect("the Dragon is an object")
+        .token
+        .expect("a token and not a card that arrived from somewhere");
+    assert!(
+        printed.colors.contains(baylee_core::color::Color::Red),
+        "a 4/4 *red* Dragon"
+    );
+
+    // The other half of "a land *you* control": the same land drop by the
+    // other seat leaves the count where it was.
+    reach_their_main_phase(&mut engine, p1);
+    let their_land = in_hand(&engine, p1, forest()).expect("p1 is holding a land of its own");
+    engine
+        .apply(p1, PlayerAction::PlayLand { card: their_land })
+        .expect("a land drop in their own main phase is legal");
+    pass_until(&mut engine, |e| at_rest(e, p1));
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "landfall watches *your* lands: the opponent's land entering made no Dragon"
     );
 }
 
@@ -2939,81 +3030,148 @@ fn journey_to_eternity_returns_creature_and_transforms_into_atzal() {
     );
 }
 
-/// `Path of Mettle` // `Metzali, Tower of Triumph` (`Coverage::Partial`):
-/// "When `Path of Mettle` enters, it deals 1 damage to each creature that doesn't have
-/// first strike, double strike, vigilance, or haste. Whenever you attack with at least two
-/// creatures that have first strike, double strike, vigilance, and/or haste, transform
-/// `Path of Mettle`. // `{{T}}`: Add one mana of any color. `{{1}}{{R}}`, `{{T}}`: `Metzali` deals
-/// 2 damage to each opponent. `{{2}}{{W}}`, `{{T}}`: Choose a creature at random that attacked
-/// this turn. Destroy that creature."
-///
-/// Under `Coverage::Partial`, the enter damage trigger, the combat transform trigger, and the
-/// back face's damage and destruction abilities are omitted, leaving the front face as a
-/// `{{R}}{{W}}` legendary enchantment with no abilities. The test casts `Path of Mettle` from
-/// hand, confirms it enters as a legendary enchantment on face 0 without damaging a 1/1
-/// `llanowar_elves()`, verifies that with floating mana `LegalActions::abilities` offers no
-/// activated abilities on it, and confirms it remains on face 0 in the following turn.
+/// Path of Mettle prints "When this enchantment enters, it deals 1 damage to
+/// each creature that doesn't have first strike, double strike, vigilance, or
+/// haste", and the board is three identical printed 1/1 Llanowar Elves — two
+/// of mine and one across the table — of which exactly one has been given
+/// haste by Lightning Greaves before the enchantment arrives. The Greaves
+/// equip for `{0}`, so nothing about the mana spent on the enchantment is
+/// confounded by them, and both halves of the sentence get a witness of the
+/// same body: one Elf dies beside the survivor of my own, and one dies on the
+/// other side of the table, because "each creature" names no controller.
 #[test]
-fn path_of_mettle_casts_and_enters_as_legendary_enchantment_without_damage_trigger() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(103, mountain())
-        .battlefield(0, &[mountain(), plains(), mountain(), llanowar_elves()])
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn path_of_mettle_spares_the_creature_that_has_one_of_its_four_keywords() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                mountain(),
+                mountain(),
+                llanowar_elves(),
+                llanowar_elves(),
+                lightning_greaves(),
+            ],
+        )
         .hand(0, &[path_of_mettle()])
+        .battlefield(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
-    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Llanowar Elves on battlefield");
-    cast_from_hand(&mut engine, p0, path_of_mettle());
-    pass_until(&mut engine, stack_is_empty);
-
-    let mettle =
-        on_battlefield(&engine, p0, path_of_mettle()).expect("Path of Mettle on battlefield");
-    assert_eq!(
-        engine.state().object(mettle).map(|o| o.face_index),
-        Some(0),
-        "Path of Mettle is on face 0"
-    );
-
-    let t = types(&engine, mettle);
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 2, "two Elves, one of which stays bare");
+    let (armed, bare) = (elves[0], elves[1]);
     assert!(
-        t.contains(TypeSet::ENCHANTMENT),
-        "Path of Mettle is an enchantment"
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "an Elf across the table"
     );
-    assert!(!t.contains(TypeSet::LAND), "Path of Mettle is not a land");
+    let greaves = on_battlefield(&engine, p0, lightning_greaves()).expect("the Greaves are out");
     assert!(
-        engine
-            .state()
-            .object(mettle)
-            .expect("Path of Mettle exists")
-            .characteristics()
-            .supertypes
-            .contains(SupertypeSet::LEGENDARY),
-        "Path of Mettle is legendary"
+        !keywords(&engine, armed).contains(KeywordSet::HASTE),
+        "nothing is equipped yet, so nothing has haste"
     );
 
-    assert!(
-        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
-        "under `Coverage::Partial` no enter-damage trigger fires, so the 1/1 elf survives"
-    );
-    assert_eq!(pt(&engine, elf), (1, 1), "elf remains an undamaged 1/1");
-
-    tap_all_mana(&mut engine, p0);
+    // Equip {0} (CR 702.6). Its whole price is the tap symbol, so the pool the
+    // enchantment below is paid out of is exactly what the four lands hold —
+    // and the ability index is read out of the offer rather than guessed.
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+        panic!("expected priority, got {:?}", engine.pending())
     };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(src, _)| *src == greaves)
+        .expect("Equip {0} is the only activated ability the Greaves print");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("equip costs its own tap symbol and no mana at all");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "equip targets a creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options.len(),
+        2,
+        "both creatures you control may wear it: {options:?}"
+    );
     assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == mettle),
-        "front face offers no activated abilities with floating mana"
+        options.contains(&armed) && options.contains(&bare),
+        "and the Elf across the table is not one of them: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![armed],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(greaves)
+            .is_some_and(|o| o.attached_to == Some(armed))
+    });
+
+    let granted = keywords(&engine, armed);
+    assert!(
+        granted.contains(KeywordSet::HASTE),
+        "the Greaves grant haste, the fourth of the four keywords the trigger \
+         names: {granted:?}"
+    );
+    assert_eq!(
+        pt(&engine, armed),
+        (1, 1),
+        "and they change no body, so it is still the printed 1/1 the bare Elf is"
     );
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
+    // The Elves are named as the printing kept back, because they are the
+    // creatures this test reads afterwards: what is tapped is the two Plains
+    // and the two Mountains, which is {W}{W}{R}{R} for a {R}{W}.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
     assert_eq!(
-        engine.state().object(mettle).map(|o| o.face_index),
-        Some(0),
-        "Path of Mettle remains on face 0 in the following turn"
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "two Plains and two Mountains, and neither Elf tapped for anything"
+    );
+    cast_front_face(&mut engine, p0, path_of_mettle());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, path_of_mettle()).is_some(),
+        "the enchantment resolved onto the table"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, llanowar_elves()),
+        vec![armed],
+        "1 damage on a printed 1/1 is lethal (CR 704.5f), so the only Elf of \
+         mine still standing is the one the trigger's filter excluded"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the bare Elf the trigger did not exclude is in its owner's graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "\"each creature\" names no controller, so the Elf across the table \
+         died to the same resolution"
+    );
+    assert!(
+        keywords(&engine, armed).contains(KeywordSet::HASTE),
+        "and the survivor kept the keyword that spared it"
     );
 }
 

@@ -144,6 +144,7 @@ fn sweeper(effects: &'static [Effect]) -> bool {
             effect,
             Effect::DestroyAll { .. }
                 | Effect::ReturnAllToHand { .. }
+                | Effect::DealDamageEach { .. }
                 | Effect::PumpFilter {
                     toughness: baylee_cards_dsl::Amount::NegX,
                     ..
@@ -439,5 +440,22 @@ mod tests {
         assert!(!sweeper(ONE_AT_A_TIME));
         assert!(!sweeper(ANTHEM), "a bonus is not a wrath");
         assert!(sweeper(A_PLAGUE), "and the same shape negated is");
+    }
+
+    /// Damage to each creature is a sweep, bare or inside a sequence.
+    ///
+    /// A guard on the list and nothing more: `sweeper` reads a spell's
+    /// effects, and the two finished cards that print the sentence carry it
+    /// on a triggered and an activated ability, so no card in the pool
+    /// reaches this arm yet.
+    #[test]
+    fn a_damage_sweep_is_named_by_the_sweeper_list() {
+        const BLAST: &[Effect] = &[Effect::damage_each(3, &Filter::CREATURE)];
+        const IN_A_SEQUENCE: &[Effect] = &[Effect::Sequence(BLAST)];
+        assert!(sweeper(BLAST), "damage to each creature is a sweep");
+        assert!(
+            sweeper(IN_A_SEQUENCE),
+            "and so is the same inside a sequence"
+        );
     }
 }
