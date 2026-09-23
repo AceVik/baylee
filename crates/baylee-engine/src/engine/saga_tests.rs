@@ -366,6 +366,74 @@ fn grants_from(engine: &Engine<RegistryLookup>, saga: ObjectId) -> usize {
         .count()
 }
 
+/// Urza's Saga makes mana only once chapter I has **resolved**.
+///
+/// Chapter I *grants* "{T}: Add {C}" (CR 714.2b — a chapter ability is a
+/// triggered ability, and it does nothing until it resolves), and the card
+/// used to print the same mana ability a second time as a baseline. That
+/// copy was a mana ability from the moment the Saga landed, so the Saga
+/// tapped for {C} in response to its own chapter I, and once chapter I had
+/// resolved it carried two mana abilities where the card has one.
+#[test]
+fn urzas_saga_makes_no_mana_until_its_first_chapter_resolves() {
+    let mut engine = Engine::new(&preset(3, vec![urzas_saga()]), RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    drive_and_play_saga(&mut engine, p0);
+    let saga = saga_object(&engine).expect("saga on the battlefield");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority with chapter I on the stack")
+    };
+    assert_eq!(
+        chapters_on_the_stack(&engine, saga),
+        1,
+        "chapter I has triggered and not resolved"
+    );
+    assert!(
+        !legal.mana_abilities.contains(&saga),
+        "the Saga taps for nothing while chapter I is still on the stack"
+    );
+
+    let mut guard = 0;
+    while chapters_on_the_stack(&engine, saga) > 0 {
+        guard += 1;
+        assert!(guard < 10, "chapter I never resolved");
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority while chapter I is on the stack")
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority after chapter I")
+    };
+    assert!(
+        legal.mana_abilities.contains(&saga),
+        "chapter I's grant is a mana ability the Saga now has"
+    );
+    assert_eq!(grants_from(&engine, saga), 1, "one grant, from chapter I");
+    let printed_mana = engine
+        .state()
+        .object(saga)
+        .unwrap()
+        .abilities(&RegistryLookup)
+        .iter()
+        .filter(|a| {
+            matches!(
+                a,
+                baylee_cards_dsl::AbilityDef::Activated {
+                    mana_ability: true,
+                    ..
+                }
+            )
+        })
+        .count();
+    assert_eq!(
+        printed_mana, 0,
+        "the card prints no mana ability of its own"
+    );
+}
+
 fn lore(engine: &Engine<RegistryLookup>, saga: ObjectId) -> u16 {
     engine
         .state()

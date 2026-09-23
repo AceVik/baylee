@@ -179,7 +179,20 @@ pub fn line_shape(line: &str) -> LineShape {
     // [`LineShape::Mana`] — including why it has to be said here as well as
     // in `ability_shape`.
     let lower_body = body.to_lowercase();
-    if lower_body.starts_with("add ") && (body.contains('{') || lower_body.contains("mana")) {
+    // The "add" may open the body's *second* sentence: Three Tree City's
+    // "{2}, {T}: Choose a color. Add an amount of mana of that color …" is a
+    // mana ability (CR 605.1a — it could add mana and targets nothing), and
+    // read on the first sentence alone it was `Activated`, so the card's
+    // mana ability had no sentence. That later "add" is believed only in a
+    // body that never says "target", because a targeting ability is not a
+    // mana ability whatever it adds; a body *opening* on "add" keeps the
+    // reading it always had, since Primal Wellspring's "Add one mana of any
+    // color. When that mana is spent …, you may choose new targets for the
+    // copy" is a mana ability whose "target" belongs to a delayed trigger.
+    let makes = |s: &str| s.starts_with("add ") && (s.contains('{') || s.contains("mana"));
+    let adds_first = makes(&lower_body);
+    let adds_later = !lower_body.contains("target") && lower_body.split(". ").skip(1).any(makes);
+    if adds_first || adds_later {
         return LineShape::Mana;
     }
     // A loyalty cost is the whole of what precedes the colon, and the minus
@@ -429,6 +442,14 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
     }
     made.sort();
     made.dedup();
+    // "{T}: Add {U}. If you played a land this turn, add {B} instead." is
+    // one sentence printing two outputs of which the ability makes one at a
+    // time, so what it makes has to be *among* what is printed rather than
+    // all of it. River of Tears found it: its ability makes {U}, and a
+    // reader wanting both symbols left that ability with no sentence.
+    if line.to_lowercase().contains(" instead") {
+        return made.iter().all(|m| printed.contains(m));
+    }
     printed == made
 }
 
@@ -985,6 +1006,58 @@ mod tests {
     use baylee_cards_dsl::effect::{Amount, Effect};
     use baylee_cards_dsl::filter::Filter;
     use baylee_cards_dsl::loyalty;
+
+    /// A mana ability whose "add" opens the body's second sentence is still
+    /// a mana line — and one that targets is not, whatever it adds.
+    #[test]
+    fn a_mana_line_may_choose_before_it_adds() {
+        assert_eq!(
+            line_shape(
+                "{2}, {T}: Choose a color. Add an amount of mana of that color \
+                 equal to the number of creatures you control of the chosen type."
+            ),
+            LineShape::Mana,
+            "Three Tree City's second ability"
+        );
+        assert_eq!(
+            line_shape("{T}: Target player loses 1 life. Add {B}."),
+            LineShape::Activated,
+            "a targeting ability is not a mana ability (CR 605.1a)"
+        );
+        assert_eq!(
+            line_shape(
+                "{T}: Add one mana of any color. When that mana is spent to cast an \
+                 instant or sorcery spell, copy that spell and you may choose new \
+                 targets for the copy."
+            ),
+            LineShape::Mana,
+            "Primal Wellspring: the \"target\" is the delayed trigger's"
+        );
+    }
+
+    /// "… add {B} instead" prints two outputs and the ability makes one;
+    /// without "instead", every printed symbol still has to be made.
+    #[test]
+    fn an_instead_sentence_fits_either_of_its_outputs() {
+        use baylee_core::mana::ManaColor;
+        let blue = [Effect::mana(ManaColor::Blue, 1)];
+        assert!(mana_fits(
+            &blue,
+            "{T}: Add {U}. If you played a land this turn, add {B} instead."
+        ));
+        assert!(
+            !mana_fits(&blue, "{T}: Add {U} or {B}."),
+            "a choice between two is not an ability that makes one of them"
+        );
+        let red = [Effect::mana(ManaColor::Red, 1)];
+        assert!(
+            !mana_fits(
+                &red,
+                "{T}: Add {U}. If you played a land this turn, add {B} instead."
+            ),
+            "\"instead\" widens the printed pair, not the whole wheel"
+        );
+    }
 
     /// Two "At the beginning" sentences are told apart by the step, not by
     /// the words they share.

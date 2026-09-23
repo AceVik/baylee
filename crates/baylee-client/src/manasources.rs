@@ -1349,8 +1349,16 @@ mod tests {
         // A budget on a known population rather than a target: a card added
         // with a rider and no clean tap costs nobody a red gate, and a drift
         // past this says the population moved and wants reading.
+        //
+        // Read on 23.09.2026 at 21, up from the 8..=16 it was written for,
+        // and every one of the 21 is the same shape: a threshold land's
+        // "deals 1 damage to you", a depletion land's counter, Ancient
+        // Tomb's two damage, Gemstone Mine's mining counter and Trenzalore
+        // Clocktower's time counter — a single mana ability with a rider
+        // beside it. The card batches of 21–22.09 added them, and no gate
+        // that built this crate ran in between.
         assert!(
-            (8..=16).contains(&gained.len()),
+            (16..=28).contains(&gained.len()),
             "{} cards gained a source: {gained:?}",
             gained.len()
         );

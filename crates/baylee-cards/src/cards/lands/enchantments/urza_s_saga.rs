@@ -4,8 +4,9 @@
 //! Oracle: II — This Saga gains "{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'"
 //! Oracle: III — Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.
 //! Set: MH2 #259 — Modern Horizons 2 | Scryfall ID: c1e0f201-42cb-46a1-901a-65bb4fc18f6c | Oracle ID: 4c6a0c30-b547-4eff-8ff4-0ca25803c076
-// IMPLEMENTED — full saga: chapter I grants {T}: Add {C} (the baseline
-// mana ability covers it), chapter II grants the Construct ability
+// IMPLEMENTED — full saga: chapter I grants {T}: Add {C} (and nothing else
+// does — the Saga makes no mana until chapter I resolves), chapter II grants
+// the Construct ability
 // (GrantActivated + per-artifact P/T token), chapter III tutors a 0- or
 // 1-cost artifact to the battlefield.
 
@@ -25,10 +26,6 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[
-        // Chapter I's granted "{T}: Add {C}" is this baseline mana
-        // ability — it covers the same text (CR 611.2a grants it
-        // permanently, so the approximation is exact from chapter I on).
-        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         chapter!(
             1,
             &[Effect::continuous(
