@@ -2296,13 +2296,18 @@ mod tests {
         );
     }
 
-    /// A counted entry clause says "you control", and the filter has to say
-    /// it too, because `controls_count` does not.
+    /// An entry clause says "you control", and the filter has to say it
+    /// too, because `controls_count` does not.
     ///
-    /// Only the two **counted** variants. `EnterModifier::TappedUnless`
-    /// carries a filter too, and the Turbulent cycle deliberately asks about
-    /// an *opponent*'s Swamp — so a single-permanent checkland is a
-    /// different sentence and is not swept here on a guess.
+    /// Both shapes: the two **counted** variants and the single-permanent
+    /// `EnterModifier::TappedUnless`. The second was left out once, on the
+    /// premise that the Turbulent cycle asks about an *opponent*'s Swamp —
+    /// but that cycle is `TappedUnlessCount` with `ControlledByOpponent`,
+    /// which `scoped` accepts, and every `TappedUnless` sentence in the pool
+    /// prints "you control". Five of them were unscoped when it was added
+    /// (Reef Roads, Rocky Roads, Chocobo Camp, Spymaster's Vault, Cori
+    /// Mountain Monastery): an opponent's Vehicle, legend or basic let each
+    /// enter untapped.
     ///
     /// `Engine::controls_count` walks the **whole** battlefield and applies
     /// the filter with the entering permanent's controller as the "you". So
@@ -2317,10 +2322,10 @@ mod tests {
     /// correctly, which is why this is a lint and not a note: the majority
     /// being right is what makes the minority invisible.
     #[test]
-    fn every_counted_entry_clause_is_scoped_to_its_controller() {
+    fn every_entry_clause_is_scoped_to_its_controller() {
         use baylee_cards_dsl::{EnterModifier, Filter};
 
-        // The filter as written, for the two counted modifiers. A `Filter`
+        // The filter as written, for the three modifiers. A `Filter`
         // has no name at runtime, so the question is asked of the shape:
         // anything that is not an `And` containing `ControlledByYou` counts
         // every permanent on the battlefield.
@@ -2337,34 +2342,42 @@ mod tests {
         }
 
         let mut offenders = Vec::new();
-        let mut counted = 0_usize;
+        let (mut counted, mut single) = (0_usize, 0_usize);
         for def in crate::all() {
             for face in def.faces {
                 for m in face.enter_modifiers {
                     let filter = match m {
                         EnterModifier::TappedUnlessCount { filter, .. }
-                        | EnterModifier::TappedUnlessAtMost { filter, .. } => *filter,
+                        | EnterModifier::TappedUnlessAtMost { filter, .. } => {
+                            counted += 1;
+                            *filter
+                        }
+                        EnterModifier::TappedUnless(filter) => {
+                            single += 1;
+                            *filter
+                        }
                         _ => continue,
                     };
-                    counted += 1;
                     if !scoped(filter) {
                         offenders.push(format!("{}: {filter:?}", face.name));
                     }
                 }
             }
         }
+        // One floor per door, so a matcher that stops seeing one shape
+        // cannot pass on the other's population.
         assert!(
-            counted > 30,
-            "only {counted} counted entry clause(s) found — the walk has gone \
-             blind, and an empty sweep proves nothing"
+            counted > 30 && single > 40,
+            "only {counted} counted and {single} single entry clause(s) found \
+             — the walk has gone blind, and an empty sweep proves nothing"
         );
         assert!(
             offenders.is_empty(),
-            "{} counted entry clause(s) count every land on the battlefield \
+            "{} entry clause(s) look at every permanent on the battlefield \
              and not the controller's. `controls_count` scopes nothing, so \
-             the filter must: use `Filter::YOUR_LAND` (or an `And` carrying \
-             `ControlledByYou`) wherever the card prints \"you \
-             control\".\n{}",
+             the filter must: use `Filter::YOUR_LAND`, `f!(your …)` or an \
+             `And` carrying `ControlledByYou` wherever the card prints \
+             \"you control\".\n{}",
             offenders.len(),
             offenders.join("\n")
         );

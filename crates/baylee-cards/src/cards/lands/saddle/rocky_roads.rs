@@ -9,9 +9,14 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{artifact, creature};
 
-static MOUNT_OR_VEHICLE: Filter = Filter::Or(&[
-    Filter::HasSubtype(creature::MOUNT),
-    Filter::HasSubtype(artifact::VEHICLE),
+/// "a Mount or Vehicle you control" — control clause included, because
+/// the entry check walks the whole battlefield and scopes nothing itself.
+static MOUNT_OR_VEHICLE_YOU_CONTROL: Filter = Filter::And(&[
+    Filter::Or(&[
+        Filter::HasSubtype(creature::MOUNT),
+        Filter::HasSubtype(artifact::VEHICLE),
+    ]),
+    Filter::ControlledByYou,
 ]);
 
 card!(
@@ -22,7 +27,7 @@ card!(
     faces = &[face!(
         name = "Rocky Roads",
         types = TypeSet::LAND,
-        enter_modifiers = &[EnterModifier::TappedUnless(&MOUNT_OR_VEHICLE)],
+        enter_modifiers = &[EnterModifier::TappedUnless(&MOUNT_OR_VEHICLE_YOU_CONTROL)],
     )],
     coverage = Coverage::Partial(
         "the Pilot token's \"saddles Mounts and crews Vehicles as though its power were 2 greater\": the DSL has no saddling or crewing vocabulary, so the clause the token is created with cannot be said",

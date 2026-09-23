@@ -9,6 +9,11 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::land;
 
+/// "a Swamp you control" — control clause included, because the entry check
+/// walks the whole battlefield and scopes nothing itself.
+static SWAMP_YOU_CONTROL: Filter =
+    Filter::And(&[Filter::HasSubtype(land::SWAMP), Filter::ControlledByYou]);
+
 card!(
     index = index::SPYMASTER_S_VAULT,
     oracle_id = "69ddca4b-5cc0-45f3-b2e6-a047c8d601be",
@@ -21,9 +26,7 @@ card!(
     faces = &[face!(
         name = "Spymaster's Vault",
         types = TypeSet::LAND,
-        enter_modifiers = &[EnterModifier::TappedUnless(&Filter::HasSubtype(
-            land::SWAMP
-        ))],
+        enter_modifiers = &[EnterModifier::TappedUnless(&SWAMP_YOU_CONTROL)],
     ),],
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])],
 );

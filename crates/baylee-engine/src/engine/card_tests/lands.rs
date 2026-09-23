@@ -13795,7 +13795,7 @@ fn great_hall_of_the_biblioplex_adds_restricted_spell_mana() {
 /// (`at_most: 2`), which is the same predicate from opposite ends.
 ///
 /// Three of these four also carried the defect that
-/// `every_counted_entry_clause_is_scoped_to_its_controller` now lints: a
+/// `every_entry_clause_is_scoped_to_its_controller` now lints: a
 /// bare `Filter::LAND` counts the lands **across the table**, because
 /// `controls_count` scopes nothing. So the untapped half of each pair is
 /// set up with lands on the opponent's side of the table as well, which is
@@ -13845,6 +13845,48 @@ fn a_counted_entry_clause_counts_only_its_controller_s_other_lands() {
             entered_tapped(&engine, card),
             "one land over the bound, it enters tapped"
         );
+    }
+}
+
+/// The five single-permanent entry clauses that looked across the table,
+/// each played beside the permanent it asks about — once on the opponent's
+/// side, where it must not count, and once on its own, where it must.
+///
+/// `every_entry_clause_is_scoped_to_its_controller` is the rule; this is
+/// the board that shows what the rule was about. Every one of the five
+/// prints "unless you control …", and every one of them entered untapped
+/// because the opponent had a Vehicle, a legend, a Swamp or an Island —
+/// and passed its own test, which had one player's board on it. The Roads'
+/// tests never had the other half at all: nothing put a Vehicle anywhere.
+#[test]
+fn a_checkland_asks_only_about_its_controller_s_permanents() {
+    let p0 = PlayerId::new(0);
+    // (the land, a permanent its clause names)
+    let cases: [(CardIndex, CardIndex); 5] = [
+        (reef_roads(), smugglers_copter()),
+        (rocky_roads(), smugglers_copter()),
+        (chocobo_camp(), katara_the_fearless()),
+        (spymaster_s_vault(), swamp()),
+        (cori_mountain_monastery(), island()),
+    ];
+    for (land, named) in cases {
+        let name = baylee_cards::by_index(land).map_or("?", baylee_cards_dsl::CardDef::name);
+        for (seat, untapped) in [(1, false), (0, true)] {
+            let mut engine = Duel::new(219, forest())
+                .battlefield(seat, &[named])
+                .hand(0, &[land])
+                .start();
+            keep_mulligans(&mut engine);
+            reach_main_phase(&mut engine, p0);
+            let card = in_hand(&engine, p0, land).expect("the land is in hand");
+            engine.apply(p0, PlayerAction::PlayLand { card }).unwrap();
+            pass_until(&mut engine, stack_is_empty);
+            assert_eq!(
+                !entered_tapped(&engine, card),
+                untapped,
+                "{name} with what its clause names on seat {seat}"
+            );
+        }
     }
 }
 

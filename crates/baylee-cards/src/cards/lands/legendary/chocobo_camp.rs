@@ -16,7 +16,7 @@ card!(
     faces = &[face!(
         name = "Chocobo Camp",
         types = TypeSet::LAND,
-        enter_modifiers = &[EnterModifier::TappedUnless(&Filter::LEGENDARY_CREATURE)],
+        enter_modifiers = &[EnterModifier::TappedUnless(&f!(your LEGENDARY_CREATURE))],
     ),],
     coverage = Coverage::Partial(
         "the mana line's delayed rider — \"when you next cast a Bird creature spell this \

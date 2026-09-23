@@ -9,9 +9,14 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::land;
 
-static PLAINS_OR_ISLAND: Filter = Filter::Or(&[
-    Filter::HasSubtype(land::PLAINS),
-    Filter::HasSubtype(land::ISLAND),
+/// "a Plains or an Island you control" — control clause included, because
+/// the entry check walks the whole battlefield and scopes nothing itself.
+static PLAINS_OR_ISLAND_YOU_CONTROL: Filter = Filter::And(&[
+    Filter::Or(&[
+        Filter::HasSubtype(land::PLAINS),
+        Filter::HasSubtype(land::ISLAND),
+    ]),
+    Filter::ControlledByYou,
 ]);
 
 card!(
@@ -26,7 +31,7 @@ card!(
     faces = &[face!(
         name = "Cori Mountain Monastery",
         types = TypeSet::LAND,
-        enter_modifiers = &[EnterModifier::TappedUnless(&PLAINS_OR_ISLAND)],
+        enter_modifiers = &[EnterModifier::TappedUnless(&PLAINS_OR_ISLAND_YOU_CONTROL)],
     ),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
