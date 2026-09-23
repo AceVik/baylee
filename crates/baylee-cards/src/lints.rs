@@ -227,6 +227,72 @@ fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
     None
 }
 
+/// Whether a target spec can name an **object** at all, rather than only a
+/// player.
+///
+/// Exhaustive with no wildcard arm for the reason [`branches`] is: a new
+/// [`TargetSpec`] has to be put on one side of this before the crate
+/// compiles.
+fn can_target_an_object(spec: TargetSpec) -> bool {
+    match spec {
+        TargetSpec::Object(_)
+        | TargetSpec::Spell(_)
+        | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::AbilityOnStack(_)
+        | TargetSpec::SpellOrAbility(_)
+        | TargetSpec::ThisObject
+        | TargetSpec::EventObject
+        | TargetSpec::AnyTarget => true,
+        TargetSpec::Player(_) | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => false,
+    }
+}
+
+/// Whether an effect list reads `PlayerRel::ControllerOfTarget` anywhere.
+///
+/// Asked of the `Debug` spelling because the relation sits in differently
+/// named fields — `target` on a mill, `player` on a graveyard exile, `who`
+/// on a life gain — and every one of them resolves through the same
+/// `resolve::players_of`. The pattern is the variant's bare name and ends
+/// open, so a field added beside it cannot blind the check.
+fn reads_controller_of_target(effects: &[Effect]) -> bool {
+    effects
+        .iter()
+        .any(|e| format!("{e:?}").contains("ControllerOfTarget"))
+}
+
+/// An ability that can only target a **player** and then reads
+/// `PlayerRel::ControllerOfTarget`.
+///
+/// The engine answers that relation from the resolution's first *object*
+/// target (`resolve::players_of`), and only an object has a controller
+/// (CR 109.4: "Only objects on the stack or on the battlefield have a
+/// controller") — `Resolution::targets` holds `ObjectId`s, so a targeted
+/// player is carried beside it and never in it. On such a branch the
+/// relation names nobody, the effect happens to no one, and nothing says
+/// so. "Target player mills four cards" is `PlayerRel::Chosen`: Ashiok,
+/// Dream Render's −1 was written with `ControllerOfTarget`, claimed
+/// `Coverage::Implemented`, and milled nobody.
+///
+/// What it does not see: `TargetSpec::AnyTarget` can name a player too, and
+/// on that choice the relation names nobody just the same — but it can also
+/// name a creature, whose controller is a perfectly good answer, so the
+/// shape is not wrong on its face and is left alone. No card in the pool
+/// pairs the two.
+///
+/// Returns the target spec, which is what a failure has to print.
+fn controller_of_a_player_target(ability: &AbilityDef) -> Option<TargetSpec> {
+    for branch in branches(ability) {
+        let Some(spec) = branch.target else {
+            continue;
+        };
+        if !can_target_an_object(spec) && reads_controller_of_target(branch.effects) {
+            return Some(spec);
+        }
+    }
+    None
+}
+
 /// Every `(layer, modifier)` pair a continuous effect inside this effect
 /// states, the wrappers included.
 ///
@@ -906,6 +972,105 @@ mod tests {
         );
     }
 
+    /// The player lint fires on a player target read as the controller of
+    /// an object, and stays quiet on the targeted player and on an object
+    /// whose controller is the point.
+    ///
+    /// The broken half is Ashiok, Dream Render's −1 as it was written,
+    /// reduced to the one field that was wrong: "target player mills four
+    /// cards" with the player read as `ControllerOfTarget`.
+    #[test]
+    fn the_player_target_lint_catches_ashioks_minus_one() {
+        use crate::dsl::effect::{Amount, PlayerRel};
+
+        static MILL_THE_CONTROLLER: [Effect; 1] = [Effect::Mill {
+            amount: Amount::Fixed(4),
+            target: PlayerRel::ControllerOfTarget,
+        }];
+        static MILL_THE_CHOSEN: [Effect; 1] = [Effect::Mill {
+            amount: Amount::Fixed(4),
+            target: PlayerRel::Chosen,
+        }];
+
+        let broken = AbilityDef::Loyalty {
+            cost: -1,
+            effects: &MILL_THE_CONTROLLER,
+            targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
+        };
+        assert_eq!(
+            controller_of_a_player_target(&broken),
+            Some(TargetSpec::AnyPlayer),
+            "the lint did not see a targeted player read as an object's controller"
+        );
+
+        // The fix: `Chosen` is the player the ability targeted.
+        let fixed = AbilityDef::Loyalty {
+            cost: -1,
+            effects: &MILL_THE_CHOSEN,
+            targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
+        };
+        assert!(
+            controller_of_a_player_target(&fixed).is_none(),
+            "`PlayerRel::Chosen` is the targeted player"
+        );
+
+        // And Path to Exile's shape, where the controller of an object
+        // target is exactly who the sentence is about.
+        let object = AbilityDef::Loyalty {
+            cost: -1,
+            effects: &MILL_THE_CONTROLLER,
+            targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        };
+        assert!(
+            controller_of_a_player_target(&object).is_none(),
+            "an object target has a controller to read"
+        );
+    }
+
+    /// No ability in the pool targets only a player and then reads the
+    /// controller of its target.
+    #[test]
+    fn no_ability_reads_the_controller_of_a_player_target() {
+        let mut wrong = Vec::new();
+        let mut seen = 0_usize;
+        for def in crate::all() {
+            for ability in def.abilities.iter().chain(
+                def.faces
+                    .iter()
+                    .flat_map(|f| f.abilities.iter())
+                    .collect::<Vec<_>>(),
+            ) {
+                if let Some(spec) = controller_of_a_player_target(ability) {
+                    wrong.push(format!("{} targets {spec:?}", def.name()));
+                }
+                for branch in branches(ability) {
+                    if branch.target.is_some_and(can_target_an_object)
+                        && reads_controller_of_target(branch.effects)
+                    {
+                        seen += 1;
+                    }
+                }
+            }
+        }
+        // The floor: seventeen branches over sixteen cards read the
+        // controller of an object target on 23.09.2026 (Path to Exile, Mana
+        // Leak, Ghost Quarter, …; Ertai Resurrected counts twice), and a walk
+        // that reached none of them would pass exactly as loudly.
+        assert!(
+            seen >= 12,
+            "only {seen} branch(es) read the controller of an object target; \
+             the sweep has gone blind"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} card(s) target a player and then read `PlayerRel::ControllerOfTarget`, \
+             which is the controller of an *object* target and names nobody here. \
+             \"Target player …\" is `PlayerRel::Chosen`.\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+    }
+
     /// The layer lint fires on a modifier put on the wrong layer, and stays
     /// quiet on the same modifier put on the right one.
     ///
@@ -1192,7 +1357,8 @@ mod tests {
         );
     }
 
-    /// Both of those lints, over the permanents no card prints.
+    /// The lints above that read an ability alone, over the permanents no
+    /// card prints.
     ///
     /// A `TokenDef` carries `abilities: &[AbilityDef]` that the engine reads
     /// through the very path a card face's are read by, so both shapes are
@@ -1221,6 +1387,9 @@ mod tests {
                 }
                 if let Some(fault) = mana_ability_fault(ability) {
                     wrong.push(format!("{} {fault}", token.name));
+                }
+                if let Some(spec) = controller_of_a_player_target(ability) {
+                    wrong.push(format!("{} reads the controller of {spec:?}", token.name));
                 }
             }
         }

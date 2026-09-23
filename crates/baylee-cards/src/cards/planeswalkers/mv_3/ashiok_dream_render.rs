@@ -29,7 +29,7 @@ card!(
             &[
                 Effect::Mill {
                     amount: Amount::Fixed(4),
-                    target: PlayerRel::ControllerOfTarget,
+                    target: PlayerRel::Chosen,
                 },
                 Effect::ExileGraveyard {
                     player: PlayerRel::EachOpponent,
