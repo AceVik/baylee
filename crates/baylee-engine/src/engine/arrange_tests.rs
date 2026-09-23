@@ -229,3 +229,56 @@ fn a_bottom_pile_is_listed_top_to_bottom_too() {
         );
     }
 }
+
+/// A look at a single card is still a question. It has no order to choose,
+/// but the card is shown to its player only while a question about it is
+/// open — the view's "looking at" is read off the offer — so a question
+/// skipped for having one card takes away the look the card prints.
+#[test]
+fn a_look_at_a_single_card_is_still_asked() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .hand(0, &[halimar_depths()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mut rest = library(&engine, p0);
+    let top = rest.pop().expect("a library to look at");
+    for card in rest {
+        engine
+            .dev_state_mut(p0)
+            .expect("the test harness grants dev commands")
+            .move_object(
+                card,
+                ZoneLocation::Exile(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::DevCommand,
+            )
+            .expect("a library card moves to exile");
+    }
+    assert_eq!(library(&engine, p0), vec![top], "one card left to look at");
+
+    let card = in_hand(&engine, p0, halimar_depths()).expect("the Depths are in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card })
+        .expect("a land drop in a main phase");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
+    let Pending::Arrange { cards, piles, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(cards, vec![top], "the one card is offered, and so shown");
+    assert_eq!(
+        piles,
+        vec![ArrangePile::all_of(ArrangePlace::LibraryTop, 1)]
+    );
+    engine
+        .apply(p0, PlayerAction::Arrange { piles: vec![cards] })
+        .expect("the only arrangement there is");
+    assert_eq!(
+        library(&engine, p0),
+        vec![top],
+        "and it goes back where it was"
+    );
+}

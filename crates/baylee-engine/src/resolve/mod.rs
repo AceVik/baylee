@@ -1434,9 +1434,11 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 .take(count as usize)
                 .copied()
                 .collect();
-            // One card has no order to choose, and none has nothing to put
-            // back.
-            if options.len() < 2 {
+            // One card has no order to choose and is asked anyway: a card
+            // is shown to its player only while a question about it is open,
+            // and a look the card prints is not skipped for being short.
+            // None has nothing to put back.
+            if options.is_empty() {
                 return None;
             }
             res.awaiting = Some(AwaitingOp::ReorderTopLibrary);

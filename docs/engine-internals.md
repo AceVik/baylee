@@ -445,8 +445,12 @@ itself rather than against the answer:
 as offered, each pile filled to its minimum first — and is what the house AI
 and the test kit give until they have an opinion. It returns `None` only for
 piles whose bounds cannot hold the cards, which no question the engine asks
-ever has. A question with a single card, or none, is not asked at all: one
-card has no order to choose.
+ever has. A look at a single card is still asked, though it has no order to
+choose: a card is shown to its player only while a question about it is open
+(the view's `looking_at` is read off the offer), so skipping the question
+would take away the look the card prints. What is *not* asked is the rest of
+a dig with one card left, which its player has just seen in the question
+before.
 
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
