@@ -331,6 +331,50 @@ Three things about it are easy to get backwards:
   position as the board without one and loop detection would otherwise call
   them equal.
 
+### Undying and persist, and the question about an object that is gone
+
+Both are keyword *triggered* abilities (CR 702.93a, CR 702.79a) and neither
+is written as an `AbilityDef`: they are bits on `keywords`, and `trigger.rs`
+reads them where it reads prowess and ward, pushing a `PendingTrigger` whose
+effects come from a `&'static` list rather than from the card: setting the
+bit is the whole of writing the card, and `keywords = KeywordSet::UNDYING` is
+all of Young Wolf.
+
+The bit that is read is the **printed** one. `move_object` clears the
+object's layer cache (CR 400.7) and `Characteristics` falls back to the base,
+so by the time this scan runs a continuous effect that *granted* undying has
+stopped applying and left nothing behind — the same last-known-information
+problem as the counters below, one field over, and not closed: it would need
+a look-back store for the projected keywords. Mikaeus, the Unhallowed is the
+one card in the pool that grants undying, and it is `Coverage::Partial` for
+three reasons of which this is one.
+
+What makes them different from prowess is the intervening `if`: "if it had no
++1/+1 counters on it" is a question about the creature **as it last existed
+on the battlefield** (CR 603.4, checked when the ability would trigger), and
+by then `move_object` has cleared its counters along with everything else
+only a permanent has. Reading the card in the graveyard therefore answers
+"no counters" every time and the creature returns for ever. So there is a
+fourth look-back store beside `ltb_abilities`, `ltb_attachments` and
+`ceased`: `GameState::ltb_counters` holds what a permanent wore on the way
+out, is overwritten by the next departure of that object, and is in neither
+hash — it is a record of what has already happened, so two positions that
+differ only in it are the same position.
+
+Three more things the rule needs, each of which was wrong first:
+
+- **The stack object has to carry the event object.** A synthetic trigger's
+  effect list names the creature with `TargetSpec::EventObject`, which
+  `resolve::zones::spec_object` reads off `Resolution::event_object` — a
+  field the non-synthetic branch of `progress::stack_triggers` wrote and the
+  synthetic one did not. The trigger fired, reached the stack and resolved
+  into nothing.
+- **A token does not come back.** CR 111.7 — it ceased to exist — so the
+  trigger is not pushed for a source with no card behind it.
+- **The card has to still be in the graveyard.** CR 400.7: the return targets
+  nothing, so nothing else would stop it pulling a card out of *exile* if
+  somebody exiled it in response.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing

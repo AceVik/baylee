@@ -34,9 +34,10 @@ card!(
     abilities = &[
         triggered!(
             Trigger::LeavesBattlefield(&Filter::This),
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&SMALL_CREATURE_GY, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &SMALL_CREATURE_GY,
+                PlayerRel::You
+            ))],
             targets = Some(TargetReq::up_to(
                 TargetSpec::CardInGraveyard(&SMALL_CREATURE_GY, PlayerRel::You),
                 2,

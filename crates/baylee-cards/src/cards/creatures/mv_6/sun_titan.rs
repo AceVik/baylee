@@ -31,9 +31,10 @@ card!(
     abilities = &[
         triggered!(
             Trigger::ETB,
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &SMALL_PERMANENT,
+                PlayerRel::You
+            ))],
             targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
                 &SMALL_PERMANENT,
                 PlayerRel::You,
@@ -41,9 +42,10 @@ card!(
         ),
         triggered!(
             Trigger::Attacks(&Filter::This),
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &SMALL_PERMANENT,
+                PlayerRel::You
+            ))],
             targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
                 &SMALL_PERMANENT,
                 PlayerRel::You,

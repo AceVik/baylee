@@ -52,12 +52,10 @@ card!(
         activated!(
             cost!("{5}{B}"),
             &[
-                Effect::GraveyardToBattlefield {
-                    target: TargetSpec::CardInGraveyard(
-                        &Filter::CREATURE_OR_PLANESWALKER,
-                        PlayerRel::You,
-                    ),
-                },
+                Effect::reanimate(TargetSpec::CardInGraveyard(
+                    &Filter::CREATURE_OR_PLANESWALKER,
+                    PlayerRel::You,
+                )),
                 // `AddCounter` puts its counters on the first target, which
                 // here is the card coming back. The printed counter goes on
                 // Liliana, so the source is named by filter instead.

@@ -53,9 +53,10 @@ card!(
         triggered!(
             Trigger::ETB,
             &[
-                Effect::GraveyardToBattlefield {
-                    target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::Opponent),
-                },
+                Effect::reanimate(TargetSpec::CardInGraveyard(
+                    &Filter::CREATURE,
+                    PlayerRel::Opponent
+                )),
                 Effect::AddCounter {
                     kind: CounterKind::P1P1,
                     amount: Amount::Fixed(1),

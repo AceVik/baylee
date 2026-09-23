@@ -465,6 +465,25 @@ pub struct GameState {
     /// layer projection can see it, and an object that comes back has its
     /// entry cleared by the very move that brings it back.
     pub ltb_attachments: Vec<(ObjectId, Vec<ObjectId>)>,
+    /// What a permanent had *on* it the moment it left the battlefield.
+    ///
+    /// The third half of CR 603.10a, and the one without which undying is a
+    /// loop rather than a rule. "If it had no +1/+1 counters on it"
+    /// (CR 702.93a, and CR 702.79a for persist) is a question about the
+    /// object as it last existed on the battlefield — and `move_object`
+    /// clears `counters` on every departure from there, for the good reason
+    /// that a blinked creature must not bring three +1/+1 counters back. So
+    /// by the time triggers are collected the card in the graveyard
+    /// truthfully has none, every time, and a Wolf that returned with a
+    /// counter would keep returning for ever.
+    ///
+    /// Written and cleared exactly where [`Self::ltb_abilities`] is, so an
+    /// entry only ever names an object that is not on the battlefield and
+    /// the move that brings one back removes its entry. Excluded from
+    /// `snapshot_hash` and `loop_signature` for the reason
+    /// [`Self::ceased`] gives: it is scan bookkeeping that never survives a
+    /// priority grant.
+    pub ltb_counters: Vec<(ObjectId, crate::object::Counters)>,
     /// Objects that have ceased to exist but whose triggers have not fired.
     ///
     /// CR 111.7 says it in a parenthesis, and the parenthesis is the whole
@@ -678,6 +697,7 @@ impl GameState {
             commander_redirect: Vec::new(),
             pending_copied_faces: Vec::new(),
             ltb_abilities: Vec::new(),
+            ltb_counters: Vec::new(),
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
@@ -1367,6 +1387,58 @@ impl GameState {
         }
     }
 
+    /// Writes down what `id` was, one statement before the move erases it.
+    ///
+    /// The three look-back stores are one job and are done in one place
+    /// because they share the moment: a leaves-the-battlefield or dies
+    /// trigger fires from the zone the permanent has *arrived* in, and the
+    /// game looks back at what was true "immediately prior to the event"
+    /// (CR 603.10a). That is here — before the block at the bottom of
+    /// [`move_object`] gives the copy back, empties `counters` and clears
+    /// every other field only a permanent can have, and before the
+    /// state-based actions that would unattach the Equipment.
+    ///
+    /// Each store is cleared for this object on **every** move and written
+    /// again only on a departure from the battlefield, so each describes the
+    /// last such departure and no earlier one.
+    fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
+        // What the object could *do*.
+        let departing = self.object(id).and_then(|o| o.own_abilities);
+        self.ltb_abilities.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield
+            && let Some(abilities) = departing
+        {
+            self.ltb_abilities.push((id, abilities));
+        }
+        // What it wore. Undying and persist ask this of a creature that is
+        // already in the graveyard, where the answer no longer exists.
+        let departing_counters = self.object(id).map(|o| o.counters.clone());
+        self.ltb_counters.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield
+            && let Some(counters) = departing_counters
+            && !counters.is_empty()
+        {
+            self.ltb_counters.push((id, counters));
+        }
+        // What was attached to it.
+        self.ltb_attachments.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield {
+            let worn: Vec<ObjectId> = self
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|other| {
+                    self.object(**other)
+                        .is_some_and(|o| o.attached_to == Some(id))
+                })
+                .copied()
+                .collect();
+            if !worn.is_empty() {
+                self.ltb_attachments.push((id, worn));
+            }
+        }
+    }
+
     /// Moves an object between zones (CR 400.7: `version` bumps — it
     /// becomes a new object for rules that track identity).
     ///
@@ -1396,40 +1468,7 @@ impl GameState {
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
         let ts = self.timestamp;
-        // What the object could *do* one moment ago, read before the block
-        // below gives the copy back (CR 603.10a). A leaves-the-battlefield or
-        // dies trigger fires from the zone the permanent has arrived in, and
-        // the game looks back at "the existence of those abilities …
-        // immediately prior to the event" — which is here, and not two
-        // statements later. Cleared on every move and written again only on a
-        // departure from the battlefield, so `ltb_abilities` describes the
-        // last one and no earlier one.
-        let departing = self.object(id).and_then(|o| o.own_abilities);
-        self.ltb_abilities.retain(|(other, _)| *other != id);
-        if from_zone == Zone::Battlefield
-            && let Some(abilities) = departing
-        {
-            self.ltb_abilities.push((id, abilities));
-        }
-        // Read here and not after the state-based actions, for the reason the
-        // field's doc gives: this is the last statement at which the
-        // Equipment still says what it was on.
-        self.ltb_attachments.retain(|(other, _)| *other != id);
-        if from_zone == Zone::Battlefield {
-            let worn: Vec<ObjectId> = self
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .filter(|other| {
-                    self.object(**other)
-                        .is_some_and(|o| o.attached_to == Some(id))
-                })
-                .copied()
-                .collect();
-            if !worn.is_empty() {
-                self.ltb_attachments.push((id, worn));
-            }
-        }
+        self.record_last_known(id, from_zone);
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();

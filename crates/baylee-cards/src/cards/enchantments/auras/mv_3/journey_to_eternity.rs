@@ -21,9 +21,10 @@ static ATZAL_ABILITIES: &[AbilityDef] = &[
     mana_ability!(&[Effect::mana_of_any_color()]),
     activated!(
         cost!("{3}{B}{G}", TapSelf),
-        &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-        }],
+        &[Effect::reanimate(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
+            PlayerRel::You
+        ))],
         target = Some(TargetSpec::CardInGraveyard(
             &Filter::CREATURE,
             PlayerRel::You
@@ -63,9 +64,7 @@ card!(
         triggered!(
             Trigger::Dies(&Filter::AttachedToBySource),
             &[
-                Effect::GraveyardToBattlefield {
-                    target: TargetSpec::EventObject,
-                },
+                Effect::reanimate(TargetSpec::EventObject),
                 Effect::ExileSelfReturnAsFace { face: 1 },
             ]
         ),

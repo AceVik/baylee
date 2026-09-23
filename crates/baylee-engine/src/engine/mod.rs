@@ -886,6 +886,8 @@ mod this_object_tests;
 #[cfg(test)]
 mod token_tests;
 #[cfg(test)]
+mod undying_tests;
+#[cfg(test)]
 mod untap_tests;
 #[cfg(test)]
 mod vocabulary_tests;

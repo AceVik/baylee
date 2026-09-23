@@ -18,9 +18,10 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[spell!(
         &[
-            Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::EachPlayer),
-            },
+            Effect::reanimate(TargetSpec::CardInGraveyard(
+                &Filter::CREATURE,
+                PlayerRel::EachPlayer
+            )),
             Effect::LoseLife {
                 amount: Amount::TargetCmc,
                 target: PlayerRel::You,

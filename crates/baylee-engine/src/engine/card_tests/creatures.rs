@@ -9344,9 +9344,9 @@ fn kitchen_finks() -> CardIndex {
 /// the body on the table is what says the spell resolved rather than that
 /// the trigger fired off something else.
 ///
-/// The persist clause is the card's `Coverage::Partial` gap and is
-/// deliberately not played here: a test written around what the engine
-/// cannot express would pass by doing nothing at all.
+/// The persist clause used to be the card's `Coverage::Partial` gap and is
+/// played by the test below instead of here, so this one stays a reading of
+/// the enter trigger on its own.
 #[test]
 fn kitchen_finks_gains_its_controller_two_life_and_leaves_the_opponent_alone() {
     let p0 = PlayerId::new(0);
@@ -9393,6 +9393,60 @@ fn kitchen_finks_gains_its_controller_two_life_and_leaves_the_opponent_alone() {
         engine.state().players[1].life,
         20,
         "\"you gain 2 life\" is not each player"
+    );
+}
+
+/// Persist, and the enter trigger is what proves it was an *arrival* rather
+/// than a card put back on the table.
+///
+/// Kitchen Finks is the one card in the pool where the two halves check each
+/// other: the 2 life is gained a second time only if the return goes through
+/// the same door a cast does, and the -1/-1 counter is what stops the third.
+/// Seating it costs no life, which is the zero the first assertion reads —
+/// so the 2 that follows is the return's and nothing else's.
+#[test]
+fn kitchen_finks_persists_back_smaller_and_gains_the_two_life_again() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(98, forest())
+        .battlefield(0, &[kitchen_finks()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let finks = on_battlefield(&engine, p0, kitchen_finks()).expect("the Finks is seated");
+    assert_eq!(pt(&engine, finks), (3, 2), "the body the card prints");
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "a permanent the harness seats never entered, so nothing has been \
+         gained and every point below belongs to the return"
+    );
+
+    kill(&mut engine, finks);
+
+    let back = on_battlefield(&engine, p0, kitchen_finks()).expect("persist returned it");
+    assert_eq!(
+        pt(&engine, back),
+        (2, 1),
+        "a 3/2 with a -1/-1 counter on it"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "and it entered, so \"when this creature enters, you gain 2 life\" \
+         fired for the second time"
+    );
+
+    kill(&mut engine, back);
+    assert!(
+        on_battlefield(&engine, p0, kitchen_finks()).is_none(),
+        "the counter it came back with is what keeps it down"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "and nothing entered a third time"
     );
 }
 
@@ -10727,9 +10781,10 @@ fn safehold_elite() -> CardIndex {
 }
 
 /// Safehold Elite is a 2/2 Elf Scout for `{1}{G/W}`, and its second sentence —
-/// persist — is the whole of the `Coverage::Partial` note: nothing in the DSL
-/// returns a card from a graveyard with a -1/-1 counter on it, so the body and
-/// the hybrid symbol are what is left to play. The board is deliberately
+/// persist — was the whole of the `Coverage::Partial` note. It is the rule
+/// `engine::undying_tests` is about and this card is the board it is read on,
+/// so what is left here is the half that is this card's own: the body and the
+/// hybrid symbol. The board is deliberately
 /// **two Plains and no other land**: `{1}` is one white and the hybrid symbol
 /// is the other, so a reading that only ever paid `{G/W}` with green would
 /// refuse the cast outright rather than pass quietly. What lands is the
@@ -11257,7 +11312,8 @@ fn strangleroot_geist() -> CardIndex {
 }
 
 /// Strangleroot Geist prints `{G}{G}` for a 2/1 Spirit with haste; the
-/// undying line is the `Coverage::Partial` gap and nothing here presses it.
+/// undying line was the `Coverage::Partial` gap and is played by the test
+/// below, so nothing here presses it and this stays a reading of haste.
 ///
 /// Haste is a keyword bit the engine reads, and the only way to see it *do*
 /// anything is the attack it permits: the Geist arrives in p0's first main
@@ -11336,6 +11392,62 @@ fn strangleroot_geist_attacks_the_turn_it_arrives_and_the_elves_beside_it_cannot
         life_before - 2,
         "two damage, the Geist's printed power, so the attack resolved rather \
          than merely being declared"
+    );
+}
+
+/// Undying, and haste is what lets the return be seen in the turn it
+/// happens.
+///
+/// Both creatures are killed in p0's own precombat main and both come back
+/// with a +1/+1 counter, so the attacker list that follows differs in one
+/// thing only: the Geist prints haste and the Wolf does not. A returned
+/// permanent has not been controlled since the turn began (CR 302.6), which
+/// is why the Wolf is the control rather than a second subject — the rule
+/// itself is read in `engine::undying_tests`.
+#[test]
+fn strangleroot_geist_returns_bigger_and_haste_lets_it_attack_at_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(30, forest())
+        .battlefield(0, &[strangleroot_geist(), young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let geist = on_battlefield(&engine, p0, strangleroot_geist()).expect("the Geist is seated");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("the Wolf is seated beside it");
+    kill(&mut engine, geist);
+    kill(&mut engine, wolf);
+
+    let geist = on_battlefield(&engine, p0, strangleroot_geist()).expect("undying returned it");
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("and it returned the Wolf too");
+    assert_eq!(
+        pt(&engine, geist),
+        (3, 2),
+        "the printed 2/1 with a +1/+1 counter on it"
+    );
+    assert_eq!(pt(&engine, wolf), (2, 2), "and the printed 1/1 as a 2/2");
+    assert!(
+        keywords(&engine, geist).contains(KeywordSet::HASTE),
+        "haste came back with it: it is printed on the card, not granted"
+    );
+    assert!(
+        !keywords(&engine, wolf).contains(KeywordSet::HASTE),
+        "and the control has none, which is the whole difference between them"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on nothing else")
+    };
+    assert!(
+        attackers.contains(&geist),
+        "the Geist arrived this turn and attacks anyway: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&wolf),
+        "the Wolf arrived the same way and may not: {attackers:?}"
     );
 }
 
@@ -11691,18 +11803,18 @@ fn yawgmoth_pays_a_life_and_another_creature_for_a_minus_counter_and_a_card() {
 }
 
 /// Young Wolf is a printed 1/1 Wolf for {G}, and its only rules text is
-/// undying — the `Coverage::Partial` gap, since no keyword bit carries it and
-/// the DSL cannot return the source card from the graveyard with a +1/+1
-/// counter. This scenario plays the body that *is* implemented (cast for
-/// {G}, standing as a 1/1) and then reads the gap through a genuine
-/// battlefield-to-graveyard death, which is exactly what undying answers: the
-/// Wolf is fed to Ashnod's Altar's own sacrifice cost and simply stays in the
-/// graveyard. An exile would be no proof — a card exiled never triggers
-/// undying either — so the sacrifice is the clean control (CR 700.4), and the
-/// missing returning 1/1 with a counter is the much-printed clause and
-/// nothing else.
+/// undying. The scenario is unchanged and the ending is the opposite one:
+/// this test read the `Coverage::Partial` gap — "and simply stays in the
+/// graveyard" — until undying existed, and the day it did is the day the
+/// assertion had to invert.
+///
+/// What it still buys over `engine::undying_tests` is the *door*. A cost
+/// that sacrifices is dying (CR 700.4) and Ashnod's Altar eats the Wolf as
+/// a cost rather than as an effect, so the trigger is watching the zone
+/// change and not the destruction that usually causes it. An exile would be
+/// no proof — a card exiled never triggers undying either.
 #[test]
-fn young_wolf_lands_as_a_one_one_and_stays_dead_where_undying_would_return_it() {
+fn young_wolf_is_sacrificed_to_the_altar_and_undying_returns_it_bigger() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[ashnods_altar(), forest()])
@@ -11745,14 +11857,16 @@ fn young_wolf_lands_as_a_one_one_and_stays_dead_where_undying_would_return_it() 
         .unwrap();
     pass_until(&mut engine, |e| at_rest(e, p0));
 
-    assert!(
-        in_graveyard(&engine, p0, young_wolf()).is_some(),
-        "the sacrificed Wolf is in its owner's graveyard"
+    let back = on_battlefield(&engine, p0, young_wolf())
+        .expect("a sacrifice is a death, so undying returned it");
+    assert_eq!(
+        pt(&engine, back),
+        (2, 2),
+        "the printed 1/1 with the +1/+1 counter it returns with"
     );
     assert!(
-        on_battlefield(&engine, p0, young_wolf()).is_none(),
-        "and nothing returned it with a +1/+1 counter — undying is the \
-         `Coverage::Partial` gap"
+        in_graveyard(&engine, p0, young_wolf()).is_none(),
+        "and it is on the table rather than in the graveyard as well"
     );
 }
 

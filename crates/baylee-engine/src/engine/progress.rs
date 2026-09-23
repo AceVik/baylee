@@ -1994,7 +1994,7 @@ impl<L: CardLookup> Engine<L> {
                 // (prowess: itself; ward: the targeting spell).
                 let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
                 let id = self.state.arena.insert_with(|id| {
-                    GameObject::new_ability_on_stack(
+                    let mut obj = GameObject::new_ability_on_stack(
                         id,
                         t.controller,
                         AbilityLoc {
@@ -2004,7 +2004,18 @@ impl<L: CardLookup> Engine<L> {
                         },
                         targets,
                         base,
-                    )
+                    );
+                    // The event object is carried *twice*, and the two halves
+                    // are read by different things. As a target it is what
+                    // prowess pumps and what ward counters; as `event_object`
+                    // it is what `TargetSpec::EventObject` resolves through
+                    // (`resolve::zones::spec_object`). Only the non-synthetic
+                    // branch below wrote the second one, so a synthetic effect
+                    // list naming the event object read `None` and did
+                    // nothing — undying and persist put a trigger on the stack
+                    // that resolved into silence.
+                    obj.event_object = t.event_object;
+                    obj
                 });
                 self.synthetic_fx.insert(id, synthetic);
                 self.state
@@ -3024,7 +3035,7 @@ impl<L: CardLookup> Engine<L> {
             .map_or(NameRef::new(0), |o| o.base.name);
         let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
-            GameObject::new_ability_on_stack(
+            let mut obj = GameObject::new_ability_on_stack(
                 id,
                 t.controller,
                 AbilityLoc {
@@ -3034,7 +3045,11 @@ impl<L: CardLookup> Engine<L> {
                 },
                 targets,
                 base,
-            )
+            );
+            // Same as the sibling site: the chosen targets are one handle and
+            // the event object is another.
+            obj.event_object = t.event_object;
+            obj
         });
         self.synthetic_fx.insert(id, synthetic);
         self.state

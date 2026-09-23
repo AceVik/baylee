@@ -24,6 +24,17 @@ pub(crate) struct Meaning {
     /// `AddCounter` arm. Scored per candidate object by
     /// [`HeuristicAgent::clock_score`] instead of by `benefit`.
     pub clock: Option<CounterKind>,
+    /// A +X/+Y or −X/−Y counter, kept **beside** its `benefit` rather than
+    /// instead of it.
+    ///
+    /// The sign of one of these is its own almost everywhere, so this is not
+    /// a second `clock`: the benefit still decides which side of the table
+    /// the counter goes to. What it is for is the one card that reads its
+    /// own counters back — undying asks whether the creature had a +1/+1
+    /// counter on it and persist whether it had a −1/−1 one — where the
+    /// helpful counter is the one that switches the return off. That is a
+    /// question about the *object*, which `meaning` never sees.
+    pub size_counter: Option<CounterKind>,
 }
 
 impl Meaning {
@@ -85,13 +96,17 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             Effect::AddCounter { kind, .. } => match kind {
                 CounterKind::Minus { .. } | CounterKind::Poison | CounterKind::Rad => {
                     m.benefit = -1;
+                    m.size_counter = matches!(kind, CounterKind::Minus { .. }).then_some(*kind);
                 }
                 CounterKind::Plus { .. }
                 | CounterKind::Loyalty
                 | CounterKind::Lifelink
                 | CounterKind::Energy
                 | CounterKind::Charge
-                | CounterKind::Level => m.benefit = 1,
+                | CounterKind::Level => {
+                    m.benefit = 1;
+                    m.size_counter = matches!(kind, CounterKind::Plus { .. }).then_some(*kind);
+                }
                 // These two have no sign of their own. A lore counter
                 // advances whatever Saga it lands on and a time counter
                 // delays whatever is counting down, so both are good for one
@@ -212,6 +227,7 @@ impl Meaning {
         // a suspended card prints two sentences and would need two target
         // choices; one effect list answering one prompt has one.
         self.clock = self.clock.or(other.clock);
+        self.size_counter = self.size_counter.or(other.size_counter);
     }
 }
 
@@ -321,6 +337,29 @@ impl HeuristicAgent {
         }
     }
 
+    /// Whether a counter of this kind on this permanent switches off a return
+    /// the permanent would otherwise get.
+    ///
+    /// Undying asks whether the creature had a +1/+1 counter on it (CR 702.93a)
+    /// and persist whether it had a −1/−1 one (CR 702.79a), each checked as the
+    /// creature dies. So the counter that helps everywhere else is, on exactly
+    /// this creature, the one that costs it a whole body — and it reads the
+    /// other way round at the same time: an opponent's undying creature is the
+    /// best place in the game for a +1/+1 counter.
+    ///
+    /// The exact pair and not the family. CR 122.1a makes `+1/+1` a counter
+    /// kind of its own, so a +2/+2 counter is not one the keyword counts, and a
+    /// rule written over `Plus { .. }` would deny a return that is not in
+    /// danger. The keywords are read off the view's projected bits rather than
+    /// the card, because a granted undying is undying.
+    fn denies_a_return(o: &PublicObject, kind: CounterKind) -> bool {
+        let has = |k: baylee_cards_dsl::KeywordSet| o.keywords & k.bits() != 0;
+        match kind {
+            CounterKind::P1P1 => has(baylee_cards_dsl::KeywordSet::UNDYING),
+            CounterKind::M1M1 => has(baylee_cards_dsl::KeywordSet::PERSIST),
+            _ => false,
+        }
+    }
     /// What a counter with no sign of its own is worth on one candidate.
     ///
     /// The sign comes off the card underneath. A lore counter advances the
@@ -415,6 +454,22 @@ impl HeuristicAgent {
                     }
                     let friendly = !self.hostile(o.controller, view.seat);
                     let mut score = material(o);
+                    // The one counter whose side of the table is decided by
+                    // the card under it rather than by its own sign: a +1/+1
+                    // counter is the last thing my undying creature wants and
+                    // the first thing an opponent's should get. Answered here
+                    // and not through `clock`, because the sign is still
+                    // right everywhere else — this is a per-object exception
+                    // to a rule that holds, not a kind with no rule.
+                    if let Some(kind) = m.size_counter
+                        && Self::denies_a_return(o, kind)
+                    {
+                        return if friendly {
+                            -score - 10_000
+                        } else {
+                            Self::ward_priced(view, o, context, score + 500)
+                        };
+                    }
                     if m.destroy
                         && o.keywords & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits() != 0
                     {

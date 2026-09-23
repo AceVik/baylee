@@ -152,7 +152,7 @@ fn pool_effects() -> (Vec<&'static Effect>, usize) {
 /// has arrived and the named row of `docs/ai-coverage-todo.md` is due.
 #[test]
 fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
-    let rows: [(&str, &str, usize); 3] = [
+    let rows: [(&str, &str, usize); 2] = [
         (
             "Commander pair rules (every pairing but plain Partner)",
             "a game pairing the commander kinds that are not plain Partner, \
@@ -171,16 +171,6 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
             count(|def| {
                 def.all_keywords()
                     .contains(KeywordSet::INFECT.union(KeywordSet::WITHER))
-            }),
-        ),
-        (
-            "Contextual counters (the −1/−1 payoff)",
-            "a decision where a counter is good on one card and bad on the \
-             next: persist wants the creature to die once, undying does not \
-             want it shrunk first",
-            count(|def| {
-                def.all_keywords()
-                    .contains(KeywordSet::PERSIST.union(KeywordSet::UNDYING))
             }),
         ),
     ];
@@ -204,7 +194,7 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
 #[test]
 #[allow(clippy::too_many_lines)] // one entry per table row, in one readable list
 fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
-    let rows: [(&str, usize); 25] = [
+    let rows: [(&str, usize); 26] = [
         (
             "Commander pair rules (plain Partner)",
             count(|def| matches!(def.partner, PartnerKind::Partner)),
@@ -263,6 +253,25 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             // rather than guessing at it.
             "Contextual counters (the suspend half)",
             count(|def| abilities(def).any(|a| matches!(a, AbilityDef::Suspend { .. }))),
+        ),
+        (
+            // Paid, 23.09.2026: `a_plus_one_counter_does_not_go_on_my_own_\
+            // undying_creature` and `a_minus_one_counter_prefers_the_persist_\
+            // creature_it_keeps_down` in `baylee-ai`. This row moved here
+            // from the "cannot print yet" list the day the pool printed the
+            // two keywords, which is what the other test is for.
+            //
+            // Both are needed and neither alone is the rule: the sign of the
+            // counter is still its own, and what `tactics::denies_a_return`
+            // adds is that the counter a keyword's intervening `if` reads is
+            // a denial on the creature that prints it (CR 702.93a,
+            // CR 702.79a). One test would be satisfied by a second fixed
+            // sign.
+            "Contextual counters (the ±1/±1 payoff)",
+            count(|def| {
+                def.all_keywords()
+                    .contains(KeywordSet::PERSIST.union(KeywordSet::UNDYING))
+            }),
         ),
         (
             "Stack strategy (ward and taxes)",

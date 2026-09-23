@@ -19,9 +19,10 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-        }],
+        &[Effect::reanimate(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
+            PlayerRel::You
+        ))],
         targets = Some(TargetReq::x_targets(TargetSpec::CardInGraveyard(
             &Filter::CREATURE,
             PlayerRel::You,

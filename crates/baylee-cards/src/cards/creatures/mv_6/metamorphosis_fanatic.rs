@@ -28,9 +28,10 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[
-            Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-            },
+            Effect::reanimate(TargetSpec::CardInGraveyard(
+                &Filter::CREATURE,
+                PlayerRel::You
+            )),
             Effect::AddCounter {
                 kind: CounterKind::Lifelink,
                 amount: Amount::Fixed(1),

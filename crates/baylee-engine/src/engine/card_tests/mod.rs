@@ -171,6 +171,30 @@ fn lotleth_troll() -> CardIndex {
     card_index("61b1d7e5-6155-4204-b110-35a890551ec8")
 }
 
+/// Destroys `id` the way a state-based action does, then lets the game judge
+/// the board and resolve whatever died triggered.
+///
+/// The harness door and not a removal spell, because what these tests are
+/// reading is the *dying*: a spell would put its own colours, its own cost
+/// and its own target legality between the board and the sentence, and every
+/// card that dies here dies the same way whatever killed it (CR 704.5g).
+/// The same helper with the pass taken out is `undying_tests::kill`, where
+/// the rule itself is read.
+#[track_caller]
+fn kill(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
+    let state = engine
+        .dev_state_mut(PlayerId::new(0))
+        .expect("the harness may set boards up");
+    crate::sba::destroy(state, id);
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    engine
+        .apply(player, PlayerAction::PassPriority)
+        .expect("passing priority is always legal");
+    pass_until(engine, stack_is_empty);
+}
+
 /// Buy one regeneration shield off `source`'s own ability, and prove it is
 /// standing before handing the board back.
 ///

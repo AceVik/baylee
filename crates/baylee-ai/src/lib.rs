@@ -1037,6 +1037,106 @@ mod tests {
         );
     }
 
+    /// A +1/+1 counter is a gift everywhere except on a creature with
+    /// undying, where it is the thing that stops it coming back (CR 702.93a).
+    ///
+    /// My own board, two creatures, and the bigger one is the Geist: without
+    /// this rule the counter goes to it, because `material` ranks a 2/2 over
+    /// a 1/1 and a friendly seat over every other consideration. The 1/1 is
+    /// what the agent has to take instead, and it has to take it for the
+    /// reason the card prints rather than by accident — which is why the
+    /// board is built the wrong way round on purpose.
+    #[test]
+    fn a_plus_one_counter_does_not_go_on_my_own_undying_creature() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect, KeywordSet};
+        use baylee_engine::engine::DecisionContext;
+        let me = PlayerId::new(0);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), me, 1),
+                keyworded(obj(2), me, 2, "Strangleroot Geist", KeywordSet::UNDYING),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::AddCounter {
+            kind: Counter::P1P1,
+            amount: Amount::Fixed(1),
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(1)],
+                players: vec![]
+            },
+            "the smaller creature, because the bigger one would stop coming back"
+        );
+    }
+
+    /// The same counter, the same rule, read off the other card — and this
+    /// is the half that says the agent is reading the *object* and not
+    /// applying a second fixed sign.
+    ///
+    /// A −1/−1 counter is hostile wherever it goes, so both of the
+    /// opponent's creatures are legitimate targets and `material` picks the
+    /// 3/3. Persist (CR 702.79a) is what makes the 1/1 Elite worth more: the
+    /// counter kills it *and* is the counter its own return would have
+    /// given it, so it does not come back. The pair of tests is the point —
+    /// a rule that answered "+1/+1 is bad here" would pass the first one and
+    /// fail this.
+    #[test]
+    fn a_minus_one_counter_prefers_the_persist_creature_it_keeps_down() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect, KeywordSet};
+        use baylee_engine::engine::DecisionContext;
+        let them = PlayerId::new(1);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), them, 3),
+                keyworded(obj(2), them, 1, "Safehold Elite", KeywordSet::PERSIST),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::AddCounter {
+            kind: Counter::M1M1,
+            amount: Amount::Fixed(1),
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "the 1/1 that persist would otherwise return, not the bigger body"
+        );
+    }
+
     /// #166. A time counter is only a *delay* on a card that is counting
     /// down, and the rule asks the card rather than the counter.
     ///
@@ -2546,6 +2646,25 @@ mod tests {
             kind: CounterKind::Lore,
             count: lore,
         }];
+        object
+    }
+
+    /// A creature of `name` on `controller`'s side, `power`/`power`, wearing
+    /// the keyword bits a view would project onto it.
+    ///
+    /// Written against the view's `keywords` and not the card's, because that
+    /// is what the agent reads and because a granted undying has to reach the
+    /// same rule as a printed one.
+    fn keyworded(
+        id: ObjectId,
+        controller: PlayerId,
+        power: i16,
+        name: &str,
+        keywords: baylee_cards_dsl::KeywordSet,
+    ) -> PublicObject {
+        let mut object = carded(permanent(id, controller, power), name, TypeSet::CREATURE);
+        object.name = name.into();
+        object.keywords = keywords.bits();
         object
     }
 

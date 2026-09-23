@@ -237,9 +237,16 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     // and the effect fields `spec_object` reads. Written as `Debug`, so an
     // arm added to the resolver and forgotten here fails on the next card
     // rather than on the next player.
+    //
+    // The struct spelling is left **open** — no closing brace — because the
+    // fields after `target` are not this test's business and a variant that
+    // grows one goes silently unread otherwise. It did: undying and persist
+    // put `owner_control` and `counters` on `GraveyardToBattlefield`, and
+    // the closed spelling stopped matching Journey to Eternity the same day,
+    // reporting a card the resolver reads perfectly well.
     const READ: &[&str] = &[
         "spec: EventObject",
-        "GraveyardToBattlefield { target: EventObject }",
+        "GraveyardToBattlefield { target: EventObject",
     ];
 
     let mut unread = Vec::new();

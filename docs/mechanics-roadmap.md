@@ -184,7 +184,7 @@ pins each of them.
 | Equipment/auras extras: living weapon, For Mirrodin!, reconfigure | token-on-ETB + attach (exists) | S |
 | Proliferate | AddCounterFilter on "each player/permanent with counters" | S |
 | Infect/toxic/wither | poison on damage + M1M1 damage mode (counter storage exists) | M |
-| Undying/persist | dies-trigger with counter check + return-to-bf | S |
+| Undying/persist | done — keyword bits read by `trigger.rs`, with `GameState::ltb_counters` answering the intervening `if` | — |
 | Modular | dies → move counters to artifact creature | S |
 | Ninjutsu | hand activation + unblocked-attacker swap | M |
 | Unearth | B9 graveyard casting + exile-at-end-step | (B9) |

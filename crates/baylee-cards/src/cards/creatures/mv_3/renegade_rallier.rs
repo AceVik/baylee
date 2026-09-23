@@ -41,9 +41,10 @@ card!(
         // where the card goes.
         triggered!(
             Trigger::ETB,
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&PERMANENT_CARD_MV_2, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &PERMANENT_CARD_MV_2,
+                PlayerRel::You
+            ))],
             targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                 &PERMANENT_CARD_MV_2,
                 PlayerRel::You,

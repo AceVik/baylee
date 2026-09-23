@@ -126,6 +126,8 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("changeling", K::CHANGELING),         // layers::recompute_with
         ("unblockable", K::UNBLOCKABLE),       // combat::can_block
         ("can't block", K::CANT_BLOCK),        // combat::can_block
+        ("undying", K::UNDYING),               // trigger.rs (synthetic)
+        ("persist", K::PERSIST),               // trigger.rs (synthetic)
         ("uncounterable", K::UNCOUNTERABLE),   // resolve (counter effects)
         ("rebound", K::REBOUND),               // progress.rs (rider)
         ("daybound", K::DAYBOUND),             // progress::day_night_statics

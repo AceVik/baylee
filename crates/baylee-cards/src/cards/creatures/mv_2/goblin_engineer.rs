@@ -27,9 +27,10 @@ card!(
         // NOT SUPPORTED: When this creature enters, you may search your library for an artifact card, put it into your graveyard, then shuffle.
         activated!(
             cost!("{R}", TapSelf, Sacrifice(&Filter::YOUR_ARTIFACT)),
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&SMALL_ARTIFACT, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &SMALL_ARTIFACT,
+                PlayerRel::You
+            ))],
             target = Some(TargetSpec::CardInGraveyard(&SMALL_ARTIFACT, PlayerRel::You,)),
         ),
     ],

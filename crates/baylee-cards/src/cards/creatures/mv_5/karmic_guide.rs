@@ -32,9 +32,10 @@ card!(
         static_ability!(Filter::This, Modifier::ProtectionFrom(&BLACK_F)),
         triggered!(
             Trigger::ETB,
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &Filter::CREATURE,
+                PlayerRel::You
+            ))],
             targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                 &Filter::CREATURE,
                 PlayerRel::You,

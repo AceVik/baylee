@@ -40,9 +40,10 @@ card!(
                     amount: Amount::Fixed(4),
                     target: PlayerRel::You,
                 },
-                Effect::GraveyardToBattlefield {
-                    target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-                },
+                Effect::reanimate(TargetSpec::CardInGraveyard(
+                    &Filter::CREATURE,
+                    PlayerRel::You
+                )),
             ],
             target = Some(TargetSpec::CardInGraveyard(
                 &Filter::CREATURE,

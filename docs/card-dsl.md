@@ -493,7 +493,11 @@ has built.
 - `AbilityDef::ModalTriggered { trigger, modes, once_per_turn }` — "choose
   one/up to one" ETB triggers (decline = an empty mode)
 - `AbilityDef::Ward { mana }` — engine-level synthetic trigger (like
-  prowess), supports ward {1}/{2}
+  prowess), supports ward {1}/{2}. **Undying** and **persist** are the same
+  shape one step further along: they are not an `AbilityDef` at all but two
+  bits on `keywords`, and `trigger.rs` reads them the way it reads prowess.
+  A card prints one of them by setting the bit and writing no ability —
+  `keywords = KeywordSet::UNDYING` is the whole of Young Wolf
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros
@@ -964,6 +968,22 @@ survive the cleanup step, and it replaces **destruction** and nothing else: a
 creature at zero toughness is put into a graveyard without being destroyed
 (CR 704.5f) and dies through a shield, and so does one that is exiled or
 sacrificed, because neither of those is a destruction either.
+
+**Reanimation is two verbs for the same reason.** `Effect::reanimate(t)`
+returns a card from a graveyard to the battlefield under **your** control
+with nothing on it, which is what fifteen cards in this pool print — Sun
+Titan, Reanimate, Recurring Nightmare. `Effect::return_to_owner_with(t, kind,
+n)` is the other sentence: under its **owner's** control and with a counter
+on it, which is what undying (CR 702.93a), persist (CR 702.79a) and Luminous
+Broodmoth say. Neither is a flag on the other because the two differ in both
+halves at once, and a card printing one of them prints all of it. The counter
+goes on through the same door `EnterModifier::WithCounters` uses, so a
+doubler has its say (CR 614.16).
+
+A card that says nothing about a graveyard cannot use either: the effect
+checks that its object is still in one (CR 400.7). A reanimation *spell* is
+already held to that by target legality (CR 608.2b) — the guard is there for
+undying and persist, which target nothing at all.
 
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,

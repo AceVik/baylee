@@ -24,9 +24,10 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[activated!(
         cost!(Sacrifice(&Filter::YOUR_CREATURE), ReturnSelfToHand),
-        &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-        }],
+        &[Effect::reanimate(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
+            PlayerRel::You
+        ))],
         target = Some(TargetSpec::CardInGraveyard(
             &Filter::CREATURE,
             PlayerRel::You

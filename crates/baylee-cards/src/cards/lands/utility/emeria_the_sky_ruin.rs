@@ -28,9 +28,10 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You,
             },
-            &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-            }],
+            &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                &Filter::CREATURE,
+                PlayerRel::You
+            ))],
             targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
                 &Filter::CREATURE,
                 PlayerRel::You,

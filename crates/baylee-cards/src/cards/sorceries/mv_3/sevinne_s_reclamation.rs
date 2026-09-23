@@ -54,9 +54,10 @@ card!(
     ),],
     coverage = Coverage::Partial("flashback {4}{W} and the copy it enables are not written"),
     abilities = &[spell!(
-        &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
-        }],
+        &[Effect::reanimate(TargetSpec::CardInGraveyard(
+            &SMALL_PERMANENT,
+            PlayerRel::You
+        ))],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
             &SMALL_PERMANENT,
             PlayerRel::You,

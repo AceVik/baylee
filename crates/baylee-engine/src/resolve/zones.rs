@@ -260,11 +260,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::GraveyardToBattlefield { target } => {
-            if let Some(target_id) = spec_object(res, target) {
+        Effect::GraveyardToBattlefield {
+            target,
+            owner_control,
+            counters,
+        } => {
+            // The card has to still be in a graveyard. CR 400.7: a card
+            // that has moved is a new object with no relation to the one the
+            // effect named. A reanimation *spell* is held to that by target
+            // legality (CR 608.2b), so the guard looks redundant beside the
+            // fifteen cards that cast one — but undying and persist target
+            // nothing at all (`TargetSpec::EventObject` is the creature that
+            // died), and without it a card exiled in response to the keyword
+            // trigger came back onto the battlefield out of exile.
+            if let Some(target_id) = spec_object(res, target)
+                && state
+                    .object(target_id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+            {
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
-                    obj.set_controller(you);
+                    let to = if owner_control { obj.owner } else { you };
+                    obj.set_controller(to);
                 }
                 let _ = state.move_object(
                     target_id,
@@ -272,6 +289,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                // After the move and not before it: `move_object` clears
+                // every field only a permanent can have, counters among
+                // them, so a counter written first would be wiped on the
+                // way in. `put_counters` and not `Counters::add`, because
+                // "returns with a counter on it" is a counter an effect
+                // puts on a permanent and a doubler has its say
+                // (CR 614.16) — the same door `EnterModifier::WithCounters`
+                // goes through.
+                if let Some((kind, n)) = counters
+                    && n > 0
+                    && state
+                        .object(target_id)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                {
+                    crate::replacement::put_counters(state, target_id, kind, n);
+                }
             }
             None
         }

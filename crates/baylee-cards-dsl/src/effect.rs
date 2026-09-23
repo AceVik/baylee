@@ -1056,13 +1056,29 @@ pub enum Effect {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
     },
-    /// Put a graveyard card onto the battlefield under your control
-    /// (reanimation).
+    /// Put a graveyard card onto the battlefield (reanimation).
     GraveyardToBattlefield {
         /// What: a `CardInGraveyard` the spell or ability targeted, or an
         /// `EventObject` for the card that just died (Journey to Eternity's
         /// "return it to the battlefield", which names no target).
         target: TargetSpec,
+        /// Under whose control it arrives.
+        ///
+        /// Every reanimation spell in this pool prints "under your control"
+        /// and takes the `false`; undying (CR 702.93a), persist
+        /// (CR 702.79a) and Luminous Broodmoth print "under its **owner's**
+        /// control". The two differ only while somebody else is controlling
+        /// the creature that dies — which is exactly the moment a player
+        /// would notice, because a stolen creature with undying comes home.
+        owner_control: bool,
+        /// "…with a +1/+1 counter on it" (undying) or "-1/-1" (persist).
+        ///
+        /// A rider on one sentence rather than a second effect, for the
+        /// reason [`Effect::Destroy::no_regen`] is one: the card prints a
+        /// single clause and splitting it would make two doors where the
+        /// rules have one. It goes through `replacement::put_counters`, so
+        /// a counter doubler has its say (CR 614.16).
+        counters: Option<(CounterKind, u16)>,
     },
     /// Create a token that gets +P/+T for each filter-matching permanent
     /// you control (Urza's Saga's Construct; registered as its own
@@ -1399,6 +1415,30 @@ impl Effect {
     pub const fn gain_life(life: u32) -> Self {
         Self::GainLife {
             amount: Amount::Fixed(life),
+        }
+    }
+
+    /// "Return target … from your graveyard to the battlefield", the
+    /// ordinary reanimation sentence: under **your** control and with
+    /// nothing on it.
+    #[must_use]
+    pub const fn reanimate(target: TargetSpec) -> Self {
+        Self::GraveyardToBattlefield {
+            target,
+            owner_control: false,
+            counters: None,
+        }
+    }
+
+    /// "…return it to the battlefield under its owner's control with a
+    /// `n` `kind` counter on it" — the sentence undying and persist are
+    /// (CR 702.93a, CR 702.79a).
+    #[must_use]
+    pub const fn return_to_owner_with(target: TargetSpec, kind: CounterKind, n: u16) -> Self {
+        Self::GraveyardToBattlefield {
+            target,
+            owner_control: true,
+            counters: Some((kind, n)),
         }
     }
 
