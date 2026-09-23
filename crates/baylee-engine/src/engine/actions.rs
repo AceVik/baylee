@@ -309,7 +309,15 @@ impl<L: CardLookup> Engine<L> {
                     return Err(EngineError::IllegalAction("no such cast mode"));
                 };
                 wizard.option = Some(option);
-                wizard.stage = cast_wizard::WizardStage::Targets;
+                // CR 601.2b announces the mode and *then* the value of X, in
+                // the same step: choosing how to cast the spell does not
+                // answer what X is. Going to `Targets` here skipped the
+                // question for every spell with more than one way to be cast
+                // — Heliod's Intervention was cast for X = 0 with nobody
+                // asked, the multi-option twin of the defect `XValue`'s own
+                // comment describes. It falls through to `Targets` when the
+                // chosen cost has no X.
+                wizard.stage = cast_wizard::WizardStage::XValue;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }

@@ -24,7 +24,7 @@ card!(
                 &[Effect::destroy(TargetSpec::Object(
                     &Filter::ARTIFACT_OR_ENCHANTMENT
                 ))],
-                targets = Some(TargetReq::one(TargetSpec::Object(
+                targets = Some(TargetReq::x_targets(TargetSpec::Object(
                     &Filter::ARTIFACT_OR_ENCHANTMENT
                 )))
             ),

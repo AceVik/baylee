@@ -322,3 +322,130 @@ fn declining_miracle_keeps_the_card_in_hand() {
         }
     }
 }
+
+/// A miracle cost with an `{X}` in it announces X, as the mana cost would.
+///
+/// The miracle cost is paid "rather than its mana cost" (CR 702.94a), which
+/// makes it an alternative cost, and a spell whose cost has an X has it
+/// announced as part of casting (CR 107.3a). The miracle wizard used to start
+/// at the target step, so Entreat the Dead's `{X}{B}{B}` was cast for X = 0,
+/// asked for no targets and brought nobody back — and nothing failed, because
+/// the only test the card had casts it from hand.
+///
+/// Every card in both libraries is an Entreat the Dead, so the first draw of
+/// seat 0's turn is one; seat 1's offers on the way are declined.
+#[test]
+#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability
+fn a_miracle_cost_with_an_x_asks_for_x() {
+    use crate::engine::testkit::{
+        Duel, keep_mulligans, on_battlefield, pass_until, stack_is_empty, tap_all_mana,
+    };
+    let entreat = card_index("2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd");
+    let swamp = card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68");
+    let elves = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
+    let spider = card_index("906cba93-3dac-4720-a482-987cf1b4e786");
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(44, entreat)
+        .battlefield(0, &[swamp, swamp, swamp, swamp, elves, spider])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // Two creature cards in seat 0's graveyard for the Entreat to find.
+    let buried = [
+        on_battlefield(&engine, p0, elves).expect("the Elves are seated"),
+        on_battlefield(&engine, p0, spider).expect("the Spider is seated"),
+    ];
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for id in buried {
+            crate::sba::destroy(state, id);
+        }
+    }
+
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 200, "seat 0 was never offered a miracle");
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { .. },
+                ..
+            } if player == p0 => {
+                engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+                break;
+            }
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                // The miracle is paid in the draw step, while its trigger
+                // waits: a pool empties as the step ends (CR 500.5).
+                if player == p0
+                    && engine.state().turn.active == p0
+                    && engine.state().turn.step == Step::Draw
+                    && engine.state().players[0].mana_pool.total() == 0
+                {
+                    tap_all_mana(&mut engine, p0);
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected pending: {other:?}"),
+        }
+    }
+
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!(
+            "a miracle cost's {{X}} has to be asked about: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(min, 0, "X may always be nothing");
+    assert!(
+        max >= 2,
+        "four Swamps pay {{X}}{{B}}{{B}} for X = 2: max = {max}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(2))
+        .expect("X = 2 is inside the range the engine just offered");
+
+    let Pending::ChooseTargets {
+        min, max, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("X = 2 asks for two targets, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (2, 2), "exactly X targets (CR 601.2c)");
+    assert!(
+        buried.iter().all(|b| options.contains(b)),
+        "both creature cards in the graveyard are on offer: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: buried.to_vec(),
+                players: vec![],
+            },
+        )
+        .expect("two targets, and X was announced as two");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, elves).is_some()
+            && on_battlefield(&engine, p0, spider).is_some(),
+        "both creatures came back: the miracle was cast for the X it announced"
+    );
+}

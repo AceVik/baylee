@@ -199,7 +199,12 @@ impl<L: CardLookup> Engine<L> {
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            stage: WizardStage::Targets,
+            // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
+            // which makes it an alternative cost, and an alternative cost
+            // with an {X} in it announces X like any other (CR 107.3a) —
+            // Entreat the Dead's `{X}{B}{B}` was cast for X = 0 and returned
+            // nobody. `XValue` falls through to `Targets` when there is none.
+            stage: WizardStage::XValue,
             options,
             free: false,
         };
@@ -238,6 +243,9 @@ impl<L: CardLookup> Engine<L> {
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
+            // Straight past `XValue`, and deliberately: a spell cast paying
+            // neither its mana cost nor an alternative cost with X in it has
+            // exactly one legal X, which is 0 (CR 107.3b).
             stage: WizardStage::Targets,
             options: Vec::new(),
             free: true,

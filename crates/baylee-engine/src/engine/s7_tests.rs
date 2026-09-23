@@ -1119,3 +1119,177 @@ fn a_printed_x_is_asked_for_and_is_the_number_that_resolves() {
         "X = 2 draws two cards"
     );
 }
+
+/// Heliod's Intervention, `{X}{W}{W}`: "Choose one — Destroy X target
+/// artifacts and/or enchantments; or Target player gains twice X life."
+fn heliods_intervention() -> CardIndex {
+    card_index("e7564d66-767c-4cd9-a5f0-0f2488a4a74b")
+}
+
+/// Casts Heliod's Intervention off five floating Plains in p0's own main
+/// phase, answers the mode question with `mode`, and returns what is asked
+/// next.
+fn cast_heliod_in_mode(
+    engine: &mut Engine<crate::engine::testkit::RegistryLookup>,
+    mode: usize,
+) -> Pending {
+    use crate::engine::testkit::{tap_all_mana, walk_to_own_main};
+    let p0 = PlayerId::new(0);
+    assert!(walk_to_own_main(engine, p0), "p0 reaches its own main");
+    tap_all_mana(engine, p0);
+    let card = crate::engine::testkit::in_hand(engine, p0, heliods_intervention())
+        .expect("the spell is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("five Plains are floating");
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!(
+            "a modal spell asks for its mode, got {:?}",
+            engine.pending()
+        )
+    };
+    let slot = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Mode(mode))
+        .expect("every mode is offered while its targets exist");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(slot))
+        .expect("the slot came from the question");
+    engine.pending().clone()
+}
+
+/// The same question after a **mode** has been chosen.
+///
+/// CR 601.2b announces the mode and then, in the same step, the value of X:
+/// picking how to cast a spell does not answer what X is. The wizard jumped
+/// from the mode straight to the targets, so every spell with an `{X}` and
+/// more than one way to be cast went on the stack for X = 0 without anybody
+/// being asked — the test above walks the one-option path only, which is why
+/// it never saw this. Heliod's Intervention's second mode, "target player
+/// gains twice X life", gained nothing at all.
+#[test]
+fn a_printed_x_is_asked_for_after_a_mode_is_chosen() {
+    use crate::engine::testkit::{
+        Duel, keep_mulligans, pass_until, quiet_artifact, stack_is_empty,
+    };
+    let p0 = PlayerId::new(0);
+    // Seat 1's artifact is there so both modes are on offer and the mode is
+    // really asked (CR 700.2a): the question this test is about comes after it.
+    let mut engine = Duel::new(35, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .hand(0, &[heliods_intervention()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let Pending::ChooseNumber { min, max, .. } = cast_heliod_in_mode(&mut engine, 1) else {
+        panic!(
+            "a printed X must be asked about after the mode too, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(min, 0, "X may always be nothing");
+    assert!(
+        max >= 3,
+        "five Plains pay {{X}}{{W}}{{W}} for X = 3: max = {max}"
+    );
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+
+    let Pending::ChoosePlayer { .. } = engine.pending().clone() else {
+        panic!("expected the target player, got {:?}", engine.pending())
+    };
+    engine.apply(p0, PlayerAction::ChoosePlayer(p0)).unwrap();
+
+    let before = engine.state().players[0].life;
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        before + 6,
+        "twice X for X = 3 is six life, not the nothing X = 0 gains"
+    );
+}
+
+/// "Destroy X target …" destroys **every** target the caster chose.
+///
+/// `Effect::Destroy` read its target through `spec_object`, which is the
+/// first entry of the resolution's target list, so a spell that chose two
+/// destroyed one and looked as if it had worked — the defect `spec_objects`
+/// was written for, left behind on this one effect. The two targets are two
+/// copies of one card on purpose: whichever of them is first, the other has
+/// to go too, and the third permanent is the control that nothing else did.
+#[test]
+fn destroy_reads_every_chosen_target_not_the_first() {
+    use crate::engine::testkit::{
+        Duel, in_graveyard, keep_mulligans, on_battlefield, pass_until, quiet_artifact,
+        stack_is_empty,
+    };
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    // Exploration, the enchantment that is left alone.
+    let exploration = card_index("0c2841bb-038c-4fbf-8360-bc0a1522b58d");
+    let mut engine = Duel::new(35, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .hand(0, &[heliods_intervention()])
+        .battlefield(1, &[quiet_artifact(), quiet_artifact(), exploration])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let Pending::ChooseNumber { max, .. } = cast_heliod_in_mode(&mut engine, 0) else {
+        panic!("expected X to be asked, got {:?}", engine.pending())
+    };
+    assert!(
+        max >= 2,
+        "five Plains pay {{X}}{{W}}{{W}} for X = 2: max = {max}"
+    );
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+
+    let rings: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == quiet_artifact())
+        })
+        .collect();
+    assert_eq!(rings.len(), 2, "both of seat 1's artifacts are standing");
+    let Pending::ChooseTargets {
+        min, max, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("X = 2 asks for two targets, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (2, 2), "exactly X targets (CR 601.2c)");
+    assert!(
+        rings.iter().all(|r| options.contains(r)),
+        "both artifacts are on offer: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: rings,
+                players: vec![],
+            },
+        )
+        .expect("two targets, and X was announced as two");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "neither artifact is left: the second target was destroyed as well as the first"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "they went to their owner's graveyard (CR 701.8a)"
+    );
+    assert!(
+        on_battlefield(&engine, p1, exploration).is_some(),
+        "the permanent nobody targeted is untouched"
+    );
+}

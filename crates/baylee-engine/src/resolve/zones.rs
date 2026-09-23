@@ -553,7 +553,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::Destroy { target, no_regen } => {
-            if let Some(target_id) = spec_object(res, target) {
+            // Every target and not the first: see [`spec_objects`]. Heliod's
+            // Intervention prints "destroy X target artifacts and/or
+            // enchantments", and a `first()` reader destroyed one of them.
+            // `res.targets` is already narrowed to the legal ones (CR 608.2b).
+            for target_id in spec_objects(res, target) {
                 if no_regen {
                     sba::destroy_no_regen(state, target_id);
                 } else {
