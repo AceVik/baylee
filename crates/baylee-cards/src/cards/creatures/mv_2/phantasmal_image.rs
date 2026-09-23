@@ -21,10 +21,20 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
     abilities = &[
+        // Both halves of the exception travel inside the clause: a copy takes
+        // on the copied creature's subtypes and rules text in place of its
+        // own (CR 707.2), so "an Illusion in addition to its other types" and
+        // the quoted trigger are the copy's only through it (CR 707.9a).
         AbilityDef::CopyOnEnter {
             target: TargetSpec::Object(&Filter::CREATURE),
-            mods: &[],
+            mods: &[
+                CopyMod::AddSubtype(creature::ILLUSION),
+                CopyMod::Grant(&Modifier::GrantTriggered {
+                    trigger: Trigger::BecomesTarget,
+                    effects: &[Effect::SacrificeSelf],
+                    target: None,
+                }),
+            ],
         },
-        triggered!(Trigger::BecomesTarget, &[Effect::SacrificeSelf]),
     ],
 );

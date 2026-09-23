@@ -215,14 +215,18 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         baylee_cards_dsl::CopyMod::AddKeyword(k) => {
             base.keywords = base.keywords.union(*k);
         }
-        // Both of these are about the object rather than about the
+        // All three are about the object rather than about the
         // characteristics this function is handed. A counter is put on by
         // the caller (CR 614.1c), and an ability is not a `Characteristics`
         // field at all — `progress::apply_copy_choice` keeps the copier's
         // statics by registering them as the copy's own continuous effects,
-        // and this token door reaches no effect table.
+        // and this token door reaches no effect table. A granted ability
+        // (`CopyMod::Grant`, CR 707.9a) is the same case: a token or spell
+        // copy made "except it has …" would lose it here, and nothing in the
+        // pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
-        | baylee_cards_dsl::CopyMod::KeepOtherAbilities => {}
+        | baylee_cards_dsl::CopyMod::KeepOtherAbilities
+        | baylee_cards_dsl::CopyMod::Grant(_) => {}
     }
 }
 

@@ -488,7 +488,17 @@ has built.
   or activated one does not. A card that needs the second keeps a
   `Coverage::Partial`, and the test
   `combo_tests::every_copy_that_keeps_its_own_abilities_keeps_only_statics`
-  will say so rather than letting it through
+  will say so rather than letting it through. "Except it has '[quoted
+  ability]'" is `CopyMod::Grant(&Modifier::GrantActivated { … })` or
+  `CopyMod::Grant(&Modifier::GrantTriggered { … })`, and the quoted ability
+  goes **inside** the clause, never beside it: every ability printed beside
+  a copy ability is overwritten when the copy is made (CR 707.2), so a
+  sibling written for the quotation is gone exactly when it is needed.
+  Machine God's Effigy, Progenitor Mimic and Phantasmal Image all shipped
+  that way. A card that also prints the ability as its own (the Effigy's
+  `{T}: Add {U}`, for when it enters as itself) writes both. The grant is
+  the copy's and is not copiable, so a second clone of it does not inherit
+  it
 - `AbilityDef::ModalSpell { modes: &[SpellMode] }` — overload & friends
 - `AbilityDef::ModalTriggered { trigger, modes, once_per_turn }` — "choose
   one/up to one" ETB triggers (decline = an empty mode)

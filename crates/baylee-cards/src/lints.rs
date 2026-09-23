@@ -1100,20 +1100,26 @@ mod tests {
     /// targets" is structurally impossible rather than unchecked. The [`None`]
     /// passed below is that sentence, not an omission.
     ///
-    /// # The floor is the two doors, not the four grants
+    /// # The floor is the three doors, not the grants
     ///
-    /// A grant is written one of two ways — an [`AbilityDef::Static`], or an
-    /// [`Effect::CreateContinuousEffect`] inside an effect list. Chromatic
-    /// Lantern and Great Divide Guide are the first; both of Urza's Saga's
-    /// are the second. A count over the pool would clear a floor of four the
-    /// moment four grants of *one* shape existed, so it stops separating
-    /// anything as soon as the population grows past it. Each door is counted
-    /// on its own instead: that is anchored on the structure the walk has to
-    /// reach, which cannot drift with the pool.
+    /// A grant is written one of three ways — an [`AbilityDef::Static`], an
+    /// [`Effect::CreateContinuousEffect`] inside an effect list, or a
+    /// [`CopyMod::Grant`] inside a copy clause. Chromatic Lantern and Great
+    /// Divide Guide are the first; both of Urza's Saga's are the second;
+    /// Machine God's Effigy's "except it has '{T}: Add {U}'" is the third,
+    /// and arrived after the first two had been counted, which is the whole
+    /// argument for counting doors. A count over the pool would clear a floor
+    /// of four the moment four grants of *one* shape existed, so it stops
+    /// separating anything as soon as the population grows past it. Each door
+    /// is counted on its own instead: that is anchored on the structure the
+    /// walk has to reach, which cannot drift with the pool.
+    ///
+    /// [`CopyMod::Grant`]: crate::dsl::ability::CopyMod::Grant
     #[test]
     fn no_granted_ability_breaks_the_rule_a_printed_one_is_held_to() {
+        use crate::dsl::ability::CopyMod;
         let mut wrong = Vec::new();
-        let (mut by_static, mut by_effect) = (0_usize, 0_usize);
+        let (mut by_static, mut by_effect, mut by_copy) = (0_usize, 0_usize, 0_usize);
         // What `Effect::walk` counts, kept because its own doc says why: a
         // door reporting nought is only news once the walk says how much it
         // read to get there.
@@ -1130,6 +1136,21 @@ mod tests {
                 if let Some(grant) = on_a_static {
                     by_static += 1;
                     found.push(grant);
+                }
+                // The third: it is part of what a copy clause says the copy
+                // has (CR 707.9a).
+                let copy_mods: &[CopyMod] = match ability {
+                    AbilityDef::CopyOnEnter { mods, .. }
+                    | AbilityDef::CopyOnEnterUntilEot { mods, .. } => mods,
+                    _ => &[],
+                };
+                for m in copy_mods {
+                    if let CopyMod::Grant(modifier) = m
+                        && let Some(grant) = as_granted_activated(modifier)
+                    {
+                        by_copy += 1;
+                        found.push(grant);
+                    }
                 }
                 // The second: it is created by an effect that resolves. The
                 // branches are `branches`' to enumerate rather than this
@@ -1161,12 +1182,13 @@ mod tests {
         );
         // See the doc comment: doors, not a population.
         assert!(
-            by_static >= 1 && by_effect >= 1,
-            "the walk found {by_static} grant(s) written as a static and \
-             {by_effect} written inside an effect list, over {effects_read} \
-             effects read, and this pool has both shapes. A nought is a door \
-             the sweep stopped descending into, which is how a clean report \
-             comes to be written over half a population"
+            by_static >= 1 && by_effect >= 1 && by_copy >= 1,
+            "the walk found {by_static} grant(s) written as a static, \
+             {by_effect} written inside an effect list and {by_copy} inside a \
+             copy clause, over {effects_read} effects read, and this pool has \
+             all three shapes. A nought is a door the sweep stopped descending \
+             into, which is how a clean report comes to be written over half a \
+             population"
         );
     }
 

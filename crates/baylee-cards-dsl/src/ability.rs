@@ -507,6 +507,38 @@ pub enum CopyMod {
     /// or a Sakashima would arrive holding a second offer to copy
     /// something, having already taken one.
     KeepOtherAbilities,
+    /// "…except it has '{T}: Add {U}.'" — the copy gains an ability as part
+    /// of the copying process (CR 707.9a), carried as the continuous effect
+    /// that grants it to the copy: a [`Modifier::GrantActivated`] or a
+    /// [`Modifier::GrantTriggered`].
+    ///
+    /// Every ability printed *beside* a copy ability is overwritten by the
+    /// copy (CR 707.2), so an ability the clause names has to travel inside
+    /// the clause: written as a sibling it is gone the moment the copy is
+    /// made. Three cards shipped that way and claimed
+    /// `Coverage::Implemented` — Machine God's Effigy copied an Elf and
+    /// tapped for {G} and never for {U}, Progenitor Mimic made no token, and
+    /// Phantasmal Image survived being targeted. A card that prints the
+    /// ability on its own *as well* (the Effigy, uncopied) keeps its sibling
+    /// for that case and writes the grant for this one.
+    ///
+    /// The grant's filter is the copy itself, so the modifier has to be an
+    /// ability the copy *has* — a static that reaches other objects ("other
+    /// creatures you control get +1/+1") would land on the copy alone.
+    ///
+    /// Paid the way [`CopyMod::KeepOtherAbilities`] is paid, and with its
+    /// limit: the ability applies to the copy and does not join its
+    /// *copiable* values, so a second clone copying this one does not get
+    /// it. The token and spell-copy doors reach no effect table and ignore
+    /// it; nothing in the pool is copied "except it has …" through either.
+    ///
+    /// A reference rather than the modifier itself because a `Modifier` is
+    /// the size of the `Cost` inside a grant, and every other variant here
+    /// is a word or two.
+    ///
+    /// [`Modifier::GrantActivated`]: crate::static_ability::Modifier::GrantActivated
+    /// [`Modifier::GrantTriggered`]: crate::static_ability::Modifier::GrantTriggered
+    Grant(&'static crate::static_ability::Modifier),
 }
 
 /// One mode of a [`crate::AbilityDef::ModalSpell`].

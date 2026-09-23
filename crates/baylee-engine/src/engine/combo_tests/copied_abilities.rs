@@ -1027,3 +1027,181 @@ fn every_copy_that_keeps_its_own_abilities_keeps_only_statics() {
          once: {lost:?}"
     );
 }
+
+fn machine_god_s_effigy() -> baylee_core::ids::CardIndex {
+    card_index("64ebdd6f-acde-4aab-a86b-2798bad5f70c")
+}
+
+fn phantasmal_image() -> baylee_core::ids::CardIndex {
+    card_index("bde94af8-faea-41ff-8eed-ba642eac9968")
+}
+
+/// "…except it has '{T}: Add {U}.'" — an ability the copy clause names is
+/// the copy's (CR 707.9a), and it outlives the copy taking away every ability
+/// printed beside the clause (CR 707.2).
+///
+/// Machine God's Effigy wrote its quoted ability as a sibling of the copy
+/// ability, where the copy overwrote it: a copy of an Elf tapped for {G} and
+/// never for {U}, on a card claiming `Coverage::Implemented`. Carried inside
+/// the clause as a `CopyMod::Grant`, the copy is offered both — the Elf's at
+/// its own index and the Effigy's at the grant slot, where every ability a
+/// continuous effect hands a permanent is offered.
+#[test]
+fn a_copy_keeps_the_ability_its_exception_grants() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(61, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[machine_god_s_effigy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+
+    tap_mana_except(&mut engine, p0, elf);
+    let effigy_card = in_hand(&engine, p0, machine_god_s_effigy()).expect("in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: effigy_card })
+        .expect("four Islands pay {4}");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is the creature to copy");
+    pass_until(&mut engine, stack_is_empty);
+
+    let effigy = on_battlefield(&engine, p0, machine_god_s_effigy()).expect("it entered");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal
+            .abilities
+            .contains(&(effigy, crate::choice::GRANTED_ABILITY)),
+        "the {{U}} the copy clause names is offered at the grant slot: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(effigy, 0)) || legal.mana_abilities.contains(&effigy),
+        "beside the {{G}} it copied from the Elf: {:?}",
+        legal.abilities
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: effigy,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("a noncreature artifact taps the turn it arrives (CR 302.6)");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(baylee_core::mana::ManaColor::Blue),
+        1,
+        "one blue, from the grant"
+    );
+    assert_eq!(
+        pool.available(baylee_core::mana::ManaColor::Green),
+        0,
+        "and not the Elf's green"
+    );
+    assert!(
+        engine
+            .state()
+            .object(effigy)
+            .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED)),
+        "it tapped to make it"
+    );
+}
+
+/// Phantasmal Image's exception is two things at once — "an Illusion in
+/// addition to its other types" and "When this creature becomes the target
+/// of a spell or ability, sacrifice it." — and both are the copy's only
+/// through the clause (CR 707.9a), because a copy takes the copied
+/// creature's subtypes and rules text in place of its own (CR 707.2).
+///
+/// It was written with no modifications and the trigger beside the copy
+/// ability, so a copy was neither an Illusion nor fragile. The trigger is
+/// seen on the stack rather than inferred from the outcome: Vindicate would
+/// put the Image in the graveyard either way, and only the order says which
+/// rule did it.
+#[test]
+fn a_phantasmal_copy_is_an_illusion_that_is_sacrificed_when_targeted() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(62, island())
+        .battlefield(0, &[island(), island(), llanowar_elves()])
+        .hand(0, &[phantasmal_image()])
+        .battlefield(1, &[plains(), swamp(), forest()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+
+    tap_mana_except(&mut engine, p0, elf);
+    let image_card = in_hand(&engine, p0, phantasmal_image()).expect("in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: image_card })
+        .expect("two Islands pay {1}{U}");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is the creature to copy");
+    pass_until(&mut engine, stack_is_empty);
+
+    let image = on_battlefield(&engine, p0, phantasmal_image()).expect("a copy survives its 0/0");
+    let subtypes = engine
+        .state()
+        .object(image)
+        .expect("on the battlefield")
+        .characteristics()
+        .subtypes;
+    assert!(
+        subtypes.contains(baylee_core::generated::subtypes::creature::ILLUSION),
+        "an Illusion in addition to its other types"
+    );
+    assert!(
+        subtypes.contains(baylee_core::generated::subtypes::creature::ELF),
+        "and still the Elf it copied"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, vindicate());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![image],
+            },
+        )
+        .expect("Vindicate may point at any permanent");
+    assert_eq!(
+        abilities_on_the_stack(&engine),
+        1,
+        "becoming a target triggered the sacrifice, above the spell that targeted it"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, phantasmal_image()).is_none(),
+        "the Image is gone"
+    );
+}

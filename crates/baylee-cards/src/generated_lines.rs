@@ -22326,8 +22326,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Phantasmal Image
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[None, None],
+        stackable: 0,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
@@ -24076,8 +24076,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Progenitor Mimic
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[None, None],
+        stackable: 0,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],

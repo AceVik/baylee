@@ -1278,6 +1278,10 @@ impl<L: CardLookup> Engine<L> {
                         baylee_cards_dsl::Layer::Type,
                         baylee_cards_dsl::Modifier::AddSubtype(s),
                     ),
+                    // CR 707.9a: the ability the clause names, on the layer
+                    // its modifier derives (CR 613.1f for a grant), ending
+                    // with the turn like the rest of this copy.
+                    baylee_cards_dsl::CopyMod::Grant(modifier) => (modifier.layer(), *modifier),
                     baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                         // "…except it enters with an additional counter on
                         // it" is a replacement effect (CR 614.1c), and a
@@ -1384,6 +1388,27 @@ impl<L: CardLookup> Engine<L> {
                 // Paid before this loop, for the reason the temporary
                 // branch's twin gives.
                 baylee_cards_dsl::CopyMod::KeepOtherAbilities => {}
+                // CR 707.9a: "…except it has '…'". Registered the way the
+                // copier's kept statics are (`keep_own_statics`) — its
+                // timestamp, for as long as it stays on the battlefield —
+                // because the copy has already taken away every ability the
+                // card printed beside this clause (CR 707.2).
+                baylee_cards_dsl::CopyMod::Grant(modifier) => {
+                    let (controller, timestamp) = (obj.controller, obj.timestamp);
+                    let filter = crate::effects::EffectFilter::object(&self.state, id);
+                    self.state
+                        .effects
+                        .register(crate::effects::ContinuousEffect {
+                            id: baylee_core::ids::EffectId::new(0),
+                            source: Some(id),
+                            controller,
+                            layer: modifier.layer(),
+                            timestamp,
+                            duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+                            filter,
+                            modifier: *modifier,
+                        });
+                }
             }
         }
         self.state.invalidate_projections();
