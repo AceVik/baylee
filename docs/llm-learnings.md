@@ -1454,3 +1454,60 @@ This card is the one the repo had already learnt it on:
 `instants::crop_rotation_is_a_stub_until_a_spell_can_charge_more_than_mana`
 is a pinned limitation that says so, and it is what caught the regression —
 a played test would have passed, because the card *does* find a land.
+
+## 23.09.2026 — eight test batches, 359 tests, and the same six misreadings
+
+Eight lane batches of engine tests over machine-owned cards (DeepSeek
+55 + 35 + 59 + 60 + 60, Gemini 30 + 30 + 30) came back to one reviewer who
+ran them. 27 of the 359 were red — 4, 12 and 11 over the three assemblies —
+and 26 of the reds were the test misreading the harness or the rules. The
+27th was both, and is the one worth reading first (below). What makes the
+other 26 worth a section is that they were the *same* misreadings, batch
+after batch, and that each is one sentence the prompt had not said:
+
+- **CR 302.6.** A creature cast this turn cannot pay `{T}`, so a test that
+  casts Joven and then asks for his `{R}{R}{R}, {T}` finds nothing offered.
+  Seven tests over three batches. The creature starts on the battlefield,
+  or the test walks a turn cycle.
+- **`.battlefield(seat, …)` replaces.** A second call for the same seat
+  drops the first list; Zephid's Islands vanished that way.
+- **A player-only target is `ChoosePlayer`.** Soul Feast, Natural Spring,
+  Last Caress.
+- **"… unless you sacrifice …" asks `(0, 1)` and no yes-or-no first.**
+  Lithophage and Thing from the Deep.
+- **A spell being cast still counts in the hand** while its target
+  question is open.
+- **CR 113.6.** Briarknit Kami does not see its own cast.
+
+All ten such rules are now numbered in both `prompts/tests-*.md`. The
+general point is the one "fix the reader, never the card" makes for the
+transcoder: a prompt that produced the same wrong test three times is the
+defect, and correcting the fourth test by hand only buys a fifth.
+
+**Last Caress was a card defect hiding behind a test defect.** "Target
+player loses 1 life and you gain 1 life. Draw a card." The lane's test
+answered a `ChoosePlayer` as if it were an object target, and it aimed the
+spell at its own caster — the one aim under which "you gain" and "the
+target gains" are the same player. Re-aimed at the opponent it went red for
+the card: the target lost the life, gained it back and drew, and the caster
+got nothing. The transcoder read an absent `Defined$` as "the target"
+whenever the *chain* targeted a player, and a reference sub-ability inherits
+no target — it says `Defined$ Targeted` when it means one. The rule is now
+"this line's own target" (`scriptgen::player_rel_of`), with a regression
+test beside Piranha Marsh's; one card in the pool changed. The lesson for a
+reviewer: a self-targeting test of a drain spell cannot fail on the
+question the spell exists to answer, so an aim that makes two readings
+coincide is a finding in itself.
+
+One mistake was the reviewer's rather than the lane's, and is recorded
+because it is easy to repeat: a regex meant to demote one orphaned `///`
+block rewrote every doc comment followed by a blank line — including four
+in the committed half of a 70 000-line file — and a second regex meant to
+undo it promoted `//` comments that had been `//` on purpose. The repair was
+to take the committed region back from `HEAD` whole. A rewrite over a
+generated-size file is checked against `git diff` hunk by hunk before
+anything else runs. The same pass also lost
+two lane doc blocks written as `//!` — an inner doc, which cannot sit
+mid-file and was dropped rather than turned into `///` — and demoted three
+test descriptions to plain `//` above a card's handle function instead of
+its test; both were recovered from the lane's own files.

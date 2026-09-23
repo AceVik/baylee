@@ -24448,26 +24448,25 @@ fn sandbar_merfolk_cycles_out_of_hand_for_two_and_is_still_the_creature_it_print
     );
 }
 
-// Scavenger Folk — {G}, a 1/1 Human with "{G}, {T}, Sacrifice this creature:
-// Destroy target artifact."
-//
-// Three parts of one price, and the engine shows each in its own place. The
-// target question is the CR 601.2c half, so while it stands the 1/1 is still
-// untapped, still on the battlefield and the {G} is still in the pool — the
-// cost is CR 601.2h and comes last, which is what the assertions inside the
-// question are for. Answering it aims the destruction across the table while
-// this seat's own Sol Ring, named on the same menu, stays standing: "target
-// artifact" is one permanent and not a sweep, and the Elf beside it — the
-// only non-artifact permanent on the board — is never on the menu at all.
-// The Folk itself ends up in a graveyard, which is a sacrifice paid rather
-// than the destroy resolving against its own source.
-
 fn scavenger_folk() -> CardIndex {
     card_index("74f361f8-a0d8-4824-9380-61469d6a19cf")
 }
 
-#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+/// Scavenger Folk — {G}, a 1/1 Human with "{G}, {T}, Sacrifice this creature:
+/// Destroy target artifact."
+///
+/// Three parts of one price, and the engine shows each in its own place. The
+/// target question is the CR 601.2c half, so while it stands the 1/1 is still
+/// untapped, still on the battlefield and the {G} is still in the pool — the
+/// cost is CR 601.2h and comes last, which is what the assertions inside the
+/// question are for. Answering it aims the destruction across the table while
+/// this seat's own Sol Ring, named on the same menu, stays standing: "target
+/// artifact" is one permanent and not a sweep, and the Elf beside it — the
+/// only non-artifact permanent on the board — is never on the menu at all.
+/// The Folk itself ends up in a graveyard, which is a sacrifice paid rather
+/// than the destroy resolving against its own source.
 #[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
 fn scavenger_folk_sacrifices_itself_to_destroy_the_artifact_it_names() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
@@ -36901,21 +36900,20 @@ fn sword_dancer_shrinks_an_attacking_creature_and_no_other() {
     );
 }
 
-// Talas Scout is `{1}{U}` for a 1/2 Human Pirate Scout whose entire text is
-// flying, and the set of things a test could get wrong is exactly the set an
-// empty-bodied card would hide behind: the body, the keyword, and the fact
-// that the keyword means something in a combat step. The Scout is cast off
-// two Islands, read off the battlefield (1/2, a creature, flying), left a
-// whole turn cycle so that summoning sickness (CR 302.6) is behind it, and
-// then sent at the opponent across a ground Elf. It arrives unblocked because
-// flying is a *pairing* rule (CR 702.9b) — the Elf is a legal blocker for
-// creatures in general and is offered nothing against a flier — and the one
-// life the 1/2 takes is the evidence that the attack happened at all.
-
 fn talas_scout() -> CardIndex {
     card_index("71b7d5c4-c16c-4c6b-8e2e-e9b5cc128e1f")
 }
 
+/// Talas Scout is `{1}{U}` for a 1/2 Human Pirate Scout whose entire text is
+/// flying, and the set of things a test could get wrong is exactly the set an
+/// empty-bodied card would hide behind: the body, the keyword, and the fact
+/// that the keyword means something in a combat step. The Scout is cast off
+/// two Islands, read off the battlefield (1/2, a creature, flying), left a
+/// whole turn cycle so that summoning sickness (CR 302.6) is behind it, and
+/// then sent at the opponent across a ground Elf. It arrives unblocked because
+/// flying is a *pairing* rule (CR 702.9b) — the Elf is a legal blocker for
+/// creatures in general and is offered nothing against a flier — and the one
+/// life the 1/2 takes is the evidence that the attack happened at all.
 #[test]
 fn talas_scout_flies_over_the_ground_and_takes_a_life() {
     let p0 = PlayerId::new(0);
@@ -42086,19 +42084,19 @@ fn bird_maiden() -> CardIndex {
     card_index("bddd6b93-7c69-427a-97ee-0c1f9f950f09")
 }
 
-// Bird Maiden — {2}{R} — Creature — Human Bird: 1/2 with flying.
-//
-// The whole printed card is a body and one keyword, so the scenario has to
-// make both of them load-bearing. The board is built so the Maiden arrives
-// the way the card arrives — cast off three Mountains for {2}{R} and nothing
-// else — and then reads the two numbers that could be wrong: the printed 1/2
-// and the flying the keyword line grants. The control that turns "it flies"
-// into a claim about the *card* is the combat step: an untapped Llanowar
-// Elves beside the Maiden is offered as an attacker while the Maiden is held
-// back only by whatever the declaration says, so the offer is read to show
-// the 1/2 flier is a legal attacker at all and the opponent's ground creature
-// is what flying is *for* — the pair of blockers offered against an attack
-// says which attacker the ground body can block.
+/// Bird Maiden — {2}{R} — Creature — Human Bird: 1/2 with flying.
+///
+/// The whole printed card is a body and one keyword, so the scenario has to
+/// make both of them load-bearing. The board is built so the Maiden arrives
+/// the way the card arrives — cast off three Mountains for {2}{R} and nothing
+/// else — and then reads the two numbers that could be wrong: the printed 1/2
+/// and the flying the keyword line grants. The control that turns "it flies"
+/// into a claim about the *card* is the combat step: an untapped Llanowar
+/// Elves beside the Maiden is offered as an attacker while the Maiden is held
+/// back only by whatever the declaration says, so the offer is read to show
+/// the 1/2 flier is a legal attacker at all and the opponent's ground creature
+/// is what flying is *for* — the pair of blockers offered against an attack
+/// says which attacker the ground body can block.
 #[test]
 fn bird_maiden_lands_as_a_flying_one_two_and_attacks_where_the_ground_cannot_block() {
     let p0 = PlayerId::new(0);
@@ -65580,7 +65578,6 @@ fn talruum_minotaur_attacks_the_turn_it_is_cast_while_a_fresh_elf_may_not() {
 /// effect needs: "target creature" offers it and still leaves it a printed
 /// 1/1, and by the opponent's next main phase the pumped Elf is a 1/1 again,
 /// which is the "until end of turn" the card prints.
-
 #[test]
 #[allow(clippy::too_many_lines)]
 fn tuknir_deathlock_taps_and_spends_red_green_on_its_pump_until_the_turn_ends() {
@@ -66730,7 +66727,6 @@ fn giant_warthog_tramples_four_damage_over_a_one_one_blocker() {
 /// what tells a target from a board-wide grant. "Until end of turn" then wants
 /// a turn to pass: the same board is read once more on the far side of the
 /// cleanup step, where a static grant would still be sitting.
-
 #[test]
 #[allow(clippy::too_many_lines)]
 fn harmattan_efreet_grants_flying_to_any_target_creature_until_the_turn_ends() {
@@ -67458,7 +67454,6 @@ fn striped_bears_draws_a_card_on_the_way_in() {
 /// reaches the Elf across the table and Thriss himself, while only the Elf
 /// the pump names reads (6, 6). The other printed word is the duration, so a
 /// turn is walked to show the +5/+5 gone and the creature still standing.
-
 #[test]
 #[allow(clippy::too_many_lines)]
 fn thriss_nantuko_primus_pays_a_green_to_pump_the_creature_it_names() {
@@ -72604,5 +72599,9540 @@ fn vedalken_entrancer_mills_two_cards_from_target_player() {
         engine.state().players[0].mana_pool.total(),
         0,
         "blue mana was spent"
+    );
+}
+
+/// Angel of Light — {4}{W}, a 3/3 with "Flying, vigilance" and no other text.
+/// Neither keyword is visible by reading the card: one is a pairing the
+/// declare-blockers question publishes and the other is the absence of a tap
+/// the attack declaration would otherwise make. So the Angel attacks beside a
+/// plain 1/1 Elf, which is the control for both — the Elf is a legal blocker
+/// for the ground attacker and no blocker at all for the Angel, and the Elf is
+/// turned by the same declaration that leaves the Angel standing. A creature
+/// that entered this turn may not attack (CR 302.6), which is why the attack
+/// waits a turn and the mana pool is read on the turn the Angel is cast.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn angel_of_light_attacks_without_tapping_and_no_ground_creature_can_block_it() {
+    fn angel_of_light() -> CardIndex {
+        card_index("d12cf640-ff60-4935-a2c7-28ab788de42c")
+    }
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    // Five Plains are exactly {4}{W}; the Elf is this test's control in the
+    // attack declaration below.
+    let mut board = vec![plains(); 5];
+    board.push(llanowar_elves());
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .hand(0, &[angel_of_light()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The Elf is named as the printing kept back: it prints its own
+    // `{T}: Add {G}` and `tap_all_mana` would have spent it (#159), leaving a
+    // creature that can no longer attack — the very thing this test reads.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Plains tapped, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, angel_of_light());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the cast's {{4}}{{W}} came out of the pool"
+    );
+
+    let angel = on_battlefield(&engine, p0, angel_of_light()).expect("the Angel resolved");
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elf is out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    assert_eq!(pt(&engine, angel), (3, 3), "the body the card prints");
+    let granted = keywords(&engine, angel);
+    assert!(granted.contains(KeywordSet::FLYING), "Flying");
+    assert!(granted.contains(KeywordSet::VIGILANCE), "vigilance");
+    assert!(
+        !keywords(&engine, mine).contains(KeywordSet::VIGILANCE),
+        "the Elf beside it is the control: it prints no vigilance and keeps none"
+    );
+
+    // CR 302.6: a creature that entered this turn may not attack, so the offer
+    // that carries both keywords is the next turn's.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, angel),
+        "the untap step left it standing"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&angel) && attackers.contains(&mine),
+        "both untapped creatures may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(angel, Defender::Player(p1)), (mine, Defender::Player(p1))],
+            },
+        )
+        .expect("both came out of the list that offered them");
+
+    // Evasion is a pairing (CR 509.1a), so the blocks the defending seat is
+    // offered are where "flying" is read rather than restated.
+    let mut offered = None;
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => {
+                offered = Some(blockers);
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the declare-blockers question: {other:?}"),
+        }
+    }
+    let offered = offered.expect("the declare-blockers question is reached");
+    assert!(
+        offered
+            .iter()
+            .any(|option| option.blocker == theirs && option.attackers.contains(&mine)),
+        "the Elf across the table can block the ground attacker, so the offer \
+         is not simply empty: {offered:?}"
+    );
+    assert!(
+        offered
+            .iter()
+            .all(|option| !option.attackers.contains(&angel)),
+        "and no pairing in the whole offer names the Angel — that is flying, \
+         because a 1/1 with no flying and no reach is no blocker for it: {offered:?}"
+    );
+
+    let life_before = engine.state().players[1].life;
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("declaring no blockers is always legal");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert!(
+        !is_tapped(&engine, angel),
+        "vigilance: combat is over and the Angel was never turned by it"
+    );
+    assert!(
+        is_tapped(&engine, mine),
+        "while the Elf beside it, which prints no such word, is still down from \
+         the same declaration — the untap step is the only thing that will stand \
+         it back up"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        life_before - 4,
+        "both unblocked attackers connected: three from the 3/3 and one from the \
+         1/1, and the life belongs to the seat that was attacked"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        engine.state().players[0].life,
+        "the attacking seat loses nothing for attacking"
+    );
+    assert!(
+        on_battlefield(&engine, p0, angel_of_light()).is_some(),
+        "and the Angel survived its first attack, so nothing here measured a \
+         creature that had already left"
+    );
+}
+
+/// Archangel is {5}{W}{W} for a 5/5 Angel whose entire printed text is
+/// "Flying, vigilance". A keyword is the one characteristic that keeps reading
+/// correctly while the rest of a card is missing, so the test plays the card
+/// into a real turn: the Angel is cast off lands that really paid for it and
+/// resolves onto the battlefield, an unequipped Elf beside it is the control
+/// that shows the two keywords belong to this creature rather than to the
+/// board, and the attack declaration on the next turn is what reads vigilance —
+/// the same attack that leaves the Elf tapped leaves the Angel standing.
+#[test]
+fn archangel_lands_as_a_five_five_angel_that_attacks_without_tapping() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                quiet_creature(),
+            ],
+        )
+        .hand(0, &[archangel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // `castable` is filtered through the mana pool, so an empty pool pays no
+    // {5}{W}{W} and the Angel is not offered until the lands are tapped.
+    let card = in_hand(&engine, p0, archangel()).expect("the Archangel is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{5}}{{W}}{{W}}, so the Angel is not offered: {:?}",
+        legal.castable
+    );
+
+    // The Elf is named as the printing kept back: it is the creature that
+    // carries the control in the combat step below, and a body tapped for mana
+    // may not attack.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_creature()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "seven Plains tapped and the Elf held back: seven white for {{5}}{{W}}{{W}}"
+    );
+    cast_with_floating(&mut engine, p0, archangel());
+    pass_until(&mut engine, stack_is_empty);
+
+    let angel = on_battlefield(&engine, p0, archangel()).expect("the Archangel resolved");
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is on the table");
+    assert!(
+        types(&engine, angel).contains(TypeSet::CREATURE),
+        "what arrived is the creature the card prints"
+    );
+    assert_eq!(pt(&engine, angel), (5, 5), "the body the card prints");
+    let granted = keywords(&engine, angel);
+    assert!(granted.contains(KeywordSet::FLYING), "\"Flying\"");
+    assert!(granted.contains(KeywordSet::VIGILANCE), "\"vigilance\"");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING)
+            && !keywords(&engine, elf).contains(KeywordSet::VIGILANCE),
+        "the keywords belong to the Angel and not to the board"
+    );
+
+    // A creature that entered this turn is summoning sick (CR 302.6), so the
+    // attack is made on its controller's next turn; the walk answers the empty
+    // combat of the turn in between on its own.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(
+        !is_tapped(&engine, angel) && !is_tapped(&engine, elf),
+        "the untap step stood both of them back up"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&angel) && attackers.contains(&elf),
+        "both untapped creatures are offered, the Angel included: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(angel, Defender::Player(p1)), (elf, Defender::Player(p1))],
+            },
+        )
+        .expect("both attackers came out of the list that offered them");
+
+    // The end step is past combat damage (CR 510.2): the stack is already empty
+    // the moment attackers are declared, so a predicate on the stack would stop
+    // before a single point had been dealt.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        14,
+        "a 5/5 and a 1/1 connected: six damage, so the Angel's power is real"
+    );
+    assert!(
+        is_tapped(&engine, elf),
+        "the Elf attacked and is tapped, which is what attacking does"
+    );
+    assert!(
+        !is_tapped(&engine, angel),
+        "\"vigilance\": the Angel attacked and is still standing (CR 702.20)"
+    );
+}
+
+/// Arrogant Vampire — {3}{B}{B}, a 4/3 Vampire with flying.
+///
+/// Flying is a rule about who may block, so the card is played into combat
+/// rather than read: two ground bodies stand on p0's side and the engine's own
+/// declare-blockers enumeration is asked about each one. The control is what
+/// makes the absence say anything — the defending Elf is a legal block for the
+/// ground body off the very same offer, so an empty pairing list cannot pass
+/// for the keyword. The turn in between is what summoning sickness costs
+/// (CR 302.6) and the four damage the defending seat loses is what the printed
+/// line buys.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn arrogant_vampire_flies_over_a_ground_blocker_for_four() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                quiet_creature(),
+            ],
+        )
+        .hand(0, &[arrogant_vampire()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The mana is made first and the spell cast out of what is floating,
+    // because `castable` is filtered through the pool: five untapped Swamps
+    // pay nothing until they are tapped. The ground body is named as the
+    // printing kept back because it is one of the two bodies the combat step
+    // is about, and `tap_all_mana` would have spent its own `{T}`.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_creature()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Swamps in the pool and the ground body untouched",
+    );
+    cast_with_floating(&mut engine, p0, arrogant_vampire());
+    pass_until(&mut engine, stack_is_empty);
+
+    let vampire = on_battlefield(&engine, p0, arrogant_vampire()).expect("the Vampire resolved");
+    let ground = on_battlefield(&engine, p0, quiet_creature()).expect("the ground body is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("a blocker is out");
+    assert_eq!(pt(&engine, vampire), (4, 3), "the printed 4/3 body");
+    assert!(
+        keywords(&engine, vampire).contains(KeywordSet::FLYING),
+        "and the printed flying reaches the permanent",
+    );
+    assert!(
+        !keywords(&engine, ground).contains(KeywordSet::FLYING),
+        "the control has no evasion of its own",
+    );
+
+    // A creature that entered this turn cannot attack (CR 302.6), so the turn
+    // it lands is spent getting to a combat step the Vampire may take part in.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    // Both attackers come out of the engine's own attack list, so neither is a
+    // body the harness moved into combat by hand.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "the combat step being read is p0's own");
+    assert!(
+        attackers.contains(&vampire) && attackers.contains(&ground),
+        "both bodies are on the attack offer: {attackers:?}",
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (vampire, Defender::Player(p1)),
+                    (ground, Defender::Player(p1)),
+                ],
+            },
+        )
+        .expect("both attackers came out of the list that offered them");
+
+    // The block offer is the only place the keyword can be read: this engine
+    // publishes the pairings, so what a 1/1 with no flying may block is that
+    // enumeration and nothing else.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    let may_block = |attacker: &ObjectId| {
+        blockers
+            .iter()
+            .any(|option| option.blocker == elf && option.attackers.contains(attacker))
+    };
+    assert!(
+        may_block(&ground),
+        "the Elf is a legal block for the ground body, so the offer is not \
+         simply empty: {blockers:?}",
+    );
+    assert!(
+        !may_block(&vampire),
+        "a creature with no flying may not block one that has it: {blockers:?}",
+    );
+
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("declaring no blockers is always legal");
+
+    // Not `stack_is_empty`: the stack is already empty the moment the
+    // attackers are declared, so that predicate would stop the walk before the
+    // damage step and every life total would still read twenty.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        15,
+        "four from the flier and one from the ground body — the four is the \
+         whole of what the printed keyword earned",
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the Elf that could not block the flier was never asked to trade",
+    );
+}
+
+/// Aven Flock prints two lines and the scenario plays both, because either one
+/// alone leaves the other unread: a {4}{W} 2/3 Bird Soldier that arrives with
+/// `Flying`, and "{W}: This creature gets +0/+1 until end of turn". Six Plains
+/// pay the cast out of five of them and keep the sixth back for the pump, so
+/// the offer is read where `can_afford` reads it — the pool — before and after
+/// the last land is tapped: an empty pool leaves the ability off the offer, and
+/// one white on it pays the price. The Troll beside the Flock and the turn
+/// walked afterwards are the controls: `Filter::This` is the Flock and no other
+/// creature, and `Duration::UntilEndOfTurn` is why the fourth point of
+/// toughness is gone by the next main phase rather than a second body.
+#[test]
+fn aven_flock_flies_and_pumps_its_own_toughness_for_white_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                young_wolf(),
+            ],
+        )
+        .hand(0, &[aven_flock()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("the Wolf is out");
+    assert_eq!(
+        pt(&engine, wolf),
+        (1, 1),
+        "a printed 1/1 before anything happens"
+    );
+
+    // Five of the six Plains pay the {4}{W} and the sixth is kept back for the
+    // activated ability. The Wolf has no mana ability of its own, so the pool
+    // is exactly the five white that were tapped for — and no more.
+    let kept = on_battlefield(&engine, p0, plains()).expect("a Plains to keep back");
+    let taken = tap_mana_except(&mut engine, p0, kept);
+    assert_eq!(
+        taken, 5,
+        "the other five Plains, and nothing else on this board taps for mana"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five white, with one Plains still standing to pay the pump"
+    );
+    cast_with_floating(&mut engine, p0, aven_flock());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, aven_flock()).is_some()
+    });
+
+    let flock = on_battlefield(&engine, p0, aven_flock()).expect("the Flock resolved");
+    assert_eq!(pt(&engine, flock), (2, 3), "the printed 2/3 body");
+    assert!(
+        keywords(&engine, flock).contains(KeywordSet::FLYING),
+        "which the printed `Flying` reaches through the layers"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{4}}{{W}} took every white that was floating"
+    );
+
+    // The pump's price is {W}, and `legal.abilities` is filtered through
+    // `can_afford`, which reads the pool rather than the untapped lands: with
+    // nothing floating the line is absent from the offer altogether.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(flock, 0)),
+        "an empty pool pays no {{W}}, so the pump is not offered: {:?}",
+        legal.abilities
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the one Plains kept back from the cast is the whole pool"
+    );
+    activate(&mut engine, p0, aven_flock(), 0);
+    assert!(
+        !stack_is_empty(&engine),
+        "a pump is no mana ability, so the ability is waiting on the stack"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, flock),
+        (2, 4),
+        "+0/+1 on the toughness and nothing at all on the power"
+    );
+    assert_eq!(
+        pt(&engine, wolf),
+        (1, 1),
+        "`Filter::This` is the Flock: the other creature you control keeps its body"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{W}} came out of the pool"
+    );
+
+    // "until end of turn": a turn later the Flock is the printed 2/3 again, so
+    // the fourth point of toughness was a duration and not a second body.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, flock),
+        (2, 3),
+        "the grant lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p0, aven_flock()).is_some(),
+        "and the creature is still standing, so the pump left rather than the creature"
+    );
+}
+
+/// Barkhide Mauler prints a 4/4 body for {4}{G} and "Cycling {2} ({2},
+/// Discard this card: Draw a card.)" — an activated ability that functions
+/// only while the card sits in a player's hand (CR 702.29a), which is the
+/// half of the card that no other printing in the pool covers.
+///
+/// The board is two Forests and nothing else, so the whole price is legible
+/// off the state instead of being taken on faith: the line is absent from the
+/// offer while the pool is empty, both Forests are spent paying it, and the
+/// card is in its owner's graveyard the moment the activation lands. The draw
+/// is read as a *move* — the card that was on top of the library beforehand
+/// has to be the one in hand afterwards — and the same object, now in the
+/// graveyard, is offered nothing, which is the activation zone rather than a
+/// card that merely left a hand.
+#[test]
+fn barkhide_mauler_cycles_out_of_the_hand_for_two_mana_and_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[barkhide_mauler()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let mauler = in_hand(&engine, p0, barkhide_mauler()).expect("the Mauler is in hand");
+    assert!(
+        on_battlefield(&engine, p0, barkhide_mauler()).is_none(),
+        "cycling is a card in hand and not a permanent on the table"
+    );
+
+    // `can_afford` reads the mana *pool* and not the untapped lands, so on an
+    // empty pool the {2} is unpayable and the line is not offered at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == mauler),
+        "an empty pool pays no {{2}}, so cycling is not offered: {:?}",
+        legal.abilities
+    );
+
+    // Two Forests are the whole price: two green in the pool, and nothing left
+    // in it afterwards. No mana creature stands beside them, so the count is
+    // the lands and only the lands.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "two tapped Forests, two green"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(mauler, 0)),
+        "with {{2}} floating, cycling is offered out of the hand: {:?}",
+        legal.abilities
+    );
+
+    // The top of the library, named before anything is activated: `list` keeps
+    // the top card last.
+    let library_before = library_size(&engine, p0);
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .expect("p0 has a library");
+
+    activate(&mut engine, p0, barkhide_mauler(), 0);
+
+    assert!(
+        in_graveyard(&engine, p0, barkhide_mauler()).is_some(),
+        "\"Discard this card\" is a cost and is paid as the ability is \
+         announced (CR 601.2h)"
+    );
+    assert!(
+        in_hand(&engine, p0, barkhide_mauler()).is_none(),
+        "and the card the ability was announced from has left the hand"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "cycling is no mana ability, so the draw is still owed"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before,
+        "and nothing has been drawn while the ability waits on the stack"
+    );
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the library"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&top),
+        "and the card that was on top is the one in hand, so the draw is a move \
+         and not a library that happened to empty"
+    );
+
+    // The activation zone, read on the same object: the card is still an
+    // object in the graveyard, and it offers nothing there.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("at_rest stopped on a priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == mauler),
+        "cycling functions only while the card is in hand (CR 702.29a): the \
+         same card in the graveyard is offered nothing: {:?}",
+        legal.abilities
+    );
+}
+
+/// Ekundu Griffin prints a mana cost and two keywords and nothing else:
+/// "{3}{W}" for a 2/2 Griffin with flying and first strike. A keyword is
+/// exactly the characteristic that keeps reading correctly while the rest of a
+/// card is missing, so the scenario pays for the card for real: four Plains
+/// fill the pool, `{3}{W}` empties it, and the Griffin has to arrive as the
+/// printed body with both keywords projected onto it. An Elf under the same
+/// seat and another across the table are the control — neither may pick up
+/// flying or first strike, which is what tells a keyword this card prints from
+/// a grant that swept the board.
+#[test]
+fn ekundu_griffin_lands_as_a_two_two_with_flying_and_first_strike() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), llanowar_elves()],
+        )
+        .hand(0, &[ekundu_griffin()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let bystander = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elf is out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    assert!(
+        !keywords(&engine, bystander).contains(KeywordSet::FLYING),
+        "nothing on this board has been granted flying yet"
+    );
+
+    // Four Plains, and the Elf named as the printing kept back: it is the
+    // control this test reads afterwards, and `tap_all_mana` would have spent
+    // its own `{T}: Add {G}` as well (#159).
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four tapped Plains and four white, with the Elf contributing nothing"
+    );
+
+    cast_with_floating(&mut engine, p0, ekundu_griffin());
+    pass_until(&mut engine, stack_is_empty);
+    let griffin = on_battlefield(&engine, p0, ekundu_griffin()).expect("the Griffin resolved");
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{3}}{{W}} came out of the pool the Plains filled"
+    );
+    assert!(
+        types(&engine, griffin).contains(TypeSet::CREATURE),
+        "the card resolved onto the battlefield as a creature"
+    );
+    assert_eq!(pt(&engine, griffin), (2, 2), "the body the card prints");
+
+    let printed = keywords(&engine, griffin);
+    assert!(
+        printed.contains(KeywordSet::FLYING),
+        "Ekundu Griffin has flying"
+    );
+    assert!(
+        printed.contains(KeywordSet::FIRST_STRIKE),
+        "and first strike"
+    );
+    assert!(
+        !keywords(&engine, bystander).contains(KeywordSet::FLYING)
+            && !keywords(&engine, bystander).contains(KeywordSet::FIRST_STRIKE),
+        "the Elf nobody cast is still a printed 1/1 with no keywords"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::FLYING)
+            && !keywords(&engine, theirs).contains(KeywordSet::FIRST_STRIKE),
+        "and neither keyword reaches across the table"
+    );
+}
+
+/// Folk of the Pines is a {4}{G} 2/5 Dryad whose whole printed text is one
+/// activated ability: "{1}{G}: This creature gets +1/+0 until end of turn."
+/// Both halves of that price are the engine's answer rather than the card's, so
+/// the board reads them apart: with an empty pool the line is not offered at
+/// all, because `can_afford` reads the pool and not the untapped lands, and
+/// once two Forests are really floating the Dryad becomes a 3/5 it never paid
+/// its own `{T}` for. The last reading is the printed duration — one turn later
+/// the body is a 2/5 again while the creature is still standing.
+#[test]
+fn folk_of_the_pines_pumps_itself_for_a_green_and_a_generic() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), folk_of_the_pines()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let folk = on_battlefield(&engine, p0, folk_of_the_pines()).expect("the Dryad is on the table");
+    assert_eq!(
+        pt(&engine, folk),
+        (2, 5),
+        "a printed 2/5 before anything is activated"
+    );
+
+    // `legal.abilities` is filtered through `can_afford`, which reads the pool
+    // and not the untapped lands: with nothing floating the {1}{G} is
+    // unpayable, so the line is not offered at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(folk, 0)),
+        "{{1}}{{G}} is not two, so the cost is unpayable and nothing is offered: {:?}",
+        legal.abilities
+    );
+
+    // Two Forests and nothing else on the board. {1}{G} is a green plus a
+    // generic, and a Forest's {G} pays either half, so the two mana in the pool
+    // are exactly the price the line charges. The Dryad prints no mana ability
+    // of its own, which is why `tap_all_mana` leaves it standing.
+    let taken = tap_all_mana(&mut engine, p0);
+    assert_eq!(taken, 2, "two Forests, and the Dryad is no mana route");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        2,
+        "two green: one for the coloured half of the cost and one for the generic"
+    );
+    assert_eq!(pool.total(), 2, "and nothing else is in the pool");
+    assert!(
+        !is_tapped(&engine, folk),
+        "the pump costs mana and no {{T}}, so the Dryad is still standing"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(folk, 0)),
+        "with two green floating the whole price is payable: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, folk_of_the_pines(), 0);
+    assert!(
+        !stack_is_empty(&engine),
+        "a pump is no mana ability, so the ability waits on the stack"
+    );
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the pump resolves"
+    );
+
+    assert_eq!(
+        pt(&engine, folk),
+        (3, 5),
+        "+1/+0 on the creature the ability names — power up, toughness untouched"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{1}}{{G}} came out of the pool, so both mana that were floating are spent"
+    );
+    assert!(
+        !is_tapped(&engine, folk),
+        "and the creature paid none of it with its own tap"
+    );
+
+    // "until end of turn" is part of the card: one turn later the Dryad is the
+    // 2/5 it was printed as, and it is still standing, so the pump left rather
+    // than the creature did.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert_eq!(
+        pt(&engine, folk),
+        (2, 5),
+        "the grant lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p0, folk_of_the_pines()).is_some(),
+        "and the Dryad is still on the table"
+    );
+}
+
+// oracle_id = "89cf4d99-64e9-4e5c-9edc-ea077a193332"
+
+/// Herd Gnarr prints a 2/2 body and one triggered ability: "Whenever another
+/// creature you control enters, this creature gets +2/+2 until end of turn."
+/// Three words of that sentence need three different boards, and one main
+/// phase holds two of them. A Llanowar Elves cast beside it makes it 4/4, a
+/// *second* Herd Gnarr then proves "another" — the copy that enters is a
+/// printed 2/2 while the copy already standing grows again to 6/6 — and the
+/// opponent's turn afterwards is where "until end of turn" is read, with both
+/// copies back to the body they print while both are still on the battlefield.
+#[test]
+fn herd_gnarr_grows_for_your_creatures_and_only_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                herd_gnarr(),
+            ],
+        )
+        .hand(0, &[llanowar_elves(), herd_gnarr()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let first = on_battlefield(&engine, p0, herd_gnarr()).expect("the Gnarr was seated");
+    assert_eq!(
+        pt(&engine, first),
+        (2, 2),
+        "the body the card prints, before anything else arrives"
+    );
+
+    // Five Forests pay the {G} the Elves cost and leave exactly the {3}{G} a
+    // second Gnarr costs floating beside it, because a pool survives until the
+    // step ends (CR 500.5) and this whole scenario lives in one main phase.
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the Elves resolved onto the battlefield"
+    );
+    assert_eq!(
+        pt(&engine, first),
+        (4, 4),
+        "\"whenever another creature you control enters, this creature gets \
+         +2/+2 until end of turn\" — the Elf arriving is the whole trigger"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "one green paid for the Elves; the other four are still floating"
+    );
+
+    // The second Gnarr is where "another" is read: the copy that enters is no
+    // other creature to its own trigger, and the copy already standing is.
+    cast_with_floating(&mut engine, p0, herd_gnarr());
+    pass_until(&mut engine, stack_is_empty);
+    let gnarrs = all_on_battlefield(&engine, p0, herd_gnarr());
+    assert_eq!(gnarrs.len(), 2, "both copies are on the battlefield");
+    let second = *gnarrs
+        .iter()
+        .find(|id| **id != first)
+        .expect("one of the two is not the copy this test started with");
+    assert_eq!(
+        pt(&engine, second),
+        (2, 2),
+        "a creature entering is not \"another\" creature to its own trigger"
+    );
+    assert_eq!(
+        pt(&engine, first),
+        (6, 6),
+        "and the Gnarr that was already there grew for it as well"
+    );
+
+    // "until end of turn": the pump belongs to the turn it was made in, and
+    // the opponent's first main phase is past the cleanup that ended it.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, first),
+        (2, 2),
+        "the two +2/+2 the first Gnarr collected lasted p0's turn and no longer"
+    );
+    assert_eq!(
+        pt(&engine, second),
+        (2, 2),
+        "and the copy that never grew reads the printed body on the same board"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, herd_gnarr()).len(),
+        2,
+        "both Gnarrs are still standing, so the pump expired rather than the creatures"
+    );
+}
+
+/// Highway Robber is a {2}{B}{B} 2/2 whose enters trigger reads "target
+/// opponent loses 2 life and you gain 2 life", and both halves of that
+/// sentence are the engine's answer rather than the card's. The target is an
+/// *opponent*, so the menu the drain is aimed at is read from both sides of
+/// the table — it holds the seat across it and never the seat that cast the
+/// creature — and the drain is read as one life total moving each way, which
+/// a card that had said "target player" or paid the wrong seat could not show.
+/// Four Swamps are tapped into the pool before the cast, so the creature
+/// really arrives and the trigger really fires.
+#[test]
+fn highway_robber_drains_the_opponent_it_names_and_pays_its_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(41, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[highway_robber()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "nothing has drained yet"
+    );
+    assert_eq!(engine.state().players[1].life, 20, "on either side");
+
+    // Four Swamps into the pool first: {2}{B}{B} is the whole cost, and both
+    // the cast and the offer behind it are read off the pool.
+    cast_from_hand(&mut engine, p0, highway_robber());
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the four Swamps paid the {{2}}{{B}}{{B}}"
+    );
+
+    // The spell resolves and its enters trigger is put on the stack, which is
+    // where its target is named (CR 603.3d). The two arms are the same choice
+    // arriving as a player-or-object prompt and as a player-only one; nothing
+    // else may be asked before it, so anything else is a finding.
+    let mut asked = false;
+    for _ in 0..8 {
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player,
+                player_options,
+                ..
+            } => {
+                assert_eq!(player, p0, "the seat that cast it aims the trigger");
+                assert_eq!(
+                    player_options,
+                    vec![p1],
+                    "\"target opponent\" reaches the seat across the table and \
+                     never its own controller"
+                );
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![p1],
+                        },
+                    )
+                    .expect("the opponent was one of the options it enumerated");
+                asked = true;
+                break;
+            }
+            Pending::ChoosePlayer { player, options } => {
+                assert_eq!(player, p0, "the seat that cast it aims the trigger");
+                assert_eq!(
+                    options,
+                    vec![p1],
+                    "\"target opponent\" reaches the seat across the table and \
+                     never its own controller"
+                );
+                engine
+                    .apply(p0, PlayerAction::ChoosePlayer(p1))
+                    .expect("the opponent was one of the options it enumerated");
+                asked = true;
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!(
+                "the enters trigger is put on the stack before anything else can \
+                 happen: {other:?}"
+            ),
+        }
+    }
+    assert!(asked, "the trigger asks which opponent loses the two life");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "\"target opponent loses 2 life\" — the seat that was named, and two"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "\"and you gain 2 life\" — the gain belongs to the controller, not to \
+         the seat that lost"
+    );
+    let robber = on_battlefield(&engine, p0, highway_robber())
+        .expect("the 2/2 itself resolved onto the battlefield");
+    assert_eq!(pt(&engine, robber), (2, 2), "the body the card prints");
+}
+
+/// Hundroog is a {6}{G} 4/7 Beast whose whole rules text is cycling {3}:
+/// "{3}, Discard this card: Draw a card." — an ability of the card *in hand*
+/// rather than of the creature, which nothing in the card file says out loud.
+/// Ten Forests let both halves be played in one main phase: seven mana brings
+/// one Hundroog to the table and the three still floating are exactly the
+/// cycling cost of the copy left in hand. The discard is a cost (CR 601.2h), so
+/// the card is in the graveyard while the draw is still on the stack, and the
+/// hand is the same size afterwards only because the card the price took was
+/// replaced by one off the library.
+#[test]
+fn hundroog_lands_as_a_four_seven_and_cycles_the_copy_in_hand_away_for_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 10])
+        .hand(0, &[hundroog(), hundroog()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Seven of the ten Forests pay {6}{G}; the three left floating are exactly
+    // what the copy still in hand charges to cycle itself away.
+    cast_from_hand(&mut engine, p0, hundroog());
+    pass_until(&mut engine, stack_is_empty);
+
+    let beast = on_battlefield(&engine, p0, hundroog()).expect("the Beast resolved");
+    assert_eq!(pt(&engine, beast), (4, 7), "the body the card prints");
+    assert!(
+        types(&engine, beast).contains(TypeSet::CREATURE),
+        "and the type line it prints"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "ten Forests less the {{6}}{{G}} the creature cost"
+    );
+
+    // Cycling lives in the hand, so the Beast on the battlefield never offers
+    // it and this one object is the whole of the offer.
+    let copy = in_hand(&engine, p0, hundroog()).expect("the second copy is still in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(copy, 0)),
+        "with the {{3}} floating the cycling ability is offered from hand: {:?}",
+        legal.abilities
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    activate(&mut engine, p0, hundroog(), 0);
+
+    assert!(
+        in_graveyard(&engine, p0, hundroog()).is_some(),
+        "the discard is a cost, paid as the ability is activated (CR 601.2h)"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{3}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the ability is on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "the cycled card left the hand and the drawn one replaced it — a \
+         discard alone would have left the hand one card short"
+    );
+    assert!(
+        on_battlefield(&engine, p0, hundroog()).is_some(),
+        "the Beast already on the battlefield is untouched by the other copy \
+         cycling itself away"
+    );
+}
+
+/// Hyalopterous Lemure is a {4}{B} 4/3 Spirit printing one line: "{0}: This
+/// creature gets -1/-0 and gains flying until end of turn." The card *is*
+/// that trade, so the scenario pays the price twice and reads both halves each
+/// time: the printed 4/3 becomes 3/3 and then 2/3 while the toughness never
+/// moves, and flying arrives with the first activation. A second activation is
+/// what tells "gets -1/-0" from a one-shot "becomes a 3/3" — one caps, the
+/// other keeps subtracting. The walk into the opponent's turn is the printed
+/// duration, because a grant that never expired would satisfy every assertion
+/// above it.
+#[test]
+fn hyalopterous_lemure_trades_a_power_for_flying_and_gives_it_back_at_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[hyalopterous_lemure()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {4}{B} off five Swamps: a pool survives until the step ends (CR 500.5)
+    // and the whole scenario lives inside this one main phase.
+    cast_from_hand(&mut engine, p0, hyalopterous_lemure());
+    pass_until(&mut engine, stack_is_empty);
+    let lemure = on_battlefield(&engine, p0, hyalopterous_lemure()).expect("the Lemure resolved");
+    assert_eq!(pt(&engine, lemure), (4, 3), "the printed 4/3 body");
+    assert!(
+        !keywords(&engine, lemure).contains(KeywordSet::FLYING),
+        "nothing printed on the card grants evasion, so it starts on the ground"
+    );
+
+    // The price is `{0}`, so an empty pool withholds nothing: there is no mana
+    // in `can_afford` to be short of, and the offer is read on the board the
+    // cast itself left behind. The Swamps are all spent, which is what makes
+    // the pool reading below exact.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "five Swamps paid the {{4}}{{B}} to the last mana"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(lemure, 0)),
+        "the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, hyalopterous_lemure(), 0);
+    assert!(
+        !stack_is_empty(&engine),
+        "the pump is no mana ability, so the ability goes on the stack"
+    );
+    assert_eq!(
+        pt(&engine, lemure),
+        (4, 3),
+        "and nothing has happened while it is still waiting there"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, lemure),
+        (3, 3),
+        "-1/-0 takes one power and no toughness"
+    );
+    assert!(
+        keywords(&engine, lemure).contains(KeywordSet::FLYING),
+        "and the same activation is what grants the flying"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{0}} is a real price — nothing — so the pool is exactly where it was"
+    );
+
+    // The second activation is what tells a subtraction from a transformation:
+    // a creature that "became 3/3" would still read 3/3 here.
+    activate(&mut engine, p0, hyalopterous_lemure(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, lemure),
+        (2, 3),
+        "a second {{0}} is a second -1/-0 on the very same creature"
+    );
+    assert!(
+        !is_tapped(&engine, lemure),
+        "the price names no {{T}}, so the Lemure is still standing to block"
+    );
+
+    // "until end of turn" is the half nothing above can see: the effect ends in
+    // the cleanup of the turn it was made in, so the same creature on the
+    // opponent's turn is the 4/3 it was printed as.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, lemure),
+        (4, 3),
+        "the turn ended and both halves of the pump with it"
+    );
+    assert!(
+        !keywords(&engine, lemure).contains(KeywordSet::FLYING),
+        "and the flying left with the same duration, not with the creature"
+    );
+    assert!(
+        on_battlefield(&engine, p0, hyalopterous_lemure()).is_some(),
+        "the Lemure is still standing, so the pump left rather than the creature"
+    );
+}
+
+/// Jungle Barrier — {2}{G}{U} Plant Wall, a 2/6 with Defender and "When this
+/// creature enters, draw a card."
+///
+/// Both printed lines are the engine's answer rather than the card's, so one
+/// cast has to be read in two places at once: the body and the keyword are the
+/// layer projection on the permanent, and the draw is a card that leaves the
+/// library only because the enters-trigger resolved (CR 603.6a) — a creature
+/// spell resolving touches no library by itself. Defender is the half a board
+/// state cannot assume, so the untapped Elf beside it is the control: an
+/// unmodified 1/1 is offered in the same attack declaration the Barrier must be
+/// missing from (CR 702.3b).
+#[test]
+fn jungle_barrier_enters_drawing_a_card_and_can_never_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(77, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), island(), island(), quiet_creature()],
+        )
+        .hand(0, &[jungle_barrier()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is out");
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    // Two Forests and two Islands pay {2}{G}{U}, and the Elf is named as the
+    // printing kept back: it is the attacker the combat step below needs, and a
+    // creature tapped for mana may not attack.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_creature()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "two Forests and two Islands tapped, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, jungle_barrier());
+    pass_until(&mut engine, stack_is_empty);
+
+    let barrier = on_battlefield(&engine, p0, jungle_barrier()).expect("the Barrier resolved");
+    assert_eq!(pt(&engine, barrier), (2, 6), "the body the card prints");
+    assert!(
+        keywords(&engine, barrier).contains(KeywordSet::DEFENDER),
+        "\"Defender\" reaches the permanent"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"When this creature enters, draw a card\" — one card off the top of \
+         the library, and a creature spell resolving draws nothing by itself"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "the cast spent a card and the enters-trigger replaced it, so a \
+         library that merely emptied would not satisfy the count above"
+    );
+
+    // The control the keyword needs: the offer exists because the Elf may
+    // attack, and the Barrier is missing from that very list.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&elf),
+        "an untapped 1/1 with no text of its own may attack: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&barrier),
+        "\"This creature can't attack\" — its 2/6 is a real body and the \
+         combat step still may not declare it: {attackers:?}"
+    );
+}
+
+// oracle_id = "21e9e1a9-5d6d-473e-adab-6a1e8e2b0ebd"
+
+// Smuggler's Copter — an artifact printing a 3/3 body that is no creature
+// until a crew payment animates it. It is the control the word "creatures"
+// needs: a lord whose filter had lost `Filter::CREATURE` would read it as a
+// 4/4 while everything else on the board kept passing.
+// oracle_id = "49136bdc-bc50-49a2-999a-1ef9c16ea130"
+
+/// Kongming, "Sleeping Dragon" — {2}{W}{W} legendary 2/2 Human Advisor whose
+/// whole text is one static: "Other creatures you control get +1/+1."
+///
+/// Three words of that sentence each need a different witness on one board,
+/// and a fourth claim needs a permanent that is no creature at all. The Dragon
+/// must stay the 2/2 it prints (*other* creatures), the Llanowar Elves under
+/// its controller must read 2/2 (*creatures you control*), the same Elves
+/// across the table must stay a printed 1/1, and the uncrewed Smuggler's
+/// Copter — an artifact with a printed 3/3 body and no creature type — must
+/// stay 3/3, which is what a filter that had lost `Filter::CREATURE` would
+/// turn into 4/4. The pumped Elf also carries no +1/+1 counter, so the change
+/// is a projection the layers make rather than a counter somebody placed.
+#[test]
+fn kongming_pumps_every_creature_you_control_but_neither_himself_nor_the_copter() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+                smugglers_copter_for_kongming(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[kongming_sleeping_dragon()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    let copter =
+        on_battlefield(&engine, p0, smugglers_copter_for_kongming()).expect("the Copter is out");
+    assert_eq!(pt(&engine, mine), (1, 1), "no lord is on the board yet");
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "and the same card across the table"
+    );
+    assert_eq!(
+        pt(&engine, copter),
+        (3, 3),
+        "an uncrewed Vehicle is an artifact with a body and no creature type"
+    );
+
+    // {2}{W}{W} off the four Plains; the Elves' own tap-for-{G} is a mana
+    // route the helper takes on the way, which is a board fact and not the
+    // subject of any claim here.
+    cast_from_hand(&mut engine, p0, kongming_sleeping_dragon());
+    pass_until(&mut engine, stack_is_empty);
+
+    let dragon = on_battlefield(&engine, p0, kongming_sleeping_dragon())
+        .expect("the Dragon resolved onto the table");
+    assert_eq!(
+        pt(&engine, dragon),
+        (2, 2),
+        "\"Other creatures you control\" — the Dragon is not one of them"
+    );
+    assert_eq!(
+        pt(&engine, mine),
+        (2, 2),
+        "a printed 1/1 under its controller reads 2/2"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "\"you control\" — the same card across the table never moved"
+    );
+    assert_eq!(
+        pt(&engine, copter),
+        (3, 3),
+        "\"creatures\" is read: an artifact with a printed body and no creature \
+         type stays exactly where the card left it"
+    );
+    assert_eq!(
+        counters_on(&engine, mine, CounterKind::P1P1),
+        0,
+        "the grant is a static the layers project, not a counter anyone placed"
+    );
+}
+
+/// Lightning Angel prints `{1}{U}{R}{W}` for a 3/4 Angel with flying,
+/// vigilance and haste. The three keywords answer three different questions
+/// about a creature that arrived this same turn: flying and vigilance are
+/// characteristics the layers project, while haste is the one that makes the
+/// attack declaration *legal* on the very turn summoning sickness would
+/// otherwise forbid (CR 302.6). The cast is paid out of a real pool of four
+/// lands, so the Angel is on the battlefield as the result of playing the
+/// card and not of a placement, and the untapped attacker afterwards is
+/// vigilance read off the board rather than off the card file.
+#[test]
+fn lightning_angel_arrives_with_flying_vigilance_and_haste_and_attacks_untapped() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), island(), mountain(), plains()])
+        .hand(0, &[lightning_angel()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // `cast_from_hand` taps the board first: `{1}` off the second Plains and
+    // the three colours off the Island and the Mountain, which is exactly the
+    // printed cost.
+    cast_from_hand(&mut engine, p0, lightning_angel());
+    pass_until(&mut engine, stack_is_empty);
+    let angel = on_battlefield(&engine, p0, lightning_angel()).expect("the Angel resolved");
+    assert_eq!(pt(&engine, angel), (3, 4), "the printed 3/4 body");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{1}}{{U}}{{R}}{{W}} spent every mana the four lands produced"
+    );
+
+    let kw = keywords(&engine, angel);
+    assert!(kw.contains(KeywordSet::FLYING), "flying");
+    assert!(kw.contains(KeywordSet::VIGILANCE), "vigilance");
+    assert!(kw.contains(KeywordSet::HASTE), "haste");
+
+    // Haste is the half that needs the turn to be read: the Angel entered
+    // this turn, so CR 302.6 is what its presence in the offer has to beat.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&angel),
+        "haste is what makes a creature that arrived this turn attackable: {attackers:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(angel, Defender::Player(p1))],
+            },
+        )
+        .expect("the Angel came out of the list that offered it");
+    assert!(
+        !is_tapped(&engine, angel),
+        "vigilance: attacking does not tap the Angel"
+    );
+}
+
+/// Mawcor prints two lines — "Flying" and "{T}: This creature deals 1 damage to
+/// any target" — and neither is visible in the card file, so both are played on
+/// one board. The 3/3 flier is cast for `{3}{U}{U}` off five Islands and read for
+/// its keyword and its printed body; the `{T}` then has to wait a full turn,
+/// because a creature that just entered is summoning sick and its activated
+/// ability is not offered at all (CR 302.6). "Any target" is one choice carrying
+/// creatures *and* players (CR 115.4), so the Elf across the table is offered
+/// beside both seats, and the single point is read on both life totals — it can
+/// only be the target that paid, not the board and not the seat that aimed it.
+#[test]
+fn mawcor_flies_and_taps_to_deal_one_damage_to_any_target() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[mawcor()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {3}{U}{U} out of five Islands, which leaves nothing behind: the cast is a
+    // real payment and not a label on a free permanent.
+    cast_from_hand(&mut engine, p0, mawcor());
+    pass_until(&mut engine, stack_is_empty);
+    let beast = on_battlefield(&engine, p0, mawcor()).expect("the Mawcor resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "five Islands paid {{3}}{{U}}{{U}} to the last mana"
+    );
+    assert_eq!(pt(&engine, beast), (3, 3), "the body the card prints");
+    assert!(
+        keywords(&engine, beast).contains(KeywordSet::FLYING),
+        "the printed flying reaches the permanent"
+    );
+
+    // A creature that entered this turn has summoning sickness: its {{T}} is not
+    // a price it may pay yet, which is why the damage line needs another turn.
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, beast),
+        "the untap step stood the Mawcor back up"
+    );
+
+    activate(&mut engine, p0, mawcor(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"any target\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the seat that activated aims it");
+    assert_eq!((min, max), (1, 1), "one target, and the ability asks once");
+    assert!(
+        options.contains(&theirs),
+        "CR 115.4: \"any target\" counts creatures in the same choice: {options:?}"
+    );
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "and it counts players too, both of them: {player_options:?}"
+    );
+    // CR 601.2c names the target before CR 601.2h pays for it.
+    assert!(
+        !is_tapped(&engine, beast),
+        "the {{T}} is the last step of the activation, not the first"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opponent seat was one of the targets it enumerated");
+
+    assert!(is_tapped(&engine, beast), "{{T}} is the whole price");
+    assert!(
+        !stack_is_empty(&engine),
+        "dealing damage is no mana ability, so the ability is waiting on the stack"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and nothing has happened yet: the damage is the resolution, not the cost"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "\"deals 1 damage to any target\" — one, to the seat that was named"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the damage belongs to the target, not to the seat that paid for it"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the creature the ability did not name never moved, so the one point \
+         went to the target and not to the board"
+    );
+}
+
+/// Morphling — {3}{U}{U}, a 3/3 Shapeshifter whose whole text is five
+/// one-line abilities: {U} to untap it, {U} each for flying and shroud, and
+/// {1} for each half of the +1/-1 / -1/+1 swap. Four of the five are played
+/// in the turn it lands, off a single pool of nine Islands — five pay the
+/// cast and four pay the lines — so the pool reading exactly zero afterwards
+/// is the statement that every price was really paid. The Elf beside it is
+/// the control for `Filter::This`: a creature under the same seat must stay a
+/// printed 1/1 with neither keyword. The untap, which needs a tapped
+/// creature, costs a turn — no longer summoning sick, Morphling attacks and
+/// one blue stands it back up — and the turn in between is what reads the
+/// printed "until end of turn" off the flying, the shroud and both pumps.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn morphling_plays_all_five_of_its_lines_off_one_pool_of_islands() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    // Nine Islands is exactly the whole card: {3}{U}{U} for the body and the
+    // four one-mana lines beside it.
+    let mut board: Vec<CardIndex> = vec![island(); 9];
+    board.push(llanowar_elves());
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &board)
+        .hand(0, &[morphling()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The Elf is named as the printing kept back: it prints a `{T}: Add {G}`
+    // of its own (#159), and the only creature this test pumps is Morphling.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        9,
+        "nine Islands tapped, and the Elf contributed nothing"
+    );
+
+    cast_with_floating(&mut engine, p0, morphling());
+    pass_until(&mut engine, stack_is_empty);
+    let shifter = on_battlefield(&engine, p0, morphling()).expect("Morphling resolved");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is still out");
+    assert_eq!(pt(&engine, shifter), (3, 3), "the body the card prints");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "five of the nine went into {{3}}{{U}}{{U}}"
+    );
+
+    // Ability 1 — "{U}: This creature gains flying until end of turn."
+    activate(&mut engine, p0, morphling(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        keywords(&engine, shifter).contains(KeywordSet::FLYING),
+        "\"This creature gains flying until end of turn\""
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "one blue for the flying"
+    );
+
+    // Ability 2 — "{U}: This creature gains shroud until end of turn."
+    activate(&mut engine, p0, morphling(), 2);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        keywords(&engine, shifter).contains(KeywordSet::SHROUD),
+        "\"This creature gains shroud until end of turn\""
+    );
+    assert!(
+        keywords(&engine, shifter).contains(KeywordSet::FLYING),
+        "the two keyword lines stack on one creature"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "one blue for the shroud, and the flying is still up"
+    );
+
+    // Ability 3 — "{1}: This creature gets +1/-1 until end of turn."
+    activate(&mut engine, p0, morphling(), 3);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, shifter), (4, 2), "+1/-1 on the printed 3/3");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "one generic for the power half"
+    );
+
+    // Ability 4 — "{1}: This creature gets -1/+1 until end of turn."
+    activate(&mut engine, p0, morphling(), 4);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, shifter),
+        (3, 3),
+        "the two halves cancel on the same creature"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nine Islands: five for the cast and four for the four lines"
+    );
+
+    // "This creature" and nobody else: the Elf beside it is a creature under
+    // the same seat and no line has touched it.
+    assert_eq!(pt(&engine, elf), (1, 1), "the Elf is a printed 1/1");
+    let untouched = keywords(&engine, elf);
+    assert!(
+        !untouched.contains(KeywordSet::FLYING) && !untouched.contains(KeywordSet::SHROUD),
+        "the keywords landed on Morphling and on no other creature: {untouched:?}"
+    );
+
+    // The printed durations, read where they end: the same permanent a turn
+    // later cannot still be flying, shrouded, pumped, or all three.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, shifter),
+        (3, 3),
+        "both pumps expired with the turn"
+    );
+    let expired = keywords(&engine, shifter);
+    assert!(
+        !expired.contains(KeywordSet::FLYING) && !expired.contains(KeywordSet::SHROUD),
+        "and so did the flying and the shroud: {expired:?}"
+    );
+
+    // The fifth line needs a tapped creature, which costs a turn: Morphling
+    // was cast last turn, so it is no longer summoning sick (CR 302.6).
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing else")
+    };
+    assert_eq!(player, p0, "the active seat declares its own attackers");
+    assert!(
+        attackers.contains(&shifter),
+        "a turn past its arrival the Shapeshifter may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(shifter, Defender::Player(p1))],
+            },
+        )
+        .expect("the creature came out of the list that offered it");
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        is_tapped(&engine, shifter),
+        "declaring it as an attacker tapped it (CR 508.1f)"
+    );
+
+    // Mana first, then the claim: `legal.abilities` is filtered through
+    // `can_afford`, which reads the pool and not the untapped Islands.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        9,
+        "the untap step stood every Island back up"
+    );
+
+    // Ability 0 — "{U}: Untap this creature."
+    activate(&mut engine, p0, morphling(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, shifter),
+        "\"{{U}}: Untap this creature\""
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "one blue paid for the untap"
+    );
+}
+
+/// Mystic Snake — {1}{G}{U}{U}, a 2/2 Snake with flash and one triggered
+/// sentence: "When this creature enters, counter target spell."
+///
+/// Flash is the half that makes the other half reachable: the Snake is cast
+/// while a spell is already on the stack on an opponent's turn, and its
+/// enters-trigger then aims at the very spell it interrupted. Countering is
+/// read where a countered spell leaves a mark — the Dark Ritual in its owner's
+/// graveyard, the Swamp that paid for it still tapped, and a mana pool that
+/// never receives the three black mana an uncountered Ritual prints.
+#[test]
+fn mystic_snake_flashes_in_to_counter_the_spell_it_answered() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), island(), island(), island()])
+        .hand(0, &[mystic_snake()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
+
+    // p1 is handed priority in p0's turn and spends its one Swamp on the
+    // Ritual: {B} paid, three black mana printed for the resolution.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    let ritual = on_stack(&engine, dark_ritual()).expect("the Ritual is on the stack");
+
+    // ... and p0 answers it with a creature, which is the whole of flash.
+    pass_until(&mut engine, |e| {
+        !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    let snake = in_hand(&engine, p0, mystic_snake()).expect("the Snake is in hand");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "{{1}}{{G}}{{U}}{{U}} out of four lands, and nothing else on the board"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&snake),
+        "a creature with flash is castable with a spell already on the stack \
+         on an opponent's turn, where a sorcery-speed creature could not be: {:?}",
+        legal.castable
+    );
+    cast_with_floating(&mut engine, p0, mystic_snake());
+
+    // The Snake resolves and its enters-trigger asks what it is aimed at: the
+    // only spell on the stack is the one it was flashed in to answer.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "the Snake's controller aims its own trigger");
+    assert_eq!(
+        options,
+        vec![ritual],
+        "\"counter target spell\" finds the spell still waiting below the trigger"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ritual],
+            },
+        )
+        .expect("the spell the trigger offered is the one it counters");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let landed = on_battlefield(&engine, p0, mystic_snake()).expect("the Snake resolved");
+    assert_eq!(pt(&engine, landed), (2, 2), "the body the card prints");
+    assert!(
+        keywords(&engine, landed).contains(KeywordSet::FLASH),
+        "flash is a keyword of the permanent it becomes, not only of the cast"
+    );
+    assert!(
+        in_graveyard(&engine, p1, dark_ritual()).is_some(),
+        "a countered spell is put into its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        0,
+        "and the three black mana it prints were never added: the spell never resolved"
+    );
+    assert!(
+        is_tapped(
+            &engine,
+            on_battlefield(&engine, p1, swamp()).expect("the Swamp is still out")
+        ),
+        "the {{B}} cost was still paid — the counter stops the effect, not the price"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{1}}{{G}}{{U}}{{U}} the Snake cost came out of the pool"
+    );
+}
+
+// oracle_id = "e5f9bd6b-0aa6-4f61-b101-ec194af6d632"
+
+/// Nightscape Master is a 2/2 for {2}{B}{B} printing two activated abilities:
+/// "{U}{U}, {T}: Return target creature to its owner's hand" and
+/// "{R}{R}, {T}: This creature deals 2 damage to target creature."
+///
+/// Both are played on one board, because the tap symbol is half of both prices
+/// and a single Wizard can pay for only one of them between untap steps. The two
+/// copies are seated rather than cast, the way the equipment tests seat theirs:
+/// the {2}{B}{B} would spend the very Islands and Mountains the two abilities
+/// are measured against, and a creature cast this turn has not been under its
+/// controller's control since the turn began (CR 302.6), so it could not pay
+/// either tap. What the board proves is the pair of prices — two blue and then
+/// two red leave the pool while the two black stay — and the pair of effects,
+/// read off a hand, a graveyard and two life totals that never moved.
+#[test]
+#[allow(clippy::too_many_lines)] // two printed abilities, each with a price and a target question
+fn nightscape_master_pays_two_mana_of_its_own_colors_and_its_tap_for_each_ability() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                nightscape_master(),
+                nightscape_master(),
+                swamp(),
+                swamp(),
+                island(),
+                island(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves(), llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let wizards = all_on_battlefield(&engine, p0, nightscape_master());
+    assert_eq!(wizards.len(), 2, "two Wizards stand on the table");
+    for wizard in &wizards {
+        assert_eq!(pt(&engine, *wizard), (2, 2), "the body the card prints");
+        assert!(
+            types(&engine, *wizard).contains(TypeSet::CREATURE),
+            "and it is a creature: {:?}",
+            types(&engine, *wizard)
+        );
+    }
+
+    // `legal.abilities` is filtered through `can_afford`, and that reads the
+    // mana pool rather than the untapped lands: with nothing floating neither
+    // {U}{U} nor {R}{R} is payable, so neither line is offered at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| wizards.contains(src)),
+        "an empty pool pays no two coloured mana: {:?}",
+        legal.abilities
+    );
+
+    tap_all_mana(&mut engine, p0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 6, "two Swamps, two Islands, two Mountains");
+    assert_eq!(pool.available(ManaColor::Blue), 2, "two blue");
+    assert_eq!(pool.available(ManaColor::Red), 2, "two red");
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        2,
+        "and two black that neither line of the card asks for"
+    );
+
+    let elves = all_on_battlefield(&engine, p1, llanowar_elves());
+    assert_eq!(elves.len(), 2, "two Elves across the table");
+    let (bounced, kept) = (elves[0], elves[1]);
+
+    // Ability 0 is the blue line in the card def: "{U}{U}, {T}: Return target
+    // creature to its owner's hand." CR 601.2c names the target before
+    // CR 601.2h pays, so while the question stands every Wizard is still
+    // standing and all six mana is still floating.
+    activate(&mut engine, p0, nightscape_master(), 0);
+    assert!(
+        wizards.iter().all(|id| !is_tapped(&engine, *id)),
+        "the cost is the last step of the activation, not the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "and the mana is still in the pool for the same reason"
+    );
+    let menu = aim_at(&mut engine, p0, bounced);
+    assert!(
+        menu.contains(&bounced) && menu.contains(&kept),
+        "\"target creature\" names no side of the table: {menu:?}"
+    );
+
+    assert_eq!(
+        wizards.iter().filter(|id| is_tapped(&engine, **id)).count(),
+        1,
+        "one activation, one {{T}} paid"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 0, "and two blue with it");
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        2,
+        "while the two black are untouched: the price is {{U}}{{U}} and not two \
+         mana of any kind"
+    );
+    assert_eq!(pool.total(), 4, "six less the two the price costs");
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p1))
+            .contains(&bounced),
+        "\"to its owner's hand\": the Elf the question named is in the hand of \
+         the seat that owns it"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p1, llanowar_elves()),
+        vec![kept],
+        "and the creature the ability did not name never moved"
+    );
+
+    // Ability 1: "{R}{R}, {T}: This creature deals 2 damage to target
+    // creature." The other Wizard is the one that can pay it, because the tap
+    // symbol is half of both prices and the first one has spent its own — a
+    // tapped permanent is not in the offer at all.
+    let acting = wizards
+        .iter()
+        .copied()
+        .find(|id| !is_tapped(&engine, *id))
+        .expect("the Wizard that has not tapped yet");
+    activate(&mut engine, p0, nightscape_master(), 1);
+    let menu = aim_at(&mut engine, p0, kept);
+    assert!(
+        menu.contains(&kept) && menu.contains(&acting),
+        "\"target creature\" is any creature, the Wizard dealing the damage \
+         included: {menu:?}"
+    );
+
+    assert_eq!(
+        wizards.iter().filter(|id| is_tapped(&engine, **id)).count(),
+        2,
+        "both lines of the card have now been paid for, one tap each"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 0, "and the two red with it");
+    assert_eq!(
+        pool.total(),
+        2,
+        "lifting two and then two out of the six, leaving the black"
+    );
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "two damage on a printed 1/1 is lethal (CR 704.5f)"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the damage went to the creature and never to the seat whose board it \
+         stood on"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "nor to the seat that paid for it"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, nightscape_master()).len(),
+        2,
+        "and the Wizard that dealt it is still standing, because the ability \
+         was aimed at the Elf"
+    );
+}
+
+/// Raging Minotaur is a `{2}{R}{R}` 3/3 Minotaur Berserker whose whole printed
+/// text is haste, and haste is invisible in a board state: the keyword means
+/// nothing until the declare-attackers question, where it is the difference
+/// between a creature that arrived this turn and one that did not (CR 302.6).
+/// So two creatures are cast in the *same* main phase — the Minotaur and a
+/// Llanowar Elves, which prints no haste — and the offer has to name one and
+/// decline the other. Reading the card file instead would prove nothing, since
+/// the Elf satisfies every characteristic written there.
+#[test]
+fn raging_minotaur_attacks_the_turn_it_arrives_where_a_fresh_elf_cannot() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[raging_minotaur(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Five lands, five mana, all inside this one main phase: the Forest's {G}
+    // pays the Elf and the four Mountains pay {2}{R}{R} for the Minotaur
+    // (CR 500.5). Neither creature is on the board while the tapping happens,
+    // so nothing on it has a mana ability of its own to count (rule 11).
+    tap_all_mana(&mut engine, p0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        (
+            pool.available(ManaColor::Red),
+            pool.available(ManaColor::Green)
+        ),
+        (4, 1),
+        "four Mountains and one Forest, and nothing else on the board"
+    );
+
+    cast_with_floating(&mut engine, p0, quiet_creature());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, raging_minotaur());
+    pass_until(&mut engine, stack_is_empty);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf resolved");
+    let minotaur = on_battlefield(&engine, p0, raging_minotaur()).expect("the Minotaur resolved");
+    assert_eq!(pt(&engine, minotaur), (3, 3), "the body the card prints");
+    assert!(
+        keywords(&engine, minotaur).contains(KeywordSet::HASTE),
+        "the printed haste reaches the permanent"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::HASTE),
+        "and the Elf beside it is the control: no haste is printed on it"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&minotaur),
+        "it entered this turn and may attack anyway, which is what haste is \
+         for (CR 302.6): {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&elf),
+        "the Elf entered in the same main phase, is untapped, and has no \
+         haste — so summoning sickness is what the offer is reading and the \
+         line above is not an offer that would name anything: {attackers:?}"
+    );
+}
+
+/// Reclusive Wight prints one sentence: "At the beginning of your upkeep, if
+/// you control another nonland permanent, sacrifice this creature." Two
+/// upkeeps read both halves of that condition off one board. The four Swamps
+/// beneath it are lands, so a Wight standing alone is a single nonland
+/// permanent and the trigger has to leave it where it is — a filter that had
+/// lost `NONLAND` would have counted the Swamps, reached two and eaten the
+/// Wight a turn early. Casting a Sol Ring makes the count genuinely two, and
+/// the next upkeep of the Wight's own controller takes it.
+#[test]
+fn reclusive_wight_survives_its_upkeep_alone_and_is_sacrificed_once_another_nonland_stands() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[reclusive_wight(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
+
+    // {3}{B} out of the four Swamps, which leaves the board exactly as it was:
+    // the Wight is the only nonland permanent either seat controls.
+    cast_from_hand(&mut engine, p0, reclusive_wight());
+    pass_until(&mut engine, stack_is_empty);
+    let wight = on_battlefield(&engine, p0, reclusive_wight()).expect("the Wight resolved");
+    assert_eq!(pt(&engine, wight), (4, 4), "the body the card prints");
+
+    // A whole turn round the table and back, so the walk crosses the Wight's
+    // controller's upkeep — where the question this card is, is asked.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, reclusive_wight()).is_some(),
+        "four Swamps are lands, so \"another nonland permanent\" is false and \
+         the upkeep leaves the Wight standing"
+    );
+    assert!(
+        in_graveyard(&engine, p0, reclusive_wight()).is_none(),
+        "and nothing sacrificed it on the way past"
+    );
+
+    // One artifact is all it takes: the same board with a Sol Ring on it makes
+    // the count two.
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "a Sol Ring resolved beside the Wight"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, reclusive_wight()).is_none(),
+        "\"if you control another nonland permanent, sacrifice this creature\""
+    );
+    assert!(
+        in_graveyard(&engine, p0, reclusive_wight()).is_some(),
+        "a sacrificed creature goes to its owner's graveyard, which is the \
+         difference between a trigger that fired and one that quietly did nothing"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "the permanent it died beside never moved"
+    );
+}
+
+/// Serpentine Kavu is a `{4}{G}` 4/4 whose whole text is "`{R}`: This creature
+/// gains haste until end of turn."
+///
+/// Nothing in the card file says the keyword actually reaches the permanent, so
+/// the grant is played: five Forests pay `{4}{G}` down to an empty pool and the
+/// one Mountain is held back as the source the `{R}` comes out of — the offer is
+/// read with that red already floating, because `legal.abilities` is filtered
+/// through `can_afford` and that reads the pool rather than the untapped land.
+/// The Kavu then attacks on the turn it arrived, which a summoning-sick creature
+/// may only do when something granted it haste (CR 302.6), and the keyword is
+/// gone again a turn later, which is the printed duration and not a static.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn serpentine_kavu_pays_red_for_a_haste_that_lets_it_attack_once() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), mountain()],
+        )
+        .hand(0, &[serpentine_kavu()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Five Forests and not the Mountain: `{4}{G}` is exactly the five, and the
+    // one land left standing is the source the `{R}` is about to come from.
+    tap_all_mana_but(&mut engine, p0, Some(mountain()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Forests tapped, five green, and the Mountain still standing"
+    );
+    cast_with_floating(&mut engine, p0, serpentine_kavu());
+    pass_until(&mut engine, stack_is_empty);
+
+    let kavu = on_battlefield(&engine, p0, serpentine_kavu()).expect("the Kavu resolved");
+    assert_eq!(pt(&engine, kavu), (4, 4), "the body the card prints");
+    assert!(
+        !keywords(&engine, kavu).contains(KeywordSet::HASTE),
+        "and the card prints no keyword of its own"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the cast spent the five to the last mana, so the offer below is not a gift"
+    );
+
+    // The `{R}` is a real price: the offer is filtered through `can_afford`,
+    // which reads the pool and never the untapped land beside it.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(kavu, 0)),
+        "an empty pool pays no {{R}}, so the line is not offered at all: {:?}",
+        legal.abilities
+    );
+
+    // A basic Mountain is the CR 305.6 shortcut, so it is named in
+    // `mana_abilities` and carries no index to activate.
+    let land = on_battlefield(&engine, p0, mountain()).expect("the Mountain is out");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+        .expect("the Mountain was the one source kept untapped");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "one red, off the one Mountain on this board"
+    );
+    assert_eq!(pool.total(), 1, "and nothing else is floating with it");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(kavu, 0)),
+        "with {{R}} floating the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, serpentine_kavu(), 0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{R}} came out of the pool"
+    );
+    assert!(
+        !keywords(&engine, kavu).contains(KeywordSet::HASTE),
+        "granting a keyword is no mana ability, so it waits on the stack"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        keywords(&engine, kavu).contains(KeywordSet::HASTE),
+        "\"This creature gains haste until end of turn\""
+    );
+
+    // Haste means what it says: the Kavu arrived this turn, so the keyword is
+    // the only way into the attack declaration (CR 302.6).
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert!(
+        attackers.contains(&kavu),
+        "a 4/4 that arrived this turn may attack, which is the whole of the card: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(kavu, Defender::Player(p1))],
+            },
+        )
+        .expect("the attacker came out of the list that offered it");
+    // Not `stack_is_empty`: the stack is already empty the moment attackers are
+    // declared, so that predicate would stop the walk before the damage step.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "four unblocked damage on the very turn the Kavu arrived"
+    );
+
+    // "until end of turn": the creature is still standing a turn later and the
+    // keyword is not — a static or a permanent grant would still be on it here.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, serpentine_kavu()).is_some(),
+        "the Kavu survived the turn it attacked in"
+    );
+    assert!(
+        !keywords(&engine, kavu).contains(KeywordSet::HASTE),
+        "the grant lasted the turn it was made in and no longer"
+    );
+}
+
+/// Skyshroud Troopers — {3}{G} — Creature — Elf Druid Warrior, 3/3, and its
+/// whole printed text is one line: "{T}: Add {G}".
+///
+/// Both halves are the engine's answer rather than the card's, so both are
+/// played. Four Forests are exactly {3}{G} and are spent down to an empty
+/// pool, which is what makes the body the cast left behind a reading rather
+/// than a label: three and a green is a real price, and (3, 3) is the body
+/// the card prints. The mana line is a *printed* mana ability, so it is an
+/// ordinary `(source, index)` entry in `LegalActions::abilities` and never the
+/// CR 305.6 shortcut a Forest uses; its whole price is its own {T}, so it is
+/// offered on an empty pool (CR 601.2h reads the pool, not the untapped
+/// lands), and leaving every Forest standing is what makes "one green and
+/// nothing else" exact — nothing on the board but the creature could have made
+/// it. A creature's {T} is unpayable while it is sick (CR 302.6), so the turn
+/// is walked once before the tap symbol is worth anything.
+#[test]
+fn skyshroud_troopers_lands_as_a_three_three_and_taps_for_one_green() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[skyshroud_troopers()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Four Forests into the pool: {3}{G} is the whole cost, and CR 500.5
+    // keeps a pool across a cast while the scenario stays in one main phase.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Forests, and the creature is still in hand"
+    );
+    cast_with_floating(&mut engine, p0, skyshroud_troopers());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let troopers =
+        on_battlefield(&engine, p0, skyshroud_troopers()).expect("the Troopers resolved");
+    assert_eq!(
+        pt(&engine, troopers),
+        (3, 3),
+        "the body the card prints, for the {{3}}{{G}} the cast really paid"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the four mana were the whole cost"
+    );
+    let kinds = types(&engine, troopers);
+    assert!(
+        kinds.contains(TypeSet::CREATURE),
+        "and what arrived is a creature: {kinds:?}"
+    );
+
+    // CR 302.6: a creature that has just entered has no payable {T}, so the
+    // untap step its controller's next turn brings is what turns the printed
+    // line into an ability at all.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(
+        !is_tapped(&engine, troopers),
+        "the untap step stood the creature back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended (CR 500.5), so a green \
+         read below has no other source on this board"
+    );
+
+    // The whole price is the tap symbol, so `can_afford` is satisfied by an
+    // empty pool — and the ability is a printed one, which is why it carries
+    // an index to name instead of arriving as the CR 305.6 shortcut.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(troopers, 0)),
+        "an untapped creature is a paid {{T}}, so \"{{T}}: Add {{G}}\" is \
+         offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, skyshroud_troopers(), 0);
+
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "`{{G}}` is fixed, so there is nothing to name on the way (CR 605.1), \
+         got {:?}",
+        engine.pending()
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "\"{{T}}: Add {{G}}\" — one green, off one tap"
+    );
+    assert_eq!(pool.total(), 1, "and nothing else came with it");
+    assert!(
+        is_tapped(&engine, troopers),
+        "the creature paid its own {{T}}"
+    );
+    assert!(
+        lands_of(&engine, p0)
+            .iter()
+            .all(|id| !is_tapped(&engine, *id)),
+        "and no land on the board moved, so the green has no other source on it"
+    );
+
+    // The tap is spent, so the line is no longer one the seat may take — read
+    // off the offer, which is where an unpayable cost goes.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(troopers, 0)),
+        "a tapped creature has no {{T}} left to pay with: {:?}",
+        legal.abilities
+    );
+}
+
+/// Starlit Angel is a `{3}{W}{W}` 3/4 Angel whose entire text is "Flying" and
+/// whose file is marked `Implemented`, so the whole card is a body, a keyword
+/// and a price. Five Plains pay the printed cost to the last mana — four
+/// mana or six would show in what is left floating, and the offer is read
+/// with the pool already full because `can_afford` reads the pool and not the
+/// untapped lands. Flying is then read where it does work rather than off the
+/// characteristic: a ground 1/1 across the table gets no block at all against
+/// it, and the three power lands on the defending seat's life total.
+#[test]
+fn starlit_angel_lands_as_a_flying_three_four_that_ground_creatures_cannot_block() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(); 5])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[starlit_angel()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Mana before the claim: `LegalActions` is filtered through `can_afford`,
+    // which reads the pool rather than the five untapped Plains.
+    let card = in_hand(&engine, p0, starlit_angel()).expect("the Angel is in hand");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Plains, five white — the whole printed cost"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&card),
+        "{{3}}{{W}}{{W}} is five mana and the pool holds exactly five: {:?}",
+        legal.castable
+    );
+
+    cast_with_floating(&mut engine, p0, starlit_angel());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, starlit_angel()).is_some()
+    });
+    let angel = on_battlefield(&engine, p0, starlit_angel()).expect("the Angel resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost came out of the pool to the last mana"
+    );
+    assert_eq!(pt(&engine, angel), (3, 4), "the body the card prints");
+    assert!(
+        types(&engine, angel).contains(TypeSet::CREATURE),
+        "and it arrived as the creature it prints"
+    );
+    assert!(
+        keywords(&engine, angel).contains(KeywordSet::FLYING),
+        "the one line of text the card carries"
+    );
+
+    // Flying is an evasion rule, so it is read in a block declaration: the
+    // Angel has to have been under its controller's control since their turn
+    // began (CR 302.6), which is one turn cycle away from the cast.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "the Angel's controller takes another turn"
+    );
+    let blockers = attack_and_collect_blocks(&mut engine, angel, p1);
+    assert!(
+        blockers.is_empty(),
+        "CR 702.9b: a creature without flying can block only a creature \
+         without flying, and the only creature across the table is a \
+         ground-bound Elf: {blockers:?}"
+    );
+
+    let Pending::ChooseBlockers { player, .. } = engine.pending().clone() else {
+        panic!(
+            "the block declaration is the question under test: {:?}",
+            engine.pending()
+        )
+    };
+    engine
+        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("declaring no blockers is always legal");
+    // Not `stack_is_empty`: the stack is already empty the moment attackers
+    // are declared, and every life total still reads 20 there. The end step is
+    // past combat damage (CR 510.2).
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "three combat damage from the unblocked 3/4"
+    );
+    assert!(
+        on_battlefield(&engine, p0, starlit_angel()).is_some(),
+        "and the Angel is still standing after the attack"
+    );
+}
+
+/// Thing from the Deep is a 9/9 for {6}{U}{U}{U} whose whole text is
+/// "Whenever this creature attacks, sacrifice it unless you sacrifice an
+/// Island." Two boards read the two halves of that "unless": with no Island
+/// under the attacking seat there is no price to pay and therefore nothing to
+/// ask — the walk below panics on any question rather than tolerating one — so
+/// the Leviathan drowns itself before combat damage and the 9 power never
+/// lands. With exactly one Island the engine asks, the answer spends the land
+/// instead of the creature, and the same attack connects for nine.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn thing_from_the_deep_drowns_itself_without_an_island_and_buys_the_attack_with_one() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+
+    // --- half one: no Island, so nothing to pay and nothing to ask --------
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thing_from_the_deep()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let beast = on_battlefield(&engine, p0, thing_from_the_deep()).expect("the Leviathan is out");
+    assert_eq!(pt(&engine, beast), (9, 9), "the body the card prints");
+    assert!(
+        on_battlefield(&engine, p0, island()).is_none(),
+        "and there is no Island anywhere under the seat that is about to attack"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing else")
+    };
+    assert_eq!(player, p0, "the active seat declares the attackers");
+    assert!(
+        attackers.contains(&beast),
+        "an untapped 9/9 with no attack restriction is on the offer: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(beast, Defender::Player(p1))],
+            },
+        )
+        .expect("the attacker came out of the list that offered it");
+
+    for _ in 0..40 {
+        if in_graveyard(&engine, p0, thing_from_the_deep()).is_some() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            // "Sacrifice it unless you sacrifice an Island" is no question
+            // when there is no Island: a cost with no payable price is never
+            // asked, it is simply not paid. Tolerating a question here would
+            // prove nothing, so this arm is the assertion.
+            Pending::YesNo { player, prompt, .. } => panic!(
+                "no Island, so there is no price to pay and nothing to ask: \
+                 {prompt:?} to {player:?}"
+            ),
+            Pending::ChooseCards { prompt, .. } => {
+                panic!("no Island, so no sacrifice cost may be asked for: {prompt:?}")
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected on the way to the sacrifice: {other:?}"),
+        }
+    }
+
+    assert!(
+        on_battlefield(&engine, p0, thing_from_the_deep()).is_none(),
+        "the printed sentence took the creature: attacking with no Island to \
+         give up kills the attacker"
+    );
+    assert!(
+        in_graveyard(&engine, p0, thing_from_the_deep()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "it was sacrificed in the declare-attackers step, so its 9 power never \
+         dealt any combat damage"
+    );
+
+    // --- half two: exactly one Island, and exactly the price --------------
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thing_from_the_deep(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let beast = on_battlefield(&engine, p0, thing_from_the_deep()).expect("the Leviathan is out");
+    let land = on_battlefield(&engine, p0, island()).expect("the Island is out");
+    assert_eq!(
+        lands_of(&engine, p0),
+        vec![land],
+        "one Island and no other land: the sacrifice has exactly one thing to ask about"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing else")
+    };
+    assert!(
+        attackers.contains(&beast),
+        "the same 9/9 that drowned itself above may attack here: {attackers:?}"
+    );
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(beast, Defender::Player(p1))],
+            },
+        )
+        .expect("the attacker came out of the list that offered it");
+
+    // The trigger asks before anything dies, and it asks exactly one question:
+    // which Island pays. There is no yes-or-no in front of it — the list of
+    // what may pay is the whole question, and naming nothing is how the seat
+    // declines — so a `YesNo` here falls through to the panic below.
+    // `asked` is what the assertions below turn on, and the state that
+    // matters is the one they leave behind.
+    let mut asked = false;
+    for _ in 0..40 {
+        if in_graveyard(&engine, p0, island()).is_some() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                prompt,
+            } => {
+                asked = true;
+                assert_eq!(
+                    prompt,
+                    ChoicePrompt::CostSacrifice,
+                    "a cost and not a search, which is all a client has to tell apart"
+                );
+                assert_eq!(
+                    (min, max),
+                    (0, 1),
+                    "at most one Island, and none at all is the answer that \
+                     declines and lets the 9/9 go"
+                );
+                assert_eq!(
+                    options,
+                    vec![land],
+                    "the one Island this seat controls is the whole of the answer"
+                );
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![land],
+                        },
+                    )
+                    .expect("the Island the question offered pays the cost");
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected while the attack trigger resolves: {other:?}"),
+        }
+    }
+
+    assert!(
+        asked,
+        "an Island is a price the seat can really pay, so the engine asks \
+         before the 9/9 dies"
+    );
+    assert!(
+        in_graveyard(&engine, p0, island()).is_some(),
+        "the answer paid the price: the Island is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, thing_from_the_deep()).is_some(),
+        "and the \"unless\" was bought off, so the Leviathan is still attacking"
+    );
+
+    pass_until(&mut engine, |e| e.state().players[1].life == 11);
+    assert_eq!(
+        engine.state().players[1].life,
+        11,
+        "an unblocked 9/9 connects for nine, which is what the Island bought"
+    );
+    assert!(
+        on_battlefield(&engine, p0, thing_from_the_deep()).is_some(),
+        "and it survived its own attack: one trigger, one Island, paid once"
+    );
+}
+
+/// Vengeful Dead — {3}{B}, a 3/2 Zombie: "Whenever this creature or another
+/// Zombie dies, each opponent loses 1 life."
+///
+/// Three deaths on one board read every word of that sentence. Killing this
+/// seat's own Llanowar Elves is the control: a creature that is neither
+/// Vengeful Dead nor a Zombie must leave both life totals alone, so the drain
+/// below cannot be "something died". The Festering Goblin is the Zombie half of
+/// the disjunction — a *different* printing, whose subtype is the whole of what
+/// the filter looks at, and whose own dies trigger is answered on the way past
+/// — and Vengeful Dead's own death is the "this creature" half. "Each
+/// opponent" is read on both seats: p1 pays once per qualifying death and p0,
+/// who owns the trigger, pays for none of them.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn vengeful_dead_drains_the_opponent_for_a_zombie_and_for_itself_but_not_for_an_elf() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                festering_goblin(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[vengeful_dead()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {3}{B} off the four Swamps. Both Elves are named as the printings kept
+    // back: the one under p0 is the control this test kills in a moment, and a
+    // mana creature tapped for the cost would make the pool a count of
+    // something other than the four Swamps.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Swamps and no Elf: four black"
+    );
+    cast_with_floating(&mut engine, p0, vengeful_dead());
+    pass_until(&mut engine, stack_is_empty);
+    let dead = on_battlefield(&engine, p0, vengeful_dead()).expect("Vengeful Dead resolved");
+    let zombie = on_battlefield(&engine, p0, festering_goblin()).expect("the Zombie is out");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    assert_eq!(pt(&engine, dead), (3, 2), "the body the card prints");
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "nothing has died yet, so nothing has been lost"
+    );
+
+    // (1) A creature that is neither Vengeful Dead nor a Zombie.
+    kill(&mut engine, elf);
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the Elves really died, so the silence below is the filter's and not a \
+         death that never happened"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "an Elf dying is no Zombie dying and no Vengeful Dead dying: the \
+         trigger is silent"
+    );
+
+    // (2) A Zombie that is not Vengeful Dead. The Goblin prints a dies trigger
+    // of its own, so whatever question that raises is answered here, in the
+    // order it arrives rather than in the order it is expected.
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    crate::sba::destroy(state, zombie);
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    engine
+        .apply(player, PlayerAction::PassPriority)
+        .expect("passing priority is always legal");
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player,
+                options,
+                min,
+                max,
+                ..
+            } => {
+                assert_eq!(
+                    player, p0,
+                    "the Zombie's controller answers its own trigger"
+                );
+                assert_eq!((min, max), (1, 1), "one target, and the trigger asks once");
+                assert!(
+                    options.contains(&dead),
+                    "\"target creature\": Vengeful Dead is a creature and one of \
+                     the options: {options:?}"
+                );
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![dead],
+                        },
+                    )
+                    .expect("the target the question offered is a legal answer");
+            }
+            Pending::Arrange {
+                player,
+                cards,
+                piles,
+                ..
+            } => {
+                let piles = crate::choice::default_arrangement(&cards, &piles)
+                    .expect("an arrangement the engine asks can be answered");
+                engine
+                    .apply(player, PlayerAction::Arrange { piles })
+                    .expect("the order the question offered is a legal answer");
+            }
+            Pending::Priority { .. } if stack_is_empty(&engine) => break,
+            Pending::Priority { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::PassPriority)
+                    .expect("passing priority is always legal");
+            }
+            other => panic!("unexpected while the dies triggers resolve: {other:?}"),
+        }
+    }
+
+    assert!(
+        in_graveyard(&engine, p0, festering_goblin()).is_some(),
+        "the Zombie the state-based action destroyed is in its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "\"another Zombie dies\": a Zombie that is not Vengeful Dead drains the \
+         opponent — where the Elf above drained nothing"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "\"each opponent\" is not \"each player\": the seat that owns the \
+         trigger pays nothing"
+    );
+
+    // (3) Vengeful Dead's own death, the `This` half of the same filter.
+    kill(&mut engine, dead);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "\"this creature … dies\": the Zombie that carries the trigger drains \
+         for itself too, one more life and not two"
+    );
+    assert!(
+        in_graveyard(&engine, p0, vengeful_dead()).is_some(),
+        "and it is in its owner's graveyard, so the second drain was its own \
+         death and not another Zombie's"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "two deaths that count, and the trigger's owner still pays for neither"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and the Elf across the table never moved: no drain touched its owner's board"
+    );
+}
+
+// oracle_id = "123147b4-57d0-44cd-bdd5-a449ac86c1cb"
+
+/// Vile Deacon — {2}{B}{B} 2/2 Human Cleric: "Whenever this creature attacks,
+/// it gets +X/+X until end of turn, where X is the number of Clerics on the
+/// battlefield."
+///
+/// "Clerics on the battlefield" is the whole card, and the board is built so
+/// that three readings of it give three different bodies: the Deacon itself
+/// and the Deacon across the table are two, so +2/+2; a filter that had read
+/// "Clerics you control" would have found one and left a 3/3, and one that
+/// counted creatures would have found three — the Llanowar Elves beside it
+/// included — and left a 5/5. The Elves and the second Deacon are also the
+/// control for the other half of the sentence: the pump names `Filter::This`,
+/// so neither may grow. The turn is walked to its end because the printed
+/// duration is part of the card, and to the end step rather than to an empty
+/// stack because the stack is empty the moment attackers are declared and
+/// every life total still reads twenty there.
+#[test]
+fn vile_deacon_pumps_itself_for_the_clerics_on_both_sides_of_the_table() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[vile_deacon(), llanowar_elves()])
+        .battlefield(1, &[vile_deacon()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let deacon = on_battlefield(&engine, p0, vile_deacon()).expect("the Deacon is out");
+    let theirs = on_battlefield(&engine, p1, vile_deacon()).expect("and one across the table");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+    assert_eq!(
+        pt(&engine, deacon),
+        (2, 2),
+        "a printed 2/2 before it attacks"
+    );
+    assert_eq!(pt(&engine, elves), (1, 1), "and a printed 1/1 beside it");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&deacon),
+        "an untapped creature that was not cast this turn may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(deacon, Defender::Player(p1))],
+            },
+        )
+        .expect("the Deacon came out of the list that offered it");
+
+    // The trigger goes on the stack the moment the declaration is made and
+    // resolves before combat damage (CR 509.1), so the life total read at the
+    // end step belongs to the pumped body and not to the printed one.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        pt(&engine, deacon),
+        (4, 4),
+        "+2/+2 for the two Clerics on the battlefield — the Deacon itself and \
+         the one across the table. \"Clerics you control\" would read one and \
+         leave a 3/3; counting creatures would read three and leave a 5/5"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "and the pump was live when the damage happened: an unblocked 4/4 is \
+         four life"
+    );
+    assert_eq!(
+        pt(&engine, elves),
+        (1, 1),
+        "the effect names `Filter::This`: the Elves are no Cleric, so they are \
+         neither counted nor granted anything"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (2, 2),
+        "and the Deacon across the table is a Cleric — counted — and not the \
+         attacker — unpumped"
+    );
+
+    // The printed duration, on the same board a turn later: a static or an
+    // indefinite grant would still be on the creature here.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, deacon),
+        (2, 2),
+        "\"until end of turn\": the pump lasted the turn it was made in and no \
+         longer"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "and the damage it dealt is not undone with it"
+    );
+}
+
+/// War Mammoth is a `{3}{G}` 3/3 Elephant whose whole printed text is
+/// "Trample", so nothing short of a real combat step tells it from a vanilla
+/// 3/3. The scenario casts it off four Forests — the pool reads empty
+/// afterwards, so the `{3}{G}` was really paid — waits a turn for summoning
+/// sickness (CR 302.6), and then attacks into a 1/1 Llanowar Elves. One of the
+/// three damage is lethal to the blocker and the other two must trample over
+/// (CR 702.19b): a defender at 18 is the only number that says trample is a
+/// rule here and not a keyword sitting on a card.
+#[test]
+fn war_mammoth_casts_for_four_and_tramples_two_over_a_one_one_blocker() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[war_mammoth()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Four Forests are the whole board and the whole cost: the pool is empty
+    // once the Mammoth has landed, so the `{3}{G}` was paid rather than skipped.
+    cast_from_hand(&mut engine, p0, war_mammoth());
+    pass_until(&mut engine, stack_is_empty);
+    let mammoth = on_battlefield(&engine, p0, war_mammoth()).expect("the Mammoth resolved");
+    assert_eq!(pt(&engine, mammoth), (3, 3), "the printed 3/3 body");
+    assert!(
+        keywords(&engine, mammoth).contains(KeywordSet::TRAMPLE),
+        "the one line of rules text the card prints"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "four Forests paid {{3}}{{G}} to the last mana"
+    );
+
+    // It entered this turn as a spell, so CR 302.6 keeps it out of combat
+    // until its controller's next turn has begun.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("the Elf is still out");
+
+    let blocks = attack_and_collect_blocks(&mut engine, mammoth, p1);
+    assert!(
+        blocks
+            .iter()
+            .any(|option| option.blocker == elf && option.attackers.contains(&mammoth)),
+        "the 1/1 may stand in front of the 3/3: trample changes what the damage \
+         does, not who may block it: {blocks:?}"
+    );
+    let Pending::ChooseBlockers { player, .. } = engine.pending().clone() else {
+        panic!(
+            "expected the declare-blockers question, got {:?}",
+            engine.pending()
+        )
+    };
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, mammoth)],
+            },
+        )
+        .expect("the Elf was one of the pairings the engine offered");
+
+    // The end step is past the combat damage step (CR 510.2); `stack_is_empty`
+    // would stop the walk while the damage was still unassigned.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "one of the three damage is lethal to a printed 1/1 (CR 704.5f)"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "and the remaining two trample over: 20 would mean the Elf ate all \
+         three points, 17 that it was never in the way (CR 702.19b)"
+    );
+    assert!(
+        on_battlefield(&engine, p0, war_mammoth()).is_some(),
+        "the Mammoth survives the combat it started"
+    );
+}
+
+/// Yavimaya Wurm — {4}{G}{G} — 6/4 Wurm with trample. The card is one word of
+/// rules text on one body, so the scenario plays both halves: six Forests pay
+/// the printed six exactly and the Wurm arrives by being cast, reading as the
+/// 6/4 the card prints with the keyword projected onto the permanent. Trample
+/// only means anything once something blocks, so the creature is turned
+/// sideways a turn later — a creature cast this turn may not attack at all
+/// (CR 302.6) — into a printed 1/1: one damage is lethal to the blocker
+/// (CR 510.1c) and the other five spill onto the defending player, while the
+/// attacker's own life total stays where it was.
+#[test]
+fn yavimaya_wurm_tramples_five_past_the_creature_that_blocks_it() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 6])
+        .hand(0, &[yavimaya_wurm()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {4}{G}{G} is exactly the six Forests this board holds, so the cast is a
+    // real payment out of a pool the lands actually filled.
+    cast_from_hand(&mut engine, p0, yavimaya_wurm());
+    pass_until(&mut engine, stack_is_empty);
+    let wurm = on_battlefield(&engine, p0, yavimaya_wurm()).expect("the Wurm resolved");
+    assert_eq!(pt(&engine, wurm), (6, 4), "the body the card prints");
+    assert!(
+        keywords(&engine, wurm).contains(KeywordSet::TRAMPLE),
+        "and the one keyword it prints reaches the permanent"
+    );
+
+    // A whole turn, because a creature that entered this turn has summoning
+    // sickness and is not offered as an attacker (CR 302.6).
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let blocked = attack_and_collect_blocks(&mut engine, wurm, p1);
+    assert_eq!(
+        blocked.len(),
+        1,
+        "the 1/1 across the table may block the Wurm and is the only creature there"
+    );
+    let elf = blocked[0].blocker;
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, wurm)],
+            },
+        )
+        .expect("the pairing the engine published");
+
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::Ending);
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "one damage is lethal to a printed 1/1 (CR 704.5f)"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        15,
+        "trample: the five damage past the blocker are the printed ability's whole point"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the excess went to the player being attacked, never back at the attacker's seat"
+    );
+    assert!(
+        on_battlefield(&engine, p0, yavimaya_wurm()).is_some(),
+        "a 6/4 survives the 1/1 it ran over"
+    );
+}
+
+/// `Disease Carriers` is a `{2}{B}{B}` 2/2 Rat under `Coverage::Implemented`.
+/// When it dies, its triggered ability targets a creature to give it -2/-2 until end of turn.
+/// When destroyed by `heroes_downfall()`, the card moves to the graveyard and its `Trigger::Dies` ability
+/// triggers, prompting `Pending::ChooseTargets` where targeting an opponent's 6/6 creature reduces its power
+/// and toughness to 4/4 until end of turn.
+#[test]
+fn disease_carriers_dies_gives_target_creature_minus_two_minus_two() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[disease_carriers(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[rootbreaker_wurm()])
+        .hand(0, &[heroes_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let carriers =
+        on_battlefield(&engine, p0, disease_carriers()).expect("Disease Carriers on battlefield");
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm())
+        .expect("opponent Rootbreaker Wurm on battlefield");
+    assert_eq!(pt(&engine, carriers), (2, 2));
+    assert_eq!(pt(&engine, wurm), (6, 6));
+
+    cast_from_hand(&mut engine, p0, heroes_downfall());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets for downfall, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&carriers));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![carriers],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets for dies trigger, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&wurm),
+        "opponent's creature is an available target for the dies trigger"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![wurm],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, disease_carriers()).is_some(),
+        "Disease Carriers is in graveyard"
+    );
+    assert_eq!(
+        pt(&engine, wurm),
+        (4, 4),
+        "target creature receives -2/-2 until end of turn"
+    );
+}
+
+/// `Fighting Drake` is a 2/4 creature under `Coverage::Implemented` with flying and no activated abilities.
+/// When cast from hand off four Islands, it resolves onto the battlefield with its printed 2/4 stats.
+/// Its continuous characteristics grant flying to itself while grounded bystanders remain unchanged.
+#[test]
+fn fighting_drake_resolves_as_a_flying_two_four_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[fighting_drake()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Elf deployed");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING),
+        "Elf is a grounded creature"
+    );
+
+    let card = in_hand(&engine, p0, fighting_drake()).expect("Fighting Drake is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "cannot cast {{2}}{{U}}{{U}} with an empty mana pool"
+    );
+
+    // Keep the Elf untapped so its mana ability does not inflate the pool.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Islands produce four blue mana"
+    );
+
+    cast_with_floating(&mut engine, p0, fighting_drake());
+    pass_until(&mut engine, stack_is_empty);
+
+    let drake = on_battlefield(&engine, p0, fighting_drake()).expect("Fighting Drake resolved");
+    assert_eq!(
+        pt(&engine, drake),
+        (2, 4),
+        "printed power and toughness is 2/4"
+    );
+    assert!(
+        keywords(&engine, drake).contains(KeywordSet::FLYING),
+        "Fighting Drake has flying"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING),
+        "grounded Elf did not gain flying"
+    );
+}
+
+/// `Flowstone Overseer` is a 4/4 creature under `Coverage::Implemented` with an activated ability costing `{R}{R}`.
+/// Activating its ability requires `{R}{R}` in the mana pool and targets a creature on the battlefield.
+/// Upon resolution, the targeted creature gets +1/-1 until end of turn while the Overseer itself does not tap.
+#[test]
+fn flowstone_overseer_pumps_target_creature_power_and_reduces_toughness() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), flowstone_overseer()])
+        .battlefield(1, &[rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let overseer = on_battlefield(&engine, p0, flowstone_overseer()).expect("Overseer deployed");
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("Wurm deployed");
+
+    assert_eq!(pt(&engine, overseer), (4, 4), "Overseer is 4/4");
+    assert_eq!(pt(&engine, wurm), (6, 6), "Wurm starts as 6/6");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.contains(&(overseer, 0)),
+        "cannot afford {{R}}{{R}} with an empty mana pool"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        2,
+        "two Mountains provide {{R}}{{R}}"
+    );
+
+    activate(&mut engine, p0, flowstone_overseer(), 0);
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "activating player chooses target");
+    assert_eq!((min, max), (1, 1), "exactly one target required");
+    assert!(
+        options.contains(&wurm) && options.contains(&overseer),
+        "both creatures are valid targets: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .expect("targeting Wurm is legal");
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        0,
+        "costs were paid upon choosing targets"
+    );
+    assert!(
+        !is_tapped(&engine, overseer),
+        "the ability does not require tapping the Overseer"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, wurm),
+        (7, 5),
+        "Wurm received +1/-1, becoming 7/5"
+    );
+    assert_eq!(
+        pt(&engine, overseer),
+        (4, 4),
+        "untargeted Overseer remains 4/4"
+    );
+}
+
+/// `Goblin Clearcutter` is a 3/3 creature under `Coverage::Implemented` with a mana ability costing `{T}` and sacrificing a Forest.
+/// When activated, it prompts with `ChoicePrompt::CostSacrifice` offering only controlled Forests, excluding non-Forest lands and opponent lands.
+/// After the sacrifice, three consecutive color choices between Red and Green add three mana in the chosen combination without using the stack.
+#[test]
+fn goblin_clearcutter_sacrifices_a_forest_for_three_mana_in_any_combination_of_red_and_green() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[goblin_clearcutter(), forest(), mountain()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let clearcutter =
+        on_battlefield(&engine, p0, goblin_clearcutter()).expect("Clearcutter deployed");
+    let my_forest = on_battlefield(&engine, p0, forest()).expect("my Forest deployed");
+    let my_mountain = on_battlefield(&engine, p0, mountain()).expect("my Mountain deployed");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their Forest deployed");
+
+    assert!(
+        !is_tapped(&engine, clearcutter),
+        "Clearcutter starts untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "mana pool is empty initially"
+    );
+
+    activate(&mut engine, p0, goblin_clearcutter(), 0);
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected CostSacrifice prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "activating player chooses land to sacrifice");
+    assert_eq!(prompt, ChoicePrompt::CostSacrifice);
+    assert_eq!((min, max), (1, 1), "sacrifice exactly one Forest");
+    assert!(
+        options.contains(&my_forest),
+        "controlled Forest is an option: {options:?}"
+    );
+    assert!(
+        !options.contains(&my_mountain),
+        "Mountain is not a Forest: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_forest),
+        "opponent's Forest is not controlled by activator: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_forest],
+            },
+        )
+        .expect("sacrificing Forest is legal");
+
+    // Three picks of Red and/or Green for the three mana combination.
+    for i in 0..3 {
+        let Pending::ChooseColor {
+            player: color_player,
+            options,
+        } = engine.pending().clone()
+        else {
+            panic!(
+                "expected ChooseColor for pick {i}, got {:?}",
+                engine.pending()
+            );
+        };
+        assert_eq!(color_player, p0);
+        assert_eq!(
+            options,
+            vec![ManaColor::Red, ManaColor::Green],
+            "offers Red and Green"
+        );
+        let choice = if i == 0 {
+            ManaColor::Red
+        } else {
+            ManaColor::Green
+        };
+        engine
+            .apply(p0, PlayerAction::ChooseColor(choice))
+            .expect("color choice is legal");
+    }
+
+    assert!(
+        stack_is_empty(&engine),
+        "mana abilities do not use the stack"
+    );
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Red), 1, "one red mana chosen");
+    assert_eq!(pool.available(ManaColor::Green), 2, "two green mana chosen");
+    assert_eq!(pool.total(), 3, "total of three mana added");
+
+    assert!(
+        is_tapped(&engine, clearcutter),
+        "Goblin Clearcutter tapped to activate"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_some(),
+        "sacrificed Forest is in the graveyard"
+    );
+}
+
+/// `Grandmother Sengir` is a legendary 3/3 creature under `Coverage::Implemented` with an activated ability costing `{1}{B}` and tapping herself.
+/// When activated, she targets a creature on the battlefield and taps as part of the activation cost.
+/// Upon resolution, the targeted creature gets -1/-1 until end of turn while other creatures remain unaffected.
+#[test]
+fn grandmother_sengir_taps_and_shrinks_target_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), grandmother_sengir()])
+        .battlefield(1, &[rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let sengir = on_battlefield(&engine, p0, grandmother_sengir()).expect("Sengir deployed");
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("Wurm deployed");
+
+    assert_eq!(pt(&engine, sengir), (3, 3), "Grandmother Sengir is 3/3");
+    assert_eq!(pt(&engine, wurm), (6, 6), "Wurm starts as 6/6");
+
+    // Tap Swamps for mana while keeping Grandmother Sengir untapped for her own tap cost.
+    tap_mana_except(&mut engine, p0, sengir);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        2,
+        "two Swamps provide {{1}}{{B}}"
+    );
+
+    activate(&mut engine, p0, grandmother_sengir(), 0);
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "activating player chooses target");
+    assert_eq!((min, max), (1, 1), "exactly one target required");
+    assert!(
+        options.contains(&wurm) && options.contains(&sengir),
+        "both creatures are valid targets: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wurm],
+            },
+        )
+        .expect("targeting Wurm is legal");
+
+    assert!(
+        is_tapped(&engine, sengir),
+        "Grandmother Sengir tapped as cost"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{1}}{{B}} was spent from the mana pool"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, wurm),
+        (5, 5),
+        "Wurm received -1/-1, becoming 5/5"
+    );
+    assert_eq!(
+        pt(&engine, sengir),
+        (3, 3),
+        "Grandmother Sengir remained 3/3"
+    );
+}
+
+/// `Hawkeater Moth` is a 1/2 creature under `Coverage::Implemented` with flying and shroud.
+/// When cast from hand off four Forests, it resolves onto the battlefield with both keywords.
+/// When the opponent casts targeted removal (`Swords to Plowshares`), shroud prevents the Moth from being targeted while an un-shrouded creature is offered.
+#[test]
+fn hawkeater_moth_has_flying_and_shroud() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), llanowar_elves()],
+        )
+        .hand(0, &[hawkeater_moth()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Elf deployed");
+
+    // Float 4 green mana from the Forests while keeping the Elf untapped.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Forests produce four green mana"
+    );
+
+    cast_with_floating(&mut engine, p0, hawkeater_moth());
+    pass_until(&mut engine, stack_is_empty);
+
+    let moth = on_battlefield(&engine, p0, hawkeater_moth()).expect("Hawkeater Moth resolved");
+    assert_eq!(pt(&engine, moth), (1, 2), "printed body is 1/2");
+    let kw = keywords_of(&engine, moth);
+    assert!(kw.contains(KeywordSet::FLYING), "Hawkeater Moth has flying");
+    assert!(kw.contains(KeywordSet::SHROUD), "Hawkeater Moth has shroud");
+
+    // Advance to opponent's turn to test shroud against targeted removal.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        player, p1,
+        "opponent chooses target for Swords to Plowshares"
+    );
+    assert_eq!((min, max), (1, 1), "exactly one target required");
+    assert!(
+        options.contains(&elf),
+        "Elf without shroud is a legal target: {options:?}"
+    );
+    assert!(
+        !options.contains(&moth),
+        "Hawkeater Moth with shroud cannot be targeted: {options:?}"
+    );
+}
+
+/// `Luminous Angel` is a 4/4 flying creature under `Coverage::Implemented` that triggers at the beginning of its controller's upkeep.
+/// The upkeep trigger presents an optional choice through `YesNoPrompt::MayDo` to create a 1/1 white Spirit token with flying.
+/// When accepted, a 1/1 flying Spirit creature token enters the battlefield under its controller's control.
+#[test]
+fn luminous_angel_triggers_at_upkeep_to_create_a_spirit_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[luminous_angel()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, luminous_angel());
+    pass_until(&mut engine, stack_is_empty);
+
+    let angel = on_battlefield(&engine, p0, luminous_angel()).expect("Angel resolved");
+    assert_eq!(pt(&engine, angel), (4, 4), "Luminous Angel is 4/4");
+    assert!(
+        keywords_of(&engine, angel).contains(KeywordSet::FLYING),
+        "Luminous Angel has flying"
+    );
+    assert_eq!(tokens_of(&engine, p0).len(), 0, "no tokens created yet");
+
+    // Pass until the beginning of p0's next upkeep when the trigger asks its MayDo question.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        panic!("expected MayDo choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "controller of the Angel makes the choice");
+    assert_eq!(prompt, YesNoPrompt::MayDo);
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Spirit token created");
+    let spirit = tokens[0];
+    assert_eq!(pt(&engine, spirit), (1, 1), "Spirit token is 1/1");
+    assert!(
+        keywords_of(&engine, spirit).contains(KeywordSet::FLYING),
+        "Spirit token has flying"
+    );
+}
+
+/// `Needleshot Gourna` is a 3/6 creature under `Coverage::Implemented` with reach and no activated abilities.
+/// When an opponent attacks with a creature with flying, reach allows Needleshot Gourna to be declared as a legal blocker.
+/// A grounded creature without reach or flying cannot legally block the flying attacker.
+#[test]
+fn needleshot_gourna_has_reach_and_blocks_flying_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[needleshot_gourna(), llanowar_elves()])
+        .battlefield(1, &[baleful_strix()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let gourna = on_battlefield(&engine, p0, needleshot_gourna()).expect("Gourna deployed");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Elf deployed");
+    let strix = on_battlefield(&engine, p1, baleful_strix()).expect("Strix deployed");
+
+    assert_eq!(pt(&engine, gourna), (3, 6), "printed body is 3/6");
+    assert!(
+        keywords(&engine, gourna).contains(KeywordSet::REACH),
+        "Needleshot Gourna has reach"
+    );
+    assert!(
+        keywords(&engine, strix).contains(KeywordSet::FLYING),
+        "Baleful Strix has flying"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::REACH),
+        "Llanowar Elves does not have reach"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        panic!("expected ChooseAttackers prompt");
+    };
+    let defender = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(strix, defender)],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        panic!("expected ChooseBlockers prompt");
+    };
+
+    assert!(
+        blockers
+            .iter()
+            .any(|b| b.blocker == gourna && b.attackers.contains(&strix)),
+        "Needleshot Gourna with reach can legally block the flying Strix"
+    );
+    assert!(
+        !blockers
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&strix)),
+        "grounded Elf cannot block the flying Strix"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(gourna, strix)],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+}
+
+/// `Oyobi, Who Split the Heavens` is a `{6}{W}` 3/6 legendary Spirit with flying under `Coverage::Implemented`.
+/// Whenever its controller casts a Spirit or Arcane spell, its triggered ability creates a 3/3 white Spirit creature token with flying.
+/// With Oyobi on the battlefield, casting `kami_of_tattered_shoji()` (a Spirit spell) fires the `Trigger::SpellCast` ability,
+/// which resolves into a 3/3 flying Spirit creature token before the cast creature itself enters the battlefield.
+#[test]
+fn oyobi_creates_spirit_token_on_casting_spirit_spell() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                oyobi_who_split_the_heavens(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[kami_of_tattered_shoji()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let oyobi = on_battlefield(&engine, p0, oyobi_who_split_the_heavens())
+        .expect("Oyobi is on battlefield");
+    assert_eq!(pt(&engine, oyobi), (3, 6), "Oyobi is a 3/6");
+    assert!(
+        keywords(&engine, oyobi).contains(KeywordSet::FLYING),
+        "Oyobi has flying"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "no tokens on battlefield initially"
+    );
+
+    cast_from_hand(&mut engine, p0, kami_of_tattered_shoji());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(
+        tokens.len(),
+        1,
+        "one Spirit token was created from casting a Spirit spell"
+    );
+    let token = tokens[0];
+    assert_eq!(pt(&engine, token), (3, 3), "Spirit token is a 3/3");
+    assert!(
+        keywords(&engine, token).contains(KeywordSet::FLYING),
+        "Spirit token has flying"
+    );
+    assert!(
+        on_battlefield(&engine, p0, kami_of_tattered_shoji()).is_some(),
+        "the cast Spirit creature resolved and entered the battlefield"
+    );
+}
+
+/// `Phantom Monster` is a 3/3 creature under `Coverage::Implemented` with flying and no activated abilities.
+/// When cast from hand off four Islands, it resolves onto the battlefield with its printed 3/3 stats.
+/// Its continuous characteristics grant flying to itself while grounded bystanders remain unchanged.
+#[test]
+fn phantom_monster_resolves_as_a_flying_three_three_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[phantom_monster()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Elf deployed");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING),
+        "Elf is a grounded creature"
+    );
+
+    let card = in_hand(&engine, p0, phantom_monster()).expect("Phantom Monster is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "cannot cast {{3}}{{U}} with an empty mana pool"
+    );
+
+    // Keep the Elf untapped so its mana ability does not inflate the pool.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Islands produce four blue mana"
+    );
+
+    cast_with_floating(&mut engine, p0, phantom_monster());
+    pass_until(&mut engine, stack_is_empty);
+
+    let monster = on_battlefield(&engine, p0, phantom_monster()).expect("Phantom Monster resolved");
+    assert_eq!(
+        pt(&engine, monster),
+        (3, 3),
+        "printed power and toughness is 3/3"
+    );
+    assert!(
+        keywords(&engine, monster).contains(KeywordSet::FLYING),
+        "Phantom Monster has flying"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING),
+        "grounded Elf did not gain flying"
+    );
+}
+
+/// `Phyrexian Gargantua` is a `{4}{B}{B}` 4/4 Phyrexian Horror under `Coverage::Implemented`.
+/// When it enters the battlefield, its triggered ability causes its controller to draw two cards and lose 2 life.
+/// Casting it from hand off six Swamps resolves the creature and triggers its enters-the-battlefield effect,
+/// leaving a 4/4 body on the battlefield, reducing controller life by 2, and drawing two cards from the library.
+#[test]
+fn phyrexian_gargantua_enters_draws_two_cards_and_loses_two_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[phyrexian_gargantua()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let initial_life = engine.state().players[0].life;
+    let initial_library_size = library_size(&engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, phyrexian_gargantua());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let gargantua = on_battlefield(&engine, p0, phyrexian_gargantua())
+        .expect("Phyrexian Gargantua resolved and entered the battlefield");
+    assert_eq!(
+        pt(&engine, gargantua),
+        (4, 4),
+        "Phyrexian Gargantua is a 4/4"
+    );
+
+    assert_eq!(
+        engine.state().players[0].life,
+        initial_life - 2,
+        "controller loses 2 life from ETB trigger"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        initial_library_size - 2,
+        "controller draws 2 cards from library"
+    );
+}
+
+/// `Ravenous Baboons` is a four-mana 3/2 creature under `Coverage::Implemented` with an enters-the-battlefield trigger that destroys target nonbasic land.
+/// When cast from hand off four Mountains, it enters the battlefield and its trigger asks for a target.
+/// Nonbasic lands on the battlefield are valid targets, while basic lands are excluded from the choice.
+/// Upon resolution, the targeted nonbasic land is destroyed and put into its owner's graveyard.
+#[test]
+fn ravenous_baboons_enters_and_destroys_target_nonbasic_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[ravenous_baboons()])
+        .battlefield(1, &[badlands(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let their_badlands = on_battlefield(&engine, p1, badlands()).expect("Badlands deployed");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("Forest deployed");
+
+    cast_from_hand(&mut engine, p0, ravenous_baboons());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "caster names the target");
+    assert_eq!((min, max), (1, 1), "exactly one target required");
+    assert!(
+        options.contains(&their_badlands),
+        "nonbasic Badlands is an offered target: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_forest),
+        "basic Forest is not a nonbasic land: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_badlands],
+            },
+        )
+        .expect("targeting Badlands is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, ravenous_baboons()).is_some(),
+        "Ravenous Baboons resolved onto the battlefield"
+    );
+    assert!(
+        on_battlefield(&engine, p1, badlands()).is_none(),
+        "targeted Badlands left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p1, badlands()).is_some(),
+        "destroyed Badlands was placed in owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "basic Forest was untouched"
+    );
+}
+
+/// `Renegade Troops` is a 4/2 creature under `Coverage::Implemented` with haste and no activated abilities.
+/// When cast from hand off five Mountains, it resolves onto the battlefield with its printed 4/2 stats and haste.
+/// In the combat phase of the same turn, haste allows it to attack immediately and deal 4 combat damage to the opponent.
+#[test]
+fn renegade_troops_has_haste_and_attacks_the_turn_it_enters() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[renegade_troops()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, renegade_troops());
+    pass_until(&mut engine, stack_is_empty);
+
+    let troops = on_battlefield(&engine, p0, renegade_troops()).expect("Renegade Troops resolved");
+    assert_eq!(pt(&engine, troops), (4, 2), "printed body is 4/2");
+    assert!(
+        keywords(&engine, troops).contains(KeywordSet::HASTE),
+        "Renegade Troops has haste"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ChooseAttackers prompt, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0, "active seat declares attackers");
+    assert!(
+        attackers.contains(&troops),
+        "haste allows attacking on the turn of arrival: {attackers:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(troops, Defender::Player(p1))],
+            },
+        )
+        .expect("declaring attack is legal");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        player: blocker_player,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseBlockers prompt, got {:?}", engine.pending());
+    };
+    engine
+        .apply(
+            blocker_player,
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
+        .expect("declaring no blockers is legal");
+
+    pass_until(&mut engine, |e| e.state().players[1].life != 20);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "four combat damage dealt to defending player"
+    );
+    assert!(
+        on_battlefield(&engine, p0, renegade_troops()).is_some(),
+        "Renegade Troops survives combat"
+    );
+}
+
+/// `Seismic Mage` is a four-mana 1/1 Human Spellshaper under `Coverage::Implemented`.
+/// Its activated ability costs `{2}{R}`, tapping, and discarding a card to destroy target land.
+/// Following the activation sequence (CR 601.2c before CR 601.2h), targeting the opponent's land is chosen
+/// before discarding a card from hand as the cost prompted by `ChoicePrompt::CostDiscard`,
+/// successfully tapping the creature, spending the floating mana, and destroying the targeted land upon resolution.
+#[test]
+fn seismic_mage_activates_to_destroy_target_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[seismic_mage(), mountain(), mountain(), mountain()])
+        .battlefield(1, &[badlands()])
+        .hand(0, &[mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let mage = on_battlefield(&engine, p0, seismic_mage()).expect("Seismic Mage is on battlefield");
+    let opponent_land =
+        on_battlefield(&engine, p1, badlands()).expect("Badlands is on battlefield");
+    let fodder = in_hand(&engine, p0, mountain()).expect("card to discard is in hand");
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, seismic_mage(), 0);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets for Seismic Mage, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&opponent_land),
+        "opponent's land is a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![opponent_land],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    let Pending::ChooseCards {
+        prompt,
+        options: discard_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ChooseCards for discard cost, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostDiscard,
+        "discard prompt is CostDiscard"
+    );
+    assert!(
+        discard_options.contains(&fodder),
+        "hand card is offered to pay discard cost"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        is_tapped(&engine, mage),
+        "Seismic Mage is tapped after activation"
+    );
+    assert!(
+        in_graveyard(&engine, p0, mountain()).is_some(),
+        "discarded card is in graveyard"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, badlands()).is_some(),
+        "targeted land was destroyed and is now in graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, badlands()).is_none(),
+        "targeted land is no longer on battlefield"
+    );
+}
+
+/// `Souldrinker` is a `{3}{B}` 2/2 Spirit under `Coverage::Implemented`.
+/// Its activated ability costs 3 life and puts a +1/+1 counter on itself without tapping or requiring mana.
+/// Activating the ability deducts 3 life as an immediate cost, places the ability on the stack,
+/// and upon resolution places a `CounterKind::P1P1` counter on the permanent to increase its power and toughness to 3/3.
+#[test]
+fn souldrinker_pays_life_to_gain_plus_one_plus_one_counter() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[souldrinker()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let drinker =
+        on_battlefield(&engine, p0, souldrinker()).expect("Souldrinker is on battlefield");
+    assert_eq!(pt(&engine, drinker), (2, 2), "initially a 2/2");
+    assert_eq!(
+        counters_on(&engine, drinker, CounterKind::P1P1),
+        0,
+        "starts with zero counters"
+    );
+    let initial_life = engine.state().players[0].life;
+
+    activate(&mut engine, p0, souldrinker(), 0);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        initial_life - 3,
+        "paying 3 life is deducted as an activation cost"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, drinker, CounterKind::P1P1),
+        1,
+        "one +1/+1 counter is added upon resolution"
+    );
+    assert_eq!(
+        pt(&engine, drinker),
+        (3, 3),
+        "grows to a 3/3 with the counter"
+    );
+    assert!(
+        !is_tapped(&engine, drinker),
+        "ability does not require tapping"
+    );
+}
+
+/// Angel of Retribution is `{6}{W}` for a 5/5 Angel whose entire printed text
+/// is two keywords: flying and first strike. The scenario plays the card
+/// instead of reading its file — the pool is filled before anything is
+/// claimed about affordability, because `can_afford` reads the pool and not
+/// the untapped lands, and the seven mana are then spent to the last drop, so
+/// the permanent on the battlefield is one a real cast put there. Both
+/// keywords are read off the object the layer system projects, the only
+/// reading that can tell a printed keyword from one a neighbouring effect
+/// hands out; a second, one-Plains-short board is the control that says the
+/// cost really is `{6}{W}` and not `{5}{W}`.
+#[test]
+fn angel_of_retribution_arrives_for_six_and_a_white_as_the_five_five_flier_it_prints() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4111, plains())
+        .battlefield(0, &[plains(); 7])
+        .hand(0, &[angel_of_retribution()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // `LegalActions::castable` is filtered through `can_afford`, and that
+    // reads the pool rather than the seven untapped Plains: with nothing
+    // floating, the Angel is not among the castable cards at all.
+    let card = in_hand(&engine, p0, angel_of_retribution()).expect("the Angel is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{6}}{{W}}, and `can_afford` reads the pool \
+         rather than the untapped lands: {:?}",
+        legal.castable
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "seven Plains and nothing else on the board: seven white"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&card),
+        "with seven white floating the printed cost is payable: {:?}",
+        legal.castable
+    );
+
+    cast_with_floating(&mut engine, p0, angel_of_retribution());
+    pass_until(&mut engine, stack_is_empty);
+    let angel = on_battlefield(&engine, p0, angel_of_retribution())
+        .expect("the Angel resolved onto the battlefield under its caster");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{6}}{{W}} came out of the pool to the last mana"
+    );
+    assert_eq!(
+        pt(&engine, angel),
+        (5, 5),
+        "the body the card prints, read after the layers have run"
+    );
+    let printed = keywords(&engine, angel);
+    assert!(
+        printed.contains(KeywordSet::FLYING),
+        "flying is on the permanent and not merely in the card file"
+    );
+    assert!(
+        printed.contains(KeywordSet::FIRST_STRIKE),
+        "and first strike beside it, from the same printed line"
+    );
+
+    // The cost is `{6}{W}` and not `{5}{W}`: the same board one Plains short
+    // taps to six, which is one mana less than the printed price, and the
+    // Angel is not offered as castable.
+    let mut short = Duel::new(4112, plains())
+        .battlefield(0, &[plains(); 6])
+        .hand(0, &[angel_of_retribution()])
+        .start();
+    keep_mulligans(&mut short);
+    reach_main_phase(&mut short, p0);
+    tap_all_mana(&mut short, p0);
+    let short_card = in_hand(&short, p0, angel_of_retribution()).expect("the Angel is in hand");
+    assert_eq!(
+        short.state().players[0].mana_pool.total(),
+        6,
+        "six Plains, six white"
+    );
+    let Pending::Priority { legal, .. } = short.pending().clone() else {
+        panic!("expected priority, got {:?}", short.pending())
+    };
+    assert!(
+        !legal.castable.contains(&short_card),
+        "six is not the seven mana {{6}}{{W}} asks for: {:?}",
+        legal.castable
+    );
+}
+
+// oracle_id = "23625877-b6db-480c-8885-a62b7d0457df"
+
+/// Ardent Militia — {4}{W} — Creature — Human Soldier, printed as a 2/5 with
+/// "Vigilance". Vigilance is the whole card and it is exactly the kind of
+/// characteristic that keeps reading correctly while nothing plays it — the
+/// keyword can be projected, the body can be projected, and both would look
+/// right on a creature that has never been in combat. So the scenario plays
+/// the line: the Militia is cast for {4}{W}, the board walks a full round of
+/// turns (a creature that arrived this turn cannot attack, CR 302.6), and it
+/// is then declared as an attacker against the opponent. Two claims are read
+/// off one combat — 2 damage reached the defending seat, and the Militia is
+/// still untapped while the blocker step is open *and* after the damage, which
+/// is the difference between a vigilant attacker and a tap symbol paid for.
+#[test]
+fn ardent_militia_attacks_without_tapping_itself() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(); 5])
+        .hand(0, &[ardent_militia()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, ardent_militia());
+    pass_until(&mut engine, stack_is_empty);
+    let militia = on_battlefield(&engine, p0, ardent_militia()).expect("the Militia resolved");
+    assert_eq!(pt(&engine, militia), (2, 5), "the body the card prints");
+    assert!(
+        types(&engine, militia).contains(TypeSet::CREATURE),
+        "and what arrived is the creature the card prints"
+    );
+    assert!(
+        keywords(&engine, militia).contains(KeywordSet::VIGILANCE),
+        "the printed Vigilance reaches the permanent"
+    );
+    assert!(
+        !is_tapped(&engine, militia),
+        "and it enters untapped, so its first combat is a real decision"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{4}}{{W}} out of exactly five Plains leaves nothing floating"
+    );
+
+    // Summoning sickness (CR 302.6): the Militia arrived this turn, so it is
+    // not offered as an attacker until it has begun a turn under this seat's
+    // control. A full round of turns is what makes the declaration below legal
+    // rather than refused.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, militia),
+        "nothing tapped it on the way round, so a tapped attacker below would \
+         be the attack's doing and not somebody else's"
+    );
+
+    attack_and_collect_blocks(&mut engine, militia, p1);
+    assert!(
+        !is_tapped(&engine, militia),
+        "Vigilance: attacking does not tap the creature, so it is still standing \
+         while the blocker step is open"
+    );
+
+    // p1 controls nothing, so there is nothing to block with and the two
+    // damage land. `pass_until` declares the empty blocks itself; the walk
+    // stops on the life total, which is the only way this combat can change it.
+    pass_until(&mut engine, |e| e.state().players[1].life < 20);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "the 2/5 dealt its power in combat damage (CR 510.2)"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the damage belongs to the seat that was attacked, not to the attacker"
+    );
+    assert!(
+        !is_tapped(&engine, militia),
+        "after the damage too: the attack cost it no tap, where a paid {{T}} \
+         would have left it down until this seat's next untap step"
+    );
+    assert!(
+        on_battlefield(&engine, p0, ardent_militia()).is_some(),
+        "and it is still on the battlefield, untapped and able to block"
+    );
+}
+
+/// Boris Devilboon — {3}{B}{R} — prints one line: "{2}{B}{R}, {T}: Create a
+/// 1/1 black and red Demon creature token named Minor Demon."
+///
+/// Both halves of that price are the engine's answer rather than the card's, so
+/// both are played on one board: ten lands pay the five the cast costs, and a
+/// later turn pays the four the ability charges plus the tap symbol the Wizard
+/// supplies himself — the `{T}` being why the walk exists, since CR 302.6 keeps
+/// a creature that arrived this turn from paying a tap price, and the assertion
+/// is made with the ability's mana already floating so sickness is the only
+/// thing refusing it. The Demon is read only after the stack has emptied,
+/// because making a token is no mana ability: its body, its black-and-red
+/// identity and the name the card gives it are three claims a token merely
+/// arriving would not tell apart.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn boris_devilboon_taps_and_four_mana_for_a_minor_demon() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .hand(0, &[boris_devilboon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The card arrives the way the card arrives: {3}{B}{R} out of the ten
+    // lands, and the five that are left over are exactly the pool the
+    // ability's {2}{B}{R} is charged against below. A pool empties when a step
+    // ends (CR 500.5), which is why each turn here is read in its own main
+    // phase.
+    cast_from_hand(&mut engine, p0, boris_devilboon());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let boris = on_battlefield(&engine, p0, boris_devilboon()).expect("Boris resolved");
+    assert_eq!(pt(&engine, boris), (2, 2), "the body the card prints");
+    assert!(!is_tapped(&engine, boris), "and he enters untapped");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "nothing has been activated yet, so nothing has been made"
+    );
+
+    // How the payer split the generic half does not matter: five black and
+    // five red went in and one of each is spoken for by the coloured symbols,
+    // so what is left can pay {2}{B}{R} however the three generic were spent.
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.total(),
+        5,
+        "ten lands tapped less the {{3}}{{B}}{{R}} the cast spent"
+    );
+    assert!(
+        pool.available(ManaColor::Black) >= 1 && pool.available(ManaColor::Red) >= 1,
+        "the four the ability charges are payable out of this very pool"
+    );
+
+    // ...and the ability is still not offered, which leaves the `{T}` as the
+    // only unpaid part of the price: summoning sickness (CR 302.6).
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == boris),
+        "{{T}} on a creature that arrived this turn cannot be paid, so the line \
+         is absent from the offer: {:?}",
+        legal.abilities
+    );
+
+    // A turn round the table puts him past it and stands the ten lands back up.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(!is_tapped(&engine, boris), "the untap step stood him up");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool the cast left emptied with the step that ended (CR 500.5)"
+    );
+
+    // `LegalActions::abilities` is filtered through `can_afford`, which reads
+    // the *pool* and not the untapped lands: with nothing floating the
+    // {2}{B}{R} is unpayable and the line is not there at all — the half a test
+    // that only ever tapped first would never see.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == boris),
+        "{{2}}{{B}}{{R}} is not four, so the cost is unpayable and nothing is \
+         offered: {:?}",
+        legal.abilities
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        10,
+        "five Swamps and five Mountains, every source on the board"
+    );
+    assert!(
+        !is_tapped(&engine, boris),
+        "and the Wizard stands: his price is not his own {{T}} alone, so \
+         `tap_all_mana` may not press it"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(boris, 0)),
+        "the one line the card prints, now that its {{2}}{{B}}{{R}} is in the \
+         pool: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, boris_devilboon(), 0);
+    assert!(
+        is_tapped(&engine, boris),
+        "{{T}} is half the price, and CR 601.2h pays it with the rest"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "and the other half was four of the ten mana that was floating"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Demon arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Minor Demon");
+    let demon = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Demon is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(demon.name, "Minor Demon", "the name the card gives it");
+    assert_eq!(
+        (demon.power, demon.toughness),
+        (Some(1), Some(1)),
+        "the 1/1 body the card prints"
+    );
+    assert!(
+        demon.colors.contains(baylee_core::color::Color::Black)
+            && demon.colors.contains(baylee_core::color::Color::Red),
+        "black and red, which is what the colour line says and no other colour"
+    );
+    assert!(
+        types(&engine, tokens[0]).contains(TypeSet::CREATURE),
+        "and it is a creature token, not an artifact or an enchantment"
+    );
+    assert!(
+        on_battlefield(&engine, p0, boris_devilboon()).is_some(),
+        "the price was the tap and the mana, so the Wizard is still standing to \
+         make another one"
+    );
+}
+
+/// Charging Bandits — {4}{B}, a 3/3 Human Rogue whose entire printed text is
+/// "Whenever this creature attacks, it gets +2/+0 until end of turn."
+///
+/// The trigger only means something measured against both of its alternatives,
+/// so the board carries a Llanowar Elves that is *not* the creature being
+/// pumped, and the scenario is walked far enough to read both ends of the
+/// duration: the Bandits attacks as a 5/3 and deals five rather than the three
+/// it prints, and is a printed 3/3 again on its controller's next turn. That
+/// it is cast for real is what puts summoning sickness in the way, so the
+/// attack happens a turn after the cast.
+#[test]
+fn charging_bandits_pumps_itself_only_when_it_attacks_and_only_until_the_turn_ends() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[charging_bandits()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Five Swamps pay {{4}}{{B}}, and the Elf is named as the printing kept
+    // back: it is the control this test reads back after the attack, and a
+    // mana creature that had paid for the cast would be tapped for it.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Swamps, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, charging_bandits());
+    pass_until(&mut engine, stack_is_empty);
+    let bandits = on_battlefield(&engine, p0, charging_bandits()).expect("the Bandits resolved");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+    assert_eq!(pt(&engine, bandits), (3, 3), "the body the card prints");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{4}}{{B}} came out of the pool"
+    );
+
+    // CR 302.6: the Bandits has not been under its controller's control since
+    // its turn began, so its first chance to attack is the next one — and the
+    // turn in between is walked rather than skipped.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, bandits),
+        (3, 3),
+        "it has not attacked yet, so nothing has pumped it"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "the Bandits' controller is the one declaring");
+    assert!(
+        attackers.contains(&bandits),
+        "an untapped 3/3 that has been under its controller since the turn \
+         began may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bandits, Defender::Player(p1))],
+            },
+        )
+        .expect("the attacker came out of the list that offered it");
+
+    // The trigger goes on the stack behind the declaration, so the board is
+    // read once it has resolved.
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, bandits),
+        (5, 3),
+        "\"it gets +2/+0\": the 3/3 is a 5/3 for the rest of the turn"
+    );
+    assert_eq!(
+        pt(&engine, elves),
+        (1, 1),
+        "the trigger names the attacking permanent and no other creature, so \
+         the Elf beside it is untouched"
+    );
+
+    // Five, not three. The damage step is the one place the pump has to be
+    // live for the printed sentence to have meant anything.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        15,
+        "a 3/3 that dealt three damage would leave the opponent at 17"
+    );
+
+    // "until end of turn": one turn later the body is the printed 3/3 again.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, bandits),
+        (3, 3),
+        "the pump lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p0, charging_bandits()).is_some(),
+        "and the creature is still standing, so the pump left rather than the creature"
+    );
+}
+
+/// Coastal Hornclaw is a {4}{U} 3/3 Bird whose whole text is one activated
+/// ability: "Sacrifice a land: This creature gains flying until end of turn."
+/// The price names no particular land, so the engine has to ask which one, and
+/// that menu is half the card: both Forests this seat controls are on it while
+/// the Elf beside them is a creature and the Forest across the table is not
+/// this seat's to give up (CR 701.21a). The effect is the other half, and its
+/// printed duration is read by walking a whole turn cycle — a permanent grant
+/// would still be on the Bird afterwards. The price is not the Bird's own {T},
+/// which is why the Bird is still untapped once the land is gone.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn coastal_hornclaw_trades_a_land_of_its_own_for_flying_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[coastal_hornclaw()])
+        // A land across the table: "Sacrifice a land" is no invitation to give
+        // up somebody else's (CR 701.21a).
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {4}{U} out of the five Islands, with the two Forests named as the
+    // printing kept back: they are this test's sacrifice fodder, and a pool
+    // reading is only worth anything when the board can offer the land the
+    // ability is about.
+    tap_all_mana_but(&mut engine, p0, Some(forest()));
+    cast_with_floating(&mut engine, p0, coastal_hornclaw());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, coastal_hornclaw()).is_some()
+    });
+
+    let bird = on_battlefield(&engine, p0, coastal_hornclaw()).expect("the Hornclaw resolved");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+    let theirs = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let lands = all_on_battlefield(&engine, p0, forest());
+    assert_eq!(lands.len(), 2, "two of this seat's lands are Forests");
+    assert_eq!(pt(&engine, bird), (3, 3), "the body the card prints");
+    assert!(
+        !keywords(&engine, bird).contains(KeywordSet::FLYING),
+        "a printed 3/3 Bird with no keyword of its own, on the ground"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.iter().any(|(source, _)| *source == bird),
+        "the one line the card prints is offered while a land is on the \
+         board: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, coastal_hornclaw(), 0);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the sacrifice is chosen before it is paid, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostSacrifice,
+        "a cost and not a search, which is all a client has to tell them apart"
+    );
+    assert_eq!((min, max), (1, 1), "one land, no more and no fewer");
+    assert!(
+        options.contains(&lands[0]) && options.contains(&lands[1]),
+        "both lands you control are on the menu: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        7,
+        "the five tapped Islands and the two Forests, and nothing else this \
+         seat has: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "the Elf is a creature: \"a land\" is read, not skipped: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "a seat sacrifices only what it controls, whatever the filter says: \
+         {options:?}"
+    );
+    assert!(
+        !options.contains(&bird),
+        "the Hornclaw is no land, and a permanent cannot be its own price: \
+         {options:?}"
+    );
+    assert!(
+        !keywords(&engine, bird).contains(KeywordSet::FLYING),
+        "the effect is the resolution, not the cost: nothing has been granted \
+         while the question still stands"
+    );
+
+    let refused = engine.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![theirs],
+        },
+    );
+    assert!(
+        refused.is_err(),
+        "an answer the question did not enumerate is refused: {refused:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "and the refusal costs the other seat nothing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![lands[0]],
+            },
+        )
+        .expect("the land the question offered pays the cost");
+
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_some(),
+        "a sacrificed land goes to its owner's graveyard"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, forest()).len(),
+        1,
+        "exactly one land was given up, and the other is still standing"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the price was a land and no mana: the one mana the cast left over is \
+         still floating"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        keywords(&engine, bird).contains(KeywordSet::FLYING),
+        "\"This creature gains flying until end of turn\""
+    );
+    assert!(
+        !is_tapped(&engine, bird),
+        "the Bird paid no {{T}} of its own, so it is still standing — a card \
+         whose price was its own tap would read the same keyword"
+    );
+    assert_eq!(
+        pt(&engine, bird),
+        (3, 3),
+        "and the granted keyword is all that was added: the body is untouched"
+    );
+
+    // "until end of turn": a whole turn cycle later the Bird is on the ground
+    // again — and it is still there, so the keyword left rather than the
+    // creature.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, coastal_hornclaw()).is_some(),
+        "the Hornclaw survived the turn it flew in"
+    );
+    assert!(
+        !keywords(&engine, bird).contains(KeywordSet::FLYING),
+        "the grant lasted the turn it was made in and no longer"
+    );
+}
+
+/// Flanking Troops — {2}{W}{W} 2/2 Human Soldier: "Whenever this creature
+/// attacks, you may tap target creature."
+///
+/// The whole card is one trigger and it is a *question* as much as an effect,
+/// so both halves are played: the first attack answers the printed "you may"
+/// with no — the only reading that tells an optional tap from a forced one —
+/// and the second says yes and names an Elf across the table. An Elf of mine
+/// and a second Elf behind that one stand on the same board, because "target
+/// creature" names no side of the battlefield and no seat: the tap has to
+/// reach the creature that was named and neither of the two that were not.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn flanking_troops_asks_before_it_taps_and_reaches_only_the_creature_it_names() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), llanowar_elves()],
+        )
+        .hand(0, &[flanking_troops()])
+        .battlefield(1, &[llanowar_elves(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The card arrives the way the card arrives: {2}{W}{W} off an open board.
+    // Nothing can attack the turn it entered (CR 302.6), so the two attacks
+    // below are taken on the Soldier's next turns, which is also what puts
+    // every Elf on this board back on its feet before the first of them.
+    cast_from_hand(&mut engine, p0, flanking_troops());
+    pass_until(&mut engine, stack_is_empty);
+    let troops = on_battlefield(&engine, p0, flanking_troops()).expect("the Soldier resolved");
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elf is out");
+    let theirs = all_on_battlefield(&engine, p1, llanowar_elves());
+    assert_eq!(theirs.len(), 2, "two Elves across the table");
+    let (victim, bystander) = (theirs[0], theirs[1]);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let mut asked = 0;
+    let mut menu: Vec<ObjectId> = Vec::new();
+    for attack in 0..2 {
+        if attack == 1 {
+            reach_their_main_phase(&mut engine, p1);
+            reach_their_main_phase(&mut engine, p0);
+            assert!(
+                !is_tapped(&engine, victim),
+                "the untap step stood the Elf the first attack declined back up"
+            );
+        }
+
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseAttackers { .. })
+        });
+        let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+            unreachable!("pass_until stopped on nothing else")
+        };
+        assert!(
+            attackers.contains(&troops),
+            "an untapped, unsick Soldier is offered as an attacker: {attackers:?}"
+        );
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(troops, Defender::Player(p1))],
+                },
+            )
+            .expect("the Soldier came out of the list that offered it");
+
+        // The trigger's two questions, in whichever order the engine asks
+        // them: the "you may" (CR 603.3b) and the creature it names
+        // (CR 603.3d). Answered here rather than through `pass_until`, whose
+        // own `MayDo` arm would take the option for this test and hide it.
+        for _ in 0..12 {
+            match engine.pending().clone() {
+                Pending::ChooseTargets {
+                    player,
+                    options,
+                    min,
+                    max,
+                    ..
+                } => {
+                    assert_eq!(player, p0, "the attacking seat names the target");
+                    assert_eq!((min, max), (1, 1), "one creature, and it asks once");
+                    menu = options;
+                    engine
+                        .apply(
+                            p0,
+                            PlayerAction::ChooseObjects {
+                                objects: vec![victim],
+                            },
+                        )
+                        .expect("the Elf was one of the options the question enumerated");
+                }
+                Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::MayDo,
+                    ..
+                } => {
+                    assert_eq!(player, p0, "the attacking seat answers its own trigger");
+                    asked += 1;
+                    engine
+                        .apply(p0, PlayerAction::YesNo(attack == 1))
+                        .expect("a yes/no question takes either answer");
+                }
+                Pending::Priority { .. } if stack_is_empty(&engine) => break,
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected while the attack trigger resolves: {other:?}"),
+            }
+        }
+
+        if attack == 0 {
+            assert!(
+                !is_tapped(&engine, victim),
+                "\"you may tap target creature\" — declining leaves the board alone"
+            );
+        }
+    }
+
+    assert_eq!(
+        asked, 2,
+        "the printed \"you may\" is a question this seat answers, once per attack"
+    );
+    assert!(
+        menu.contains(&victim),
+        "the Elf the trigger tapped was on the menu it published: {menu:?}"
+    );
+    assert!(
+        menu.contains(&mine),
+        "\"target creature\" names no side of the battlefield: {menu:?}"
+    );
+    assert!(
+        menu.contains(&bystander),
+        "and no seat, so either Elf across the table is as legal as mine: {menu:?}"
+    );
+    assert!(
+        menu.contains(&troops),
+        "the attacking Soldier is a creature too, and its own trigger may name it: {menu:?}"
+    );
+    assert!(
+        is_tapped(&engine, victim),
+        "the creature the second attack named is the one the trigger tapped"
+    );
+    assert!(
+        !is_tapped(&engine, bystander),
+        "the Elf nobody named was not tapped: the trigger targets, it does not sweep"
+    );
+    assert!(
+        !is_tapped(&engine, mine),
+        "and neither was a creature of my own"
+    );
+    assert!(
+        on_battlefield(&engine, p0, flanking_troops()).is_some(),
+        "the trigger costs the Soldier nothing but its attack"
+    );
+}
+
+/// Flowstone Mauler is "{4}{R}{R}" for a 4/5 Beast with trample, plus
+/// "{R}: This creature gets +1/-1 until end of turn" — an activated ability
+/// with no once-per-turn limit, which is the whole card. Eleven Mountains pay
+/// the cast and leave exactly five red, and the five activations they buy are
+/// read one resolved step at a time: the body walks 4/5 → 5/4 → … → 8/1 while
+/// the pool drops by one each time, so "the pump stacks" and "the {R} was
+/// really paid" are the same ladder. The fifth rung is the printed toughness
+/// running out — a 9/0 is lethal without a single point of damage (CR 704.5f).
+#[test]
+fn flowstone_mauler_stacks_its_own_pump_until_its_toughness_runs_out() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(); 11])
+        .hand(0, &[flowstone_mauler()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
+
+    // Eleven tapped Mountains are the pool: the cast's {4}{R}{R} comes out of
+    // it and the five red the ability charges are what is left, since a pool
+    // survives until the step ends (CR 500.5) and this all happens in one.
+    cast_from_hand(&mut engine, p0, flowstone_mauler());
+    pass_until(&mut engine, stack_is_empty);
+    let mauler = on_battlefield(&engine, p0, flowstone_mauler()).expect("the Beast resolved");
+    assert_eq!(pt(&engine, mauler), (4, 5), "the body the card prints");
+    assert!(
+        keywords(&engine, mauler).contains(KeywordSet::TRAMPLE),
+        "and the printed trample reaches the permanent"
+    );
+
+    let mut floating = engine.state().players[0].mana_pool.total();
+    assert_eq!(
+        floating, 5,
+        "eleven Mountains less the {{4}}{{R}}{{R}} the cast cost"
+    );
+
+    // Each activation is resolved before the next is read: a pump the engine
+    // has only announced is not on the body yet.
+    let ladder: [(i16, i16); 4] = [(5, 4), (6, 3), (7, 2), (8, 1)];
+    for (step, body) in ladder.into_iter().enumerate() {
+        activate(&mut engine, p0, flowstone_mauler(), 0);
+        assert!(
+            !stack_is_empty(&engine),
+            "pumping is no mana ability, so activation {} waits on the stack",
+            step + 1
+        );
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            pt(&engine, mauler),
+            body,
+            "activation {} is a +1/-1 on top of every one before it",
+            step + 1
+        );
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            floating - 1,
+            "and its {{R}} came out of the pool"
+        );
+        floating -= 1;
+    }
+
+    // The fifth one is the printed toughness leaving: a 5 with five -1s is a
+    // 0, and no attack, damage or destroy effect was needed to get there.
+    assert_eq!(pt(&engine, mauler), (8, 1), "one -1 away from nothing");
+    activate(&mut engine, p0, flowstone_mauler(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, flowstone_mauler()).is_none(),
+        "the Beast pumped itself to zero toughness and the state-based action \
+         took it (CR 704.5f)"
+    );
+    assert!(
+        in_graveyard(&engine, p0, flowstone_mauler()).is_some(),
+        "and it is in its owner's graveyard, not merely gone"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "five activations took exactly the five red the cast left"
+    );
+}
+
+/// Goblin Settler is `{3}{R}` for a 1/1 body and one printed sentence: "When
+/// this creature enters, destroy target land." The trigger is the card, so the
+/// board carries a land on either side of the table and a creature beside
+/// them: `Filter::LAND` names no side, so both seats' lands are on the menu,
+/// while the Elf is what says the filter is read rather than skipped. The four
+/// Mountains are exactly the mana cost and stay standing afterwards, so the
+/// land that goes to a graveyard can only be the one the trigger named.
+#[test]
+fn goblin_settler_destroys_a_land_of_either_seat_and_never_a_creature() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[goblin_settler()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = on_battlefield(&engine, p0, mountain()).expect("my Mountain is out");
+    let theirs = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+
+    cast_from_hand(&mut engine, p0, goblin_settler());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the seat that cast it names the target");
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "\"target land\" is any land, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "the Elf is a creature and no land: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .expect("the Forest was one of the options the trigger enumerated");
+    pass_until(&mut engine, stack_is_empty);
+
+    let settler = on_battlefield(&engine, p0, goblin_settler()).expect("the Settler landed");
+    assert_eq!(pt(&engine, settler), (1, 1), "the body the card prints");
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "the targeted land was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "and left the battlefield, which is what destroy means"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mountain()).is_some(),
+        "the land the trigger did not name never moved"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and neither did the creature standing beside it"
+    );
+}
+
+/// Hoar Shade is a printed 1/2 Shade whose whole text is one line:
+/// "{B}: This creature gets +1/+1 until end of turn."
+///
+/// Six Swamps make every part of that sentence readable off the board: the
+/// `{3}{B}` brings the Shade in and leaves exactly two black, each activation
+/// spends one of them for one point of power *and* toughness (`(1, 2)` becomes
+/// `(2, 3)` and then `(3, 4)` — a pump that had read only the power would leave
+/// the toughness at two), and the price is the mana alone, so the Shade is
+/// still standing afterwards. The empty pool at the end says where the offer
+/// comes from, because `can_afford` reads the pool rather than the untapped
+/// Swamps, and the turn boundary is what tells "until end of turn" from a
+/// counter: the Shade is the printed 1/2 again while the card is still on the
+/// battlefield.
+#[test]
+fn hoar_shade_pumps_a_black_at_a_time_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[hoar_shade()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Six Swamps tapped: {3}{B} for the creature, and one black per printed
+    // activation is what is left beside it.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        6,
+        "six Swamps tapped for six black"
+    );
+    cast_with_floating(&mut engine, p0, hoar_shade());
+    pass_until(&mut engine, stack_is_empty);
+    let shade = on_battlefield(&engine, p0, hoar_shade()).expect("the Shade resolved");
+    assert_eq!(pt(&engine, shade), (1, 2), "the printed 1/2 body");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the {{3}}{{B}} is spent and exactly two black is left to pump with"
+    );
+
+    // `legal.abilities` is filtered through `can_afford`, which reads the pool
+    // rather than the untapped lands — so the claim is made with the mana
+    // already floating, where the engine reads it.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(shade, 0)),
+        "with two black in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, hoar_shade(), 0);
+    assert!(
+        !stack_is_empty(&engine),
+        "a pump is no mana ability (CR 605.1), so it uses the stack"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "the {{B}} is the price and is paid as the ability is activated"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, shade),
+        (2, 3),
+        "one black, one +1/+1 — and +1/+1 is both halves, not just the power"
+    );
+    assert!(
+        !is_tapped(&engine, shade),
+        "the price is the mana alone: the Shade was never tapped for its own pump"
+    );
+
+    // The same line again: a Shade is paid for as often as the mana lasts, so
+    // the second activation has to land on top of the first rather than
+    // replacing it.
+    activate(&mut engine, p0, hoar_shade(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, shade),
+        (3, 4),
+        "and the second black is a second +1/+1 on the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "six black: four for the cast and one for each activation"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(shade, 0)),
+        "an empty pool pays no {{B}} for a price that is only {{B}}, so the line \
+         drops out of the offer — and there are five untapped Swamps standing, \
+         which is exactly what `can_afford` does not read: {:?}",
+        legal.abilities
+    );
+
+    // "Until end of turn" is a duration and not a counter. The Shade is still
+    // on the battlefield a turn later and its body is the printed one again,
+    // so the two grants expired rather than the creature having gone anywhere.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, hoar_shade()).is_some(),
+        "the Shade is still standing, so the pump left rather than the creature"
+    );
+    assert_eq!(
+        pt(&engine, shade),
+        (1, 2),
+        "the two +1/+1 grants lasted the turn they were made in and no longer"
+    );
+}
+
+/// Hollow Dogs prints one line: "Whenever this creature attacks, it gets
+/// +2/+0 until end of turn." Reading the card file cannot tell that from a
+/// board-wide pump, so the board carries two Dogs and only one attacks: the
+/// attacker reads 5/3, the one that stayed home 3/3, and both were 3/3 before
+/// combat — the printed power half up, the toughness half untouched, and
+/// `Filter::This` read as the attacking Dog rather than every Dog in play.
+#[test]
+fn hollow_dogs_pumps_itself_when_it_attacks_and_never_the_dog_that_stayed_home() {
+    fn hollow_dogs() -> CardIndex {
+        card_index("16aa2e9e-bfe8-4b40-a1db-bb1da2ede849")
+    }
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[hollow_dogs(), hollow_dogs()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let dogs = all_on_battlefield(&engine, p0, hollow_dogs());
+    assert_eq!(dogs.len(), 2, "two copies, one of which stays home");
+    let (attacker, homebody) = (dogs[0], dogs[1]);
+    assert_eq!(pt(&engine, attacker), (3, 3), "a printed 3/3 before combat");
+    assert_eq!(
+        pt(&engine, homebody),
+        (3, 3),
+        "and so is the one that stays home"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "the active seat declares");
+    assert!(
+        attackers.contains(&attacker) && attackers.contains(&homebody),
+        "both Dogs are untapped and unsick, so both are on the offer: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(p1))],
+            },
+        )
+        .expect("the Dog came out of the list that offered it");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, attacker),
+        (5, 3),
+        "\"Whenever this creature attacks, it gets +2/+0 until end of turn\" — \
+         the power half up and the toughness half untouched"
+    );
+    assert_eq!(
+        pt(&engine, homebody),
+        (3, 3),
+        "`Filter::This` is the Dog that attacked, not every Dog on the board"
+    );
+}
+
+/// Keeneye Aven prints two lines and one board plays both, which is why it is
+/// two copies rather than one: "{3}{U}" for a 2/3 Bird Soldier with flying, and
+/// cycling — "{2}, Discard this card: Draw a card" — an ability a card offers
+/// from *hand*, so the second copy is played while the first is cycled away.
+/// Six tapped Islands are exactly the cycling's two and the cast's four, so a
+/// pool of six, then four, then nothing is both printed prices read off one
+/// pool; and the cycling is read in two zones at once, the card in its owner's
+/// graveyard and a library one shorter, because a discard that never happened
+/// would leave the same hand size behind as a discard and a draw.
+#[test]
+fn keeneye_aven_flies_as_a_two_three_and_cycles_itself_away_for_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 6])
+        .hand(0, &[keeneye_aven(), keeneye_aven()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Mana before the claim: `can_afford` reads the pool and not the untapped
+    // Islands, so the cycling is offered only once its {2} is really floating.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Islands, six blue, and the Avens make no mana of their own"
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let cyclable = in_hand(&engine, p0, keeneye_aven()).expect("an Aven is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(cyclable, 0)),
+        "cycling is an ability the card offers from hand, so it is an ordinary \
+         `(source, index)` entry in `abilities`: {:?}",
+        legal.abilities
+    );
+
+    // Ability 0 is the printed cycling. `DiscardSelf` is a cost, so the card is
+    // in its owner's graveyard the moment the activation is applied — while the
+    // draw it pays for is still waiting on the stack.
+    activate(&mut engine, p0, keeneye_aven(), 0);
+    assert!(
+        in_graveyard(&engine, p0, keeneye_aven()).is_some(),
+        "\"Discard this card\" is a cost, paid on announcement (CR 601.2h)"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "and the {{2}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the cycling is on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card off the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "one card discarded and one drawn, so the hand is the size it was"
+    );
+
+    // The other copy, cast off what the cycling left: {3}{U} is exactly four.
+    cast_with_floating(&mut engine, p0, keeneye_aven());
+    pass_until(&mut engine, stack_is_empty);
+
+    let aven = on_battlefield(&engine, p0, keeneye_aven()).expect("the second Aven resolved");
+    assert!(
+        types(&engine, aven).contains(TypeSet::CREATURE),
+        "a creature, and the cast is how it got to the battlefield"
+    );
+    assert!(
+        keywords(&engine, aven).contains(KeywordSet::FLYING),
+        "\"Flying\" reaches the permanent through the layers"
+    );
+    assert_eq!(pt(&engine, aven), (2, 3), "the printed 2/3 body");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the cast's {{3}}{{U}} is the last four of the six the Islands made"
+    );
+}
+
+// oracle_id = "f9ca35e1-24c5-46f4-a666-0dfe2c920e8b"
+
+/// King Cheetah is {3}{G} for a 3/2 Cat whose entire printed text is Flash, so
+/// the only thing a board can hold it to is the window it may be cast in —
+/// every offer the engine publishes is filtered by timing, and a creature with
+/// no flash is offered in nobody's main phase but its controller's. Llanowar
+/// Elves in the same hand is the control that makes that claim exact: five
+/// green are already floating when the offer is read, so the Elves is
+/// affordable and missing for the one reason that is left, while the Cheetah
+/// resolving on a turn that belongs to the other seat is the keyword itself.
+#[test]
+fn king_cheetah_flashes_in_on_the_opponents_turn_where_a_plain_creature_may_not() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 5])
+        // `quiet_creature` is Llanowar Elves: a {G} 1/1 with no text but a mana
+        // ability, so the two cards differ in nothing but the word under test.
+        .hand(0, &[king_cheetah(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // Walked into a priority window this seat does not own: the opponent's
+    // first main phase, which is a moment no creature without Flash may be
+    // cast in at all.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+
+    // Mana before the claim: `can_afford` reads the pool and not the untapped
+    // Forests, so an empty pool would withhold both cards and prove nothing.
+    // Neither card is on the battlefield, so nothing here makes mana but the
+    // five Forests.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Forests tapped on a turn this seat is not taking"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let cheetah = in_hand(&engine, p0, king_cheetah()).expect("the Cheetah is in hand");
+    let elves = in_hand(&engine, p0, quiet_creature()).expect("the Elves are in hand");
+    assert!(
+        legal.castable.contains(&cheetah),
+        "Flash: a creature with it is cast any time its controller could cast \
+         an instant, and the opponent's main phase with an empty stack is one: {:?}",
+        legal.castable
+    );
+    assert!(
+        !legal.castable.contains(&elves),
+        "same seat, same full pool, and a creature without Flash is not offered \
+         at all — which is what says the entry above is the keyword and not an \
+         affordability this board happens to have: {:?}",
+        legal.castable
+    );
+
+    cast_with_floating(&mut engine, p0, king_cheetah());
+    pass_until(&mut engine, stack_is_empty);
+
+    let landed = on_battlefield(&engine, p0, king_cheetah())
+        .expect("the Cheetah resolved under the seat that is not taking the turn");
+    assert_eq!(pt(&engine, landed), (3, 2), "the body the card prints");
+    assert_eq!(
+        engine.state().turn.active,
+        p1,
+        "and the turn still belongs to the other seat, so the spell resolved out \
+         of the window Flash opened and not out of a turn that came round"
+    );
+    assert!(
+        in_hand(&engine, p0, quiet_creature()).is_some(),
+        "the Elves never left the hand: the window was the whole difference"
+    );
+}
+
+/// Leonin Abunas prints one static — "Artifacts you control have hexproof"
+/// (CR 702.11b) — and the whole card is a claim about *targeting*, so the proof
+/// is read out of the opponent's own hand rather than off the layer projection.
+/// p1's first Vindicate must offer the Abunas itself and the Llanowar Elves
+/// beside it, permanents p0 also controls and neither of which has hexproof,
+/// while refusing the Sol Ring in the same row; and once that same Vindicate has
+/// killed the Abunas, the second copy from the same hand finds the Sol Ring on
+/// the menu — the identical board minus one card, which is what tells the
+/// printed sentence from a target menu that was short for some other reason.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn leonin_abunas_hexproofs_the_artifacts_you_control_from_the_opponents_spells() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                quiet_artifact(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[leonin_abunas()])
+        .battlefield(
+            1,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                swamp(),
+                swamp(),
+                swamp(),
+                quiet_artifact(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(1, &[vindicate(), vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
+
+    // The card arrives the way the card arrives, with everything it is about
+    // standing beside it: an artifact p0 controls, an artifact p1 controls, and
+    // a creature p0 controls that is no artifact at all.
+    cast_from_hand(&mut engine, p0, leonin_abunas());
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) && on_battlefield(e, p0, leonin_abunas()).is_some()
+    });
+    let abunas = on_battlefield(&engine, p0, leonin_abunas()).expect("the Abunas resolved");
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("my Sol Ring is out");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let their_ring = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+
+    assert!(
+        keywords(&engine, ring).contains(KeywordSet::HEXPROOF),
+        "the printed static reaches the artifact on p0's battlefield"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::HEXPROOF),
+        "\"artifacts you control\" is not \"permanents you control\""
+    );
+    assert!(
+        !keywords(&engine, their_ring).contains(KeywordSet::HEXPROOF),
+        "\"you control\" is not \"the table\": the same card on the other side \
+         gets nothing from p0's Abunas"
+    );
+
+    // Over to the opponent. Three Plains and three Swamps pay for both
+    // Vindicates — {1}{W}{B} twice is two white, two black and two more of
+    // anything — and CR 500.5 keeps whatever the first does not spend in the
+    // pool for the second, since the whole scenario stays in one main phase.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, vindicate());
+    let menu = pass_until_targets(&mut engine, p1);
+    assert!(
+        menu.contains(&abunas) && menu.contains(&elf),
+        "\"target permanent\" reaches the Abunas itself and the Elves beside \
+         it, both of which p0 controls with no hexproof on them: {menu:?}"
+    );
+    assert!(
+        menu.contains(&their_ring),
+        "and it reaches the artifact on p1's own side of the table, so the \
+         refusal below is not a menu about artifacts in general: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&ring),
+        "CR 702.11b: an artifact p0 controls cannot be the target of a spell an \
+         opponent controls, so it is not on the menu at all: {menu:?}"
+    );
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![abunas],
+            },
+        )
+        .expect("the Abunas was one of the options the question enumerated");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, leonin_abunas()).is_some(),
+        "the first Vindicate resolved against the Abunas and it died"
+    );
+
+    // The same board minus one card, and the second Vindicate is cast off the
+    // mana the first left floating.
+    cast_from_hand(&mut engine, p1, vindicate());
+    let after = pass_until_targets(&mut engine, p1);
+    assert!(
+        after.contains(&ring),
+        "with the Abunas gone the Sol Ring is a permanent like any other, which \
+         is what says the refusal above came from the printed static: {after:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .expect("the Sol Ring was on the menu once nothing granted it hexproof");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_none()
+            && in_graveyard(&engine, p0, quiet_artifact()).is_some(),
+        "and the second Vindicate destroyed it, so the artifact was not merely \
+         named: it left the battlefield for its owner's graveyard"
+    );
+}
+
+// oracle_id = "c39ea5f9-6ec0-4697-897b-779e326754a7"
+
+/// Mahamoti Djinn is `{4}{U}{U}` for a 5/6 Djinn and one printed word:
+/// flying. Both halves of that are the engine's answer rather than the
+/// card's, so both are played: six Islands pay the cost down to an empty
+/// pool and the creature lands as the body it prints with the keyword on
+/// it, and then — a turn later, past summoning sickness (CR 302.6) — the
+/// blocking offer is read as the rule itself, because the keyword is worth
+/// nothing until somebody tries to block. The Angel is the half of "except
+/// by creatures with flying or reach" that the word grants, and the ground
+/// 1/1 beside it is the half the word withholds (CR 702.9b).
+#[test]
+fn mahamoti_djinn_lands_as_a_five_six_flier_and_only_a_flier_may_block_it() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), island(), island()],
+        )
+        .hand(0, &[mahamoti_djinn()])
+        // A flier and a ground creature across the table, so the offer has
+        // one pairing to make and one to decline.
+        .battlefield(1, &[serra_angel(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, mahamoti_djinn());
+    pass_until(&mut engine, stack_is_empty);
+    let djinn = on_battlefield(&engine, p0, mahamoti_djinn()).expect("the Djinn resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "six Islands paid the whole {{4}}{{U}}{{U}}, so the cast was a real \
+         payment and not a card that arrived for free"
+    );
+    assert_eq!(pt(&engine, djinn), (5, 6), "the body the card prints");
+    assert!(
+        types(&engine, djinn).contains(TypeSet::CREATURE),
+        "and what arrived is that creature"
+    );
+    assert!(
+        keywords(&engine, djinn).contains(KeywordSet::FLYING),
+        "the printed flying reaches the permanent through the layers"
+    );
+
+    // A turn round the table, because the Djinn was cast this turn and a
+    // creature that has not begun under its controller's control since that
+    // player's most recent turn began may not attack (CR 302.6).
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, djinn),
+        "the untap step stood the Djinn back up"
+    );
+
+    let blocks = attack_and_collect_blocks(&mut engine, djinn, p1);
+    let angel = on_battlefield(&engine, p1, serra_angel()).expect("their Angel is out");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    assert!(
+        blocks
+            .iter()
+            .any(|o| o.blocker == angel && o.attackers.contains(&djinn)),
+        "\"can't be blocked except by creatures with flying or reach\": the \
+         Angel has flying, so the pairing is offered: {blocks:?}"
+    );
+    assert!(
+        blocks
+            .iter()
+            .filter(|o| o.blocker == elves)
+            .all(|o| !o.attackers.contains(&djinn)),
+        "and the untapped ground 1/1 with neither flying nor reach is offered \
+         no such pairing, which is the half the keyword is about: {blocks:?}"
+    );
+}
+
+/// Meloku the Clouded Mirror is a 2/4 flier whose one printed line is
+/// "{1}, Return a land you control to its owner's hand: Create a 1/1 blue
+/// Illusion creature token with flying."
+///
+/// Both halves of that price are the engine's answer rather than the card's,
+/// so both are played on one board: seven Islands pay the {4}{U} and leave
+/// exactly the {1} floating beside it, and the cost that names no land has to
+/// ask which one is being given up — a menu holding every land this seat
+/// controls and neither the Wizard that prints the ability nor the Forest
+/// across the table. Nothing in the price is a tap symbol, so Meloku is still
+/// standing when the land it ate goes back to its owner's hand and the
+/// Illusion arrives.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn meloku_the_clouded_mirror_returns_a_land_for_a_blue_illusion_token() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(); 7])
+        .hand(0, &[meloku_the_clouded_mirror()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {4}{U} out of seven Islands, which leaves exactly the {1} the ability
+    // charges floating beside it: the whole scenario stays inside this one main
+    // phase, and CR 500.5 empties a pool only when a step ends.
+    cast_from_hand(&mut engine, p0, meloku_the_clouded_mirror());
+    pass_until(&mut engine, stack_is_empty);
+    let mirror = on_battlefield(&engine, p0, meloku_the_clouded_mirror())
+        .expect("Meloku resolved onto the table");
+    let theirs = on_battlefield(&engine, p1, forest()).expect("a Forest across the table");
+    assert_eq!(pt(&engine, mirror), (2, 4), "the body the card prints");
+    assert!(
+        keywords(&engine, mirror).contains(KeywordSet::FLYING),
+        "and the printed flying reaches the permanent"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "seven Islands less the {{4}}{{U}} the cast cost is exactly the {{1}} \
+         the ability charges and one to spare"
+    );
+    assert!(
+        !is_tapped(&engine, mirror),
+        "nothing about this card asks for a tap symbol"
+    );
+
+    // `LegalActions::abilities` is filtered through `can_afford`, which reads
+    // the pool rather than the untapped lands — which is why the claim is made
+    // with the mana already floating.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(mirror, 0)),
+        "with {{1}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let lands = lands_of(&engine, p0);
+    assert_eq!(lands.len(), 7, "every Island is still on the battlefield");
+    let given_up = lands[0];
+    let standing = lands[1];
+
+    activate(&mut engine, p0, meloku_the_clouded_mirror(), 0);
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the cost asks which land goes back, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat pays its own cost");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostReturn,
+        "a cost and not a search, which is all a client has to tell the two apart"
+    );
+    assert_eq!((min, max), (1, 1), "one land, no more and no fewer");
+    assert_eq!(
+        options.len(),
+        lands.len(),
+        "the lands this seat controls are the whole menu, tapped or not — a \
+         return takes either (CR 118.3 is the tap's rule, not this one's): {options:?}"
+    );
+    assert!(
+        lands.iter().all(|id| options.contains(id)),
+        "every land of mine is on it: {options:?}"
+    );
+    assert!(
+        !options.contains(&mirror),
+        "Meloku is a creature and no land, though he is the permanent asking: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"a land *you* control\": the Forest across the table is not mine to \
+         give up (CR 701.21a): {options:?}"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(given_up)
+            .expect("the land is still an object")
+            .zone,
+        Zone::Battlefield,
+        "CR 601.2h pays last: while the question stands the land is still in play"
+    );
+
+    let refused = engine.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![theirs],
+        },
+    );
+    assert!(
+        refused.is_err(),
+        "an answer the question did not enumerate is refused: {refused:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "and the refusal costs the other seat nothing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![given_up],
+            },
+        )
+        .expect("the land the question offered pays the cost");
+
+    assert_eq!(
+        engine
+            .state()
+            .object(given_up)
+            .expect("the returned land is still an object")
+            .zone,
+        Zone::Hand,
+        "\"return a land you control to its owner's hand\" — the card is in a \
+         hand, not merely off the battlefield"
+    );
+    assert_eq!(
+        mine(&engine, p0, island(), Zone::Battlefield).len(),
+        6,
+        "exactly one land was given up: the same spell cannot buy two tokens"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(standing)
+            .expect("the land nobody named is still an object")
+            .zone,
+        Zone::Battlefield,
+        "and the Island the answer did not name never moved"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{1}} it charges came out of the pool"
+    );
+    assert!(
+        !is_tapped(&engine, mirror),
+        "the price was a land and a mana: the {{T}} symbol is not on the card, \
+         so the Wizard is still standing"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is waiting on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Illusion arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Illusion");
+    assert!(
+        types(&engine, tokens[0]).contains(TypeSet::CREATURE),
+        "the token is the creature the card prints: {:?}",
+        types(&engine, tokens[0])
+    );
+    let illusion = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Illusion is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(illusion.name, "Illusion");
+    assert_eq!(
+        (illusion.power, illusion.toughness),
+        (Some(1), Some(1)),
+        "the printed 1/1 body"
+    );
+    assert!(
+        illusion.colors.contains(baylee_core::color::Color::Blue),
+        "a 1/1 *blue* Illusion"
+    );
+    assert!(
+        illusion.keywords.contains(KeywordSet::FLYING),
+        "with flying"
+    );
+    assert!(
+        on_battlefield(&engine, p0, meloku_the_clouded_mirror()).is_some(),
+        "Meloku outlives the land he ate, so the same Wizard can do it again"
+    );
+}
+
+// oracle_id = "4845dc21-7534-4896-b298-4d44cd7a3b27"
+
+/// Moggcatcher is a {2}{R}{R} 2/2 whose whole printed text is "{3}, {T}: Search
+/// your library for a Goblin permanent card, put it onto the battlefield, then
+/// shuffle." Both halves of that price are the engine's answer rather than the
+/// card's, so one board reads all of them. The Moggcatcher is seated before the
+/// game starts rather than cast, because a creature that arrived this turn may
+/// not pay a {T} (CR 302.6); three Mountains beside it are exactly the {3} the
+/// ability charges, the line is offered only once that mana is floating
+/// (`can_afford` reads the pool and not the untapped lands), and the activation
+/// takes the creature's own {T} with it. The library is built out of
+/// Festering Goblins — a Goblin *permanent* card — while a single Mountain
+/// moved into the same library is the control the printed filter needs: the
+/// menu may name the Goblins and must decline the land. Where the card lands is
+/// the last word, because "onto the battlefield" is what tells this from an
+/// ordinary tutor, and the found card is read there rather than in a hand.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn moggcatcher_searches_a_goblin_permanent_onto_the_battlefield_for_three_and_its_tap() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, festering_goblin())
+        .battlefield(
+            0,
+            &[
+                moggcatcher(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+
+    // One of the four Mountains goes into the library: "a Goblin permanent
+    // card" is the whole filter, and a land in the same library is the only
+    // card on this board that can say whether the filter was read at all.
+    let land = on_battlefield(&engine, p0, mountain()).expect("a Mountain is out");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            land,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
+
+    let cat = on_battlefield(&engine, p0, moggcatcher()).expect("the Moggcatcher is seated");
+    assert!(
+        !is_tapped(&engine, cat),
+        "it stands untapped, so its {{T}} is still there to pay"
+    );
+
+    // `LegalActions` is filtered through `can_afford`, and that reads the pool
+    // rather than the three untapped Mountains, so the line is not offered
+    // before a single source has been tapped.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(cat, 0)),
+        "an empty pool pays no {{3}}: {:?}",
+        legal.abilities
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Mountains are left on the battlefield, so exactly the {{3}} the \
+         ability charges"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(cat, 0)),
+        "with {{3}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let library_before = library_size(&engine, p0);
+    activate(&mut engine, p0, moggcatcher(), 0);
+
+    // The ability names no target, so CR 601.2h pays the whole price with the
+    // announcement: the tap and the three mana are gone before anything can be
+    // passed to.
+    assert!(is_tapped(&engine, cat), "{{T}} is half the price");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{3}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "a search is no mana ability, so the ability is waiting on the stack"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the seat that activated does the searching");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::SearchLibrary,
+        "the tutor's own question, and not a scry or a discard"
+    );
+    assert!(
+        !options.is_empty(),
+        "the library holds Goblin cards to find"
+    );
+    assert!(
+        !options.contains(&land),
+        "\"a Goblin permanent card\" — the Mountain the harness put in the same \
+         library is a card and no Goblin: {options:?}"
+    );
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .expect("a card the search offered is a legal answer");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(chosen)
+            .expect("the found card is an object")
+            .zone,
+        Zone::Battlefield,
+        "\"put it onto the battlefield\" — a card in hand would be a tutor, and \
+         this is not one"
+    );
+    assert_eq!(
+        mine(&engine, p0, festering_goblin(), Zone::Battlefield).len(),
+        1,
+        "one activation, one Goblin on the battlefield, and not a copy per \
+         library search"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"then shuffle\": the found card left the library, and shuffling \
+         reorders what is left without changing how much of it there is"
+    );
+
+    // The whole price was a tap and three mana, and the tap is spent, so the
+    // line is no longer one the seat may take.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(cat, 0)),
+        "a tapped Moggcatcher has no {{T}} left to pay with: {:?}",
+        legal.abilities
+    );
+}
+
+/// Muscle Sliver prints one line and nothing else: "All Sliver creatures get
+/// +1/+1." The load-bearing word is *All*, and it names no controller, so the
+/// reading that matters is the one taken across the table.
+///
+/// Four numbers stand on one board and three of them are refusals. The Sliver
+/// itself at (2, 2) proves it counts itself; the Queen beside it at (8, 8)
+/// proves "every other Sliver of mine" — a printed 7/7 plus one; the Queen
+/// opposite at (8, 8) proves the static is no more yours than hers, which a
+/// "Slivers you control" misreading would leave at its printed 7/7; and the Elf
+/// at (1, 1) proves the filter is a subtype and not every creature on the
+/// table, which a static that had lost its `HasSubtype` arm would have pumped.
+#[test]
+fn muscle_sliver_pumps_every_sliver_on_the_table_including_itself_and_theirs() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[muscle_sliver(), sliver_queen(), llanowar_elves()])
+        .battlefield(1, &[sliver_queen()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sliver = on_battlefield(&engine, p0, muscle_sliver()).expect("the Muscle Sliver is out");
+    let mine = on_battlefield(&engine, p0, sliver_queen()).expect("my Queen is out");
+    let theirs = on_battlefield(&engine, p1, sliver_queen()).expect("their Queen is out");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+
+    assert_eq!(
+        pt(&engine, sliver),
+        (2, 2),
+        "the printed 1/1 counts itself: a Sliver is a Sliver"
+    );
+    assert_eq!(
+        pt(&engine, mine),
+        (8, 8),
+        "and the printed 7/7 beside it, so the anthem reaches every other \
+         Sliver under the same seat"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (8, 8),
+        "\"All Sliver creatures\" names no controller, so the Queen across the \
+         table is pumped too — a static reading \"Slivers you control\" would \
+         leave her at 7/7"
+    );
+    assert_eq!(
+        pt(&engine, elves),
+        (1, 1),
+        "the Elf is a creature and no Sliver, so the subtype is read and not \
+         skipped"
+    );
+}
+
+// oracle_id = "e5a9d34b-c7d4-4682-8e26-dd82e38ee84e"
+
+/// Ore Gorger — {3}{R}{R}, a 3/1 Spirit: "Whenever you cast a Spirit or Arcane
+/// spell, you may destroy target nonbasic land."
+///
+/// The printed sentence is mostly a claim about the *menu*, so the board puts a
+/// nonbasic land and a basic one under the same opponent: the Farmland is the
+/// only thing the trigger may name, and the Forest beside it is the control
+/// that says "nonbasic" was read rather than skipped. The Spirit spell is
+/// Skyclave Apparition, and the game is walked only as far as the destruction —
+/// the spell that triggered the ability is still on the stack when the land
+/// hits the graveyard, so nothing else in this game can be mistaken for the
+/// Gorger's own effect, and a trigger that had offered the menu and destroyed
+/// nothing would satisfy every reading taken from the offer alone.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn ore_gorger_destroys_the_nonbasic_land_it_names_and_never_a_basic_one() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ore_gorger(), plains(), plains(), plains()])
+        .hand(0, &[skyclave_apparition()])
+        .battlefield(1, &[irrigated_farmland(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert!(
+        on_battlefield(&engine, p0, ore_gorger()).is_some(),
+        "the Gorger is on the table before anything is cast"
+    );
+    let farm = on_battlefield(&engine, p1, irrigated_farmland()).expect("their Farmland is out");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+
+    // Mana before the claim: whether a spell is castable is read off the pool.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Plains, which is exactly {{1}}{{W}}{{W}}"
+    );
+    cast_with_floating(&mut engine, p0, skyclave_apparition());
+
+    // The cast trigger goes on the stack above the spell and asks for a
+    // nonbasic land. Answer it, answer the optional clause, and stop as soon as
+    // the land is destroyed.
+    let mut land_menu: Option<Vec<ObjectId>> = None;
+    let mut may_was_asked = false;
+    for _ in 0..20 {
+        if in_graveyard(&engine, p1, irrigated_farmland()).is_some() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player,
+                options,
+                min,
+                max,
+                ..
+            } => {
+                assert_eq!(player, p0, "the seat that cast the Spirit answers");
+                assert!(
+                    land_menu.is_none(),
+                    "the trigger asks for its target once, and nothing else on \
+                     this stack asks for one"
+                );
+                assert_eq!((min, max), (1, 1), "one nonbasic land, and exactly one");
+                land_menu = Some(options.clone());
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![farm],
+                        },
+                    )
+                    .expect("the nonbasic land the question offered");
+            }
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::MayDo,
+                ..
+            } => {
+                may_was_asked = true;
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the Gorger's trigger resolves: {other:?}"),
+        }
+    }
+
+    let menu = land_menu.expect("the cast trigger asks which land it wants");
+    assert!(
+        menu.contains(&farm),
+        "a nonbasic land across the table is the only thing \"target nonbasic \
+         land\" may reach: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&their_forest),
+        "\"nonbasic\" is read, not skipped: the basic Forest beside it is not on \
+         the menu: {menu:?}"
+    );
+    assert_eq!(
+        menu.len(),
+        1,
+        "and neither are the three basic Plains under the Gorger itself: {menu:?}"
+    );
+    assert!(
+        may_was_asked,
+        "\"you may destroy\" is a question, and it is asked before anything dies"
+    );
+
+    assert!(
+        in_graveyard(&engine, p1, irrigated_farmland()).is_some(),
+        "the land the trigger named was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, irrigated_farmland()).is_none(),
+        "and left the battlefield, which is not where a land in a graveyard is"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "the basic land the trigger declined never moved"
+    );
+    assert!(
+        on_battlefield(&engine, p0, ore_gorger()).is_some(),
+        "the Gorger is the source of the trigger and not one of its targets"
+    );
+    assert!(
+        on_stack(&engine, skyclave_apparition()).is_some(),
+        "and the trigger resolved above the Spirit spell that triggered it, \
+         which is still waiting on the stack"
+    );
+}
+
+/// Phyrexian Defiler prints one line: "{T}, Sacrifice this creature: Target
+/// creature gets -3/-3 until end of turn."
+///
+/// Both halves of that price are the engine's answer rather than the card's, so
+/// both are read inside one activation: while the target question stands
+/// (CR 601.2c) the Defiler is still an untapped 3/3 on the battlefield, and the
+/// answer to it (CR 601.2h) spends the tap and the creature at once, leaving
+/// the card in its owner's graveyard before the ability has even resolved. No
+/// part of that price is mana, so the empty pool is asserted rather than filled.
+///
+/// The target is the 4/4 across the table rather than a 1/1: a body that
+/// survives is the only one that can read both printed numbers, where a 1/1
+/// would die and prove the toughness half alone. The Elf beside the Defiler is
+/// the filter's control — "target creature" reaches one creature and not the
+/// board — and a whole turn later the same 4/4 is back, which is what says the
+/// -3/-3 is the duration the card prints and not a body the game keeps.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn phyrexian_defiler_sacrifices_itself_to_give_a_creature_minus_three_minus_three() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[phyrexian_defiler(), quiet_creature()])
+        .battlefield(1, &[air_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let defiler = on_battlefield(&engine, p0, phyrexian_defiler()).expect("the Defiler is out");
+    let control = on_battlefield(&engine, p0, quiet_creature()).expect("my Elf is out");
+    let victim = on_battlefield(&engine, p1, air_elemental()).expect("their Elemental is out");
+    assert_eq!(pt(&engine, defiler), (3, 3), "the body the card prints");
+    assert_eq!(
+        pt(&engine, victim),
+        (4, 4),
+        "a 4/4 for -3/-3 to leave alive"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the whole price is the tap symbol and the creature, and neither is mana"
+    );
+
+    // `LegalActions::abilities` is filtered through `can_afford`, and that reads
+    // the pool rather than the untapped lands — an empty pool withholds nothing
+    // here, because no part of this price is mana.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(defiler, 0)),
+        "the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, phyrexian_defiler(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that aims it");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature, and the ability asks once"
+    );
+    assert!(
+        options.contains(&control) && options.contains(&victim),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    // CR 601.2c names the target first and CR 601.2h pays afterwards, so the
+    // Defiler is still standing while this question is open.
+    assert!(
+        on_battlefield(&engine, p0, phyrexian_defiler()).is_some(),
+        "the price is the last step of the activation, not the first"
+    );
+    assert!(
+        !is_tapped(&engine, defiler),
+        "and nothing has tapped it yet"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .expect("the Elemental across the table was one of the options");
+
+    assert!(
+        on_battlefield(&engine, p0, phyrexian_defiler()).is_none(),
+        "the sacrifice is part of the price, so the Defiler left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, phyrexian_defiler()).is_some(),
+        "and a sacrificed creature goes to its owner's graveyard"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "a -3/-3 is no mana ability, so the ability is waiting on the stack"
+    );
+    assert_eq!(
+        pt(&engine, victim),
+        (4, 4),
+        "and nothing has happened to the target yet: the pump is the resolution, \
+         not the cost"
+    );
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        pt(&engine, victim),
+        (1, 1),
+        "-3/-3 on the 4/4 the ability named: a body that survives is what makes \
+         both halves of the printed number readable"
+    );
+    assert_eq!(
+        pt(&engine, control),
+        (1, 1),
+        "the Elf beside it is untouched — the effect targets, it does not sweep \
+         the board"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the whole price was the tap and the creature: no mana was ever in \
+         the pool"
+    );
+
+    // "until end of turn": a turn later the Elemental is the 4/4 it was, so the
+    // -3/-3 was a duration and not a body the board keeps.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, victim),
+        (4, 4),
+        "the shrink lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p1, air_elemental()).is_some(),
+        "and the creature is still standing, so the pump left rather than the \
+         creature"
+    );
+}
+
+/// Pixie Queen — {2}{G}{G} — Creature — Faerie: Flying, and "{G}{G}{G}, {T}:
+/// Target creature gains flying until end of turn."
+///
+/// The printed keyword is hers and the grant is not, so the board carries a
+/// second creature of mine and one across the table: "target creature" is one
+/// creature, and the Elf nobody names has to stay grounded while the Elf that
+/// was named takes the keyword. Both halves of the price are read where they
+/// land — the three Forests leave an exact pool and the {T} leaves the Queen
+/// tapped — and the printed "until end of turn" gets a turn of its own, because
+/// a grant that never expires would pass every assertion above it. She is
+/// seated before the game starts rather than cast: a creature that arrived
+/// this turn may not pay a {T} (CR 302.6), and the tap is half of what this
+/// test reads.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn pixie_queen_spends_three_green_and_her_own_tap_for_flying_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                pixie_queen(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_creature(),
+                quiet_creature(),
+            ],
+        )
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let queen = on_battlefield(&engine, p0, pixie_queen()).expect("the Queen is seated");
+    let elves = all_on_battlefield(&engine, p0, quiet_creature());
+    assert_eq!(elves.len(), 2, "two Elves, one of which stays the control");
+    let (host, bystander) = (elves[0], elves[1]);
+    let theirs = on_battlefield(&engine, p1, quiet_creature()).expect("an Elf across the table");
+    assert!(
+        !keywords(&engine, host).contains(KeywordSet::FLYING),
+        "nothing has granted anything yet"
+    );
+    assert!(
+        keywords(&engine, queen).contains(KeywordSet::FLYING),
+        "Flying is the keyword the card prints"
+    );
+    assert!(
+        !is_tapped(&engine, queen),
+        "and she stands untapped, so the {{T}} her ability charges is still there to pay"
+    );
+
+    // `legal.abilities` is filtered through `can_afford`, which reads the pool
+    // and not the untapped lands, so before a single Forest is tapped the line
+    // is not on offer at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(queen, 0)),
+        "an empty pool pays no {{G}}{{G}}{{G}}: {:?}",
+        legal.abilities
+    );
+
+    // Three Forests, with both Elves named as the printing kept back: the
+    // ability's price is {G}{G}{G} and no creature, so a bystander already
+    // tapped for mana would be a different board.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_creature()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three tapped Forests and no Elf: exactly the {{G}}{{G}}{{G}} the ability charges"
+    );
+
+    // The same offer read again, now that the mana is floating.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(queen, 0)),
+        "with {{G}}{{G}}{{G}} in the pool the one line the card prints is \
+         offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, pixie_queen(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that aims it");
+    assert_eq!((min, max), (1, 1), "one target, and the ability asks once");
+    assert!(
+        options.contains(&host) && options.contains(&bystander) && options.contains(&theirs),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    // CR 601.2c before CR 601.2h: while the question stands, the three green
+    // are still floating and the Queen is still standing.
+    assert!(
+        !is_tapped(&engine, queen),
+        "the {{T}} is the last step of the activation, not the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "and the {{G}}{{G}}{{G}} is still in the pool for the same reason"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .expect("the Elf was one of the options the question enumerated");
+
+    assert!(
+        is_tapped(&engine, queen),
+        "{{T}} is the other half of the price"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{G}}{{G}}{{G}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "granting a keyword is no mana ability, so the ability is on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        keywords(&engine, host).contains(KeywordSet::FLYING),
+        "the creature the ability named gained flying"
+    );
+    assert!(
+        !keywords(&engine, bystander).contains(KeywordSet::FLYING),
+        "the Elf nobody named is untouched: the effect targets, it does not \
+         sweep the board"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::FLYING),
+        "and it never reaches across the table for a creature that was not named"
+    );
+
+    // "until end of turn": the untap step says a turn really passed, so the
+    // missing keyword below is a duration and not a game that never advanced.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, queen),
+        "the Queen stands back up in her controller's untap step, so a turn \
+         has passed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "and the Elf is still standing, so the keyword left rather than the creature"
+    );
+    assert!(
+        !keywords(&engine, host).contains(KeywordSet::FLYING),
+        "the grant lasted the turn it was made in and no longer"
+    );
+}
+
+/// Plated Rootwalla — {4}{G} for a printed 3/3 Lizard whose whole text is one
+/// activated ability: "{2}{G}: This creature gets +3/+3 until end of turn.
+/// Activate only once each turn."
+///
+/// Both clauses need a reading of their own, so one board gives both: twelve
+/// Forests pay the {4}{G} and leave seven green, which covers the {2}{G} twice
+/// over — so a withdrawal after the first activation is the printed
+/// once-per-turn word and not `can_afford` reading an empty pool. The pump is
+/// read off the layer projection, where (6, 6) on a printed (3, 3) is the only
+/// body that applies the +3/+3, and the same creature is read again a turn
+/// later at (3, 3), which is what tells an until-end-of-turn pump from a
+/// +1/+1 counter or a static.
+#[test]
+fn plated_rootwalla_pumps_itself_once_a_turn_and_the_pump_lasts_the_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 12])
+        .hand(0, &[plated_rootwalla()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Twelve Forests: {4}{G} brings the Lizard to the table and leaves seven
+    // green behind it, which is more than the ability charges — so nothing the
+    // offer says below is ever withheld for want of mana.
+    cast_from_hand(&mut engine, p0, plated_rootwalla());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let lizard = on_battlefield(&engine, p0, plated_rootwalla()).expect("the Rootwalla resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "twelve Forests less the {{4}}{{G}} the creature costs"
+    );
+    assert_eq!(pt(&engine, lizard), (3, 3), "the body the card prints");
+
+    // The offer is read where the engine reads its prices: the pool.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(lizard, 0)),
+        "with seven green floating the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, plated_rootwalla(), 0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "the {{2}}{{G}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "a pump is no mana ability, so the ability is waiting on the stack"
+    );
+    assert_eq!(
+        pt(&engine, lizard),
+        (3, 3),
+        "and nothing has been pumped while it is still on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, lizard),
+        (6, 6),
+        "+3/+3 until end of turn on the creature the ability names"
+    );
+
+    // Four green are still in the pool, so an absent offer here has exactly
+    // one explanation left.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(lizard, 0)),
+        "\"Activate only once each turn\": the mana to pay for it is floating \
+         and the ability is withheld anyway: {:?}",
+        legal.abilities
+    );
+
+    // Across the opponent's turn and back: the pump lasted the turn it was
+    // made in (CR 514.2), and the limit is per turn rather than per game.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, lizard),
+        (3, 3),
+        "the pump left with the turn that made it"
+    );
+    assert!(
+        on_battlefield(&engine, p0, plated_rootwalla()).is_some(),
+        "and the creature is still standing, so the body changed rather than the board"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        12,
+        "the untap step stood the twelve Forests back up"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(lizard, 0)),
+        "\"once each turn\" is a turn and not a game: the new turn handed the \
+         line back: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, plated_rootwalla(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, lizard),
+        (6, 6),
+        "and it may be taken again on this turn, off the same printed price"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        9,
+        "the second {{2}}{{G}} came out of the twelve the Forests filled"
+    );
+}
+
+// oracle_id = "28a1e053-eb14-4fbf-afd1-bfb6117a839a"
+
+/// Primoc Escapee prints two lines — a {6}{U} 4/4 Bird Beast with flying, and
+/// cycling {2} — and the second one is an ability that lives in the *hand* and
+/// is paid for with the card itself, so nothing but playing it can say whether
+/// the engine offers it there. The scenario plays both halves: nine Islands
+/// cast the creature in one main phase, and the two mana left floating beside
+/// it pay the cycling, which has to move the discarded card into the graveyard
+/// and leave a fresh card in the hand. The price is also read the way the
+/// engine reads it (`can_afford` looks at the pool and not at the untapped
+/// lands), so the line is asserted absent before the Islands are tapped and
+/// present afterwards.
+#[test]
+fn primoc_escapee_flies_and_cycles_itself_out_of_hand_for_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 9])
+        .hand(0, &[primoc_escapee(), primoc_escapee()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Whether the hand ability is on offer, read where the engine decides it:
+    // the list is filtered through `can_afford`, which reads the pool rather
+    // than the nine untapped Islands standing beside it.
+    let cycling_offered = |engine: &Engine<RegistryLookup>| -> bool {
+        let Pending::Priority { legal, .. } = engine.pending() else {
+            return false;
+        };
+        legal.abilities.iter().any(|(id, _)| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.zone == Zone::Hand && o.card.is_some_and(|c| c.index == primoc_escapee())
+            })
+        })
+    };
+    assert!(
+        !cycling_offered(&engine),
+        "an empty pool pays no {{2}}, so the cycling line is not offered at all"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        9,
+        "nine Islands and nothing else on the board, so nine blue"
+    );
+
+    // {6}{U} for the creature, leaving exactly the {2} the cycling charges in
+    // the pool — CR 500.5 keeps a pool across a cast, and this all happens
+    // inside one main phase.
+    cast_with_floating(&mut engine, p0, primoc_escapee());
+    pass_until(&mut engine, stack_is_empty);
+
+    let bird = on_battlefield(&engine, p0, primoc_escapee()).expect("the Escapee resolved");
+    assert_eq!(pt(&engine, bird), (4, 4), "the printed body");
+    assert!(
+        keywords(&engine, bird).contains(KeywordSet::FLYING),
+        "the front half of the card reaches the permanent"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "seven mana for the creature out of the nine the Islands made"
+    );
+    assert!(
+        cycling_offered(&engine),
+        "with the {{2}} floating, the copy still in hand offers its cycling"
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    // Ability 0 is the printed "Cycling {2}" — the card's only ability, and one
+    // the offer names on an object that is still sitting in the hand.
+    activate(&mut engine, p0, primoc_escapee(), 0);
+
+    assert!(
+        in_graveyard(&engine, p0, primoc_escapee()).is_some(),
+        "\"Discard this card\" is half the price and is paid on announcement \
+         (CR 601.2h), so the cycled card is in its owner's graveyard already"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the other half was the {{2}} that was floating"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the cycling is waiting on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "one card discarded and one drawn, so the hand is the size it was"
+    );
+    assert!(
+        on_battlefield(&engine, p0, primoc_escapee()).is_some(),
+        "the creature that was cast is not the card that was cycled"
+    );
+    assert!(
+        in_hand(&engine, p0, primoc_escapee()).is_none(),
+        "and both copies have left the hand: one to the battlefield, one to the graveyard"
+    );
+}
+
+/// Razorfoot Griffin prints four rules lines: flying, first strike, and the
+/// 2/2 body of a `{3}{W}` creature. Neither keyword is visible in the card
+/// file once the permanent is on the table, so the Griffin is cast and both
+/// are read off the layer projection, with a Llanowar Elves standing beside it
+/// as the control that they are the Griffin's own and not a board-wide grant.
+///
+/// The flying is then played rather than read. On the next turn the Griffin
+/// and the Elf attack together, and the untapped Elf across the table is
+/// offered as a blocker for the ground attacker and refused for the flier —
+/// an empty offer under a lone flier could not have told that apart from a
+/// tapped blocker or a combat step that never came.
+#[test]
+fn razorfoot_griffin_arrives_flying_and_first_striking_and_a_ground_creature_cannot_block_it() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), quiet_creature()],
+        )
+        .hand(0, &[razorfoot_griffin()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Four Plains pay the {3}{W}. The Elf is named as the printing kept back
+    // because it is the ground attacker the block offer below needs standing,
+    // and `tap_all_mana` would have tapped it for its own {G}.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_creature()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Plains, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, razorfoot_griffin());
+    pass_until(&mut engine, stack_is_empty);
+
+    let griffin = on_battlefield(&engine, p0, razorfoot_griffin()).expect("the Griffin resolved");
+    let mine = on_battlefield(&engine, p0, quiet_creature()).expect("my Elf is out");
+    let theirs = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is out");
+
+    assert_eq!(pt(&engine, griffin), (2, 2), "the printed 2/2 body");
+    let granted = keywords(&engine, griffin);
+    assert!(granted.contains(KeywordSet::FLYING), "the printed flying");
+    assert!(
+        granted.contains(KeywordSet::FIRST_STRIKE),
+        "the printed first strike"
+    );
+    let beside = keywords(&engine, mine);
+    assert!(
+        !beside.contains(KeywordSet::FLYING),
+        "the keyword is the Griffin's own and no board-wide grant"
+    );
+    assert!(
+        !beside.contains(KeywordSet::FIRST_STRIKE),
+        "and the Elf beside it is the plain 1/1 it prints"
+    );
+
+    // CR 302.6: the Griffin cannot attack on the turn it arrived, so the
+    // combat below is a turn later.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&griffin) && attackers.contains(&mine),
+        "the Griffin has lost its summoning sickness and the Elf never had \
+         any: {attackers:?}"
+    );
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (griffin, Defender::Player(p1)),
+                    (mine, Defender::Player(p1)),
+                ],
+            },
+        )
+        .expect("both came out of the list that offered them");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly the block declaration")
+    };
+    let offered = blockers
+        .iter()
+        .find(|o| o.blocker == theirs)
+        .expect("the untapped Elf across the table is on the block offer");
+    assert!(
+        offered.attackers.contains(&mine),
+        "a ground 1/1 may block a ground 1/1: {offered:?}"
+    );
+    assert!(
+        !offered.attackers.contains(&griffin),
+        "flying: a creature with neither flying nor reach may not block the \
+         Griffin (CR 702.9b): {offered:?}"
+    );
+}
+
+// oracle_id = "01f07ab9-3c3e-4fea-9cd6-543a5b7056b8"
+
+/// Roc of Kher Ridges — {3}{R} — Creature — Bird: "Flying."
+///
+/// The whole card is a cost, a body and one keyword, and each is read off a
+/// different place: four Mountains are spent down to an empty pool, so the
+/// {3}{R} is a real payment rather than a label; the permanent that lands is a
+/// 3/3 on a creature type line of its own; and `flying` is read through the
+/// layer projection (`keywords`), which is the only reading that can see a
+/// keyword rather than its printing. Walking one turn further then shows the
+/// card is a creature *in the game* and not a name on a board: the untap step
+/// stands it back up and the next declare-attackers question offers it, which
+/// is exactly what summoning sickness (CR 302.6) withheld on the turn it
+/// arrived.
+#[test]
+fn roc_of_kher_ridges_lands_as_a_flying_three_three_off_four_mountains() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[roc_of_kher_ridges()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, roc_of_kher_ridges());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, roc_of_kher_ridges()).is_some()
+    });
+
+    let roc = on_battlefield(&engine, p0, roc_of_kher_ridges()).expect("the Roc resolved");
+    assert!(
+        in_hand(&engine, p0, roc_of_kher_ridges()).is_none(),
+        "the card arrived out of the hand rather than being believed in"
+    );
+    assert_eq!(pt(&engine, roc), (3, 3), "the body the card prints");
+    assert!(
+        types(&engine, roc).contains(TypeSet::CREATURE),
+        "and it is the creature its type line says"
+    );
+    assert!(
+        keywords(&engine, roc).contains(KeywordSet::FLYING),
+        "\"Flying\" reaches the permanent through the layers"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "four Mountains paid {{3}}{{R}} to the last mana"
+    );
+
+    // A turn later the Roc is no longer summoning sick: the untap step stood
+    // it up, and the declare-attackers question is the one place a 3/3 flier
+    // is worth anything in the rules at all.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 takes another turn with the Roc still on the battlefield"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&roc),
+        "an untapped, unsick creature is offered as an attacker: {attackers:?}"
+    );
+}
+
+/// Rorix Bladewing is `{3}{R}{R}{R}` for a 6/5 legendary Dragon whose whole
+/// text is flying and haste, so a test has to reach a declare-attackers step
+/// on the very turn it lands — a creature that entered this turn is offered
+/// as an attacker only because of haste, and the six damage that arrives on
+/// the other seat is the same claim read off a life total. Flying is read off
+/// the same combat step from the other side: a ground creature across the
+/// table may not be paired with it. The six Mountains are tapped before
+/// anything is claimed about the cast, because the offer is read off the mana
+/// pool and not off the untapped lands.
+#[test]
+fn rorix_bladewing_lands_as_a_six_five_flier_that_attacks_the_turn_it_arrives() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(); 6])
+        .hand(0, &[rorix_bladewing()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Mountains and nothing else on the board: six red pays {{3}}{{R}}{{R}}{{R}}"
+    );
+    cast_with_floating(&mut engine, p0, rorix_bladewing());
+    pass_until(&mut engine, stack_is_empty);
+
+    let rorix = on_battlefield(&engine, p0, rorix_bladewing()).expect("Rorix resolved");
+    let elf =
+        on_battlefield(&engine, p1, llanowar_elves()).expect("the Elf stands across the table");
+    assert_eq!(pt(&engine, rorix), (6, 5), "the body the card prints");
+    assert!(
+        types(&engine, rorix).contains(TypeSet::CREATURE),
+        "and it is a creature, not a permanent the layers left without a type: {:?}",
+        types(&engine, rorix)
+    );
+    let granted = keywords(&engine, rorix);
+    assert!(granted.contains(KeywordSet::FLYING), "Flying");
+    assert!(granted.contains(KeywordSet::HASTE), "and haste");
+
+    // Haste is read where it is worth something: the declaration this turn.
+    // `attack_and_collect_blocks` panics if the creature is not on the offer,
+    // which is exactly what a summoning-sick creature would be missing.
+    let blocks = attack_and_collect_blocks(&mut engine, rorix, p1);
+    assert!(
+        !blocks
+            .iter()
+            .any(|option| option.blocker == elf && option.attackers.contains(&rorix)),
+        "flying: a ground creature is not paired with it — {blocks:?}"
+    );
+
+    let Pending::ChooseBlockers { player, .. } = engine.pending().clone() else {
+        panic!(
+            "the attack declaration leads to the blockers, got {:?}",
+            engine.pending()
+        )
+    };
+    engine
+        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("declaring no blockers is always legal");
+    // Not `stack_is_empty`: the stack is already empty the moment blockers are
+    // declared, so the damage step (CR 510) has not happened yet. The end step
+    // is past it and is what the life total below needs.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        14,
+        "a 6/5 that attacked the turn it entered: six damage, which a creature \
+         without haste could not have dealt here at all"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the Elf never blocked and never moved"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rorix_bladewing()).is_some(),
+        "and the Dragon is still standing after combat"
+    );
+}
+
+/// Sandbar Serpent is a `{4}{U}` 3/4 Serpent whose entire printed rules text
+/// is "Cycling `{2}`" — an activated ability that lives in the *hand*
+/// (`ActivationZone::Hand`) and whose whole price is two mana and the card
+/// itself. Casting it would say nothing about that line, so the scenario
+/// cycles: two Forests pay the `{2}`, the ability is read out of
+/// `LegalActions::abilities` while the mana is really floating (the list is
+/// filtered through `can_afford`, which reads the pool and not the untapped
+/// lands), and the two halves of the swap are read in different zones — the
+/// discard as a graveyard entry, the draw on the library and the hand
+/// together, because a card that merely vanished from the hand would satisfy
+/// either reading alone.
+#[test]
+fn sandbar_serpent_cycles_itself_away_for_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[sandbar_serpent()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let serpent = in_hand(&engine, p0, sandbar_serpent()).expect("the Serpent is in hand");
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let yard_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+
+    // Mana before the claim: the `{2}` is read off the pool, so nothing is
+    // asserted about the offer until the two Forests are actually tapped.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "two Forests, two green — exactly the printed cycling cost, and the \
+         only source on this board"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(serpent, 0)),
+        "cycling is a hand-zone ability, so the card in hand is the offered \
+         source: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, sandbar_serpent(), 0);
+
+    // CR 601.2h: the discard is a cost and is paid on announcement; the draw
+    // is the effect and waits on the stack.
+    assert!(
+        in_graveyard(&engine, p0, sandbar_serpent()).is_some(),
+        "\"Discard this card\" is half the price, so it is already in its \
+         owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, sandbar_serpent()).is_none(),
+        "and the card is nowhere on the battlefield: cycling is not a cast"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the ability uses the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card off the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "the Serpent left the hand as half the price and the drawn card \
+         replaced it — a discard that never happened would leave this one \
+         long, and a draw that never happened one short"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        yard_before + 1,
+        "and exactly one card arrived in the graveyard, which is the Serpent \
+         rather than something the draw put there"
+    );
+    assert!(
+        on_battlefield(&engine, p0, sandbar_serpent()).is_none(),
+        "cycling never puts the creature onto the battlefield"
+    );
+}
+
+/// Siege-Gang Commander prints two sentences and the test plays both in one
+/// main phase: "{3}{R}{R}" for a 2/2 Goblin whose enters-trigger makes three
+/// 1/1 red Goblin creature tokens, and "{1}{R}, Sacrifice a Goblin: This
+/// creature deals 2 damage to any target."
+///
+/// The two halves are each other's proof. Seven Mountains pay the cast down to
+/// exactly the {1}{R} the ability charges, so the line is read out of an offer
+/// the pool really covers (`can_afford` reads the pool and not the untapped
+/// lands); the three tokens the entry made are then the only Goblins on the
+/// board besides the Commander, so the sacrifice menu holding them — and
+/// holding no Mountain — is what says they arrived out of the token pool as
+/// Goblins. The damage is aimed across the table at a printed 1/1, where
+/// "any target" (CR 115.4) reaches a creature and two damage is lethal.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn siege_gang_commander_makes_three_goblins_and_feeds_one_back_to_its_own_gun() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(); 7])
+        .hand(0, &[siege_gang_commander()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Seven Mountains and nothing else on this side makes mana, so "seven" is a
+    // count of lands and not of a creature that taps alongside them.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "seven Mountains tapped, seven red"
+    );
+    cast_with_floating(&mut engine, p0, siege_gang_commander());
+    pass_until(&mut engine, stack_is_empty);
+
+    let commander =
+        on_battlefield(&engine, p0, siege_gang_commander()).expect("the Commander resolved");
+    assert_eq!(pt(&engine, commander), (2, 2), "the printed 2/2 body");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the {{3}}{{R}}{{R}} is spent and exactly the {{1}}{{R}} the ability \
+         charges is still floating"
+    );
+
+    // "When this creature enters, create three 1/1 red Goblin creature tokens."
+    let goblins = tokens_of(&engine, p0);
+    assert_eq!(goblins.len(), 3, "one entry, three tokens");
+    for token in &goblins {
+        assert_eq!(pt(&engine, *token), (1, 1), "the printed 1/1 body");
+        let printed = engine
+            .state()
+            .object(*token)
+            .expect("the token is an object")
+            .token
+            .expect("it knows which token it is");
+        assert!(
+            printed.colors.contains(baylee_core::color::Color::Red),
+            "a red token, and not a colourless one"
+        );
+    }
+
+    let victim = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is out");
+    assert_eq!(
+        pt(&engine, victim),
+        (1, 1),
+        "a printed 1/1 for two damage to kill"
+    );
+    let fodder = goblins[0];
+
+    // Ability 0 is the {1}{R} line; the enters-trigger behind it is a
+    // `Trigger` and is never offered as an activation, so the index is the
+    // card's own order and nothing has to be guessed.
+    activate(&mut engine, p0, siege_gang_commander(), 0);
+
+    // The two questions one activation asks: what is aimed at (CR 601.2c) and
+    // which Goblin is given up (CR 601.2h). Answered in the order they arrive.
+    let mut target_menu: Vec<ObjectId> = Vec::new();
+    let mut sacrifice_menu: Vec<ObjectId> = Vec::new();
+    for _ in 0..12 {
+        if !target_menu.is_empty() && !sacrifice_menu.is_empty() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player,
+                options,
+                player_options,
+                min,
+                max,
+                ..
+            } => {
+                assert_eq!(player, p0, "the activating seat is the one that aims it");
+                assert_eq!((min, max), (1, 1), "one target, and the ability asks once");
+                assert!(
+                    options.contains(&victim),
+                    "\"any target\" reaches the creature across the table: {options:?}"
+                );
+                assert!(
+                    player_options.contains(&p0) && player_options.contains(&p1),
+                    "CR 115.4: \"any target\" counts players in the same choice: \
+                     {player_options:?}"
+                );
+                target_menu = options;
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![victim],
+                            players: vec![],
+                        },
+                    )
+                    .expect("their Elf was one of the options it enumerated");
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                prompt,
+            } => {
+                assert_eq!(player, p0, "the activating seat answers its own cost");
+                assert_eq!(
+                    prompt,
+                    ChoicePrompt::CostSacrifice,
+                    "a cost and not a search, which is all a client has to tell the two apart"
+                );
+                assert_eq!((min, max), (1, 1), "one Goblin, no more and no fewer");
+                sacrifice_menu = options;
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![fodder],
+                        },
+                    )
+                    .expect("the Goblin the question offered pays the cost");
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the Commander's ability resolves: {other:?}"),
+        }
+    }
+
+    assert!(
+        !target_menu.is_empty() && !sacrifice_menu.is_empty(),
+        "one activation asks both questions"
+    );
+    for token in &goblins {
+        assert!(
+            sacrifice_menu.contains(token),
+            "a token the entry made is a Goblin and may be given up: {sacrifice_menu:?}"
+        );
+    }
+    assert!(
+        sacrifice_menu.contains(&commander),
+        "\"a Goblin\" is a subtype and not a name, so the Commander is on its \
+         own menu too: {sacrifice_menu:?}"
+    );
+    assert_eq!(
+        sacrifice_menu.len(),
+        4,
+        "those four Goblins are the whole menu and nothing else is one: {sacrifice_menu:?}"
+    );
+    for land in all_on_battlefield(&engine, p0, mountain()) {
+        assert!(
+            !sacrifice_menu.contains(&land),
+            "a Mountain is a land and no Goblin: {sacrifice_menu:?}"
+        );
+    }
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{1}}{{R}} it charges came out of the pool"
+    );
+    let left = tokens_of(&engine, p0);
+    assert_eq!(left.len(), 2, "one Goblin paid the cost, so two are left");
+    assert!(
+        !left.contains(&fodder),
+        "the token that was sacrificed left the battlefield (CR 111.7)"
+    );
+    assert!(
+        on_battlefield(&engine, p0, siege_gang_commander()).is_some(),
+        "the Commander paid the mana and not itself, so it is still standing"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_creature()).is_some(),
+        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the damage went to the creature that was named and never to the seat \
+         whose board it stood on"
+    );
+}
+
+// oracle_id = "1566af29-bd7b-41bb-a589-499348fbd32c"
+
+/// Soul of Magma — {3}{R}{R} Creature — Spirit 2/2: "Whenever you cast a
+/// Spirit or Arcane spell, this creature deals 1 damage to target creature."
+///
+/// Two copies stand on the board because the sentence is per-creature and its
+/// number is the whole card: one Kodama of the North Tree — a Spirit whose own
+/// text is nothing but trample and shroud, so casting it puts no trigger of
+/// its own beside the Soul of Magma's — raises one target question per copy,
+/// and the two questions are aimed one at a printed 1/1 and one at a printed
+/// 2/2. The 1/1 dies (CR 704.5f) and the 2/2 is still standing afterwards,
+/// which is the only pair of readings that fixes the damage at exactly one —
+/// zero would leave the Elf alive and two would take the Knight with it. A
+/// Llanowar Elves cast last is the control for the filter: it is a creature
+/// spell and neither a Spirit nor an Arcane one, so the same board must not
+/// ask for a target over it at all.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn soul_of_magma_shoots_one_creature_for_each_copy_that_watches_a_spirit_spell() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                soul_of_magma(),
+                soul_of_magma(),
+            ],
+        )
+        .hand(0, &[kodama_of_the_north_tree(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves(), benalish_knight()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    let knight = on_battlefield(&engine, p1, benalish_knight()).expect("their Knight is out");
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "a printed 1/1, which one damage puts into the graveyard (CR 704.5f)"
+    );
+    assert_eq!(
+        pt(&engine, knight),
+        (2, 2),
+        "a printed 2/2, which one damage leaves standing"
+    );
+
+    // Six Forests are the whole of p0's mana: they pay the Spirit spell's
+    // {2}{G}{G}{G} and leave one green floating for the control cast at the
+    // end, since the whole scenario lives in this one main phase (CR 500.5).
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Forests, and neither Soul of Magma makes mana of its own"
+    );
+    cast_with_floating(&mut engine, p0, kodama_of_the_north_tree());
+
+    // Each copy watches the cast on its own, so one Spirit spell raises one
+    // target question per Soul of Magma — the second question below is what
+    // says the ability belongs to the creature and not to the cast.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let options = aim_at(&mut engine, p0, elf);
+    assert!(
+        options.contains(&elf) && options.contains(&knight),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let options = aim_at(&mut engine, p0, knight);
+    assert!(
+        options.contains(&elf) && options.contains(&knight),
+        "the second copy asks the same question of the same board: {options:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    // The control: Llanowar Elves is a creature spell with neither of the two
+    // subtypes the trigger reads, so the walk must end on an empty stack and
+    // never on a question. `pass_until` would stop on a `ChooseTargets` with a
+    // panic, so the count is taken by hand to say what the failure would be.
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    let mut asked = 0usize;
+    let mut steps = 0usize;
+    loop {
+        steps += 1;
+        assert!(steps <= 20, "the control spell never resolved");
+        match engine.pending().clone() {
+            Pending::Priority { .. } if stack_is_empty(&engine) => break,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseTargets { .. } => {
+                asked += 1;
+                break;
+            }
+            other => panic!("unexpected while the control spell resolved: {other:?}"),
+        }
+    }
+    assert_eq!(
+        asked, 0,
+        "an Elf is a creature spell and neither a Spirit nor an Arcane one, so \
+         no Soul of Magma asks for a target over it"
+    );
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "one damage on a printed 1/1 is lethal (CR 704.5f)"
+    );
+    assert!(
+        on_battlefield(&engine, p1, benalish_knight()).is_some(),
+        "and one damage on a printed 2/2 is not — zero would have left the Elf \
+         standing and two would have taken the Knight with it, so the shot is \
+         exactly the one the card prints"
+    );
+    assert!(
+        on_battlefield(&engine, p0, soul_of_magma()).is_some(),
+        "the Soul of Magma that did the shooting outlives the creature it shot"
+    );
+    assert!(
+        on_battlefield(&engine, p0, kodama_of_the_north_tree()).is_some(),
+        "the Spirit spell that set the triggers off resolved onto the table"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the control spell resolved too, so the empty question count above \
+         is a resolved cast and not a stuck one"
+    );
+}
+
+/// Staunch Defenders is `{3}{W}{W}` for a 3/4 Human Soldier whose entire
+/// printed text is one enters-trigger: "When this creature enters, you gain 4
+/// life." Neither half of that is visible by reading the card file, so both are
+/// read off one cast on a board built to make them exact — five Plains pay the
+/// `{3}{W}{W}` down to an empty pool, the body is the printed 3/4, and the four
+/// life lands on the seat that cast it while the seat across the table stays at
+/// twenty, which a card that had gained for the whole table could not tell
+/// apart.
+#[test]
+fn staunch_defenders_arrives_as_a_three_four_and_gains_its_controller_four_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(); 5])
+        .hand(0, &[staunch_defenders()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "a life total for the trigger to move"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and one across the table that the trigger must leave alone"
+    );
+
+    // Five Plains are the whole cost, and `cast_from_hand` taps them before the
+    // cast rather than claiming the spell is castable off untapped lands.
+    cast_from_hand(&mut engine, p0, staunch_defenders());
+    // The permanent arrives with its trigger still on the stack, so the walk is
+    // past the stack rather than merely up to the battlefield: a reading taken
+    // now would count the body before the life was gained.
+    pass_until(&mut engine, stack_is_empty);
+
+    let soldier = on_battlefield(&engine, p0, staunch_defenders()).expect("the Soldier resolved");
+    assert_eq!(
+        pt(&engine, soldier),
+        (3, 4),
+        "the body the card prints, and not a 3/4 from somewhere else on the board"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        24,
+        "\"you gain 4 life\" — four, once, to the seat that cast it"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the life belongs to the controller and never across the table"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "five Plains paid the {{3}}{{W}}{{W}} to the last mana"
+    );
+}
+
+/// Sunastian Falconer is a `{3}{R}{G}` legendary 4/4 whose whole printed text
+/// is "{T}: Add {C}{C}". Both halves of that are the engine's answer rather
+/// than the card's, so both are played: three Mountains and two Forests pay
+/// the printed `{3}{R}{G}` down to an exactly empty pool, and the Falconer then
+/// pays its own tap symbol for two *colourless* mana that no land on this board
+/// could have produced — the Forests make green and the Mountains make red.
+/// A turn passes before the tap is taken, because a creature that arrived this
+/// turn is summoning sick (CR 302.6) and its `{T}` is not payable at all; the
+/// untapped Forest read afterwards is what says the two mana came off the
+/// creature and not off a land.
+#[test]
+fn sunastian_falconer_taps_for_two_colorless_off_an_empty_pool() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), forest(), forest()])
+        .hand(0, &[sunastian_falconer()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Five lands into the pool: exactly the {3}{R}{G} the card costs, so the
+    // pool is empty the moment the Falconer lands and nothing floating can be
+    // mistaken for the mana its own ability makes below.
+    cast_from_hand(&mut engine, p0, sunastian_falconer());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let falconer =
+        on_battlefield(&engine, p0, sunastian_falconer()).expect("the Falconer resolved");
+    assert_eq!(pt(&engine, falconer), (4, 4), "the body the card prints");
+    assert!(
+        types(&engine, falconer).contains(TypeSet::CREATURE),
+        "and the permanent it arrived as is a creature"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Mountains and two Forests paid the {{3}}{{R}}{{G}} to the last mana"
+    );
+    // The land this test reads back afterwards, so that "the two colourless are
+    // the Falconer's" is a statement about a board and not a default.
+    let land = on_battlefield(&engine, p0, forest()).expect("a Forest is still out");
+
+    // CR 302.6: a creature that came under its controller's control this turn
+    // has summoning sickness, so its {T} is not offered until the next turn has
+    // begun. The untap step also stands every land back up, which is what makes
+    // "no land was tapped for it" a reading rather than a leftover.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(
+        !is_tapped(&engine, falconer),
+        "the Falconer is standing and no longer sick"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the pool emptied with the step that ended (CR 500.5)"
+    );
+
+    // Ability 0 is the printed "{T}: Add {C}{C}", whose whole price is its own
+    // tap — so the claim is made on an empty pool, where the engine reads the
+    // offer.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(falconer, 0)),
+        "an untapped Falconer is a paid {{T}}, so the one line the card prints \
+         is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, sunastian_falconer(), 0);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "`{{C}}{{C}}` is fixed, so nothing is asked on the way (CR 605.1), got {:?}",
+        engine.pending()
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        2,
+        "\"{{T}}: Add {{C}}{{C}}\" — two, off one tap"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "the two Forests are untapped and make green besides, so this is no \
+         land's mana mislabelled"
+    );
+    assert_eq!(pool.total(), 2, "two mana, and nothing else came with them");
+    assert!(
+        is_tapped(&engine, falconer),
+        "the Falconer paid its own {{T}}"
+    );
+    assert!(
+        !is_tapped(&engine, land),
+        "the Forest beside it never moved, so the two mana have no other source \
+         on this board"
+    );
+
+    // The tap is spent, so the line is no longer one the seat may take — read
+    // off the offer, which is where an unpayable cost goes.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(falconer, 0)),
+        "a tapped Falconer has no {{T}} left to pay with: {:?}",
+        legal.abilities
+    );
+}
+
+// oracle_id = "8cb3f047-bd8b-4a34-8a2b-ced2cc0487eb"
+
+/// Talas Air Ship is `{3}{U}` for a 3/2 Human Pirate whose whole text is
+/// "Flying". Nothing about that sentence can be read off the card file, so the
+/// board is built to make each half of it falsifiable in one cast: four Islands
+/// and no more, so the `{3}{U}` is a payment the pool actually had to supply,
+/// and a Llanowar Elves beside them as the control for the keyword — a 1/1
+/// ground creature under the same seat is offered the board and must not be
+/// flying. `(3, 2)` is the only body that reads both printed numbers: a `(3, 3)`
+/// would be a toughness the card never had, and a `(0, 0)` a card whose numbers
+/// were never applied.
+#[test]
+fn talas_air_ship_lands_as_a_three_two_flier_for_the_four_mana_it_prints() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[talas_air_ship()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING),
+        "the control on this board is a ground creature, so `flying` on the \
+         Ship below is a reading and not a board-wide grant"
+    );
+
+    // The four Islands are exactly the `{3}{U}`, and the Elf is named as the
+    // printing kept back: tapping it for its own `{T}: Add {G}` would put a
+    // green mana in the pool beside the four blue and leave the creature the
+    // keyword is measured against out of the board.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Islands in the pool, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, talas_air_ship());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, talas_air_ship()).is_some()
+    });
+
+    let ship = on_battlefield(&engine, p0, talas_air_ship()).expect("the Ship resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed {{3}}{{U}} came out of the pool: an empty pool afterwards \
+         is what says the four Islands were the price and not scenery"
+    );
+    assert_eq!(pt(&engine, ship), (3, 2), "the body the card prints");
+    assert!(
+        keywords(&engine, ship).contains(KeywordSet::FLYING),
+        "the printed flying reaches the permanent"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::FLYING),
+        "and it reaches only the creature that prints it"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        0,
+        "no blue is left floating either, so the cast spent what it was given"
+    );
+}
+
+/// Tolarian Serpent is a {5}{U}{U} 7/7 whose entire text is "At the beginning
+/// of your upkeep, mill seven cards."
+///
+/// The possessive is the word worth a witness, and the table supplies one for
+/// free: the Serpent is cast in its controller's own first main phase, so the
+/// walk has to cross the *opponent's* whole turn before the controller's next
+/// upkeep arrives — an implementation that fired on any upkeep would empty a
+/// library before the assertion below is ever reached. Both graveyards are
+/// read beside both libraries, because "mill seven" is a move between zones
+/// and a library that merely shrank would not say where the seven went.
+#[test]
+fn tolarian_serpent_mills_seven_on_its_controllers_upkeep_and_never_on_the_opponents() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 7])
+        .hand(0, &[tolarian_serpent()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Seven Islands are exactly {5}{U}{U}, so the Serpent arrives off the whole
+    // board and nothing is left floating behind it.
+    cast_from_hand(&mut engine, p0, tolarian_serpent());
+    pass_until(&mut engine, stack_is_empty);
+    let serpent = on_battlefield(&engine, p0, tolarian_serpent()).expect("the Serpent resolved");
+    assert_eq!(pt(&engine, serpent), (7, 7), "the body the card prints");
+
+    let hand_size = |engine: &Engine<RegistryLookup>, seat: PlayerId| {
+        engine.state().zones.list(ZoneLocation::Hand(seat)).len()
+    };
+    let my_library = library_size(&engine, p0);
+    let their_library = library_size(&engine, p1);
+    let my_hand = hand_size(&engine, p0);
+    let their_hand = hand_size(&engine, p1);
+    let my_yard = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+    let their_yard = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+    assert!(my_library > 7, "seven cards to mill, and more besides");
+
+    // The opponent's turn comes first, and the printed sentence says nothing
+    // about it: a Serpent that milled on any upkeep would empty a library here.
+    // The opponent does lose one card off the top — their own draw step
+    // (CR 504.1) — so their library is read beside their hand, where a draw
+    // lands and a mill does not.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        library_size(&engine, p0),
+        my_library,
+        "\"at the beginning of *your* upkeep\" — the controller's library is \
+         untouched on a turn that is not theirs"
+    );
+    assert_eq!(
+        hand_size(&engine, p1),
+        their_hand + 1,
+        "the opponent drew for their turn"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        their_library - 1,
+        "and that draw is the only card their library lost: nothing mills the \
+         opponent either"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        their_yard,
+        "their graveyard is where a mill would have put the cards, and it is empty"
+    );
+
+    // Back around to the controller's own turn, whose upkeep the sentence is
+    // about. The draw step follows the upkeep, so the controller's library pays
+    // for one draw beside the seven milled cards, and the hand says which one.
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        hand_size(&engine, p0),
+        my_hand + 1,
+        "the controller drew for their turn, after the upkeep"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        my_library - 7 - 1,
+        "\"mill seven cards\": seven off the top of the controller's library, \
+         and the one card the draw step took"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        my_yard + 7,
+        "and the seven are in the graveyard, not merely gone from the library"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        their_library - 1,
+        "the opponent's library is still only its own draw short after the \
+         second upkeep"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        their_yard,
+        "and so is their graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, tolarian_serpent()).is_some(),
+        "milling costs the Serpent nothing: it is still the permanent it entered as"
+    );
+}
+
+// oracle_id = "fcf92abb-6c06-42d2-a3d1-f44ec997d56d"
+
+/// Ursapine prints one line — `{G}: Target creature gets +1/+1 until end of
+/// turn` — and it is a 3/3 on top of that, so the card is a price, a target and
+/// a body. The board carries three creatures on purpose: an Elf of mine, the
+/// Elf across the table and the Ursapine itself, which is what makes
+/// `Filter::CREATURE` a claim about *any* creature rather than "creatures you
+/// control" — the offer has to name all three. The pump then has to land on
+/// exactly the one that was named, and the price has to leave a mark: the `{G}`
+/// out of a pool six tapped Forests filled (the cast's `{3}{G}{G}` took five of
+/// it), with the Ursapine still standing because its price is mana and not the
+/// tap symbol.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn ursapine_pumps_the_creature_it_names_and_no_other() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[ursapine()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let host = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+
+    // Six Forests and only those: the Elf is named as the printing kept back,
+    // because it is the creature this test is about to aim the pump at and a
+    // mana creature tapped for the cost would put its own {{G}} in the pool.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Forests tapped, six green, and the untapped Elf gave nothing"
+    );
+    cast_with_floating(&mut engine, p0, ursapine());
+    pass_until(&mut engine, stack_is_empty);
+    let beast = on_battlefield(&engine, p0, ursapine()).expect("the Ursapine resolved");
+    assert_eq!(pt(&engine, beast), (3, 3), "the body the card prints");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the cast's {{3}}{{G}}{{G}} is spent and exactly the {{G}} the ability \
+         charges is left floating"
+    );
+    assert_eq!(pt(&engine, host), (1, 1), "a printed 1/1 before the pump");
+
+    // `LegalActions::abilities` is filtered through `can_afford`, which reads
+    // the pool and not the untapped lands — so the claim is made with the mana
+    // already there.
+    activate(&mut engine, p0, ursapine(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that aims it");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature, and the ability asks once"
+    );
+    assert!(
+        options.contains(&host) && options.contains(&theirs) && options.contains(&beast),
+        "\"target creature\" is any creature on either side of the table, the \
+         Ursapine itself included: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        3,
+        "and the three standing creatures are the whole menu: {options:?}"
+    );
+    // CR 601.2c before CR 601.2h: the target is named while the mana is still
+    // floating and nothing about the source has moved.
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the cost is the last step of the activation, so nothing is spent yet"
+    );
+    assert!(
+        !is_tapped(&engine, beast),
+        "and the price is {{G}}, so nothing has tapped the Ursapine either"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .expect("the creature the question offered was chosen");
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{G}} it charges came out of the pool"
+    );
+    assert!(
+        !is_tapped(&engine, beast),
+        "an activation that costs mana and no tap leaves the source standing"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "a pump is no mana ability, so the ability is waiting on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, host),
+        (2, 2),
+        "+1/+1 on the creature the ability named, and not a toughness the card \
+         never prints"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "the pump reaches the creature it targeted and never across the table"
+    );
+    assert_eq!(
+        pt(&engine, beast),
+        (3, 3),
+        "nor its own source, which the offer named and the answer did not"
+    );
+
+    // "until end of turn": a turn later the Elf is a printed 1/1 again, so the
+    // +1/+1 was a duration and not a counter the board keeps.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, host),
+        (1, 1),
+        "the grant lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the creature is still standing, so the pump left rather than the creature"
+    );
+}
+
+/// Vampiric Spirit prints two lines — flying and "When this creature enters,
+/// you lose 4 life" — and the life total is read twice off one cast: once
+/// while the card is still a spell on the stack, where nothing has been lost
+/// yet, and once after the entry trigger has resolved, which is what tells the
+/// printed loss from a board that was already low. The card is read on the
+/// stack by `on_stack` rather than by the battlefield it has not reached. The
+/// seat across the table is the control for the word "you": the life belongs
+/// to the Spirit's controller and not to the table.
+#[test]
+fn vampiric_spirit_costs_its_controller_four_life_as_it_enters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[vampiric_spirit()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {2}{B}{B} off four Swamps, and the printed loss is an *enters* trigger:
+    // paying for the spell costs no life at all.
+    cast_from_hand(&mut engine, p0, vampiric_spirit());
+    assert!(
+        on_stack(&engine, vampiric_spirit()).is_some(),
+        "the card is still a spell waiting to resolve"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "nothing is lost to cast it — the loss is the entry trigger"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let spirit = on_battlefield(&engine, p0, vampiric_spirit()).expect("the Spirit resolved");
+    assert_eq!(pt(&engine, spirit), (4, 3), "the body the card prints");
+    assert!(
+        keywords(&engine, spirit).contains(KeywordSet::FLYING),
+        "the printed flying reaches the permanent"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        16,
+        "\"you lose 4 life\" — four, and not a point per mana spent on it"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the loss belongs to the Spirit's controller, not to the opponent"
+    );
+}
+
+/// Vedalken Archmage — {2}{U}{U}, a 0/2 Vedalken Wizard printing "Whenever you
+/// cast an artifact spell, draw a card." The Archmage's own arrival is the
+/// control: it is a creature spell and no artifact, so the library must not
+/// move for it, which is what tells the printed filter from a trigger that
+/// fires on any spell its controller casts. The Sol Ring cast afterwards, off
+/// the mana left over from the same main phase, is the trigger; the Sol Ring
+/// the opponent then casts is the other half of "you", and an artifact spell
+/// cast across the table has to draw the Archmage's controller nothing.
+#[test]
+fn vedalken_archmage_draws_for_your_artifact_spell_and_for_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 6])
+        .hand(0, &[vedalken_archmage(), quiet_artifact()])
+        .battlefield(1, &[island(); 3])
+        .hand(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Six Islands into the pool, so both spells below are paid out of mana the
+    // board really made: the Archmage's {2}{U}{U} and the Sol Ring's {1} are
+    // one payment inside this single main phase (CR 500.5).
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Islands, six blue"
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    cast_with_floating(&mut engine, p0, vedalken_archmage());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let archmage = on_battlefield(&engine, p0, vedalken_archmage()).expect("the Archmage resolved");
+    assert_eq!(pt(&engine, archmage), (0, 2), "the body the card prints");
+    assert!(
+        !types(&engine, archmage).contains(TypeSet::ARTIFACT),
+        "a Vedalken Wizard is a creature and no artifact, so its own cast is \
+         the control and not the trigger"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before,
+        "the card waits for an *artifact* spell, and this was not one"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1,
+        "one card left the hand and none came back"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the {{2}}{{U}}{{U}} came out of the pool"
+    );
+
+    // The Sol Ring: an artifact spell, which is the whole of what the card is
+    // about.
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    cast_with_floating(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "the Sol Ring resolved"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"whenever you cast an artifact spell, draw a card\": one card off the top"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "one card cast and one card drawn, so the hand is the size it was"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the Sol Ring's {{1}} came out of the same pool"
+    );
+
+    // And the "you" half. The same spell cast by the opponent is nobody's
+    // trigger, and the readings are taken on p0, whose Archmage is the only
+    // one on the table.
+    reach_their_main_phase(&mut engine, p1);
+    tap_all_mana(&mut engine, p1);
+    let my_library = library_size(&engine, p0);
+    let my_hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    cast_with_floating(&mut engine, p1, quiet_artifact());
+    pass_until(&mut engine, |e| at_rest(e, p1));
+
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "the opponent's Sol Ring resolved on their side of the table"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        my_library,
+        "\"whenever *you* cast\": an artifact spell cast across the table draws \
+         the Archmage's controller nothing"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        my_hand,
+        "and the Archmage's controller's hand never moved"
+    );
+}
+
+// oracle_id = "88cadf97-4b24-481a-9136-96c017fd96e9"
+
+/// Vermiculos — {4}{B} 1/1 Horror: "Whenever an artifact enters, this creature
+/// gets +4/+4 until end of turn."
+///
+/// Neither half of that sentence is visible in the card file, so the board
+/// plays it twice with a bystander in between. Sol Ring is the artifact that
+/// pumps, Exploration is a permanent entering on the same board that must not,
+/// and the second Sol Ring is what tells two stacked +4/+4s from one — a single
+/// grant, a once-per-turn trigger or a filter without the word `ARTIFACT` all
+/// read differently on a 1/1. The turn afterwards is the printed duration: the
+/// Horror is still standing, and it is a printed 1/1 again.
+#[test]
+fn vermiculos_grows_by_four_for_each_artifact_that_enters_and_only_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[vermiculos(), forest(), forest(), forest(), forest()])
+        .hand(0, &[quiet_artifact(), exploration(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let horror = on_battlefield(&engine, p0, vermiculos()).expect("the Horror is on the table");
+    assert_eq!(
+        pt(&engine, horror),
+        (1, 1),
+        "a printed 1/1 while nothing has entered"
+    );
+
+    // (1) An artifact enters. The trigger goes on the stack behind it, so the
+    // reading is taken once the board is quiet again.
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        pt(&engine, horror),
+        (5, 5),
+        "\"whenever an artifact enters, this creature gets +4/+4\""
+    );
+
+    // (2) The control: a permanent that is not an artifact enters on the same
+    // board and the Horror must not move. A trigger that had lost the word
+    // `ARTIFACT` would read 9/9 here, one +4/+4 per permanent.
+    cast_from_hand(&mut engine, p0, exploration());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, exploration()).is_some(),
+        "the enchantment resolved onto the same board"
+    );
+    assert_eq!(
+        pt(&engine, horror),
+        (5, 5),
+        "an enchantment is no artifact: the pump is a filter and not \
+         \"whenever a permanent enters\""
+    );
+
+    // (3) A second artifact: two separate +4/+4s on a 1/1, which neither a
+    // once-per-turn trigger nor a set-instead-of-add could produce.
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        pt(&engine, horror),
+        (9, 9),
+        "a printed 1/1 with two +4/+4s on it"
+    );
+
+    // (4) "until end of turn": a turn later the Horror is still standing and
+    // is a printed 1/1 again, so the size was a duration and not a body.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, horror),
+        (1, 1),
+        "the pump lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p0, vermiculos()).is_some(),
+        "and the Horror is still there, so the size left rather than the creature"
+    );
+}
+
+/// Vulshok War Boar prints one line — "When this creature enters, sacrifice it
+/// unless you sacrifice an artifact" — and that one sentence is two outcomes
+/// off one board, so both are played. With a Sol Ring standing under its
+/// controller the entry question offers *that* artifact and declines the same
+/// card across the table (`Filter::YOUR_ARTIFACT`, CR 701.21a), and paying the
+/// price leaves the printed 5/5 on the battlefield while the rock goes to its
+/// owner's graveyard. With no artifact anywhere the printed "unless" has no
+/// price to name at all, so the Boar sacrifices itself — the half a board that
+/// always carried an artifact would read as a card that does nothing.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn vulshok_war_boar_keeps_itself_for_an_artifact_and_sacrifices_itself_without_one() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+
+    // Answers the Boar's own entry question. `fodder` is the artifact the
+    // scenario spends, and `None` takes the printed "unless".
+    let settle = |engine: &mut Engine<RegistryLookup>,
+                  fodder: Option<ObjectId>,
+                  theirs: Option<ObjectId>| {
+        for _ in 0..12 {
+            match engine.pending().clone() {
+                Pending::ChooseCards {
+                    player,
+                    options,
+                    prompt,
+                    ..
+                } if fodder.is_some() => {
+                    assert_eq!(
+                        prompt,
+                        ChoicePrompt::CostSacrifice,
+                        "a cost and not a search, which is all a client has to tell apart"
+                    );
+                    let want = fodder.expect("the guard just said there is one");
+                    assert!(
+                        options.contains(&want),
+                        "the artifact this seat controls is the whole of the price: {options:?}"
+                    );
+                    if let Some(other) = theirs {
+                        assert!(
+                            !options.contains(&other),
+                            "the same card across the table is not this seat's to spend: {options:?}"
+                        );
+                    }
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::ChooseObjects {
+                                objects: vec![want],
+                            },
+                        )
+                        .expect("the artifact the question offered pays the cost");
+                }
+                Pending::ChooseCards { .. } => {
+                    // No price to name: declining is the whole answer.
+                    let Pending::ChooseCards { player, .. } = engine.pending().clone() else {
+                        unreachable!("the arm just matched")
+                    };
+                    engine
+                        .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                        .expect("choosing nothing declines the cost");
+                }
+                Pending::YesNo { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::YesNo(fodder.is_some()))
+                        .expect("both answers are legal while the question stands");
+                }
+                Pending::Priority { .. } if stack_is_empty(engine) => return,
+                Pending::Priority { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::PassPriority)
+                        .expect("passing priority is always legal");
+                }
+                other => panic!("unexpected while the Boar's entry resolves: {other:?}"),
+            }
+        }
+        panic!("the Boar's entry question never settled");
+    };
+
+    // -- with an artifact to give up: the printed price is payable and asked --
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                quiet_artifact(),
+            ],
+        )
+        .battlefield(1, &[quiet_artifact()])
+        .hand(0, &[vulshok_war_boar()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring is out");
+    let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+    // Four Mountains and only those: the Sol Ring is the price this scenario is
+    // about, so it is kept standing rather than tapped for the {2}{R}{R}.
+    assert_eq!(
+        tap_mana_except(&mut engine, p0, ring),
+        4,
+        "four Mountains, and the Sol Ring left alone to be sacrificed"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "exactly {{2}}{{R}}{{R}} is floating"
+    );
+    cast_with_floating(&mut engine, p0, vulshok_war_boar());
+    settle(&mut engine, Some(ring), Some(theirs));
+
+    let boar = on_battlefield(&engine, p0, vulshok_war_boar())
+        .expect("the Boar paid an artifact and stayed");
+    assert_eq!(pt(&engine, boar), (5, 5), "the body the card prints");
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_some(),
+        "\"unless you sacrifice an artifact\": the Sol Ring is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "and the Sol Ring across the table never moved"
+    );
+
+    // -- with no artifact at all: there is nothing to pay, so it goes itself --
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[vulshok_war_boar()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, vulshok_war_boar());
+    settle(&mut engine, None, None);
+
+    assert!(
+        on_battlefield(&engine, p0, vulshok_war_boar()).is_none(),
+        "\"sacrifice it unless you sacrifice an artifact\" — with no artifact on \
+         the board the Boar sacrifices itself"
+    );
+    assert!(
+        in_graveyard(&engine, p0, vulshok_war_boar()).is_some(),
+        "and the card is in its owner's graveyard rather than merely gone"
+    );
+    assert_eq!(
+        lands_of(&engine, p0).len(),
+        4,
+        "the Mountains are no artifacts, so none of them was ever a legal price"
+    );
+}
+
+/// `Barbarian Riftcutter` is a 3/3 Human Barbarian costing `{4}{R}` under `Coverage::Implemented`.
+/// It prints "{R}, Sacrifice this creature: Destroy target land."
+/// When activated off floating red mana, targets are chosen first while the creature remains
+/// on the battlefield. Once the target land is chosen, paying the cost sacrifices the creature.
+/// Upon resolution, the targeted land is destroyed and sent to its owner's graveyard.
+#[test]
+fn barbarian_riftcutter_sacrifices_itself_to_destroy_target_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[barbarian_riftcutter(), mountain()])
+        .battlefield(1, &[mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let riftcutter =
+        on_battlefield(&engine, p0, barbarian_riftcutter()).expect("Riftcutter is present");
+    let their_land = on_battlefield(&engine, p1, mountain()).expect("opponent controls a land");
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "Mountain produced one red mana for the activation cost"
+    );
+
+    activate(&mut engine, p0, barbarian_riftcutter(), 0);
+
+    // CR 601.2c: Target is chosen before costs are paid; Riftcutter is still on the battlefield.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&their_land),
+        "opponent's land is a legal target: {options:?}"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&riftcutter),
+        "Riftcutter has not yet been sacrificed while choosing targets"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![their_land],
+                players: Vec::new(),
+            },
+        )
+        .expect("targeting opponent's land is legal");
+
+    // CR 601.2h: Cost is now paid, so Riftcutter is in the graveyard.
+    assert!(
+        on_battlefield(&engine, p0, barbarian_riftcutter()).is_none(),
+        "Riftcutter was sacrificed as cost"
+    );
+    assert!(
+        in_graveyard(&engine, p0, barbarian_riftcutter()).is_some(),
+        "sacrificed Riftcutter is in caster's graveyard"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, mountain()).is_none(),
+        "targeted land was destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, mountain()).is_some(),
+        "destroyed land is in opponent's graveyard"
+    );
+}
+
+/// `Desert Drake` is a 2/2 Drake costing `{3}{R}` under `Coverage::Implemented` with flying.
+/// When cast from hand off four Mountains, it enters the battlefield with its printed 2/2 characteristics
+/// and the flying keyword. When it attacks on a subsequent turn, an opponent controlling only a ground creature
+/// without reach cannot legally assign it as a blocker.
+#[test]
+fn desert_drake_enters_with_flying_and_cannot_be_blocked_by_ground_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[desert_drake()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, desert_drake());
+    pass_until(&mut engine, stack_is_empty);
+
+    let drake = on_battlefield(&engine, p0, desert_drake()).expect("Desert Drake resolved");
+    assert_eq!(pt(&engine, drake), (2, 2), "printed body is 2/2");
+    assert!(
+        keywords(&engine, drake).contains(KeywordSet::FLYING),
+        "Desert Drake has flying"
+    );
+
+    // Advance to next turn so Desert Drake can attack without summoning sickness.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let blocks = attack_and_collect_blocks(&mut engine, drake, p1);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("opponent controls elves");
+    assert!(
+        !blocks
+            .iter()
+            .any(|b| b.blocker == elves && b.attackers.contains(&drake)),
+        "ground creature without reach cannot block flying Desert Drake: {blocks:?}"
+    );
+}
+
+/// `Endless Wurm` is a 9/9 Wurm costing `{3}{G}{G}` under `Coverage::Implemented` with trample.
+/// It prints "At the beginning of your upkeep, sacrifice this creature unless you sacrifice an enchantment."
+/// In its controller's upkeep, the trigger fires and prompts `ChoicePrompt::CostSacrifice` over controlled
+/// enchantments. Choosing to sacrifice `Fastbond` pays the cost, placing `Fastbond` in the graveyard and
+/// preserving `Endless Wurm` on the battlefield.
+///
+/// The Wurm is seated before the game starts, so the first upkeep it sees is
+/// p0's very first one, and the question arrives *before* any main phase —
+/// which is why this walks straight to it rather than to a main phase first.
+#[test]
+fn endless_wurm_sacrifices_enchantment_during_upkeep_to_survive() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[endless_wurm(), fastbond()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let wurm = on_battlefield(&engine, p0, endless_wurm()).expect("Endless Wurm is present");
+    let enchantment = on_battlefield(&engine, p0, fastbond()).expect("Fastbond is present");
+    assert_eq!(pt(&engine, wurm), (9, 9), "printed body is 9/9");
+    assert!(
+        keywords(&engine, wurm).contains(KeywordSet::TRAMPLE),
+        "Endless Wurm has trample"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::CostSacrifice,
+                ..
+            }
+        )
+    });
+    assert_eq!(
+        (engine.state().turn.active, engine.state().turn.step),
+        (p0, Step::Upkeep),
+        "\"at the beginning of *your* upkeep\": the question is asked in the \
+         controller's own upkeep"
+    );
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        min,
+        max,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ChooseCards prompt for CostSacrifice, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0, "the Wurm's controller is the one who may pay");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostSacrifice,
+        "prompt is CostSacrifice"
+    );
+    // No yes-or-no is asked first: naming nothing is how the seat declines.
+    assert_eq!((min, max), (0, 1), "sacrificing is optional, at most one");
+    assert!(
+        options.contains(&enchantment),
+        "controlled enchantment is offered: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![enchantment],
+            },
+        )
+        .expect("sacrificing enchantment to pay the upkeep cost is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, fastbond()).is_none(),
+        "Fastbond was sacrificed to pay the upkeep cost"
+    );
+    assert!(
+        in_graveyard(&engine, p0, fastbond()).is_some(),
+        "sacrificed enchantment is in graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, endless_wurm()).is_some(),
+        "Endless Wurm survived on the battlefield"
+    );
+}
+
+/// `Firefly` is a 1/1 Insect costing `{3}{R}` under `Coverage::Implemented` with flying.
+/// It prints "{R}: This creature gets +1/+0 until end of turn."
+/// When activated off floating red mana, its ability pump resolves and raises its power from 1 to 2
+/// while keeping its toughness at 1.
+#[test]
+fn firefly_has_flying_and_pumps_its_power_for_red() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[firefly(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let insect = on_battlefield(&engine, p0, firefly()).expect("Firefly is on the battlefield");
+    assert_eq!(pt(&engine, insect), (1, 1), "printed body is 1/1");
+    assert!(
+        keywords(&engine, insect).contains(KeywordSet::FLYING),
+        "Firefly has flying"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "Mountain produced one red mana"
+    );
+
+    activate(&mut engine, p0, firefly(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, insect),
+        (2, 1),
+        "Firefly power increased by 1 until end of turn"
+    );
+}
+
+/// `Gerrard's Irregulars` is a 4/2 Human Soldier under `Coverage::Implemented` with trample and haste.
+/// When cast from hand off five Mountains, it arrives on the battlefield with its printed 4/2 body
+/// and both keywords. In the combat phase of the same turn, haste enables it to attack immediately,
+/// dealing 4 combat damage to the defending player when unblocked.
+#[test]
+fn gerrard_s_irregulars_haste_and_trample_attacks_on_arrival() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[gerrard_s_irregulars()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, gerrard_s_irregulars());
+    pass_until(&mut engine, stack_is_empty);
+
+    let troops = on_battlefield(&engine, p0, gerrard_s_irregulars())
+        .expect("Gerrard's Irregulars resolved onto the battlefield");
+    assert_eq!(pt(&engine, troops), (4, 2), "printed body is 4/2");
+    let kw = keywords(&engine, troops);
+    assert!(
+        kw.contains(KeywordSet::HASTE),
+        "Gerrard's Irregulars has haste"
+    );
+    assert!(
+        kw.contains(KeywordSet::TRAMPLE),
+        "Gerrard's Irregulars has trample"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ChooseAttackers prompt, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0, "active seat declares attackers");
+    assert!(
+        attackers.contains(&troops),
+        "haste allows attacking on the turn of arrival: {attackers:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(troops, Defender::Player(p1))],
+            },
+        )
+        .expect("declaring attack is legal");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        player: blocker_player,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseBlockers prompt, got {:?}", engine.pending());
+    };
+    engine
+        .apply(
+            blocker_player,
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
+        .expect("declaring no blockers is legal");
+
+    pass_until(&mut engine, |e| e.state().players[1].life != 20);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "four combat damage dealt to defending player"
+    );
+    assert!(
+        on_battlefield(&engine, p0, gerrard_s_irregulars()).is_some(),
+        "Gerrard's Irregulars survives combat"
+    );
+}
+
+/// `Giant Spider` is a 2/4 Spider costing `{3}{G}` under `Coverage::Implemented` with reach.
+/// When defending against an opponent attacking with a flying creature (such as `Desert Drake`),
+/// reach allows `Giant Spider` to be legally assigned as a blocker in `Pending::ChooseBlockers`,
+/// whereas an ordinary ground creature without reach is refused.
+#[test]
+fn giant_spider_has_reach_and_blocks_flying_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[giant_spider(), llanowar_elves()])
+        .battlefield(1, &[desert_drake()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+
+    let drake =
+        on_battlefield(&engine, p1, desert_drake()).expect("opponent controls Desert Drake");
+    let spider = on_battlefield(&engine, p0, giant_spider()).expect("p0 controls Giant Spider");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 controls Llanowar Elves");
+
+    assert_eq!(pt(&engine, spider), (2, 4), "printed body is 2/4");
+    assert!(
+        keywords(&engine, spider).contains(KeywordSet::REACH),
+        "Giant Spider has reach"
+    );
+
+    let blocks = attack_and_collect_blocks(&mut engine, drake, p0);
+
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == spider && b.attackers.contains(&drake)),
+        "reach allows Giant Spider to block flying Desert Drake: {blocks:?}"
+    );
+    assert!(
+        !blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&drake)),
+        "Llanowar Elves lacks reach and cannot block flyer: {blocks:?}"
+    );
+}
+
+/// `Gruul Nodorog` is a 4/4 Beast costing `{4}{G}{G}` under `Coverage::Implemented`.
+/// It prints "{R}: This creature gains menace until end of turn."
+/// When activated off floating red mana, its ability resolves and grants `KeywordSet::MENACE`
+/// to the creature until end of turn.
+#[test]
+fn gruul_nodorog_gains_menace_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gruul_nodorog(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let nodorog = on_battlefield(&engine, p0, gruul_nodorog()).expect("Gruul Nodorog is present");
+    assert_eq!(pt(&engine, nodorog), (4, 4), "printed body is 4/4");
+    assert!(
+        !keywords(&engine, nodorog).contains(KeywordSet::MENACE),
+        "Gruul Nodorog does not have menace initially"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1,
+        "one red mana floated"
+    );
+
+    activate(&mut engine, p0, gruul_nodorog(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        keywords(&engine, nodorog).contains(KeywordSet::MENACE),
+        "Gruul Nodorog gained menace until end of turn"
+    );
+}
+
+/// `Karplusan Giant` is a 3/3 Giant costing `{6}{R}` under `Coverage::Implemented`.
+/// It prints "Tap an untapped snow land you control: This creature gets +1/+1 until end of turn."
+/// Activating ability 0 presents a `Pending::ChooseCards` with `ChoicePrompt::CostTap`, requiring an
+/// untapped snow land under its controller's control. Selecting a controlled Snow-Covered Mountain
+/// taps that land to pay the cost and grows `Karplusan Giant` to a 4/4 until end of turn.
+#[test]
+fn karplusan_giant_taps_untapped_snow_land_to_pump_itself() {
+    let p0 = PlayerId::new(0);
+    let snow_mountain = card_index("ca9f660b-e07d-4f42-a46e-abd0ca72510c");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[karplusan_giant(), snow_mountain])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let giant = on_battlefield(&engine, p0, karplusan_giant()).expect("Giant on battlefield");
+    let snow_land = on_battlefield(&engine, p0, snow_mountain).expect("snow land on battlefield");
+    assert_eq!(pt(&engine, giant), (3, 3), "initial body is 3/3");
+    assert!(!is_tapped(&engine, snow_land), "snow land starts untapped");
+
+    activate(&mut engine, p0, karplusan_giant(), 0);
+
+    let Pending::ChooseCards {
+        options,
+        prompt,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ChooseCards prompt for CostTap, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "prompt is CostTap");
+    assert_eq!((min, max), (1, 1), "cost requires tapping one permanent");
+    assert!(
+        options.contains(&snow_land),
+        "untapped controlled snow land is offered: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![snow_land],
+            },
+        )
+        .expect("tapping the snow land pays the activation cost");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, snow_land),
+        "snow land was tapped as cost"
+    );
+    assert_eq!(pt(&engine, giant), (4, 4), "Karplusan Giant got +1/+1");
+}
+
+/// `Lovisa Coldeyes` is a 3/3 legendary Human costing `{3}{R}{R}` under `Coverage::Implemented`.
+/// It prints "Each creature that's a Barbarian, a Warrior, or a Berserker gets +2/+2 and has haste."
+/// On a board with `Barbarian Riftcutter` (a Barbarian) and `Llanowar Elves` (an Elf Druid), Lovisa grants
+/// +2/+2 and haste to the Barbarian, while leaving the Elf and Lovisa herself unaffected.
+#[test]
+fn lovisa_coldeyes_buffs_barbarians_warriors_and_berserkers_only() {
+    let p0 = PlayerId::new(0);
+    let riftcutter_card = card_index("e9612e4c-1527-4255-9f2f-b8d8cee65cc6");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[lovisa_coldeyes(), riftcutter_card, llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let lovisa = on_battlefield(&engine, p0, lovisa_coldeyes()).expect("Lovisa is present");
+    let barbarian =
+        on_battlefield(&engine, p0, riftcutter_card).expect("Barbarian Riftcutter is present");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("Llanowar Elves is present");
+
+    // Barbarian gets +2/+2 (printed 3/3 becomes 5/5) and haste.
+    assert_eq!(
+        pt(&engine, barbarian),
+        (5, 5),
+        "Barbarian creature gets +2/+2"
+    );
+    assert!(
+        keywords(&engine, barbarian).contains(KeywordSet::HASTE),
+        "Barbarian creature gains haste"
+    );
+
+    // Non-matching creature (Elf Druid) remains untouched.
+    assert_eq!(pt(&engine, elf), (1, 1), "Llanowar Elves remains 1/1");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::HASTE),
+        "Llanowar Elves does not gain haste"
+    );
+
+    // Lovisa herself is only a Human and does not buff herself.
+    assert_eq!(pt(&engine, lovisa), (3, 3), "Lovisa Coldeyes remains 3/3");
+    assert!(
+        !keywords(&engine, lovisa).contains(KeywordSet::HASTE),
+        "Lovisa Coldeyes does not have haste"
+    );
+}
+
+/// `Ogre Arsonist` is a 3/3 Ogre costing `{4}{R}` under `Coverage::Implemented`.
+/// It prints "When this creature enters, destroy target land."
+/// When cast from hand off five Mountains, it resolves onto the battlefield and puts its enters trigger
+/// on the stack. Choosing an opponent's land as the target destroys that land upon resolution,
+/// leaving `Ogre Arsonist` on the battlefield.
+#[test]
+fn ogre_arsonist_enters_and_destroys_target_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[ogre_arsonist()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let their_land = on_battlefield(&engine, p1, forest()).expect("opponent controls a Forest");
+
+    cast_from_hand(&mut engine, p0, ogre_arsonist());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Ogre Arsonist ETB, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&their_land),
+        "opponent's Forest is a legal land target: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![their_land],
+                players: Vec::new(),
+            },
+        )
+        .expect("targeting opponent's Forest is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let ogre = on_battlefield(&engine, p0, ogre_arsonist())
+        .expect("Ogre Arsonist resolved onto the battlefield");
+    assert_eq!(pt(&engine, ogre), (3, 3), "printed body is 3/3");
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "targeted Forest was destroyed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "destroyed Forest is in opponent's graveyard"
+    );
+}
+
+/// `Phyrexian Debaser` is a 2/2 Phyrexian Carrier costing `{3}{B}` under `Coverage::Implemented` with flying.
+/// It prints "{T}, Sacrifice this creature: Target creature gets -2/-2 until end of turn."
+/// When its ability is activated targeting an opponent's 2/2 creature (such as `Desert Drake`),
+/// paying the cost taps and sacrifices `Phyrexian Debaser`. The ability resolves, giving -2/-2 to the target
+/// and causing it to die as a state-based action.
+#[test]
+fn phyrexian_debaser_taps_and_sacrifices_to_kill_two_toughness_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let drake_card = card_index("ce8f4eb4-08b8-404b-9147-1e28c1b14a65");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[phyrexian_debaser()])
+        .battlefield(1, &[drake_card])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let debaser =
+        on_battlefield(&engine, p0, phyrexian_debaser()).expect("Debaser is on battlefield");
+    let their_drake =
+        on_battlefield(&engine, p1, drake_card).expect("opponent controls Desert Drake");
+    assert_eq!(pt(&engine, debaser), (2, 2), "printed body is 2/2");
+    assert!(
+        keywords(&engine, debaser).contains(KeywordSet::FLYING),
+        "Phyrexian Debaser has flying"
+    );
+
+    activate(&mut engine, p0, phyrexian_debaser(), 0);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Phyrexian Debaser, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&their_drake),
+        "opponent's creature is offered as target: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_drake],
+            },
+        )
+        .expect("targeting opponent's creature is legal");
+
+    // Cost paid: Debaser was tapped and sacrificed.
+    assert!(
+        on_battlefield(&engine, p0, phyrexian_debaser()).is_none(),
+        "Phyrexian Debaser was sacrificed to pay the activation cost"
+    );
+    assert!(
+        in_graveyard(&engine, p0, phyrexian_debaser()).is_some(),
+        "sacrificed Debaser is in its owner's graveyard"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, drake_card).is_none(),
+        "target creature with 2 toughness died from -2/-2"
+    );
+    assert!(
+        in_graveyard(&engine, p1, drake_card).is_some(),
+        "dead creature is in opponent's graveyard"
+    );
+}
+
+/// `Shivan Hellkite` is a 5/5 Dragon costing `{5}{R}{R}` under `Coverage::Implemented` with flying.
+/// It prints "{1}{R}: This creature deals 1 damage to any target."
+/// When activated off floating mana, its ability targets an opponent and resolves, dealing 1 damage
+/// to that player and reducing their life total from 20 to 19.
+#[test]
+fn shivan_hellkite_activates_to_ping_any_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[shivan_hellkite(), mountain(), mountain()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let dragon =
+        on_battlefield(&engine, p0, shivan_hellkite()).expect("Shivan Hellkite is present");
+    assert_eq!(pt(&engine, dragon), (5, 5), "printed body is 5/5");
+    assert!(
+        keywords(&engine, dragon).contains(KeywordSet::FLYING),
+        "Shivan Hellkite has flying"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        2,
+        "two red mana floated to cover {{1}}{{R}}"
+    );
+
+    activate(&mut engine, p0, shivan_hellkite(), 0);
+
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Shivan Hellkite, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        player_options.contains(&p1),
+        "opponent is offered as legal target: {player_options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![p1],
+            },
+        )
+        .expect("targeting opponent is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "Shivan Hellkite dealt 1 damage to opponent"
+    );
+}
+
+/// `Volcanic Dragon` is a 4/4 Dragon costing `{4}{R}{R}` under `Coverage::Implemented` with flying and haste.
+/// When cast from hand off six Mountains, it resolves onto the battlefield with its printed 4/4 body,
+/// flying, and haste. Haste allows it to attack immediately in the same turn's combat phase, dealing 4 combat
+/// damage to the opponent when unblocked.
+#[test]
+fn volcanic_dragon_has_flying_and_haste_attacks_on_arrival() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .hand(0, &[volcanic_dragon()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, volcanic_dragon());
+    pass_until(&mut engine, stack_is_empty);
+
+    let dragon = on_battlefield(&engine, p0, volcanic_dragon()).expect("Volcanic Dragon resolved");
+    assert_eq!(pt(&engine, dragon), (4, 4), "printed body is 4/4");
+    let kw = keywords(&engine, dragon);
+    assert!(
+        kw.contains(KeywordSet::FLYING),
+        "Volcanic Dragon has flying"
+    );
+    assert!(kw.contains(KeywordSet::HASTE), "Volcanic Dragon has haste");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected ChooseAttackers prompt, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0, "active seat declares attackers");
+    assert!(
+        attackers.contains(&dragon),
+        "haste allows attacking on turn of arrival: {attackers:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(dragon, Defender::Player(p1))],
+            },
+        )
+        .expect("declaring attack is legal");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        player: blocker_player,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseBlockers prompt, got {:?}", engine.pending());
+    };
+    engine
+        .apply(
+            blocker_player,
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+        )
+        .expect("declaring no blockers is legal");
+
+    pass_until(&mut engine, |e| e.state().players[1].life != 20);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "four combat damage dealt to opponent"
+    );
+    assert!(
+        on_battlefield(&engine, p0, volcanic_dragon()).is_some(),
+        "Volcanic Dragon survives combat"
     );
 }

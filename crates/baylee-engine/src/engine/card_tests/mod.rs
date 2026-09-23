@@ -3868,3 +3868,719 @@ fn princess_lucrezia() -> CardIndex {
 fn sharlayan_nation_of_scholars() -> CardIndex {
     card_index("564bdbdd-8392-4ee1-a132-1a17a67b2110")
 }
+
+fn kormus_bell() -> CardIndex {
+    card_index("d2d477a5-f055-4d47-a852-26e8239f2a01")
+}
+
+fn myr_matrix() -> CardIndex {
+    card_index("46a07fdd-0ca3-4654-9caa-a88fae80c414")
+}
+
+fn power_matrix() -> CardIndex {
+    card_index("4355507e-e3a4-4c49-a1f7-344150213a2f")
+}
+
+fn archangel() -> CardIndex {
+    card_index("9971697b-2acc-4bc2-a44e-074d03a51df7")
+}
+
+fn arrogant_vampire() -> CardIndex {
+    card_index("5edfe083-391b-41ae-ac4d-d648042cfa5e")
+}
+
+fn aven_flock() -> CardIndex {
+    card_index("fcf0bb85-bca9-4f4c-b954-ca3bc5f91dd8")
+}
+
+fn barkhide_mauler() -> CardIndex {
+    card_index("84a18b1f-5f9f-4e2b-87cd-c437bdf4d278")
+}
+
+fn ekundu_griffin() -> CardIndex {
+    card_index("852b6e19-4594-41ea-9267-0911df643af5")
+}
+
+fn folk_of_the_pines() -> CardIndex {
+    card_index("6cd8cf2a-972f-41b7-ab0c-b4953accc2fe")
+}
+
+fn herd_gnarr() -> CardIndex {
+    card_index("89cf4d99-64e9-4e5c-9edc-ea077a193332")
+}
+
+fn highway_robber() -> CardIndex {
+    card_index("5de0769e-5141-42d5-aaa6-549cfc154de8")
+}
+
+fn hundroog() -> CardIndex {
+    card_index("ade82acb-80c0-4033-aa02-4fa3d69aad69")
+}
+
+fn hyalopterous_lemure() -> CardIndex {
+    card_index("bc3576fb-3c08-456e-b3b6-9eb01b2366d6")
+}
+
+fn jungle_barrier() -> CardIndex {
+    card_index("dcf65293-14a0-46a5-a0b0-ca2b7fda8bef")
+}
+
+fn kongming_sleeping_dragon() -> CardIndex {
+    card_index("21e9e1a9-5d6d-473e-adab-6a1e8e2b0ebd")
+}
+
+fn smugglers_copter_for_kongming() -> CardIndex {
+    card_index("49136bdc-bc50-49a2-999a-1ef9c16ea130")
+}
+
+fn lightning_angel() -> CardIndex {
+    card_index("2be85439-4606-4e1e-8be7-56d9e31f77c4")
+}
+
+fn mawcor() -> CardIndex {
+    card_index("4c0384d6-21cb-4645-b7a4-3af133e8a9a8")
+}
+
+fn morphling() -> CardIndex {
+    card_index("19f233b2-8be6-4172-abf9-b132fc3393d9")
+}
+
+fn mystic_snake() -> CardIndex {
+    card_index("161b6d06-e6a7-488e-9f9c-d266c1402a3a")
+}
+
+fn nightscape_master() -> CardIndex {
+    card_index("e5f9bd6b-0aa6-4f61-b101-ec194af6d632")
+}
+
+fn raging_minotaur() -> CardIndex {
+    card_index("4cfd04b3-57bd-4860-8b47-57a0fd0a23fa")
+}
+
+fn reclusive_wight() -> CardIndex {
+    card_index("dbde53c1-c6b7-4775-87d3-e95166392e60")
+}
+
+fn serpentine_kavu() -> CardIndex {
+    card_index("cf252d71-77e7-438f-b774-28e5ab2f09f6")
+}
+
+fn skyshroud_troopers() -> CardIndex {
+    card_index("b5a40cd8-e1f9-4294-99ef-26fb455d4f95")
+}
+
+fn starlit_angel() -> CardIndex {
+    card_index("e66e3450-bddb-46ac-bc7e-c7732e258374")
+}
+
+fn thing_from_the_deep() -> CardIndex {
+    card_index("9542bd7f-bb99-4b59-a4e3-b88ed9f798bf")
+}
+
+fn vengeful_dead() -> CardIndex {
+    card_index("277c8ee9-0157-4e45-96ad-1b67716955ee")
+}
+
+fn vile_deacon() -> CardIndex {
+    card_index("123147b4-57d0-44cd-bdd5-a449ac86c1cb")
+}
+
+fn war_mammoth() -> CardIndex {
+    card_index("b2a8fcf9-2ec2-40a9-9955-90f8605b11a3")
+}
+
+fn yavimaya_wurm() -> CardIndex {
+    card_index("93514874-41e8-49e7-8935-d06e852dd1e3")
+}
+
+fn dispersing_orb() -> CardIndex {
+    card_index("dabc4ba1-3f90-4cea-a737-d41537cce729")
+}
+
+fn lifegift() -> CardIndex {
+    card_index("c99d4be7-244c-4fb5-877a-8aee961a2666")
+}
+
+fn spidersilk_armor() -> CardIndex {
+    card_index("ad73e5eb-197c-45a3-9d20-a406ba126c79")
+}
+
+fn absorb() -> CardIndex {
+    card_index("132ca99a-a3c7-4ed6-b4d0-0edcd7140ca2")
+}
+
+fn ember_shot() -> CardIndex {
+    card_index("1f300320-ad98-4812-b34b-54885a86aee9")
+}
+
+fn rend_flesh() -> CardIndex {
+    card_index("079d4698-dc11-4d29-91b6-725d78dfb75d")
+}
+
+fn reviving_dose() -> CardIndex {
+    card_index("ad470afc-d1a5-4e64-8192-fb6308ed9bfe")
+}
+
+fn scrap() -> CardIndex {
+    card_index("0ad3b788-eb3d-4876-9c89-893429595e0e")
+}
+
+fn sudden_strength() -> CardIndex {
+    card_index("8df51012-b334-475f-b70d-af4f2b3840a0")
+}
+
+fn tel_jilad_justice() -> CardIndex {
+    card_index("6c853b95-3d98-44fd-b05a-02d05d5eb0b8")
+}
+
+fn wipe_clean() -> CardIndex {
+    card_index("f5cbc4f3-4e73-405f-9daf-e5b7c73fa6ee")
+}
+
+fn blighted_cataract() -> CardIndex {
+    card_index("4d722521-0396-48f9-88b2-08b6249f970d")
+}
+
+fn goblin_burrows() -> CardIndex {
+    card_index("ad65bb8e-57de-49f3-ba7c-be62cf3fe3df")
+}
+
+fn kyoshi_village() -> CardIndex {
+    card_index("da81b78b-89fd-4fc1-9395-b5b01b96be70")
+}
+
+fn minamo_school_at_water_s_edge() -> CardIndex {
+    card_index("17784f90-89a1-47a5-83ef-ae60dfc30bd1")
+}
+
+fn omashu_city() -> CardIndex {
+    card_index("6f9a4bb2-5959-4a5c-83af-c2729e6673df")
+}
+
+fn seraph_sanctuary() -> CardIndex {
+    card_index("0b504dc6-61cc-4a72-907c-145fa4c72466")
+}
+
+fn shinka_the_bloodsoaked_keep() -> CardIndex {
+    card_index("255b937f-c9c9-4ae9-815e-17418eba0602")
+}
+
+fn slayers_stronghold() -> CardIndex {
+    card_index("2de7367b-a5a4-43f4-8f8f-b931ea28150d")
+}
+
+fn tournament_grounds() -> CardIndex {
+    card_index("a3ed5d7f-c554-4d46-86e5-7bb8df2693f6")
+}
+
+fn unknown_shores() -> CardIndex {
+    card_index("82c5ec8e-27be-475a-9921-ad61209fd022")
+}
+
+fn aftershock() -> CardIndex {
+    card_index("e6bef0c4-3dfc-49a8-8fec-22b2570b704b")
+}
+
+fn creeping_mold() -> CardIndex {
+    card_index("59180e94-ccdf-4d9f-9a4a-fe55497d0d63")
+}
+
+fn demolish() -> CardIndex {
+    card_index("08c6d2fd-d9ae-4f95-bb9d-7e16b1039814")
+}
+
+fn dosan_s_oldest_chant() -> CardIndex {
+    card_index("59aeeb18-d263-426f-aebc-0f687b09801b")
+}
+
+fn essence_drain() -> CardIndex {
+    card_index("4bf5402f-7bba-4c0c-aebd-1b231768f2b2")
+}
+
+fn lay_waste() -> CardIndex {
+    card_index("04cc9d99-69a9-499b-91bc-f2f30d217bdd")
+}
+
+fn rain_of_tears() -> CardIndex {
+    card_index("72cecab3-519e-4a23-9623-b423a5c5a251")
+}
+
+fn aladdin_s_ring() -> CardIndex {
+    card_index("7810915f-df4d-445a-8ba8-fe6ed3abf1ae")
+}
+
+fn flying_carpet() -> CardIndex {
+    card_index("453524fb-2ffa-421f-883c-b77ae2850c52")
+}
+
+fn wand_of_the_elements() -> CardIndex {
+    card_index("b4931b44-815e-40b5-b239-682d350f3347")
+}
+
+fn disease_carriers() -> CardIndex {
+    card_index("ccdd6376-9b74-4d13-9f80-87d0bd3d4a2a")
+}
+
+fn fighting_drake() -> CardIndex {
+    card_index("b13cc6be-ee35-491e-a437-f7fc191f24c7")
+}
+
+fn flowstone_overseer() -> CardIndex {
+    card_index("89a3a6a3-e5f9-4e28-8372-99219db3f976")
+}
+
+fn goblin_clearcutter() -> CardIndex {
+    card_index("08a01139-1b1e-4a32-bb00-3a9660cce1ef")
+}
+
+fn grandmother_sengir() -> CardIndex {
+    card_index("4f92804f-a231-4406-9a16-f4e102517b06")
+}
+
+fn hawkeater_moth() -> CardIndex {
+    card_index("e3f4bc4c-e747-4bc1-bfba-4ecfa0a5d17f")
+}
+
+fn luminous_angel() -> CardIndex {
+    card_index("8d7cf56c-94fd-47d8-9e0f-cd3163688983")
+}
+
+fn needleshot_gourna() -> CardIndex {
+    card_index("8a04fd45-6526-4c73-8b38-5e40a2380451")
+}
+
+fn oyobi_who_split_the_heavens() -> CardIndex {
+    card_index("df5c1f34-94e4-4f89-b1af-943c430862d0")
+}
+
+fn phantom_monster() -> CardIndex {
+    card_index("bbd30183-524c-4b93-b953-90853ec3f39f")
+}
+
+fn phyrexian_gargantua() -> CardIndex {
+    card_index("a3925dfd-62b0-44ef-8545-7bee92cad5a2")
+}
+
+fn ravenous_baboons() -> CardIndex {
+    card_index("1d9bd0a5-3ba0-44e5-9cb3-966f6b9dc14a")
+}
+
+fn renegade_troops() -> CardIndex {
+    card_index("83a81308-4a15-49cd-b2f6-51431cca79e9")
+}
+
+fn seismic_mage() -> CardIndex {
+    card_index("a1f7e43a-f126-47d8-bd59-339ae052e81b")
+}
+
+fn souldrinker() -> CardIndex {
+    card_index("624d4bda-448f-43d1-92b6-53a77afe2374")
+}
+
+fn centaur_glade() -> CardIndex {
+    card_index("369c3b6c-6715-4b6a-89d2-e7542400ba8f")
+}
+
+fn greed() -> CardIndex {
+    card_index("1ff62220-be95-4901-b8d8-812b9a1a1b0a")
+}
+
+fn still_life() -> CardIndex {
+    card_index("55159adc-36f0-4088-8930-5d9b45f76365")
+}
+
+fn ferocious_charge() -> CardIndex {
+    card_index("a7796af7-d41c-42a6-9033-a4d79dee84d6")
+}
+
+fn blinkmoth_well() -> CardIndex {
+    card_index("dd3fd7cd-d8a1-48e2-861d-c7c40086dc75")
+}
+
+fn rabanastre_royal_city() -> CardIndex {
+    card_index("bd39e333-b0b8-4a85-8645-d77f4a3941db")
+}
+
+fn rumble_arena() -> CardIndex {
+    card_index("83f2470e-2114-4cd9-ab1a-21b76e9cdf63")
+}
+
+fn skybridge_towers() -> CardIndex {
+    card_index("46466819-3c8b-4f7e-82c2-93cb0118a6e6")
+}
+
+fn sun_blessed_peak() -> CardIndex {
+    card_index("d188a397-c7d9-4f16-bc21-d9e1b5ffc951")
+}
+
+fn treno_dark_city() -> CardIndex {
+    card_index("6d5bb714-1bf4-4f75-9ea8-bdbd18b0425b")
+}
+
+fn turntimber_grove() -> CardIndex {
+    card_index("62934aab-b6fa-41b2-ac05-d3fa0e3c5a79")
+}
+
+fn wooded_ridgeline() -> CardIndex {
+    card_index("c2ca3e20-23ca-4d2a-88a1-5e98ff884abb")
+}
+
+fn goblin_cannon() -> CardIndex {
+    card_index("c939e74d-4206-4ad1-bdaa-84103db0ac41")
+}
+
+fn mightstone() -> CardIndex {
+    card_index("2f578020-9b39-4c61-8b0b-6d29187e022a")
+}
+
+fn staff_of_zegon() -> CardIndex {
+    card_index("52c53132-146a-4912-8e0f-1d4d9937fff3")
+}
+
+fn angel_of_retribution() -> CardIndex {
+    card_index("248dcf69-b99e-4a71-b9b3-7fd865f873ab")
+}
+
+fn ardent_militia() -> CardIndex {
+    card_index("23625877-b6db-480c-8885-a62b7d0457df")
+}
+
+fn boris_devilboon() -> CardIndex {
+    card_index("913aed6d-60c3-4d08-baf8-359e2c41a797")
+}
+
+fn charging_bandits() -> CardIndex {
+    card_index("0c67133b-be15-47d7-8cf6-79987a42044d")
+}
+
+fn coastal_hornclaw() -> CardIndex {
+    card_index("27d672a7-f73b-483d-80a3-a4cd2a9855f2")
+}
+
+fn flanking_troops() -> CardIndex {
+    card_index("47bbb630-2bf7-47a2-93bb-266e491803c3")
+}
+
+fn flowstone_mauler() -> CardIndex {
+    card_index("ea205569-b5a0-4c86-b825-67cd48d3b2e8")
+}
+
+fn hoar_shade() -> CardIndex {
+    card_index("23c74c42-11bd-4fba-b1cb-93b96f5a11fb")
+}
+
+fn keeneye_aven() -> CardIndex {
+    card_index("86b7ff68-0bd9-4fc9-9803-fde2d4a2f59b")
+}
+
+fn king_cheetah() -> CardIndex {
+    card_index("f9ca35e1-24c5-46f4-a666-0dfe2c920e8b")
+}
+
+fn leonin_abunas() -> CardIndex {
+    card_index("10064324-34a0-47eb-a58e-01db10234ed9")
+}
+
+fn mahamoti_djinn() -> CardIndex {
+    card_index("c39ea5f9-6ec0-4697-897b-779e326754a7")
+}
+
+fn meloku_the_clouded_mirror() -> CardIndex {
+    card_index("3b96b8c3-b9c8-4712-a3b1-243a67cc013a")
+}
+
+fn moggcatcher() -> CardIndex {
+    card_index("4845dc21-7534-4896-b298-4d44cd7a3b27")
+}
+
+fn muscle_sliver() -> CardIndex {
+    card_index("06e0459f-d691-4470-884a-27c09b6612d2")
+}
+
+fn ore_gorger() -> CardIndex {
+    card_index("e5a9d34b-c7d4-4682-8e26-dd82e38ee84e")
+}
+
+fn phyrexian_defiler() -> CardIndex {
+    card_index("bed87e57-d410-478f-ae9d-2d7d00831e5e")
+}
+
+fn pixie_queen() -> CardIndex {
+    card_index("38a7d4ef-d296-4896-9b6b-2fd3ad518243")
+}
+
+fn plated_rootwalla() -> CardIndex {
+    card_index("e20b80f2-9913-4886-a61b-04f3fd27c2ad")
+}
+
+fn primoc_escapee() -> CardIndex {
+    card_index("28a1e053-eb14-4fbf-afd1-bfb6117a839a")
+}
+
+fn razorfoot_griffin() -> CardIndex {
+    card_index("c7ecb785-2bfc-4953-b356-db7c27406dbb")
+}
+
+fn roc_of_kher_ridges() -> CardIndex {
+    card_index("01f07ab9-3c3e-4fea-9cd6-543a5b7056b8")
+}
+
+fn rorix_bladewing() -> CardIndex {
+    card_index("48fe0f52-1676-49d5-acf6-5476081e8e1b")
+}
+
+fn sandbar_serpent() -> CardIndex {
+    card_index("30fce201-03a8-4afc-a1ad-7a9b3fd59836")
+}
+
+fn siege_gang_commander() -> CardIndex {
+    card_index("ddc7f59a-bbb1-4ba1-82c8-6813fd191940")
+}
+
+fn soul_of_magma() -> CardIndex {
+    card_index("1566af29-bd7b-41bb-a589-499348fbd32c")
+}
+
+fn staunch_defenders() -> CardIndex {
+    card_index("ec8bf245-4b2c-432b-9b2a-8d7b9224258c")
+}
+
+fn sunastian_falconer() -> CardIndex {
+    card_index("3d6314b5-3ace-4793-9549-7b17db2a735d")
+}
+
+fn talas_air_ship() -> CardIndex {
+    card_index("8cb3f047-bd8b-4a34-8a2b-ced2cc0487eb")
+}
+
+fn tolarian_serpent() -> CardIndex {
+    card_index("684e18bf-1390-4d12-8e7a-e8562db64dbb")
+}
+
+fn ursapine() -> CardIndex {
+    card_index("fcf92abb-6c06-42d2-a3d1-f44ec997d56d")
+}
+
+fn vampiric_spirit() -> CardIndex {
+    card_index("dbd1fc9c-6316-4c89-a971-f2e08ca291a4")
+}
+
+fn vedalken_archmage() -> CardIndex {
+    card_index("568cf486-0261-4634-ac36-a6507101b2d0")
+}
+
+fn vermiculos() -> CardIndex {
+    card_index("88cadf97-4b24-481a-9136-96c017fd96e9")
+}
+
+fn vulshok_war_boar() -> CardIndex {
+    card_index("4641e86f-5370-4b25-bd76-07bea856c032")
+}
+
+fn living_lands() -> CardIndex {
+    card_index("8f0179fe-6d7d-49cc-ab06-d3b402c6fc8d")
+}
+
+fn moonlit_wake() -> CardIndex {
+    card_index("c93965a8-c527-4b1f-8322-b043f910ffb7")
+}
+
+fn think_tank() -> CardIndex {
+    card_index("c13b9ee5-cf4f-47bc-a6e8-1dbf98df3d9c")
+}
+
+fn daring_leap() -> CardIndex {
+    card_index("10bc00f7-d501-46e3-9f23-af1ddc3f6c4c")
+}
+
+fn exclude() -> CardIndex {
+    card_index("a8c9f91a-b1e7-451d-b6db-ae865e2b853c")
+}
+
+fn repulse() -> CardIndex {
+    card_index("6f7ef1d1-c441-41ba-b7d6-6b7727ffcf04")
+}
+
+fn rescind() -> CardIndex {
+    card_index("3f487c8e-a923-4031-b0a7-04f778544fe0")
+}
+
+fn airship_engine_room() -> CardIndex {
+    card_index("01ed9139-293d-4477-a145-3c6fe59266c7")
+}
+
+fn boiling_rock_prison() -> CardIndex {
+    card_index("6caabc45-4644-4941-a2f3-f04ee7b50a89")
+}
+
+fn botanical_plaza() -> CardIndex {
+    card_index("19e6ebaf-7148-428f-8c79-1e9e57a4e659")
+}
+
+fn capital_city() -> CardIndex {
+    card_index("2c96ab90-155b-4bf4-acc9-65a2f0cd3189")
+}
+
+fn foggy_bottom_swamp() -> CardIndex {
+    card_index("b56bb8cb-457e-4b85-9bf9-5e891e79f1dd")
+}
+
+fn gohn_town_of_ruin() -> CardIndex {
+    card_index("13fbd525-c9ee-4bd6-b269-94fb264024b6")
+}
+
+fn gongaga_reactor_town() -> CardIndex {
+    card_index("ac4e1818-4873-4143-9b99-46f205d006d9")
+}
+
+fn rishadan_port() -> CardIndex {
+    card_index("f3e8dc56-2810-474e-a6a7-9c3555f94ae9")
+}
+
+fn strip_mine() -> CardIndex {
+    card_index("d21a89eb-7c5b-459a-acc7-12b20b13bf79")
+}
+
+fn xanders_lounge() -> CardIndex {
+    card_index("8291543f-d086-48aa-b2b7-5481ca8c9198")
+}
+
+fn ambition_s_cost() -> CardIndex {
+    card_index("84de4fec-2f38-4293-93d3-b3882c5aac14")
+}
+
+fn stone_rain() -> CardIndex {
+    card_index("6e880df6-fc00-43d2-a9c8-f575f40b78c6")
+}
+
+fn untamed_wilds() -> CardIndex {
+    card_index("b3b4c21d-f8d7-455f-be46-d5eb909d54df")
+}
+
+fn gilded_lotus() -> CardIndex {
+    card_index("9a02a9a7-39d9-4763-85d3-747a0540b60b")
+}
+
+fn barbarian_riftcutter() -> CardIndex {
+    card_index("e9612e4c-1527-4255-9f2f-b8d8cee65cc6")
+}
+
+fn desert_drake() -> CardIndex {
+    card_index("ce8f4eb4-08b8-404b-9147-1e28c1b14a65")
+}
+
+fn endless_wurm() -> CardIndex {
+    card_index("ce4d714c-c22b-47be-a372-a3139c4e5b1c")
+}
+
+fn firefly() -> CardIndex {
+    card_index("6b151418-092f-4a43-8b21-3de64ea80cab")
+}
+
+fn gerrard_s_irregulars() -> CardIndex {
+    card_index("595cbe23-4969-4fc2-8386-e5f3e6adfd5f")
+}
+
+fn giant_spider() -> CardIndex {
+    card_index("e740ce2f-2134-473c-afa1-1b6d2d1e38ef")
+}
+
+fn gruul_nodorog() -> CardIndex {
+    card_index("68fc3611-8d82-4f87-ab50-603790a27455")
+}
+
+fn karplusan_giant() -> CardIndex {
+    card_index("f0fac3bc-a566-448e-a9a2-10927a49f182")
+}
+
+fn lovisa_coldeyes() -> CardIndex {
+    card_index("720879dc-7593-41c0-ab3d-936069f26930")
+}
+
+fn ogre_arsonist() -> CardIndex {
+    card_index("00af96af-5eae-4044-a2f7-a08cd0699d1e")
+}
+
+fn phyrexian_debaser() -> CardIndex {
+    card_index("554de904-086c-428c-9f32-b0b2498a6fd5")
+}
+
+fn shivan_hellkite() -> CardIndex {
+    card_index("069be6a0-9545-4fdc-ad40-957fe307db7a")
+}
+
+fn volcanic_dragon() -> CardIndex {
+    card_index("994db177-03f5-43dd-bf7b-2994e8d430d3")
+}
+
+fn mobilization() -> CardIndex {
+    card_index("6b8119e9-a9a9-4349-be32-adcb84b8eb79")
+}
+
+fn righteous_cause() -> CardIndex {
+    card_index("218f835b-4195-4ee8-a4ef-e5ba58fa5374")
+}
+
+fn afflict() -> CardIndex {
+    card_index("471f6ad3-cf01-42dd-a519-ea8e13039fea")
+}
+
+fn negate() -> CardIndex {
+    card_index("3407fe41-fdd3-4119-8f70-4bc4590a379f")
+}
+
+fn rend_spirit() -> CardIndex {
+    card_index("cca698b3-b86f-45a2-aa3f-bab7d5a56e8a")
+}
+
+fn crumbling_vestige() -> CardIndex {
+    card_index("3c1fe86a-3696-4634-bc26-cd45846529ec")
+}
+
+fn insomnia_crown_city() -> CardIndex {
+    card_index("b7140f72-91b6-4be4-8d71-c019e64c2351")
+}
+
+fn north_pole_gates() -> CardIndex {
+    card_index("3fcd1432-66d0-40e1-85ef-b57a6fa94b7c")
+}
+
+fn piranha_marsh() -> CardIndex {
+    card_index("6bc8fd7e-7616-484a-ac23-04d37c93733b")
+}
+
+fn wirewood_lodge() -> CardIndex {
+    card_index("1275653f-de4e-4fe9-aad8-88555fa11680")
+}
+
+fn wizards_school() -> CardIndex {
+    card_index("51635f96-af1d-4b33-9118-432495aaf07f")
+}
+
+fn cinder_storm() -> CardIndex {
+    card_index("c7971968-c4ee-4437-92ec-1238bce1935f")
+}
+
+fn last_caress() -> CardIndex {
+    card_index("620b13cf-b8ea-48b7-8300-3c48390e32e3")
+}
+
+fn rejuvenate() -> CardIndex {
+    card_index("35069cdb-e5bd-4224-a1a8-b329054e003b")
+}
+
+fn spring_of_eternal_peace() -> CardIndex {
+    card_index("6fcdb870-a1b6-49fe-8b5c-cdde074a7f7d")
+}
+
+fn winter_s_grasp() -> CardIndex {
+    card_index("e9b8679d-52a9-4f0f-9365-f3e4b7a69805")
+}
+
+fn goblin_settler() -> CardIndex {
+    card_index("04dd449f-ff3a-4ed7-8241-244d58b371dc")
+}
+
+fn crystal_grotto() -> CardIndex {
+    card_index("f15fb0cc-8e96-4f03-94d0-b51410415afd")
+}

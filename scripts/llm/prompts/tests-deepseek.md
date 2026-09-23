@@ -119,6 +119,45 @@ Regeln:
    **gar nichts** vorher — der leere Pool macht „vier und sonst nichts" erst
    zu einer exakten Aussage.
 
+20. **Einsatzschwäche (CR 302.6).** Eine Kreatur, die in diesem Zug ins Spiel
+   kam, kann kein `{T}` bezahlen — weder für Mana noch für eine andere
+   Fähigkeit —, und `legal.abilities` bietet die Fähigkeit dann gar nicht
+   an. Geht es um ihre `{T}`-Fähigkeit, stelle sie **von Anfang an** hin
+   (`.battlefield(0, &[<slug>(), …])`) und lass den Kaufpreis weg; willst
+   du auch das Wirken zeigen, geh danach einen ganzen Zug weiter
+   (`reach_their_main_phase` für Sitz 1, dann für Sitz 0). Sieben Tests
+   der letzten drei Runden sind genau daran gescheitert.
+21. **`.battlefield(seat, …)` und `.hand(seat, …)` ersetzen.** Ein zweiter
+   Aufruf für denselben Sitz überschreibt die erste Liste, statt sie zu
+   ergänzen. Alles für einen Sitz gehört in **einen** Aufruf.
+22. **Ein Ziel, das nur ein Spieler sein kann** („target player",
+   „target opponent"), kommt als `Pending::ChoosePlayer { player, options }`
+   und wird mit `PlayerAction::ChoosePlayer(p)` beantwortet — nicht als
+   `ChooseTargets` mit leerer Objektliste.
+23. **Ein Zauber in der Zielfrage liegt noch in der Hand.** Solange
+   `ChooseTargets` offen ist, zählt die Hand den Zauber mit. Zähle die Hand
+   erst, nachdem die Zielfrage beantwortet ist.
+24. **„… unless you sacrifice/return …" fragt kein Ja/Nein.**
+   `PlayerMayPayCostOr` zeigt sofort ein `ChooseCards` mit
+   `(min, max) == (0, 1)`: nichts nennen heißt ablehnen. Gibt es nichts,
+   womit man zahlen könnte, wird gar nicht gefragt.
+25. **Eine gedruckte Mana-Fähigkeit** (Sol Ring, ein Nichtgrundland, eine
+   Mana-Kreatur) drückst du mit `activate(&mut engine, seat, <slug>(), i)`
+   bzw. `PlayerAction::ActivateAbility { source, ability_index }`.
+   `ActivateManaAbility` ist nur für den Grundlandtyp-Kurzweg (CR 305.6).
+26. **`cast_with_floating` wirkt, verrechnet aber nicht.** Erst
+   `pass_until(&mut engine, stack_is_empty)` lässt den Zauber auflösen —
+   vorher ist nichts auf dem Schlachtfeld.
+27. **Eine ausgelöste Fähigkeit eines Permanents wirkt nur auf dem
+   Schlachtfeld (CR 113.6).** „Whenever you cast a Spirit spell" sieht das
+   eigene Wirken der Karte nicht — sie liegt dabei noch auf dem Stack.
+28. **Der Gegner zieht auch.** In seinem Ziehschritt verliert seine
+   Bibliothek eine Karte; wer „nichts traf den Gegner" über die Größe
+   seiner Bibliothek behauptet, rechnet dessen eigene Züge mit.
+29. **Stärke/Widerstand liest du aus der Kartendatei** (`power = Some(…)`,
+   `toughness = Some(…)`), nie aus dem Gedächtnis: Thorin Oakenshield
+   druckt 3/2 und nicht 3/4.
+
 Antworte mit **genau einem** ```rust-Block: der Kartengriff und die eine
 `#[test]`-Funktion. Kein weiterer Text.
 
