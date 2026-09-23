@@ -16110,3 +16110,334 @@ fn weakstone_reduces_power_of_attacking_creatures() {
         "non-attacking creature remains untouched"
     );
 }
+
+/// `Commander's Sphere` is an artifact costing `{3}` under `Coverage::Implemented`.
+/// It prints "{T}: Add one mana of any color in your commander's color identity."
+/// and "Sacrifice this artifact: Draw a card."
+/// With a mono-blue commander like `jin_gitaxias()`, it taps to add `{U}`,
+/// and can be sacrificed while tapped to draw a card.
+#[test]
+fn commanders_sphere_taps_for_identity_mana_and_sacrifices_to_draw() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .commander(0, &[jin_gitaxias()])
+        .battlefield(0, &[commander_s_sphere()])
+        .hand(0, &[])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sphere = on_battlefield(&engine, p0, commander_s_sphere())
+        .expect("Commander's Sphere is on the battlefield");
+
+    activate(&mut engine, p0, commander_s_sphere(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "produced one blue mana matching commander's identity"
+    );
+    assert!(
+        is_tapped(&engine, sphere),
+        "sphere is tapped after mana activation"
+    );
+
+    activate(&mut engine, p0, commander_s_sphere(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, commander_s_sphere()).is_none(),
+        "sphere was sacrificed"
+    );
+    assert!(
+        in_graveyard(&engine, p0, commander_s_sphere()).is_some(),
+        "sphere is in graveyard"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        1,
+        "drew one card"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "blue mana is still in the pool"
+    );
+}
+
+/// `Liquimetal Torque` is an artifact costing `{2}` under `Coverage::Implemented`.
+/// It prints "{T}: Add {C}." and "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+/// When activating its second ability, nonland permanents such as creatures are valid targets while lands are excluded,
+/// and resolving the ability adds the artifact type to the targeted creature.
+#[test]
+fn liquimetal_torque_plates_nonland_permanent_and_excludes_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[liquimetal_torque(), forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let torque = on_battlefield(&engine, p0, liquimetal_torque())
+        .expect("Liquimetal Torque is on the battlefield");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
+    let land = on_battlefield(&engine, p0, forest()).expect("forest deployed");
+
+    assert!(
+        !engine
+            .state()
+            .object(elf)
+            .expect("elf exists")
+            .characteristics()
+            .types
+            .contains(TypeSet::ARTIFACT),
+        "creature is not an artifact initially"
+    );
+
+    activate(&mut engine, p0, liquimetal_torque(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Liquimetal Torque, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&elf),
+        "creature is an eligible nonland target"
+    );
+    assert!(
+        !options.contains(&land),
+        "land is excluded from target options"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .object(elf)
+            .expect("elf exists")
+            .characteristics()
+            .types
+            .contains(TypeSet::ARTIFACT),
+        "target creature gained the artifact type"
+    );
+    assert!(is_tapped(&engine, torque), "Liquimetal Torque is tapped");
+}
+
+/// `Machine God's Effigy` is an artifact costing `{4}` under `Coverage::Implemented`.
+/// It prints "You may have this artifact enter as a copy of any creature on the battlefield,
+/// except it's an artifact and it has '{T}: Add {U}.' (It's not a creature.)"
+/// When cast copying `llanowar_elves()`, it enters as a noncreature artifact with `{T}: Add {U}`
+/// and may tap for mana immediately because noncreatures do not have summoning sickness.
+#[test]
+fn machine_gods_effigy_enters_as_noncreature_artifact_copy_and_taps_for_blue() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[machine_god_s_effigy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
+
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, machine_god_s_effigy());
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for CopyOnEnter, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&elf),
+        "creature is an offered target: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let effigy = on_battlefield(&engine, p0, machine_god_s_effigy())
+        .expect("Machine God's Effigy entered the battlefield");
+    assert_ne!(effigy, elf);
+
+    let chars = engine
+        .state()
+        .object(effigy)
+        .expect("object exists")
+        .characteristics();
+    assert!(chars.types.contains(TypeSet::ARTIFACT), "it is an artifact");
+    assert!(
+        !chars.types.contains(TypeSet::CREATURE),
+        "it is not a creature"
+    );
+
+    // The copy's rules text is the Elf's, so index 0 is the Elf's {T}: Add
+    // {G} and the card's own printed {U} is gone (CR 707.2). The {U} is the
+    // one the copy clause gives it (CR 707.9a), offered at the grant slot.
+    activate(
+        &mut engine,
+        p0,
+        machine_god_s_effigy(),
+        crate::choice::GRANTED_ABILITY,
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "produced one blue mana"
+    );
+    assert!(is_tapped(&engine, effigy), "effigy is tapped");
+}
+
+/// `Sensei's Divining Top` is an artifact costing `{1}` under `Coverage::Implemented`.
+/// It prints "{T}: Draw a card, then put this artifact on top of its owner's library."
+/// When its second ability is activated, it taps, resolves to draw one card,
+/// leaves the battlefield, and places itself on top of its owner's library.
+#[test]
+fn senseis_divining_top_draws_and_replaces_itself_on_top_of_library() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[sensei_s_divining_top()])
+        .hand(0, &[])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let top_obj = on_battlefield(&engine, p0, sensei_s_divining_top())
+        .expect("Sensei's Divining Top is on the battlefield");
+
+    activate(&mut engine, p0, sensei_s_divining_top(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, sensei_s_divining_top()).is_none(),
+        "no longer on the battlefield"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        1,
+        "drew one card into hand"
+    );
+
+    let lib = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert_eq!(
+        lib.last().copied(),
+        Some(top_obj),
+        "placed on top of its owner's library"
+    );
+}
+
+/// `The Everflowing Well` is a legendary artifact costing `{2}{U}` under `Coverage::Partial`.
+/// It prints "When `The Everflowing Well` enters, mill two cards, then draw two cards."
+/// When cast from hand off three `island()` sources, its enters-the-battlefield trigger
+/// mills two cards into its controller's graveyard and draws two cards.
+#[test]
+fn the_everflowing_well_enters_and_mills_two_then_draws_two() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[the_everflowing_well()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    cast_from_hand(&mut engine, p0, the_everflowing_well());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, the_everflowing_well()).is_some(),
+        "`The Everflowing Well` is on the battlefield"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        2,
+        "two cards were milled into the graveyard"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1 + 2,
+        "the artifact was cast from hand and two cards were drawn"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 4,
+        "four cards left the library: two milled and two drawn"
+    );
+}
+
+/// `Thought Vessel` is an artifact costing `{2}` under `Coverage::Implemented`.
+/// It prints "You have no maximum hand size." and "{T}: Add {C}."
+/// It taps for colorless mana, and with 9 cards in hand its static ability
+/// ensures the cleanup step passes without demanding any discard.
+#[test]
+fn thought_vessel_taps_for_colorless_and_removes_maximum_hand_size() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let hand_cards = [
+        forest(),
+        forest(),
+        forest(),
+        forest(),
+        forest(),
+        forest(),
+        forest(),
+        forest(),
+        forest(),
+    ];
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thought_vessel()])
+        .hand(0, &hand_cards)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vessel = on_battlefield(&engine, p0, thought_vessel())
+        .expect("Thought Vessel is on the battlefield");
+
+    activate(&mut engine, p0, thought_vessel(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "produced one colorless mana"
+    );
+    assert!(is_tapped(&engine, vessel), "Thought Vessel is tapped");
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        9,
+        "retained all 9 cards past cleanup due to no maximum hand size"
+    );
+}

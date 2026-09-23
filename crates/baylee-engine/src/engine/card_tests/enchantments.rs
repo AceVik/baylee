@@ -16951,3 +16951,131 @@ fn unspeakable_symbol_pays_life_to_place_counter_on_target_creature() {
     );
     assert_eq!(pt(&engine, elf), (2, 2), "creature body grew to 2/2");
 }
+
+/// `Rhystic Study` is an enchantment costing `{2}{U}` under `Coverage::Implemented`.
+/// It prints "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."
+/// When an opponent casts a spell, the triggered ability prompts the opponent with `YesNoPrompt::PayTax`,
+/// and when the opponent declines to pay, its controller draws a card.
+#[test]
+fn rhystic_study_triggers_on_opponent_cast_and_draws_when_tax_declined() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[rhystic_study()])
+        .hand(0, &[])
+        .battlefield(1, &[forest()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, llanowar_elves());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            } if *player == p1
+        )
+    });
+
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        1,
+        "controller drew one card after opponent declined to pay the tax"
+    );
+}
+
+/// `Root Cage` is an enchantment costing `{1}{G}` under `Coverage::Implemented`.
+/// It prints "Mercenaries don't untap during their controllers' untap steps."
+/// When both a Mercenary (`moggcatcher()`) and a non-Mercenary (`llanowar_elves()`) attack and tap,
+/// advancing through the opponent's turn to the controller's next turn untaps the non-Mercenary,
+/// while `moggcatcher()` remains tapped due to `Root Cage`.
+#[test]
+fn root_cage_stops_mercenaries_from_untapping() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[root_cage(), moggcatcher(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mogg = on_battlefield(&engine, p0, moggcatcher()).expect("moggcatcher deployed");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseAttackers prompt, got {:?}",
+            engine.pending()
+        );
+    };
+    let def = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(mogg, def), (elf, def)],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        is_tapped(&engine, mogg),
+        "moggcatcher is tapped from attacking"
+    );
+    assert!(is_tapped(&engine, elf), "elf is tapped from attacking");
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert!(
+        !is_tapped(&engine, elf),
+        "non-Mercenary elf untaps as normal"
+    );
+    assert!(
+        is_tapped(&engine, mogg),
+        "Mercenary moggcatcher stays tapped under Root Cage"
+    );
+}
+
+/// `Tribute to the World Tree` is an enchantment costing `{G}{G}{G}` under `Coverage::Implemented`.
+/// It prints "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two +1/+1 counters on it."
+/// When a 1/1 creature like `llanowar_elves()` enters, its power is below 3,
+/// so it receives two `CounterKind::P1P1` counters and grows to a 3/3 without drawing a card.
+#[test]
+fn tribute_to_the_world_tree_adds_counters_to_small_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[tribute_to_the_world_tree(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves())
+        .expect("Llanowar Elves entered the battlefield");
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        2,
+        "gained two +1/+1 counters"
+    );
+    assert_eq!(pt(&engine, elf), (3, 3), "power and toughness are 3/3");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        0,
+        "no card was drawn because entering power was less than 3"
+    );
+}

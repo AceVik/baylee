@@ -73773,3 +73773,645 @@ fn woodland_chasm_enters_tapped_and_taps_for_black_or_green() {
         "Woodland Chasm is now tapped from producing mana"
     );
 }
+
+/// Maze of Ith prints one line: "{T}: Untap target attacking creature. Prevent
+/// all combat damage that would be dealt to and dealt by that creature this
+/// turn."
+///
+/// The card makes three claims and the scenario is built so each is load-bearing.
+/// My Elf attacks, so declaring it *tapped* it (CR 508.1f) and it is the only
+/// creature on the board that is attacking — the Elf across the table is a
+/// creature and no legal target, which is what reads "attacking" and not
+/// "creature". That attack is then blocked by the same Elf, and a printed 1/1
+/// blocked by a printed 1/1 kills both: "both are still standing" is therefore a
+/// sentence only two working prevention clauses satisfy, while the control game
+/// at the foot of the test shows the pair dying when the Maze stays out of it.
+#[test]
+#[allow(clippy::too_many_lines)] // one card, both of its sentences, and the control that proves them
+fn maze_of_ith_untaps_an_attacker_and_prevents_its_combat_damage_both_ways() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[maze_of_ith(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let maze = on_battlefield(&engine, p0, maze_of_ith()).expect("the Maze is on the table");
+    let attacker = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elf is out");
+    let blocker = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    assert_eq!(
+        (pt(&engine, attacker), pt(&engine, blocker)),
+        ((1, 1), (1, 1)),
+        "two printed 1/1s, so one point of damage in either direction is lethal \
+         and what survives the damage step says which damage was prevented"
+    );
+    assert!(!is_tapped(&engine, attacker), "nothing has attacked yet");
+    assert!(
+        !is_tapped(&engine, maze),
+        "and the land has paid for nothing"
+    );
+
+    // The attack has to be a real one: the ability's whole target filter is the
+    // attacking state, so a board with nobody attacking offers nothing.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert_eq!(player, p0, "the attacking seat is the one that declares");
+    assert!(
+        attackers.contains(&attacker),
+        "an untapped 1/1 that has been on the battlefield since before the game \
+         may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(p1))],
+            },
+        )
+        .expect("the attacker came out of the list that offered it");
+
+    assert!(
+        is_tapped(&engine, attacker),
+        "CR 508.1f: declaring it as an attacker tapped it, so the Maze has an \
+         untap to do"
+    );
+
+    // CR 508.2: priority comes back to the active player once attackers are
+    // declared, and that window between the attack and the blocks is where the
+    // Maze is played in.
+    let mut activated = false;
+    for _ in 0..20 {
+        if at_rest(&engine, p0) {
+            activate(&mut engine, p0, maze_of_ith(), 0);
+            activated = true;
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "expected priority between the attack and the blocks, got {:?}",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(
+        activated,
+        "the attacking seat is offered priority before blockers are declared"
+    );
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the untap asks for an attacking creature, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        (player, min, max),
+        (p0, 1, 1),
+        "one target, and it asks once"
+    );
+    assert!(
+        !is_tapped(&engine, maze),
+        "CR 601.2h pays last: the {{T}} is still unpaid while the question stands"
+    );
+    assert!(
+        options.contains(&attacker),
+        "the creature that is attacking is on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&blocker),
+        "\"target attacking creature\" is not \"target creature\": the Elf \
+         across the table is a creature and no attacker, and the land is no \
+         creature at all: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![attacker],
+            },
+        )
+        .expect("the attacking creature was one of the options");
+    assert!(
+        is_tapped(&engine, maze),
+        "{{T}} is the other half of the price"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, attacker),
+        "\"Untap target attacking creature\" — the creature it named is standing \
+         back up in the middle of the combat it is in"
+    );
+
+    // Untapping an attacker is not removing it from combat (CR 506.4), which is
+    // what the whole card rests on: the creature it untapped is still the
+    // creature the blocks are declared against, and still the one whose damage
+    // the second sentence is about.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        player, blockers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing but the block declaration")
+    };
+    assert_eq!(player, p1, "the defending seat is the one that declares");
+    let offer = blockers
+        .iter()
+        .find(|o| o.blocker == blocker)
+        .expect("the Elf that is not attacking is offered as a blocker");
+    assert!(
+        offer.attackers.contains(&attacker),
+        "the attacker is still attacking after the untap, so it is still the \
+         thing the blocks are declared against: {offer:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, attacker)],
+            },
+        )
+        .expect("the pairing came out of the offer the engine published");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "\"prevent all combat damage that would be dealt to ... that creature\": \
+         one point from a printed 1/1 would have been lethal, and the attacker \
+         took none of it"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and \"... that would be dealt by that creature\": the same one point \
+         would have killed the blocker, and the blocker took none of it either"
+    );
+
+    // The control: the identical board and the identical attack and block, with
+    // the Maze left out of it. Without the activation the two printed 1/1s kill
+    // each other, which is what makes the pair above a statement about the card
+    // rather than about a damage step that never happened.
+    let mut control = Duel::new(SEED, forest())
+        .battlefield(0, &[maze_of_ith(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut control);
+    assert!(
+        walk_to_own_main(&mut control, p0),
+        "p0 reaches its own main"
+    );
+    let plain_attacker = on_battlefield(&control, p0, llanowar_elves()).expect("my Elf is out");
+    let plain_blocker = on_battlefield(&control, p1, llanowar_elves()).expect("their Elf is out");
+    let offered = attack_and_collect_blocks(&mut control, plain_attacker, p1);
+    assert!(
+        offered
+            .iter()
+            .any(|o| o.blocker == plain_blocker && o.attackers.contains(&plain_attacker)),
+        "the same pairing is offered on the same board: {offered:?}"
+    );
+    control
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(plain_blocker, plain_attacker)],
+            },
+        )
+        .expect("the pairing came out of the offer");
+    pass_until(&mut control, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert!(
+        on_battlefield(&control, p0, llanowar_elves()).is_none()
+            && on_battlefield(&control, p1, llanowar_elves()).is_none(),
+        "with no Maze activation the blocked 1/1 and the 1/1 that blocked it \
+         trade their one damage each and both die, so the survivors above \
+         survived because the damage was prevented"
+    );
+}
+
+/// `Arcane Sanctum` is a tri-color tapland under `Coverage::Implemented`.
+/// It prints "This land enters tapped." and "{T}: Add {W}, {U}, or {B}."
+/// When played via `play_land_face`, it enters tapped, untaps on the subsequent turn,
+/// and offers a choice among white, blue, and black mana.
+#[test]
+fn arcane_sanctum_enters_tapped_and_produces_three_colors() {
+    let (mut engine, land) =
+        play_land_face(arcane_sanctum(), 0).expect("Arcane Sanctum plays legally as face 0");
+    assert!(is_tapped(&engine, land), "enters tapped on arrival");
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, PlayerId::new(0));
+
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    activate(&mut engine, PlayerId::new(0), arcane_sanctum(), 0);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseColor prompt for Arcane Sanctum, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::White, ManaColor::Blue, ManaColor::Black],
+        "offers white, blue, and black mana"
+    );
+
+    engine
+        .apply(PlayerId::new(0), PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "added one blue mana to pool"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "Arcane Sanctum is tapped from producing mana"
+    );
+}
+
+/// `Echoing Deeps` is a land with subtype Cave under `Coverage::Partial`.
+/// It prints "You may have this land enter tapped as a copy of any land card in a graveyard, except it's a Cave in addition to its other types."
+/// Under `Coverage::Partial`, it enters untapped as a copy of a graveyard land card, retaining the Cave subtype.
+/// When played while a `forest()` sits in the graveyard, it copies the Forest, gains the Cave subtype, and produces green mana.
+#[test]
+fn echoing_deeps_enters_as_copy_of_graveyard_land_with_cave_subtype() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[echoing_deeps()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 1);
+    let graveyard_land = in_graveyard(&engine, p0, forest()).expect("forest in graveyard");
+
+    let card = in_hand(&engine, p0, echoing_deeps()).expect("Echoing Deeps is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card })
+        .expect("land drop succeeds");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for CopyOnEnter, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&graveyard_land),
+        "graveyard forest is a legal target: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![graveyard_land],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let deeps_obj =
+        on_battlefield(&engine, p0, echoing_deeps()).expect("Echoing Deeps is on the battlefield");
+    assert!(
+        !is_tapped(&engine, deeps_obj),
+        "under `Coverage::Partial` it arrives untapped"
+    );
+
+    let chars = engine
+        .state()
+        .object(deeps_obj)
+        .expect("object exists")
+        .characteristics();
+    assert!(
+        chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::CAVE),
+        "retains the Cave subtype"
+    );
+    assert!(
+        chars
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "copies the Forest subtype"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "copied Forest provides green mana"
+    );
+}
+
+/// `Homeward Path` is a utility land under `Coverage::Implemented`.
+/// It prints "{T}: Add {C}." and "{T}: Each player gains control of all creatures they own."
+/// When a creature owned by player 0 is controlled by player 1, activating `Homeward Path`'s
+/// second ability restores control of the creature to player 0.
+#[test]
+fn homeward_path_restores_creature_control_to_owner() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[homeward_path(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
+    {
+        let state = engine.dev_state_mut(p0).expect("harness sets up board");
+        let obj = state.object_mut(elf).expect("object exists");
+        obj.controller = p1;
+    }
+    engine.refresh_offer();
+
+    assert_eq!(
+        engine
+            .state()
+            .object(elf)
+            .expect("object exists")
+            .controller,
+        p1,
+        "creature is temporarily under opponent's control"
+    );
+
+    activate(&mut engine, p0, homeward_path(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(elf)
+            .expect("object exists")
+            .controller,
+        p0,
+        "creature returned to owner's control"
+    );
+    let path = on_battlefield(&engine, p0, homeward_path()).expect("Homeward Path on battlefield");
+    assert!(is_tapped(&engine, path), "Homeward Path is tapped");
+}
+
+/// `Jasmine Dragon Tea Shop` is a utility land under `Coverage::Implemented`.
+/// It prints "{T}: Add {C}." and "{T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source."
+/// Activating its second ability prompts with `Pending::ChooseColor` across all five colors,
+/// adding restricted mana that lives in `mana_pool.restricted()` rather than the unrestricted pool.
+#[test]
+fn jasmine_dragon_tea_shop_produces_restricted_ally_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[jasmine_dragon_tea_shop()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let shop = on_battlefield(&engine, p0, jasmine_dragon_tea_shop())
+        .expect("Jasmine Dragon Tea Shop is on the battlefield");
+
+    activate(&mut engine, p0, jasmine_dragon_tea_shop(), 1);
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseColor prompt for Jasmine Dragon Tea Shop, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(options.len(), 5, "all five colors are offered");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+
+    let restricted = engine.state().players[0].mana_pool.restricted().to_vec();
+    assert_eq!(
+        restricted
+            .iter()
+            .filter(|m| m.color == ManaColor::White)
+            .map(|m| u32::from(m.amount))
+            .sum::<u32>(),
+        1,
+        "produced one restricted white mana"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        0,
+        "restricted mana is not in the unrestricted pool"
+    );
+    assert!(is_tapped(&engine, shop), "tea shop is tapped");
+}
+
+/// `Kor Haven` is a legendary land under `Coverage::Implemented`.
+/// It prints "{T}: Add {C}." and "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+/// When an opponent attacks with `desert_drake()`, activating `Kor Haven`'s second ability prevents
+/// all combat damage from that creature, preserving the defending player's life total at 20.
+#[test]
+fn kor_haven_prevents_combat_damage_from_attacking_creature() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kor_haven(), plains(), forest()])
+        .battlefield(1, &[desert_drake()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseAttackers prompt, got {:?}",
+            engine.pending()
+        );
+    };
+    let def = defenders.into_iter().next().expect("defender exists");
+    let drake = on_battlefield(&engine, p1, desert_drake()).expect("drake deployed");
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(drake, def)],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+
+    tap_all_mana_but(&mut engine, p0, Some(kor_haven()));
+    activate(&mut engine, p0, kor_haven(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Kor Haven, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&drake),
+        "attacking creature is a legal target: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![drake],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "combat damage from the attacking creature was completely prevented"
+    );
+    let haven = on_battlefield(&engine, p0, kor_haven()).expect("Kor Haven on battlefield");
+    assert!(is_tapped(&engine, haven), "Kor Haven is tapped");
+}
+
+/// `Path of Ancestry` is a utility land under `Coverage::Implemented`.
+/// It prints "This land enters tapped." and "{T}: Add one mana of any color in your commander's color identity."
+/// When played with a mono-blue commander like `jin_gitaxias()`, it enters tapped, untaps on the next turn,
+/// and produces restricted blue mana that populates `mana_pool.restricted()` rather than the unrestricted pool.
+#[test]
+fn path_of_ancestry_enters_tapped_and_produces_restricted_commander_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .commander(0, &[jin_gitaxias()])
+        .hand(0, &[path_of_ancestry()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, path_of_ancestry());
+    assert!(is_tapped(&engine, land), "Path of Ancestry enters tapped");
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "untaps on next turn");
+
+    activate(&mut engine, p0, path_of_ancestry(), 0);
+    let restricted = engine.state().players[0].mana_pool.restricted().to_vec();
+    assert_eq!(
+        restricted
+            .iter()
+            .filter(|m| m.color == ManaColor::Blue)
+            .map(|m| u32::from(m.amount))
+            .sum::<u32>(),
+        1,
+        "produced one restricted blue mana for commander identity"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        0,
+        "restricted mana is not in the unrestricted pool"
+    );
+    assert!(is_tapped(&engine, land), "Path of Ancestry is now tapped");
+}
+
+/// `Tower of the Magistrate` is a utility land under `Coverage::Implemented`.
+/// It prints "{T}: Add {C}." and "{1}, {T}: Target creature gains protection from artifacts until end of turn."
+/// By reserving `Tower of the Magistrate` and tapping another source for `{1}`, its second ability
+/// targets a creature and grants it `Modifier::ProtectionFrom(&Filter::ARTIFACT)`.
+#[test]
+fn tower_of_the_magistrate_grants_protection_from_artifacts_to_target_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[tower_of_the_magistrate(), forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
+
+    tap_all_mana_but(&mut engine, p0, Some(tower_of_the_magistrate()));
+    activate(&mut engine, p0, tower_of_the_magistrate(), 1);
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Tower of the Magistrate, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&elf),
+        "target creature is an option: {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tower = on_battlefield(&engine, p0, tower_of_the_magistrate())
+        .expect("Tower of the Magistrate is on the battlefield");
+    assert!(
+        is_tapped(&engine, tower),
+        "Tower of the Magistrate is tapped"
+    );
+
+    assert!(
+        engine.state().effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::ProtectionFrom(&baylee_cards_dsl::Filter::ARTIFACT)
+            )
+        }),
+        "continuous effect granting protection from artifacts is active"
+    );
+}

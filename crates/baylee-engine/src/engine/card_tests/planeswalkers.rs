@@ -841,3 +841,65 @@ fn wrenn_and_realmbreaker_plus_one_animates_a_land_you_control() {
     assert!(kw.contains(KeywordSet::HEXPROOF), "hexproof");
     assert!(kw.contains(KeywordSet::HASTE), "haste");
 }
+
+/// `Ashiok, Dream Render` is a legendary planeswalker costing `{1}{U/B}{U/B}` under `Coverage::Implemented`.
+/// It enters with 5 loyalty counters and prints a −1 loyalty ability:
+/// "Target player mills four cards. Then exile each opponent's graveyard."
+/// Activating this ability targets an opponent via `Pending::ChoosePlayer`, reduces loyalty by 1,
+/// mills four cards from the opponent's library, and exiles their entire graveyard.
+#[test]
+fn ashiok_dream_render_mills_target_player_and_exiles_opponents_graveyard() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[ashiok_dream_render()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ashiok =
+        on_battlefield(&engine, p0, ashiok_dream_render()).expect("Ashiok is on the battlefield");
+    assert_eq!(
+        counters_on(&engine, ashiok, CounterKind::Loyalty),
+        5,
+        "starts with 5 loyalty counters"
+    );
+
+    let p1_lib_before = library_size(&engine, p1);
+
+    activate(&mut engine, p0, ashiok_dream_render(), 1);
+
+    let Pending::ChoosePlayer { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChoosePlayer prompt for Ashiok, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(options.contains(&p1), "opponent is a legal target");
+
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, ashiok, CounterKind::Loyalty),
+        4,
+        "loyalty decreased to 4"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        p1_lib_before - 4,
+        "target player milled four cards"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty(),
+        "opponent's graveyard was completely exiled"
+    );
+    assert!(
+        engine.state().zones.list(ZoneLocation::Exile(p1)).len() >= 4,
+        "milled cards were moved to exile"
+    );
+}
