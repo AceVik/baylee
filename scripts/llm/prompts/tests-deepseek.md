@@ -131,9 +131,12 @@ Regeln:
    Aufruf für denselben Sitz überschreibt die erste Liste, statt sie zu
    ergänzen. Alles für einen Sitz gehört in **einen** Aufruf.
 22. **Ein Ziel, das nur ein Spieler sein kann** („target player",
-   „target opponent"), kommt als `Pending::ChoosePlayer { player, options }`
-   und wird mit `PlayerAction::ChoosePlayer(p)` beantwortet — nicht als
-   `ChooseTargets` mit leerer Objektliste.
+   „target opponent"), fragt ein **Zauber** oder eine **Loyalitätsfähigkeit**
+   als `Pending::ChoosePlayer { player, options }` und wird mit
+   `PlayerAction::ChoosePlayer(p)` beantwortet. Eine **aktivierte**
+   Fähigkeit fragt dasselbe als `Pending::ChooseTargets` mit leerer
+   `options`-Liste und den Sitzen in `player_options`; die Antwort ist
+   `PlayerAction::ChooseTargets { objects: vec![], players: vec![p] }`.
 23. **Ein Zauber in der Zielfrage liegt noch in der Hand.** Solange
    `ChooseTargets` offen ist, zählt die Hand den Zauber mit. Zähle die Hand
    erst, nachdem die Zielfrage beantwortet ist.
@@ -157,6 +160,19 @@ Regeln:
 29. **Stärke/Widerstand liest du aus der Kartendatei** (`power = Some(…)`,
    `toughness = Some(…)`), nie aus dem Gedächtnis: Thorin Oakenshield
    druckt 3/2 und nicht 3/4.
+30. **Die Hand ist genau deine Liste.** `.hand(seat, …)` ist die ganze
+   Starthand, und Sitz 0 zieht in seinem ersten Zug nicht. Eine Karte, die
+   gewirkt werden soll, muss in dieser Liste stehen, und Abwurfkosten
+   brauchen **eine weitere** Karte darin.
+31. **„At the beginning of your upkeep" feuert im allerersten Zug.** Ein
+   Permanent, das von Anfang an liegt, fragt schon im ersten
+   Versorgungssegment von Sitz 0 — vor jeder Hauptphase, also bevor
+   `walk_to_own_main` ankommt. Geh mit `pass_until` direkt zu dieser Frage.
+32. **Nach `DeclareAttackers` kommt erst Priorität (CR 508.2).** Die
+   Blockerfrage folgt danach: `pass_until` bis `Pending::ChooseBlockers`.
+33. **Typen und Untertypen liest du aus der Kartendatei.** Eine Kreatur,
+   die einen Filter („target Soldier") erfüllen soll, prüfst du dort:
+   Skyhunter Patrol ist eine Cat Knight und kein Soldier.
 
 Antworte mit **genau einem** ```rust-Block: der Kartengriff und die eine
 `#[test]`-Funktion. Kein weiterer Text.

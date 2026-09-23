@@ -15715,3 +15715,408 @@ fn gilded_lotus_taps_for_three_mana_of_chosen_color() {
         "three blue mana available in pool"
     );
 }
+
+/// Book of Rass prints one line — "{2}, Pay 2 life: Draw a card." — and
+/// neither half of that price is visible in the card file, so the board reads
+/// both: eight Forests are exactly the {6} the artifact costs plus the {2} the
+/// ability then charges, and the offer is only claimed once those two are
+/// really floating, because `legal.abilities` is filtered through
+/// `can_afford` and that reads the pool rather than the untapped lands. The
+/// two life is read as a life total and not as a mana cost, and the card that
+/// arrives is asserted on the library and the hand together, so a library that
+/// merely emptied could not stand in for a draw. The tap symbol is
+/// deliberately *not* part of the price: the Book is still standing once the
+/// ability has been paid for.
+#[test]
+fn book_of_rass_taps_nothing_and_pays_two_mana_and_two_life_for_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 8])
+        .hand(0, &[book_of_rass()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // `legal.castable` is filtered through `can_afford`, which reads the pool
+    // and not the eight untapped Forests: with nothing floating the {6} is
+    // unpayable, so the Book is not offered at all.
+    let card = in_hand(&engine, p0, book_of_rass()).expect("the Book is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{6}}, so the Book is not offered: {:?}",
+        legal.castable
+    );
+
+    // Eight Forests into the pool first: {6} brings the artifact to the table
+    // and leaves exactly the {2} its ability charges floating beside it, since
+    // CR 500.5 keeps a pool across a cast and this whole scenario lives inside
+    // one main phase.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "eight Forests, eight green"
+    );
+    cast_with_floating(&mut engine, p0, book_of_rass());
+    pass_until(&mut engine, stack_is_empty);
+    let book = on_battlefield(&engine, p0, book_of_rass()).expect("the Book resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the {{6}} is spent and exactly the {{2}} the ability charges is left"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and nobody has paid a life yet"
+    );
+
+    // The whole price is two mana and two life and no tap at all, so the offer
+    // is read where the engine reads it — with the mana already in the pool.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(book, 0)),
+        "with {{2}} floating the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    // Ability 0: "{2}, Pay 2 life: Draw a card." CR 601.2h pays the whole
+    // price as the ability is activated, and there is no target to name first.
+    activate(&mut engine, p0, book_of_rass(), 0);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        18,
+        "\"Pay 2 life\" is part of the price: two, and not a life per mana spent"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{2}} came out of the pool"
+    );
+    assert!(
+        !is_tapped(&engine, book),
+        "the price is no {{T}}: the Book is still standing after paying it"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the ability is waiting on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "and it reached the hand, so an emptied library would not satisfy the count above"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the life belongs to the seat that paid the price, not to the opponent"
+    );
+    assert!(
+        on_battlefield(&engine, p0, book_of_rass()).is_some(),
+        "the artifact outlives the activation, since its price was the mana and the life"
+    );
+}
+
+/// Planar Portal — {6} artifact: "{6}, {T}: Search your library for a card, put
+/// that card into your hand, then shuffle."
+///
+/// Both halves of that price are invisible in the card file, so the board reads
+/// them where they land: `legal.castable` is filtered through `can_afford`,
+/// which reads the pool rather than twelve untapped Forests, and the {6} the
+/// ability charges is offered only once the same pool really holds it. The
+/// search is read as a *move* rather than as a question that was asked — the
+/// card the menu offered is the card in hand, and the library is one shorter for
+/// it, which a shuffle reorders without shortening — while the Portal itself
+/// stays standing, because its price was a tap and the mana and never the
+/// artifact.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn planar_portal_taps_and_six_mana_for_the_card_it_finds_in_the_library() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 12])
+        .hand(0, &[planar_portal()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // `LegalActions::castable` is filtered through `can_afford`, and that reads
+    // the pool rather than the twelve untapped Forests: with nothing floating
+    // the {6} is unpayable, so the Portal is not offered at all.
+    let card = in_hand(&engine, p0, planar_portal()).expect("the Portal is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{6}}, so the Portal is not offered: {:?}",
+        legal.castable
+    );
+
+    // Twelve Forests into the pool: {6} for the artifact and the {6} its
+    // ability charges are one payment, because CR 500.5 keeps what is left in
+    // the pool and the whole scenario stays inside this one main phase.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        12,
+        "twelve Forests tapped, twelve green"
+    );
+    cast_with_floating(&mut engine, p0, planar_portal());
+    pass_until(&mut engine, stack_is_empty);
+    let portal = on_battlefield(&engine, p0, planar_portal()).expect("the Portal resolved");
+    assert!(!is_tapped(&engine, portal), "an artifact enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "the cast's {{6}} is spent and exactly the {{6}} the ability charges is left"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(portal, 0)),
+        "with {{6}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    activate(&mut engine, p0, planar_portal(), 0);
+    assert!(
+        is_tapped(&engine, portal),
+        "{{T}} is half the price and is paid as the ability is activated"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the other half was the six mana that was floating"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the seat that activated does the searching");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::SearchLibrary,
+        "the tutor's own question, and not a scry or a discard"
+    );
+    let in_library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    for id in &options {
+        assert!(
+            in_library.contains(id),
+            "\"search your library\": {id:?} is no card in it"
+        );
+    }
+    assert_eq!(
+        options.len(),
+        library_before,
+        "\"a card\" is every card in the library — a filter that had narrowed \
+         to basic lands would offer fewer: {} of {library_before}",
+        options.len()
+    );
+
+    let chosen = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen],
+            },
+        )
+        .expect("a card the search offered is a legal answer");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&chosen),
+        "\"put that card into your hand\": the very card the search offered, \
+         and not some other copy of the same printing"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "one card up, which a reveal that left the card where it was could not do"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"then shuffle\": the found card left the library, and shuffling \
+         reorders what is left without changing how much of it there is"
+    );
+    assert!(
+        on_battlefield(&engine, p0, planar_portal()).is_some(),
+        "the price was a tap and the mana, so the Portal stays to search again"
+    );
+}
+
+/// `Hair-Strung Koto` is an artifact costing `{6}` under `Coverage::Implemented`.
+/// It prints "Tap an untapped creature you control: Target player mills a card."
+/// Under CR 601.2c and CR 601.2h, activating the ability prompts for the target player first
+/// with `Pending::ChoosePlayer`, and then prompts with `Pending::ChooseCards` carrying `ChoicePrompt::CostTap`
+/// to tap an untapped creature you control (such as `Llanowar Elves`). The target player mills one card.
+#[test]
+fn hair_strung_koto_taps_untapped_creature_to_mill_target_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[hair_strung_koto(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves())
+        .expect("Llanowar Elves is on the battlefield");
+    assert!(!is_tapped(&engine, elf), "elf starts untapped");
+    let p1_library_before = library_size(&engine, p1);
+
+    activate(&mut engine, p0, hair_strung_koto(), 0);
+
+    // An activated ability names a player through the ordinary target
+    // question, with the seats in `player_options` and no object at all —
+    // unlike a spell or a loyalty ability, which ask `ChoosePlayer`.
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected the target question for Hair-Strung Koto, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0, "the activator names the target player");
+    assert!(
+        options.is_empty(),
+        "no object is a legal target: {options:?}"
+    );
+    assert!(
+        player_options.contains(&p1),
+        "the opponent is a legal target: {player_options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+
+    let Pending::ChooseCards {
+        prompt,
+        options: tap_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected CostTap prompt for Hair-Strung Koto, got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "prompt is CostTap");
+    assert!(
+        tap_options.contains(&elf),
+        "Llanowar Elves is offered to tap: {tap_options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, elf),
+        "creature is tapped from paying the activation cost"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        p1_library_before - 1,
+        "target player milled one card"
+    );
+}
+
+/// `Weakstone` is an artifact costing `{4}` under `Coverage::Implemented`.
+/// It prints "Attacking creatures get -1/-0."
+/// While on the battlefield, a creature that is declared as an attacker (such as `Desert Drake`)
+/// has its power reduced by 1 (from 2/2 to 1/2), while a non-attacking creature is unaffected.
+#[test]
+fn weakstone_reduces_power_of_attacking_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[weakstone(), desert_drake()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let drake = on_battlefield(&engine, p0, desert_drake()).expect("Desert Drake is present");
+    let elf =
+        on_battlefield(&engine, p1, llanowar_elves()).expect("opponent controls Llanowar Elves");
+    assert_eq!(
+        pt(&engine, drake),
+        (2, 2),
+        "un-attacking drake has full power"
+    );
+    assert_eq!(pt(&engine, elf), (1, 1), "non-attacking elf has full power");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(drake, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        pt(&engine, drake),
+        (1, 2),
+        "attacking creature gets -1/-0 from Weakstone"
+    );
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "non-attacking creature remains untouched"
+    );
+}

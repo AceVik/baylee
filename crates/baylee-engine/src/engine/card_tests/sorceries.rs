@@ -10480,3 +10480,411 @@ fn winter_s_grasp_destroys_target_land() {
         "resolved Winter's Grasp is in its caster's graveyard"
     );
 }
+
+/// Concentrate is `{2}{U}{U}` for one sentence: "Draw three cards." The draw is
+/// the whole card, so the three cards are named *before* anything is cast — the
+/// top of p0's library, which the zone lists bottom first — and read back in
+/// hand afterwards, because a hand that merely grew by three could not say
+/// which cards moved. Four Islands pay `{2}{U}{U}` to the last mana, so the
+/// emptied pool afterwards says the price was charged and not just printed, and
+/// the sorcery's own card is read in the graveyard rather than assumed to have
+/// resolved.
+#[test]
+fn concentrate_draws_the_top_three_cards_for_its_four_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[concentrate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The three cards the draw is about, named while they are still in the
+    // library: the zone lists its bottom first, so the top three are its last
+    // three entries, topmost last.
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let top_three: Vec<ObjectId> = library_before.iter().rev().take(3).copied().collect();
+    assert_eq!(top_three.len(), 3, "p0 has a library to draw from");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    // `legal.castable` is filtered through `can_afford`, and that reads the
+    // pool rather than the four untapped Islands: with nothing floating the
+    // {2}{U}{U} is unpayable, so the sorcery is not offered at all.
+    let card = in_hand(&engine, p0, concentrate()).expect("the sorcery is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{2}}{{U}}{{U}}, so the sorcery is not offered: {:?}",
+        legal.castable
+    );
+
+    tap_all_mana(&mut engine, p0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        4,
+        "four Islands, four blue"
+    );
+    assert_eq!(pool.total(), 4, "and nothing else on the board makes mana");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&card),
+        "with four blue floating the whole cost is payable: {:?}",
+        legal.castable
+    );
+
+    cast_with_floating(&mut engine, p0, concentrate());
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}}{{U}}{{U}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "a sorcery uses the stack, so the draw has not happened yet"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, concentrate()).is_some(),
+        "the sorcery resolved and went to its owner's graveyard"
+    );
+    for (slot, id) in top_three.iter().enumerate() {
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(p0))
+                .contains(id),
+            "card {slot} from the top of the library is in hand, not merely \
+             gone from the library"
+        );
+    }
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before.len() - 3,
+        "\"Draw three cards\": three cards left the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 2,
+        "the spell left the hand and three cards arrived — three drawn, one cast"
+    );
+    assert!(
+        all_on_battlefield(&engine, p0, island())
+            .iter()
+            .all(|id| is_tapped(&engine, *id)),
+        "the four Islands are down: the mana the cast spent was theirs"
+    );
+}
+
+/// Sunder from Within — {2}{R}{R} Sorcery — Arcane: "Destroy target artifact
+/// or land."
+///
+/// The `Or` is the whole card, so the board carries one of each half under the
+/// opponent while a creature stands beside them: a menu that had lost the
+/// filter would offer the Elf and this one must decline it. Both halves are
+/// read off the same one question — the artifact is chosen and the land is
+/// left standing, which is what tells a single target from a board sweep — and
+/// CR 601.2c before CR 601.2h is what leaves the spell on the stack with its
+/// four Mountains' mana still floating while the target question is open.
+#[test]
+fn sunder_from_within_destroys_the_artifact_or_land_it_names_and_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[sunder_from_within()])
+        .battlefield(1, &[quiet_artifact(), forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their artifact is out");
+    let land = on_battlefield(&engine, p1, forest()).expect("their land is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+
+    // Four Mountains are exactly {2}{R}{R}, and nothing else on this board
+    // makes mana, so whatever the pool holds is the Mountains' own.
+    cast_from_hand(&mut engine, p0, sunder_from_within());
+
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(
+        options.contains(&rock),
+        "the artifact half of \"target artifact or land\": {options:?}"
+    );
+    assert!(
+        options.contains(&land),
+        "and the land half, read off the same one choice: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "a creature is neither an artifact nor a land: {options:?}"
+    );
+    assert!(
+        in_hand(&engine, p0, sunder_from_within()).is_some(),
+        "the cast is still being put together, so the card has not left the hand yet"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "CR 601.2c names the target before CR 601.2h pays, so the four \
+         Mountains' red is still floating and the artifact is still standing"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "nothing has resolved yet: the target is named, not destroyed"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![rock],
+            },
+        )
+        .expect("the artifact the question offered was chosen");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}}{{R}}{{R}} was paid as the last step of the cast"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "\"destroy\" puts the named artifact in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "and off the battlefield, which is what destroying it means"
+    );
+    assert!(
+        in_graveyard(&engine, p0, sunder_from_within()).is_some(),
+        "the sorcery resolved and is in its caster's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "the land was a legal target and was not the one named: one target, \
+         one permanent destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and the creature the filter declined never moved"
+    );
+}
+
+/// Symbol of Unsummoning is a `{2}{U}` sorcery printing two sentences — "Return
+/// target creature to its owner's hand" and "Draw a card" — and one board reads
+/// both. The Elf across the table is named, so the bounce has to land it in the
+/// hand of the seat that *owns* it rather than the seat that aimed the spell,
+/// while the Elf beside the caster is the bystander "target creature" must
+/// decline and the cost may not be claimed before the target question is
+/// answered (CR 601.2c before CR 601.2h). The draw is read off the library and
+/// the hand together, counted from *after* the cast so that the sorcery leaving
+/// the hand is not mistaken for the card it drew.
+#[test]
+fn symbol_of_unsummoning_bounces_the_creature_it_names_and_draws_a_card() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[symbol_of_unsummoning()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elf is out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+
+    // Three Islands are exactly {2}{U}, and the caster's own Elf is named as
+    // the printing kept back so that "three, three blue" is a claim about the
+    // lands and not about a mana creature tapped alongside them.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "the three Islands, and the Elf beside them still standing"
+    );
+
+    let library_before = library_size(&engine, p0);
+    cast_with_floating(&mut engine, p0, symbol_of_unsummoning());
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the seat that cast it names the target");
+    assert_eq!((min, max), (1, 1), "one creature, and the spell asks once");
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    assert_eq!(options.len(), 2, "and those two are the whole menu");
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the cost is the last step of the cast: nothing has moved yet"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .expect("the Elf across the table was one of the options");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}}{{U}} came out of the pool once the target was answered (CR 601.2h)"
+    );
+    assert!(
+        on_stack(&engine, symbol_of_unsummoning()).is_some(),
+        "and the sorcery left the hand for the stack, waiting to resolve"
+    );
+
+    // The hand is counted after the cast, because while the target question
+    // stood the sorcery was still in it (CR 601.2c before CR 601.2h).
+    let hand_after_cast = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "the creature the spell named left the battlefield"
+    );
+    assert!(
+        in_hand(&engine, p1, llanowar_elves()).is_some(),
+        "\"to its owner's hand\": the Elf goes back to the seat that owns it, \
+         not to the seat that aimed the spell"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the creature nobody named never moved"
+    );
+    assert!(
+        in_graveyard(&engine, p0, symbol_of_unsummoning()).is_some(),
+        "the sorcery resolved and went to its owner's graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the caster's library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_after_cast + 1,
+        "and it reached the hand, so an emptied library would not satisfy the count above"
+    );
+}
+
+/// `Channel the Suns` is a sorcery costing `{3}{G}` under `Coverage::Implemented`.
+/// It prints "Add {W}{U}{B}{R}{G}."
+/// When cast from hand off four Forests, casting consumes the floating green mana,
+/// and upon resolution exactly one mana of each color ({W}, {U}, {B}, {R}, {G}) is added to the pool.
+#[test]
+fn channel_the_suns_adds_one_mana_of_each_color() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[channel_the_suns()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, channel_the_suns());
+    pass_until(&mut engine, stack_is_empty);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 5, "five mana added in total");
+    assert_eq!(pool.available(ManaColor::White), 1, "contains {{W}}");
+    assert_eq!(pool.available(ManaColor::Blue), 1, "contains {{U}}");
+    assert_eq!(pool.available(ManaColor::Black), 1, "contains {{B}}");
+    assert_eq!(pool.available(ManaColor::Red), 1, "contains {{R}}");
+    assert_eq!(pool.available(ManaColor::Green), 1, "contains {{G}}");
+    assert!(
+        in_graveyard(&engine, p0, channel_the_suns()).is_some(),
+        "Channel the Suns went to graveyard after resolving"
+    );
+}
+
+/// `Implode` is a sorcery costing `{4}{R}` under `Coverage::Implemented`.
+/// It prints "Destroy target land. Draw a card."
+/// When cast from hand off five Mountains targeting an opponent's land, it destroys
+/// the target land and causes the caster to draw a card.
+#[test]
+fn implode_destroys_target_land_and_draws_a_card() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[implode()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let initial_p0_cards = library_size(&engine, p0);
+    let target_land = on_battlefield(&engine, p1, forest()).expect("opponent controls a Forest");
+
+    cast_from_hand(&mut engine, p0, implode());
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for Implode, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&target_land),
+        "opponent's Forest is an offered target: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target_land],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "target land was destroyed and put into opponent's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "target land is no longer on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, implode()).is_some(),
+        "Implode resolved and went to graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        initial_p0_cards - 1,
+        "caster drew a card from Implode"
+    );
+}
