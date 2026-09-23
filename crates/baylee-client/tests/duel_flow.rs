@@ -477,16 +477,23 @@ impl Client {
                 }
                 interaction.confirm()
             }
-            // An ordering is every offered card, clicked in turn — which is
-            // exactly what the tray asks a player to do.
+            // An arrangement starts as an answer — every card where the
+            // question first put it — so a player's part is moving cards,
+            // not naming them. Every card has to be on screen, and one move
+            // is played, the last card taken up and put down in front of the
+            // first, so what is sent is an answer a player made.
             Pending::Arrange { .. } => {
                 let view = self.view.as_ref()?;
-                for id in interaction.selectable().to_vec() {
+                let cards = interaction.selectable().to_vec();
+                for &id in &cards {
                     assert!(
                         can_reach(view, interaction, id),
-                        "an ordering offers {id:?} and nothing on screen draws it"
+                        "an arrangement offers {id:?} and nothing on screen draws it"
                     );
-                    interaction.toggle(id);
+                }
+                if let [first, .., last] = cards.as_slice() {
+                    interaction.toggle(*last);
+                    interaction.toggle(*first);
                 }
                 interaction.confirm()
             }

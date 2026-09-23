@@ -25,6 +25,7 @@ use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use crate::{Deed, Duel, HoverSpot};
 use baylee_client_core::abilitysheet;
+use baylee_client_core::arrange::{Arrangement, Nudge};
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::browser::Placement;
 use baylee_client_core::filterdialog::FilterPanel;
@@ -850,6 +851,9 @@ pub fn keyboard(
     if cast_menu_keys(fired, &mut duel) {
         return;
     }
+    if arrange_keys(fired, &mut duel) {
+        return;
+    }
     if move_the_cursor(fired, &mut duel) {
         return;
     }
@@ -1667,6 +1671,41 @@ fn move_the_cursor(fired: Fired, duel: &mut Duel) -> bool {
         return true;
     }
     false
+}
+
+/// While an arrangement holds a card, the cursor keys move it — one place
+/// along its pile, or to the end of the pile above or below — and reach
+/// nothing else.
+///
+/// A held card is the one moment those keys have a better meaning than
+/// walking the table behind the sheet: the focus keys already walk the
+/// cards, and the tick already takes one up and puts it down in front of
+/// another, so what a keyboard was missing is the small move a pointer
+/// makes by tapping the neighbour. With nothing held they are the table's
+/// again. Returns whether it consumed the frame.
+fn arrange_keys(fired: Fired, duel: &mut Duel) -> bool {
+    if !duel.browser.answers_here(duel.interaction.as_ref()) {
+        return false;
+    }
+    let Some(i) = duel.interaction.as_mut() else {
+        return false;
+    };
+    if i.arrangement().and_then(Arrangement::held).is_none() {
+        return false;
+    }
+    let mut consumed = false;
+    for (action, nudge) in [
+        (Action::CursorLeft, Nudge::Earlier),
+        (Action::CursorRight, Nudge::Later),
+        (Action::CursorUp, Nudge::PrevRow),
+        (Action::CursorDown, Nudge::NextRow),
+    ] {
+        if fired.has(action) {
+            i.nudge(nudge);
+            consumed = true;
+        }
+    }
+    consumed
 }
 
 /// Combat: where the next declaration points, and the answer that declares

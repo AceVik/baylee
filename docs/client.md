@@ -4884,6 +4884,26 @@ learn the mark again. Tiles run in one flow under a single ticked tab and in
 headed runs when several are ticked, which needs no regrouping: `BrowseZone`'s
 `Ord` *is* the tab order and `Browser::rows` already emits zone by zone in it.
 
+An **arrangement** (`Pending::Arrange` — "put them back in any order", "the
+rest on the bottom in any order") is answered by *moving* cards rather than
+naming them, and `client-core/src/arrange.rs` is the whole model. It starts
+as an answer — every card in the first pile that can take them all, in the
+order they were offered — so a player who is content sends at once, and no
+card can go missing from the answer on the way. A tap takes a card up (the
+candle edge, because held is what `is_selected` means here); the next tap
+puts it down in front of the card tapped; the same tap again lets go of it
+where it is. The number in each tile's corner is its place in its pile, top
+first, and the rows stand in that order, because a number and a position
+that disagreed would shuffle under a player's pointer. The keyboard has the
+same three gestures and one more: the focus keys walk the cards, the tick
+takes one up and puts it down, and while a card is held the cursor keys
+nudge it one place along its pile or to the end of the pile above or below —
+the move a pointer makes by tapping the neighbour. `Esc` lets go of a held
+card before it undoes anything, and only a second one puts every card back.
+A choice is re-sent whole with every view, so `Interaction::new_keeping`
+keeps a half-built arrangement when the same seat is asked the same cards
+into the same piles again.
+
 The mode lives in `ClientSettings` beside the sheet's rectangle, and its
 reader is hand-written for the reason `Keymap`'s is: the store is
 `from_str(…).ok().unwrap_or_default()`, so a view mode retired in a later

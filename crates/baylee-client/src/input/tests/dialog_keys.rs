@@ -132,3 +132,37 @@ fn the_dialog_answers_enter_rather_than_the_card_under_the_pointer() {
         "…and answered nothing with it, which is how the press vanished"
     );
 }
+
+/// While an arrangement holds a card the cursor keys move it and reach
+/// nothing else; with nothing held they are the table's again, and the
+/// counter-case is what stops "the arrows are swallowed now" from passing.
+#[test]
+fn the_cursor_keys_move_a_held_card_and_nothing_else() {
+    use crate::keys::Fired;
+    use baylee_client_core::prefs::Keymap;
+
+    let mut duel = duel_arranging();
+    let keymap = Keymap::standard();
+    let right = press(bevy::prelude::KeyCode::KeyD);
+
+    assert!(
+        !arrange_keys(Fired::of(&right, &keymap), &mut duel),
+        "nothing held, so the cursor keys are the table's"
+    );
+    let space = press(bevy::prelude::KeyCode::Space);
+    assert!(browser_answer_keys(Fired::of(&space, &keymap), &mut duel));
+    let it = duel.interaction.as_ref().expect("the question stands");
+    assert!(it.is_selected(obj(1)), "the tick took the focused card up");
+
+    assert!(arrange_keys(Fired::of(&right, &keymap), &mut duel));
+    let it = duel.interaction.as_ref().expect("the question stands");
+    assert_eq!(
+        it.confirm(),
+        Some(PlayerAction::Arrange {
+            piles: vec![vec![obj(2), obj(1), obj(3)]]
+        }),
+        "one place further from the top"
+    );
+    assert!(it.is_selected(obj(1)), "and still held for the next move");
+    assert!(duel.outbox().is_empty(), "moving is not sending");
+}

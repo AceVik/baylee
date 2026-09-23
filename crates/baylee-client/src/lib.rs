@@ -832,7 +832,11 @@ impl Duel {
         if !matches!(pending, Pending::ChooseSubtype { .. }) {
             self.subtype_filter.clear();
         }
-        self.interaction = Some(Interaction::new(pending, seat));
+        self.interaction = Some(Interaction::new_keeping(
+            pending,
+            seat,
+            self.interaction.as_ref(),
+        ));
         self.refresh_owed_plan();
         // The flank, not the state: `Cues` remembers whether the last
         // question was this seat's, so the acting seat being re-sent its own

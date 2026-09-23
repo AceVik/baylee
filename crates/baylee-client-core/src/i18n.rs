@@ -1985,8 +1985,8 @@ messages! {
     BrowseNone { en: "None", de: "Keine" },
     /// How an ordering is answered.
     BrowseOrderHint {
-        en: "click them in the order they should go",
-        de: "in der gewünschten Reihenfolge anklicken",
+        en: "tap a card, then the card it goes in front of",
+        de: "Karte antippen, dann die, vor die sie soll",
     },
     /// A zone belonging to a seat. `{0}` is the zone, `{1}` the seat.
     BrowseZoneOf { en: "{0} · {1}", de: "{0} · {1}" },

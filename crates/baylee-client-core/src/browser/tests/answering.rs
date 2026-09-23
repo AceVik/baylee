@@ -1,4 +1,4 @@
-//! While a question is standing the sheet belongs to it, and everything that follows from that is here: the tab is pinned when the choice lives in one zone and pinned to nothing when it reaches two, the table is dimmed only where every answer really is inside the sheet, the footer is drawn only on the sheet the answer will be sent from, an ordering numbers each pick in the order it was taken, and the focused row says where the keyboard is standing without thereby claiming to be part of the answer. The counter-cases belong here too, because each is the same predicate answered no: a sheet with no question in front of it darkens nothing, sends nothing and stands on no row.
+//! While a question is standing the sheet belongs to it, and everything that follows from that is here: the tab is pinned when the choice lives in one zone and pinned to nothing when it reaches two, the table is dimmed only where every answer really is inside the sheet, the footer is drawn only on the sheet the answer will be sent from, an ordering numbers every card by its place in the pile, and the focused row says where the keyboard is standing without thereby claiming to be part of the answer. The counter-cases belong here too, because each is the same predicate answered no: a sheet with no question in front of it darkens nothing, sends nothing and stands on no row.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
@@ -197,8 +197,11 @@ fn only_the_sheet_the_question_opened_draws_its_footer() {
     );
 }
 
+/// An ordering opens the tray with every card already numbered: the pile
+/// starts as the cards were offered, which is itself an answer, and a card
+/// taken up and put down in front of another renumbers both.
 #[test]
-fn an_ordering_opens_the_tray_and_numbers_each_pick() {
+fn an_ordering_opens_the_tray_and_numbers_every_card() {
     let view = ViewBuilder::new(2)
         .with_looking_at(vec![
             printed(7, 0, "Ponder", 6),
@@ -209,18 +212,36 @@ fn an_ordering_opens_the_tray_and_numbers_each_pick() {
     assert!(Browser::wanted(&view, &it), "an ordering always wants it");
 
     let b = Browser::new();
-    assert!(
-        b.rows(&view, Some(&it), Names::projected())
+    let place = |it: &Interaction, id| {
+        b.rows(&view, Some(it), Names::projected())
             .iter()
-            .all(|r| r.place.is_none()),
-        "nothing picked yet"
+            .find(|r| r.id == id)
+            .and_then(|r| r.place)
+    };
+    assert_eq!(
+        place(&it, obj(7)),
+        Some(1),
+        "as offered: the first is on top"
     );
+    assert_eq!(place(&it, obj(8)), Some(2));
     it.toggle(obj(8));
     it.toggle(obj(7));
-    let rows = b.rows(&view, Some(&it), Names::projected());
-    let place = |id| rows.iter().find(|r| r.id == id).and_then(|r| r.place);
-    assert_eq!(place(obj(8)), Some(1), "picked first, so it goes first");
-    assert_eq!(place(obj(7)), Some(2));
+    assert_eq!(
+        place(&it, obj(8)),
+        Some(1),
+        "put down in front of the first"
+    );
+    assert_eq!(place(&it, obj(7)), Some(2));
+    let order: Vec<ObjectId> = b
+        .rows(&view, Some(&it), Names::projected())
+        .iter()
+        .map(|r| r.id)
+        .collect();
+    assert_eq!(
+        order,
+        vec![obj(8), obj(7)],
+        "and the rows stand in the order their numbers say"
+    );
 }
 
 /// Where the keyboard is standing has to reach the row, or the key that

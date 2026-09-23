@@ -144,7 +144,7 @@ pub struct BrowseRow {
     pub zone: BrowseZone,
     /// How the pending question stands towards this row.
     pub standing: RowStanding,
-    /// Its one-based place in an ordering, for a one-pile `Pending::Arrange`.
+    /// Its one-based place in the ordered pile it is in, for a `Pending::Arrange`.
     ///
     /// `None` for every other choice: a number beside a card in a plain
     /// "choose two" would be claiming the order matters when it does not.
@@ -1490,7 +1490,6 @@ impl Browser {
         names: Names<'_>,
     ) -> Vec<BrowseRow> {
         let mine = interaction.filter(|it| it.is_mine());
-        let ordering = mine.is_some_and(Interaction::is_ordering);
         // Parsed here and not held beside the box, which is the opposite of
         // what `DeckBuilder` does and for a measured reason: this runs once
         // per frame and then asks the query about each of a zone's objects,
@@ -1538,16 +1537,19 @@ impl Browser {
                                 pick == crate::interaction::Pick::Object(object.id)
                             }),
                     },
-                    place: ordering
-                        .then(|| mine.and_then(|it| it.selected().position(|o| o == object.id)))
-                        .flatten()
-                        .map(|p| p + 1),
+                    place: mine.and_then(|it| it.arrange_place(object.id)),
                     mana_value: object.mana_value,
                     types: object.types,
                     token: object.token.is_some(),
                 });
             }
         }
+        // An arrangement is read in its own order before any other: the
+        // number on a card and where the card stands have to agree, or a
+        // player moving one card watches the numbers shuffle under tiles
+        // that stay put. Stable, so every row without a place keeps the
+        // zone's order behind the ones with one.
+        out.sort_by_key(|row| row.place.unwrap_or(usize::MAX));
         self.arrange(&mut out);
         out
     }

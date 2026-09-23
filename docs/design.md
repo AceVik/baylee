@@ -835,7 +835,8 @@ options include anything outside battlefield and hand, and on demand from a
 key or a tap on the top card of a pile at the mat's corner. It carries the
 filter box the
 subtype picker already proved, and in order mode it answers an ordering by
-click-click swap. One panel closes tutoring, scry, dig, wish, delve, reorder,
+click-click swap (built as tap-then-place: the first tap takes a card up, the
+second puts it down in front of the card tapped — see `docs/client.md`). One panel closes tutoring, scry, dig, wish, delve, reorder,
 graveyard targets and counterspell targets.
 
 ### 2.3 The problems of scale

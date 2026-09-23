@@ -29,6 +29,7 @@
 //! is a rules question and re-deriving it client-side would be a second,
 //! divergent implementation of it.
 
+use crate::arrange::{Arrangement, Nudge, Row};
 use crate::i18n::{Lang, Phrase, seat_name};
 use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::ManaColor;
@@ -611,8 +612,10 @@ enum Mode {
         /// to what a click would pick.
         focus: usize,
     },
-    /// An ordered list; every offered object must appear exactly once.
-    Order { options: Vec<ObjectId> },
+    /// Cards put into piles, in an order: `Pending::Arrange`. The whole
+    /// answer lives in the [`Arrangement`], which is why this is the one
+    /// mode that never touches `picks`.
+    Arrange(Arrangement),
     /// Attacker declarations.
     Attackers {
         candidates: Vec<ObjectId>,
@@ -713,6 +716,27 @@ impl Interaction {
         }
     }
 
+    /// [`Self::new`], keeping a half-built arrangement when the question is
+    /// the same one asked again.
+    ///
+    /// A choice is re-sent whole whenever the view is, and a print entry
+    /// earned in the middle of a scry is enough to cause one. For a set of
+    /// targets a fresh interaction loses a click; for an arrangement it
+    /// loses every move the player has made, so the same seat asked to put
+    /// the same cards into the same piles keeps what it built.
+    #[must_use]
+    pub fn new_keeping(pending: Pending, seat: PlayerId, previous: Option<&Self>) -> Self {
+        let mut next = Self::new(pending, seat);
+        if let (Mode::Arrange(fresh), Some(Mode::Arrange(built))) = (
+            &mut next.mode,
+            previous.filter(|p| p.seat == seat).map(|p| &p.mode),
+        ) && built.same_question(fresh.dealt(), fresh.specs())
+        {
+            *fresh = built.clone();
+        }
+        next
+    }
+
     fn mode_for(pending: &Pending, seat: PlayerId) -> Mode {
         if pending_player(pending) != Some(seat) {
             return if matches!(pending, Pending::GameOver(_)) {
@@ -785,14 +809,7 @@ impl Interaction {
                 max: *max as usize,
                 focus: 0,
             },
-            // One pile that takes every card is an ordering, answered by
-            // naming the cards in turn. No other arrangement is asked yet.
-            Pending::Arrange { cards, piles, .. } => match piles.as_slice() {
-                [pile] if pile.ordered && pile.min as usize == cards.len() => Mode::Order {
-                    options: cards.clone(),
-                },
-                _ => Mode::Idle,
-            },
+            Pending::Arrange { cards, piles, .. } => Mode::Arrange(Arrangement::new(cards, piles)),
             Pending::ChooseColor { options, .. } => Mode::Color {
                 options: options.clone(),
             },
@@ -913,7 +930,8 @@ impl Interaction {
     #[must_use]
     pub fn selectable(&self) -> &[ObjectId] {
         match &self.mode {
-            Mode::Objects { options, .. } | Mode::Order { options } => options,
+            Mode::Objects { options, .. } => options,
+            Mode::Arrange(arrangement) => arrangement.dealt(),
             Mode::Attackers { candidates, .. } | Mode::Blockers { candidates, .. } => candidates,
             _ => &[],
         }
@@ -935,7 +953,9 @@ impl Interaction {
     pub fn bounds(&self) -> Option<(usize, usize)> {
         match &self.mode {
             Mode::Objects { min, max, .. } => Some((*min, *max)),
-            Mode::Order { options } => Some((options.len(), options.len())),
+            Mode::Arrange(arrangement) => {
+                Some((arrangement.dealt().len(), arrangement.dealt().len()))
+            }
             _ => None,
         }
     }
@@ -948,7 +968,7 @@ impl Interaction {
     /// browser opens for it even when every card is already on the table.
     #[must_use]
     pub fn is_ordering(&self) -> bool {
-        matches!(self.mode, Mode::Order { .. })
+        matches!(self.mode, Mode::Arrange(_))
     }
 
     /// Whether an object may be selected.
@@ -959,7 +979,7 @@ impl Interaction {
     pub fn is_selectable(&self, id: ObjectId) -> bool {
         match &self.mode {
             Mode::Objects { options, .. } => options.is_empty() || options.contains(&id),
-            Mode::Order { options } => options.contains(&id),
+            Mode::Arrange(arrangement) => arrangement.dealt().contains(&id),
             // Combat accepts both halves of a pair: the creature being
             // declared, and the thing it is being declared against — tapping
             // a planeswalker or an attacker aims the next declaration.
@@ -1025,6 +1045,8 @@ impl Interaction {
         match &self.mode {
             Mode::Attackers { pairs, .. } => pairs.iter().any(|(a, _)| *a == id),
             Mode::Blockers { pairs, .. } => pairs.iter().any(|(b, _)| *b == id),
+            // Selected is "in hand": the card a tap has taken up to move.
+            Mode::Arrange(arrangement) => arrangement.held() == Some(id),
             _ => self.picks.contains(&Pick::Object(id)),
         }
     }
@@ -1047,6 +1069,9 @@ impl Interaction {
     /// blocking) moves the focus instead.
     pub fn toggle(&mut self, id: ObjectId) -> SelectionOutcome {
         match &mut self.mode {
+            // Tap, then place: the first tap takes a card up and the next
+            // puts it down in front of the card tapped.
+            Mode::Arrange(arrangement) => arrangement.toggle(id),
             Mode::Attackers {
                 candidates,
                 defenders,
@@ -1135,7 +1160,7 @@ impl Interaction {
     fn capacity(&self) -> usize {
         match &self.mode {
             Mode::Objects { max, .. } => *max,
-            Mode::Order { options } => options.len(),
+            Mode::Arrange(arrangement) => arrangement.dealt().len(),
             _ => 0,
         }
     }
@@ -1185,7 +1210,54 @@ impl Interaction {
     /// question. One pick at a time is what a player means by "no, not that
     /// one". Returns what was taken back, or `None` when nothing was picked.
     pub fn take_back(&mut self) -> Option<Pick> {
+        if let Mode::Arrange(arrangement) = &mut self.mode {
+            let held = arrangement.held()?;
+            arrangement.cancel();
+            return Some(Pick::Object(held));
+        }
         self.picks.pop()
+    }
+
+    /// The arrangement being built, for a `Pending::Arrange`.
+    #[must_use]
+    pub const fn arrangement(&self) -> Option<&Arrangement> {
+        match &self.mode {
+            Mode::Arrange(arrangement) => Some(arrangement),
+            _ => None,
+        }
+    }
+
+    /// Moves the held card of an arrangement one step. `false` when there
+    /// is no arrangement, nothing is held, or there is nowhere to go.
+    pub fn nudge(&mut self, nudge: Nudge) -> bool {
+        match &mut self.mode {
+            Mode::Arrange(arrangement) => arrangement.nudge(nudge),
+            _ => false,
+        }
+    }
+
+    /// Puts the held card of an arrangement at the end of `row`. `false`
+    /// when there is no arrangement, nothing is held, or the row is full.
+    pub fn place_held(&mut self, row: Row) -> bool {
+        match &mut self.mode {
+            Mode::Arrange(arrangement) => arrangement.place(row),
+            _ => false,
+        }
+    }
+
+    /// A card's one-based place in the ordered pile it is in, for the
+    /// number drawn beside it.
+    ///
+    /// `None` outside an arrangement, for a card in no pile yet, and for a
+    /// card in a pile whose order is not the player's to choose — a number
+    /// there would be claiming an order that nobody reads.
+    #[must_use]
+    pub fn arrange_place(&self, id: ObjectId) -> Option<usize> {
+        let arrangement = self.arrangement()?;
+        match arrangement.slot(id)? {
+            (Row::Pile(pile), at) if arrangement.specs().get(pile)?.ordered => Some(at + 1),
+            _ => None,
+        }
     }
 
     /// What a declaration made right now would be pointed at.
@@ -1230,6 +1302,11 @@ impl Interaction {
                 focus,
                 ..
             } => (options.len() + player_options.len(), focus),
+            // The arrangement walks its own rows, because its focus is a
+            // card and the order of the walk changes as cards move.
+            Mode::Arrange(arrangement) => {
+                return arrangement.cycle_focus(delta).map(Pick::Object);
+            }
             _ => return None,
         };
         if len > 0 {
@@ -1285,6 +1362,7 @@ impl Interaction {
                     .copied()
                     .map(Pick::Seat)
             }),
+            Mode::Arrange(arrangement) => arrangement.focused().map(Pick::Object),
             _ => None,
         }
     }
@@ -1310,6 +1388,7 @@ impl Interaction {
                 focus,
                 ..
             } => Some((*focus, options.len() + player_options.len())),
+            Mode::Arrange(arrangement) => arrangement.focus_position(),
             _ => None,
         }
     }
@@ -1387,6 +1466,12 @@ impl Interaction {
             Mode::Blockers { pairs, focus, .. } => {
                 pairs.clear();
                 *focus = 0;
+            }
+            // Lets go of a held card first and only then puts every card
+            // back, so `Esc` in the middle of a move undoes the move and not
+            // the arrangement built before it.
+            Mode::Arrange(arrangement) => {
+                arrangement.cancel();
             }
             _ => {}
         }
@@ -1528,7 +1613,7 @@ impl Interaction {
     pub fn can_confirm(&self) -> bool {
         match &self.mode {
             Mode::Objects { min, .. } => self.picks.len() >= *min,
-            Mode::Order { options } => self.picks.len() == options.len(),
+            Mode::Arrange(arrangement) => arrangement.answer().is_some(),
             // Declaring nothing is always legal (no attacks, no blocks), a
             // number always has its clamped value, and priority can always be
             // passed — all four are answerable the moment they are asked.
@@ -1564,11 +1649,9 @@ impl Interaction {
                     Some(PlayerAction::ChooseTargets { objects, players })
                 }
             }
-            Mode::Order { options } if self.picks.len() == options.len() => {
-                Some(PlayerAction::Arrange {
-                    piles: vec![self.selected().collect()],
-                })
-            }
+            Mode::Arrange(arrangement) => arrangement
+                .answer()
+                .map(|piles| PlayerAction::Arrange { piles }),
             Mode::Attackers { pairs, .. } => Some(PlayerAction::DeclareAttackers {
                 attackers: pairs.clone(),
             }),

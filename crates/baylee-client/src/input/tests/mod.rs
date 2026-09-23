@@ -45,7 +45,7 @@ mod targets;
 mod tray;
 
 use super::{
-    activate_card, answer_the_question, armed_keys, browser_answer_keys,
+    activate_card, answer_the_question, armed_keys, arrange_keys, browser_answer_keys,
     browser_takes_the_keyboard, cursor_grid, keyboard, menu_click, move_cursor, pointer,
     pointer_hover, the_click,
 };
@@ -573,6 +573,36 @@ fn duel_searching(min: u8) -> crate::Duel {
     let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
     // Destructured so the two fields are borrowed apart: `Interaction`
     // is not `Clone`, and it should not become one for a test.
+    let crate::Duel {
+        browser,
+        interaction,
+        ..
+    } = &mut duel;
+    browser.follow(&view, interaction.as_ref());
+    assert!(
+        duel.browser.answers_here(duel.interaction.as_ref()),
+        "the dialog is the surface holding the question"
+    );
+    duel
+}
+
+/// A duel whose standing question is "put these three back in any order",
+/// with the sheet opened for it through the real door.
+fn duel_arranging() -> crate::Duel {
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+    let mut duel = crate::Duel {
+        interaction: Some(Interaction::new(
+            Pending::Arrange {
+                player: PlayerId::new(0),
+                cards: vec![obj(1), obj(2), obj(3)],
+                piles: vec![ArrangePile::all_of(ArrangePlace::LibraryTop, 3)],
+                prompt: ArrangePrompt::Order,
+            },
+            PlayerId::new(0),
+        )),
+        ..Default::default()
+    };
+    let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
     let crate::Duel {
         browser,
         interaction,

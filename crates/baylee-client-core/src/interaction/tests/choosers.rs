@@ -28,19 +28,97 @@ fn x_starts_at_the_minimum() {
     assert_eq!(i.number(), 3);
 }
 
+/// An ordering starts complete — every card in its one pile, as offered —
+/// and a tap takes a card up while the next puts it down in front of the
+/// card tapped. No card is ever missing from the answer, so there is no
+/// half-built order to refuse, and holding a card does not stop the answer
+/// from being sent as it stands.
 #[test]
-fn ordering_requires_every_offered_object_exactly_once() {
+fn an_ordering_starts_as_offered_and_a_tap_pair_moves_one_card() {
     let mut i = interaction(put_back(vec![obj(1), obj(2), obj(3)]));
-    i.toggle(obj(2));
-    i.toggle(obj(3));
-    assert!(!i.can_confirm(), "an incomplete order is not submittable");
-    i.toggle(obj(1));
     assert_eq!(
         i.confirm(),
         Some(PlayerAction::Arrange {
-            piles: vec![vec![obj(2), obj(3), obj(1)]]
+            piles: vec![vec![obj(1), obj(2), obj(3)]]
         }),
-        "one pile, listed in the order the cards were named"
+        "the order they were offered in is an answer"
+    );
+    assert_eq!(i.toggle(obj(3)), SelectionOutcome::Added);
+    assert!(i.is_selected(obj(3)), "a tapped card is held");
+    assert!(i.can_confirm(), "and holding one blocks nothing");
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert!(!i.is_selected(obj(3)), "putting it down lets go of it");
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::Arrange {
+            piles: vec![vec![obj(3), obj(1), obj(2)]]
+        }),
+        "one pile, listed top to bottom"
+    );
+    assert_eq!(i.arrange_place(obj(3)), Some(1));
+    assert_eq!(i.arrange_place(obj(2)), Some(3));
+}
+
+/// A keyboard reaches everything a pointer does: the walk stands on a card,
+/// the tick takes it up, a nudge moves it, and `Esc` lets go before it
+/// undoes anything that was already put down.
+#[test]
+fn an_ordering_is_played_from_the_keyboard() {
+    let mut i = interaction(put_back(vec![obj(1), obj(2), obj(3)]));
+    assert_eq!(
+        i.aim(),
+        Some(Pick::Object(obj(1))),
+        "the focus starts on top"
+    );
+    assert_eq!(i.focus_position(), Some((0, 3)));
+    assert_eq!(i.cycle_focus(1), Some(Pick::Object(obj(2))));
+    assert_eq!(i.toggle_focused(), SelectionOutcome::Added);
+    assert!(i.nudge(Nudge::Later), "one place down");
+    assert_eq!(
+        i.arrangement().map(|a| a.cards(Row::Pile(0)).to_vec()),
+        Some(vec![obj(1), obj(3), obj(2)])
+    );
+    assert!(i.nudge(Nudge::Earlier) && i.nudge(Nudge::Earlier));
+    assert!(!i.nudge(Nudge::Earlier), "already on top");
+    assert!(!i.nudge(Nudge::NextRow), "one pile: no row below");
+    assert_eq!(i.take_back(), Some(Pick::Object(obj(2))), "Esc lets go");
+    assert_eq!(
+        i.arrangement().map(|a| a.cards(Row::Pile(0)).to_vec()),
+        Some(vec![obj(2), obj(1), obj(3)]),
+        "and keeps the move it made"
+    );
+    assert_eq!(i.take_back(), None, "nothing is held to let go of");
+    i.cancel();
+    assert_eq!(
+        i.arrangement().map(|a| a.cards(Row::Pile(0)).to_vec()),
+        Some(vec![obj(1), obj(2), obj(3)]),
+        "a cancel with nothing held puts every card back"
+    );
+}
+
+/// The same question sent again keeps what the player built; a different
+/// one starts over. A choice is re-sent whole with every view, and one
+/// that threw the arrangement away would undo a player's moves whenever
+/// anybody at the table did anything.
+#[test]
+fn the_same_arrangement_asked_again_keeps_its_moves() {
+    let mut i = interaction(put_back(vec![obj(1), obj(2), obj(3)]));
+    i.toggle(obj(3));
+    i.toggle(obj(1));
+    let again = Interaction::new_keeping(put_back(vec![obj(1), obj(2), obj(3)]), me(), Some(&i));
+    assert_eq!(
+        again.confirm(),
+        Some(PlayerAction::Arrange {
+            piles: vec![vec![obj(3), obj(1), obj(2)]]
+        })
+    );
+    let other = Interaction::new_keeping(put_back(vec![obj(1), obj(2)]), me(), Some(&i));
+    assert_eq!(
+        other.confirm(),
+        Some(PlayerAction::Arrange {
+            piles: vec![vec![obj(1), obj(2)]]
+        }),
+        "other cards are another question"
     );
 }
 
