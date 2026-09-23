@@ -171,6 +171,50 @@ fn lotleth_troll() -> CardIndex {
     card_index("61b1d7e5-6155-4204-b110-35a890551ec8")
 }
 
+/// Walks the game until a target question is asked and hands back the menu
+/// it published, **without** answering it.
+///
+/// [`aim_at`] is the sibling that answers. This one exists for the tests
+/// whose subject is the menu itself: a printed filter is a claim about which
+/// cards are on it, and what proves the claim is the cards that are there
+/// beside the one that is not.
+#[track_caller]
+fn pass_until_targets(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on nothing else")
+    };
+    assert_eq!(player, seat, "the seat that cast it names the target");
+    options
+}
+
+/// Puts permanents into their owner's graveyard through the destruction
+/// door, without handing priority over.
+///
+/// The companion to [`kill`], and the difference is what the test is about.
+/// `kill` is about the *dying* and lets whatever triggered resolve; this is
+/// about the graveyard being full, so that a reanimation spell has something
+/// to point at. `sba::destroy` moves the card on the spot, so nothing has to
+/// be passed for it — and passing would spend the main phase the spell still
+/// has to be cast in.
+///
+/// Every caller seats creatures that print no dies trigger, which is what
+/// makes the shortcut honest rather than merely convenient.
+#[track_caller]
+fn bury(engine: &mut Engine<RegistryLookup>, ids: &[ObjectId]) {
+    let state = engine
+        .dev_state_mut(PlayerId::new(0))
+        .expect("the harness may set boards up");
+    for id in ids {
+        crate::sba::destroy(state, *id);
+    }
+}
+
 /// Destroys `id` the way a state-based action does, then lets the game judge
 /// the board and resolve whatever died triggered.
 ///

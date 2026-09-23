@@ -5,12 +5,13 @@
 //! Set: 2X2 #26 — Double Masters 2022 | Scryfall ID: 53b4dcd6-b1b6-4f1c-9264-e58bdc87399b | Oracle ID: 1be13ede-98f8-497e-800c-03e5802932b3
 // IMPLEMENTED — evoke + LTB reanimation of up to two small creatures.
 
-static SMALL_CREATURE_GY: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::CmcAtMost(0xFFFF), // power ≤ 2 handled below via CmcAtMost? no —
-]);
-
 use baylee_cards_dsl::prelude::*;
+
+// "with power 2 or less" — the printed clause, and it had been a
+// `CmcAtMost(0xFFFF)` that matches every creature card there is, with a
+// comment saying so. The card claimed `Coverage::Implemented` and returned
+// anything.
+static SMALL_CREATURE_GY: Filter = Filter::And(&[Filter::CREATURE, Filter::PowerAtMost(2)]);
 
 card!(
     index = index::REVEILLARK,

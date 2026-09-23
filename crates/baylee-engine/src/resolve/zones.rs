@@ -65,6 +65,29 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
     }
 }
 
+/// Every object an effect's [`TargetSpec`] names at resolution, not just the
+/// first.
+///
+/// An effect whose spec is *chosen* reads the whole of `res.targets`, because
+/// one instance of the word "target" can carry a count: Reveillark returns
+/// "up to two target creature cards" and Entreat the Dead returns X of them,
+/// and both were written against [`spec_object`] — which answers `first()` —
+/// so each of them brought exactly one card back while claiming
+/// `Coverage::Implemented`. `Effect::Exile` had the same bug and the same
+/// fix, one card earlier (Pit of Offerings).
+///
+/// The two implicit specs stay singular by construction: neither names a
+/// list, and `res.targets` for a synthetic trigger is the event object
+/// itself, so reading it here would be the same answer by a longer road.
+fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
+    match target {
+        TargetSpec::ThisObject | TargetSpec::EventObject => {
+            spec_object(res, target).into_iter().collect()
+        }
+        _ => res.targets.clone(),
+    }
+}
+
 /// Executes one zone-movement effect.
 #[allow(clippy::too_many_lines)] // the zone vocabulary is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -265,19 +288,25 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             owner_control,
             counters,
         } => {
-            // The card has to still be in a graveyard. CR 400.7: a card
-            // that has moved is a new object with no relation to the one the
-            // effect named. A reanimation *spell* is held to that by target
-            // legality (CR 608.2b), so the guard looks redundant beside the
-            // fifteen cards that cast one — but undying and persist target
-            // nothing at all (`TargetSpec::EventObject` is the creature that
-            // died), and without it a card exiled in response to the keyword
-            // trigger came back onto the battlefield out of exile.
-            if let Some(target_id) = spec_object(res, target)
-                && state
+            // Every target and not the first: see [`spec_objects`].
+            //
+            // CR 400.7: a card that has moved is a new object with no
+            // relation to the one the effect named. A reanimation *spell* is
+            // held to that by target legality (CR 608.2b), so the zone check
+            // looks redundant beside the fifteen cards that cast one — but
+            // undying and persist target nothing at all
+            // (`TargetSpec::EventObject` is the creature that died), and
+            // without it a card exiled in response to the keyword trigger
+            // came back onto the battlefield out of exile.
+            for target_id in spec_objects(res, target) {
+                // The card has to still be in a graveyard, asked per card:
+                // one of several targets leaving does not stop the others.
+                if !state
                     .object(target_id)
                     .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
-            {
+                {
+                    continue;
+                }
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
                     let to = if owner_control { obj.owner } else { you };

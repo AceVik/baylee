@@ -62659,3 +62659,240 @@ fn visara_stares_through_a_regeneration_shield() {
         "and the Gorgon paid with her tap"
     );
 }
+
+// oracle_id = "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+fn sun_titan() -> CardIndex {
+    card_index("b2e950fb-cb7e-40a0-a311-5bbdd0477b29")
+}
+
+/// Sun Titan — {4}{W}{W}, 6/6 vigilance — "whenever this creature enters or
+/// attacks, you may return target permanent card with mana value 3 or less
+/// from your graveyard to the battlefield."
+///
+/// The clause that can be read wrong is the price, so the graveyard is built
+/// to say it: Llanowar Elves at 1, Rib Cage Spider at 3 — the boundary, and
+/// "or less" is what puts it on the menu — and Wild Elephant at 4, which is
+/// the one that must not be there. Three cards and two answers, so an offer
+/// that listed everything and an offer that listed nothing are both visible.
+#[test]
+fn sun_titan_returns_a_permanent_of_three_or_less_and_is_not_offered_the_four() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+                rib_cage_spider(),
+                wild_elephant(),
+            ],
+        )
+        .hand(0, &[sun_titan()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are seated");
+    let spider = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
+    let elephant = on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    bury(&mut engine, &[elves, spider, elephant]);
+    assert!(
+        in_graveyard(&engine, p0, wild_elephant()).is_some(),
+        "the Elephant is in the graveyard, so being left off the offer below \
+         is the mana value and not the zone"
+    );
+
+    cast_from_hand(&mut engine, p0, sun_titan());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(
+        options.contains(&elves) && options.contains(&spider),
+        "mana value 1 and mana value 3 are both \"3 or less\": {options:?}"
+    );
+    assert!(
+        !options.contains(&elephant),
+        "and mana value 4 is not: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![spider],
+                players: vec![],
+            },
+        )
+        .expect("the Spider was on the menu");
+    pass_until(&mut engine, stack_is_empty);
+
+    let titan = on_battlefield(&engine, p0, sun_titan()).expect("the Titan resolved");
+    assert_eq!(pt(&engine, titan), (6, 6), "the body the card prints");
+    let back = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider came back");
+    assert_eq!(pt(&engine, back), (1, 4), "as the creature it is");
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "\"target permanent card\" is one card and not the whole graveyard"
+    );
+}
+
+// oracle_id = "1be13ede-98f8-497e-800c-03e5802932b3"
+fn reveillark() -> CardIndex {
+    card_index("1be13ede-98f8-497e-800c-03e5802932b3")
+}
+
+/// Reveillark — {4}{W}, 4/3 flying — "when this creature leaves the
+/// battlefield, return up to two target creature cards with power 2 or less
+/// from your graveyard to the battlefield."
+///
+/// The same three creatures as the Sun Titan test and a different reason for
+/// the same split: there it was mana value 3, here it is power 2, so the
+/// Elephant is off the menu for being a 3/3 rather than for costing {3}{G}.
+/// The boundary itself is the neighbour's to pin — no fixture here prints a
+/// power of exactly 2 — and what this board says is that a 3 is refused,
+/// which is the off-by-one that matters, and that the clause is read at all:
+/// it was `CmcAtMost(0xFFFF)` with a comment admitting it, so the card
+/// returned anything.
+///
+/// Two cards come back and not one, which is the half `spec_object` could
+/// not do — it answers `first()`, and this card said `Coverage::Implemented`
+/// while returning half of what it prints.
+#[test]
+fn reveillark_returns_both_small_creatures_and_is_not_offered_the_three_power() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(42, forest())
+        .battlefield(
+            0,
+            &[
+                reveillark(),
+                llanowar_elves(),
+                rib_cage_spider(),
+                wild_elephant(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let lark = on_battlefield(&engine, p0, reveillark()).expect("the Lark is seated");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are seated");
+    let spider = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
+    let elephant = on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    bury(&mut engine, &[elves, spider, elephant]);
+
+    // The Lark leaves last, so its own trigger has a graveyard to read.
+    bury(&mut engine, &[lark]);
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    engine
+        .apply(player, PlayerAction::PassPriority)
+        .expect("passing priority is always legal");
+
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(
+        options.contains(&elves) && options.contains(&spider),
+        "a 1/1 and a 1/4 are both \"power 2 or less\": {options:?}"
+    );
+    assert!(
+        !options.contains(&elephant),
+        "and a 3/3 is not, however cheap it was: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves, spider],
+                players: vec![],
+            },
+        )
+        .expect("two targets, which is what \"up to two\" offers");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the first of the two came back"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_some(),
+        "and so did the second — the half a reader taking `first()` lost"
+    );
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_none(),
+        "and the one that was never named stayed where it was"
+    );
+}
+
+// oracle_id = "017aa9b3-a8ea-4588-9c50-e914a7d8e4ee"
+fn metamorphosis_fanatic() -> CardIndex {
+    card_index("017aa9b3-a8ea-4588-9c50-e914a7d8e4ee")
+}
+
+/// Metamorphosis Fanatic — {4}{B}{B}, 4/4 lifelink — "when this creature
+/// enters, return up to one target creature card from your graveyard to the
+/// battlefield with a lifelink counter on it."
+///
+/// The counter is the half that is easy to lose, because it is a second
+/// effect in the same list and it acts on the card the first one moved: a
+/// reader that put it on before the move would have it wiped by
+/// `move_object`, and one that read the wrong object would put it on the
+/// Fanatic. So the assertion is the counter on the *returned* creature, and
+/// the Fanatic's own lifelink is printed rather than countered, which is what
+/// tells the two apart.
+#[test]
+fn metamorphosis_fanatic_returns_a_creature_wearing_a_lifelink_counter() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(43, forest())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                rib_cage_spider(),
+            ],
+        )
+        .hand(0, &[metamorphosis_fanatic()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let spider = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
+    bury(&mut engine, &[spider]);
+
+    cast_from_hand(&mut engine, p0, metamorphosis_fanatic());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(
+        options.contains(&spider),
+        "the one creature card in the graveyard: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![spider],
+                players: vec![],
+            },
+        )
+        .expect("the Spider was on the menu");
+    pass_until(&mut engine, stack_is_empty);
+
+    let back = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider came back");
+    assert_eq!(
+        counters_on(&engine, back, baylee_cards_dsl::CounterKind::Lifelink),
+        1,
+        "\"with a lifelink counter on it\" — on the creature that returned"
+    );
+    let fanatic =
+        on_battlefield(&engine, p0, metamorphosis_fanatic()).expect("the Fanatic resolved");
+    assert_eq!(
+        counters_on(&engine, fanatic, baylee_cards_dsl::CounterKind::Lifelink),
+        0,
+        "and not on the Fanatic, whose lifelink is printed on it"
+    );
+}
