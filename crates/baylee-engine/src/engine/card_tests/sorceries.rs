@@ -8046,3 +8046,901 @@ fn vampiric_feast_damages_any_target_it_names_and_gains_its_caster_four_life() {
         "and the sorcery itself is in its owner's graveyard, not still on the stack"
     );
 }
+
+/// Desert Twister — {4}{G}{G} sorcery: "Destroy target permanent."
+///
+/// The load-bearing word is *permanent*, so the board holds one of each thing
+/// that word could be misread as: a Forest of mine (a land, which "target
+/// creature" would drop), the Elves beside it (a creature, which a noncreature
+/// filter would drop) and a Forest plus a Sol Ring across the table, which
+/// "target permanent *you control*" would never offer. The empty
+/// `player_options` is the other half of the reading: a seat is not a
+/// permanent, so the menu cannot be the "any target" one (CR 115.4). Seven
+/// green come off six Forests and the Elves' own `{T}: Add {G}`, six of them
+/// leave the pool only when the target question is answered (CR 601.2c before
+/// CR 601.2h), and the named land is then read in its owner's graveyard with
+/// every other permanent still standing.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn desert_twister_destroys_any_permanent_on_either_side_of_the_table() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut board = vec![forest(); 6];
+    board.push(llanowar_elves());
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .hand(0, &[desert_twister()])
+        .battlefield(1, &[quiet_artifact(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let my_land = on_battlefield(&engine, p0, forest()).expect("one of my Forests is out");
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let their_land = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let their_rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+
+    // Every source on the board, and six green is not enough: the six Forests
+    // and the Elves' own printed `{T}: Add {G}` make seven (rule 11).
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "six Forests and the Elves' own {{G}}"
+    );
+
+    cast_with_floating(&mut engine, p0, desert_twister());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the seat that cast it names the target");
+    assert_eq!((min, max), (1, 1), "one permanent, and the spell asks once");
+    assert!(
+        player_options.is_empty(),
+        "a player is no permanent: \"target permanent\" names no seat, which is \
+         what tells it from \"any target\": {player_options:?}"
+    );
+    assert!(
+        options.contains(&my_land),
+        "a land is a permanent, so one of my own is on the menu: {options:?}"
+    );
+    assert!(
+        options.contains(&my_elf),
+        "and a creature of mine is too: {options:?}"
+    );
+    assert!(
+        options.contains(&their_land),
+        "\"target permanent\" is not \"target permanent you control\": the \
+         Forest across the table is a legal target: {options:?}"
+    );
+    assert!(
+        options.contains(&their_rock),
+        "and so is the artifact standing beside it: {options:?}"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "CR 601.2c before CR 601.2h: no cost is paid while the question stands"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_land],
+            },
+        )
+        .expect("their Forest was one of the options the question enumerated");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "six green paid {{4}}{{G}}{{G}} out of the seven the board made"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "the permanent the spell named left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "and it is in its owner's graveyard, which is where a destroyed \
+         permanent goes"
+    );
+    assert!(
+        in_graveyard(&engine, p0, desert_twister()).is_some(),
+        "the sorcery itself resolved and was put into its caster's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "the permanent the spell did not name never moved"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, forest()).len(),
+        6,
+        "and none of mine did either: one target, one permanent destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the creature that was on the menu but not chosen is still standing"
+    );
+}
+
+/// Ice Storm is `{2}{G}` for one printed sentence: "Destroy target land."
+///
+/// Two words in that sentence only a board can read. "Target land" is a
+/// filter, so the menu is the proof — both seats' Forests are on it, at four
+/// lands exactly, while the Sol Ring and the Elf across the table are not.
+/// "Destroy" is a move, so the land the spell named has to be in its owner's
+/// graveyard afterwards with every permanent it did not name still standing.
+/// The offer is claimed with the three Forests already tapped, because
+/// `legal.castable` is filtered through `can_afford` and that reads the pool
+/// rather than the untapped lands.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn ice_storm_destroys_the_land_it_names_and_no_other_permanent() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .battlefield(1, &[forest(), quiet_artifact(), llanowar_elves()])
+        .hand(0, &[ice_storm()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
+
+    let theirs = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    let mine = on_battlefield(&engine, p0, forest()).expect("my Forest is out");
+
+    // `legal.castable` is filtered through `can_afford`, and that reads the
+    // mana pool rather than the untapped lands: with nothing floating the
+    // {2}{G} is unpayable and the Storm is not offered at all.
+    let card = in_hand(&engine, p0, ice_storm()).expect("the Storm is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("p0 holds a quiet main phase, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{2}}{{G}}, so the Storm is not offered: {:?}",
+        legal.castable
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Forests tapped, three green: nothing else on this board makes mana"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&card),
+        "with {{2}}{{G}} floating the one sentence the card prints is castable: {:?}",
+        legal.castable
+    );
+
+    cast_with_floating(&mut engine, p0, ice_storm());
+    // CR 601.2c: the target is named before anything is destroyed, so the land
+    // that is about to die is still standing while this question is open.
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the caster is the seat that aims it");
+    assert_eq!((min, max), (1, 1), "one land, and the spell asks once");
+    assert!(
+        options.contains(&mine),
+        "a land this seat controls is a land — tapped, and still one: {options:?}"
+    );
+    assert!(
+        options.contains(&theirs),
+        "\"target land\" is any land, on either side of the table: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        4,
+        "the four lands on the battlefield — three of mine and one of theirs — \
+         and no other permanent: {options:?}"
+    );
+    assert!(
+        !options.contains(&rock),
+        "an artifact is no land, even one with a land's job: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "a creature is no land: {options:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "nothing has been destroyed while the target question is still open"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .expect("their Forest was one of the options the question enumerated");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "\"Destroy target land\": the land the spell named is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "and it has left the battlefield, which is the destruction itself"
+    );
+    assert!(
+        on_battlefield(&engine, p0, forest()).is_some(),
+        "the land the spell did not name never moved"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "and neither did the permanent that is no land"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "nor the creature standing beside it"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}}{{G}} came out of the pool"
+    );
+    assert!(
+        in_graveyard(&engine, p0, ice_storm()).is_some(),
+        "and the sorcery itself resolved into its owner's graveyard"
+    );
+}
+
+/// Screaming Fury — {2}{R} sorcery: "Target creature gets +5/+0 and gains
+/// haste until end of turn." None of that sentence is visible in the card
+/// file, so one board plays all of it at once: three Mountains are the mana,
+/// the Elf that is named is a printed 1/1 that becomes a 6/1 carrying the
+/// keyword, and the Elf across the table beside a Sol Ring is what tells
+/// "target creature" from "target creature you control" and from "target
+/// permanent". A whole turn is walked afterwards, because "until end of turn"
+/// is half the card and a grant that never expired would pass every
+/// assertion above it.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn screaming_fury_pumps_the_creature_it_names_and_grants_it_haste_until_the_turn_ends() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), llanowar_elves()])
+        // A creature and an artifact this seat does not control, so the menu
+        // has both halves of the filter to answer for.
+        .battlefield(1, &[llanowar_elves(), quiet_artifact()])
+        .hand(0, &[screaming_fury()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "a sorcery needs p0's own main phase with an empty stack"
+    );
+
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+    assert_eq!(pt(&engine, mine), (1, 1), "a printed 1/1 before the spell");
+    assert!(
+        !keywords(&engine, mine).contains(KeywordSet::HASTE),
+        "nothing has granted anything yet"
+    );
+
+    // Three Mountains are exactly {2}{R}. The Elf is named as the printing
+    // kept back, so the pool below is the three red and nothing else — its
+    // own {T}: Add {G} would otherwise sit in the same count.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three tapped Mountains and an untapped Elf"
+    );
+    cast_with_floating(&mut engine, p0, screaming_fury());
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the seat that cast the spell names its target");
+    assert_eq!((min, max), (1, 1), "one creature, and the spell asks once");
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&rock),
+        "a Sol Ring is an artifact and no creature: {options:?}"
+    );
+    assert_eq!(
+        pt(&engine, mine),
+        (1, 1),
+        "the pump is the resolution and not the announcement: while the \
+         question stands the creature is still the 1/1 it was printed as"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .expect("the Elf was one of the options it enumerated");
+    assert!(
+        !stack_is_empty(&engine),
+        "a pump is no mana ability, so the spell is waiting to resolve"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, mine),
+        (6, 1),
+        "+5/+0 on the creature the spell named"
+    );
+    assert!(
+        keywords(&engine, mine).contains(KeywordSet::HASTE),
+        "and the printed haste, read through the layers"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "the pump reaches the creature it targeted and never across the table"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::HASTE),
+        "nor does the keyword sweep the board"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}}{{R}} came out of the pool"
+    );
+
+    // "until end of turn": a turn later the Elf is a printed 1/1 again, so
+    // the pump was a duration and not a body the board keeps.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        pt(&engine, mine),
+        (1, 1),
+        "the grant lasted the turn it was cast in and no longer"
+    );
+    assert!(
+        !keywords(&engine, mine).contains(KeywordSet::HASTE),
+        "and the haste left with it"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the creature is still standing, so the pump left rather than the creature"
+    );
+}
+
+// oracle_id = "1d001145-5d14-43a9-bf3b-3ce5c20b2a46"
+
+/// Vengeance — {3}{W} sorcery: "Destroy target tapped creature."
+///
+/// The printed filter has two halves and each needs a witness, so mine is a
+/// Llanowar Elves that has already paid for itself (the only way this engine
+/// taps a creature without a spell) while an *untapped* Llanowar Elves stands
+/// across the table. The published menu is what reads the word "tapped" — the
+/// Elf opposite is a creature and must not be on it — and the resolution reads
+/// the verb: the named creature is in its owner's graveyard while the untapped
+/// one never moved, and the {3}{W} came out of the pool the four Plains and the
+/// Elf's own tap filled.
+#[test]
+fn vengeance_destroys_a_tapped_creature_and_declines_an_untapped_one() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), llanowar_elves()],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[vengeance()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let tapped = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let idle = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    assert!(
+        types(&engine, idle).contains(TypeSet::CREATURE),
+        "the control is a creature, so its absence from the menu is about \
+         \"tapped\" and not about its type: {:?}",
+        types(&engine, idle)
+    );
+
+    // Four Plains and the Elves' own `{T}: Add {G}` — five mana, of which the
+    // spell takes four. The same tap is what makes my Elf a legal target.
+    let taken = tap_all_mana(&mut engine, p0);
+    assert_eq!(taken, 5, "four Plains and one mana creature");
+    assert!(
+        is_tapped(&engine, tapped),
+        "the Elf paid the price of being targetable with its own tap"
+    );
+    assert!(!is_tapped(&engine, idle), "and only my own was touched");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "four white off the Plains and one green off the Elf"
+    );
+
+    cast_with_floating(&mut engine, p0, vengeance());
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the caster names the target");
+    assert_eq!((min, max), (1, 1), "one target, and the spell asks once");
+    assert!(
+        options.contains(&tapped),
+        "a tapped creature is exactly what the card prints: {options:?}"
+    );
+    assert!(
+        !options.contains(&idle),
+        "\"tapped\" is read and not skipped: an untapped creature is no legal \
+         target, whichever side of the table it stands on: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        1,
+        "and it is the only tapped creature in the game: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![tapped],
+            },
+        )
+        .expect("the tapped Elf came out of the menu the spell published");
+    assert!(
+        !stack_is_empty(&engine),
+        "a sorcery that has paid its costs is on the stack, not resolved"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the targeted creature was destroyed (CR 701.7a)"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "and has left the battlefield, which is the destruction itself"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the creature the spell did not name never moved"
+    );
+    assert!(
+        in_graveyard(&engine, p0, vengeance()).is_some(),
+        "and the sorcery itself resolved into its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "four of the five mana paid the {{3}}{{W}} and the green is what is left"
+    );
+}
+
+/// Ancient Craving is a {3}{B} sorcery under `Coverage::Implemented` that draws three cards and causes 3 life loss.
+/// Casting it from hand expends four black mana from basic lands.
+/// Upon resolution, three cards are drawn into the caster's hand and their life total drops from 20 to 17.
+/// The opponent's life total remains completely unaffected.
+#[test]
+fn ancient_craving_draws_three_cards_and_loses_three_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[ancient_craving()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let card = in_hand(&engine, p0, ancient_craving()).expect("Ancient Craving is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool cannot pay {{3}}{{B}}"
+    );
+
+    let lib_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Swamps provide four mana"
+    );
+    cast_with_floating(&mut engine, p0, ancient_craving());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 3,
+        "three cards drawn from library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 2,
+        "hand size net increased by 2 (3 drawn minus Ancient Craving)"
+    );
+    assert_eq!(engine.state().players[0].life, 17, "controller lost 3 life");
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "opponent life unchanged"
+    );
+    assert!(
+        in_graveyard(&engine, p0, ancient_craving()).is_some(),
+        "Ancient Craving is in graveyard"
+    );
+}
+
+/// Bee Sting is a {3}{G} sorcery under `Coverage::Implemented` that deals 2 damage to any target.
+/// Under `CR 115.4`, "any target" presents creatures and players together as legal targets.
+/// When aimed at the opposing player, 2 damage is dealt upon resolution, reducing their life total from 20 to 18.
+/// Creatures on the battlefield remain untouched when a player is targeted.
+#[test]
+fn bee_sting_deals_two_damage_to_any_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[bee_sting()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let card = in_hand(&engine, p0, bee_sting()).expect("Bee Sting is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool cannot pay {{3}}{{G}}"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Forests produce four green mana"
+    );
+    cast_with_floating(&mut engine, p0, bee_sting());
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending())
+    };
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+
+    assert_eq!(player, p0, "caster selects target");
+    assert_eq!((min, max), (1, 1), "exactly one target required");
+    assert!(
+        options.contains(&elf),
+        "creatures are offered for \"any target\": {options:?}"
+    );
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "players are offered for \"any target\": {player_options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("targeting player 1 is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "opponent took 2 damage from Bee Sting"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "caster life total unchanged"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "unselected Elf remains on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, bee_sting()).is_some(),
+        "Bee Sting went to graveyard upon resolution"
+    );
+}
+
+/// Lava Flow is a {3}{R}{R} sorcery under `Coverage::Implemented` that destroys target creature or land.
+/// When cast, both creatures and lands are presented as legal targets while artifacts are excluded.
+/// Resolving the spell destroys the chosen target and puts it into its owner's graveyard.
+/// Bystanders not chosen by the spell remain safely on the battlefield.
+#[test]
+fn lava_flow_destroys_target_creature_or_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[lava_flow()])
+        .battlefield(1, &[forest(), llanowar_elves(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let card = in_hand(&engine, p0, lava_flow()).expect("Lava Flow is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "empty mana pool cannot pay {{3}}{{R}}{{R}}"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Mountains produce five mana"
+    );
+    cast_with_floating(&mut engine, p0, lava_flow());
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected target choice, got {:?}", engine.pending())
+    };
+    let target_land = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let target_creature = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their artifact is out");
+
+    assert_eq!(player, p0, "the caster chooses the target");
+    assert_eq!((min, max), (1, 1), "exactly one target required");
+    assert!(
+        options.contains(&target_land),
+        "target land is an offered target: {options:?}"
+    );
+    assert!(
+        options.contains(&target_creature),
+        "target creature is an offered target: {options:?}"
+    );
+    assert!(
+        !options.contains(&rock),
+        "artifact is neither creature nor land: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target_land],
+            },
+        )
+        .expect("destroying target land is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "targeted land is in the graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "targeted land left the battlefield"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&target_creature),
+        "unselected creature remains on the battlefield"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&rock),
+        "unselected artifact remains on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, lava_flow()).is_some(),
+        "Lava Flow went to graveyard after resolution"
+    );
+}
+
+/// Natural Spring is a {3}{G}{G} sorcery under `Coverage::Implemented` that causes target player to gain 8 life.
+/// When cast, players in the game are presented as legal targets through `player_options`.
+/// Targeting the casting player and resolving the spell increases their life total by exactly 8.
+/// The other player's life total remains unaffected.
+#[test]
+fn natural_spring_gives_target_player_eight_life() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .hand(0, &[natural_spring()])
+        .life(0, 12)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let card = in_hand(&engine, p0, natural_spring()).expect("Natural Spring is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool cannot pay {{3}}{{G}}{{G}}"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Forests produce five green mana"
+    );
+    cast_with_floating(&mut engine, p0, natural_spring());
+
+    // A target that can only ever be a player asks `ChoosePlayer` rather
+    // than a `ChooseTargets` with an empty object list.
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+        panic!("expected a player choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "caster chooses target");
+    assert!(
+        options.contains(&p0) && options.contains(&p1),
+        "both players are offered as targets: {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p0))
+        .expect("targeting p0 is legal");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "controller gained 8 life, increasing from 12 to 20"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "opponent life remained 20"
+    );
+    assert!(
+        in_graveyard(&engine, p0, natural_spring()).is_some(),
+        "Natural Spring went to graveyard after resolution"
+    );
+}
+
+/// Touch of Brilliance is a {3}{U} sorcery under `Coverage::Implemented` that draws two cards.
+/// Casting it from hand spends four blue mana from basic Islands.
+/// Resolving the spell draws two cards from the library into the player's hand.
+/// The card finishes in its owner's graveyard with no other board state altered.
+#[test]
+fn touch_of_brilliance_draws_two_cards() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[touch_of_brilliance()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let card = in_hand(&engine, p0, touch_of_brilliance()).expect("Touch of Brilliance is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool cannot pay {{3}}{{U}}"
+    );
+
+    let lib_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Islands produce four blue mana"
+    );
+    cast_with_floating(&mut engine, p0, touch_of_brilliance());
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 2,
+        "two cards drawn from library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "hand size net increased by 1 (2 drawn minus Touch of Brilliance)"
+    );
+    assert!(
+        in_graveyard(&engine, p0, touch_of_brilliance()).is_some(),
+        "Touch of Brilliance is in graveyard"
+    );
+}

@@ -13971,3 +13971,483 @@ fn ur_golems_eye_taps_for_two_colorless_off_an_empty_pool() {
         "CR 605.3b: a mana ability uses no stack, so the mana is here at once"
     );
 }
+
+/// Icy Manipulator — {4} artifact: "{1}, {T}: Tap target artifact, creature,
+/// or land." The filter is the whole card, so the board carries all three of
+/// its words on both sides of the table and one permanent that is none of
+/// them — an Exploration, an enchantment a bare "target permanent" would have
+/// offered and this must decline. Five Forests pay the cast and leave exactly
+/// the {1} the ability charges, so the offer is claimed off a pool that really
+/// holds it, and the target is named before the tap and the mana go
+/// (CR 601.2c, then CR 601.2h): the Manipulator is still standing and the
+/// green still floating while the target question is open, and the land stays
+/// untapped until the ability actually resolves.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn icy_manipulator_taps_an_artifact_creature_or_land_but_never_an_enchantment() {
+    fn icy_manipulator() -> CardIndex {
+        card_index("3608f1f7-8dc5-4dd1-ae91-c830e1de9529")
+    }
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut board = vec![forest(); 5];
+    board.extend([llanowar_elves(), exploration()]);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .battlefield(1, &[forest(), quiet_artifact()])
+        .hand(0, &[icy_manipulator()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Five Forests, and the Elf named as the printing kept back: it is the
+    // creature this test reads afterwards, and a source tapped for mana is a
+    // source whose status has already changed for a reason of its own.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five tapped Forests, five green, and the untapped Elf gave nothing"
+    );
+    cast_with_floating(&mut engine, p0, icy_manipulator());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let manipulator =
+        on_battlefield(&engine, p0, icy_manipulator()).expect("the Manipulator resolved");
+    assert!(
+        !is_tapped(&engine, manipulator),
+        "an artifact enters untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{4}} is spent and exactly the {{1}} the ability charges is left"
+    );
+
+    // `LegalActions::abilities` is filtered through `can_afford`, and that
+    // reads the pool rather than the untapped lands — so the claim about the
+    // offer is made with the mana already floating.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(manipulator, 0)),
+        "with {{1}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elf is out");
+    let chant = on_battlefield(&engine, p0, exploration()).expect("the Exploration is out");
+    let their_land = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let their_rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+
+    activate(&mut engine, p0, icy_manipulator(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target artifact, creature, or land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that aims it");
+    assert_eq!((min, max), (1, 1), "one target, and the ability asks once");
+    assert!(
+        options.contains(&elf),
+        "a creature, on this side of the table: {options:?}"
+    );
+    assert!(
+        options.contains(&their_rock),
+        "an artifact, whichever seat controls it: {options:?}"
+    );
+    assert!(
+        options.contains(&their_land),
+        "and a land, so all three words of the filter are read: {options:?}"
+    );
+    assert!(
+        !options.contains(&chant),
+        "an enchantment is a permanent and none of the three: {options:?}"
+    );
+    // CR 601.2c names the target first and CR 601.2h pays afterwards, so both
+    // prices are still unpaid while this question stands.
+    assert!(
+        !is_tapped(&engine, manipulator),
+        "the {{T}} is the last step of the activation, not the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "and the {{1}} is still in the pool for the same reason"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_land],
+            },
+        )
+        .expect("the land was one of the options the question enumerated");
+
+    assert!(
+        is_tapped(&engine, manipulator),
+        "{{T}} is part of the price and is paid with the rest"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{1}} it charges came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "tapping a permanent is no mana ability, so the ability is waiting"
+    );
+    assert!(
+        !is_tapped(&engine, their_land),
+        "and the effect has not resolved yet: the target is still where it was"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, their_land),
+        "\"Tap target artifact, creature, or land\" — the land that was named"
+    );
+    assert!(
+        !is_tapped(&engine, elf),
+        "and nothing else: the creature beside it was left alone"
+    );
+    assert!(
+        !is_tapped(&engine, their_rock),
+        "nor the artifact across the table"
+    );
+    assert!(
+        !is_tapped(&engine, chant),
+        "nor the enchantment the filter declined"
+    );
+    assert!(
+        on_battlefield(&engine, p0, icy_manipulator()).is_some(),
+        "the price was a tap and no sacrifice, so the Manipulator stays standing"
+    );
+}
+
+/// The Hive — {5} artifact: "{5}, {T}: Create a 1/1 colorless Insect artifact
+/// creature token with flying named Wasp."
+///
+/// Both halves of that price are the engine's answer rather than the card's, so
+/// both are played on one board: ten Forests are exactly the {5} the artifact
+/// costs plus the {5} the ability charges, and the pool reads five before the
+/// activation and nothing after it. The Wasp is read only once the stack has
+/// emptied, because making a token is no mana ability — its printed 1/1 body,
+/// its artifact-creature type line, its flying, its colourlessness and the name
+/// the card gives it are five claims a token that merely "arrived" would not
+/// tell apart. The same board one turn later is the control for the price: the
+/// Hive has stood back up and the pool is empty, and `can_afford` reads the
+/// pool rather than ten untapped Forests, so the line is not offered at all.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn the_hive_taps_and_five_mana_for_a_colorless_flying_wasp() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 10])
+        .hand(0, &[the_hive()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing floats before the Forests are tapped"
+    );
+
+    // Ten Forests into the pool: {5} for the artifact and the {5} its ability
+    // then charges are one payment inside one main phase (CR 500.5).
+    cast_from_hand(&mut engine, p0, the_hive());
+    pass_until(&mut engine, stack_is_empty);
+    let hive = on_battlefield(&engine, p0, the_hive()).expect("The Hive resolved");
+    assert!(!is_tapped(&engine, hive), "an artifact enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "ten Forests paid the {{5}} the cast costs and exactly the {{5}} the \
+         ability charges is left floating"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(hive, 0)),
+        "with {{5}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "nothing has been activated yet, so nothing has been made"
+    );
+
+    activate(&mut engine, p0, the_hive(), 0);
+    assert!(
+        is_tapped(&engine, hive),
+        "{{T}} is half the price and is paid as the ability is activated"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the other half was the five mana that was floating"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Wasp arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Wasp");
+    let wasp = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Wasp is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(
+        wasp.name, "Wasp",
+        "\"a … token with flying named Wasp\": the name is the whole of what \
+         tells this token from the pool's other 1/1 fliers"
+    );
+    assert_eq!(
+        (wasp.power, wasp.toughness),
+        (Some(1), Some(1)),
+        "the body the card prints"
+    );
+    assert!(
+        wasp.keywords.contains(KeywordSet::FLYING),
+        "the printed flying reaches the token"
+    );
+    for color in [
+        baylee_core::color::Color::White,
+        baylee_core::color::Color::Blue,
+        baylee_core::color::Color::Black,
+        baylee_core::color::Color::Red,
+        baylee_core::color::Color::Green,
+    ] {
+        assert!(
+            !wasp.colors.contains(color),
+            "\"colorless\" is the first word of the token's type line"
+        );
+    }
+    let kinds = types(&engine, tokens[0]);
+    assert!(
+        kinds.contains(TypeSet::ARTIFACT) && kinds.contains(TypeSet::CREATURE),
+        "\"artifact creature token\": {kinds:?}"
+    );
+
+    // The price is a real one, and the reading that says so is the same board
+    // one turn later: the Hive has untapped and the pool emptied with the step
+    // that ended (CR 500.5), while `can_afford` reads the pool rather than the
+    // ten untapped Forests. An empty pool is therefore the only difference, and
+    // the line is not offered at all.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(
+        !is_tapped(&engine, hive),
+        "the untap step stood the Hive back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(hive, 0)),
+        "{{5}} is not five: with nothing floating the cost is unpayable, and an \
+         unaffordable ability is absent from the offer rather than refused: {:?}",
+        legal.abilities
+    );
+
+    // With the mana really floating the same {T} is a price again, so the card
+    // is a repeatable engine and not a one-shot.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        10,
+        "ten Forests untapped in the same main phase they came back in"
+    );
+    activate(&mut engine, p0, the_hive(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        2,
+        "the untap step gave the Hive its {{T}} back, so the same artifact makes \
+         another Wasp"
+    );
+    assert!(
+        on_battlefield(&engine, p0, the_hive()).is_some(),
+        "the price was the tap and the mana, so the artifact is still standing"
+    );
+}
+
+/// Tower of Murmurs — {4} artifact: "{8}, {T}: Target player mills eight
+/// cards."
+///
+/// Both halves of that price are invisible in the card file, so twelve Forests
+/// pay the {4} the cast costs and leave exactly the {8} the ability charges
+/// floating beside it — the offer is read once the mana is really in the pool,
+/// because `can_afford` reads the pool and not the untapped lands. The target
+/// is the other half: "target player" names one seat of the two, so the
+/// library and the graveyard are read on *both* seats, which a Whetstone that
+/// says "each player" could not satisfy; and CR 601.2c before CR 601.2h is
+/// what leaves the artifact untapped and the eight still floating while the
+/// question of who is being milled stands unanswered.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn tower_of_murmurs_taps_and_eight_mana_to_mill_eight_off_one_named_player() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 12])
+        .hand(0, &[tower_of_murmurs()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Twelve Forests into the pool first: the {4} for the artifact and the {8}
+    // its ability charges are one payment, and CR 500.5 keeps what is left in
+    // the pool because the whole scenario stays inside this one main phase.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        12,
+        "twelve Forests tapped, and the Tower makes no mana of its own"
+    );
+    cast_with_floating(&mut engine, p0, tower_of_murmurs());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let tower = on_battlefield(&engine, p0, tower_of_murmurs()).expect("the Tower resolved");
+    assert!(!is_tapped(&engine, tower), "an artifact enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "the cast's {{4}} is spent and exactly the {{8}} the ability charges is left"
+    );
+
+    // `legal.abilities` is filtered through `can_afford`, which reads the pool
+    // rather than the untapped lands — so the claim about the offer is made
+    // with the mana already floating, which is where the engine reads it.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(tower, 0)),
+        "with {{8}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let my_library = library_size(&engine, p0);
+    let their_library = library_size(&engine, p1);
+    let my_yard = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+    let their_yard = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+
+    activate(&mut engine, p0, tower_of_murmurs(), 0);
+
+    // CR 601.2c names the target before CR 601.2h pays for it: while the
+    // question of who is being milled is open, nothing has been spent.
+    assert!(
+        !is_tapped(&engine, tower),
+        "the {{T}} is the last step of the activation, not the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "and the {{8}} is still floating while the question stands"
+    );
+
+    match engine.pending().clone() {
+        Pending::ChooseTargets {
+            player,
+            player_options,
+            ..
+        } => {
+            assert_eq!(player, p0, "the activating seat is the one that aims it");
+            assert!(
+                player_options.contains(&p0) && player_options.contains(&p1),
+                "\"target player\" reaches both seats of the table: {player_options:?}"
+            );
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![],
+                        players: vec![p1],
+                    },
+                )
+                .expect("the opponent seat was one of the targets it enumerated");
+        }
+        Pending::ChoosePlayer { player, options } => {
+            assert_eq!(player, p0, "the activating seat is the one that aims it");
+            assert!(
+                options.contains(&p1),
+                "both seats are legal \"target player\"s: {options:?}"
+            );
+            engine
+                .apply(p0, PlayerAction::ChoosePlayer(p1))
+                .expect("the opponent seat was one of the targets it enumerated");
+        }
+        other => panic!("\"target player\" is a target choice, got {other:?}"),
+    }
+
+    assert!(
+        is_tapped(&engine, tower),
+        "{{T}} is paid by the Tower itself"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{8}} it charges came out of the pool: an activation that had \
+         skipped its generic cost would have left the eight floating"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "milling is no mana ability, so the ability is waiting on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p1),
+        their_library - 8,
+        "\"mills eight cards\" — eight off the top of the named player's library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        their_yard + 8,
+        "and the eight are in that player's graveyard, not merely gone from the library"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        my_library,
+        "\"target player\" is one seat: the seat that activated mills nothing"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        my_yard,
+        "and its graveyard is untouched, which \"each player\" would not leave it"
+    );
+    assert!(
+        on_battlefield(&engine, p0, tower_of_murmurs()).is_some(),
+        "the price was a tap and eight mana, so the Tower is still standing"
+    );
+}

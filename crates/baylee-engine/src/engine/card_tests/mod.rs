@@ -3514,3 +3514,355 @@ fn jedit_s_dragoons() -> CardIndex {
 fn mana_geyser() -> CardIndex {
     card_index("a8dba58b-2956-492e-ae30-49db2ae68e53")
 }
+
+fn the_hive() -> CardIndex {
+    card_index("87a77482-f286-4fb1-b179-85b2095bb768")
+}
+
+fn tower_of_murmurs() -> CardIndex {
+    card_index("c383b28c-b319-49cd-acf1-4721a1301bbb")
+}
+
+fn border_patrol() -> CardIndex {
+    card_index("fa5e2575-51bb-448e-9aaf-0e0f5956ac98")
+}
+
+fn djinn_of_the_lamp() -> CardIndex {
+    card_index("72b42c63-fe4d-4823-9692-30fb5bab384a")
+}
+
+fn firescreamer() -> CardIndex {
+    card_index("b86c0c23-bb29-4af0-bbd4-50b3ae634375")
+}
+
+fn flame_spirit() -> CardIndex {
+    card_index("123bfa86-4265-448f-97cd-2c0614212862")
+}
+
+fn flowstone_charger() -> CardIndex {
+    card_index("a19e0a7f-d356-4d2c-8414-70a40ce18674")
+}
+
+fn flowstone_crusher() -> CardIndex {
+    card_index("cc18fcfc-bfe8-41d8-9037-5ff05b2a9c44")
+}
+
+fn goblin_commando() -> CardIndex {
+    card_index("76c02534-35e3-4950-b4b3-90c679cdf6a7")
+}
+
+fn halberdier() -> CardIndex {
+    card_index("1c3c23b5-b771-4117-83b5-febf7e96281a")
+}
+
+fn joven() -> CardIndex {
+    card_index("9e767d44-feff-449a-bed9-0866c7bce846")
+}
+
+fn kami_of_tattered_shoji() -> CardIndex {
+    card_index("a7cb1da6-e56a-42b6-8087-cf822783373f")
+}
+
+fn kavu_climber() -> CardIndex {
+    card_index("91320afd-1d42-4cb5-ae40-4eed2fa91dfe")
+}
+
+fn kavu_mauler() -> CardIndex {
+    card_index("6ffbcaba-5437-4fb6-a2d6-e94b1e6dc1d2")
+}
+
+fn keening_banshee() -> CardIndex {
+    card_index("56b69e46-a1e4-4545-99e2-ee4385b7e429")
+}
+
+fn lava_hounds() -> CardIndex {
+    card_index("86c0dc85-d146-4dfa-819e-f78835bfffff")
+}
+
+fn lithophage() -> CardIndex {
+    card_index("b4eb3d7e-a234-4ed5-8611-fcb818686fcf")
+}
+
+fn macetail_hystrodon() -> CardIndex {
+    card_index("2f1e2742-d7df-4893-abc8-cb927c500569")
+}
+
+fn megatog() -> CardIndex {
+    card_index("bde427fa-8a00-4eff-9371-81324bc75364")
+}
+
+fn moorish_cavalry() -> CardIndex {
+    card_index("bccdc42f-9e55-4f8e-a29e-ef39f38add6a")
+}
+
+fn phyrexian_plaguelord() -> CardIndex {
+    card_index("aff9e844-9e03-490b-b44f-10d385738cc6")
+}
+
+fn plated_slagwurm() -> CardIndex {
+    card_index("4aec7624-e406-45a4-b2b6-2e8d29f6268a")
+}
+
+fn riven_turnbull() -> CardIndex {
+    card_index("2742d506-897f-4d30-ba43-ce0374984849")
+}
+
+fn rummaging_wizard() -> CardIndex {
+    card_index("99002f0c-762b-4714-afe3-5b011350aefd")
+}
+
+fn skirge_familiar() -> CardIndex {
+    card_index("ba95f24d-42da-48ce-bcf1-1b7c4b3c45b5")
+}
+
+fn skyhunter_patrol() -> CardIndex {
+    card_index("aadcff6f-9207-4d90-a12d-4913c96867e2")
+}
+
+fn skyshroud_poacher() -> CardIndex {
+    card_index("4f5921c1-b932-4d6b-bb8e-01992578abdc")
+}
+
+fn snapping_drake() -> CardIndex {
+    card_index("e15060c3-3773-4548-8747-ff59dcf2b519")
+}
+
+fn trench_wurm() -> CardIndex {
+    card_index("9cf65178-6408-46da-a940-f5cb0960b61f")
+}
+
+fn verdant_force() -> CardIndex {
+    card_index("7a21ea22-3cd7-4c11-8895-5943c0d93a0d")
+}
+
+fn vigilant_drake() -> CardIndex {
+    card_index("4f5eaf5a-dd52-4d48-91b5-d48763d13159")
+}
+
+fn wind_spirit() -> CardIndex {
+    card_index("d4c22b68-c4cb-447a-97df-431e2f1e31f2")
+}
+
+fn zephid() -> CardIndex {
+    card_index("88aa710c-26ed-490d-9a4b-4a2b48df1733")
+}
+
+fn castle() -> CardIndex {
+    card_index("f3179c3c-7e53-44d2-b579-b9e677efe9d9")
+}
+
+fn embargo() -> CardIndex {
+    card_index("edadd0bf-15c8-4e9c-810e-2edfd77a9d01")
+}
+
+fn narcissism() -> CardIndex {
+    card_index("59cd56d2-42f3-44de-b1b8-a5f9105dcaa8")
+}
+
+fn noble_steeds() -> CardIndex {
+    card_index("d6005e47-d545-4c16-b54a-bfe1dde61a98")
+}
+
+fn opposition() -> CardIndex {
+    card_index("bf0b252d-1295-44e4-bac3-113b5732a2a9")
+}
+
+fn phyrexian_arena() -> CardIndex {
+    card_index("ee579a32-a048-4335-b966-231ba731cdea")
+}
+
+fn spiritual_asylum() -> CardIndex {
+    card_index("91924536-7a2b-44ec-9835-2efa402c83f9")
+}
+
+fn regress() -> CardIndex {
+    card_index("2fa763ad-4d94-4c3a-a099-13ac22c09ce4")
+}
+
+fn volcanic_geyser() -> CardIndex {
+    card_index("846a4f9c-d955-403f-8a08-5c7c3d32e180")
+}
+
+fn zap() -> CardIndex {
+    card_index("56115482-3fd4-45fb-b800-be68c5509cf2")
+}
+
+fn baron_airship_kingdom() -> CardIndex {
+    card_index("cc710da0-5a2e-4bc4-8fdd-d90e7bc1f224")
+}
+
+fn duskmantle_house_of_shadow() -> CardIndex {
+    card_index("67b2cd0c-ecc8-4129-b1ac-820c9924190c")
+}
+
+fn orzhova_the_church_of_deals() -> CardIndex {
+    card_index("8551a9cf-c54b-42d4-92d6-550f4890a3d7")
+}
+
+fn sandstone_bridge() -> CardIndex {
+    card_index("08911e8e-cd67-4960-a927-958c33632469")
+}
+
+fn savai_triome() -> CardIndex {
+    card_index("00625242-9348-4ef4-b975-f2ac82fee21d")
+}
+
+fn soaring_seacliff() -> CardIndex {
+    card_index("a37544b6-0048-4213-8e40-76ba8a0b6d1b")
+}
+
+fn spara_s_headquarters() -> CardIndex {
+    card_index("3123ec89-8e95-4761-ba17-747ec667509f")
+}
+
+fn vector_imperial_capital() -> CardIndex {
+    card_index("8dcba63c-4701-4dc9-81f5-ca8e8933a3ba")
+}
+
+fn windurst_federation_center() -> CardIndex {
+    card_index("e198126a-f280-47f7-8bd0-3dc9f5ff05a0")
+}
+
+fn desert_twister() -> CardIndex {
+    card_index("6f880348-6dc8-4cf8-9313-9893c41a70a3")
+}
+
+fn ice_storm() -> CardIndex {
+    card_index("a0b97e33-2d0c-4800-a9f5-9cd9be651ea8")
+}
+
+fn screaming_fury() -> CardIndex {
+    card_index("eaded717-e0e2-4def-be7e-6bfb137628c2")
+}
+
+fn vengeance() -> CardIndex {
+    card_index("1d001145-5d14-43a9-bf3b-3ce5c20b2a46")
+}
+
+fn dread_reaper() -> CardIndex {
+    card_index("bd73ab86-0ac9-4ce0-be41-f4ad257e74f6")
+}
+
+fn furnace_whelp() -> CardIndex {
+    card_index("8422f1e0-00ca-4ffb-a6b2-e2c9f96d7f23")
+}
+
+fn giant_crab() -> CardIndex {
+    card_index("780f029f-e2e1-431b-9a8b-a1af51d7da77")
+}
+
+fn goblin_berserker() -> CardIndex {
+    card_index("5f71f205-9551-416a-bba6-55bc65d11c85")
+}
+
+fn krosan_groundshaker() -> CardIndex {
+    card_index("1300dc30-a089-41f5-b1a7-e4779ebb73ef")
+}
+
+fn ogre_berserker() -> CardIndex {
+    card_index("9e6f76dc-b7db-49b6-a61e-3495b81e61d7")
+}
+
+fn pavel_maliki() -> CardIndex {
+    card_index("41026872-3c7b-40c7-8d0b-9d2f9b6c3e91")
+}
+
+fn ravenous_baloth() -> CardIndex {
+    card_index("ee771e66-72f8-480f-9920-92c68ab93c3b")
+}
+
+fn sabertooth_wyvern() -> CardIndex {
+    card_index("acaae632-3203-4867-ad03-32619c3fcfe6")
+}
+
+fn serra_angel() -> CardIndex {
+    card_index("4b7ac066-e5c7-43e6-9e7e-2739b24a905d")
+}
+
+fn silver_erne() -> CardIndex {
+    card_index("6ca90451-861d-4aa8-93e7-3f3e02385530")
+}
+
+fn storm_spirit() -> CardIndex {
+    card_index("6a413d09-dd67-4c3e-b81b-7bfe8b864dc9")
+}
+
+fn vedalken_entrancer() -> CardIndex {
+    card_index("04cc5292-a485-4bb8-a143-9364229d480f")
+}
+
+fn infernal_tribute() -> CardIndex {
+    card_index("a8bf79d2-29fd-4d2f-ac07-2e61d3886bc0")
+}
+
+fn seismic_assault() -> CardIndex {
+    card_index("8ad4f2fe-6d98-4279-a331-3817d40ae46d")
+}
+
+fn mystic_denial() -> CardIndex {
+    card_index("d2bd23a6-4f77-4d6e-bf8f-339cb7a4184d")
+}
+
+fn pull_under() -> CardIndex {
+    card_index("b99ddb27-a59a-4cd3-88b1-97c759ddbd93")
+}
+
+fn smash() -> CardIndex {
+    card_index("1602f8c7-fe00-4bc9-b4fc-b26b7223ac75")
+}
+
+fn verdigris() -> CardIndex {
+    card_index("fb41ea1d-3491-4193-a390-8eb202fbae12")
+}
+
+fn ally_encampment() -> CardIndex {
+    card_index("9d293b69-12b7-4b50-a0a7-c4f493dee30b")
+}
+
+fn okina_temple_to_the_grandfathers() -> CardIndex {
+    card_index("3ad69bfb-2e51-4fe9-8d2f-7d071a4f1c69")
+}
+
+fn teetering_peaks() -> CardIndex {
+    card_index("4a9437a6-4e61-48b6-8194-1c6ba6432250")
+}
+
+fn woodland_stream() -> CardIndex {
+    card_index("e887fb3f-d4c9-4022-8f75-1de6ec94af96")
+}
+
+fn zhalfirin_void() -> CardIndex {
+    card_index("13aab4fc-4c89-45e6-8275-b074b00d0ee9")
+}
+
+fn ziatora_s_proving_ground() -> CardIndex {
+    card_index("f7e7b78c-c769-4720-8585-1874773eb342")
+}
+
+fn ancient_craving() -> CardIndex {
+    card_index("78725353-9274-420a-b722-add0f43c444e")
+}
+
+fn bee_sting() -> CardIndex {
+    card_index("f637d525-2f29-488a-9269-8e5aa377fbb7")
+}
+
+fn lava_flow() -> CardIndex {
+    card_index("91c0a76e-3992-437f-b85a-97b0b4adbb84")
+}
+
+fn natural_spring() -> CardIndex {
+    card_index("f7571a2e-aaf3-4148-ab76-2a2e35273c70")
+}
+
+fn touch_of_brilliance() -> CardIndex {
+    card_index("6365aba1-78d3-416c-89cd-9449578eedbf")
+}
+
+fn princess_lucrezia() -> CardIndex {
+    card_index("dd1d21f5-f5cd-43e4-8155-3cca85da80a9")
+}
+
+fn sharlayan_nation_of_scholars() -> CardIndex {
+    card_index("564bdbdd-8392-4ee1-a132-1a17a67b2110")
+}
