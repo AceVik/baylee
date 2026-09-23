@@ -12528,3 +12528,495 @@ fn temur_ascendancy_offers_its_draw_only_for_a_four_power_creature() {
         "the 6/6 entering asked, and the answer was yes"
     );
 }
+
+// oracle_id = "b22080d6-a9ed-4bdd-a604-058e0e3e9463"
+
+/// Mental Discipline — {1}{U}{U} enchantment: "{1}{U}, Discard a card: Draw a
+/// card." The price and the effect each land somewhere a test can read, and one
+/// activation reads all four places at once: the {1}{U} comes out of a pool the
+/// five Islands filled for the cast, the discarded card is in its owner's
+/// graveyard rather than merely gone from the hand, the drawn card is off the
+/// top of the library, and the enchantment itself survives the activation. The
+/// engine asks which card is being given up as `CostDiscard` — a cost, not a
+/// search — and the hand holds exactly the one card that was drawn afterwards.
+#[test]
+fn mental_discipline_spends_mana_and_a_card_to_draw_a_card() {
+    let p0 = PlayerId::new(0);
+    let fodder = silence();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[mental_discipline(), fodder])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The {1}{U}{U} cast is paid out of the pool: `cast_from_hand` taps all
+    // five Islands and leaves exactly the {1}{U} the ability charges floating.
+    cast_from_hand(&mut engine, p0, mental_discipline());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, mental_discipline()).is_some(),
+        "the enchantment resolved onto the table"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "five Islands less the {{1}}{{U}}{{U}} the enchantment costs"
+    );
+
+    let library_before = library_size(&engine, p0);
+    let fodder_card = in_hand(&engine, p0, fodder).expect("the fodder is in hand");
+
+    activate(&mut engine, p0, mental_discipline(), 0);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("the discard is a cost, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostDiscard,
+        "a cost and not a search, which is all a client has to tell the two apart"
+    );
+    assert_eq!((min, max), (1, 1), "one card, no more and no fewer");
+    assert_eq!(
+        options,
+        vec![fodder_card],
+        "the only card left in hand is the whole of the menu"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder_card],
+            },
+        )
+        .expect("the card the question offered pays the cost");
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{1}}{{U}} it charges came out of the pool"
+    );
+    assert!(
+        in_graveyard(&engine, p0, fodder).is_some(),
+        "a discarded card goes to its owner's graveyard, not merely out of the hand"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the effect is on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"draw a card\": one card off the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        1,
+        "one card discarded and one drawn, so the hand holds exactly the new card"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mental_discipline()).is_some(),
+        "an activated ability costs the enchantment nothing but the mana it was paid"
+    );
+}
+
+/// Night of Souls' Betrayal — {2}{B}{B}: "All creatures get -1/-1."
+///
+/// One sentence, three claims, and no witness supplies two of them: the
+/// **same** larger creature on both sides of the table is exactly one point
+/// smaller afterwards and still standing — so the modifier is -1/-1, it
+/// reaches every creature and not only the caster's, and it is no "destroy all
+/// creatures" — a printed 1/1 underneath it dies the moment the enchantment
+/// resolves (CR 704.5f), and a second 1/1 cast *afterwards* enters and dies
+/// the same way, which a static read off the board only once, as it arrived,
+/// would leave standing.
+#[test]
+fn night_of_souls_betrayal_shrinks_every_creature_by_one_and_buries_the_one_ones() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                forest(),
+                thrun_the_last_troll(),
+                quiet_creature(),
+            ],
+        )
+        .battlefield(1, &[thrun_the_last_troll()])
+        .hand(0, &[night_of_souls_betrayal(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let my_troll = on_battlefield(&engine, p0, thrun_the_last_troll()).expect("my Troll is out");
+    let their_troll =
+        on_battlefield(&engine, p1, thrun_the_last_troll()).expect("their Troll is out");
+    let elves = on_battlefield(&engine, p0, quiet_creature()).expect("the Elves are out");
+    let forest_land = on_battlefield(&engine, p0, forest()).expect("the Forest is out");
+    let (power, toughness) = pt(&engine, my_troll);
+    assert_eq!(
+        pt(&engine, their_troll),
+        (power, toughness),
+        "the same card on both sides of the table, before anything is asked of either"
+    );
+    assert!(
+        toughness > 1,
+        "the body the -1/-1 is read off has to be one that survives it: {toughness}"
+    );
+    assert_eq!(
+        pt(&engine, elves),
+        (1, 1),
+        "and a printed 1/1 is what the modifier has to bury"
+    );
+
+    // Four Swamps pay {2}{B}{B} exactly. The Elves and the Forest are named as
+    // the two sources kept back: the Elves print a mana ability of their own,
+    // which is a route `tap_mana_where` would otherwise take (#159), and the
+    // Forest is what the second Elves below is cast with.
+    tap_mana_where(&mut engine, p0, |id| id != elves && id != forest_land);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four Swamps in the pool, and neither the Elves nor the Forest gave anything"
+    );
+
+    cast_with_floating(&mut engine, p0, night_of_souls_betrayal());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, night_of_souls_betrayal()).is_some(),
+        "the enchantment resolved onto the battlefield"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{2}}{{B}}{{B}} came out of the pool"
+    );
+
+    assert_eq!(
+        pt(&engine, my_troll),
+        (power - 1, toughness - 1),
+        "-1/-1 on the creature this seat owns"
+    );
+    assert_eq!(
+        pt(&engine, their_troll),
+        (power - 1, toughness - 1),
+        "\"all creatures\" is not \"creatures you control\": the same card across the table lost the same point"
+    );
+    assert!(
+        on_battlefield(&engine, p0, thrun_the_last_troll()).is_some(),
+        "and the bigger body survives it — this is no \"destroy all creatures\""
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_none(),
+        "a printed 1/1 with -1/-1 is a 0/0, and CR 704.5f puts it in the graveyard"
+    );
+    assert_eq!(
+        mine(&engine, p0, quiet_creature(), Zone::Graveyard).len(),
+        1,
+        "which is where it went, rather than merely off the battlefield"
+    );
+
+    // The second 1/1 sat in hand while the enchantment arrived, so the static
+    // is read for it again: the Forest pays its {G} and it dies the same way.
+    cast_from_hand(&mut engine, p0, quiet_creature());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_none(),
+        "an Elves cast under the enchantment enters and is buried at once"
+    );
+    assert_eq!(
+        mine(&engine, p0, quiet_creature(), Zone::Graveyard).len(),
+        2,
+        "both 1/1s are in the graveyard, so the -1/-1 is not a one-shot read at the moment it resolved"
+    );
+}
+
+/// Overgrown Estate — {W}{B}{G} enchantment: "Sacrifice a land: You gain 3
+/// life."
+///
+/// The sacrifice names no land in particular, so the engine has to ask which
+/// one — and that menu is half the card: every land this seat controls is on
+/// it, while the Estate itself is an enchantment and no land, and the Forest
+/// across the table is not this seat's to give up (CR 701.21a). The other half
+/// is the ordering CR 601.2h gives every activation: the land is already in
+/// its owner's graveyard *before* the ability goes on the stack, so the three
+/// life can only arrive when it resolves — no mana on this board could have
+/// bought it, and the pool is asserted empty to say so.
+#[allow(clippy::too_many_lines)] // one activation, every part of its price read off a different zone
+#[test]
+fn overgrown_estate_eats_a_land_of_your_own_for_three_life() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), swamp(), forest()])
+        .hand(0, &[overgrown_estate()])
+        .battlefield(1, &[forest()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {W}{B}{G} off one of each, which leaves the pool empty once the
+    // enchantment has landed: the price below is a land and no mana at all.
+    cast_from_hand(&mut engine, p0, overgrown_estate());
+    pass_until(&mut engine, stack_is_empty);
+    let estate = on_battlefield(&engine, p0, overgrown_estate()).expect("the Estate resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the three lands paid the {{W}}{{B}}{{G}} exactly and float nothing"
+    );
+
+    let my_forest = on_battlefield(&engine, p0, forest()).expect("my Forest is out");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(estate, 0)),
+        "the Estate's only line costs a land and no mana, so it is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, overgrown_estate(), 0);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("the cost asks which land, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one asked");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostSacrifice,
+        "a cost and not a search, which is all a client has to tell the two apart"
+    );
+    assert_eq!((min, max), (1, 1), "one land, no more and no fewer");
+    assert_eq!(
+        options.len(),
+        3,
+        "the three lands this seat controls and nothing else: {options:?}"
+    );
+    assert!(
+        options.contains(&my_forest),
+        "a land you control is on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&estate),
+        "the Estate is an enchantment and no land: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_forest),
+        "CR 701.21a: an opponent's land is not yours to sacrifice: {options:?}"
+    );
+
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![their_forest],
+                },
+            )
+            .is_err(),
+        "an answer the question did not enumerate is refused"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "and the refusal costs the other seat nothing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_forest],
+            },
+        )
+        .expect("the land the question offered pays the cost");
+
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_some(),
+        "CR 601.2h: the price is paid before the ability is on the stack, so \
+         the land is already in its owner's graveyard"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "and the ability is what is waiting: gaining life is no mana ability"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "nothing has been gained yet — the effect resolves off the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 23, "\"You gain 3 life.\"");
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and the life belongs to the player who paid, not the opponent"
+    );
+    assert_eq!(
+        lands_of(&engine, p0).len(),
+        2,
+        "exactly one land was given up: the other two are still standing"
+    );
+    assert!(
+        on_battlefield(&engine, p0, overgrown_estate()).is_some(),
+        "the Estate outlives the land it ate"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "and nothing of the opponent's ever moved"
+    );
+}
+
+// oracle_id = "4d7a5b14-8fce-41f2-a0d5-fff3d15f41f6"
+
+/// Field of Souls — {2}{W}{W} enchantment: "Whenever a nontoken creature is
+/// put into your graveyard from the battlefield, create a 1/1 white Spirit
+/// creature token with flying."
+///
+/// Every death here is dealt by the harness and read back out of a graveyard,
+/// so what is measured is the trigger itself: a printed Elf of this seat's
+/// dying brings one Spirit, a second one brings a second, and the Elf across
+/// the table — a nontoken creature dying where "your graveyard" has to decline
+/// it — brings none. The token's own body comes off its token record, and a
+/// Spirit token dying afterwards is the `Nontoken` half of the card's filter.
+#[test]
+fn field_of_souls_makes_a_spirit_for_each_nontoken_creature_of_yours_that_dies() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[field_of_souls()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The enchantment arrives the way the card arrives — {2}{W}{W} out of a
+    // pool four Plains and two Elves actually paid into — so the trigger below
+    // is not read off a printing that was merely placed on the board.
+    cast_from_hand(&mut engine, p0, field_of_souls());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, field_of_souls()).is_some(),
+        "the Field resolved onto the battlefield"
+    );
+
+    let mine = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(mine.len(), 2, "two Elves of mine and one across the table");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
+        "nothing has died yet"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and nothing has been made yet"
+    );
+
+    // (1) A nontoken creature of mine is put into my graveyard.
+    kill(&mut engine, mine[0]);
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the creature died into its owner's graveyard, which is the condition \
+         the card prints"
+    );
+    let spirits = tokens_of(&engine, p0);
+    assert_eq!(spirits.len(), 1, "one death, one Spirit");
+    let spirit = spirits[0];
+    assert!(
+        types(&engine, spirit).contains(TypeSet::CREATURE),
+        "the token the Field makes is a creature: {:?}",
+        types(&engine, spirit)
+    );
+    assert_eq!(pt(&engine, spirit), (1, 1), "the body the token prints");
+    assert!(
+        keywords(&engine, spirit).contains(KeywordSet::FLYING),
+        "and the printed flying reaches the permanent"
+    );
+    let printed = engine
+        .state()
+        .object(spirit)
+        .expect("the Spirit is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(printed.name, "Spirit");
+    assert!(
+        printed.colors.contains(baylee_core::color::Color::White),
+        "a white Spirit, and not a colourless creature token: {:?}",
+        printed.colors
+    );
+
+    // (2) A nontoken creature dying where the graveyard is not mine. The
+    // object is still in a graveyard afterwards, so "your graveyard" is read
+    // on a card and not on a hole in the board.
+    kill(&mut engine, theirs);
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the Elf across the table died into its own owner's graveyard"
+    );
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "a creature of theirs dying is no creature of mine, so the Field made \
+         nothing for it"
+    );
+
+    // (3) The ability is one Spirit per creature, and not one per turn.
+    kill(&mut engine, mine[1]);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        2,
+        "a second creature of mine dies and a second Spirit arrives"
+    );
+
+    // (4) The `Nontoken` half of the filter, on the only token creature this
+    // board can hold: a Spirit of the Field's own making. It ceases to exist
+    // as it leaves (CR 111.7), so an extra Spirit here would be the trigger
+    // firing on it and nothing else.
+    let spirits = tokens_of(&engine, p0);
+    kill(&mut engine, spirits[0]);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "\"nontoken creature\": a Spirit token dying is not one, so no new \
+         Spirit was made for it"
+    );
+}
