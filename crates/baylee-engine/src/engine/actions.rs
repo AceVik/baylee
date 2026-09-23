@@ -137,7 +137,9 @@ impl<L: CardLookup> Engine<L> {
                 Pending::MulliganBottom { player: p, count },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
-                if objects.len() != *count as usize {
+                // `[c, c]` has the right length and both halves are in hand;
+                // it bottomed one card for two and kept an eighth (CR 103.5).
+                if objects.len() != *count as usize || names_one_twice(&objects) {
                     return Err(EngineError::IllegalAction(
                         "must bottom exactly the required number of cards",
                     ));
@@ -477,17 +479,24 @@ impl<L: CardLookup> Engine<L> {
                 PlayerAction::ChooseTargets { objects, players },
             ) if *p == player => {
                 let total = objects.len() + players.len();
-                // CR 601.2c: the targets of a spell are distinct. A repeated
-                // seat would be counted twice here and stored once (the spell
-                // carries a `SeatSet`), so a spell that takes two targets
-                // could be cast naming one — refuse it at the door.
-                let repeats = players
-                    .iter()
-                    .enumerate()
-                    .any(|(at, p)| players[..at].contains(p));
+                // The same target can't be chosen twice for one instance of
+                // the word "target" (CR 115.3), and one question here is one
+                // instance — a second instance is asked on its own. A
+                // repeated seat was counted twice and stored once (the spell
+                // carries a `SeatSet`), and a repeated object was counted
+                // twice and *kept* twice, so a spell taking two targets could
+                // be cast naming one.
+                //
+                // The convoke question arrives as this variant too, and there
+                // the refusal rests on a different rule for the same answer:
+                // each creature pays for one mana by being tapped (CR
+                // 702.51a), and only an untapped permanent can be tapped (CR
+                // 701.26a). `convoke_taps.len()` is what reduces the cost, so
+                // `[elf, elf]` bought two mana with one tap.
                 if total < *min as usize
                     || total > *max as usize
-                    || repeats
+                    || names_one_twice(&players)
+                    || names_one_twice(&objects)
                     || !objects.iter().all(|o| options.contains(o))
                     || !players.iter().all(|p| player_options.contains(p))
                 {
@@ -1105,8 +1114,14 @@ impl<L: CardLookup> Engine<L> {
                 },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
+                // Every option is a distinct object, so a repeat is never a
+                // second choice — it is one card counted twice. Delve reads
+                // `delve_exiles.len()` and exiles each card once, so `[c, c]`
+                // bought two generic mana with one card (CR 702.66a); a cost
+                // question reads its answers the same way.
                 if objects.len() < *min as usize
                     || objects.len() > *max as usize
+                    || names_one_twice(&objects)
                     || !objects.iter().all(|o| options.contains(o))
                 {
                     return Err(EngineError::IllegalAction("invalid card selection"));
@@ -1270,7 +1285,10 @@ impl<L: CardLookup> Engine<L> {
                 Pending::DiscardChoice { player: p, count },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
-                if objects.len() != *count as usize {
+                // The same hole as the mulligan's: one card named twice
+                // passes the count and leaves the hand over its maximum
+                // (CR 514.1).
+                if objects.len() != *count as usize || names_one_twice(&objects) {
                     return Err(EngineError::IllegalAction(
                         "must discard exactly the required number",
                     ));
@@ -1530,4 +1548,13 @@ impl<L: CardLookup> Engine<L> {
     }
 
     // --------------------------------------------------------- turn steps
+}
+
+/// Whether an answer names one thing twice.
+///
+/// Every door that takes a list asks it before anything moves, so a refused
+/// answer leaves the state untouched. Quadratic, because an answer is a
+/// handful of ids.
+fn names_one_twice<T: PartialEq>(xs: &[T]) -> bool {
+    xs.iter().enumerate().any(|(at, x)| xs[..at].contains(x))
 }

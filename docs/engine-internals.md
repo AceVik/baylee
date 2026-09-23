@@ -417,6 +417,18 @@ the way every other plan does. The offer asks both: a spell whose second
 instance has nothing legal to name is not castable (CR 601.2c), which
 `casting::face_has_a_legal_target` and the activation offer both check.
 
+Because one question is one instance, **an answer that names one thing twice
+is refused at the door**, before anything moves — and not only for targets.
+Every door taking a list asks `names_one_twice` in `actions.rs`: the target
+question (and the convoke question, which arrives as the same variant), every
+`ChooseCards`, the cleanup discard and the mulligan's bottom. Each of them had
+checked the answer's length and its members and never compared them, so
+`[c, c]` passed wherever two was a legal count and bought two of whatever the
+next reader counted — two convoke mana for one tap, two delve mana for one
+exile, a seven-card hand after a mulligan owed two. `answer_door_tests` has
+one per door. The combat declarations take lists too and refuse a repeat in
+`declare_attackers`/`declare_blockers` themselves.
+
 Narrowing (CR 608.2b) is **per instance**. `progress::target_legality` asks
 each list separately and returns `AllIllegal` only when every instance that
 was asked lost everything; an instance that lost its one object is empty and
