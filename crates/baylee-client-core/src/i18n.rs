@@ -1260,6 +1260,16 @@ messages! {
     HintTypeToFilter { en: "Type to narrow the list", de: "Tippe, um die Liste einzugrenzen" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
+    /// Put these back on top: the first is the new top card
+    OrderOnTop {
+        en: "Put these back on top: the first is the new top card",
+        de: "Lege diese oben zurück: die erste ist die neue oberste Karte",
+    },
+    /// Put these on the bottom: the last is the bottom card
+    OrderOnBottom {
+        en: "Put these on the bottom: the last is the bottom card",
+        de: "Lege diese unter die Bibliothek: die letzte ist die unterste Karte",
+    },
     /// The game is over
     TheGameIsOver { en: "The game is over", de: "Das Spiel ist vorbei" },
     /// Pay {0} life? Otherwise it enters tapped

@@ -121,9 +121,10 @@ use baylee_core::ids::{ObjectId, SubtypeId};
 /// offence the next time something legitimately picked it.
 fn named(action: &PlayerAction) -> Vec<ObjectId> {
     match action {
-        PlayerAction::ChooseTargets { objects, .. }
-        | PlayerAction::ChooseObjects { objects }
-        | PlayerAction::OrderObjects { objects } => objects.clone(),
+        PlayerAction::ChooseTargets { objects, .. } | PlayerAction::ChooseObjects { objects } => {
+            objects.clone()
+        }
+        PlayerAction::Arrange { piles } => piles.concat(),
         PlayerAction::PlayLand { card }
         | PlayerAction::CastSpell { card }
         | PlayerAction::Suspend { card } => vec![*card],

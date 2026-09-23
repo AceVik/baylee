@@ -144,7 +144,7 @@ pub struct BrowseRow {
     pub zone: BrowseZone,
     /// How the pending question stands towards this row.
     pub standing: RowStanding,
-    /// Its one-based place in an ordering, for `Pending::OrderObjects`.
+    /// Its one-based place in an ordering, for a one-pile `Pending::Arrange`.
     ///
     /// `None` for every other choice: a number beside a card in a plain
     /// "choose two" would be claiming the order matters when it does not.

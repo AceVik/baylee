@@ -418,6 +418,36 @@ when nothing changed, and it is the rule rather than the fight's: any
 sentence that reads a characteristic after an earlier sentence changed it was
 wrong the same way.
 
+## Cards put into places: `Pending::Arrange`
+
+"Put them back in any order" and "the rest on the bottom in any order" are
+one question with different destinations, and so are scry, surveil and the
+piles of CR 700.3 once they move onto it (#202). A `Pending::Arrange` names
+the cards and a list of `ArrangePile`s — a place, a `min`/`max` and whether
+the order inside is the player's — and `PlayerAction::Arrange` answers with
+one list per pile, in the order the question gave them. It replaced
+`OrderObjects`, which carried a bare permutation and no destination, so a
+client could not tell whether the first card it was handed would be the top
+card or the one just above the bottom.
+
+Two readings are fixed and are what `arrange_tests` hold against the library
+itself rather than against the answer:
+
+- **Library piles are listed top to bottom**, whichever end they go to: the
+  first card of a `LibraryTop` pile is the new top card, and the last card of
+  a `LibraryBottom` pile is the new bottom card. A pile reads the way the
+  library will lie.
+- **An answer is every offered card exactly once**, each pile within its
+  bounds, checked by `choice::arrangement_fault` before anything moves. An
+  unordered pile's order is not read.
+
+`choice::default_arrangement` is the answer with no preference — the cards
+as offered, each pile filled to its minimum first — and is what the house AI
+and the test kit give until they have an opinion. It returns `None` only for
+piles whose bounds cannot hold the cards, which no question the engine asks
+ever has. A question with a single card, or none, is not asked at all: one
+card has no order to choose.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing

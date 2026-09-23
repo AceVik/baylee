@@ -6,7 +6,9 @@
 //! answer. Everything runs through the normal event pipeline, so the
 //! journal stays complete.
 
-use crate::choice::{ChoicePrompt, Pending, TargetPrompt, YesNoPrompt};
+use crate::choice::{
+    ArrangePile, ArrangePlace, ArrangePrompt, ChoicePrompt, Pending, TargetPrompt, YesNoPrompt,
+};
 use crate::engine::cost_wizard;
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
@@ -730,6 +732,42 @@ pub fn resume_may_do(state: &mut GameState, res: &mut Resolution, yes: bool) -> 
     run(state, res)
 }
 
+/// Resumes a [`Pending::Arrange`] with the cards the player put in each
+/// pile, library piles listed top to bottom.
+///
+/// # Panics
+/// When the suspended operation is not an arrangement.
+#[must_use]
+pub fn resume_arranged(
+    state: &mut GameState,
+    res: &mut Resolution,
+    piles: &[Vec<ObjectId>],
+) -> Flow {
+    let awaiting = res.awaiting.take().expect("resume without awaiting op");
+    let library = ZoneLocation::Library(res.controller);
+    match (awaiting, piles) {
+        (AwaitingOp::ReorderTopLibrary, [top]) => {
+            // The first card listed is the new top card, so the list goes on
+            // from its bottom end: each card put on top covers the one
+            // listed after it.
+            for &card in top.iter().rev() {
+                let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+            }
+        }
+        (AwaitingOp::DigBottom, [bottom]) => {
+            // The last card listed is the bottom card, so the list goes in
+            // from its top end: each card put on the bottom goes under the
+            // one listed before it.
+            for &card in bottom {
+                let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+            }
+        }
+        (other, _) => panic!("resume_arranged on {other:?} with {} piles", piles.len()),
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
 /// Resumes a tax choice (Rhystic Study & co.): `paid` means the player
 /// chose to pay the mana.
 ///
@@ -896,28 +934,20 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
             // "The rest on the bottom in any order": the player chooses
-            // the order (OrderObjects pending when there's a choice).
+            // the order whenever there is one to choose.
             let remaining: Vec<ObjectId> =
                 rest.into_iter().filter(|c| !chosen.contains(c)).collect();
             if remaining.len() > 1 {
                 res.awaiting = Some(AwaitingOp::DigBottom);
-                return Flow::Wait(Pending::OrderObjects {
+                let n = u32::try_from(remaining.len()).unwrap_or(u32::MAX);
+                return Flow::Wait(Pending::Arrange {
                     player: res.controller,
-                    objects: remaining,
+                    cards: remaining,
+                    piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, n)],
+                    prompt: ArrangePrompt::Order,
                 });
             }
             for card in remaining {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Library(res.controller),
-                    ZonePosition::Bottom,
-                    Cause::Effect,
-                );
-            }
-        }
-        AwaitingOp::DigBottom => {
-            // Chosen order: first listed goes to the bottom first.
-            for &card in chosen {
                 let _ = state.move_object(
                     card,
                     ZoneLocation::Library(res.controller),
@@ -1103,16 +1133,8 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
-        AwaitingOp::ReorderTopLibrary => {
-            // chosen[0] becomes the topmost card (end of the library vec).
-            for &card in chosen.iter().rev() {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Library(res.controller),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-            }
+        AwaitingOp::ReorderTopLibrary | AwaitingOp::DigBottom => {
+            unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ControlRotation { .. }
         | AwaitingOp::ManaChoice { .. }
@@ -1412,13 +1434,18 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 .take(count as usize)
                 .copied()
                 .collect();
-            if options.is_empty() {
+            // One card has no order to choose, and none has nothing to put
+            // back.
+            if options.len() < 2 {
                 return None;
             }
             res.awaiting = Some(AwaitingOp::ReorderTopLibrary);
-            Some(Pending::OrderObjects {
+            let n = u32::try_from(options.len()).unwrap_or(u32::MAX);
+            Some(Pending::Arrange {
                 player: you,
-                objects: options,
+                cards: options,
+                piles: vec![ArrangePile::all_of(ArrangePlace::LibraryTop, n)],
+                prompt: ArrangePrompt::Order,
             })
         }
         Effect::OptionalBasicLandSearchFor { player } => {

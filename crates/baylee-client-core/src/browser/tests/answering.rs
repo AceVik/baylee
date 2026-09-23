@@ -205,13 +205,7 @@ fn an_ordering_opens_the_tray_and_numbers_each_pick() {
             printed(8, 0, "Brainstorm", 7),
         ])
         .build();
-    let mut it = Interaction::new(
-        Pending::OrderObjects {
-            player: me(),
-            objects: vec![obj(7), obj(8)],
-        },
-        me(),
-    );
+    let mut it = Interaction::new(put_back(vec![obj(7), obj(8)]), me());
     assert!(Browser::wanted(&view, &it), "an ordering always wants it");
 
     let b = Browser::new();

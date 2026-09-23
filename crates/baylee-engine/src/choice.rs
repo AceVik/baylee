@@ -17,6 +17,11 @@
 use crate::win::GameResult;
 use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 
+mod arrange;
+pub use arrange::{
+    ArrangePile, ArrangePlace, ArrangePrompt, arrangement_fault, default_arrangement,
+};
+
 /// One creature that may block, and the attackers it may be assigned to.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct BlockOption {
@@ -188,12 +193,20 @@ pub enum Pending {
         /// Candidate players.
         options: Vec<PlayerId>,
     },
-    /// Order objects (top-of-library reorder, trigger ordering later).
-    OrderObjects {
+    /// Put cards into places, each place in an order: "the rest on the
+    /// bottom in any order", "put them back in any order". Answered with
+    /// [`PlayerAction::Arrange`]: every card exactly once, pile by pile,
+    /// library piles listed top to bottom.
+    Arrange {
         /// Choosing player.
         player: PlayerId,
-        /// Objects to order (index 0 = topmost after the choice).
-        objects: Vec<ObjectId>,
+        /// The cards being arranged, in the order they were looked at (top
+        /// of the library first).
+        cards: Vec<ObjectId>,
+        /// Where they may go; answered pile by pile, in this order.
+        piles: Vec<ArrangePile>,
+        /// Why the question is asked (UI hint).
+        prompt: ArrangePrompt,
     },
     /// The game is over.
     GameOver(GameResult),
@@ -799,10 +812,11 @@ pub enum PlayerAction {
         /// The card to suspend.
         card: ObjectId,
     },
-    /// Order objects (index 0 = topmost).
-    OrderObjects {
-        /// The ordered objects.
-        objects: Vec<ObjectId>,
+    /// Answer a [`Pending::Arrange`]: one list per pile, in the pile order
+    /// the question gave, library piles listed top to bottom.
+    Arrange {
+        /// The cards in each pile.
+        piles: Vec<Vec<ObjectId>>,
     },
     /// Choose a mana color.
     ChooseColor(baylee_core::mana::ManaColor),

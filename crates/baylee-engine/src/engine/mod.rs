@@ -809,6 +809,8 @@ mod progress;
 #[cfg(test)]
 mod amount_sign_tests;
 #[cfg(test)]
+mod arrange_tests;
+#[cfg(test)]
 mod arrival_tests;
 #[cfg(test)]
 mod automation_tests;

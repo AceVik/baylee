@@ -26,7 +26,7 @@ use baylee_client_core::i18n::Phrase;
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::manaplan::Tap;
 use baylee_core::ids::ObjectId;
-use baylee_engine::choice::LegalActions;
+use baylee_engine::choice::{LegalActions, default_arrangement};
 
 /// How many of the pool's permanents share one game.
 ///
@@ -308,9 +308,15 @@ fn walk_to_our_main(table: &mut Table) -> bool {
                 Some(first) => PlayerAction::ChoosePlayer(*first),
                 None => return false,
             },
-            Pending::OrderObjects { player, objects } if player == us => {
-                PlayerAction::OrderObjects { objects }
-            }
+            Pending::Arrange {
+                player,
+                cards,
+                piles,
+                ..
+            } if player == us => match default_arrangement(&cards, &piles) {
+                Some(piles) => PlayerAction::Arrange { piles },
+                None => return false,
+            },
             _ => return false,
         };
         table.submit(action);

@@ -118,7 +118,8 @@ grep -rn 'looking_at' crates/baylee-client/src crates/baylee-client-core/src
 Three hits, unfiltered: two are Bevy's `Transform::looking_at` and have
 nothing to do with the field, and the third initialises it empty in a test.
 **Nothing has ever rendered it.** So a
-`ChooseCards` from a library search, and *every* `OrderObjects` (both are
+`ChooseCards` from a library search, and *every* `OrderObjects` (since
+replaced by a one-pile `Pending::Arrange`; both are
 library reorders, `resolve/mod.rs:512,904`), draws a headline and
 `HintClickBoard` over a board containing nothing to click. The prompt bar shows
 its OK button only when `can_confirm()` is true, so what a player gets is a
@@ -833,7 +834,7 @@ command âˆª stack`, and a tray panel that reuses `spawn_hand_card`'s node path â
 options include anything outside battlefield and hand, and on demand from a
 key or a tap on the top card of a pile at the mat's corner. It carries the
 filter box the
-subtype picker already proved, and in order mode it answers `OrderObjects` by
+subtype picker already proved, and in order mode it answers an ordering by
 click-click swap. One panel closes tutoring, scry, dig, wish, delve, reorder,
 graveyard targets and counterspell targets.
 

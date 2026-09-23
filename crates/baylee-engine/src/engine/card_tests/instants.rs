@@ -4976,16 +4976,32 @@ fn silundi_vision_looks_at_top_six_and_puts_one_into_hand() {
         )
         .expect("picks one card from the looked-at cards");
 
-    let Pending::OrderObjects { player, objects } = engine.pending().clone() else {
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        ..
+    } = engine.pending().clone()
+    else {
         panic!(
             "expected ordering of remaining cards, got {:?}",
             engine.pending()
         )
     };
     assert_eq!(player, p0);
-    assert_eq!(objects.len(), 5, "five remaining cards to put on bottom");
+    assert_eq!(cards.len(), 5, "five remaining cards to put on bottom");
+    assert_eq!(
+        piles,
+        vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, 5)],
+        "one pile, the bottom, and every card goes into it"
+    );
     engine
-        .apply(p0, PlayerAction::OrderObjects { objects: remaining })
+        .apply(
+            p0,
+            PlayerAction::Arrange {
+                piles: vec![remaining],
+            },
+        )
         .expect("orders the remaining cards to the bottom");
 
     pass_until(&mut engine, stack_is_empty);

@@ -12635,31 +12635,52 @@ fn halimar_depths_enters_tapped_and_reorders_top_cards() {
     assert!(entered_tapped(&engine, land));
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::OrderObjects { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::OrderObjects { player, objects } = engine.pending().clone() else {
-        panic!("expected OrderObjects, got {:?}", engine.pending());
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected an arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!(objects.len(), 3);
+    assert_eq!(
+        prompt,
+        ArrangePrompt::Order,
+        "\"in any order\" and nothing else"
+    );
+    assert_eq!(
+        piles,
+        vec![ArrangePile::all_of(ArrangePlace::LibraryTop, 3)],
+        "\"put them back\": one pile, the top, holding all three"
+    );
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let top_three: Vec<ObjectId> = library.iter().rev().take(3).copied().collect();
+    assert_eq!(cards, top_three, "the top three, top card first");
 
-    let mut reversed = objects.clone();
+    // Put back upside down: the old third card is the new top card.
+    let mut reversed = cards.clone();
     reversed.reverse();
-    let expected_top = reversed[0];
     engine
-        .apply(p0, PlayerAction::OrderObjects { objects: reversed })
+        .apply(
+            p0,
+            PlayerAction::Arrange {
+                piles: vec![reversed.clone()],
+            },
+        )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
+    let after = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let new_top: Vec<ObjectId> = after.iter().rev().take(3).copied().collect();
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(ZoneLocation::Library(p0))
-            .last()
-            .copied(),
-        Some(expected_top)
+        new_top, reversed,
+        "the pile reads top to bottom, and the library now lies that way"
     );
+    assert_eq!(after.len(), library.len(), "nothing left the library");
 }
 
 /// Hostile Desert: "{T}: Add {C}." / "{2}, Exile a land card from your graveyard: This land becomes a 3/4 Elemental creature until end of turn. It's still a land."

@@ -7,6 +7,7 @@ mod priority;
 mod prompts;
 
 use super::*;
+use baylee_engine::choice::ArrangePile;
 
 // ------------------------------------------------- how a game ends
 fn ended(winner: Option<Victor>, reason: EndReason) -> GameResult {
@@ -37,6 +38,17 @@ fn attack_choice(attackers: Vec<ObjectId>, defenders: Vec<Defender>) -> Pending 
 
 fn interaction(pending: Pending) -> Interaction {
     Interaction::new(pending, me())
+}
+
+/// "Put them back in any order": one pile, the top, holding every card.
+fn put_back(cards: Vec<ObjectId>) -> Pending {
+    let n = u32::try_from(cards.len()).expect("a handful of cards");
+    Pending::Arrange {
+        player: me(),
+        cards,
+        piles: vec![ArrangePile::all_of(ArrangePlace::LibraryTop, n)],
+        prompt: ArrangePrompt::Order,
+    }
 }
 
 /// A blocking choice with one attacker per listed blocker.

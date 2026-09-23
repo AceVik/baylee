@@ -17,7 +17,9 @@ use crate::board::{BoardModel, Openings, Registry};
 
 use crate::test_support::{ViewBuilder, printed};
 
-use baylee_engine::choice::{ChoicePrompt, Pending, TargetPrompt};
+use baylee_engine::choice::{
+    ArrangePile, ArrangePlace, ArrangePrompt, ChoicePrompt, Pending, TargetPrompt,
+};
 
 fn me() -> PlayerId {
     PlayerId::new(0)
@@ -34,6 +36,17 @@ fn ticks(b: &Browser) -> Vec<BrowseZone> {
 
 fn obj(slot: u32) -> ObjectId {
     ObjectId::new(slot, 0)
+}
+
+/// "Put them back in any order": one pile, the top, holding every card.
+fn put_back(cards: Vec<ObjectId>) -> Pending {
+    let n = u32::try_from(cards.len()).expect("a handful of cards");
+    Pending::Arrange {
+        player: me(),
+        cards,
+        piles: vec![ArrangePile::all_of(ArrangePlace::LibraryTop, n)],
+        prompt: ArrangePrompt::Order,
+    }
 }
 
 /// Everything a client can already click without the browser: the

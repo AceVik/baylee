@@ -366,10 +366,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             object: obj(1),
             options: vec![],
         },
-        Pending::OrderObjects {
-            player: me(),
-            objects: vec![],
-        },
+        put_back(vec![]),
         Pending::YesNo {
             player: me(),
             prompt: YesNoPrompt::Generic,
@@ -505,5 +502,37 @@ fn owing_changes_the_priority_line_and_no_other() {
             "owing moved a sentence that is not the priority one: {with:?}"
         );
         assert!(!with.is_empty(), "and it must still say something");
+    }
+}
+
+/// A one-pile ordering says which end of the library the named order runs
+/// from, in both languages.
+///
+/// The cards are named in turn and the first one named is the first listed,
+/// so on top it is the new top card and on the bottom it is the card just
+/// under what the library already held — the last one named is the bottom
+/// card. "Put these in order" alone left a player to guess which of the two
+/// the numbers beside the cards meant.
+#[test]
+fn a_one_pile_ordering_says_which_end_the_first_card_is() {
+    let bottom = Pending::Arrange {
+        player: me(),
+        cards: vec![obj(1), obj(2)],
+        piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, 2)],
+        prompt: ArrangePrompt::Order,
+    };
+    for (pending, en, de) in [
+        (
+            put_back(vec![obj(1), obj(2)]),
+            "new top card",
+            "neue oberste Karte",
+        ),
+        (bottom, "the bottom card", "unterste Karte"),
+    ] {
+        let i = interaction(pending);
+        let english = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+        let german = i.prompt().headline(Lang::De, Turn::Mine, None, false);
+        assert!(english.contains(en), "{english}");
+        assert!(german.contains(de), "{german}");
     }
 }

@@ -33,8 +33,8 @@ use crate::i18n::{Lang, Phrase, seat_name};
 use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, TargetPrompt,
-    YesNoPrompt,
+    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending,
+    PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::GameStatic;
@@ -165,8 +165,14 @@ pub enum Prompt {
         /// The offered options.
         options: Vec<CastModeDesc>,
     },
-    /// Put objects in an order.
-    OrderObjects,
+    /// Put cards into places, each in an order.
+    Arrange {
+        /// Why the cards are being arranged.
+        reason: ArrangePrompt,
+        /// The one place they all go, when there is only one — which is
+        /// what says whether the first card named is the top card or not.
+        onto: Option<ArrangePlace>,
+    },
     /// A yes-or-no question.
     YesNo {
         /// What is being decided.
@@ -325,7 +331,15 @@ impl Prompt {
             }
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
-            Self::OrderObjects => Phrase::PutInOrder.text(lang).to_string(),
+            Self::Arrange { reason, onto } => match (reason, onto) {
+                (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => {
+                    Phrase::OrderOnTop.text(lang).to_string()
+                }
+                (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => {
+                    Phrase::OrderOnBottom.text(lang).to_string()
+                }
+                (ArrangePrompt::Order, None) => Phrase::PutInOrder.text(lang).to_string(),
+            },
             Self::YesNo { question } => yes_no_line(lang, *question, statics),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
         }
@@ -771,8 +785,13 @@ impl Interaction {
                 max: *max as usize,
                 focus: 0,
             },
-            Pending::OrderObjects { objects, .. } => Mode::Order {
-                options: objects.clone(),
+            // One pile that takes every card is an ordering, answered by
+            // naming the cards in turn. No other arrangement is asked yet.
+            Pending::Arrange { cards, piles, .. } => match piles.as_slice() {
+                [pile] if pile.ordered && pile.min as usize == cards.len() => Mode::Order {
+                    options: cards.clone(),
+                },
+                _ => Mode::Idle,
             },
             Pending::ChooseColor { options, .. } => Mode::Color {
                 options: options.clone(),
@@ -874,7 +893,13 @@ impl Interaction {
                 object: *object,
                 options: options.clone(),
             },
-            Pending::OrderObjects { .. } => Prompt::OrderObjects,
+            Pending::Arrange { piles, prompt, .. } => Prompt::Arrange {
+                reason: *prompt,
+                onto: match piles.as_slice() {
+                    [pile] => Some(pile.place),
+                    _ => None,
+                },
+            },
             Pending::YesNo { prompt, .. } => Prompt::YesNo { question: *prompt },
             Pending::GameOver(_) => Prompt::GameOver,
         }
@@ -1540,8 +1565,8 @@ impl Interaction {
                 }
             }
             Mode::Order { options } if self.picks.len() == options.len() => {
-                Some(PlayerAction::OrderObjects {
-                    objects: self.selected().collect(),
+                Some(PlayerAction::Arrange {
+                    piles: vec![self.selected().collect()],
                 })
             }
             Mode::Attackers { pairs, .. } => Some(PlayerAction::DeclareAttackers {
@@ -1697,7 +1722,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
-        | Pending::OrderObjects { player, .. }
+        | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,
     }

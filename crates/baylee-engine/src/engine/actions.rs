@@ -809,25 +809,21 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::OrderObjects {
+                Pending::Arrange {
                     player: p,
-                    objects: offered,
+                    cards,
+                    piles: specs,
+                    ..
                 },
-                PlayerAction::OrderObjects { objects },
+                PlayerAction::Arrange { piles },
             ) if *p == player => {
-                // The answer must be a permutation of the offered objects —
-                // anything else would duplicate or vanish cards.
-                let mut answer = objects.clone();
-                let mut expected = offered.clone();
-                answer.sort_unstable();
-                expected.sort_unstable();
-                if answer != expected {
-                    return Err(EngineError::IllegalAction(
-                        "not a permutation of the offered objects",
-                    ));
+                // Every offered card exactly once, each pile within its
+                // bounds — anything else would duplicate or vanish cards.
+                if let Some(fault) = crate::choice::arrangement_fault(cards, specs, &piles) {
+                    return Err(EngineError::IllegalAction(fault));
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
-                match resolve::resume(&mut self.state, &mut res, &objects) {
+                match resolve::resume_arranged(&mut self.state, &mut res, &piles) {
                     resolve::Flow::Wait(pending) => {
                         self.resolution = Some(res);
                         self.pending = pending;

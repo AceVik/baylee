@@ -62,7 +62,7 @@ question_vocabulary!(
     ChooseCastMode,
     ChooseNumber,
     ChoosePlayer,
-    OrderObjects,
+    Arrange,
     GameOver,
 );
 
@@ -195,7 +195,7 @@ const LORAN: &str = "b3d81980-76f2-44e2-b1c9-01e30c726312";
 /// suite can set up on demand.
 const RITE_OF_REPLICATION: &str = "fb60739e-1dc3-481d-a056-ad72e665c680";
 /// `{1}` artifact whose first ability looks at three cards and puts them back
-/// **in any order** — `OrderObjects`, which nothing else here can raise: every
+/// **in any order** — an `Arrange`, which nothing else here can raise: every
 /// other ordering in the engine comes off a library nobody in this file digs
 /// into.
 const SENSEIS_DIVINING_TOP: &str = "13575cf9-65c1-4861-b21e-eb2155e07766";
@@ -479,7 +479,7 @@ impl Client {
             }
             // An ordering is every offered card, clicked in turn — which is
             // exactly what the tray asks a player to do.
-            Pending::OrderObjects { .. } => {
+            Pending::Arrange { .. } => {
                 let view = self.view.as_ref()?;
                 for id in interaction.selectable().to_vec() {
                     assert!(

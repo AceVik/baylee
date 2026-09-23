@@ -1283,8 +1283,16 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
         }
         Pending::ChooseNumber { player, min, .. } => (player, PlayerAction::ChooseNumber(min)),
         Pending::YesNo { player, .. } => (player, PlayerAction::YesNo(true)),
-        Pending::OrderObjects { player, objects } => {
-            (player, PlayerAction::OrderObjects { objects })
+        Pending::Arrange {
+            player,
+            cards,
+            piles,
+            ..
+        } => {
+            let Some(piles) = crate::choice::default_arrangement(&cards, &piles) else {
+                return Err(Rest::Unanswered("Arrange"));
+            };
+            (player, PlayerAction::Arrange { piles })
         }
     })
 }

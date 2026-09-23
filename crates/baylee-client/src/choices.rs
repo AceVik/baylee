@@ -329,7 +329,7 @@ fn cast_label(
 mod tests {
     use super::*;
     use baylee_core::ids::PlayerId;
-    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+    use baylee_engine::choice::{ArrangePrompt, CastModeDesc, CastModeKind};
 
     #[test]
     fn a_colour_row_is_a_symbol_and_no_word() {
@@ -504,7 +504,10 @@ mod tests {
     fn prompts_that_are_not_indexed_choices_have_no_rows() {
         assert!(
             options(
-                &Prompt::OrderObjects,
+                &Prompt::Arrange {
+                    reason: ArrangePrompt::Order,
+                    onto: None,
+                },
                 Lang::En,
                 None,
                 "",

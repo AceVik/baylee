@@ -35,7 +35,9 @@ use super::testkit::*;
 
 use super::*;
 
-use crate::choice::{CastModeKind, ChoicePrompt, YesNoPrompt};
+use crate::choice::{
+    ArrangePile, ArrangePlace, ArrangePrompt, CastModeKind, ChoicePrompt, YesNoPrompt,
+};
 use crate::object::Status;
 use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{CounterKind, KeywordSet};

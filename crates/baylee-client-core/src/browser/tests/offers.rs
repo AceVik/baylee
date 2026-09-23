@@ -72,10 +72,7 @@ fn every_offered_object_is_drawn_somewhere() {
             player: me(),
             options: vec![obj(1)],
         },
-        Pending::OrderObjects {
-            player: me(),
-            objects: vec![obj(7), obj(4)],
-        },
+        put_back(vec![obj(7), obj(4)]),
     ];
 
     let table = drawn_on_the_table(&view);

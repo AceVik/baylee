@@ -30,28 +30,23 @@ fn x_starts_at_the_minimum() {
 
 #[test]
 fn ordering_requires_every_offered_object_exactly_once() {
-    let mut i = interaction(Pending::OrderObjects {
-        player: me(),
-        objects: vec![obj(1), obj(2), obj(3)],
-    });
+    let mut i = interaction(put_back(vec![obj(1), obj(2), obj(3)]));
     i.toggle(obj(2));
     i.toggle(obj(3));
     assert!(!i.can_confirm(), "an incomplete order is not submittable");
     i.toggle(obj(1));
     assert_eq!(
         i.confirm(),
-        Some(PlayerAction::OrderObjects {
-            objects: vec![obj(2), obj(3), obj(1)]
-        })
+        Some(PlayerAction::Arrange {
+            piles: vec![vec![obj(2), obj(3), obj(1)]]
+        }),
+        "one pile, listed in the order the cards were named"
     );
 }
 
 #[test]
 fn ordering_rejects_objects_that_were_not_offered() {
-    let mut i = interaction(Pending::OrderObjects {
-        player: me(),
-        objects: vec![obj(1)],
-    });
+    let mut i = interaction(put_back(vec![obj(1), obj(2)]));
     assert_eq!(i.toggle(obj(42)), SelectionOutcome::Rejected);
 }
 

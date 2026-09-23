@@ -512,7 +512,7 @@ const fn offered(pending: &Pending) -> &[ObjectId] {
         Pending::ChooseCards { options, .. }
         | Pending::ChooseTargets { options, .. }
         | Pending::LegendChoice { options, .. } => options.as_slice(),
-        Pending::OrderObjects { objects, .. } => objects.as_slice(),
+        Pending::Arrange { cards, .. } => cards.as_slice(),
         _ => &[],
     }
 }

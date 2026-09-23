@@ -21,7 +21,9 @@ mod tactics;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::Politics;
-use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction, YesNoPrompt};
+use baylee_engine::choice::{
+    ChoicePrompt, Pending, PlayerAction, YesNoPrompt, default_arrangement,
+};
 use baylee_view::PlayerView;
 
 /// A deterministic controller with hand planning and bounded combat search.
@@ -433,7 +435,13 @@ impl HeuristicAgent {
             Pending::ChooseCastMode {
                 object, options, ..
             } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
-            Pending::OrderObjects { objects, .. } => PlayerAction::OrderObjects { objects },
+            // An order the AI has no opinion on yet: the cards as they were
+            // offered, every pile filled to its minimum first. It is always
+            // an answer, because the engine never asks an arrangement whose
+            // piles cannot hold its cards.
+            Pending::Arrange { cards, piles, .. } => PlayerAction::Arrange {
+                piles: default_arrangement(&cards, &piles).unwrap_or_else(|| vec![cards.clone()]),
+            },
             Pending::YesNo { prompt, .. } => match prompt {
                 YesNoPrompt::PayLifeOrEnterTapped { amount } => PlayerAction::YesNo(
                     view.seat(player)
@@ -596,7 +604,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
-        | Pending::OrderObjects { player, .. }
+        | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,
     }
