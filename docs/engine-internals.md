@@ -136,6 +136,26 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
+Echo and a pact's "at the beginning of your next upkeep, pay …; if you
+don't, you lose the game" are delayed actions, not stack objects, and they
+used to run as the upkeep began — before anybody held priority, against a
+pool the untap step had just emptied (CR 500.5) and in which nobody could
+have made mana (CR 502.4). A payment that the pool could not cover was then
+a loss or a sacrifice with no question asked: Pact of Negation lost the game
+on eight untapped Islands. An upkeep trigger is put on the stack before the
+active player receives priority and resolves after it (CR 503.1a,
+CR 117.3a), so `queue_upkeep_delayed` now sets these two aside in
+`upkeep_payments`, and `priority_round` answers them where they would have
+resolved: when the upkeep's round closes on an empty stack, before
+`advance_step` empties the pool — `offer_miracle`'s moment, for
+`offer_miracle`'s reason. A player who floats the mana in that window is
+asked and pays; one who does not has not paid.
+
+The payment is still not a stack object, so nothing on the board says it is
+coming: a client or the house AI sees an empty upkeep. Making it one — with
+the CR 605.3a window a `PlayerMayPay` tax already opens — is the rest of this.
+
 ### The clause that is asked twice (CR 603.4)
 A triggered ability may print an **intervening `if`** — the `if` between the
 trigger event and the effect, as in "at the beginning of your upkeep, if this

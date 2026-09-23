@@ -546,6 +546,29 @@ impl<L: CardLookup> Engine<L> {
                 if self.offer_miracle() {
                     return true;
                 }
+                // An upkeep payment that triggered as this step began
+                // (`upkeep_payments`) is answered here, where it would
+                // resolve had it been put on the stack: after everyone has
+                // passed on an empty stack, and before `advance_step` ends
+                // the step and empties the pool the player has just made its
+                // mana into (CR 500.5). It goes through the delayed queue so
+                // that what it does — a sacrificed echo permanent — is owed
+                // its state-based actions and triggers before anybody holds
+                // priority again (CR 117.5), and returning `false` with the
+                // round reset above reopens it with the active player
+                // (CR 117.3b).
+                if let Some(action) = self.upkeep_payments.pop_front() {
+                    // Filled only by `queue_upkeep_delayed`, and every upkeep
+                    // closes a round of its own, so nothing can be left in it
+                    // to be answered in a later step.
+                    debug_assert_eq!(
+                        self.state.turn.step,
+                        Step::Upkeep,
+                        "an upkeep payment outlived its upkeep"
+                    );
+                    self.delayed_queue.push_back(action);
+                    return false;
+                }
                 self.advance_step();
             } else {
                 self.resolve_next = true;
@@ -3118,7 +3141,17 @@ impl<L: CardLookup> Engine<L> {
             ) && self.state.delayed[i].controller == active;
             if fire {
                 let trigger = self.state.delayed.remove(i);
-                self.delayed_queue.push_back(trigger.action);
+                // A payment waits for this upkeep's priority window; see
+                // `upkeep_payments`. Everything else does what it does now.
+                if matches!(
+                    trigger.action,
+                    crate::state::DelayedAction::PayCostOrLose { .. }
+                        | crate::state::DelayedAction::PayCostOrSacrifice { .. }
+                ) {
+                    self.upkeep_payments.push_back(trigger.action);
+                } else {
+                    self.delayed_queue.push_back(trigger.action);
+                }
             } else {
                 i += 1;
             }
@@ -3529,58 +3562,84 @@ impl<L: CardLookup> Engine<L> {
                 false
             }
             crate::state::DelayedAction::PayCostOrSacrifice { cost, card } => {
-                let active = self.state.turn.active;
-                let can_pay =
-                    mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
-                if !can_pay {
-                    // Echo with an empty pool: sacrifice immediately.
-                    let owner = self.state.object(card).map_or(active, |o| o.owner);
-                    if let Some(obj) = self.state.object_mut(card) {
-                        obj.kind = ObjectKind::Card;
-                    }
-                    let _ = self.state.move_object(
-                        card,
-                        ZoneLocation::Graveyard(owner),
-                        ZonePosition::Top,
-                        crate::event::Cause::Effect,
-                    );
-                    return false;
-                }
-                let source = self
-                    .state
-                    .object(card)
-                    .and_then(|o| o.card)
-                    .map(|c| AbilityRef::new(c.index, AbilityRef::UPKEEP_COST));
-                self.pending_plan = Some(PlanKind::DelayedPaySacrifice { cost, card });
-                self.pending = Pending::YesNo {
-                    player: active,
-                    prompt: YesNoPrompt::Generic,
-                    source,
-                };
-                self.awaiting_answer = true;
-                true
+                self.demand_echo(cost, card)
             }
-            crate::state::DelayedAction::PayCostOrLose { cost } => {
-                let active = self.state.turn.active;
-                // If the player can't pay, they lose outright (no choice).
-                let can_pay =
-                    mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
-                if !can_pay {
-                    sba::eliminate_player(&mut self.state, active, LossReason::Life);
-                    return false;
-                }
-                self.pending_plan = Some(PlanKind::DelayedPay { cost });
-                self.pending = Pending::YesNo {
-                    player: active,
-                    prompt: YesNoPrompt::Generic,
-                    // A pact's "pay or lose" must never be automatable:
-                    // a standing "no" here is a standing loss.
-                    source: None,
-                };
-                self.awaiting_answer = true;
-                true
-            }
+            crate::state::DelayedAction::PayCostOrLose { cost } => self.demand_pact(cost),
         }
+    }
+
+    /// Echo come due (CR 702.30a): "sacrifice it unless you pay [cost]",
+    /// asked of the active player once the upkeep's priority window has
+    /// closed (see `upkeep_payments`). Returns `true` when a question was
+    /// put.
+    fn demand_echo(&mut self, cost: baylee_core::mana::ManaCost, card: ObjectId) -> bool {
+        // It resolves after a priority window now, so the permanent
+        // may already be gone — and only a permanent on the
+        // battlefield can be sacrificed (CR 701.21a).
+        if !self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+        {
+            return false;
+        }
+        let active = self.state.turn.active;
+        let can_pay =
+            mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
+        if !can_pay {
+            // Echo with an empty pool: sacrifice immediately.
+            let owner = self.state.object(card).map_or(active, |o| o.owner);
+            if let Some(obj) = self.state.object_mut(card) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = self.state.move_object(
+                card,
+                ZoneLocation::Graveyard(owner),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            );
+            return false;
+        }
+        let source = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .map(|c| AbilityRef::new(c.index, AbilityRef::UPKEEP_COST));
+        self.pending_plan = Some(PlanKind::DelayedPaySacrifice { cost, card });
+        self.pending = Pending::YesNo {
+            player: active,
+            prompt: YesNoPrompt::Generic,
+            source,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// A pact's "pay [cost]; if you don't, you lose the game", demanded like
+    /// echo and at the same moment. Returns `true` when a question was put.
+    fn demand_pact(&mut self, cost: baylee_core::mana::ManaCost) -> bool {
+        let active = self.state.turn.active;
+        // Asked only now, after the upkeep's priority window (see
+        // `upkeep_payments`): the player has had the chance to make
+        // the mana, which this engine pays from the pool. A pool that
+        // still cannot cover it is a payment that is not made, and
+        // "if you don't, you lose the game" is all that is left.
+        let can_pay =
+            mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
+        if !can_pay {
+            sba::eliminate_player(&mut self.state, active, LossReason::Life);
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::DelayedPay { cost });
+        self.pending = Pending::YesNo {
+            player: active,
+            prompt: YesNoPrompt::Generic,
+            // A pact's "pay or lose" must never be automatable:
+            // a standing "no" here is a standing loss.
+            source: None,
+        };
+        self.awaiting_answer = true;
+        true
     }
 
     /// Ends the current step and begins the next one.

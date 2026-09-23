@@ -194,3 +194,119 @@ fn casting_and_then_resolving_a_spell_both_hand_priority_back_in_the_same_step()
         "and in the step the spell resolved in, not the next one"
     );
 }
+
+/// Island, whose one mana is the whole of the payment the test below owes.
+fn island() -> CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+
+/// CR 503.1a and CR 117.3a: an ability that triggers at the beginning of the
+/// upkeep is put on the stack before the active player receives priority, so
+/// a "pay …, or else" that triggers there is answered only after a priority
+/// window in that same step — the window in which the player makes the mana,
+/// which stays in the pool until the step ends (CR 500.5).
+///
+/// It used to be asked as the upkeep began, against a pool the untap step had
+/// just emptied and before anybody could have filled it (CR 502.4), and a
+/// payment that could not be covered was a loss with no question asked: Pact
+/// of Negation lost the game on a board of eight untapped Islands. The trigger
+/// is registered by hand because the rule is the subject and not a card, and
+/// `{1}` against one Island is the smallest debt a window can decide.
+#[test]
+fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_before_it() {
+    let me = PlayerId::new(0);
+    let mut engine = Duel::new(9_133, forest())
+        .battlefield(0, &[island()])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, me),
+        "seat 0 reaches its own main"
+    );
+    engine.state.delayed.push(crate::state::DelayedTrigger {
+        controller: me,
+        when: crate::state::DelayedWhen::NextUpkeep,
+        action: crate::state::DelayedAction::PayCostOrLose {
+            cost: baylee_core::mana::ManaCost::parse("{1}"),
+        },
+    });
+
+    // To seat 0's next upkeep, making no mana on the way.
+    for _ in 0..200 {
+        let turn = &engine.state().turn;
+        if (turn.number > 1 && turn.active == me && turn.step == Step::Upkeep)
+            || matches!(engine.pending(), Pending::GameOver(_))
+        {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("nothing on this board asks that: {other:?}"),
+        }
+    }
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!(
+            "the upkeep hands its active player priority with the payment still \
+             owed (CR 503.1a), got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, me, "the active player is asked first (CR 117.3a)");
+    assert_eq!(engine.state().turn.step, Step::Upkeep);
+    assert!(
+        !engine.state().players[0].has_lost,
+        "nothing has been demanded yet"
+    );
+
+    let source = legal
+        .mana_abilities
+        .first()
+        .copied()
+        .expect("the Island taps for mana");
+    engine
+        .apply(me, PlayerAction::ActivateManaAbility { source })
+        .unwrap();
+    let mut asked = false;
+    for _ in 0..8 {
+        match engine.pending().clone() {
+            Pending::YesNo { player, .. } => {
+                assert_eq!(player, me, "the debt is seat 0's");
+                assert_eq!(
+                    engine.state().turn.step,
+                    Step::Upkeep,
+                    "and it is demanded in the step it triggered in"
+                );
+                engine.apply(me, PlayerAction::YesNo(true)).unwrap();
+                asked = true;
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => {
+                panic!("only priority stands between the mana and the question: {other:?}")
+            }
+        }
+    }
+    assert!(asked, "the upkeep payment was never demanded");
+    assert!(
+        !engine.state().players[0].has_lost,
+        "the Island's mana paid it"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{1}} took the one mana the Island made"
+    );
+}

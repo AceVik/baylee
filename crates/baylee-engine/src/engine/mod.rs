@@ -246,6 +246,20 @@ pub struct Engine<L: CardLookup> {
     entry_scan_seq: u64,
     /// Delayed actions queued by upkeep processing.
     delayed_queue: VecDeque<crate::state::DelayedAction>,
+    /// Upkeep payments that have triggered and not yet been answered: echo,
+    /// and a pact's "pay …; if you don't, you lose the game".
+    ///
+    /// Not [`Self::delayed_queue`], which runs as the upkeep begins, before
+    /// anybody holds priority. That is too early for an ability whose whole
+    /// text is a payment: an upkeep trigger is put on the stack before the
+    /// active player receives priority and resolves after it (CR 503.1a,
+    /// CR 117.3a), and this engine pays from the pool, which the untap step
+    /// has just emptied (CR 500.5) and in which nobody could have made mana
+    /// (CR 502.4). Asked there, Pact of Negation lost the game on eight
+    /// untapped Islands and echo sacrificed every permanent it is printed on.
+    /// `priority_round` asks these when the upkeep's round closes on an
+    /// empty stack — `offer_miracle`'s moment, for `offer_miracle`'s reason.
+    upkeep_payments: VecDeque<crate::state::DelayedAction>,
     /// Synthetic keyword-trigger effects by stack object (prowess).
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
@@ -519,6 +533,7 @@ impl<L: CardLookup> Engine<L> {
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
+            upkeep_payments: VecDeque::new(),
             synthetic_fx: rustc_hash::FxHashMap::default(),
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
@@ -652,6 +667,13 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(u64::from(r.controller.get()));
         }
         extra = extra.wrapping_mul(31).wrapping_add(u64::from(self.passes));
+        // An upkeep payment still owed turns the close of the upkeep's round
+        // into a question instead of the next step, and it survives answers
+        // (a second pact is still waiting while the first is asked), so two
+        // engines that differ in it diverge at that close.
+        extra = extra
+            .wrapping_mul(31)
+            .wrapping_add(self.upkeep_payments.len() as u64);
         // A CR 605.3a payment window narrows the legal actions to mana and
         // makes passing close the window rather than count toward the round,
         // so two engines that differ in it answer the next question

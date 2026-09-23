@@ -439,9 +439,9 @@ fn a_mimic_copying_a_protected_creature_is_protected_too() {
     // Cast rather than seated: Karmic Guide has echo {3}{W}{W}, and a
     // Guide that began the game on the battlefield was gone by the time
     // this line ran — the first upkeep is the one `reach_main_phase`
-    // walks through, and answering for echo there is the only thing on
-    // the card that could have taken it. Cast on my own turn, the echo is
-    // asked at my *next* one, past the end of the measurement.
+    // walks through, echo comes due there, and a walk that floats no mana
+    // does not pay it. Cast on my own turn, the echo comes due at my
+    // *next* one, past the end of the measurement.
     cast_from_hand(&mut engine, p0, karmic_guide());
     pass_until(&mut engine, |e| {
         on_battlefield(e, p0, karmic_guide()).is_some() && stack_is_empty(e)

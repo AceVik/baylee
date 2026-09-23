@@ -331,10 +331,11 @@ fn the_mirror_gives_back_the_protection_it_borrowed() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     // Their Angel, because the clause reaches across the table and a Guide
-    // of my own would have to be cast: it has echo {3}{W}{W}, and a seated
-    // one is asked for it at the first upkeep `reach_main_phase` walks
-    // through. Seat 1 is asked at *their* upkeep, which is after the copy
-    // has already been made and reverted.
+    // of my own would have to be cast: it has echo {3}{W}{W}, a seated one's
+    // comes due at the first upkeep `reach_main_phase` walks through, and a
+    // walk that floats no mana is a walk that does not pay it. Seat 1's comes
+    // due at *their* upkeep, which is after the copy has already been made
+    // and reverted.
     let guide = on_battlefield(&engine, p1, karmic_guide()).expect("their Angel");
 
     cast_from_hand(&mut engine, p0, cursed_mirror());

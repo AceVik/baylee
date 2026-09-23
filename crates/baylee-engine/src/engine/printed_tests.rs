@@ -397,10 +397,15 @@ const CHECK_FLOOR: usize = 11000;
 /// And the one bound that is a **ceiling** rather than a floor.
 ///
 /// A few cards cannot be measured this way and are right not to be. A clone
-/// placed with nothing to copy is a 0/0 and dies to CR 704.5f, and Karmic
-/// Guide is sacrificed in the first upkeep because echo (CR 702.30a) came due
-/// on a board with no mana on it — the engine does not even ask, there being
-/// nothing to pay with. Both are the rules working.
+/// placed with nothing to copy is a 0/0 and dies to CR 704.5f, and so does a
+/// creature whose power and toughness count something an empty board does
+/// not have. Both are the rules working.
+///
+/// Karmic Guide used to be a third kind, and was not the rules working: its
+/// echo (CR 702.30a) was demanded as the upkeep began, before anybody held
+/// priority, and on a pool the untap step had just emptied — so it was
+/// sacrificed with no question asked. Echo is now demanded after the upkeep's
+/// priority window, and the sweep reads the board before then.
 ///
 /// But "the permanent is not there" is also what a broken battlefield looks
 /// like, so the bucket is capped rather than ignored: a regression that lost
@@ -412,10 +417,10 @@ const CHECK_FLOOR: usize = 11000;
 /// counting them here turned the ceiling into a line somebody edited upward
 /// on a green run.
 ///
-/// Measured 2026-09-19: fourteen cards — eight clones, five creatures whose
-/// power is defined by something an empty board does not have (Arcbound
-/// Ravager, Walking Ballista, Faeburrow Elder, Ashaya, Lumra), and Karmic
-/// Guide — beside fourteen Auras named by their rule.
+/// Measured 2026-09-23: fourteen cards — eight clones and six creatures
+/// whose size is defined by something an empty board does not have (Shifting
+/// Wall, Ivy Elemental, Arcbound Ravager, Walking Ballista, Faeburrow Elder,
+/// Lumra) — beside 52 Auras named by their rule.
 const LEAVING_CEILING: usize = 20;
 
 /// Whether the face prints `Aura`.
