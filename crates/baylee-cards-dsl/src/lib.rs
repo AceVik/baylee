@@ -495,6 +495,14 @@ keywords! {
     PROTECTION_BLACK = 31, "Protection from black.";
     DAYBOUND = 32, "Daybound (front faces only, CR 702.145b).";
     NIGHTBOUND = 33, "Nightbound (back faces only, CR 702.145e).";
+    // Not a printed keyword, and a bit for the reason `UNBLOCKABLE`
+    // is one: it is text-independent, and a face that prints it and a
+    // spell that grants it for a turn are then read by the same rule.
+    // It is the mirror of `UNBLOCKABLE` and not its twin — CR 509.1b
+    // checks a restriction on the creature that would block and an
+    // evasion ability on the creature being blocked, and neither
+    // sentence implies the other.
+    CANT_BLOCK = 34, "Can't block.";
 }
 
 impl KeywordSet {

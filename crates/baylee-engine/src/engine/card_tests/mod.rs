@@ -842,6 +842,53 @@ fn all_on_battlefield(
         .collect()
 }
 
+/// Attacks `defender` with `attacker`, and returns the blocks the engine
+/// offers the defending seat.
+///
+/// A test about blocking cannot read the board for its answer: this engine
+/// publishes the pairings and `apply` validates against that same
+/// enumeration, so what a creature may block is `Pending::ChooseBlockers`
+/// and nothing else. The attack has to be declared first, because the offer
+/// does not exist until there is something to block.
+#[track_caller]
+fn attack_and_collect_blocks(
+    engine: &mut Engine<RegistryLookup>,
+    attacker: ObjectId,
+    defender: PlayerId,
+) -> Vec<crate::choice::BlockOption> {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&attacker),
+        "the creature this test attacks with is on the offer: {attackers:?}"
+    );
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(defender))],
+            },
+        )
+        .expect("the attacker came out of the list that offered it");
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => return blockers,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the blockers: {other:?}"),
+        }
+    }
+    panic!("never reached the declare-blockers question")
+}
+
 /// A 1/1 Umara Raptor that put its own rally counter on itself, so the
 /// creature standing on the battlefield is a 2/2 and the card it was
 /// printed from is not.

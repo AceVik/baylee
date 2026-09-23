@@ -21035,8 +21035,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Smoldering Spires
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -44172,8 +44172,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sandstorm Verge
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

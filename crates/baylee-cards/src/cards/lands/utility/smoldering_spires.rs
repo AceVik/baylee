@@ -3,16 +3,10 @@
 //! Oracle: When this land enters, target creature can't block this turn.
 //! Oracle: {T}: Add {R}.
 //! Set: E01 #96 — Archenemy: Nicol Bolas | Scryfall ID: e6741f53-f02e-4f1b-9620-e49ad00e7e1d | Oracle ID: cfa3288d-e521-4a13-bcb3-7950a94e1746
-// PARTIAL — enters tapped and {T}: Add {R} are written; the enters trigger
-// is dropped, see the `// NOT SUPPORTED:` line below.
+// IMPLEMENTED — enters tapped, {T}: Add {R}, and the enters trigger that
+// takes one creature out of the defence.
 
 use baylee_cards_dsl::prelude::*;
-
-// NOT SUPPORTED: "When this land enters, target creature can't block this
-// turn." No `Modifier` says a creature can't block, and no keyword bit means
-// it either — the engine's `unblockable` is the opposite sentence, "this
-// creature can't be blocked". The whole triggered ability comes off the card
-// rather than shipping an offer that resolves into nothing.
 
 card!(
     index = index::SMOLDERING_SPIRES,
@@ -24,8 +18,21 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     )],
-    coverage = Coverage::Partial(
-        "the enters trigger's \"target creature can't block this turn\" has no DSL variant",
-    ),
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        // `Trigger::ETB` is the spelling for "when this enters" about the
+        // source itself; the creature is what the ability *targets*, which
+        // is a `TargetReq` beside the trigger and not a filter inside it.
+        triggered!(
+            Trigger::ETB,
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::CANT_BLOCK,
+                duration: Duration::UntilEndOfTurn,
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
+    ],
 );

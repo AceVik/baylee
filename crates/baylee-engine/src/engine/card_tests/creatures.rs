@@ -8265,9 +8265,15 @@ fn carrion_feeder() -> CardIndex {
     card_index("a1cc5e37-b09a-4b7f-afd5-77c1c35aa425")
 }
 
-/// Carrion Feeder ({B}, a 1/1 Zombie) is `Coverage::Partial`: "This creature
-/// can't block" is not in the DSL, but "Sacrifice a creature: Put a +1/+1
-/// counter on this creature" is. The sacrifice is a *cost* and not a target
+/// Carrion Feeder ({B}, a 1/1 Zombie): "This creature can't block. Sacrifice
+/// a creature: Put a +1/+1 counter on this creature."
+///
+/// Both printed sentences, and the first of them is a *face* keyword rather
+/// than a static ability — it is printed on this creature about itself, so
+/// the reading that can see it is the projected one and that is the reading
+/// `combat::can_block` takes. What the bit does in combat is one module
+/// over, in `combat_choice_tests`, where the twin beside it is what makes
+/// the absence mean the rule. The sacrifice is a *cost* and not a target
 /// (CR 701.21a), so which creatures are on the menu is a board reading: the
 /// Feeder is a creature you control and sits on its own menu, the Elves
 /// beside it pay, and the Elves across the table are neither offered nor
@@ -8295,6 +8301,17 @@ fn carrion_feeder_eats_a_creature_of_yours_for_a_counter_and_may_not_eat_theirs(
         counters_on(&engine, feeder, CounterKind::P1P1),
         0,
         "and no counter on it yet"
+    );
+    assert!(
+        keywords(&engine, feeder).contains(KeywordSet::CANT_BLOCK),
+        "the restriction is printed on the face, so it is on the creature \
+         before anything is activated"
+    );
+    assert!(
+        !keywords(&engine, fodder).contains(KeywordSet::CANT_BLOCK),
+        "and the Elves this same board seated the same way do not have it, \
+         which is what makes the line above a reading of the card rather \
+         than of the preset"
     );
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {

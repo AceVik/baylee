@@ -393,3 +393,77 @@ fn a_menace_attacker_is_offered_only_where_two_could_block_it() {
          statement about the count and not about menace: {offered:?}"
     );
 }
+
+/// 1/1 Zombie whose first printed sentence is "This creature can't block."
+fn carrion_feeder() -> CardIndex {
+    card_index("a1cc5e37-b09a-4b7f-afd5-77c1c35aa425")
+}
+
+/// CR 509.1b's *other* half: a restriction on the creature that would block.
+///
+/// One rule reads that sentence and the rule already existed — it read only
+/// the attacker. `combat::can_block` asked `UNBLOCKABLE` of the attacking
+/// creature and nothing at all of the blocking one, so every card printing
+/// "this creature can't block" was either a `Coverage::Partial` or, worse,
+/// a card whose restriction the engine would have accepted a declaration
+/// against. The two sentences sit in one rule and are not the same
+/// question, which is why the bit is its own and not `UNBLOCKABLE` read
+/// from the other end.
+///
+/// The twin is what makes the absence mean the bit. Both creatures are
+/// untapped, unpaired and looking at the same attacker, so the only thing
+/// that differs between the one the engine offers and the one it does not
+/// is the printed line — and the declaration is refused as well, because
+/// the offer is not the only door into `declare_blockers`.
+#[test]
+fn a_creature_that_cannot_block_is_absent_beside_a_twin_that_can() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(33, swamp())
+        .battlefield(0, &[halimar_excavator()])
+        .battlefield(1, &[carrion_feeder(), halimar_excavator()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let feeders = creatures_of(&engine, p1, carrion_feeder());
+    let guards = creatures_of(&engine, p1, halimar_excavator());
+    assert_eq!(
+        (feeders.len(), guards.len()),
+        (1, 1),
+        "one of each, so the two readings below differ in one thing only"
+    );
+
+    let blockers = attack_and_reach_blockers(&mut engine, p0, p1);
+    let attacker = engine.state().combat.attackers[0].creature;
+    assert_eq!(
+        blockers.iter().map(|o| o.blocker).collect::<Vec<_>>(),
+        guards,
+        "the Excavator is offered and the Feeder is not: {blockers:?}"
+    );
+    assert!(
+        blockers[0].attackers.contains(&attacker),
+        "and the one that is offered is paired with the attacker, so the \
+         empty half above is about the creature and not about the attack: \
+         {blockers:?}"
+    );
+
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(feeders[0], attacker)],
+                },
+            )
+            .is_err(),
+        "and naming it anyway is refused: an offer a client cannot see is \
+         still checked when the answer comes back"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(guards[0], attacker)],
+            },
+        )
+        .expect("the Excavator is a legal block, which is the same rule saying yes");
+}

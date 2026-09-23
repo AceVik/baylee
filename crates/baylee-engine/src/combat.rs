@@ -1,7 +1,7 @@
 //! Structured combat state machine.
 //!
 //! Implemented: attacker/blocker declaration with the keyword restrictions
-//! (flying/reach, menace, unblockable, protection), first/double strike as
+//! (flying/reach, menace, unblockable, can't block, protection), first/double strike as
 //! a per-creature property, deathtouch, trample, lifelink, and damage
 //! assignment in declaration order.
 //!
@@ -268,6 +268,15 @@ pub fn can_block(
     // that count must refuse.
     // Unblockable.
     if kw(a, K::UNBLOCKABLE) {
+        return false;
+    }
+    // "Can't block" (CR 509.1b, the restrictions half): read on the
+    // **blocker**, where the line above is read on the attacker. The rule
+    // covers both in one sentence and they are still two questions — a
+    // creature that can't block and a creature that can't be blocked are
+    // different cards, and a reader that asked only the attacker answered
+    // one of them.
+    if kw(b, K::CANT_BLOCK) {
         return false;
     }
     // Protection (CR 702.16f): can't be blocked by matching creatures.

@@ -5,18 +5,30 @@
 //! Set: MH3 #248 — Modern Horizons 3 | Scryfall ID: 50686ac7-346c-43d1-bdaa-28d46a12ad93 | Oracle ID: c95309e9-5c2f-4518-b2fd-825d3d0a4ae0
 //! Face: Sundering Eruption — {2}{R} — Sorcery
 //! Face: Volcanic Fissure —  — Land
-// PARTIAL — land destruction plus the destroyed land's controller's
-// basic-land search, and the back face's pay-3-life entry and {R} mana
-// ability; the "can't block" sentence has no variant.
+// IMPLEMENTED — land destruction plus the destroyed land's controller's
+// basic-land search, the board-wide "can't block" rider, and the back
+// face's pay-3-life entry and {R} mana ability.
 
 use baylee_cards_dsl::prelude::*;
+
+/// "Creatures without flying" — every creature on the table and not only
+/// yours, which is what the printed sentence says and what makes this a
+/// `PumpFilter` with no `controlled_by` rather than a targeted grant.
+///
+/// The set is fixed as the spell resolves (CR 611.2c), so a creature that
+/// arrives afterwards may block and one that loses flying in response may
+/// not.
+static GROUNDED: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
+]);
 
 card!(
     index = index::SUNDERING_ERUPTION,
     oracle_id = "c95309e9-5c2f-4518-b2fd-825d3d0a4ae0",
     scryfall_id = "50686ac7-346c-43d1-bdaa-28d46a12ad93",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial("creatures without flying can't block this turn"),
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Sundering Eruption",
@@ -30,13 +42,19 @@ card!(
             abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
         ),
     ],
-    // NOT SUPPORTED: "Creatures without flying can't block this turn" — no
-    // `Modifier` and no keyword in the pool says a creature can't block.
     abilities = &[spell!(
         &[
             Effect::destroy(TargetSpec::Object(&Filter::LAND)),
             Effect::OptionalBasicLandSearchFor {
                 player: PlayerRel::ControllerOfTarget,
+            },
+            Effect::PumpFilter {
+                filter: &GROUNDED,
+                controlled_by: None,
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::CANT_BLOCK,
+                duration: Duration::UntilEndOfTurn,
             },
         ],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND)))

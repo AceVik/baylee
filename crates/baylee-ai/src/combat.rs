@@ -350,7 +350,7 @@ fn enforce_menace(
 /// nothing is guessed: [`choose_blocks`] reads the pairings the engine
 /// offered.
 pub(crate) fn could_block(attacker: Fighter, blocker: Fighter) -> bool {
-    if attacker.has(KeywordSet::UNBLOCKABLE) {
+    if attacker.has(KeywordSet::UNBLOCKABLE) || blocker.has(KeywordSet::CANT_BLOCK) {
         return false;
     }
     if attacker.has(KeywordSet::FLYING)
