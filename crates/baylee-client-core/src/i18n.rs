@@ -1144,20 +1144,6 @@ messages! {
     NounCardFromLibrary { en: "card from your library", de: "Karte aus deiner Bibliothek" },
     /// cards from your library
     NounCardsFromLibrary { en: "cards from your library", de: "Karten aus deiner Bibliothek" },
-    /// card to put on the bottom
-    NounCardToBottom { en: "card to put on the bottom", de: "Karte, die nach unten geht" },
-    /// cards to put on the bottom
-    NounCardsToBottom { en: "cards to put on the bottom", de: "Karten, die nach unten gehen" },
-    /// card to put into your graveyard
-    NounCardToGraveyard {
-        en: "card to put into your graveyard",
-        de: "Karte, die auf deinen Friedhof geht",
-    },
-    /// cards to put into your graveyard
-    NounCardsToGraveyard {
-        en: "cards to put into your graveyard",
-        de: "Karten, die auf deinen Friedhof gehen",
-    },
     /// card to put on top of your library
     NounCardToTop {
         en: "card to put on top of your library",
@@ -1269,6 +1255,18 @@ messages! {
     OrderOnBottom {
         en: "Put these on the bottom: the last is the bottom card",
         de: "Lege diese unter die Bibliothek: die letzte ist die unterste Karte",
+    },
+    /// A scry (CR 701.22a): the looked-at cards go back on top or under the
+    /// library, each pile in an order.
+    ScryPrompt {
+        en: "Scry: keep cards on top or put them on the bottom",
+        de: "Hellsicht: Karten oben lassen oder unter die Bibliothek legen",
+    },
+    /// A surveil (CR 701.25a): the looked-at cards go back on top or into
+    /// the graveyard.
+    SurveilPrompt {
+        en: "Surveil: keep cards on top or put them into your graveyard",
+        de: "Überwachen: Karten oben lassen oder auf deinen Friedhof legen",
     },
     /// The game is over
     TheGameIsOver { en: "The game is over", de: "Das Spiel ist vorbei" },
@@ -1985,9 +1983,23 @@ messages! {
     BrowseNone { en: "None", de: "Keine" },
     /// How an ordering is answered.
     BrowseOrderHint {
-        en: "tap a card, then the card it goes in front of",
-        de: "Karte antippen, dann die, vor die sie soll",
+        en: "tap a card, then the card it goes in front of or a pile's end",
+        de: "Karte antippen, dann die, vor die sie soll, oder ein Stapelende",
     },
+    /// An arrangement's pile that goes back on top of the library, its
+    /// first card the new top card.
+    ArrangeLibraryTop { en: "On top of the library", de: "Oben auf die Bibliothek" },
+    /// An arrangement's pile that goes under the library, its last card the
+    /// new bottom card.
+    ArrangeLibraryBottom { en: "Under the library", de: "Unter die Bibliothek" },
+    /// An arrangement's pile that goes into the graveyard.
+    ArrangeGraveyard { en: "Into the graveyard", de: "Auf den Friedhof" },
+    /// The cards of an arrangement not yet put in any pile.
+    ArrangeUnplaced { en: "Not placed yet", de: "Noch nicht gelegt" },
+    /// The end of a pile, while a card is held: a tap puts it there.
+    ArrangePutHere { en: "Put it here", de: "Hierher legen" },
+    /// A pile nothing has been put in yet, while no card is held.
+    ArrangeEmptyPile { en: "Empty", de: "Leer" },
     /// A zone belonging to a seat. `{0}` is the zone, `{1}` the seat.
     BrowseZoneOf { en: "{0} · {1}", de: "{0} · {1}" },
     /// A zone tab with how many cards are in it. `{0}` is the zone's name,
@@ -2237,8 +2249,6 @@ mod tests {
             (Phrase::NounCard, Phrase::NounCards),
             (Phrase::NounTarget, Phrase::NounTargets),
             (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
-            (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
-            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
             (Phrase::NounCardToTop, Phrase::NounCardsToTop),
             (Phrase::NounCardOutside, Phrase::NounCardsOutside),
             (

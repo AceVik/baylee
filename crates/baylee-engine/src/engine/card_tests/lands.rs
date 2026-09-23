@@ -5034,28 +5034,30 @@ fn otawara_channels_from_hand_to_bounce_a_creature_and_discards_itself() {
 /// them has to pass priority to it first — and a walk written four times is
 /// a walk that drifts.
 #[track_caller]
-fn surveil_offer(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> (Vec<ObjectId>, u8, u8) {
+fn surveil_offer(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+) -> (Vec<ObjectId>, Vec<ArrangePile>) {
     pass_until(engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::SurveilGraveyard,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Surveil,
                 ..
             }
         )
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         ..
     } = engine.pending().clone()
     else {
         unreachable!("the walk above stops on nothing else");
     };
     assert_eq!(player, seat, "the seat that surveils is the seat asked");
-    (options, min, max)
+    (cards, piles)
 }
 
 fn raucous_theater() -> CardIndex {
@@ -5100,24 +5102,19 @@ fn raucous_theater_enters_tapped_and_taps_for_black_or_red() {
     );
 
     // "When this land enters, surveil 1."
-    let (options, min, max) = surveil_offer(&mut engine, p0);
+    let (cards, piles) = surveil_offer(&mut engine, p0);
     assert_eq!(
-        options,
+        cards,
         vec![top_before],
         "surveil 1 looks at exactly the top card of its own library"
     );
     assert_eq!(
-        (min, max),
-        (0, 1),
+        piles,
+        surveil_piles(1),
         "any number of them, which here is 0 or 1"
     );
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![top_before],
-            },
-        )
+        .apply(p0, look_answer(&cards, &[top_before]))
         .expect("the card it just looked at");
 
     assert_eq!(
@@ -5307,9 +5304,9 @@ fn thundering_falls_enters_tapped_then_taps_for_blue_or_red() {
          modifier is the only thing that could have tapped it"
     );
 
-    let _ = surveil_offer(&mut engine, p0);
+    let (cards, _) = surveil_offer(&mut engine, p0);
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("keeping everything is an answer (CR 701.25a: \"any number\")");
     assert_eq!(
         library_size(&engine, p0),
@@ -6120,17 +6117,21 @@ fn a_land_that_surveils_as_it_enters_looks_at_exactly_one_card() {
             .expect("p0 has a library");
         play_land(&mut engine, p0, land);
 
-        let (options, min, max) = surveil_offer(&mut engine, p0);
+        let (cards, piles) = surveil_offer(&mut engine, p0);
         assert_eq!(
-            options,
+            cards,
             vec![top_before],
             "{name}: surveil 1 looks at exactly the top card"
         );
-        assert_eq!((min, max), (0, 1), "{name}: any number of the one it saw");
+        assert_eq!(
+            piles,
+            surveil_piles(1),
+            "{name}: any number of the one it saw"
+        );
 
-        let answer = if *bin { vec![top_before] } else { Vec::new() };
+        let away = if *bin { vec![top_before] } else { Vec::new() };
         engine
-            .apply(p0, PlayerAction::ChooseObjects { objects: answer })
+            .apply(p0, look_answer(&cards, &away))
             .expect("both answers are legal");
         if *bin {
             assert_eq!(
@@ -6318,13 +6319,17 @@ fn a_land_that_surveils_for_a_cost_looks_at_the_number_it_prints() {
         // Ability 0 is the printed mana tap; ability 1 is the surveil.
         activate(&mut engine, p0, land, 1);
 
-        let (options, _, max) = surveil_offer(&mut engine, p0);
+        let (cards, piles) = surveil_offer(&mut engine, p0);
         assert_eq!(
-            options.len(),
+            cards.len(),
             *amount as usize,
             "{name}: surveil {amount} looks at {amount} card(s)"
         );
-        assert_eq!(max, *amount, "{name}: and may bin all of them");
+        assert_eq!(
+            piles,
+            surveil_piles(u32::from(*amount)),
+            "{name}: and may bin all of them"
+        );
         assert!(
             is_tapped(&engine, object),
             "{name}: the {{T}} in the cost was paid by this land"
@@ -6337,12 +6342,7 @@ fn a_land_that_surveils_for_a_cost_looks_at_the_number_it_prints() {
         );
 
         engine
-            .apply(
-                p0,
-                PlayerAction::ChooseObjects {
-                    objects: options.clone(),
-                },
-            )
+            .apply(p0, look_answer(&cards, &cards))
             .expect("binning everything it looked at");
         assert_eq!(
             library_size(&engine, p0),
@@ -13199,24 +13199,25 @@ fn the_grey_havens_triggers_scry_and_taps_for_colorless() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
-    let Pending::ChooseCards {
-        player, min, max, ..
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
+    assert_eq!(piles, scry_piles(1));
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     activate(&mut engine, p0, the_grey_havens(), 1);
@@ -13621,15 +13622,16 @@ fn forsaken_crossroads_enters_tapped_chooses_color_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    let Pending::Arrange { cards, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);
     assert!(entered_tapped(&engine, card));
@@ -14819,16 +14821,20 @@ fn gallifrey_council_chamber_surveils_and_produces_restricted_mana() {
     // The surveil is a *triggered* ability, so it goes on the stack and the
     // question arrives when it resolves, not when the land arrives.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards { player, prompt, .. } = engine.pending().clone() else {
-        panic!("expected surveil prompt, got {:?}", engine.pending());
+    let Pending::Arrange {
+        player,
+        cards,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a surveil arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ChoicePrompt::SurveilGraveyard);
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);
 
@@ -29812,7 +29818,7 @@ fn soldevi_excavations() -> CardIndex {
 /// `Soldevi Excavations` prints `If this land would enter, sacrifice an untapped Island instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.`, `{{T}}: Add {{C}}{{U}}.`, and `{{1}}, {{T}}: Scry 1.`
 ///
 /// Under `Coverage::Partial`, the entry replacement is omitted so the land enters unconditionally untapped without sacrificing an Island.
-/// Activating ability 0 adds `{{C}}` and `{{U}}` to the mana pool, and spending the `{{C}}` to activate ability 1 on a second copy prompts with `ChoicePrompt::ScryBottom` for Scry 1.
+/// Activating ability 0 adds `{{C}}` and `{{U}}` to the mana pool, and spending the `{{C}}` to activate ability 1 on a second copy asks a scry arrangement (`ArrangePrompt::Scry`) for Scry 1.
 #[test]
 fn soldevi_excavations_enters_untapped_adds_colorless_blue_and_scries() {
     let p0 = PlayerId::new(0);
@@ -29842,31 +29848,28 @@ fn soldevi_excavations_enters_untapped_adds_colorless_blue_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
     // Keep the scried card on top.
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);
 
@@ -37803,27 +37806,26 @@ fn castle_vantress_arrives_untapped_beside_an_island_and_scries_two_for_its_own_
         .list(crate::zone::ZoneLocation::Library(p0))
         .clone();
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the activating seat does the looking");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "either, both or neither may be bottomed"
     );
     assert_eq!(
-        options,
+        cards,
         vec![
             *library_before.last().expect("p0 has a library"),
             library_before[library_before.len() - 2],
@@ -37831,15 +37833,10 @@ fn castle_vantress_arrives_untapped_beside_an_island_and_scries_two_for_its_own_
         "the top two cards of the library, topmost first"
     );
 
-    let bottomed = options[0];
-    let kept = options[1];
+    let bottomed = cards[0];
+    let kept = cards[1];
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![bottomed],
-            },
-        )
+        .apply(p0, look_answer(&cards, &[bottomed]))
         .expect("a card the scry itself put on the menu");
     pass_until(&mut engine, stack_is_empty);
 
@@ -56357,7 +56354,7 @@ fn lorehold_campus() -> CardIndex {
 /// `Lorehold Campus` enters tapped, taps for `{{R}}` or `{{W}}`, and scries 1 for `{{4}}, {{T}}`
 /// under `Coverage::Implemented`.
 /// After entering tapped and untapping on the next turn, floating four mana from basic lands
-/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+/// activates its scry ability and asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn lorehold_campus_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -56384,30 +56381,27 @@ fn lorehold_campus_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -56460,7 +56454,7 @@ fn new_benalia() -> CardIndex {
 /// `New Benalia` enters tapped, scries 1 upon entering, and taps for `{{W}}`
 /// under `Coverage::Implemented`.
 /// Playing the land enters it tapped and places its enters-the-battlefield trigger on the stack,
-/// which prompts for a scry choice through `ChoicePrompt::ScryBottom`.
+/// which asks a scry arrangement through `ArrangePrompt::Scry`.
 #[test]
 fn new_benalia_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -56474,30 +56468,27 @@ fn new_benalia_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -56625,7 +56616,7 @@ fn prismari_campus() -> CardIndex {
 /// `Prismari Campus` enters tapped, taps for `{{U}}` or `{{R}}`, and scries 1 for `{{4}}, {{T}}`
 /// under `Coverage::Implemented`.
 /// After entering tapped and untapping on the following turn, floating four mana from basic lands
-/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+/// activates its scry ability and asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn prismari_campus_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -56652,30 +56643,27 @@ fn prismari_campus_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -56689,7 +56677,7 @@ fn quandrix_campus() -> CardIndex {
 /// `Quandrix Campus` enters tapped, taps for `{{G}}` or `{{U}}`, and scries 1 for `{{4}}, {{T}}`
 /// under `Coverage::Implemented`.
 /// After entering tapped and untapping on the following turn, floating four mana from basic lands
-/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+/// activates its scry ability and asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn quandrix_campus_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -56716,30 +56704,27 @@ fn quandrix_campus_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -56986,7 +56971,7 @@ fn silverquill_campus() -> CardIndex {
 /// `Silverquill Campus` enters tapped, taps for `{{W}}` or `{{B}}`, and scries 1 for `{{4}}, {{T}}`
 /// under `Coverage::Implemented`.
 /// After entering tapped and untapping on the following turn, floating four mana from basic lands
-/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+/// activates its scry ability and asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn silverquill_campus_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -57013,30 +56998,27 @@ fn silverquill_campus_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -57086,7 +57068,7 @@ fn temple_of_abandon() -> CardIndex {
 
 /// `Temple of Abandon` enters tapped, scries 1 upon entering, and taps for `{{R}}` or `{{G}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn temple_of_abandon_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -57102,30 +57084,27 @@ fn temple_of_abandon_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -57137,7 +57116,7 @@ fn temple_of_deceit() -> CardIndex {
 
 /// `Temple of Deceit` enters tapped, scries 1 upon entering, and taps for `{{U}}` or `{{B}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn temple_of_deceit_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -57153,30 +57132,27 @@ fn temple_of_deceit_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -57188,7 +57164,7 @@ fn temple_of_enlightenment() -> CardIndex {
 
 /// `Temple of Enlightenment` enters tapped, scries 1 upon entering, and taps for `{{W}}` or `{{U}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn temple_of_enlightenment_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -57204,30 +57180,27 @@ fn temple_of_enlightenment_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58265,7 +58238,7 @@ fn temple_of_epiphany() -> CardIndex {
 
 /// `Temple of Epiphany` enters tapped, scries 1 upon entering, and taps for `{{U}}` or `{{R}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_epiphany_enters_tapped_and_scries() {
@@ -58282,30 +58255,27 @@ fn temple_of_epiphany_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58317,7 +58287,7 @@ fn temple_of_malady() -> CardIndex {
 
 /// `Temple of Malady` enters tapped, scries 1 upon entering, and taps for `{{B}}` or `{{G}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_malady_enters_tapped_and_scries() {
@@ -58334,30 +58304,27 @@ fn temple_of_malady_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58369,7 +58336,7 @@ fn temple_of_malice() -> CardIndex {
 
 /// `Temple of Malice` enters tapped, scries 1 upon entering, and taps for `{{B}}` or `{{R}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_malice_enters_tapped_and_scries() {
@@ -58386,30 +58353,27 @@ fn temple_of_malice_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58421,7 +58385,7 @@ fn temple_of_mystery() -> CardIndex {
 
 /// `Temple of Mystery` enters tapped, scries 1 upon entering, and taps for `{{G}}` or `{{U}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_mystery_enters_tapped_and_scries() {
@@ -58438,30 +58402,27 @@ fn temple_of_mystery_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58473,7 +58434,7 @@ fn temple_of_plenty() -> CardIndex {
 
 /// `Temple of Plenty` enters tapped, scries 1 upon entering, and taps for `{{G}}` or `{{W}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_plenty_enters_tapped_and_scries() {
@@ -58490,30 +58451,27 @@ fn temple_of_plenty_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58525,7 +58483,7 @@ fn temple_of_silence() -> CardIndex {
 
 /// `Temple of Silence` enters tapped, scries 1 upon entering, and taps for `{{W}}` or `{{B}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_silence_enters_tapped_and_scries() {
@@ -58542,30 +58500,27 @@ fn temple_of_silence_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58577,7 +58532,7 @@ fn temple_of_triumph() -> CardIndex {
 
 /// `Temple of Triumph` enters tapped, scries 1 upon entering, and taps for `{{R}}` or `{{W}}`
 /// under `Coverage::Implemented`.
-/// Playing the land enters it tapped and triggers scry 1, which prompts with `ChoicePrompt::ScryBottom`.
+/// Playing the land enters it tapped and triggers scry 1, which asks a scry arrangement (`ArrangePrompt::Scry`).
 /// Declining to bottom keeps the card on top and leaves the land tapped on the battlefield.
 #[test]
 fn temple_of_triumph_enters_tapped_and_scries() {
@@ -58594,30 +58549,27 @@ fn temple_of_triumph_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -58825,7 +58777,7 @@ fn witherbloom_campus() -> CardIndex {
 /// `Witherbloom Campus` enters tapped, taps for `{{B}}` or `{{G}}`, and scries 1 for `{{4}}, {{T}}`
 /// under `Coverage::Implemented`.
 /// After entering tapped and untapping on the next turn, floating four mana from basic lands
-/// activates its scry ability and prompts with `ChoicePrompt::ScryBottom`.
+/// activates its scry ability and asks a scry arrangement (`ArrangePrompt::Scry`).
 #[test]
 fn witherbloom_campus_enters_tapped_and_scries() {
     let p0 = PlayerId::new(0);
@@ -58852,30 +58804,27 @@ fn witherbloom_campus_enters_tapped_and_scries() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!((min, max), (0, 1));
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(piles, scry_piles(1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(is_tapped(&engine, land));
@@ -67645,7 +67594,7 @@ fn woodland_stream_enters_tapped_and_produces_green_or_blue() {
 
 /// Zhalfirin Void is a utility land under `Coverage::Implemented` that scries 1 upon entering and taps for {C}.
 /// Playing the land puts it onto the battlefield untapped and places its enters-the-battlefield trigger on the stack.
-/// When the trigger resolves, a scry choice is presented via `ChoicePrompt::ScryBottom`.
+/// When the trigger resolves, a scry arrangement is presented via `ArrangePrompt::Scry`.
 /// After the trigger is answered, the land can be tapped to produce one colorless mana.
 #[test]
 fn zhalfirin_void_enters_untapped_scries_and_taps_for_colorless() {
@@ -67665,33 +67614,32 @@ fn zhalfirin_void_enters_untapped_scries_and_taps_for_colorless() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending())
+        panic!("expected a scry arrangement, got {:?}", engine.pending())
     };
     assert_eq!(player, p0, "controller resolves the scry trigger");
     assert_eq!(
-        (min, max),
-        (0, 1),
+        piles,
+        scry_piles(1),
         "scry 1 allows choosing 0 or 1 card to bottom"
     );
-    assert_eq!(prompt, ChoicePrompt::ScryBottom, "prompt is ScryBottom");
+    assert_eq!(prompt, ArrangePrompt::Scry, "prompt is Scry");
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("keeping card on top is legal");
 
     pass_until(&mut engine, stack_is_empty);
@@ -68005,13 +67953,12 @@ fn crystal_grotto_scries_on_arrival_and_sells_both_of_its_mana_lines() {
     // "When this land enters, scry 1" — the question arrives once the entry
     // trigger has resolved off the stack.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
@@ -68020,22 +67967,22 @@ fn crystal_grotto_scries_on_arrival_and_sells_both_of_its_mana_lines() {
     assert_eq!(player, p0, "the seat that played the land does the looking");
     assert_eq!(
         prompt,
-        ChoicePrompt::ScryBottom,
+        ArrangePrompt::Scry,
         "scry 1 looks at the top card of the library"
     );
     assert_eq!(
-        options,
+        cards,
         vec![top],
         "one card, and it is the top of the library"
     );
     assert_eq!(
-        (min, max),
-        (0, 1),
+        piles,
+        scry_piles(1),
         "either the card or nothing may be bottomed"
     );
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("the card the question offered is a legal answer");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -69927,7 +69874,7 @@ fn rabanastre_royal_city_enters_tapped_and_produces_red_or_white() {
 
 /// `Rumble Arena` enters untapped under `Coverage::Implemented`, has vigilance, triggers scry 1 on entry, and filters mana.
 /// Playing the land from hand puts it onto the battlefield untapped with vigilance.
-/// Its enters-the-battlefield trigger asks for a scry choice via `ChoicePrompt::ScryBottom`.
+/// Its enters-the-battlefield trigger asks a scry arrangement via `ArrangePrompt::Scry`.
 /// After scrying, its second mana ability spends floating mana and taps to produce a chosen mana color.
 #[test]
 fn rumble_arena_enters_untapped_scries_and_filters_mana() {
@@ -69952,29 +69899,32 @@ fn rumble_arena_enters_untapped_scries_and_filters_mana() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0, "controller chooses scry");
-    assert_eq!((min, max), (0, 1), "scry 1 allows choosing up to one card");
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(
+        piles,
+        scry_piles(1),
+        "scry 1 allows choosing up to one card"
+    );
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("keeping on top is legal");
     pass_until(&mut engine, stack_is_empty);
 

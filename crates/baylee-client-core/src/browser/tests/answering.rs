@@ -244,6 +244,54 @@ fn an_ordering_opens_the_tray_and_numbers_every_card() {
     );
 }
 
+/// A scry draws its piles one after the other, each numbered from one: the
+/// top pile first, then the bottom — and the sort control, which would draw
+/// a second order over the one being built, has no say while it is built.
+#[test]
+fn a_scry_lists_its_piles_in_turn_and_numbers_each_from_one() {
+    let view = ViewBuilder::new(2)
+        .with_looking_at(vec![
+            // Named so that a sort by name would put the bottom card first.
+            printed(7, 0, "Anticipate", 6),
+            printed(8, 0, "Brainstorm", 7),
+            printed(9, 0, "Opt", 8),
+        ])
+        .build();
+    let mut it = Interaction::new(
+        Pending::Arrange {
+            player: me(),
+            cards: vec![obj(7), obj(8), obj(9)],
+            piles: vec![
+                ArrangePile::up_to(ArrangePlace::LibraryTop, 3),
+                ArrangePile::up_to(ArrangePlace::LibraryBottom, 3),
+            ],
+            prompt: ArrangePrompt::Scry,
+        },
+        me(),
+    );
+    // The first card to the bottom: held, then put at that pile's end.
+    it.toggle(obj(7));
+    assert!(it.place_held(crate::arrange::Row::Pile(1)));
+
+    let mut b = Browser::new();
+    b.cycle_sort();
+    let rows = b.rows(&view, Some(&it), Names::projected());
+    let read: Vec<_> = rows.iter().map(|r| (r.id, r.pile, r.place)).collect();
+    let (top, bottom) = (
+        Some(crate::arrange::Row::Pile(0)),
+        Some(crate::arrange::Row::Pile(1)),
+    );
+    assert_eq!(
+        read,
+        vec![
+            (obj(8), top, Some(1)),
+            (obj(9), top, Some(2)),
+            (obj(7), bottom, Some(1)),
+        ],
+        "the top pile, then the bottom, each counted from its own first card"
+    );
+}
+
 /// Where the keyboard is standing has to reach the row, or the key that
 /// ticks it is ticking something the player cannot pick out of a list.
 ///

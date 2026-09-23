@@ -3025,7 +3025,7 @@ fn path_of_mettle_casts_and_enters_as_legendary_enchantment_without_damage_trigg
 ///
 /// Under `Coverage::Partial`, the transform clause and the back face's card-selection ability
 /// are omitted, while the upkeep surveil 1 trigger is implemented. The test advances to upkeep,
-/// intercepts the surveil 1 prompt (`ChoicePrompt::SurveilGraveyard`), chooses to put the top
+/// intercepts the surveil 1 arrangement (`ArrangePrompt::Surveil`), chooses to put the top
 /// card into the graveyard, verifies the card arrives in the graveyard, and confirms that
 /// `Search for Azcanta` remains on face 0.
 #[test]
@@ -3039,40 +3039,29 @@ fn search_for_azcanta_surveils_at_upkeep_and_remains_on_face_zero() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::SurveilGraveyard,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Surveil,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
-        options,
+    let Pending::Arrange {
+        cards,
         prompt,
-        min,
-        max,
+        piles,
         ..
     } = engine.pending().clone()
     else {
-        panic!("expected surveil choice, got {:?}", engine.pending());
+        panic!("expected a surveil arrangement, got {:?}", engine.pending());
     };
-    assert_eq!(prompt, ChoicePrompt::SurveilGraveyard);
-    assert_eq!(min, 0, "surveil allows choosing 0 cards for graveyard");
-    assert_eq!(max, 1, "surveil 1 allows at most 1 card");
-    assert_eq!(
-        options.len(),
-        1,
-        "surveil 1 looks at the top card of library"
-    );
+    assert_eq!(prompt, ArrangePrompt::Surveil);
+    assert_eq!(piles, surveil_piles(1), "surveil 1 allows at most 1 card");
+    assert_eq!(cards.len(), 1, "surveil 1 looks at the top card of library");
 
-    let milled_card = options[0];
+    let milled_card = cards[0];
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![milled_card],
-            },
-        )
+        .apply(p0, look_answer(&cards, &[milled_card]))
         .unwrap();
 
     pass_until(&mut engine, stack_is_empty);
@@ -15083,7 +15072,7 @@ fn moonlit_wake_gains_a_life_for_a_creature_dying_on_either_side_of_the_table() 
 /// Think Tank prints one sentence — "At the beginning of your upkeep, surveil
 /// 1." — and the card is only itself if the question arrives on its
 /// controller's upkeep and the answer moves a card to a graveyard. Both halves
-/// are read off one board: the question is a `SurveilGraveyard` prompt naming
+/// are read off one board: the question is an `ArrangePrompt::Surveil` arrangement naming
 /// exactly the top card of p0's library with `(0, 1)`, and the answer leaves
 /// the library one card shorter with that card in the graveyard and the hand
 /// untouched. That last pair is what tells surveil from a scry (the card would
@@ -15111,13 +15100,12 @@ fn think_tank_surveils_one_on_its_controllers_upkeep() {
     // the printed sentence does not give the card.
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
@@ -15131,26 +15119,22 @@ fn think_tank_surveils_one_on_its_controllers_upkeep() {
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SurveilGraveyard,
+        crate::choice::ArrangePrompt::Surveil,
         "surveil is not scry: the card either stays on top or goes to a graveyard"
     );
     assert_eq!(
-        (min, max),
-        (0, 1),
+        piles,
+        surveil_piles(1),
         "one card is looked at, and either of the two answers is legal"
     );
 
     let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
     let top = *library_before.last().expect("p0 has a library");
-    assert_eq!(
-        options,
-        vec![top],
-        "the top card of the library, and only it"
-    );
+    assert_eq!(cards, vec![top], "the top card of the library, and only it");
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("the card the question offered is a legal answer");
     pass_until(&mut engine, |e| at_rest(e, p0));
 

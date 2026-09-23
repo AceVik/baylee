@@ -1,7 +1,7 @@
 //! The arrange question: cards put into places, in an order, at once.
 //!
-//! "Put the rest on the bottom in any order", "put them back in any order" —
-//! and, later, scry and surveil and the piles of Fact or Fiction — are one
+//! "Put the rest on the bottom in any order", "put them back in any order",
+//! scry and surveil — and, later, the piles of Fact or Fiction — are one
 //! question with different destinations. A [`Pending::Arrange`] names the
 //! cards and the piles they may go into; the answer lists every card exactly
 //! once, pile by pile. Library piles are listed **top to bottom**, the way
@@ -22,6 +22,11 @@ pub enum ArrangePlace {
     /// card is the bottom card — both library piles read the way the library
     /// will lie.
     LibraryBottom,
+    /// Into each card's owner's graveyard — a surveil's other pile
+    /// (CR 701.25a). Cards put there together arrive in the order listed,
+    /// but the rule gives the player no order to choose, so a graveyard pile
+    /// is never an ordered one.
+    Graveyard,
 }
 
 /// One destination of a [`Pending::Arrange`](super::Pending::Arrange): where,
@@ -51,6 +56,19 @@ impl ArrangePile {
             ordered: true,
         }
     }
+
+    /// A pile that may take any number of `n` cards: one half of a scry or
+    /// a surveil. Ordered unless it is a graveyard, which is the one place
+    /// the rules give no order to choose.
+    #[must_use]
+    pub const fn up_to(place: ArrangePlace, n: u32) -> Self {
+        Self {
+            place,
+            min: 0,
+            max: n,
+            ordered: !matches!(place, ArrangePlace::Graveyard),
+        }
+    }
 }
 
 /// Why a [`Pending::Arrange`](super::Pending::Arrange) is asked (UI hint).
@@ -59,6 +77,15 @@ pub enum ArrangePrompt {
     /// Put cards in an order without choosing where they go: "the rest on
     /// the bottom in any order", "put them back in any order".
     Order,
+    /// Scry (CR 701.22a): any number on the bottom in any order, the rest
+    /// on top in any order. Asked with a top pile and then a bottom pile.
+    Scry,
+    /// Surveil (CR 701.25a): any number into the graveyard, the rest on top
+    /// in any order. Asked with a top pile and then a graveyard pile — not
+    /// a scry with another destination, because a card sent to the bottom
+    /// is still in the library and a card in a graveyard is in a zone every
+    /// player reads.
+    Surveil,
 }
 
 /// The arrangement a player with no preference gives: the cards in the order

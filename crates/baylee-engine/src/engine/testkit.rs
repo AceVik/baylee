@@ -278,14 +278,20 @@ pub fn pass_until(
             // past a surveil land expected to find it.
             Pending::ChooseCards {
                 player,
-                prompt:
-                    crate::choice::ChoicePrompt::LeaveTapped
-                    | crate::choice::ChoicePrompt::SurveilGraveyard,
+                prompt: crate::choice::ChoicePrompt::LeaveTapped,
                 ..
             } => {
                 engine
                     .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
                     .unwrap();
+            }
+            Pending::Arrange {
+                player,
+                cards,
+                prompt: crate::choice::ArrangePrompt::Surveil,
+                ..
+            } => {
+                engine.apply(player, look_answer(&cards, &[])).unwrap();
             }
             other => panic!("unexpected while passing: {other:?}"),
         }
@@ -1588,5 +1594,43 @@ mod tests {
             "the price was never paid"
         );
         assert_eq!(pt(&engine, wall), (0, 5), "so the body is untouched");
+    }
+}
+
+/// The piles a scry of `n` looked-at cards is asked with: the top, then the
+/// bottom, each able to take any of them.
+#[must_use]
+pub fn scry_piles(n: u32) -> Vec<crate::choice::ArrangePile> {
+    use crate::choice::{ArrangePile, ArrangePlace};
+    vec![
+        ArrangePile::up_to(ArrangePlace::LibraryTop, n),
+        ArrangePile::up_to(ArrangePlace::LibraryBottom, n),
+    ]
+}
+
+/// The piles a surveil of `n` looked-at cards is asked with: the top, then
+/// the graveyard.
+#[must_use]
+pub fn surveil_piles(n: u32) -> Vec<crate::choice::ArrangePile> {
+    use crate::choice::{ArrangePile, ArrangePlace};
+    vec![
+        ArrangePile::up_to(ArrangePlace::LibraryTop, n),
+        ArrangePile::up_to(ArrangePlace::Graveyard, n),
+    ]
+}
+
+/// The answer to a scry or a surveil that sends `away` to the second pile —
+/// the bottom or the graveyard, in the order given — and keeps every other
+/// looked-at card on top in the order it was offered, which is the order it
+/// lay in.
+#[must_use]
+pub fn look_answer(cards: &[ObjectId], away: &[ObjectId]) -> PlayerAction {
+    let top = cards
+        .iter()
+        .copied()
+        .filter(|card| !away.contains(card))
+        .collect();
+    PlayerAction::Arrange {
+        piles: vec![top, away.to_vec()],
     }
 }

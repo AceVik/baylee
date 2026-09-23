@@ -221,10 +221,6 @@ fn four_card_choices_read_as_four_different_decisions() {
         "Choose 1 card from your library"
     );
     assert_eq!(
-        line(ChoicePrompt::ScryBottom, 0, 2, Lang::De),
-        "Wähle bis zu 2 Karten, die nach unten gehen"
-    );
-    assert_eq!(
         line(ChoicePrompt::PutBackOnTop, 1, 1, Lang::De),
         "Wähle 1 Karte, die oben auf deine Bibliothek kommt"
     );
@@ -534,5 +530,39 @@ fn a_one_pile_ordering_says_which_end_the_first_card_is() {
         let german = i.prompt().headline(Lang::De, Turn::Mine, None, false);
         assert!(english.contains(en), "{english}");
         assert!(german.contains(de), "{german}");
+    }
+}
+
+/// A scry and a surveil name themselves, in the game's own words for them,
+/// and each says where its second pile goes — the bottom is still the
+/// library, a graveyard is a zone every player reads.
+#[test]
+fn a_scry_and_a_surveil_say_what_they_are_and_where_the_rest_goes() {
+    let look = |prompt, away| Pending::Arrange {
+        player: me(),
+        cards: vec![obj(1), obj(2)],
+        piles: vec![
+            ArrangePile::up_to(ArrangePlace::LibraryTop, 2),
+            ArrangePile::up_to(away, 2),
+        ],
+        prompt,
+    };
+    for (pending, en, de) in [
+        (
+            look(ArrangePrompt::Scry, ArrangePlace::LibraryBottom),
+            ["Scry", "bottom"],
+            ["Hellsicht", "unter die Bibliothek"],
+        ),
+        (
+            look(ArrangePrompt::Surveil, ArrangePlace::Graveyard),
+            ["Surveil", "graveyard"],
+            ["Überwachen", "Friedhof"],
+        ),
+    ] {
+        let i = interaction(pending);
+        let english = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+        let german = i.prompt().headline(Lang::De, Turn::Mine, None, false);
+        assert!(en.iter().all(|w| english.contains(w)), "{english}");
+        assert!(de.iter().all(|w| german.contains(w)), "{german}");
     }
 }

@@ -149,6 +149,12 @@ pub struct BrowseRow {
     /// `None` for every other choice: a number beside a card in a plain
     /// "choose two" would be claiming the order matters when it does not.
     pub place: Option<usize>,
+    /// The row of the arrangement it stands in, for a `Pending::Arrange`.
+    ///
+    /// What the sheet groups its rows by while an arrangement is being
+    /// built: two piles each numbered from one would otherwise read as one
+    /// list with every number in it twice.
+    pub pile: Option<crate::arrange::Row>,
     /// Its projected mana value — what [`SortKey::ManaValue`] sorts on, and
     /// what the row shows beside the name.
     pub mana_value: u32,
@@ -1538,18 +1544,39 @@ impl Browser {
                             }),
                     },
                     place: mine.and_then(|it| it.arrange_place(object.id)),
+                    pile: mine
+                        .and_then(crate::interaction::Interaction::arrangement)
+                        .and_then(|a| a.slot(object.id))
+                        .map(|(row, _)| row),
                     mana_value: object.mana_value,
                     types: object.types,
                     token: object.token.is_some(),
                 });
             }
         }
-        // An arrangement is read in its own order before any other: the
+        // An arrangement is read in its own order and in no other: the
         // number on a card and where the card stands have to agree, or a
         // player moving one card watches the numbers shuffle under tiles
-        // that stay put. Stable, so every row without a place keeps the
-        // zone's order behind the ones with one.
-        out.sort_by_key(|row| row.place.unwrap_or(usize::MAX));
+        // that stay put — and a sort by name would be a second answer drawn
+        // over the one being built. Row by row, then place by place within
+        // the row, which is also what keeps a graveyard pile, whose cards
+        // carry no number, in the order they were put there. Stable, so
+        // every row the arrangement does not hold keeps the zone's order
+        // behind the ones it does.
+        if let Some(arrangement) = mine.and_then(crate::interaction::Interaction::arrangement) {
+            let rows = arrangement.rows();
+            out.sort_by_key(|row| {
+                arrangement
+                    .slot(row.id)
+                    .map_or((usize::MAX, 0), |(at, place)| {
+                        (
+                            rows.iter().position(|r| *r == at).unwrap_or(usize::MAX),
+                            place,
+                        )
+                    })
+            });
+            return out;
+        }
         self.arrange(&mut out);
         out
     }

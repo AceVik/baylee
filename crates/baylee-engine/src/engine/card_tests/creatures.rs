@@ -4507,12 +4507,11 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     let second = library_before[library_before.len() - 2];
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
-        options,
-        min,
-        max,
+    let Pending::Arrange {
+        cards,
+        piles,
         prompt,
         ..
     } = engine.pending().clone()
@@ -4521,17 +4520,17 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::ScryBottom,
+        crate::choice::ArrangePrompt::Scry,
         "the cost is behind her; this question is the effect she was paid for"
     );
-    assert_eq!(options, vec![top], "scry 1 looks at exactly the top card");
+    assert_eq!(cards, vec![top], "scry 1 looks at exactly the top card");
     assert_eq!(
-        (min, max),
-        (0, 1),
+        piles,
+        scry_piles(1),
         "\"you **may** put that card on the bottom\""
     );
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("the card just looked at");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -4604,22 +4603,19 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     // CR 113.7a: the ability is on the stack and its source is gone, and it
     // still does what it says.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
-        options, prompt, ..
-    } = engine.pending().clone()
-    else {
+    let Pending::Arrange { cards, prompt, .. } = engine.pending().clone() else {
         unreachable!("the predicate just matched")
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
     assert_eq!(
-        options,
+        cards,
         vec![second],
         "the top card, which is the one the first scry left there"
     );
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("bottoming nothing is an answer scry allows");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -13351,7 +13347,7 @@ fn dragon_s_rage_channeler() -> CardIndex {
 /// `Dragon's Rage Channeler` prints `Whenever you cast a noncreature spell, surveil 1.` and `Delirium — As long as there are four or more card types among cards in your graveyard, this creature gets +2/+2, has flying, and attacks each combat if able.`
 ///
 /// Marked `Coverage::Partial`, casting a noncreature spell like `lightning_greaves()` triggers surveil 1 via `Trigger::SpellCast`.
-/// The trigger prompts through `Pending::ChooseCards` with `ChoicePrompt::SurveilGraveyard`, moving the top card into `ZoneLocation::Graveyard`, while the Delirium stat bonus and `KeywordSet::FLYING` are omitted.
+/// The trigger prompts through `Pending::Arrange` with `ArrangePrompt::Surveil`, moving the top card into `ZoneLocation::Graveyard`, while the Delirium stat bonus and `KeywordSet::FLYING` are omitted.
 #[test]
 fn dragon_s_rage_channeler_surveils_on_noncreature_cast_and_omits_delirium() {
     let p0 = PlayerId::new(0);
@@ -13368,33 +13364,25 @@ fn dragon_s_rage_channeler_surveils_on_noncreature_cast_and_omits_delirium() {
 
     cast_from_hand(&mut engine, p0, lightning_greaves());
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
+        cards,
         prompt,
-        min,
-        max,
+        piles,
     } = engine.pending().clone()
     else {
-        panic!("expected ChooseCards prompt, got {:?}", engine.pending());
+        panic!("expected a surveil arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ChoicePrompt::SurveilGraveyard);
-    assert_eq!((min, max), (0, 1));
-    assert!(!options.is_empty());
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    assert_eq!(piles, surveil_piles(1));
+    assert!(!cards.is_empty());
 
-    let binned = options[0];
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![binned],
-            },
-        )
-        .unwrap();
+    let binned = cards[0];
+    engine.apply(p0, look_answer(&cards, &[binned])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);
 
@@ -70428,17 +70416,16 @@ fn rummaging_wizard_surveils_one_each_way() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::SurveilGraveyard,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Surveil,
                 ..
             }
         )
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
@@ -70447,16 +70434,16 @@ fn rummaging_wizard_surveils_one_each_way() {
     assert_eq!(player, p0, "the Wizard's controller does the looking");
     assert_eq!(
         prompt,
-        ChoicePrompt::SurveilGraveyard,
+        ArrangePrompt::Surveil,
         "the variant is what tells a client this card goes to a graveyard and \
          not to the bottom of a library"
     );
     assert_eq!(
-        (min, max),
-        (0, 1),
+        piles,
+        surveil_piles(1),
         "either the card is put into the graveyard or it is not"
     );
-    assert_eq!(options, vec![top], "the top card, and only it");
+    assert_eq!(cards, vec![top], "the top card, and only it");
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         3,
@@ -70468,7 +70455,7 @@ fn rummaging_wizard_surveils_one_each_way() {
     );
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("a card the surveil put on the menu is a legal answer");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -70503,18 +70490,18 @@ fn rummaging_wizard_surveils_one_each_way() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::SurveilGraveyard,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Surveil,
                 ..
             }
         )
     });
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+    let Pending::Arrange { cards, .. } = engine.pending().clone() else {
         unreachable!("the predicate just matched")
     };
-    assert_eq!(options, vec![second], "the new top card, and only it");
+    assert_eq!(cards, vec![second], "the new top card, and only it");
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("declining to put it into the graveyard is a legal answer");
     pass_until(&mut engine, |e| at_rest(e, p0));
 

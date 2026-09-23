@@ -564,6 +564,14 @@ pub struct TrayRevision {
     /// [`baylee_client_core::Interaction::focus_position`] rather than `aim`
     /// itself, because the two read the same `focus` and this one is `Copy`.
     aim: Option<(usize, usize)>,
+    /// The arrangement being built, whole.
+    ///
+    /// Neither field above sees it move: `selected` is the interaction's
+    /// picks, which an arrangement keeps none of, and `aim` is a position in
+    /// the walk that a card nudged from the end of one pile to the end of
+    /// the next can keep. A value and not a counter, for the reason the
+    /// others are — it is compared, not bumped.
+    arrangement: Option<baylee_client_core::arrange::Arrangement>,
 
     /// The text-face latch, which turns every thumbnail over at once.
     faces: bool,
@@ -660,6 +668,10 @@ pub fn sync_tray(
         .interaction
         .as_ref()
         .and_then(baylee_client_core::Interaction::focus_position);
+    let arrangement = duel
+        .interaction
+        .as_ref()
+        .and_then(baylee_client_core::Interaction::arrangement);
     // Rounded to whole pixels for `HudRevision`'s reason: a window being
     // dragged reports fractional sizes, and a gate keyed on an `f32` would
     // rebuild on a sub-pixel wobble.
@@ -691,6 +703,7 @@ pub fn sync_tray(
         && revision.seq == seq
         && revision.selected == selected
         && revision.aim == aim
+        && revision.arrangement.as_ref() == arrangement
         && revision.faces == faces_always
         && revision.texts == texts.len()
         && revision.window == canvas
@@ -717,6 +730,7 @@ pub fn sync_tray(
     revision.seq = seq;
     revision.selected.clone_from(&selected);
     revision.aim = aim;
+    revision.arrangement = arrangement.cloned();
     revision.faces = faces_always;
     revision.texts = texts.len();
     revision.window = canvas;
@@ -1565,24 +1579,32 @@ pub(super) fn spawn_tray(
     // its own. The key and the direction are two buttons because they are two
     // questions, and the arrow says which way the current one runs rather
     // than being a third state of the key.
-    let sort_key = spawn_control(
-        commands,
-        fonts,
-        TraySort { reverse: false },
-        browser.sort().label().text(lang),
-        9.0,
-    );
-    let sort_dir = spawn_control(
-        commands,
-        fonts,
-        TraySort { reverse: true },
-        if browser.descending() {
-            "\u{2193}"
-        } else {
-            "\u{2191}"
-        },
-        8.0,
-    );
+    //
+    // Not while an arrangement is being built, though: the order on the
+    // sheet is then the answer, `Browser::rows` sorts by nothing else, and
+    // a key that lit under the pointer and moved no card would be a control
+    // refusing its gesture.
+    let sorting = (!ordering).then(|| {
+        let key = spawn_control(
+            commands,
+            fonts,
+            TraySort { reverse: false },
+            browser.sort().label().text(lang),
+            9.0,
+        );
+        let direction = spawn_control(
+            commands,
+            fonts,
+            TraySort { reverse: true },
+            if browser.descending() {
+                "\u{2193}"
+            } else {
+                "\u{2191}"
+            },
+            8.0,
+        );
+        [key, direction]
+    });
     // And after them, the three shapes the same rows can be drawn in. They
     // sit at the right end so that every "how it is shown" control is one
     // cluster and the search field keeps the growing left — and they are
@@ -1610,9 +1632,11 @@ pub(super) fn spawn_tray(
         .map(|each| spawn_view(commands, fonts, each, each == mode))
         .collect();
     commands.entity(views).add_children(&segments);
-    commands
-        .entity(controls)
-        .add_children(&[filter_line, sort_key, sort_dir, views]);
+    commands.entity(controls).add_child(filter_line);
+    if let Some(sorting) = sorting {
+        commands.entity(controls).add_children(&sorting);
+    }
+    commands.entity(controls).add_child(views);
     // The tally. The engine names a minimum and a maximum, so the dialog can
     // say how far along the answer is — and a panel with no question in it (a
     // graveyard opened by hand) says nothing rather than "0 of 0".
@@ -1703,37 +1727,41 @@ pub(super) fn spawn_tray(
         commands.entity(empty).add_child(words);
         commands.entity(list).add_child(empty);
     }
-    match mode {
-        ViewMode::Detailed | ViewMode::Large => {
-            for row in &rows {
-                let node = if mode == ViewMode::Large {
-                    spawn_big_row(
-                        commands, lang, row, view, statics, textures, assets, fonts, faces,
-                        &mut cards,
-                    )
-                } else {
-                    spawn_row(
-                        commands, lang, row, view, statics, textures, assets, fonts, faces,
-                        &mut cards,
-                    )
-                };
-                commands.entity(list).add_child(node);
-            }
-        }
-        ViewMode::Grid => spawn_grid(
+    let grid = GridCtx {
+        view,
+        statics,
+        fonts,
+        // The measure the tiles share: the sheet's own width less the gutter
+        // the list keeps on both sides. The panel's border is inside that
+        // width already — it is a `border`, not a margin — so it is not
+        // subtracted a second time.
+        measure: place.width - 2.0 * TRAY_SIDE,
+        headed: false,
+    };
+    match answering.and_then(baylee_client_core::Interaction::arrangement) {
+        // An arrangement is drawn pile by pile, whatever the view: the piles
+        // are the answer, and a list that ran them together would number
+        // every card twice.
+        Some(arrangement) => arrange::spawn_piles(
+            commands,
+            list,
+            lang,
+            arrangement,
+            &rows,
+            mode,
+            grid,
+            faces,
+            textures,
+            assets,
+            &mut cards,
+        ),
+        None => spawn_rows(
             commands,
             list,
             lang,
             &rows,
+            mode,
             GridCtx {
-                view,
-                statics,
-                fonts,
-                // The measure the tiles share: the sheet's own width less
-                // the gutter the list keeps on both sides. The panel's
-                // border is inside that width already — it is a `border`,
-                // not a margin — so it is not subtracted a second time.
-                measure: place.width - 2.0 * TRAY_SIDE,
                 // Headed runs only when the panel is showing more than one
                 // pile: a tile cannot say which zone it came from, and the
                 // list view says it in a badge on every row. With one tab
@@ -1746,7 +1774,9 @@ pub(super) fn spawn_tray(
                     .collect::<std::collections::BTreeSet<_>>()
                     .len()
                     > 1,
+                ..grid
             },
+            faces,
             textures,
             assets,
             &mut cards,
@@ -1815,6 +1845,58 @@ pub(super) fn spawn_tray(
         commands.entity(panel).add_child(corner);
     }
     frame
+}
+
+/// The rows in the shape the view asks for: a line each, a big line each,
+/// or tiles.
+#[allow(clippy::too_many_arguments)] // the rows, the shape, and the stores
+fn spawn_rows(
+    commands: &mut Commands,
+    list: Entity,
+    lang: Lang,
+    rows: &[BrowseRow],
+    mode: ViewMode,
+    grid: GridCtx<'_>,
+    faces: &FaceCtx<'_>,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    cards: &mut Option<&mut UiCards<'_>>,
+) {
+    match mode {
+        ViewMode::Detailed | ViewMode::Large => {
+            for row in rows {
+                let node = if mode == ViewMode::Large {
+                    spawn_big_row(
+                        commands,
+                        lang,
+                        row,
+                        grid.view,
+                        grid.statics,
+                        textures,
+                        assets,
+                        grid.fonts,
+                        faces,
+                        cards,
+                    )
+                } else {
+                    spawn_row(
+                        commands,
+                        lang,
+                        row,
+                        grid.view,
+                        grid.statics,
+                        textures,
+                        assets,
+                        grid.fonts,
+                        faces,
+                        cards,
+                    )
+                };
+                commands.entity(list).add_child(node);
+            }
+        }
+        ViewMode::Grid => spawn_grid(commands, list, lang, rows, grid, textures, assets, cards),
+    }
 }
 
 /// The footer, or nothing at all when there is no question to answer.
@@ -2252,6 +2334,7 @@ fn spawn_row(
 /// these four belong together — they are the answers to "how wide" and "how
 /// many piles", which is the whole of what makes a grid different from a
 /// list.
+#[derive(Clone, Copy)]
 struct GridCtx<'a> {
     view: &'a PlayerView,
     statics: &'a GameStatic,
@@ -2923,5 +3006,6 @@ fn spawn_thumb(
     thumb
 }
 
+mod arrange;
 #[cfg(test)]
 mod tests;

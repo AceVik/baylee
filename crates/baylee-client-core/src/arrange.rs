@@ -13,9 +13,10 @@
 //! with a focus that walks every card, and nudges that move the held card one
 //! step at a time. The model knows no renderer; the tray draws what it says.
 
+use crate::i18n::Phrase;
 use crate::interaction::SelectionOutcome;
 use baylee_core::ids::ObjectId;
-use baylee_engine::choice::ArrangePile;
+use baylee_engine::choice::{ArrangePile, ArrangePlace};
 
 /// One row of an arrangement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -172,6 +173,28 @@ impl Arrangement {
                 .specs
                 .get(n)
                 .is_some_and(|spec| self.piles[n].len() < spec.max as usize),
+        }
+    }
+
+    /// Whether a tap on the end of `row` would put the held card there: a
+    /// card is held, and the row has room for it or already holds it.
+    #[must_use]
+    pub fn can_place(&self, row: Row) -> bool {
+        self.held.is_some_and(|held| {
+            self.has_room(row) || self.slot(held).is_some_and(|(at, _)| at == row)
+        })
+    }
+
+    /// What a row is called on screen: where its cards are going.
+    #[must_use]
+    pub fn label(&self, row: Row) -> Phrase {
+        match row {
+            Row::Unplaced => Phrase::ArrangeUnplaced,
+            Row::Pile(n) => match self.specs.get(n).map(|spec| spec.place) {
+                Some(ArrangePlace::LibraryBottom) => Phrase::ArrangeLibraryBottom,
+                Some(ArrangePlace::Graveyard) => Phrase::ArrangeGraveyard,
+                Some(ArrangePlace::LibraryTop) | None => Phrase::ArrangeLibraryTop,
+            },
         }
     }
 
@@ -351,7 +374,6 @@ impl Arrangement {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_engine::choice::ArrangePlace;
 
     fn obj(n: u32) -> ObjectId {
         ObjectId::new(n, 0)
@@ -553,5 +575,48 @@ mod tests {
         assert!(a.same_question(&[obj(1), obj(2), obj(3)], &specs));
         assert!(!a.same_question(&[obj(1), obj(2)], &specs));
         assert!(!a.same_question(&[obj(1), obj(2), obj(3)], &specs[..1]));
+    }
+
+    /// A pile's end takes the held card when there is room or the card is
+    /// already in it — and nothing at all while no card is held.
+    #[test]
+    fn a_piles_end_takes_the_held_card_only_where_it_fits() {
+        let mut a = Arrangement::new(
+            &[obj(1), obj(2)],
+            &[
+                pile(ArrangePlace::LibraryTop, 0, 2),
+                pile(ArrangePlace::Graveyard, 0, 1),
+            ],
+        );
+        assert!(!a.can_place(Row::Pile(1)), "nothing is held");
+        a.toggle(obj(1));
+        assert!(a.can_place(Row::Pile(0)), "its own pile, to its end");
+        assert!(a.can_place(Row::Pile(1)), "an empty pile of one");
+        assert!(a.place(Row::Pile(1)));
+        a.toggle(obj(2));
+        assert!(!a.can_place(Row::Pile(1)), "the pile of one is full");
+        assert!(!a.place(Row::Pile(1)), "and placing there is refused");
+        a.toggle(obj(2));
+        a.toggle(obj(1));
+        assert!(a.can_place(Row::Pile(1)), "the card already in it may stay");
+    }
+
+    /// A row is named after where its cards go, and a pile nobody placed
+    /// anything in is named all the same.
+    #[test]
+    fn every_row_is_named_after_where_its_cards_go() {
+        let a = Arrangement::new(
+            &[obj(1), obj(2)],
+            &[
+                pile(ArrangePlace::LibraryTop, 1, 1),
+                pile(ArrangePlace::LibraryBottom, 0, 1),
+                pile(ArrangePlace::Graveyard, 0, 1),
+            ],
+        );
+        assert_eq!(a.rows()[0], Row::Unplaced, "no pile could take both");
+        assert_eq!(a.label(Row::Unplaced), Phrase::ArrangeUnplaced);
+        assert_eq!(a.label(Row::Pile(0)), Phrase::ArrangeLibraryTop);
+        assert_eq!(a.label(Row::Pile(1)), Phrase::ArrangeLibraryBottom);
+        assert_eq!(a.label(Row::Pile(2)), Phrase::ArrangeGraveyard);
     }
 }

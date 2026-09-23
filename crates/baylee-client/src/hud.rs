@@ -765,6 +765,14 @@ pub struct TrayFilter;
 #[derive(Component)]
 pub struct TrayGear;
 
+/// The end of one pile of an arrangement, while a card is held that could
+/// go there: a tap puts it last in that pile.
+///
+/// It carries the row rather than a pile index, because the cards not yet
+/// placed are a row too and a held card may be put back among them.
+#[derive(Component)]
+pub struct ArrangeSlot(pub baylee_client_core::arrange::Row);
+
 /// The browser's sort control.
 ///
 /// One button rather than a menu, because four keys and a direction is not a

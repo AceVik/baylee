@@ -339,7 +339,9 @@ impl Prompt {
                 (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => {
                     Phrase::OrderOnBottom.text(lang).to_string()
                 }
-                (ArrangePrompt::Order, None) => Phrase::PutInOrder.text(lang).to_string(),
+                (ArrangePrompt::Order, _) => Phrase::PutInOrder.text(lang).to_string(),
+                (ArrangePrompt::Scry, _) => Phrase::ScryPrompt.text(lang).to_string(),
+                (ArrangePrompt::Surveil, _) => Phrase::SurveilPrompt.text(lang).to_string(),
             },
             Self::YesNo { question } => yes_no_line(lang, *question, statics),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
@@ -497,10 +499,6 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
-        ChoicePrompt::ScryBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
-        ChoicePrompt::SurveilGraveyard => {
-            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard)
-        }
         ChoicePrompt::PutBackOnTop => (Phrase::NounCardToTop, Phrase::NounCardsToTop),
         ChoicePrompt::Wish => (Phrase::NounCardOutside, Phrase::NounCardsOutside),
         ChoicePrompt::CostSacrifice => (

@@ -862,29 +862,28 @@ fn simulacrum_synthesizer_scries_on_arrival_and_builds_only_for_another_artifact
 
     cast_from_hand(&mut engine, p0, simulacrum_synthesizer());
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the Synthesizer's controller does the looking");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
-    assert_eq!(options, vec![top, second], "the top two cards, top first");
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "either, both or neither may be bottomed"
     );
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("one of the two just looked at");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -3456,8 +3455,8 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
 /// Under `Coverage::Partial`, the landmark counter, counter-count branch, and transform are
 /// omitted because landmark counters have no id in `baylee_cards_dsl::counters`. The front-face
 /// `{1}, {T}: Scry 1` ability is fully functional. The test activates ability 0, answers the
-/// `ChoicePrompt::ScryBottom` prompt to bottom the top card, and verifies the bottomed card,
-/// the tapped state, and that `Treasure Map` remains on face 0.
+/// scry arrangement (`ArrangePrompt::Scry`) to bottom the top card, and verifies the bottomed
+/// card, the tapped state, and that `Treasure Map` remains on face 0.
 #[test]
 fn treasure_map_activates_to_scry_one() {
     let p0 = PlayerId::new(0);
@@ -3474,37 +3473,25 @@ fn treasure_map_activates_to_scry_one() {
     activate(&mut engine, p0, treasure_map(), 0);
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("pass_until only stops on card choice")
     };
     assert_eq!(player, p0, "the map's controller scries");
-    assert_eq!(
-        prompt,
-        crate::choice::ChoicePrompt::ScryBottom,
-        "prompt is ScryBottom"
-    );
-    assert_eq!((min, max), (0, 1), "Scry 1 allows bottoming 0 or 1 cards");
-    assert_eq!(options.len(), 1, "top card of library is inspected");
-    let top_card = options[0];
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry, "prompt is Scry");
+    assert_eq!(piles, scry_piles(1), "Scry 1 allows bottoming 0 or 1 cards");
+    assert_eq!(cards.len(), 1, "top card of library is inspected");
+    let top_card = cards[0];
 
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![top_card],
-            },
-        )
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[top_card])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);
 
@@ -7914,7 +7901,7 @@ fn darksteel_pendant() -> CardIndex {
 /// `Darksteel Pendant` prints `Indestructible` and `{{1}}, {{T}}: Scry 1.` with `Coverage::Implemented`.
 /// In this scenario, seat 0 controls `Darksteel Pendant` and a `forest()`.
 /// The artifact possesses `KeywordSet::INDESTRUCTIBLE`. Floating one mana activates the ability,
-/// which presents a `ChoicePrompt::ScryBottom` prompt to inspect the top card of the library.
+/// which presents a scry arrangement (`ArrangePrompt::Scry`) to inspect the top card of the library.
 #[test]
 fn darksteel_pendant_has_indestructible_and_scries() {
     let p0 = PlayerId::new(0);
@@ -7935,19 +7922,22 @@ fn darksteel_pendant_has_indestructible_and_scries() {
     activate(&mut engine, p0, darksteel_pendant(), 0);
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
-        prompt, min, max, ..
+    let Pending::Arrange {
+        cards,
+        piles,
+        prompt,
+        ..
     } = engine.pending().clone()
     else {
-        panic!("expected Scry prompt, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
-    assert_eq!((min, max), (0, 1));
+    assert_eq!(prompt, ArrangePrompt::Scry);
+    assert_eq!(piles, scry_piles(1));
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("kept card on top");
 
     pass_until(&mut engine, stack_is_empty);

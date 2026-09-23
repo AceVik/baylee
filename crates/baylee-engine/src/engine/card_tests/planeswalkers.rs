@@ -331,29 +331,23 @@ fn jace_looks_at_a_targets_library_and_the_controller_decides() {
     // The ability resolves, and the question it raises goes to Jace's
     // controller — never to the player whose library is being looked at.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "\"you may put that card on the bottom\" — you");
-    assert_eq!(options, vec![top_of_theirs], "and it is their top card");
-    assert_eq!((min, max), (0, 1), "the \"may\" is the zero minimum");
+    assert_eq!(cards, vec![top_of_theirs], "and it is their top card");
+    assert_eq!(piles, scry_piles(1), "the \"may\" is the zero minimum");
 
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![top_of_theirs],
-            },
-        )
+        .apply(p0, look_answer(&cards, &[top_of_theirs]))
         .unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)

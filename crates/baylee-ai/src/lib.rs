@@ -22,7 +22,7 @@ use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::Politics;
 use baylee_engine::choice::{
-    ChoicePrompt, Pending, PlayerAction, YesNoPrompt, default_arrangement,
+    ArrangePrompt, ChoicePrompt, Pending, PlayerAction, YesNoPrompt, default_arrangement,
 };
 use baylee_view::PlayerView;
 
@@ -312,17 +312,9 @@ impl HeuristicAgent {
                 // `min` says. Whether a storage land is worth leaving
                 // tapped is a real judgement and not one this heuristic
                 // makes.
-                // A surveil is the second, and it is worse than the untap
-                // step's: a card put into the graveyard does not come back,
-                // and a surveil is *usually* 1 or 2, so the `max <= 2`
-                // shortcut would have milled the top of this agent's own
-                // library every time a surveil resolved. Keeping the card
-                // is always legal and costs nothing; deciding a card is bad
-                // enough to bin needs to know what it is, which this
-                // heuristic does not.
                 let n = match prompt {
                     ChoicePrompt::Delve => max,
-                    ChoicePrompt::LeaveTapped | ChoicePrompt::SurveilGraveyard => min,
+                    ChoicePrompt::LeaveTapped => min,
                     _ if max <= 2 => max,
                     _ => min,
                 };
@@ -439,6 +431,28 @@ impl HeuristicAgent {
             // offered, every pile filled to its minimum first. It is always
             // an answer, because the engine never asks an arrangement whose
             // piles cannot hold its cards.
+            // A scry or a surveil: what the policy would send away goes to
+            // the second pile and the rest stays on top as it lay. With no
+            // opinion — every level below the one that reads cards — nothing
+            // moves, and for a surveil that is the point: a card put into a
+            // graveyard does not come back, and deciding a card is bad
+            // enough to bin needs to know what it is.
+            Pending::Arrange {
+                cards,
+                piles,
+                prompt: ArrangePrompt::Scry | ArrangePrompt::Surveil,
+                ..
+            } if piles.len() == 2 => {
+                let away = self.send_away(view, &cards).unwrap_or_default();
+                let top = cards
+                    .iter()
+                    .copied()
+                    .filter(|c| !away.contains(c))
+                    .collect();
+                PlayerAction::Arrange {
+                    piles: vec![top, away],
+                }
+            }
             Pending::Arrange { cards, piles, .. } => PlayerAction::Arrange {
                 piles: default_arrangement(&cards, &piles).unwrap_or_else(|| vec![cards.clone()]),
             },
@@ -616,6 +630,7 @@ mod tests {
     use baylee_cards_dsl::AbilityDef;
     use baylee_core::color::ColorSet;
     use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
+    use baylee_engine::choice::{ArrangePile, ArrangePlace};
     use baylee_view::{
         CombatView, CounterEntry, CounterKind, ObjectStatus, PlayerView, PublicObject, SeatView,
     };
@@ -3356,34 +3371,34 @@ mod tests {
             "the whole reduction the spell was offered on"
         );
 
-        let PlayerAction::ChooseObjects { objects } =
-            agent().act(&v, &pile(ChoicePrompt::ScryBottom))
-        else {
-            panic!("expected a card choice")
-        };
-        assert!(
-            objects.is_empty(),
-            "a pile that costs nothing to decline is still declined"
-        );
-
-        // A surveil is the one where the `max <= 2` shortcut is actively
-        // harmful, because the pile it names goes to a graveyard and does
-        // not come back. It is also the shape the shortcut would have
-        // caught: a surveil is 1 or 2 on every card in the pool.
-        let small = Pending::ChooseCards {
-            player: PlayerId::new(0),
-            options: graveyard[..2].to_vec(),
-            min: 0,
-            max: 2,
-            prompt: ChoicePrompt::SurveilGraveyard,
-        };
-        let PlayerAction::ChooseObjects { objects } = agent().act(&v, &small) else {
-            panic!("expected a card choice")
-        };
-        assert!(
-            objects.is_empty(),
-            "the agent keeps what it cannot read, so a surveil mills it nothing"
-        );
+        // A scry and a surveil are arrangements, and an agent with no
+        // opinion about the cards moves none of them: every card stays on
+        // top as it lay. For the surveil that is the point — its second pile
+        // is a graveyard and does not come back, and a surveil is 1 or 2 on
+        // every card in the pool, which is exactly where a "take the max of
+        // a small menu" shortcut would have milled this agent every time.
+        for (n, prompt, away) in [
+            (6_u32, ArrangePrompt::Scry, ArrangePlace::LibraryBottom),
+            (2, ArrangePrompt::Surveil, ArrangePlace::Graveyard),
+        ] {
+            let cards = graveyard[..n as usize].to_vec();
+            let look = Pending::Arrange {
+                player: PlayerId::new(0),
+                cards: cards.clone(),
+                piles: vec![
+                    ArrangePile::up_to(ArrangePlace::LibraryTop, n),
+                    ArrangePile::up_to(away, n),
+                ],
+                prompt,
+            };
+            assert_eq!(
+                agent().act(&v, &look),
+                PlayerAction::Arrange {
+                    piles: vec![cards, vec![]]
+                },
+                "{prompt:?}: the agent keeps what it cannot read"
+            );
+        }
     }
 
     /// The untap step's determination, where naming a permanent is what

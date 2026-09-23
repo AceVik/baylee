@@ -7256,13 +7256,12 @@ fn lose_hope_shrinks_the_creature_it_names_and_then_scries_two() {
     // Die Auflösung führt durch den ersten Satz hindurch zur Frage des
     // zweiten: erst schrumpfen, dann schauen.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
@@ -7271,18 +7270,18 @@ fn lose_hope_shrinks_the_creature_it_names_and_then_scries_two() {
     assert_eq!(player, p0, "the caster does the looking");
     assert_eq!(
         prompt,
-        ChoicePrompt::ScryBottom,
+        ArrangePrompt::Scry,
         "scry is its own question and not a search or a discard"
     );
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "Scry 2: either, both or neither of the top two, and none of them forced"
     );
-    assert_eq!(options, vec![top, second], "the top two cards, top first");
+    assert_eq!(cards, vec![top, second], "the top two cards, top first");
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .apply(p0, look_answer(&cards, &[]))
         .expect("looking is not moving: keeping both on top is a legal answer");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -7423,13 +7422,12 @@ fn opt_scries_the_top_card_to_the_bottom_and_draws_the_one_beneath_it() {
     cast_from_hand(&mut engine, p0, opt());
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
@@ -7438,18 +7436,18 @@ fn opt_scries_the_top_card_to_the_bottom_and_draws_the_one_beneath_it() {
     assert_eq!(player, p0, "der Wirkende schaut");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::ScryBottom,
+        crate::choice::ArrangePrompt::Scry,
         "ein Scry, kein Surgeil"
     );
     assert_eq!(
-        options,
+        cards,
         vec![top],
         "Scry 1 sees exactly one card, and it is the topmost"
     );
-    assert_eq!((min, max), (0, 1), "oben lassen oder nach unten legen");
+    assert_eq!(piles, scry_piles(1), "oben lassen oder nach unten legen");
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("the offered card is a legal response, the costs are long since paid");
 
     pass_until(&mut engine, stack_is_empty);
@@ -8529,29 +8527,28 @@ fn stand_firm_pumps_the_creature_it_names_and_scries_two() {
     );
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the caster does the looking");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
-    assert_eq!(options, vec![top, second], "the top two cards, top first");
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "either, both or neither may be bottomed"
     );
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("a card the scry put on the menu is a legal answer");
     pass_until(&mut engine, stack_is_empty);
 
@@ -10940,29 +10937,28 @@ fn magma_jet_kills_a_one_one_across_the_table_and_then_scries_two() {
     // where the card asks its second question — the walk stops on the
     // question rather than answering it, because the *answer* is the subject.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the caster does the looking");
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
-    assert_eq!(options, vec![top, second], "the top two cards, top first");
+    assert_eq!(prompt, ArrangePrompt::Scry);
+    assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "either, both or neither may be bottomed"
     );
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("one of the two just looked at");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -14458,7 +14454,7 @@ fn tel_jilad_justice_destroys_an_artifact_and_then_scries_two() {
     // The spell's two effects resolve in the order they are printed, so the
     // destroy has already happened when the scry's question arrives.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
     assert!(
         in_graveyard(&engine, p1, quiet_artifact()).is_some(),
@@ -14469,27 +14465,26 @@ fn tel_jilad_justice_destroys_an_artifact_and_then_scries_two() {
         "and has left the battlefield, which is what destroying it means"
     );
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the caster does the looking");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
-    assert_eq!(options, vec![top, second], "the top two cards, top first");
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "either, both or neither may be bottomed"
     );
 
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .apply(p0, look_answer(&cards, &[top]))
         .expect("one of the two cards just looked at");
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -14719,8 +14714,9 @@ fn wipe_clean_exiles_an_enchantment_and_cycles_its_other_copy_away_for_a_card() 
 /// `Ferocious Charge` is a `{2}{G}` Instant under `Coverage::Implemented`.
 /// It gives target creature +4/+4 until end of turn and scries 2.
 /// Casting it targets a friendly creature, prompting for the target upon casting,
-/// and during resolution prompts `ChoicePrompt::ScryBottom` for the scry 2 before
-/// pumping the creature from 1/1 to 5/5 until end of turn and moving to the graveyard.
+/// and during resolution asks a `Pending::Arrange` with `ArrangePrompt::Scry` for the
+/// scry 2 before pumping the creature from 1/1 to 5/5 until end of turn and moving to
+/// the graveyard.
 #[test]
 fn ferocious_charge_pumps_target_creature_and_scries_two() {
     let p0 = PlayerId::new(0);
@@ -14756,34 +14752,31 @@ fn ferocious_charge_pumps_target_creature_and_scries_two() {
     pass_until(&mut engine, |e| {
         matches!(
             e.pending(),
-            Pending::ChooseCards {
-                prompt: ChoicePrompt::ScryBottom,
+            Pending::Arrange {
+                prompt: ArrangePrompt::Scry,
                 ..
             }
         )
     });
 
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
-        ..
     } = engine.pending().clone()
     else {
-        panic!("expected ScryBottom choice, got {:?}", engine.pending());
+        panic!("expected a scry arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0, "active player scries");
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "Scry 2 allows choosing 0 to 2 cards to bottom"
     );
-    assert_eq!(prompt, ChoicePrompt::ScryBottom);
+    assert_eq!(prompt, ArrangePrompt::Scry);
 
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);
 

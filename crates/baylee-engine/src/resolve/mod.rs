@@ -732,6 +732,26 @@ pub fn resume_may_do(state: &mut GameState, res: &mut Resolution, yes: bool) -> 
     run(state, res)
 }
 
+/// A scry's or a surveil's question: the looked-at cards, a top pile that
+/// may take any of them in an order, and `away` — the bottom or a graveyard
+/// — that may take the rest. Top first, so the default answer, which fills
+/// the first pile with room, keeps every card where it was.
+fn look_question(player: PlayerId, looked: Vec<ObjectId>, away: ArrangePlace) -> Pending {
+    let n = u32::try_from(looked.len()).unwrap_or(u32::MAX);
+    Pending::Arrange {
+        player,
+        cards: looked,
+        piles: vec![
+            ArrangePile::up_to(ArrangePlace::LibraryTop, n),
+            ArrangePile::up_to(away, n),
+        ],
+        prompt: match away {
+            ArrangePlace::Graveyard => ArrangePrompt::Surveil,
+            ArrangePlace::LibraryTop | ArrangePlace::LibraryBottom => ArrangePrompt::Scry,
+        },
+    }
+}
+
 /// Resumes a [`Pending::Arrange`] with the cards the player put in each
 /// pile, library piles listed top to bottom.
 ///
@@ -760,6 +780,37 @@ pub fn resume_arranged(
             // one listed before it.
             for &card in bottom {
                 let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+            }
+        }
+        // CR 701.22a: any number on the bottom in any order, the rest on top
+        // in any order. The library is the one the cards were looked at in,
+        // which for Jace's "look at the top card of target player's library"
+        // is not the controller's — see the variant's own doc.
+        (AwaitingOp::Scry { player }, [top, bottom]) => {
+            let library = ZoneLocation::Library(player);
+            for &card in bottom {
+                let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+            }
+            for &card in top.iter().rev() {
+                let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+            }
+        }
+        // CR 701.25a: any number into the graveyard, the rest on top in any
+        // order. The owner's graveyard and not the controller's: a card only
+        // ever goes to its owner's graveyard, and a surveil that met a stolen
+        // card would still send it home.
+        (AwaitingOp::Surveil, [top, graveyard]) => {
+            for &card in graveyard {
+                let owner = state.object(card).map_or(res.controller, |o| o.owner);
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            for &card in top.iter().rev() {
+                let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
             }
         }
         (other, _) => panic!("resume_arranged on {other:?} with {} piles", piles.len()),
@@ -880,37 +931,6 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                         );
                     }
                 }
-            }
-        }
-        AwaitingOp::Scry { player } => {
-            // Chosen cards go to the bottom in chosen order; the rest stays
-            // on top in its original relative order (scry approximation).
-            // The library is the one they were looked at in — see the
-            // variant's own doc.
-            for &card in chosen {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Library(player),
-                    ZonePosition::Bottom,
-                    Cause::Effect,
-                );
-            }
-        }
-        AwaitingOp::Surveil => {
-            // Chosen cards go to their owner's graveyard; the rest stays on
-            // top in its original relative order (CR 701.25a says "in any
-            // order", and this is the same approximation the scry above
-            // makes). The owner and not the controller: a card only ever
-            // goes to its owner's graveyard, and a surveil that took a
-            // stolen card would still put it back where it came from.
-            for &card in chosen {
-                let owner = state.object(card).map_or(res.controller, |o| o.owner);
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
             }
         }
         AwaitingOp::PutBackOnTop => {
@@ -1133,7 +1153,10 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
-        AwaitingOp::ReorderTopLibrary | AwaitingOp::DigBottom => {
+        AwaitingOp::ReorderTopLibrary
+        | AwaitingOp::DigBottom
+        | AwaitingOp::Scry { .. }
+        | AwaitingOp::Surveil => {
             unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ControlRotation { .. }
@@ -1284,13 +1307,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // the target's and the decision is the controller's. Asking
             // `player` handed the opponent the choice of whether to keep
             // their own card, which is the opposite of what the card does.
-            Some(Pending::ChooseCards {
-                player: you,
-                options: looked,
-                min: 0,
-                max: n as u8,
-                prompt: ChoicePrompt::ScryBottom,
-            })
+            Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Scry { amount } => {
             let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
@@ -1306,13 +1323,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 return None;
             }
             res.awaiting = Some(AwaitingOp::Scry { player: you });
-            Some(Pending::ChooseCards {
-                player: you,
-                options: looked,
-                min: 0,
-                max: n as u8,
-                prompt: ChoicePrompt::ScryBottom,
-            })
+            Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Surveil { amount } => {
             let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
@@ -1331,13 +1342,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 return None;
             }
             res.awaiting = Some(AwaitingOp::Surveil);
-            Some(Pending::ChooseCards {
-                player: you,
-                options: looked,
-                min: 0,
-                max: n as u8,
-                prompt: ChoicePrompt::SurveilGraveyard,
-            })
+            Some(look_question(you, looked, ArrangePlace::Graveyard))
         }
         Effect::PutFromHandOnTop { count } => {
             let hand = state.zones.list(ZoneLocation::Hand(you)).clone();

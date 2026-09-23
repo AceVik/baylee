@@ -226,11 +226,50 @@ impl HeuristicAgent {
         if self.profile.mulligan_skill < 2 {
             return None;
         }
+        let value = Self::card_value(view);
+        let mut ranked = options.to_vec();
+        let count = match prompt {
+            ChoicePrompt::SearchLibrary | ChoicePrompt::Wish => {
+                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                usize::from(max)
+            }
+            ChoicePrompt::CostSacrifice
+            | ChoicePrompt::CostDiscard
+            | ChoicePrompt::PutBackOnTop => {
+                ranked.sort_by_key(|id| (value(id), *id));
+                usize::from(min)
+            }
+            _ => return None,
+        };
+        ranked.truncate(count);
+        Some(ranked)
+    }
+
+    /// The looked-at cards a scry sends to the bottom or a surveil into the
+    /// graveyard, worst first; `None` below the skill that reads cards at
+    /// all.
+    ///
+    /// Only a card worth less than nothing goes: unknown cards are kept,
+    /// because an id alone is not information about the top of a library.
+    pub(crate) fn send_away(&self, view: &PlayerView, cards: &[ObjectId]) -> Option<Vec<ObjectId>> {
+        if self.profile.mulligan_skill < 2 {
+            return None;
+        }
+        let value = Self::card_value(view);
+        let mut away: Vec<ObjectId> = cards.iter().copied().filter(|id| value(id) < 0).collect();
+        away.sort_by_key(|id| (value(id), *id));
+        Some(away)
+    }
+
+    /// What a card is worth to this seat right now: a land by how many it
+    /// already has, a spell by how far its mana value is out of reach. Zero
+    /// for a card whose identity this seat cannot see.
+    fn card_value(view: &PlayerView) -> impl Fn(&ObjectId) -> i64 + '_ {
         let lands = view
             .battlefield_of(view.seat)
             .filter(|o| o.types.contains(TypeSet::LAND))
             .count();
-        let value = |id: &ObjectId| -> i64 {
+        move |id: &ObjectId| -> i64 {
             let Some(card) = identity(view, *id) else {
                 return 0;
             };
@@ -252,33 +291,7 @@ impl HeuristicAgent {
                         .saturating_sub(u32::try_from(lands).unwrap_or(u32::MAX)),
                 ) * 150
             }
-        };
-        let mut ranked = options.to_vec();
-        let count = match prompt {
-            ChoicePrompt::SearchLibrary | ChoicePrompt::Wish => {
-                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
-                usize::from(max)
-            }
-            ChoicePrompt::ScryBottom | ChoicePrompt::SurveilGraveyard => {
-                // Unknown cards are kept. An id alone is not information
-                // about the top of a library.
-                ranked.sort_by_key(|id| (value(id), *id));
-                ranked
-                    .iter()
-                    .take_while(|id| value(id) < 0)
-                    .count()
-                    .clamp(usize::from(min), usize::from(max))
-            }
-            ChoicePrompt::CostSacrifice
-            | ChoicePrompt::CostDiscard
-            | ChoicePrompt::PutBackOnTop => {
-                ranked.sort_by_key(|id| (value(id), *id));
-                usize::from(min)
-            }
-            _ => return None,
-        };
-        ranked.truncate(count);
-        Some(ranked)
+        }
     }
 
     pub(crate) fn color(&self, view: &PlayerView, options: &[ManaColor]) -> ManaColor {

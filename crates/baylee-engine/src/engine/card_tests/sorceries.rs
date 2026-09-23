@@ -5810,39 +5810,33 @@ fn serum_visions_draws_a_card_and_then_scries_two() {
     cast_from_hand(&mut engine, p0, serum_visions());
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::Arrange { .. })
     });
-    let Pending::ChooseCards {
+    let Pending::Arrange {
         player,
-        options,
-        min,
-        max,
+        cards,
+        piles,
         prompt,
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the caster does the looking");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
+    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
     assert_eq!(
-        options,
+        cards,
         vec![second, third],
         "the top two cards *after* the draw: the card that was on top is in \
          hand and must not be on the scry's menu"
     );
     assert_eq!(
-        (min, max),
-        (0, 2),
+        piles,
+        scry_piles(2),
         "either, both or neither may be bottomed"
     );
 
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![second],
-            },
-        )
+        .apply(p0, look_answer(&cards, &[second]))
         .expect("one of the two the scry just looked at");
     pass_until(&mut engine, |e| at_rest(e, p0));
 

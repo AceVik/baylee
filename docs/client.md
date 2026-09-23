@@ -4904,6 +4904,22 @@ A choice is re-sent whole with every view, so `Interaction::new_keeping`
 keeps a half-built arrangement when the same seat is asked the same cards
 into the same piles again.
 
+The sheet draws an arrangement **pile by pile** in every view — a heading
+naming where the cards go and how many are there ("Unter die Bibliothek
+(1)"), the pile's cards, then the pile's **end**. The end is a control only
+while a card is held that could go there (`Arrangement::can_place`), and a
+tap on it puts that card last in the pile: a tap on a card puts the held one
+*in front of* it, so without the end the last place of a pile, and every
+place in an empty one, were reachable from the keyboard alone. With nothing
+held an empty pile still shows its end as a quiet "Leer", so a scry's bottom
+reads as somewhere to put a card before anything has been put there. The
+place numbers restart in each pile, the graveyard's pile carries none (its
+order is not the player's), and the sort control is not drawn: the order on
+the sheet *is* the answer and `Browser::rows` sorts it by nothing else.
+`TrayRevision` holds the arrangement itself, because neither `selected` (an
+arrangement keeps no picks) nor `aim` (a position a nudged card can keep)
+sees every move.
+
 The mode lives in `ClientSettings` beside the sheet's rectangle, and its
 reader is hand-written for the reason `Keymap`'s is: the store is
 `from_str(…).ok().unwrap_or_default()`, so a view mode retired in a later

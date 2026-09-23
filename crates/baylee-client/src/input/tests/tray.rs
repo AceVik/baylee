@@ -571,3 +571,48 @@ fn the_maximise_button_fills_the_band_and_gives_it_back() {
         "the sheet jumped: the click wrote the store and started no movement"
     );
 }
+
+/// The end of a pile is a place to tap: the held card goes last in that
+/// pile, which no tap on a card can say — a tap on a card puts the held one
+/// in front of it.
+#[test]
+fn a_tap_on_a_piles_end_puts_the_held_card_last_in_it() {
+    use baylee_client_core::arrange::Row;
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+
+    let mut app = hand_app();
+    let mut scry = Interaction::new(
+        Pending::Arrange {
+            player: PlayerId::new(0),
+            cards: vec![obj(1), obj(2)],
+            piles: vec![
+                ArrangePile::up_to(ArrangePlace::LibraryTop, 2),
+                ArrangePile::up_to(ArrangePlace::LibraryBottom, 2),
+            ],
+            prompt: ArrangePrompt::Scry,
+        },
+        PlayerId::new(0),
+    );
+    scry.toggle(obj(1));
+    app.world_mut().resource_mut::<crate::Duel>().interaction = Some(scry);
+
+    let end = app
+        .world_mut()
+        .spawn(crate::hud::ArrangeSlot(Row::Pile(1)))
+        .id();
+    click(&mut app, end);
+
+    let duel = app.world().resource::<crate::Duel>();
+    let arrangement = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::arrangement)
+        .expect("still arranging: nothing was sent");
+    assert_eq!(
+        arrangement.cards(Row::Pile(1)),
+        &[obj(1)],
+        "the held card went under the library"
+    );
+    assert_eq!(arrangement.cards(Row::Pile(0)), &[obj(2)]);
+    assert_eq!(arrangement.held(), None, "and was let go of");
+}

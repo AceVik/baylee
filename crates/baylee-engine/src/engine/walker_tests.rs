@@ -154,8 +154,12 @@ fn jace_enters_with_loyalty_and_ticks_up_and_down() {
         panic!()
     };
     engine.apply(player, PlayerAction::PassPriority).unwrap();
-    let Pending::ChooseCards { .. } = engine.pending().clone() else {
-        panic!("expected scry prompt, got {:?}", engine.pending())
+    let Pending::Arrange {
+        prompt: crate::choice::ArrangePrompt::Scry,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a scry arrangement, got {:?}", engine.pending())
     };
 }
 

@@ -52,6 +52,8 @@ use bevy::prelude::*;
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TrayWidgets<'w, 's> {
     cards: Query<'w, 's, &'static TrayCard>,
+    /// The end of each pile of an arrangement, while a card is held.
+    slots: Query<'w, 's, &'static crate::hud::ArrangeSlot>,
     tabs: Query<'w, 's, &'static TrayTab>,
     close: Query<'w, 's, &'static TrayMinimise>,
     /// The tray's own button, which is not on the sheet at all — it
@@ -2791,6 +2793,15 @@ fn browser_click(
 ) -> bool {
     if let Some(card) = find_in_lineage(entity, &tray.cards, parents) {
         activate_card(duel, card.object);
+        return true;
+    }
+    // The end of a pile: the held card goes last in it. Drawn only while
+    // that would work, so a refusal here is a sheet one frame behind the
+    // model, and the next frame draws it right.
+    if let Some(slot) = find_in_lineage(entity, &tray.slots, parents) {
+        if let Some(it) = duel.interaction.as_mut() {
+            it.place_held(slot.0);
+        }
         return true;
     }
     // A tab inside the open tray ticks a zone's box; a chip outside it opens

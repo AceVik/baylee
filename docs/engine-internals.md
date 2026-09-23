@@ -421,8 +421,8 @@ wrong the same way.
 ## Cards put into places: `Pending::Arrange`
 
 "Put them back in any order" and "the rest on the bottom in any order" are
-one question with different destinations, and so are scry, surveil and the
-piles of CR 700.3 once they move onto it (#202). A `Pending::Arrange` names
+one question with different destinations, and so are scry and surveil — and
+the piles of CR 700.3 once they move onto it (#202). A `Pending::Arrange` names
 the cards and a list of `ArrangePile`s — a place, a `min`/`max` and whether
 the order inside is the player's — and `PlayerAction::Arrange` answers with
 one list per pile, in the order the question gave them. It replaced
@@ -440,6 +440,20 @@ itself rather than against the answer:
 - **An answer is every offered card exactly once**, each pile within its
   bounds, checked by `choice::arrangement_fault` before anything moves. An
   unordered pile's order is not read.
+
+A **scry** is two piles, the top and then the bottom, each taking any number
+of the looked-at cards in an order the player chooses (CR 701.22a), and a
+**surveil** is the top and then the graveyard (CR 701.25a) — an unordered
+pile, because nothing reads the order in which cards enter a graveyard
+together. Both used to be a `ChooseCards` naming the cards to send away,
+with the rest left on top in the order they lay: the "in any order" of both
+rules was approximated away, and a player could not scry two and keep the
+second card above the first. The prompt (`ArrangePrompt::Scry` /
+`Surveil`) is what a client titles the question with; the piles alone would
+not say which rule is being applied. The library a scry puts cards back into
+is the one they were looked at in, which for a "look at the top card of
+target player's library" is not the controller's, and a surveiled card goes
+to its **owner's** graveyard.
 
 `choice::default_arrangement` is the answer with no preference — the cards
 as offered, each pile filled to its minimum first — and is what the house AI
