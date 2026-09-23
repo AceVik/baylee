@@ -120,6 +120,27 @@ pub enum Filter {
     CmcAtLeast(u32),
     /// Toughness at most N (Recruiter of the Guard).
     ToughnessAtMost(i16),
+    /// Toughness at least N (Baxter Building's draw, gated on "a creature
+    /// with toughness 4 or greater").
+    ToughnessAtLeast(i16),
+    /// Power at least N (Bonders' Enclave, Garruk's Uprising, Temur
+    /// Ascendancy).
+    ///
+    /// The power twin of the two above, and its absence was not one card
+    /// sitting unwritten: six cards in this pool print a power comparison
+    /// and every one of them had the ability that states it taken **off**
+    /// the card, because the alternative — offering `{3}, {T}: Draw a card`
+    /// with no gate at all — is a land strictly stronger than the printed
+    /// one. CR 602.5 forbids beginning an activation that is prohibited, so
+    /// a gate that cannot be stated is a gate that must not be approximated.
+    ///
+    /// It reads the **projected** power, like every other predicate here: a
+    /// 1/1 under an anthem that makes it 4/4 is a creature with power 4 or
+    /// greater, which is what CR 613 makes it and what a player sees.
+    PowerAtLeast(i16),
+    /// Power at most N (Access Tunnel, Escape Tunnel — "target creature with
+    /// power 3 or less can't be blocked this turn").
+    PowerAtMost(i16),
     /// Is in the given zone (cross-zone effects like Maskwood Nexus).
     InZone(ZoneRef),
 }

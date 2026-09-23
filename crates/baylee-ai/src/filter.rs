@@ -159,6 +159,9 @@ impl HeuristicAgent {
             Filter::CmcAtMost(n) => Some(object.mana_value <= *n),
             Filter::CmcAtLeast(n) => Some(object.mana_value >= *n),
             Filter::ToughnessAtMost(n) => Some(object.toughness.is_some_and(|t| t <= *n)),
+            Filter::ToughnessAtLeast(n) => Some(object.toughness.is_some_and(|t| t >= *n)),
+            Filter::PowerAtLeast(n) => Some(object.power.is_some_and(|p| p >= *n)),
+            Filter::PowerAtMost(n) => Some(object.power.is_some_and(|p| p <= *n)),
             Filter::InZone(want) => Some(zone == *want),
             // The five the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an

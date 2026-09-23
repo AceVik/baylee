@@ -1222,3 +1222,63 @@ fn a_land_makes_the_colour_of_a_basic_type_it_was_given_rather_than_printed() {
     );
     assert!(is_tapped(&engine, wood), "and it cost the Forest its tap");
 }
+
+/// Cabal Ritual: "Add {B}{B}{B}. Threshold — Add {B}{B}{B}{B}{B} instead if
+/// there are seven or more cards in your graveyard."
+///
+/// The rule is [`baylee_cards_dsl::Effect::IfCondition`], and what it closes
+/// is a split the vocabulary had carried since conditions existed: the same
+/// seven-card count gated Barbarian Ring's *activation* and could say
+/// nothing at all inside an *effect list*, so this card shipped adding
+/// three mana on every board it was ever cast on.
+///
+/// Both branches, because a branch tested on one side is a constant. The
+/// graveyard is seeded to exactly seven — the printed number — and the
+/// control run has an empty one, so the two casts differ in the count and
+/// in nothing else.
+#[test]
+fn a_condition_inside_an_effect_list_picks_the_branch_the_board_earns() {
+    fn ritual() -> CardIndex {
+        card_index("5b5bf1fa-6502-4790-b66b-f0f8504ebc7c")
+    }
+    let p0 = PlayerId::new(0);
+    let cast = |seed: u64, graveyard: usize| -> u16 {
+        let mut engine = Duel::new(seed, swamp())
+            .hand(0, &[ritual()])
+            .battlefield(0, &[swamp(), swamp()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        if graveyard > 0 {
+            seed_graveyard(&mut engine, p0, graveyard);
+        }
+        assert_eq!(
+            engine
+                .state()
+                .zones
+                .list(crate::zone::ZoneLocation::Graveyard(p0))
+                .len(),
+            graveyard,
+            "the seeding is the only thing that differs between the two runs"
+        );
+        cast_from_hand(&mut engine, p0, ritual());
+        pass_until(&mut engine, stack_is_empty);
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black)
+    };
+
+    assert_eq!(cast(8801, 0), 3, "an empty graveyard is the printed three");
+    assert_eq!(
+        cast(8802, 7),
+        5,
+        "seven cards is the threshold half, and it replaces the three \
+         rather than adding to it"
+    );
+    assert_eq!(
+        cast(8803, 6),
+        3,
+        "six is not seven — the bound is the card's own number and not a \
+         non-empty graveyard"
+    );
+}

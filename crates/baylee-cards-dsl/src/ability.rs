@@ -82,6 +82,49 @@ pub enum StepKind {
 pub enum Condition {
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
+    /// You control **at most** N permanents matching the filter —
+    /// Glimmervoid's "if you control no artifacts" and Thran Quarry's "if
+    /// you control no creatures", both at nought.
+    ///
+    /// The downward twin of the line above, and not a parameter on it: the
+    /// two sentences are opposite in what a board does to them, and a card
+    /// that counts downwards is sacrificing itself while one that counts up
+    /// is being rewarded. Its absence was not two cards sitting unwritten —
+    /// both lands shipped with the end-step clause **off**, which is a land
+    /// that never sacrifices itself and so is strictly stronger than the one
+    /// printed.
+    ControlCountAtMost(&'static Filter, u8),
+    /// **An opponent** controls at least N permanents matching the filter
+    /// (Tectonic Edge — "activate only if an opponent controls four or more
+    /// lands").
+    ///
+    /// `any` and not a sum: the sentence is true at a table where one of
+    /// three opponents has four lands, which is the same reading
+    /// [`Self::OpponentGraveyardCountAtLeast`] already makes of its own
+    /// seat.
+    ///
+    /// The seat is narrowed by the walk and the filter is evaluated from
+    /// the **asker's** side, so `Filter::ControlledByOpponent` inside one
+    /// is true and `Filter::ControlledByYou` is the contradiction. That is
+    /// not a free choice: `xtask validate` holds a card whose text says
+    /// "an opponent controls" to a filter that says so, so the scope is
+    /// written on the card as well as walked here.
+    OpponentControlCount(&'static Filter, u8),
+    /// You have at most N cards in hand — hellbent at nought (Keldon
+    /// Megaliths, Sea Gate Wreckage).
+    ///
+    /// Hellbent is an ability word with no rules meaning, exactly like the
+    /// threshold below, so the count is a parameter rather than a fixed
+    /// nought and nothing here may read the word.
+    HandSizeAtMost(u8),
+    /// You have **exactly** N cards in hand (Library of Alexandria).
+    ///
+    /// The sibling of the line above for the same reason
+    /// [`Self::CountersOnSelfExactly`] is the sibling of
+    /// [`Self::CountersOnSelf`]: a card that prints "exactly seven" is a
+    /// card that stops working when you draw the eighth, and an "at most"
+    /// reading of it would hand the draw to every hand size below seven.
+    HandSizeExactly(u8),
     /// An opponent has at least N cards in their graveyard (Sheoldred's
     /// flip condition).
     OpponentGraveyardCountAtLeast(u8),

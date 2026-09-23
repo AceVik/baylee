@@ -247,10 +247,6 @@ fn cast_front_face(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ca
     }
 }
 
-fn shaleskin_bruiser() -> CardIndex {
-    card_index("b90e370a-5080-485e-a957-93d5f60e6cdb")
-}
-
 fn sphinx_of_the_final_word() -> CardIndex {
     card_index("d4246e4d-390d-4925-a5a8-89cd096a237c")
 }

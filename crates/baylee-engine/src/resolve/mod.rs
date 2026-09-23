@@ -1778,6 +1778,23 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        // The seat is the ability's controller and the source is its
+        // object, which is the same pair `condition_holds` is handed at an
+        // activation gate and at an intervening `if` — one reader, so a
+        // card cannot mean two different things by one sentence depending
+        // on where it printed it.
+        Effect::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            let branch = if crate::eval::condition_holds(state, you, res.source, condition) {
+                then
+            } else {
+                otherwise
+            };
+            run_nested(state, res, branch)
+        }
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
                 .event_object

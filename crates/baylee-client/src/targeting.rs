@@ -301,6 +301,11 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         Filter::CmcAtMost(n) => object.mana_value <= *n,
         Filter::CmcAtLeast(n) => object.mana_value >= *n,
         Filter::ToughnessAtMost(n) => object.toughness.is_some_and(|t| t <= *n),
+        Filter::ToughnessAtLeast(n) => object.toughness.is_some_and(|t| t >= *n),
+        // The view carries the *projected* power, which is the number the
+        // engine compares and the number the player is looking at.
+        Filter::PowerAtLeast(n) => object.power.is_some_and(|p| p >= *n),
+        Filter::PowerAtMost(n) => object.power.is_some_and(|p| p <= *n),
         // Six the view cannot answer, named rather than swept up. The first
         // three need the *source* object, which is a card in hand that has
         // not been cast and so has no chosen subtype, no attachment and no

@@ -2402,6 +2402,23 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(26);
             h.i16(*n);
         }
+        // Three tags and not one with a direction byte: the hash is what
+        // tells two continuous effects apart, and a shared tag would make
+        // "power at least 4" and "power at most 4" the same effect to the
+        // cache — which is the one pair of filters on this list that a
+        // single board satisfies on opposite sides.
+        F::ToughnessAtLeast(n) => {
+            h.u8(31);
+            h.i16(*n);
+        }
+        F::PowerAtLeast(n) => {
+            h.u8(32);
+            h.i16(*n);
+        }
+        F::PowerAtMost(n) => {
+            h.u8(33);
+            h.i16(*n);
+        }
         F::HasKeyword(k) => {
             h.u8(21);
             h.u128(k.bits());

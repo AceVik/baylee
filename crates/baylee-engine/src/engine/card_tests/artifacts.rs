@@ -9090,3 +9090,3652 @@ fn wayfarer_s_bauble_fetches_basic_land_tapped() {
     );
     assert!(is_tapped(&engine, chosen), "searched land entered tapped");
 }
+
+fn chromatic_sphere() -> CardIndex {
+    card_index("2e03e44a-9fff-4490-859f-b42e89e8563a")
+}
+
+/// `Chromatic Sphere` prints `{{1}}, {{T}}, Sacrifice this artifact: Add one mana of any color. Draw a card.`
+/// with `Coverage::Implemented`.
+/// In this scenario, seat 0 controls a `Forest` and `Chromatic Sphere`.
+/// Floating one green mana pays the activation cost, which prompts for a color choice via `Pending::ChooseColor`.
+/// Choosing blue mana produces one blue mana without using the stack, draws a card into hand, and sacrifices the sphere.
+#[test]
+fn chromatic_sphere_adds_chosen_mana_and_draws_a_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), chromatic_sphere()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let _sphere = on_battlefield(&engine, p0, chromatic_sphere()).expect("sphere on battlefield");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    tap_all_mana_but(&mut engine, p0, Some(chromatic_sphere()));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    activate(&mut engine, p0, chromatic_sphere(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("chose blue mana");
+
+    assert!(stack_is_empty(&engine), "mana ability skips the stack");
+    assert!(
+        in_graveyard(&engine, p0, chromatic_sphere()).is_some(),
+        "sphere was sacrificed"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "drew a card"
+    );
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1, "added one blue mana");
+    assert_eq!(pool.total(), 1, "exactly one mana in pool");
+}
+
+fn talisman_of_dominance() -> CardIndex {
+    card_index("4c0a0448-b9d6-43a0-8549-64066dac63f0")
+}
+
+/// `Talisman of Dominance` prints `{{T}}: Add {{C}}.` and `{{T}}: Add {{U}} or {{B}}. This artifact deals 1 damage to you.`
+/// with `Coverage::Implemented`.
+/// In this scenario, seat 0 controls `Talisman of Dominance` with 20 starting life.
+/// Activating ability 1 prompts for a choice between blue and black mana via `Pending::ChooseColor`,
+/// adds the chosen blue mana, deals 1 damage to its controller, and taps the talisman without using the stack.
+#[test]
+fn talisman_of_dominance_adds_colored_mana_and_deals_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[talisman_of_dominance()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let talisman =
+        on_battlefield(&engine, p0, talisman_of_dominance()).expect("talisman on battlefield");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    activate(&mut engine, p0, talisman_of_dominance(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseColor prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options, vec![ManaColor::Blue, ManaColor::Black]);
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("chose blue mana");
+
+    assert!(stack_is_empty(&engine), "mana ability skips the stack");
+    assert!(
+        is_tapped(&engine, talisman),
+        "`Talisman of Dominance` is tapped"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "controller took 1 damage"
+    );
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1, "added one blue mana");
+    assert_eq!(pool.total(), 1, "exactly one mana in pool");
+}
+
+fn celestial_prism() -> CardIndex {
+    card_index("eb228a6c-bceb-45c3-a258-3f209682e1c6")
+}
+
+/// Celestial Prism prints one line — "{2}, {T}: Add one mana of any color."
+/// — so the whole card is a price and a question. The price has two halves
+/// the pool cannot see: the {2} comes out of a pool only three tapped
+/// forests filled, and the {T} leaves the artifact tapped, so the mana it
+/// makes and the mana it ate have to be read on the same activation. The
+/// "any color" is read as the question it is — five options wide with no
+/// colourless among them (CR 105.4) — and the black that lands afterwards has
+/// no other source on the board: the forests make green and are spent by
+/// then, so `{B}` can only have come off the Prism itself.
+#[test]
+fn celestial_prism_taps_and_two_mana_for_one_mana_of_any_color() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1013, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[celestial_prism()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Three Forests pay the {3}, and the {2} the ability charges is the other
+    // half: it has to be paid out of the pool and not out of lands that are
+    // still standing.
+    cast_from_hand(&mut engine, p0, celestial_prism());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, celestial_prism()).is_some()
+    });
+    let prism = on_battlefield(&engine, p0, celestial_prism()).expect("the Prism resolved");
+    assert!(
+        !is_tapped(&engine, prism),
+        "an artifact enters untapped, so its {{T}} is still there to pay"
+    );
+
+    // Read the offer where the engine reads it: `can_afford` looks at the
+    // pool, so with nothing floating the {2} is unpayable and the line is not
+    // there at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(prism, 0)),
+        "{{2}} is not two, so the cost is unpayable and nothing is offered: {:?}",
+        legal.abilities
+    );
+
+    // One turn round the table, because the three Forests that paid for the
+    // Prism are still tapped: the {2} this ability charges has to come out
+    // of lands that untapped, not out of the same three twice.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+
+    // The Prism is named as the thing kept back: it prints its own mana
+    // ability, so `tap_all_mana` would have spent the very permanent this
+    // test activates by hand (#159).
+    tap_all_mana_but(&mut engine, p0, Some(celestial_prism()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Forests in the pool and nothing off the Prism"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(prism, 0)),
+        "with {{2}} floating the whole price is payable: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, celestial_prism(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`any color` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(
+        pool.total(),
+        2,
+        "three green arrived, the {{2}} ate two of them, and the Prism put \
+         the black back: one green and one black"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "two of the three green paid the price and the third is still \
+         floating — no source on this board but the Prism makes {{B}}"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, prism), "the Prism paid its own {{T}}");
+}
+
+fn darksteel_ingot() -> CardIndex {
+    card_index("a2529491-7389-4cfa-92d2-145eda779603")
+}
+
+/// Darksteel Ingot — {3} artifact: "Indestructible" and "{T}: Add one mana of
+/// any color."
+///
+/// Both halves are the engine's answer rather than the card's, so both are
+/// played. The `{T}` asks for one of five *colors* — colorless is no color at
+/// all (CR 105.4) — and the mana is in the pool with an empty stack, because a
+/// mana ability resolves as it is activated (CR 605.3b); the black that lands
+/// is the reading, since three tapped Forests make green and nothing else on
+/// this board can make black. The keyword is played too: an opponent's
+/// Vindicate names the Ingot and it goes nowhere, which is the one outcome
+/// that tells `Indestructible` (CR 702.12b) from a card that merely prints the
+/// word.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn darksteel_ingot_taps_for_a_color_of_its_controllers_choosing_and_survives_a_destroy() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    // Three Forests pay the {3} exactly, so the pool is empty once the Ingot
+    // has landed; Plains, Swamp and Plains across the table pay a Vindicate.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[darksteel_ingot()])
+        .battlefield(1, &[plains(), swamp(), plains()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, darksteel_ingot());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let ingot = on_battlefield(&engine, p0, darksteel_ingot()).expect("the Ingot resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Forests paid the {{3}} exactly, so the pool reads as empty"
+    );
+    assert!(
+        keywords(&engine, ingot).contains(KeywordSet::INDESTRUCTIBLE),
+        "the printed Indestructible reaches the permanent"
+    );
+
+    // Ability 0 is the printed "{T}: Add one mana of any color." Its whole
+    // price is its own tap, so it is offered without a single mana floating.
+    activate(&mut engine, p0, darksteel_ingot(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("\"any color\" is a question, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "the three Forests were spent on the cast and make green anyway, so \
+         nothing still standing on this board could have produced the black"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, ingot), "the Ingot paid its own {{T}}");
+
+    // The other printed line, played rather than read: a destroy effect names
+    // the Ingot and the Ingot stays where it is (CR 702.12b).
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("pass_until only stops on a target choice")
+    };
+    assert!(
+        options.contains(&ingot),
+        "\"target permanent\" names any permanent, the indestructible one \
+         included: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![ingot],
+            },
+        )
+        .expect("the Ingot was one of the options it enumerated");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, darksteel_ingot()).is_some(),
+        "\"effects that say destroy don't destroy this artifact\" — the \
+         Vindicate resolved against it and it is still on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, darksteel_ingot()).is_none(),
+        "and it was not moved anywhere else either: nothing put it in a graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p1, vindicate()).is_some(),
+        "the Vindicate itself resolved rather than being countered or fizzling"
+    );
+}
+
+fn diamond_kaleidoscope() -> CardIndex {
+    card_index("bffa9256-aff4-476f-86f4-4f4c9e57fa69")
+}
+
+/// Diamond Kaleidoscope — {4} artifact: "{3}, {T}: Create a 0/1 colorless
+/// Prism artifact creature token", and "Sacrifice a Prism token: Add one mana
+/// of any color."
+///
+/// Neither half is worth anything alone, so both are played in one main
+/// phase: seven Forests pay the {4} and leave exactly the {3}, the {3} and
+/// the tap build the Prism, and that Prism is then the *whole* price of a
+/// mana ability. The Sol Ring standing beside it is the control that the
+/// sacrifice filter is really read — it is an artifact this seat controls and
+/// no Prism token, so it is on no menu and never moves.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn diamond_kaleidoscope_builds_a_prism_and_trades_it_for_one_mana_of_any_color() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_artifact(),
+            ],
+        )
+        .hand(0, &[diamond_kaleidoscope()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Seven Forests pay the {4} and leave exactly the {3} the token ability
+    // charges. The Sol Ring is named as the printing kept back, so "seven" is
+    // the Forests and the artifact is still standing as the control below.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_artifact()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        7,
+        "seven Forests and nothing else: the Sol Ring was kept back"
+    );
+    cast_with_floating(&mut engine, p0, diamond_kaleidoscope());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let kaleidoscope =
+        on_battlefield(&engine, p0, diamond_kaleidoscope()).expect("the Kaleidoscope resolved");
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring is still out");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "the {{4}} is spent and the {{3}} it charges is still floating"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(kaleidoscope, 0)),
+        "with {{3}} in the pool the token line is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.contains(&(kaleidoscope, 1)),
+        "and the mana ability is not: it sacrifices a *Prism token* and no \
+         Prism exists yet — the Sol Ring beside it is an artifact this seat \
+         controls and still not one: {:?}",
+        legal.abilities
+    );
+
+    // Ability 0: "{3}, {T}: Create a 0/1 colorless Prism artifact creature
+    // token." Both halves of the price are read here, before it resolves.
+    activate(&mut engine, p0, diamond_kaleidoscope(), 0);
+    assert!(
+        is_tapped(&engine, kaleidoscope),
+        "{{T}} is half the price and is paid as the ability is announced"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{3}} came out of that pool"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let prism = tokens_of(&engine, p0);
+    assert_eq!(prism.len(), 1, "one activation, one Prism");
+    let prism = prism[0];
+    assert_eq!(pt(&engine, prism), (0, 1), "the body the card prints");
+    let kinds = types(&engine, prism);
+    assert!(
+        kinds.contains(TypeSet::ARTIFACT) && kinds.contains(TypeSet::CREATURE),
+        "an artifact creature token: {kinds:?}"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(prism)
+            .expect("the Prism is an object")
+            .token
+            .expect("it knows which token it is")
+            .name,
+        "Prism",
+        "and it is a Prism, which is the word the sacrifice below turns on"
+    );
+
+    // Ability 1: "Sacrifice a Prism token: Add one mana of any color." The
+    // cost is a sacrifice, so the engine asks which one (CR 601.2h); the
+    // color is the effect's own question and arrives with the token already
+    // gone.
+    activate(&mut engine, p0, diamond_kaleidoscope(), 1);
+    let mut menu: Option<Vec<ObjectId>> = None;
+    let mut colors: Option<Vec<ManaColor>> = None;
+    for _ in 0..8 {
+        match engine.pending().clone() {
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                prompt,
+            } => {
+                assert_eq!(player, p0, "the seat paying the cost answers it");
+                assert_eq!(
+                    prompt,
+                    ChoicePrompt::CostSacrifice,
+                    "a cost and not a search, which is all a client has to tell apart"
+                );
+                assert_eq!((min, max), (1, 1), "one Prism token, no more and no fewer");
+                menu = Some(options);
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![prism],
+                        },
+                    )
+                    .expect("the Prism the question offered pays the cost");
+            }
+            Pending::ChooseColor { player, options } => {
+                assert_eq!(
+                    player, p0,
+                    "and the seat that names the color is the one that paid"
+                );
+                colors = Some(options);
+                engine
+                    .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+                    .expect("black was one of the colors it offered");
+            }
+            Pending::Priority { .. } => break,
+            other => panic!("unexpected while the mana ability is paid: {other:?}"),
+        }
+    }
+
+    assert_eq!(
+        menu.expect("the sacrifice cost asks which permanent is being given up"),
+        vec![prism],
+        "the Prism token you control is the whole menu — the Sol Ring beside \
+         it is an artifact and no Prism token"
+    );
+    let colors = colors.expect("\"add one mana of any color\" is a question");
+    assert_eq!(
+        colors.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {colors:?}"
+    );
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(colors.contains(&color), "\"any color\" includes {color:?}");
+    }
+
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "and the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one Prism");
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "the Forests' green went into the {{4}} and the {{3}}, so the black \
+         has no source still standing on this board"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "the token was the price: a sacrificed token ceases to exist (CR 111.7)"
+    );
+    assert!(
+        on_battlefield(&engine, p0, diamond_kaleidoscope()).is_some(),
+        "and the artifact that made it outlives it — the price was the Prism \
+         and not its maker"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "the artifact the filter declined never moved"
+    );
+    assert!(
+        !is_tapped(&engine, ring),
+        "and was never tapped for anything"
+    );
+}
+
+fn dragon_blood() -> CardIndex {
+    card_index("b751c1c6-195d-4023-9d0b-3c91d6b834d4")
+}
+
+/// Dragon Blood is a `{3}` artifact printing one line: "`{3}`, `{T}`: Put a
+/// +1/+1 counter on target creature."
+///
+/// Six Forests pay for both halves inside one main phase (CR 500.5), so the
+/// `{3}` the ability charges is read as a real payment out of the pool and not
+/// as a label: the offer is claimed only once the mana is already floating,
+/// and the target question stands while the artifact is still untapped and the
+/// pool still full (CR 601.2c before CR 601.2h). "Target creature" is the word
+/// worth a bystander on each side — the Elf across the table is offered and
+/// must stay a printed 1/1 afterwards, and the artifact itself is no creature
+/// at all. A `P1P1` counter is read rather than a body, because a pump until
+/// end of turn would leave the same `(2, 2)` behind.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn dragon_blood_taps_and_three_mana_for_a_counter_on_the_creature_it_names() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[dragon_blood()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    assert_eq!(pt(&engine, elf), (1, 1), "a printed 1/1 before the counter");
+
+    // Six Forests and only those: the Elves are named as the printing kept
+    // back, because the creature this test reads afterwards is one of them and
+    // a host tapped for mana reads as a different board.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Forests tapped: {{3}} for the artifact and the {{3}} the ability \
+         charges, and neither Elf contributed"
+    );
+    cast_with_floating(&mut engine, p0, dragon_blood());
+    pass_until(&mut engine, stack_is_empty);
+    let blood = on_battlefield(&engine, p0, dragon_blood()).expect("the artifact resolved");
+    assert!(
+        !is_tapped(&engine, blood),
+        "an artifact enters untapped, so its {{T}} is still there to pay"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "the cast's {{3}} is spent and the ability's {{3}} is still floating"
+    );
+
+    // `LegalActions::abilities` is filtered through `can_afford`, which reads
+    // the pool — which is why the claim is made with the mana already there.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(blood, 0)),
+        "the one line the card prints, now that its {{3}} is in the pool: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, dragon_blood(), 0);
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat aims it");
+    assert!(
+        options.contains(&elf) && options.contains(&theirs),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&blood),
+        "the artifact is no creature, and it is not a legal target for its own \
+         ability: {options:?}"
+    );
+    // CR 601.2c names the target first and CR 601.2h pays afterwards, so both
+    // prices are still unpaid while this question stands.
+    assert!(
+        !is_tapped(&engine, blood),
+        "the {{T}} is the last step of the activation, not the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "and the {{3}} is still in the pool for the same reason"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the creature the question offered was chosen");
+
+    assert!(is_tapped(&engine, blood), "{{T}} is paid by the artifact");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{3}} it charges came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "putting a counter on a creature is no mana ability, so the ability is \
+         on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, elf, CounterKind::P1P1),
+        1,
+        "\"put a +1/+1 counter on target creature\" — a counter and not a \
+         pump, which is why the body below survives the turn"
+    );
+    assert_eq!(pt(&engine, elf), (2, 2), "one +1/+1 on a printed 1/1");
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "the static reaches the creature it targeted and never across the table"
+    );
+}
+
+fn drake_skull_cameo() -> CardIndex {
+    card_index("8fbdec25-4222-4b96-aeea-82a4b5b8b80e")
+}
+
+/// Drake-Skull Cameo is a {3} artifact printing one line: "{T}: Add {U} or
+/// {B}." The word that carries the card is "or", so the test reads the
+/// question the engine asks and *both* of its answers rather than the mana
+/// alone: a permanent that only ever made blue would ask nothing at all, and
+/// one that made both colours per tap would be a different card.
+///
+/// The three Forests are what makes every reading exact. They pay the {3}, so
+/// the pool is empty the moment the artifact lands and whatever is in it
+/// afterwards came off the Cameo's own tap — and they are tapped, so nothing
+/// else on this board could have produced blue.
+#[test]
+fn drake_skull_cameo_taps_for_blue_or_black_and_offers_both_halves_of_the_choice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[drake_skull_cameo()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // {3} off the three Forests, which leaves the pool empty: the mana read
+    // below is the Cameo's own and not a land's that happened to be untapped.
+    cast_from_hand(&mut engine, p0, drake_skull_cameo());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let cameo = on_battlefield(&engine, p0, drake_skull_cameo()).expect("the Cameo resolved");
+    assert!(
+        types(&engine, cameo).contains(TypeSet::ARTIFACT),
+        "it is the artifact it prints"
+    );
+    assert!(!is_tapped(&engine, cameo), "an artifact enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Forests paid the {{3}} and left nothing floating"
+    );
+
+    // Ability 0 is the printed "{T}: Add {U} or {B}" — a mana ability a card
+    // prints, so it is an ordinary entry in `abilities` with an index to name
+    // rather than the CR 305.6 shortcut, and its whole price is its own tap.
+    activate(&mut engine, p0, drake_skull_cameo(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "`Add {{U}} or {{B}}` is a question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        2,
+        "the two colours the card prints and no third: {options:?}"
+    );
+    assert!(
+        options.contains(&ManaColor::Blue),
+        "blue is one half of the choice, and the creature in the name's \
+         colour it is: {options:?}"
+    );
+    assert!(
+        options.contains(&ManaColor::Black),
+        "and black the other half — a printing with only one of them would \
+         ask nothing and offer one: {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("blue was one of the colours it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        0,
+        "`or` is exclusive: naming one half of the choice is not making both"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "the three Forests were spent on the {{3}} and make green besides, so \
+         the blue has no other source on this board"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+    assert!(is_tapped(&engine, cameo), "the Cameo paid its own {{T}}");
+}
+
+fn elixir_of_vitality() -> CardIndex {
+    card_index("635cc10e-ca25-49a2-af44-3b064263a254")
+}
+
+/// Elixir of Vitality — {4} artifact: "This artifact enters tapped", "{T},
+/// Sacrifice this artifact: You gain 4 life" and "{8}, {T}, Sacrifice this
+/// artifact: You gain 8 life".
+///
+/// Two copies are cast off eight Forests so that every clause is read in one
+/// game. The pair arrives **tapped** and offers neither line on the turn it
+/// lands, and after the untap step the cheap line costs nothing but the
+/// artifact's own tap while the {8} line is only offered once the eight are
+/// actually floating in the pool (`can_afford` reads the pool, not the
+/// untapped lands). Each activation sacrifices its own Elixir, so 20 life
+/// becomes 24 and then 32 only if both printed prices were really paid.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn elixir_of_vitality_enters_tapped_and_sells_itself_for_either_printed_price() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 8])
+        .hand(0, &[elixir_of_vitality(), elixir_of_vitality()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {4} for each copy, and the eight Forests are the whole board.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "eight Forests, eight green"
+    );
+    cast_with_floating(&mut engine, p0, elixir_of_vitality());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, elixir_of_vitality());
+    pass_until(&mut engine, stack_is_empty);
+
+    let elixirs = all_on_battlefield(&engine, p0, elixir_of_vitality());
+    assert_eq!(elixirs.len(), 2, "both copies resolved onto the table");
+    let (cheap, dear) = (elixirs[0], elixirs[1]);
+    assert!(
+        is_tapped(&engine, cheap) && is_tapped(&engine, dear),
+        "\"This artifact enters tapped\" is a real entry and not a placement"
+    );
+    // Both lines are paid for with the tap symbol, so an artifact that has
+    // just entered tapped is offered neither of them.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, _)| *id == cheap || *id == dear),
+        "no {{T}} left to pay with, so neither line is offered: {:?}",
+        legal.abilities
+    );
+
+    // Across the opponent's turn and back: an artifact that entered tapped
+    // still untaps in its controller's untap step like anything else.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, cheap) && !is_tapped(&engine, dear),
+        "the untap step stood both of them back up"
+    );
+
+    // The next turn's eight Forests: the {8} the dear line charges, and no
+    // part of what the cheap line charges.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "eight Forests again, and the untapped Elixirs make no mana of their own"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(cheap, 0)),
+        "its own tap and the artifact is a price any pool pays: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(dear, 1)),
+        "and the {{8}} line is offered now that the eight are floating: {:?}",
+        legal.abilities
+    );
+
+    // Ability 0: "{T}, Sacrifice this artifact: You gain 4 life."
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: cheap,
+                ability_index: 0,
+            },
+        )
+        .expect("the cheap line is payable over an empty pool");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 24, "four life, once");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        8,
+        "the cheap line took no mana at all"
+    );
+    assert!(
+        on_battlefield(&engine, p0, elixir_of_vitality()).is_some(),
+        "one copy was sacrificed and the other is still standing"
+    );
+
+    // Ability 1: "{8}, {T}, Sacrifice this artifact: You gain 8 life."
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: dear,
+                ability_index: 1,
+            },
+        )
+        .expect("the eight already floating are the printed {8}");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        32,
+        "four and then eight, and no third number"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{8}} came out of the pool"
+    );
+    assert!(
+        on_battlefield(&engine, p0, elixir_of_vitality()).is_none(),
+        "each activation sacrifices the artifact that pays it"
+    );
+    assert_eq!(
+        mine(&engine, p0, elixir_of_vitality(), Zone::Graveyard).len(),
+        2,
+        "and both copies are in their owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the life belongs to the seat that paid the price, not to the opponent"
+    );
+}
+
+fn eye_of_ramos() -> CardIndex {
+    card_index("a1bdea9f-56d0-411a-9da8-601dd6dc6d32")
+}
+
+/// Eye of Ramos is a `{3}` artifact printing the same blue twice at two
+/// different prices: "{T}: Add {U}" and "Sacrifice this artifact: Add {U}".
+/// One board plays both, because the card is the difference between them:
+/// three Forests pay the `{3}` and leave the pool empty, so neither blue can
+/// have come off a land; the first activation takes only the tap symbol and
+/// leaves the artifact standing, and the second takes the artifact itself into
+/// its owner's graveyard. The offer is read again in between, where a tapped
+/// Eye has no `{T}` left to pay with and the sacrifice line still does.
+#[test]
+fn eye_of_ramos_taps_and_then_sacrifices_itself_for_blue() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[eye_of_ramos()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // {3} out of the three Forests, and nothing left floating: whatever blue
+    // arrives below can only have come off the artifact itself.
+    cast_from_hand(&mut engine, p0, eye_of_ramos());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let eye = on_battlefield(&engine, p0, eye_of_ramos()).expect("the Eye resolved");
+    assert!(
+        types(&engine, eye).contains(TypeSet::ARTIFACT),
+        "what arrived is the artifact it prints"
+    );
+    assert!(!is_tapped(&engine, eye), "and it enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Forests paid the {{3}} and left nothing behind"
+    );
+
+    // Ability 0: "{T}: Add {U}". A fixed colour, so nothing is asked on the
+    // way and the mana is in the pool the moment the tap resolves (CR 605.3b).
+    activate(&mut engine, p0, eye_of_ramos(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1, "one blue off the tap");
+    assert_eq!(pool.total(), 1, "and nothing else came with it");
+    assert!(
+        stack_is_empty(&engine),
+        "a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, eye), "the Eye paid its own {{T}}");
+
+    // The tap is spent, so the first line is no longer one the seat may take —
+    // read with the mana already floating, because that is where the offer
+    // reads its prices from.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(eye, 0)),
+        "a tapped Eye has no {{T}} left to pay with: {:?}",
+        legal.abilities
+    );
+
+    // Ability 1: "Sacrifice this artifact: Add {U}" — a price the tap symbol
+    // cannot answer for, so it is still on the menu while the Eye is tapped.
+    activate(&mut engine, p0, eye_of_ramos(), 1);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 2, "the second blue");
+    assert_eq!(
+        pool.total(),
+        2,
+        "two activations and two blue, with no land in either"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "the sacrifice line is a mana ability too (CR 605.3b)"
+    );
+    assert!(
+        on_battlefield(&engine, p0, eye_of_ramos()).is_none(),
+        "sacrificing the artifact is the price of the second line"
+    );
+    assert!(
+        in_graveyard(&engine, p0, eye_of_ramos()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+}
+
+fn heart_of_ramos() -> CardIndex {
+    card_index("4c774c6e-c5a0-4018-b494-d3c521d2cac3")
+}
+
+/// Heart of Ramos prints two mana abilities and no other text: "{T}: Add {R}"
+/// and "Sacrifice this artifact: Add {R}". The board is three Forests and
+/// nothing else, so they pay the printed {3} down to an empty pool and the red
+/// that arrives afterwards has no other source it could have come from. Each
+/// price is read where it lands — the tap as a status change on a permanent
+/// that stays, the sacrifice as a graveyard entry on one that does not — and
+/// the empty stack after each says what kind of ability this is (CR 605.3b).
+#[test]
+fn heart_of_ramos_taps_and_then_sacrifices_itself_for_red_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[heart_of_ramos()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Three Forests pay exactly the printed {3}, so the pool the two mana
+    // abilities write into starts blank: "one red" below is then a claim about
+    // the artifact and not about a green left floating beside it.
+    cast_from_hand(&mut engine, p0, heart_of_ramos());
+    pass_until(&mut engine, stack_is_empty);
+    let heart = on_battlefield(&engine, p0, heart_of_ramos()).expect("the Heart resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{3}} out of exactly three Forests leaves nothing floating"
+    );
+
+    // The printed mana ability is an ordinary `(source, index)` entry in
+    // `LegalActions::abilities` and not the CR 305.6 shortcut: it has an index
+    // to name, and its whole price is its own tap.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(heart, 0)),
+        "an untapped artifact is a paid {{T}}: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, heart_of_ramos(), 0);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "`{{T}}: Add {{R}}` — and the Forests beside it make green"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(is_tapped(&engine, heart), "the Heart paid its own {{T}}");
+
+    // The second printed line. Its price is the artifact itself and not its
+    // tap, so it is still offered to a Heart that is already tapped.
+    activate(&mut engine, p0, heart_of_ramos(), 1);
+    assert!(
+        stack_is_empty(&engine),
+        "the sacrifice is a mana ability too: no stack, and the mana is here"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        2,
+        "one red from the tap and one from the sacrifice"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "and nothing else in the pool"
+    );
+    assert!(
+        on_battlefield(&engine, p0, heart_of_ramos()).is_none(),
+        "sacrificing the Heart is half of that price, so it left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, heart_of_ramos()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+}
+
+fn honor_worn_shaku() -> CardIndex {
+    card_index("babeeaf6-0fe4-491f-bbf5-63a0568b3d6e")
+}
+
+/// Honor-Worn Shaku prints two lines: "{T}: Add {C}." and "Tap an untapped
+/// legendary permanent you control: Untap this artifact."
+///
+/// The board makes each word of the second line do work: tapping the Shaku for
+/// {C} first is what leaves it down for the untap to be visible at all, the
+/// legendary creature beside it is the only legal price while the Elf beside
+/// that one is what a filter missing "legendary" would have offered, and the
+/// legendary permanent across the table is what tells "you control" from "a
+/// legendary permanent". The refusal of the opponent's creature is the probe
+/// the offer cannot give on its own, because tapping is a cost: nothing has
+/// moved while the question stands (CR 601.2h), and the untap is on the stack
+/// once the answer is in.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn honor_worn_shaku_taps_a_legendary_permanent_of_yours_to_untap_itself() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[honor_worn_shaku(), thrun_the_last_troll(), llanowar_elves()],
+        )
+        .battlefield(1, &[thrun_the_last_troll()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let shaku = on_battlefield(&engine, p0, honor_worn_shaku()).expect("the Shaku is out");
+    let mine = on_battlefield(&engine, p0, thrun_the_last_troll()).expect("my Troll is out");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+    let theirs = on_battlefield(&engine, p1, thrun_the_last_troll()).expect("their Troll is out");
+
+    // Neither line costs mana, so an empty pool withholds nothing and both are
+    // offered the moment the seat has priority.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(shaku, 0)),
+        "the printed {{T}}: Add {{C}} is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(shaku, 1)),
+        "and so is the untap, whose whole price is somebody else's tap: {:?}",
+        legal.abilities
+    );
+
+    // Tap the Shaku on its own mana ability and by hand: it is the permanent
+    // the second line is about, and it is the one route `tap_all_mana` would
+    // have pressed anyway (#159).
+    activate(&mut engine, p0, honor_worn_shaku(), 0);
+    assert!(
+        is_tapped(&engine, shaku),
+        "{{T}} is what the mana ability costs"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "and it adds {{C}}, in the pool with no stack used (CR 605.3b)"
+    );
+
+    activate(&mut engine, p0, honor_worn_shaku(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the tap is a cost and the engine asks which permanent pays it, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat pays its own cost");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostTap,
+        "the variant is what tells a client this is a cost and not an effect"
+    );
+    assert_eq!((min, max), (1, 1), "one permanent, and the cost asks once");
+    assert!(
+        options.contains(&mine),
+        "a legendary permanent this seat controls is the whole of the answer: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        1,
+        "and nothing else on the table is one: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "the Elf is a permanent you control and no legendary one: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "an opponent's legendary permanent is not yours to tap: {options:?}"
+    );
+    assert!(
+        !options.contains(&shaku),
+        "the Shaku is no legendary permanent, and it is already tapped: {options:?}"
+    );
+
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![theirs],
+                },
+            )
+            .is_err(),
+        "an answer the question did not enumerate is refused"
+    );
+    assert!(
+        !is_tapped(&engine, theirs),
+        "and the refusal costs the other seat nothing"
+    );
+    assert!(
+        is_tapped(&engine, shaku),
+        "CR 601.2h pays last: while the question stands the Shaku is still down"
+    );
+    assert!(
+        !is_tapped(&engine, mine),
+        "and the permanent that will pay is still standing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .expect("the legendary permanent the question offered pays the cost");
+
+    assert!(is_tapped(&engine, mine), "tapping it is the price");
+    assert!(
+        !stack_is_empty(&engine),
+        "untapping is no mana ability, so the ability is on the stack"
+    );
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        !is_tapped(&engine, shaku),
+        "the ability untaps the Shaku it was paid for"
+    );
+    assert!(
+        is_tapped(&engine, mine),
+        "the permanent that paid stays tapped — the untap reaches the source and no other"
+    );
+    assert!(!is_tapped(&engine, elf), "nothing else on the board moved");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "the {{C}} the Shaku made is still floating, so the untap cost no mana"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(shaku, 0)),
+        "and the standing Shaku has its {{T}} back: {:?}",
+        legal.abilities
+    );
+}
+
+fn horn_of_ramos() -> CardIndex {
+    card_index("3b9bcf88-7304-48c5-bd46-3e37a93967a5")
+}
+
+/// Horn of Ramos prints two mana lines and neither of them costs mana: "{T}:
+/// Add {G}" and "Sacrifice this artifact: Add {G}". One board therefore reads
+/// the whole card — the tap line pays with its own {T}, which leaves the
+/// artifact tapped but very much on the battlefield, and the sacrifice line,
+/// which asks for no tap at all, is still offered and still makes green.
+///
+/// The only land on the table is an Island that never moves, so the green in
+/// the pool has no other source on the board, and each half is read with the
+/// pool empty beforehand: that is the state `can_afford` reads, which is what
+/// says the price of either line is the artifact itself and not some mana the
+/// board happened to be holding.
+#[test]
+fn horn_of_ramos_taps_and_then_sacrifices_itself_for_green() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(517, forest())
+        .battlefield(0, &[island(), horn_of_ramos()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let horn = on_battlefield(&engine, p0, horn_of_ramos()).expect("the Horn is on the table");
+    let land = on_battlefield(&engine, p0, island()).expect("the Island is out");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing floats: neither line the Horn prints costs any mana"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(horn, 0)) && legal.abilities.contains(&(horn, 1)),
+        "both printed mana lines are payable on an empty pool, because each \
+         one's whole price is the artifact itself: {:?}",
+        legal.abilities
+    );
+
+    // Ability 0 is the printed "{T}: Add {G}".
+    activate(&mut engine, p0, horn_of_ramos(), 0);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    assert!(is_tapped(&engine, horn), "{{T}} was the whole price");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one green, off the Horn's own tap"
+    );
+
+    // The second line does not care that the artifact is already tapped: its
+    // price is the artifact and nothing else.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(horn, 0)),
+        "a tapped artifact has no {{T}} left to pay with: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(horn, 1)),
+        "\"Sacrifice this artifact: Add {{G}}\" asks for no tap, so a tapped \
+         Horn still offers it: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, horn_of_ramos(), 1);
+    assert!(
+        stack_is_empty(&engine),
+        "and the sacrifice line is a mana ability too (CR 605.3b)"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        2,
+        "{{G}} twice, one from each printed line"
+    );
+    assert_eq!(pool.total(), 2, "and nothing else came with them");
+    assert!(
+        on_battlefield(&engine, p0, horn_of_ramos()).is_none(),
+        "the sacrifice is half of what the second line charges"
+    );
+    assert!(
+        in_graveyard(&engine, p0, horn_of_ramos()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        0,
+        "no blue either: the Island was never tapped"
+    );
+    assert!(
+        !is_tapped(&engine, land),
+        "the Island never moved, so the two green have no source other than \
+         the artifact"
+    );
+}
+
+fn mana_prism() -> CardIndex {
+    card_index("f4669822-716b-45c7-a7f2-040062509fe9")
+}
+
+/// Mana Prism prints two mana abilities and the difference between them is
+/// the whole card: "`{T}`: Add `{C}`" costs its own tap and nothing else,
+/// while "`{1}`, `{T}`: Add one mana of any color" charges a mana on top of
+/// it and is the only one of the two that ever asks a question. Four Forests
+/// pay the `{3}` and leave exactly the `{1}` the coloured line charges, so
+/// the blue in the pool afterwards has no other source on the board — the
+/// only land here makes green — and the list it was picked from is five
+/// colours wide, because colorless is no color at all (CR 105.4). The
+/// colourless line is played on the turn after, once the untap step has stood
+/// the artifact back up, which is the only time its `{T}` is payable again.
+#[test]
+fn mana_prism_taps_for_colorless_and_spends_a_mana_for_any_color() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[mana_prism()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Four Forests pay the {3} and leave the {1} the coloured line charges
+    // floating beside it: CR 500.5 empties a pool at the end of a step, and
+    // the whole scenario plays inside this one main phase.
+    cast_from_hand(&mut engine, p0, mana_prism());
+    pass_until(&mut engine, stack_is_empty);
+    let prism = on_battlefield(&engine, p0, mana_prism()).expect("the Prism resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{3}} is spent and exactly the {{1}} the second line charges is left"
+    );
+
+    // Ability 1 — "{{1}}, {{T}}: Add one mana of any color." Its price is a
+    // mana *and* the tap, so `tap_all_mana` would never press it (#159); it is
+    // activated by hand, with the {{1}} already in the pool.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(prism, 1)),
+        "with the {{1}} floating the coloured line is payable: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, mana_prism(), 1);
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("\"any color\" is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("blue was one of the colors it offered");
+
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "the Forests' green paid the {{1}}, so the blue has no other source on \
+         this board"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one activation");
+    assert!(is_tapped(&engine, prism), "the Prism paid its own {{T}}");
+
+    // Ability 0 — "{{T}}: Add {{C}}" — wants the artifact untapped, which is
+    // its controller's next untap step and nothing this turn.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, prism),
+        "the untap step stood it back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool the blue was in is gone (CR 500.5)"
+    );
+
+    activate(&mut engine, p0, mana_prism(), 0);
+    assert!(
+        stack_is_empty(&engine),
+        "a mana ability uses no stack (CR 605.3b)"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        1,
+        "{{T}}: Add {{C}} — the one thing `any color` can never produce"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(
+        is_tapped(&engine, prism),
+        "and the Prism paid its own {{T}} again"
+    );
+}
+
+fn nuisance_engine() -> CardIndex {
+    card_index("288afdb9-708d-4a52-991a-e1b07f62ee99")
+}
+
+/// Nuisance Engine — {3} artifact: "{2}, {T}: Create a 0/1 colorless Pest
+/// artifact creature token." Both halves of the price have to be read in one
+/// activation, so five Forests pay the {3} and leave exactly the {2} the
+/// ability charges — read off the pool, because `legal.abilities` is filtered
+/// through `can_afford` and that reads the pool rather than the untapped
+/// lands. The token itself is asserted only after the stack has emptied,
+/// since making a token is no mana ability: the artifact tapped, the two mana
+/// gone and no Pest anywhere while the question is up is what says the token
+/// is the resolution and not the cost.
+#[test]
+fn nuisance_engine_taps_and_two_mana_for_a_zero_one_pest() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(413, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .hand(0, &[nuisance_engine()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Five Forests: {3} brings the artifact to the table and the {2} the ability
+    // charges is what the same pool has left beside it — a pool survives until
+    // the step ends (CR 500.5) and this all happens inside one main phase.
+    cast_from_hand(&mut engine, p0, nuisance_engine());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let machine = on_battlefield(&engine, p0, nuisance_engine()).expect("the Engine resolved");
+    assert!(!is_tapped(&engine, machine), "it enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the {{3}} is spent and exactly the {{2}} the ability charges is left"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "nothing has been activated yet, so nothing has been made"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(machine, 0)),
+        "with {{2}} floating the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, nuisance_engine(), 0);
+    assert!(
+        is_tapped(&engine, machine),
+        "{{T}} is half the price and is paid as the ability is activated"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the other half was the two mana that was floating"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Pest arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Pest");
+    let pest = tokens[0];
+    let kinds = types(&engine, pest);
+    assert!(
+        kinds.contains(TypeSet::ARTIFACT) && kinds.contains(TypeSet::CREATURE),
+        "\"artifact creature token\": {kinds:?}"
+    );
+    assert_eq!(pt(&engine, pest), (0, 1), "the printed 0/1 body");
+    let printed = engine
+        .state()
+        .object(pest)
+        .expect("the Pest is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(printed.name, "Pest");
+    assert!(
+        on_battlefield(&engine, p0, nuisance_engine()).is_some(),
+        "the {{2}} and the tap were the whole price, so the Engine stays to make \
+         another one"
+    );
+}
+
+fn phyrexian_altar() -> CardIndex {
+    card_index("8d02b297-97c4-4379-9862-0a462400f66f")
+}
+
+/// Phyrexian Altar — {3} artifact: "Sacrifice a creature: Add one mana of any
+/// color." It is a *mana* ability whose whole price is a creature, so playing
+/// it asks the two questions no reading of the card file answers: which
+/// permanent is being given up and which of the five colors the mana is. The
+/// Elf is the offering worth naming — the Altar is an artifact and the Forests
+/// are lands, so a menu that had lost `Filter::YOUR_CREATURE` would still offer
+/// something and still pass — and the Elf across the table is the CR 701.21a
+/// half: a seat sacrifices only what it controls. The price is a creature and
+/// no mana at all, so the pool is emptied before the activation, which is what
+/// makes "one black and nothing else" afterwards an exact statement.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn phyrexian_altar_sacrifices_a_creature_for_one_mana_of_the_color_its_controller_names() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
+        .hand(0, &[phyrexian_altar()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Three Forests into the pool, and the Elf named as the source kept back:
+    // it is the creature the Altar is about to eat, and `tap_all_mana` would
+    // have drunk its own `{T}: Add {G}` as well (#159).
+    let fodder = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    tap_mana_except(&mut engine, p0, fodder);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Forests in the pool, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, phyrexian_altar());
+    pass_until(&mut engine, stack_is_empty);
+    let altar = on_battlefield(&engine, p0, phyrexian_altar()).expect("the Altar resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{3}} is spent: the whole price of what follows is a creature"
+    );
+    assert!(!is_tapped(&engine, altar), "and the Altar is untapped");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(altar, 0)),
+        "with a creature on the board the one line the Altar prints is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, phyrexian_altar(), 0);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("the cost asks which creature, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one asked");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "the variant is what tells a client this is a cost and not a search"
+    );
+    assert_eq!((min, max), (1, 1), "one creature, and the cost asks once");
+    assert_eq!(
+        options,
+        vec![fodder],
+        "the creature you control is the whole of the answer: the Altar is an \
+         artifact, the Forests are lands, and the Elf across the table is not \
+         yours to give up"
+    );
+    assert!(
+        !options.contains(&altar),
+        "the Altar is an artifact: it cannot eat itself"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "`CR 701.21a`: an opponent's creature is not yours to sacrifice"
+    );
+
+    let refused = engine.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![theirs],
+        },
+    );
+    assert!(
+        refused.is_err(),
+        "an answer the question did not enumerate is refused: {refused:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and the refusal costs the other seat nothing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .expect("the creature the question offered pays the cost");
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`any color` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the seat that paid the price names the color");
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(
+        pool.total(),
+        1,
+        "one mana, off one creature, and nothing else: the board floats no \
+         green, so the count above is exact"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "the sacrificed creature left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "and it is in its owner's graveyard, which is where a sacrificed \
+         permanent goes"
+    );
+    assert!(
+        on_battlefield(&engine, p0, phyrexian_altar()).is_some(),
+        "the Altar outlives the creature it ate"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the opponent's Elves never moved"
+    );
+}
+
+fn phyrexian_lens() -> CardIndex {
+    card_index("d2ce3832-a12d-4c7a-9bc2-51dc92764994")
+}
+
+/// Phyrexian Lens is `{3}` for one line: "{T}, Pay 1 life: Add one mana of any
+/// color." The price is two parts and each is read in its own place — the tap
+/// leaves the artifact turned, and the life is a life total that drops by
+/// exactly one — while the colour asks a question five options wide with no
+/// colorless among them (CR 105.4).
+///
+/// The whole price is deliberately *not* the artifact's own `{T}`, and that is
+/// asserted on the board rather than assumed: `tap_all_mana` presses a printed
+/// `{T}: Add …` (a Mox, a Sol Ring, #159), so a helper that took this route
+/// would have spent the very activation under test. It leaves the Lens
+/// standing, which is what makes the by-hand activation below a real one and
+/// the black mana in the pool a reading the lone Forest could not have
+/// produced.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn phyrexian_lens_taps_and_pays_a_life_for_one_mana_of_the_color_its_controller_names() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(313, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[phyrexian_lens()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // `{3}` off the three Forests and nothing else: the pool is empty once the
+    // Lens has landed, so nothing floating could be mistaken for the price the
+    // activation charges below.
+    cast_from_hand(&mut engine, p0, phyrexian_lens());
+    pass_until(&mut engine, stack_is_empty);
+    let lens = on_battlefield(&engine, p0, phyrexian_lens()).expect("the Lens resolved");
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forests are still out");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Forests paid the {{3}} and left nothing floating"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and nobody has paid a life yet"
+    );
+
+    // The price is a tap *and* a life, so "tap every mana ability whose whole
+    // price is its own {T}" must not take it.
+    assert_eq!(
+        tap_all_mana(&mut engine, p0),
+        0,
+        "the Forests are already tapped, so nothing is left to make"
+    );
+    assert!(
+        !is_tapped(&engine, lens),
+        "the Lens stays standing: its price is not its own {{T}} alone, so \
+         `tap_all_mana` may not press it"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(lens, 0)),
+        "with an empty pool the one line the card prints is still offered — \
+         the price asks for a tap and a life, and neither is mana: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, phyrexian_lens(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`any color` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "\"Pay 1 life\" is half the price — one, and never a life per mana"
+    );
+    assert!(
+        is_tapped(&engine, lens),
+        "and the tap symbol is the other half"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "the Forest beside it makes green and never black, so this mana has no \
+         other source on the board"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one activation and one life");
+    assert!(
+        is_tapped(&engine, land),
+        "the Forests are down — they paid the {{3}} — and what they make is \
+         green, so the black on the pool came off the Lens and nothing else"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+}
+
+fn phyrexian_vault() -> CardIndex {
+    card_index("b628150b-08a1-4ea3-978d-60255dfb0b7e")
+}
+
+/// Phyrexian Vault — {3} artifact: "{2}, {T}, Sacrifice a creature: Draw a
+/// card."
+///
+/// All three parts of the price land where a test can read them, and each needs
+/// a different reading: the {2} out of a pool only the Forests paid into, the
+/// tap on the artifact itself, and the creature in its owner's graveyard
+/// rather than merely gone. "A creature" is where the menu does the work — the
+/// Elf across the table is as much a creature as mine and must not be on it,
+/// the Vault is an artifact and so cannot eat itself, and a refused answer
+/// costs the other seat nothing. The draw is the half no pool reading can see,
+/// so it is asserted as a move off the library and into the hand together.
+#[allow(clippy::too_many_lines)] // one activation, every part of its price read off a different zone
+#[test]
+fn phyrexian_vault_eats_a_creature_of_its_own_side_for_a_card() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[phyrexian_vault()])
+        // A creature across the table: "a creature" is read as the seat's own,
+        // and a same-card bystander is the only thing that can say so.
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the fodder is out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+
+    // {3} off three of the five Forests, with the Elf named as the printing
+    // kept back: it is the creature the ability is about to ask for, and it
+    // taps for mana of its own if the helper is not told otherwise.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "five Forests, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, phyrexian_vault());
+    pass_until(&mut engine, stack_is_empty);
+    let vault = on_battlefield(&engine, p0, phyrexian_vault()).expect("the Vault resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "the {{3}} is spent and the {{2}} the ability charges is still in the pool"
+    );
+
+    // The offer is read off the pool and not off the untapped lands, so the
+    // mana has to be floating before anything is claimed about it.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(vault, 0)),
+        "{{2}}, {{T}}, Sacrifice a creature — the only line the card prints, \
+         now that its {{2}} is payable: {:?}",
+        legal.abilities
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    activate(&mut engine, p0, phyrexian_vault(), 0);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the sacrifice is chosen before it is paid: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "a cost and not a search, which is all a client has to tell the two apart"
+    );
+    assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");
+    assert_eq!(
+        options,
+        vec![elf],
+        "the one creature this seat controls is the whole menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "`CR 701.21a`: an opponent's creature is not yours to sacrifice: {options:?}"
+    );
+    assert!(
+        !options.contains(&vault),
+        "the Vault is an artifact and no creature: {options:?}"
+    );
+
+    let refused = engine.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![theirs],
+        },
+    );
+    assert!(
+        refused.is_err(),
+        "an answer the question did not enumerate is refused: {refused:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and the refusal costs the other seat nothing"
+    );
+
+    // CR 601.2c named no target here, and CR 601.2h pays the whole cost at
+    // once: the {T}, the {2} and the creature all go with this answer.
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the creature the question offered pays the cost");
+
+    assert!(
+        is_tapped(&engine, vault),
+        "{{T}} is part of the price and is paid as the ability is activated"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "a sacrificed creature goes to its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "and has left the battlefield, which is the sacrifice itself"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{2}} it charges came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the ability uses the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "and it is in hand, so an emptied library would not satisfy the count above"
+    );
+    assert!(
+        on_battlefield(&engine, p0, phyrexian_vault()).is_some(),
+        "the Vault outlives the creature it ate"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and nothing of the opponent's ever moved"
+    );
+}
+
+// oracle_id = "dfed42b8-b35e-4c70-9e75-25a4da158e76"
+fn scrapheap() -> CardIndex {
+    card_index("dfed42b8-b35e-4c70-9e75-25a4da158e76")
+}
+
+/// Scrapheap — {3} artifact: "Whenever an artifact or enchantment is put
+/// into your graveyard from the battlefield, you gain 1 life."
+///
+/// Three Krosan Grips in one main phase read every word of that sentence off
+/// one board: the first destroys this seat's own Sol Ring (an *artifact* of
+/// mine dying), the second its Exploration (the *enchantment* half of the
+/// disjunction), and the third the Sol Ring across the table — an artifact
+/// dying where `ControlledByYou` has to decline it and the life total has to
+/// stay where it was. Six tapped Forests pay for all three, so an emptied
+/// pool says the Grips were paid for rather than merely announced, and the
+/// Scrapheap itself never dies, so every point of life belongs to the printed
+/// sentence and not to a look-back on its own death (CR 603.6c).
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn scrapheap_gains_one_life_for_your_artifacts_and_enchantments_and_ignores_theirs() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                scrapheap(),
+                quiet_artifact(),
+                exploration(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[krosan_grip(), krosan_grip(), krosan_grip()])
+        .battlefield(1, &[quiet_artifact()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("my Sol Ring is out");
+    let chant = on_battlefield(&engine, p0, exploration()).expect("my Exploration is out");
+    let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+    assert_eq!(engine.state().players[0].life, 20, "nothing has died yet");
+
+    // Nine Forests — three Grips at {2}{G} each, and the third cast is the
+    // one this test is really about — with the Sol Ring named as the
+    // printing kept back: it is the permanent the first Grip is about, and a
+    // source tapped for mana is a source whose status has already changed
+    // for a reason of its own.
+    tap_all_mana_but(&mut engine, p0, Some(quiet_artifact()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        9,
+        "nine Forests tapped for nine green, and the Sol Ring still standing"
+    );
+
+    // (1) An artifact of my own is put into my graveyard.
+    cast_with_floating(&mut engine, p0, krosan_grip());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the seat that cast the Grip aims it");
+    assert!(
+        options.contains(&ring) && options.contains(&chant) && options.contains(&theirs),
+        "\"target artifact or enchantment\" reaches every one of them, on \
+         either side of the table: {options:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "CR 601.2c before CR 601.2h: the target is named while the artifact \
+         it names is still on the battlefield"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .expect("my own Sol Ring was one of the options");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_some(),
+        "the artifact the Grip named is in its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        21,
+        "\"Whenever an artifact … is put into your graveyard from the \
+         battlefield, you gain 1 life\": one artifact of mine, one life"
+    );
+
+    // (2) The other half of the disjunction: an enchantment of my own.
+    cast_with_floating(&mut engine, p0, krosan_grip());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert!(
+        options.contains(&chant),
+        "the Exploration is an enchantment this seat controls: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chant],
+            },
+        )
+        .expect("the Exploration was still an enchantment I control");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p0, exploration()).is_some(),
+        "the enchantment the Grip named is in its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "an enchantment counts as much as an artifact: a filter that read only \
+         the first disjunct would have left this at 21"
+    );
+
+    // (3) An artifact dies and it is not mine, which is where the word
+    // `ControlledByYou` is read.
+    cast_with_floating(&mut engine, p0, krosan_grip());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .expect("the Sol Ring across the table was one of the options");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "and it is in its own owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "an artifact dying across the table is no artifact of mine: the \
+         Scrapheap gained nothing for it"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and the seat whose artifact died gains nothing either — the ability \
+         belongs to the Scrapheap's controller"
+    );
+    assert!(
+        on_battlefield(&engine, p0, scrapheap()).is_some(),
+        "the Scrapheap outlived all three, so nothing here measured its own \
+         death instead of the sentence it prints"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three {{1}}{{G}} out of six green: the Grips were paid for, not \
+         merely announced"
+    );
+}
+
+fn seashell_cameo() -> CardIndex {
+    card_index("383f6020-c26d-43e8-bb07-566886626d74")
+}
+
+/// Seashell Cameo — {3} artifact: "{T}: Add {W} or {U}."
+///
+/// The one activation has to both ask and pay, so the board is built so that
+/// neither can be borrowed: four Forests produce the {3} and nothing but {G},
+/// and the single blue in the pool afterwards therefore came off the Cameo's
+/// own tap. The two colours it offers are asserted as the enumeration itself —
+/// a card that had lost one half of "or" would still fill a pool of one mana —
+/// and the tapped artifact at the end says the {T} was the whole price of that
+/// offer rather than a label on a free ability.
+#[test]
+fn seashell_cameo_taps_for_white_or_blue_whichever_its_controller_names() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[seashell_cameo()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Four Forests pay the {3} and leave one green behind; the cameo is in
+    // hand while they are tapped, so its own tap is still there to spend.
+    cast_from_hand(&mut engine, p0, seashell_cameo());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let cameo = on_battlefield(&engine, p0, seashell_cameo()).expect("the Cameo resolved");
+    assert!(
+        types(&engine, cameo).contains(TypeSet::ARTIFACT),
+        "what arrived is the artifact the card prints"
+    );
+    assert!(!is_tapped(&engine, cameo), "and it enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "four Forests paid the {{3}} and exactly one green is left"
+    );
+
+    // Ability 0 is the printed "{T}: Add {W} or {U}". A mana ability a card
+    // prints has an index to name, so it is an ordinary entry in `abilities`
+    // and never the CR 305.6 shortcut a basic land uses.
+    activate(&mut engine, p0, seashell_cameo(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "\"Add {{W}} or {{U}}\" is a question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options,
+        vec![ManaColor::White, ManaColor::Blue],
+        "the two colours the card prints, and no third"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("blue was one of the colours it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::White),
+        0,
+        "and not the other half of the pair"
+    );
+    assert_eq!(
+        pool.total(),
+        2,
+        "the Forest's green beside the one mana the Cameo made"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+    assert!(is_tapped(&engine, cameo), "the Cameo paid its own {{T}}");
+
+    // The whole price was that tap, so the line is no longer one the seat may
+    // take — read off the offer, which is where an unpayable cost goes.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(cameo, 0)),
+        "a tapped Cameo has no {{T}} left to pay with: {:?}",
+        legal.abilities
+    );
+}
+
+fn skull_of_ramos() -> CardIndex {
+    card_index("b5ae2532-e642-47d1-bb5f-53f408e2fdc2")
+}
+
+/// Skull of Ramos prints two mana abilities and they are the whole card:
+/// "{T}: Add {B}" and "Sacrifice this artifact: Add {B}". Both make the same
+/// single black mana, so the readings that tell them apart are the price and
+/// where the artifact ends up — after the first the Skull is tapped and still
+/// standing, and after the second it is in its owner's graveyard. Each line is
+/// pressed by index out of the offer rather than guessed at, and the printed
+/// "{B}" is fixed, so neither asks a `ChooseColor` on the way.
+#[test]
+fn skull_of_ramos_offers_both_black_mana_abilities_and_the_second_costs_the_artifact() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[skull_of_ramos(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let skull = on_battlefield(&engine, p0, skull_of_ramos()).expect("the Skull is out");
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest is out");
+
+    // The Forest is tapped and the Skull kept back: its own `{T}` is ability
+    // 0, which this test presses by hand, and `tap_all_mana` would have spent
+    // it (#159). One green and no black is the board the first line is read
+    // against.
+    tap_all_mana_but(&mut engine, p0, Some(skull_of_ramos()));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "the Forest's one green"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        0,
+        "and nothing on this board has produced black yet"
+    );
+    assert!(
+        !is_tapped(&engine, skull),
+        "the Skull was the one thing kept back from the tapping"
+    );
+
+    // Ability 0, "{T}: Add {B}". A mana ability a card prints has an index to
+    // name, so it is an ordinary entry in `legal.abilities` and not the
+    // CR 305.6 shortcut a basic land uses.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(skull, 0)),
+        "an untapped Skull is a paid {{T}}, so the line is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, skull_of_ramos(), 0);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "`{{B}}` is fixed, so there is nothing to name on the way (CR 605.1), \
+         got {:?}",
+        engine.pending()
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1, "{{T}}: Add {{B}}");
+    assert_eq!(
+        pool.total(),
+        2,
+        "one green and one black, and nothing beside them"
+    );
+    assert!(is_tapped(&engine, skull), "the tap was the price");
+    assert!(
+        is_tapped(&engine, land),
+        "the Forest is down for the green beside it, and green is not black: \
+         the Skull is the only source of {{B}} on this board"
+    );
+
+    // Ability 1, "Sacrifice this artifact: Add {B}". Its whole price is the
+    // artifact and no tap at all, so a Skull that is already tapped is still
+    // offered — which is the reading the two lines differ in.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(skull, 1)),
+        "the sacrifice costs no tap, so the tapped Skull may still pay it: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, skull_of_ramos(), 1);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: the sacrifice is a mana ability too, so nothing is waiting"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        2,
+        "one black from the tap and one from the sacrifice"
+    );
+    assert_eq!(
+        pool.total(),
+        3,
+        "and the Forest's green is untouched by either"
+    );
+    assert!(
+        on_battlefield(&engine, p0, skull_of_ramos()).is_none(),
+        "the sacrifice is the price, so the artifact left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, skull_of_ramos()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+}
+
+fn sol_grail() -> CardIndex {
+    card_index("0396ef40-3774-4684-9971-160aaccf6ac6")
+}
+
+/// Sol Grail is `{3}` for two sentences that are only worth anything
+/// together: "As this artifact enters, choose a color" and "{T}: Add one mana
+/// of the chosen color." Reading the card file cannot tell that pairing from a
+/// rock that makes whatever color it likes, so the color is **named** at the
+/// entry question and the mana ability is then played on a board where the
+/// answer has to be that one: the four Forests leave exactly one green
+/// floating, so a Grail that asked a second time, or fell back to a default,
+/// would leave two green in the pool instead of one green and one black.
+#[test]
+fn sol_grail_makes_the_color_it_was_asked_for_on_the_way_in() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[sol_grail()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Four Forests into the pool first: {3} of them pay for the artifact and
+    // CR 500.5 keeps the one left over floating, since the whole scenario
+    // stays inside this one main phase.
+    cast_from_hand(&mut engine, p0, sol_grail());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(
+        player, p0,
+        "the seat casting the artifact is the one naming"
+    );
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"choose a color\" includes {color:?}: {options:?}"
+        );
+    }
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let grail = on_battlefield(&engine, p0, sol_grail()).expect("the Grail resolved");
+    assert!(!is_tapped(&engine, grail), "and it enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "four Forests less the {{3}} the artifact cost"
+    );
+
+    // Ability 0 is the printed "{T}: Add one mana of the chosen color", whose
+    // whole price is the Grail's own tap — so it is offered here, and it must
+    // not ask anything: the color was settled as the artifact entered.
+    activate(&mut engine, p0, sol_grail(), 0);
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseColor { .. }),
+        "the color was chosen on the way in, so nothing is asked now: {:?}",
+        engine.pending()
+    );
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named at the entry question"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "and the green is still the Forests' leftover, not a second mana off \
+         the Grail"
+    );
+    assert_eq!(
+        pool.total(),
+        2,
+        "one black from the Grail's tap and one green from the pool"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, grail), "the Grail paid its own {{T}}");
+}
+
+fn staff_of_domination() -> CardIndex {
+    card_index("d7888719-647d-4022-a211-822fa09f0791")
+}
+
+/// Staff of Domination prints five activated abilities and the first one is
+/// what makes the rest a loop: `{1}: Untap this artifact` is the only reason a
+/// card that must tap to do anything can act more than once in a turn. The
+/// scenario plays every printed line for real — one life, a card, a tap and an
+/// untap — with the `{1}` between each, so all four `{T}` prices and the untap
+/// stand on the board rather than in the card file, inside one main phase
+/// (CR 500.5). The only creature on the table is the opponent's, because
+/// "target creature" is not "target creature you control": the tap and the
+/// untap differ by one word and the elf has to be offered to both.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn staff_of_domination_loops_its_own_tap_for_life_a_card_and_a_tapped_creature() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(); 20])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[staff_of_domination()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The card arrives the way the card arrives: {3} out of a pool the Forests
+    // actually filled, and every line below is paid from what is left of it.
+    cast_from_hand(&mut engine, p0, staff_of_domination());
+    pass_until(&mut engine, stack_is_empty);
+    let staff = on_battlefield(&engine, p0, staff_of_domination()).expect("the Staff resolved");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        17,
+        "twenty Forests less the {{3}} the card costs"
+    );
+    assert!(!is_tapped(&engine, staff), "and it enters untapped");
+
+    // Ability 1: `{2}, {T}: You gain 1 life.`
+    activate(&mut engine, p0, staff_of_domination(), 1);
+    assert!(
+        is_tapped(&engine, staff),
+        "{{T}} is half the price and is paid as the ability is activated"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        15,
+        "the {{2}} came out of the pool"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        21,
+        "one activation, one life"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the life belongs to the seat that paid, not to the opponent"
+    );
+
+    // Ability 0: `{1}: Untap this artifact.` Without it the Staff is spent for
+    // the turn after a single line, which is the whole point of the card.
+    activate(&mut engine, p0, staff_of_domination(), 0);
+    assert!(
+        is_tapped(&engine, staff),
+        "an untap is no mana ability, so it waits on the stack"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!is_tapped(&engine, staff), "{{1}} buys the untap");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        14,
+        "and the {{1}} came out of the pool"
+    );
+
+    // Ability 4: `{5}, {T}: Draw a card.`
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    activate(&mut engine, p0, staff_of_domination(), 4);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "one card off the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "and it reached the hand, so an emptied library would not satisfy the count above"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        9,
+        "the {{5}} came out of the pool"
+    );
+
+    // Ability 3: `{4}, {T}: Tap target creature.`
+    activate(&mut engine, p0, staff_of_domination(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, staff),
+        "the second {{1}} stands it up again"
+    );
+
+    activate(&mut engine, p0, staff_of_domination(), 3);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&elf),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&staff),
+        "the Staff is an artifact and no creature: {options:?}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the creature the question offered was chosen");
+    assert!(
+        !is_tapped(&engine, elf),
+        "CR 601.2h pays last: the target is answered before the {{T}} and the {{4}}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(is_tapped(&engine, elf), "\"Tap target creature\"");
+    assert!(
+        is_tapped(&engine, staff),
+        "and the Staff paid its own {{T}}"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "the untap and the {{4}} are both out of the pool"
+    );
+
+    // Ability 2: `{3}, {T}: Untap target creature.` — the same elf, back up.
+    activate(&mut engine, p0, staff_of_domination(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, staff),
+        "and the third {{1}} stands the Staff up for its last line"
+    );
+    assert!(
+        is_tapped(&engine, elf),
+        "the Elf is still the creature the previous ability tapped"
+    );
+
+    activate(&mut engine, p0, staff_of_domination(), 2);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&elf),
+        "the other way round is the same filter on the same board: {options:?}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the creature the question offered was chosen");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!is_tapped(&engine, elf), "\"Untap target creature\"");
+    assert!(
+        is_tapped(&engine, staff),
+        "and the loop ends with the Staff spent"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the last {{3}} is the last mana the twenty Forests made"
+    );
+}
+
+fn standing_stones() -> CardIndex {
+    card_index("2cc8c24f-cca8-462c-a5ad-1f8662e69a8a")
+}
+
+/// Standing Stones prints one line: "{1}, {T}, Pay 1 life: Add one mana of any
+/// color." Three parts of that price are each invisible in the card file — the
+/// mana, the life and the tap — so the board reads all three: four Forests pay
+/// the {3} and leave exactly the {1} the ability charges, the pool is one mana
+/// of the named colour afterwards, the controller is a life lower, and the
+/// artifact is tapped. The colour is `any color` and not a fixed one, so the
+/// question is five options wide with no colourless among them (CR 105.4), and
+/// the mana arrives with an empty stack because a mana ability resolves as it
+/// is activated (CR 605.3b).
+#[test]
+fn standing_stones_pays_a_mana_and_a_life_for_one_mana_of_any_color() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(110, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[standing_stones()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Four Forests are tapped by `cast_from_hand`, and the {3} the artifact
+    // costs leaves exactly the {1} its ability charges beside them.
+    cast_from_hand(&mut engine, p0, standing_stones());
+    pass_until(&mut engine, stack_is_empty);
+    let stones = on_battlefield(&engine, p0, standing_stones()).expect("the Stones resolved");
+    assert!(!is_tapped(&engine, stones), "an artifact enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{3}} is spent and the {{1}} the ability charges is still floating"
+    );
+
+    // Ability 0 is the only line the card prints. Its whole price is not its own
+    // tap, so `tap_all_mana` left it standing — which is what lets it be pressed
+    // by index here instead of read off a tapped permanent.
+    activate(&mut engine, p0, standing_stones(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`any color` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colours of the game, and colourless is no colour at all \
+         (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colours it offered");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.total(),
+        1,
+        "one mana in the pool, and the green that paid the {{1}} is gone"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "\"Pay 1 life\" is part of the price, and it is paid as the ability is \
+         activated rather than when it resolves"
+    );
+    assert!(
+        is_tapped(&engine, stones),
+        "the tap symbol was paid with it"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+}
+
+// oracle_id = "00e35322-1a9a-41e3-9ce1-359c8eaa3bc7"
+fn talisman_of_progress() -> CardIndex {
+    card_index("00e35322-1a9a-41e3-9ce1-359c8eaa3bc7")
+}
+
+/// Talisman of Progress prints two mana abilities — "`{T}`: Add `{C}`" and
+/// "`{T}`: Add `{W}` or `{U}`. This artifact deals 1 damage to you." — and
+/// the second one is the whole card, because its two halves land in two
+/// different places. The menu is exactly the two colours the card prints and
+/// has no colourless on it (CR 105.4), which is what tells this line from the
+/// `{T}: Add {C}` above it; and the single damage is read on *both* seats,
+/// since "to you" is the word under test and a card that had aimed it across
+/// the table would leave the controller at twenty. Both lines cost no mana at
+/// all, so the pool is empty before the tap and everything in it afterwards
+/// came off the artifact.
+#[test]
+fn talisman_of_progress_taps_for_one_of_its_two_colors_and_bites_its_controller() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[talisman_of_progress()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let talisman =
+        on_battlefield(&engine, p0, talisman_of_progress()).expect("the Talisman is on the table");
+    assert!(!is_tapped(&engine, talisman), "it starts untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and nothing is floating on a board whose only permanent is the Talisman"
+    );
+
+    // The whole price of both printed lines is the tap symbol, so both are
+    // offered before anything is spent.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(talisman, 0)),
+        "{{T}}: Add {{C}} is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(talisman, 1)),
+        "{{T}}: Add {{W}} or {{U}} is offered beside it: {:?}",
+        legal.abilities
+    );
+
+    // Ability 1 is the coloured one; ability 0 is the colourless tap.
+    activate(&mut engine, p0, talisman_of_progress(), 1);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`{{W}} or {{U}}` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options,
+        vec![ManaColor::White, ManaColor::Blue],
+        "the two colours the card prints, and colourless is no colour at all \
+         (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("blue was one of the colours it offered");
+
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana and the damage \
+         are already here"
+    );
+    assert!(is_tapped(&engine, talisman), "{{T}} was the price");
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "\"This artifact deals 1 damage to you\""
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and the damage belongs to the controller, not to the opponent"
+    );
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::White),
+        0,
+        "the other half of the choice was not paid for as well"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+}
+
+fn tigereye_cameo() -> CardIndex {
+    card_index("d2be289e-e560-405d-9728-d8a4ee9cbf56")
+}
+
+/// Tigereye Cameo is `{3}` artifact printing one line: "`{T}`: Add `{G}` or
+/// `{W}`." Three Forests pay the cost and leave the pool empty, so the single
+/// white that appears afterwards can only have come off the artifact's own
+/// tap — and the board holds no white source at all, which is what makes the
+/// colour legible instead of assumed. The question the ability asks is two
+/// colours wide and has no colourless on it, and the mana arrives with an
+/// empty stack because a mana ability resolves as it is activated
+/// (CR 605.3b). Silence is the last step: `{W}` is not a label if it cannot
+/// pay for a spell that costs it.
+#[test]
+fn tigereye_cameo_taps_for_green_or_white_and_the_white_pays_a_white_spell() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[tigereye_cameo(), silence()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Three Forests are exactly `{3}`, so the cast spends every mana source on
+    // the board and the pool is empty when the artifact lands on it. The
+    // Cameo is in hand while the mana is tapped, so the helper cannot have
+    // spent the very `{T}` this test activates by hand (#17).
+    cast_from_hand(&mut engine, p0, tigereye_cameo());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let cameo = on_battlefield(&engine, p0, tigereye_cameo()).expect("the Cameo resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Forests paid the {{3}} and nothing is left floating"
+    );
+    assert!(!is_tapped(&engine, cameo), "and the Cameo enters untapped");
+
+    // Ability 0 is the printed "{T}: Add {G} or {W}". A mana ability a card
+    // prints has an index to name, so it is an ordinary entry in
+    // `legal.abilities` and not the CR 305.6 shortcut.
+    activate(&mut engine, p0, tigereye_cameo(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "\"Add {{G}} or {{W}}\" is a question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        2,
+        "the two colours the card prints, and no third: {options:?}"
+    );
+    assert!(
+        options.contains(&ManaColor::Green) && options.contains(&ManaColor::White),
+        "both halves of the printed choice are offered: {options:?}"
+    );
+    assert!(
+        !options.contains(&ManaColor::Colorless),
+        "colourless is no colour at all (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("white was one of the colours it offered");
+
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+    assert!(is_tapped(&engine, cameo), "the Cameo paid its own {{T}}");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::White),
+        1,
+        "the one colour that was named, in the pool the moment the tap resolved"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "\"or\" is one mana of one colour: a second green would mean both halves were added"
+    );
+    assert_eq!(
+        pool.total(),
+        1,
+        "the three Forests are still spent, so one mana is the whole pool"
+    );
+
+    // The other half of "this is white": `{W}` in the pool pays for a spell
+    // that costs `{W}`, and the pool is empty once it does. A `{G}`
+    // mislabelled as white would be refused here.
+    cast_with_floating(&mut engine, p0, silence());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, silence()).is_some(),
+        "the {{W}} was spent on a white spell rather than sitting in the pool as a label"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and paying for it emptied the pool the Cameo filled"
+    );
+}
+
+fn tooth_of_ramos() -> CardIndex {
+    card_index("fa4c57b3-6eaa-4938-b41a-0dad3e774d49")
+}
+
+/// Tooth of Ramos is a {3} artifact printing two mana abilities of the same
+/// colour: "{T}: Add {W}" and "Sacrifice this artifact: Add {W}". The second is
+/// the whole reason the card exists — it costs the permanent instead of the
+/// tap — and nothing in the card file says whether the engine treats a
+/// sacrifice as a price it can pay. Three Plains pay the {3} and leave the pool
+/// empty, so the first white is exact and has no land behind it; the second
+/// arrives off the artefact itself, which is read in its owner's graveyard
+/// afterwards. Neither activation uses the stack (CR 605.3b).
+#[test]
+fn tooth_of_ramos_taps_and_then_sacrifices_itself_for_one_white_each() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(0, &[tooth_of_ramos()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, tooth_of_ramos());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let tooth = on_battlefield(&engine, p0, tooth_of_ramos()).expect("the Tooth resolved");
+    assert!(!is_tapped(&engine, tooth), "an artifact enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "three Plains paid the {{3}} and left nothing floating"
+    );
+
+    // Ability 0: "{T}: Add {W}." Its whole price is the tap symbol, so it is
+    // offered on an empty pool and the mana lands with nothing on the stack.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(tooth, 0)),
+        "the printed {{T}}: Add {{W}} is offered on a board with no mana: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, tooth_of_ramos(), 0);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack"
+    );
+    assert!(is_tapped(&engine, tooth), "the tap was the whole price");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+        "{{T}}: Add {{W}} — one white, and no land on this board made it"
+    );
+
+    // Ability 1: "Sacrifice this artifact: Add {W}." Its price is not its own
+    // tap, so the already-tapped Tooth is still a source — and the white it
+    // makes comes out of the card rather than out of a land.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(tooth, 1)),
+        "a tapped Tooth still offers its sacrifice line: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, tooth_of_ramos(), 1);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: the sacrifice is a mana ability too, so nothing is waiting"
+    );
+    assert!(
+        on_battlefield(&engine, p0, tooth_of_ramos()).is_none(),
+        "\"Sacrifice this artifact\" takes the whole card, not merely its tap"
+    );
+    assert!(
+        in_graveyard(&engine, p0, tooth_of_ramos()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        2,
+        "one white per printed line, both off the artefact before it is gone"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "and nothing else is in the pool: the three Plains were spent on the cast"
+    );
+}
+
+fn troll_horn_cameo() -> CardIndex {
+    card_index("98e042de-05f4-4e2e-b12f-375b905e6600")
+}
+
+/// Troll-Horn Cameo is a `{3}` artifact printing one line: `{T}: Add {R} or
+/// {G}`. The whole card is the *choice*, so the reading worth playing is the
+/// question itself — a `Pending::ChooseColor` two options wide, with exactly
+/// the two colours the card names and neither of the other three. The {3} is
+/// a real payment: three Forests are spent down to an empty pool, so the one
+/// mana left floating afterwards can only have come off the artifact's own
+/// tap, and the green that was never named is what tells "or" from "and"
+/// (CR 605.3b keeps the whole thing off the stack).
+#[test]
+fn troll_horn_cameo_taps_for_red_or_green_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(911, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[troll_horn_cameo()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The {3} is paid out of three Forests and leaves nothing behind, which
+    // is what makes the pool below a claim about the Cameo and not about a
+    // land that happened to be tapped for it.
+    cast_from_hand(&mut engine, p0, troll_horn_cameo());
+    pass_until(&mut engine, stack_is_empty);
+    let cameo = on_battlefield(&engine, p0, troll_horn_cameo()).expect("the Cameo resolved");
+    assert!(!is_tapped(&engine, cameo), "it enters untapped and ready");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the three Forests paid the {{3}} to the last mana"
+    );
+
+    // Ability 0 is the printed "{T}: Add {R} or {G}", and `{T}` is the only
+    // price it costs, so it is offered without a single mana floating.
+    activate(&mut engine, p0, troll_horn_cameo(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`{{R}} or {{G}}` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert!(
+        options.contains(&ManaColor::Red) && options.contains(&ManaColor::Green),
+        "both halves of `or` are on the menu: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        2,
+        "and neither of the other three colours is: {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .expect("red was one of the colours it offered");
+
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, cameo), "the Cameo paid its own {{T}}");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "`or` is one colour: the other half of the menu was not added beside it"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+}
+
+// oracle_id = "989c698a-600e-47d8-acaf-3ca140dcd150"
+fn war_chariot() -> CardIndex {
+    card_index("989c698a-600e-47d8-acaf-3ca140dcd150")
+}
+
+/// War Chariot prints one line — "{3}, {T}: Target creature gains trample
+/// until end of turn" — and both halves of that price leave a mark a test can
+/// read: the {3} leaves the pool and the {T} leaves the artifact tapped.
+/// "Target creature" is any creature on either side of the table, so an Elf
+/// across it is offered the keyword and must finish without it, while a second
+/// Elf of mine stands beside the one that was named and must stay bare too —
+/// the pair is what tells a target from a board-wide grant. The turn is walked
+/// to an end because the printed duration is part of the card: a keyword that
+/// never expires would pass every assertion above it.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn war_chariot_grants_trample_to_the_creature_it_names_and_only_until_the_turn_ends() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+                llanowar_elves(),
+                war_chariot(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let chariot = on_battlefield(&engine, p0, war_chariot()).expect("the Chariot is out");
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 2, "two Elves, one of which stays the control");
+    let (host, bystander) = (elves[0], elves[1]);
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("an Elf across the table");
+    assert!(
+        !keywords(&engine, host).contains(KeywordSet::TRAMPLE),
+        "nothing has granted anything yet"
+    );
+
+    // `legal.abilities` is filtered through `can_afford`, and that reads the
+    // *pool* rather than the untapped lands: with nothing floating the {3} is
+    // unpayable and the line is not there at all — the half a test that only
+    // ever taps first would never see.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(chariot, 0)),
+        "{{3}} is not three, so the cost is unpayable and nothing is offered: {:?}",
+        legal.abilities
+    );
+
+    // Six Forests, and both Elves named as the printing kept back: they are
+    // the creatures the ability is about to choose between, and a mana
+    // creature tapped for the cost would make "six" a count of seven.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six tapped Forests and two untapped Elves"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(chariot, 0)),
+        "with six floating the whole price is payable: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, war_chariot(), 0);
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that aims it");
+    assert!(
+        options.contains(&host) && options.contains(&theirs),
+        "\"target creature\" is any creature, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&chariot),
+        "the Chariot is an artifact and no creature: {options:?}"
+    );
+
+    // CR 601.2c before CR 601.2h: while the question stands, the mana is
+    // still floating and the artifact is still untapped.
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "the cost is the last step of the activation, so nothing is spent yet"
+    );
+    assert!(
+        !is_tapped(&engine, chariot),
+        "and nothing has tapped it yet"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .expect("the Elf was one of the options the question enumerated");
+
+    assert!(
+        is_tapped(&engine, chariot),
+        "{{T}} is the other half of the price"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "and the {{3}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "granting a keyword is no mana ability, so the ability is on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        keywords(&engine, host).contains(KeywordSet::TRAMPLE),
+        "the creature the ability named gained trample"
+    );
+    assert!(
+        !keywords(&engine, bystander).contains(KeywordSet::TRAMPLE),
+        "the Elf nobody named is untouched: the effect targets, it does not sweep the board"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::TRAMPLE),
+        "and it never reaches across the table"
+    );
+    assert!(
+        !keywords(&engine, chariot).contains(KeywordSet::TRAMPLE),
+        "the Chariot grants the keyword, it does not keep it"
+    );
+
+    // "until end of turn": the Elf is still there a turn later and the keyword
+    // is not — a static or a permanent grant would still be on it here.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !keywords(&engine, host).contains(KeywordSet::TRAMPLE),
+        "the grant lasted the turn it was made in and no longer"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and the creature is still standing, so the keyword left rather than the creature"
+    );
+}
+
+fn whetstone() -> CardIndex {
+    card_index("940e461c-b205-4075-bd1f-a1534c33db6c")
+}
+
+/// Whetstone is `{3}` for one line: "{3}: Each player mills two cards."
+///
+/// Two words in that sentence each need a different witness. "Each player"
+/// means the *opponent* mills too, so both seats' libraries and both seats'
+/// graveyards are read — a Whetstone that milled only its controller would
+/// satisfy every count taken on p0's side of the table. And the `{3}` is a
+/// real price: the cast is checked against an empty pool first, because
+/// `can_afford` reads the pool and not the untapped lands, and six Forests
+/// then pay both the cast and the activation inside one main phase (CR 500.5).
+#[test]
+fn whetstone_mills_two_for_each_player_off_the_mana_it_charges() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[whetstone()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Nothing floats and six untapped Forests are standing: the {3} is read
+    // off the pool, so the artifact is not yet castable.
+    let card = in_hand(&engine, p0, whetstone()).expect("the Whetstone is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "an empty pool pays no {{3}}, and `can_afford` reads the pool rather \
+         than the untapped lands: {:?}",
+        legal.castable
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six Forests tapped, six green"
+    );
+    cast_with_floating(&mut engine, p0, whetstone());
+    pass_until(&mut engine, stack_is_empty);
+    let stone = on_battlefield(&engine, p0, whetstone()).expect("the Whetstone resolved");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "the cast's {{3}} is spent and exactly the {{3}} the ability charges \
+         is still floating"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(stone, 0)),
+        "with {{3}} in the pool the one line the card prints is offered: {:?}",
+        legal.abilities
+    );
+
+    let my_library = library_size(&engine, p0);
+    let their_library = library_size(&engine, p1);
+    let my_yard = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+    let their_yard = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+
+    activate(&mut engine, p0, whetstone(), 0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the activation's {{3}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "milling is no mana ability, so the ability is waiting on the stack"
+    );
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "every question the mill asks is answerable"
+    );
+
+    assert_eq!(
+        library_size(&engine, p0),
+        my_library - 2,
+        "\"each player mills two cards\" — two off the activating seat's library"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        their_library - 2,
+        "and two off the opponent's, which is the half \"each player\" is about"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        my_yard + 2,
+        "the two cards are in the graveyard, not merely gone from the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        their_yard + 2,
+        "and the same for the player who did not activate anything"
+    );
+    assert!(
+        on_battlefield(&engine, p0, whetstone()).is_some(),
+        "nothing in the line sacrifices the artifact, so it is still standing"
+    );
+}
+
+fn worn_powerstone() -> CardIndex {
+    card_index("b166b670-febc-4821-855e-f8d465644c03")
+}
+
+/// Worn Powerstone — {3} artifact: "This artifact enters tapped" and
+/// "{T}: Add {C}{C}".
+///
+/// The two printed lines are read in one game because each is the other's
+/// control. The entry is asserted on an **empty** pool — three Forests paid
+/// the {3} and the stone made nothing on the way in, so nothing on this
+/// board could have supplied the tap the card prints — and the mana ability
+/// is only reachable a turn later, once the untap step has stood the stone
+/// back up, where `{T}` is the whole price and exactly two colourless arrive.
+#[test]
+fn worn_powerstone_enters_tapped_and_taps_for_two_colorless_on_a_later_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[worn_powerstone()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // The three Forests are the whole cost, so the pool is empty the moment
+    // the artifact resolves: nothing floats, and an artifact that was never
+    // on the battlefield while mana was being made cannot have tapped itself.
+    cast_from_hand(&mut engine, p0, worn_powerstone());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, worn_powerstone()).is_some()
+    });
+    let stone = on_battlefield(&engine, p0, worn_powerstone()).expect("the stone resolved");
+    assert!(is_tapped(&engine, stone), "\"This artifact enters tapped\"");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{3}} was spent and the stone made nothing on the way in"
+    );
+    assert!(
+        types(&engine, stone).contains(TypeSet::ARTIFACT),
+        "and what arrived is the artifact it prints"
+    );
+
+    // `{T}` has no price to pay while the stone is lying tapped, so reading
+    // the second printed line needs a turn: the untap step is what turns it
+    // into an ability the seat is offered at all.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, stone),
+        "the untap step stood the stone back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended (CR 500.5)"
+    );
+
+    activate(&mut engine, p0, worn_powerstone(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        2,
+        "\"{{T}}: Add {{C}}{{C}}\" — two, off one tap"
+    );
+    assert_eq!(pool.total(), 2, "and nothing else came with them");
+    assert!(is_tapped(&engine, stone), "the stone paid its own {{T}}");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is here at once"
+    );
+}

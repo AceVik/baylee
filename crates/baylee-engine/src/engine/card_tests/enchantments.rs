@@ -2536,11 +2536,12 @@ fn druid_class_triggers_landfall_and_levels_to_level_two() {
 /// Creatures you control have trample. Whenever a creature you control with power 4 or greater enters,
 /// draw a card."
 ///
-/// Under `Coverage::Partial`, the enchantment's own enter draw trigger is omitted, while the trample
-/// anthem and the enter draw trigger for creatures with power 4 or greater are implemented.
-/// The test verifies that controlled creatures gain trample while the opponent's creature does not,
-/// that casting a 1/1 `llanowar_elves()` draws no card, and that casting a 6/6 `rootbreaker_wurm()`
-/// triggers the draw ability.
+/// This is the third line, read about a creature *entering*: the trample
+/// anthem reaches your creatures and not the opponent's, casting a 1/1
+/// draws nothing, and casting a 6/6 draws. The enchantment is seated rather
+/// than cast here, so its own enters-trigger never fires — that one is the
+/// test above, and keeping them apart is what stops one draw being read as
+/// the other.
 #[test]
 fn garruk_s_uprising_grants_trample_and_draws_on_power_four_or_greater() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -12415,5 +12416,115 @@ fn trade_routes_bounces_a_land_then_trades_one_for_a_card() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before,
         "one card discarded and one drawn, so the hand is the size it was"
+    );
+}
+
+/// Garruk's Uprising prints three lines and the **first** one is an
+/// intervening `if` on the enchantment's own arrival: "When this enchantment
+/// enters, if you control a creature with power 4 or greater, draw a card."
+/// CR 603.4 checks it twice, and both checks are against the board as the
+/// enchantment lands — so the 6/6 already standing earns the card and a 1/1
+/// standing in its place earns nothing. The test beside this one plays the
+/// third line, which is the same predicate read about a creature entering
+/// rather than about the board.
+#[test]
+fn garruk_s_uprising_draws_on_its_own_arrival_only_over_a_four_power_creature() {
+    let p0 = PlayerId::new(0);
+
+    let draw_from = |creature: CardIndex, seed: u64| -> usize {
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &[forest(), forest(), forest(), forest(), creature])
+            .hand(0, &[garruk_s_uprising()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let before = library_size(&engine, p0);
+        cast_from_hand(&mut engine, p0, garruk_s_uprising());
+        pass_until(&mut engine, stack_is_empty);
+        assert!(
+            on_battlefield(&engine, p0, garruk_s_uprising()).is_some(),
+            "the enchantment resolved either way"
+        );
+        before - library_size(&engine, p0)
+    };
+
+    assert_eq!(
+        draw_from(llanowar_elves(), 9301),
+        0,
+        "a 1/1 is not \"a creature with power 4 or greater\", so the trigger \
+         is binned by its own intervening if"
+    );
+    assert_eq!(
+        draw_from(rootbreaker_wurm(), 9302),
+        1,
+        "a 6/6 earns the card as the enchantment lands"
+    );
+}
+
+/// Temur Ascendancy's second line is the one Garruk's Uprising prints as a
+/// gift rather than a choice: "Whenever a creature you control with power 4
+/// or greater enters, **you may** draw a card." The "may" is answered here
+/// rather than assumed — a `MayDo` nobody is asked resolves into nothing —
+/// and a 1/1 entering asks no question at all, which is the half that says
+/// the power predicate is on the trigger and not on the draw.
+#[test]
+fn temur_ascendancy_offers_its_draw_only_for_a_four_power_creature() {
+    let p0 = PlayerId::new(0);
+
+    let mut small = Duel::new(9303, forest())
+        .battlefield(0, &[temur_ascendancy(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut small);
+    reach_main_phase(&mut small, p0);
+    let before = library_size(&small, p0);
+    cast_from_hand(&mut small, p0, llanowar_elves());
+    pass_until(&mut small, stack_is_empty);
+    assert!(
+        on_battlefield(&small, p0, llanowar_elves()).is_some(),
+        "the Elf arrived"
+    );
+    assert_eq!(
+        library_size(&small, p0),
+        before,
+        "a 1/1 entering triggers nothing, so nothing was asked and nothing drawn"
+    );
+
+    let mut big = Duel::new(9304, forest())
+        .battlefield(
+            0,
+            &[
+                temur_ascendancy(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[rootbreaker_wurm()])
+        .start();
+    keep_mulligans(&mut big);
+    reach_main_phase(&mut big, p0);
+    let before = library_size(&big, p0);
+    cast_from_hand(&mut big, p0, rootbreaker_wurm());
+    pass_until(&mut big, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    big.apply(p0, PlayerAction::YesNo(true))
+        .expect("the \"you may\" is answered");
+    pass_until(&mut big, stack_is_empty);
+    assert_eq!(
+        library_size(&big, p0),
+        before - 1,
+        "the 6/6 entering asked, and the answer was yes"
     );
 }

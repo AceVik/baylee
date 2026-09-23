@@ -420,7 +420,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::AddKeywordIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
-        Filter::ToughnessAtMost(_) => matches!(
+        Filter::ToughnessAtMost(_)
+        | Filter::ToughnessAtLeast(_)
+        | Filter::PowerAtLeast(_)
+        | Filter::PowerAtMost(_) => matches!(
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)

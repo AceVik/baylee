@@ -138,6 +138,13 @@ pub fn matches_projected(
         }
         Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
+        Filter::ToughnessAtLeast(n) => chars.toughness.is_some_and(|t| t >= *n),
+        // `is_some_and`, so an object with no power at all — a land, an
+        // instant on the stack — is not "a creature with power 4 or
+        // greater" by default. The three neighbours above answer the same
+        // way and for the same reason.
+        Filter::PowerAtLeast(n) => chars.power.is_some_and(|p| p >= *n),
+        Filter::PowerAtMost(n) => chars.power.is_some_and(|p| p <= *n),
         Filter::InZone(z) => {
             use baylee_cards_dsl::ZoneRef;
             match z {
@@ -368,6 +375,49 @@ pub fn condition_holds(
                 })
                 .count();
             count >= min as usize
+        }
+        // The same walk as above with the comparison turned round, written
+        // out rather than shared: `count >= min` and `count <= max` read
+        // the identical board and a helper taking an ordering would put the
+        // one thing that differs behind a parameter.
+        Condition::ControlCountAtMost(filter, max) => {
+            let count = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.controller == you && matches(filter, state, o, you, **id)
+                    })
+                })
+                .count();
+            count <= max as usize
+        }
+        // `you` in the filter is the **opponent** being counted, not the
+        // ability's controller: "an opponent controls four or more lands"
+        // asks the question of each seat in turn, and a filter evaluated
+        // with the asker's seat would read `ControlledByYou` backwards.
+        Condition::OpponentControlCount(filter, min) => (0..state.players.len())
+            .map(|i| PlayerId::new(i as u8))
+            .filter(|id| state.is_opponent(*id, you))
+            .any(|them| {
+                state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .filter(|id| {
+                        state.object(**id).is_some_and(|o| {
+                            o.controller == them && matches(filter, state, o, you, **id)
+                        })
+                    })
+                    .count()
+                    >= min as usize
+            }),
+        Condition::HandSizeAtMost(max) => {
+            state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
+        }
+        Condition::HandSizeExactly(n) => {
+            state.zones.list(ZoneLocation::Hand(you)).len() == n as usize
         }
         Condition::OpponentGraveyardCountAtLeast(min) => (0..state.players.len())
             .map(|i| PlayerId::new(i as u8))
@@ -1135,6 +1185,152 @@ mod tests {
             "theirs is theirs"
         );
         assert!(!condition_holds(&state, P1, mine, two));
+    }
+
+    /// A power comparison reads the **projected** number, and an object
+    /// with no power at all is not "a creature with power 4 or greater".
+    ///
+    /// Six cards in this pool print a power or toughness comparison and
+    /// every one of them had the ability that states it taken off the card
+    /// while `Filter` could not say it — Bonders' Enclave was a land with
+    /// no draw, Access Tunnel a land with one ability. The `is_some_and` is
+    /// the half that is easy to get wrong in the other direction: a land
+    /// answering `0 <= 3` would make Access Tunnel target one.
+    #[test]
+    fn a_power_comparison_reads_a_projected_number_and_an_object_that_has_none_is_not_small() {
+        let mut state = empty_state();
+        let c = creature(&mut state, P0, KeywordSet::EMPTY);
+        let l = land(&mut state, P0, &[]);
+        let ask = |state: &GameState, f: &Filter, id: ObjectId| {
+            matches(f, state, state.object(id).expect("still here"), P0, id)
+        };
+
+        // A 1/1 to begin with.
+        assert!(ask(&state, &Filter::PowerAtMost(3), c));
+        assert!(!ask(&state, &Filter::PowerAtLeast(4), c));
+        assert!(!ask(&state, &Filter::ToughnessAtLeast(4), c));
+
+        // The land has neither number, so it is on **no** side of either
+        // comparison — the bound is not a default of nought.
+        assert!(!ask(&state, &Filter::PowerAtMost(3), l));
+        assert!(!ask(&state, &Filter::PowerAtLeast(4), l));
+        assert!(!ask(&state, &Filter::ToughnessAtLeast(4), l));
+        assert!(
+            !ask(&state, &Filter::ToughnessAtMost(3), l),
+            "the predicate that was already here answers the same way, \
+             which is what makes the three new ones its siblings"
+        );
+
+        // Grown to a 4/4 — through the base characteristics, because this
+        // module tests the predicate and not the layer system. A card that
+        // reached 4 power under an anthem reaches it here the same way,
+        // since `matches` is handed the projected characteristics either
+        // way.
+        {
+            let b = state.object_mut(c).expect("still here").base_mut();
+            b.power = Some(4);
+            b.toughness = Some(4);
+        }
+        state.invalidate_projections();
+        assert!(ask(&state, &Filter::PowerAtLeast(4), c));
+        assert!(ask(&state, &Filter::ToughnessAtLeast(4), c));
+        assert!(
+            !ask(&state, &Filter::PowerAtMost(3), c),
+            "and the creature has grown out of the other card's restriction"
+        );
+    }
+
+    /// "You control no artifacts" is not the negation of a minimum with the
+    /// number moved: it is a different comparison, and Glimmervoid and
+    /// Thran Quarry both shipped with the clause **off** while it could not
+    /// be said — which is a land that never sacrifices itself.
+    #[test]
+    fn a_control_count_downwards_is_a_different_question_from_one_upwards() {
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+
+        let none = Condition::ControlCountAtMost(&ANY_CREATURE, 0);
+        let one = Condition::ControlCountAtMost(&ANY_CREATURE, 1);
+        assert!(!condition_holds(&state, P0, mine, none));
+        assert!(condition_holds(&state, P0, mine, one));
+        assert!(
+            condition_holds(&state, P1, mine, none),
+            "the other seat controls none of it"
+        );
+
+        // On a board with none of them the sentence turns over, and its
+        // upward twin turns over with it — the two really are reading one
+        // count and not two.
+        let bare = empty_state();
+        assert!(condition_holds(&bare, P0, mine, none));
+        assert!(!condition_holds(
+            &bare,
+            P0,
+            mine,
+            Condition::ControlCount(&ANY_CREATURE, 1)
+        ));
+    }
+
+    /// "An opponent controls four or more lands" is `any` over the seats
+    /// and never your own board: Tectonic Edge had been activating on a
+    /// table where nobody else had a land at all, which is a Wasteland.
+    #[test]
+    fn an_opponent_control_count_is_any_other_seat_and_never_your_own() {
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        creature(&mut state, P0, KeywordSet::EMPTY);
+        let two = Condition::OpponentControlCount(&ANY_CREATURE, 2);
+
+        assert!(
+            !condition_holds(&state, P0, mine, two),
+            "two of your own are not two of an opponent's"
+        );
+        assert!(
+            condition_holds(&state, P1, mine, two),
+            "and they are, asked from the other side"
+        );
+
+        creature(&mut state, P1, KeywordSet::EMPTY);
+        creature(&mut state, P1, KeywordSet::EMPTY);
+        assert!(condition_holds(&state, P0, mine, two));
+    }
+
+    /// Hellbent and Library of Alexandria are one word apart and never the
+    /// same board: "at most nought" is true of an empty hand and "exactly
+    /// seven" stops being true the moment the seventh card is drawn on.
+    #[test]
+    fn a_hand_size_is_counted_on_the_asking_seats_own_hand() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let deal = |state: &mut GameState, who: PlayerId, n: usize| {
+            for _ in 0..n {
+                let name = state.names.intern("Test Card");
+                state.create_bare(who, ObjectKind::Card, name, ZoneLocation::Hand(who));
+            }
+        };
+
+        let empty = Condition::HandSizeAtMost(0);
+        let seven = Condition::HandSizeExactly(7);
+        assert!(condition_holds(&state, P0, source, empty));
+        assert!(!condition_holds(&state, P0, source, seven));
+
+        deal(&mut state, P1, 7);
+        assert!(
+            condition_holds(&state, P0, source, empty),
+            "their hand is not yours"
+        );
+        assert!(!condition_holds(&state, P0, source, seven));
+        assert!(condition_holds(&state, P1, source, seven));
+
+        deal(&mut state, P0, 7);
+        assert!(!condition_holds(&state, P0, source, empty));
+        assert!(condition_holds(&state, P0, source, seven));
+
+        deal(&mut state, P0, 1);
+        assert!(
+            !condition_holds(&state, P0, source, seven),
+            "the eighth card is what makes this land stop working"
+        );
     }
 
     /// Two sentences that look alike and are not: "if it has three or more"

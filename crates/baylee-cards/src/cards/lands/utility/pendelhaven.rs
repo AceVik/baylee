@@ -2,10 +2,30 @@
 //! Oracle: {T}: Add {G}.
 //! Oracle: {T}: Target 1/1 creature gets +1/+2 until end of turn.
 //! Set: A25 #244 — Masters 25 | Scryfall ID: acf85879-4d14-4d86-978c-b155c47b7dcd | Oracle ID: f70e72e1-9abe-485b-9fea-e8b35352f5b3
-// PARTIAL — the mana ability is built; the second ability cannot be said,
-// because no Filter predicate reads a creature's *power*.
+// IMPLEMENTED — {T}: Add {G}, and the pump through the exact 1/1 restriction
+// the card prints on its target.
 
 use baylee_cards_dsl::prelude::*;
+
+/// "1/1" is an **exact** size and therefore four predicates, not two: a
+/// bound in one direction alone admits the creature the printing refuses —
+/// `ToughnessAtMost(1)` takes a 2/1 and `PowerAtLeast(1)` takes a 3/3. The
+/// pair per characteristic is what says *equal to*, and there is no
+/// `PowerExactly`, because these two already spell it and a third variant
+/// would be a second way to say one thing.
+///
+/// It is a restriction on the **target** and so a `TargetSpec` filter: CR
+/// 115.3 makes a creature that is not 1/1 an illegal target, so it is never
+/// offered, and CR 608.2b takes the ability off the stack if the creature
+/// stops being 1/1 before it resolves — which is the whole of what the card
+/// does when an anthem lands in response.
+static ONE_ONE_CREATURE: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::PowerAtLeast(1),
+    Filter::PowerAtMost(1),
+    Filter::ToughnessAtLeast(1),
+    Filter::ToughnessAtMost(1),
+]);
 
 card!(
     index = index::PENDELHAVEN,
@@ -17,17 +37,18 @@ card!(
         types = TypeSet::LAND,
         supertypes = SupertypeSet::LEGENDARY,
     ),],
-    coverage = Coverage::Partial(
-        "{T}: Target 1/1 creature gets +1/+2 until end of turn — \"1/1\" is a power *and* a \
-         toughness and Filter has no power predicate"
-    ),
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+        activated!(
+            Cost::TAP,
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(2),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn,
+            }],
+            target = Some(TargetSpec::Object(&ONE_ONE_CREATURE)),
+        ),
+    ],
 );
-
-// NOT SUPPORTED: "{T}: Target 1/1 creature gets +1/+2 until end of turn."
-// The nearest variant is `Filter::ToughnessAtMost(1)`, and it is a different
-// card: it admits a 2/1 and a 0/1, where the printing admits neither. The
-// filter vocabulary has `ToughnessAtMost` and nothing about power —
-// `Amount::TargetPower` reads a power, `Filter` never asks for one — so the
-// ability comes off rather than being approximated, and the card stays
-// unplayable rather than playable-and-wrong.

@@ -788,6 +788,35 @@ pub enum Effect {
         /// Effects otherwise.
         otherwise: &'static [Effect],
     },
+    /// Branch on any [`crate::Condition`] — "draw a card **if you control
+    /// an artifact**", "add {B}{B}{B}{B}{B} **instead if** there are seven
+    /// or more cards in your graveyard".
+    ///
+    /// The general form of the six neighbours around it, and the reason it
+    /// is worth having beside them: a `Condition` is already the vocabulary
+    /// an activation gate and an intervening `if` are written in, and every
+    /// sentence added there was readable in those two positions and
+    /// unsayable in an effect list. Threshold gated Barbarian Ring's
+    /// activation and could not make Cabal Ritual's mana bigger; the same
+    /// count, the same seat, two different answers.
+    ///
+    /// The condition is read **as this effect runs**, not when the ability
+    /// was put on the stack: CR 608.2 resolves an instruction in the order
+    /// it is written, so a card whose earlier half filled the graveyard
+    /// asks the later half about the graveyard it just filled.
+    ///
+    /// `otherwise` is a list and not an `Option`, because "add {U}, or {B}
+    /// instead" and "draw a card if you control an artifact" are the same
+    /// shape with an empty else — and an `Option` would put the difference
+    /// in the type rather than in the card.
+    IfCondition {
+        /// The sentence asked.
+        condition: crate::Condition,
+        /// Effects when it holds.
+        then: &'static [Effect],
+        /// Effects when it does not.
+        otherwise: &'static [Effect],
+    },
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
@@ -1589,6 +1618,11 @@ impl Effect {
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
             Effect::IfKicked { then, otherwise }
+            | Effect::IfCondition {
+                condition: _,
+                then,
+                otherwise,
+            }
             | Effect::IfEventPowerAtLeast {
                 n: _,
                 then,

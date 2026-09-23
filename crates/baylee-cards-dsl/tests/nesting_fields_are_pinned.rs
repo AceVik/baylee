@@ -12,21 +12,21 @@
 //! exact defect #109 was opened for. `..` is the house idiom here, so this is
 //! a live hazard rather than a hypothetical one.
 //!
-//! So the count is pinned. A thirteenth carrier reddens one named test that
+//! So the count is pinned. A fifteenth carrier reddens one named test that
 //! says what to do about it, instead of being descended into by nobody.
 //!
 //! Written deliberately by a session that did not write the walker: a test by
 //! the author of the thing it checks shares that author's blind spot, which
 //! is the same house rule `scripts/llm/README.md` states for card batches.
 
-/// What `Effect`'s body declares today: ten `&'static [Effect]` and two
+/// What `Effect`'s body declares today: twelve `&'static [Effect]` and two
 /// `&'static Effect`.
 ///
 /// Derived twice from the source rather than recalled — once here and once by
 /// a script in the session that wrote the walker — and the two agreed.
-const NESTING_FIELDS: usize = 12;
+const NESTING_FIELDS: usize = 14;
 
-/// How many variants those twelve fields are spread across.
+/// How many variants those fourteen fields are spread across.
 ///
 /// Pinned **beside** the field count rather than instead of it, because the
 /// two move for different reasons and only one of them describes the defect
@@ -36,7 +36,13 @@ const NESTING_FIELDS: usize = 12;
 /// new variant at all, but a field on an existing one that nobody descended
 /// into. A test watching only the variant count would have passed through the
 /// whole of #109.
-const CARRYING_VARIANTS: usize = 10;
+///
+/// `IfCondition` is the first variant to move **both** since this was
+/// written: one new carrier, two new branches. That is the shape the pin is
+/// for — it is a limitation whose breaking is the success, so the number is
+/// raised once the walker is shown to descend into the newcomer, and never
+/// to make a red test quiet.
+const CARRYING_VARIANTS: usize = 11;
 
 /// The floor under the reader itself.
 ///

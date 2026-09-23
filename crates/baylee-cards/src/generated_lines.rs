@@ -905,8 +905,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Library of Alexandria
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -1536,8 +1536,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Pendelhaven
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -7137,8 +7137,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Thran Quarry
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -13761,8 +13761,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Glimmervoid
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -15839,8 +15839,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Gods' Eye, Gate to the Reikai
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -18181,8 +18181,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Keldon Megaliths
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -25521,8 +25521,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Temur Ascendancy
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -26976,8 +26976,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sea Gate Wreckage
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -28450,8 +28450,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Cradle of the Accursed
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -32863,8 +32863,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Bonders' Enclave
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -33190,8 +33190,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Garruk's Uprising
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[None, Some(2)],
+        stackable: 2,
+        lines: &[Some(0), None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -34775,8 +34775,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Great Hall of Starnheim
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35097,8 +35097,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Access Tunnel
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -37587,8 +37587,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Roadside Reliquary
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -43146,8 +43146,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Escape Tunnel
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50462,8 +50462,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Baxter Building
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50523,8 +50523,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Castle Doom
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

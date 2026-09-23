@@ -3,8 +3,8 @@
 //! Oracle: {T}: Add {R}.
 //! Oracle: Hellbent — {1}{R}, {T}: This land deals 1 damage to any target. Activate only if you have no cards in hand.
 //! Set: JVC #58 — Duel Decks Anthology: Jace vs. Chandra | Scryfall ID: da7c4600-1dc3-4a9d-a112-1b70abcb8951 | Oracle ID: ec0ea7f7-52ce-40d1-b34c-e36dd4b26120
-// PARTIAL — the land arrives tapped and taps for {R}; the Hellbent ability
-// is not built, because its gate is a sentence `Condition` cannot say.
+// IMPLEMENTED — the land arrives tapped, taps for {R}, and the hellbent
+// ability is gated on the empty hand it prints.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -18,16 +18,22 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     )],
-    coverage = Coverage::Partial(
-        "Condition has no variant for \"you have no cards in hand\": the \
-         Hellbent ability is omitted rather than activating unconditionally",
-    ),
-    // NOT SUPPORTED: "Hellbent — {1}{R}, {T}: This land deals 1 damage to any
-    // target. Activate only if you have no cards in hand." The damage half is
-    // ordinary (DealDamage to TargetSpec::AnyTarget); the gate is the missing
-    // word. `Condition` counts permanents, a graveyard, counters on the source
-    // and the source itself, and an empty hand is none of those, so the
-    // ability comes off the card instead of being offered when it may not be
-    // activated (the same rule that pulls a pitch cost off an activation).
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
+        // "Hellbent" is an ability word and has no rules meaning, so the
+        // gate is written as the sentence it stands for and nothing here
+        // reads the word — the same bargain `Condition::GraveyardCountAtLeast`
+        // makes with threshold on Barbarian Ring, which is otherwise this
+        // same land.
+        activated!(
+            cost!("{1}{R}", TapSelf),
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::AnyTarget,
+            }],
+            target = Some(TargetSpec::AnyTarget),
+            condition = Some(Condition::HandSizeAtMost(0)),
+        ),
+    ],
 );
