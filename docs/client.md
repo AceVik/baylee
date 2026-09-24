@@ -755,7 +755,35 @@ Two independent guards keep the merge honest:
   sickness and any granted mana. So a tapped Soldier stands beside the
   untapped ones, and a Soldier with lifelink beside the plain ones;
 - objects with individual identity never merge, however identical they look —
-  attacking, blocking, enchanted, equipped, or targeted by the stack.
+  attacking or blocking (sent), enchanted, equipped, or targeted by the stack.
+
+**In a choice, a merged card is a pool** (#210). What the answer being built
+proposes for a permanent — declared at a defender, blocking an attacker,
+picked as a target (`board::Proposal`, from `crate::proposals`) — is part of
+what it is merged on, so the proposal splits the card the way a sent
+declaration does: three of twelve Soldiers declared at a seat are a `×3`
+stepping forward beside a `×9`, two sent at a planeswalker a card of their
+own again. `table::track_proposals` rebuilds the board the frame the answer
+changes, whichever door changed it. A click on a merged card is
+`Interaction::toggle_group`: on the undeclared card it adds the next member,
+on a declared one it takes the newest back. It draws past each card's first
+member (`pool_order`), because a card is drawn as its first member and
+taking from the back handed the declared card a new one on every click —
+measured on thirty Elves as 31, then 30, then 29, a card replaced each time.
+Now both cards stay the entities they were. The first split re-centres the
+row once (one card becoming two moved the `×29` from x 864 to 828 on a
+duel's row), so the second click lands where the card now is, and every
+later one where the second did. A declared card draws one arrow, from its
+first member (`combatlines::wanted_lines` finds no card for the others);
+its pill says how many it carries. `⇧`-click and `⇧E`
+(`Action::ActivateGroup`, `input::activate` with `whole`) take the whole card:
+`toggle_all` adds members until the choice refuses one (a full answer, a
+blocker the focus cannot take), and on a card with nothing left to add it
+takes them all back. Until #210 a click toggled the drawn member only, so
+the second click on twelve Soldiers took back the first and the whole card
+stepped forward for a declaration of one. Sent attackers still stand one
+card each; merging them by defender is its own change, because blocking two
+of a merged five needs a focus that walks to the next unblocked member.
 
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
@@ -1210,8 +1238,8 @@ board. The model had always allowed it: `Interaction::toggle` takes "a
 permanent, a card in a zone, or a spell on the stack". Both halves are wired
 now. The **row** carries `HandCardVisual`, so a click on the picture, the
 name or the printed sentence goes through `activate_card` and lands on
-`toggle` — nothing earlier in that chain is ever true of an object on the
-stack — and the picture inside it is `Pickable::IGNORE`, because a pickable
+`toggle_group`, which for anything but a merged table card is `toggle` —
+nothing earlier in that chain is ever true of an object on the stack — and the picture inside it is `Pickable::IGNORE`, because a pickable
 child would take the row's hover for itself and the row would never light.
 `cursor_grid` gains the stack as its last row, which is the topmost, because
 the panel is drawn highest. `a_click_on_a_stack_row_answers_the_question_it_was_asked`

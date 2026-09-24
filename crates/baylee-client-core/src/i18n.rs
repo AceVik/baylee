@@ -687,6 +687,8 @@ messages! {
     ActCancel { en: "Cancel", de: "Abbrechen" },
     /// Play or choose the card
     ActActivateCard { en: "Play or choose the card", de: "Karte spielen oder wählen" },
+    /// Choose every card in the group
+    ActActivateGroup { en: "Choose every card in the group", de: "Alle Karten der Gruppe wählen" },
     /// Cursor left
     ActCursorLeft { en: "Cursor left", de: "Cursor nach links" },
     /// Cursor right

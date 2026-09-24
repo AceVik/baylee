@@ -49,6 +49,9 @@ pub enum Action {
     Cancel,
     /// Act on the card under the cursor.
     ActivateCard,
+    /// Act on the whole card under the cursor: every permanent a merged card
+    /// stands for, at once, where a choice takes more than one of them.
+    ActivateGroup,
     /// Move the card cursor.
     CursorLeft,
     /// Move the card cursor.
@@ -100,11 +103,12 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::Primary,
         Self::Confirm,
         Self::Cancel,
         Self::ActivateCard,
+        Self::ActivateGroup,
         Self::CursorUp,
         Self::CursorDown,
         Self::CursorLeft,
@@ -142,6 +146,7 @@ impl Action {
             Self::Confirm => Phrase::ActConfirm,
             Self::Cancel => Phrase::ActCancel,
             Self::ActivateCard => Phrase::ActActivateCard,
+            Self::ActivateGroup => Phrase::ActActivateGroup,
             Self::CursorLeft => Phrase::ActCursorLeft,
             Self::CursorRight => Phrase::ActCursorRight,
             Self::CursorUp => Phrase::ActCursorUp,
@@ -176,9 +181,11 @@ impl Action {
     #[must_use]
     pub const fn group(self) -> Phrase {
         match self {
-            Self::Primary | Self::Confirm | Self::Cancel | Self::ActivateCard => {
-                Phrase::GroupAnswering
-            }
+            Self::Primary
+            | Self::Confirm
+            | Self::Cancel
+            | Self::ActivateCard
+            | Self::ActivateGroup => Phrase::GroupAnswering,
             Self::CursorLeft
             | Self::CursorRight
             | Self::CursorUp
@@ -414,6 +421,7 @@ impl Keymap {
         bind(Action::Confirm, vec![Chord::key("Space")]);
         bind(Action::Cancel, vec![Chord::key("Escape")]);
         bind(Action::ActivateCard, vec![Chord::key("KeyE")]);
+        bind(Action::ActivateGroup, vec![Chord::shift("KeyE")]);
         bind(Action::CursorLeft, vec![Chord::key("KeyA")]);
         bind(Action::CursorRight, vec![Chord::key("KeyD")]);
         bind(Action::CursorUp, vec![Chord::key("KeyW")]);
@@ -467,6 +475,7 @@ impl Keymap {
         map.bindings.remove(&Action::ToggleBrowser);
         map.bindings.remove(&Action::HoldForStack);
         map.bindings.remove(&Action::HoldForTurn);
+        map.bindings.remove(&Action::ActivateGroup);
         map
     }
 

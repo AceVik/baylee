@@ -26,7 +26,8 @@ Two consequences worth knowing before changing anything here:
 | Cancel: armed deed, then preview, then the game menu, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
-| Activate the card under the cursor (play / select) | `E` | implemented |
+| Activate the card under the cursor (play / select); on a merged card, one more of it — or one fewer, on a card of ones already chosen | `E` | implemented |
+| The whole merged card at once: declare, block or pick every permanent it stands for, as far as the choice takes (the pointer's `⇧`-click) | `⇧E` | implemented |
 | Look at the next opponent's board (wraps home) | `F` | implemented |
 | Look at your own board | `H` | implemented |
 | Aim the next attack (or block) at the next defender | `C` / `⇧C` | implemented |

@@ -25,6 +25,7 @@ fn the_hand_keeps_the_order_the_cards_arrived_in() {
             playable: &playable,
             reachable: &HashSet::new(),
             activatable: &HashSet::new(),
+            proposed: &HashMap::new(),
         },
         |_| WIDE,
         &[],
@@ -51,11 +52,13 @@ fn a_group_is_activatable_only_when_every_card_in_it_is() {
         .collect();
     let one: HashSet<ObjectId> = std::iter::once(ObjectId::new(1, 0)).collect();
     let empty = HashSet::new();
+    let unproposed = HashMap::new();
 
     let openings = |set| Openings {
         playable: &empty,
         reachable: &empty,
         activatable: set,
+        proposed: &unproposed,
     };
 
     let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED, &[], Registry::none());

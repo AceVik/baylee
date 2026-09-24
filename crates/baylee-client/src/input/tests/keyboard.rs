@@ -191,3 +191,70 @@ fn a_number_can_be_typed_rather_than_stepped_to() {
     app.update();
     assert_eq!(number(&app), 0);
 }
+
+/// `⇧E` on a merged card takes the whole of it (#210): pressed at the real
+/// keyboard system over twelve Soldiers in a declaration, it declares all
+/// twelve, and pressed again over the card they have become it takes all
+/// twelve back. `E` alone is one at a time, which is `activate_card`'s.
+#[test]
+fn shift_e_takes_the_whole_merged_card_and_gives_it_back() {
+    use baylee_client_core::prefs::Action;
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+
+    let soldiers: Vec<_> = (1..=12)
+        .map(|slot| baylee_client_core::test_support::token(slot, 0, "Soldier", 1, 1))
+        .collect();
+    let ids: Vec<ObjectId> = soldiers.iter().map(|o| o.id).collect();
+    let mut view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .with_battlefield(0, soldiers)
+        .build();
+    view.awaiting = Some(view.seat);
+    let mut duel = crate::Duel::default();
+    duel.receive_view(view);
+    duel.receive_choice(Pending::ChooseAttackers {
+        player: PlayerId::new(0),
+        attackers: ids.clone(),
+        defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
+    });
+    crate::rebuild_board(&mut duel);
+    duel.hovered = Some(ids[0]);
+
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .insert_resource(duel)
+        .add_systems(Update, (keyboard, crate::table::track_proposals).chain());
+
+    {
+        let prefs = app.world().resource::<crate::prefs::Prefs>();
+        let mut probe = ButtonInput::<KeyCode>::default();
+        probe.press(KeyCode::ShiftLeft);
+        probe.press(KeyCode::KeyE);
+        let fired = crate::keys::Fired::of(&probe, prefs.keymap());
+        assert!(fired.has(Action::ActivateGroup), "⇧E is the whole card");
+        assert!(!fired.has(Action::ActivateCard), "and not also one of it");
+    }
+
+    let press = |app: &mut App| {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.release_all();
+            keys.clear();
+            keys.press(KeyCode::ShiftLeft);
+            keys.press(KeyCode::KeyE);
+        }
+        app.update();
+        let duel = app.world().resource::<crate::Duel>();
+        duel.interaction
+            .as_ref()
+            .expect("the declaration")
+            .declared()
+    };
+    assert_eq!(press(&mut app), 12, "the whole card was declared");
+    assert_eq!(press(&mut app), 0, "and the whole card taken back");
+}

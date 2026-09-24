@@ -125,9 +125,11 @@ fn a_counted_stack_takes_one_click_per_member() {
     assert_eq!(i.toggle_group(&members), SelectionOutcome::Added);
     assert_eq!(i.toggle_group(&members), SelectionOutcome::Added);
     assert_eq!(i.pick_count(), 2);
+    // Past the first, so the first member — the card drawn for the stack —
+    // stays with the ones not picked (`pool_order`).
     assert_eq!(
         i.picks(),
-        [Pick::Object(obj(1)), Pick::Object(obj(2))],
+        [Pick::Object(obj(2)), Pick::Object(obj(3))],
         "two clicks pick two different Soldiers, not the same one twice"
     );
     assert_eq!(
@@ -149,7 +151,27 @@ fn a_stack_with_nothing_left_to_pick_takes_the_last_one_back() {
     // only mean "one fewer" — which on a stack of one is the toggle it
     // has always been.
     assert_eq!(i.toggle_group(&members), SelectionOutcome::Removed);
-    assert_eq!(i.picks(), [Pick::Object(obj(1))]);
+    assert_eq!(i.picks(), [Pick::Object(obj(2))], "the newest pick went");
+}
+
+// One gesture for the whole card. It fills what the choice still takes and
+// stops there, and once nothing more can go in it empties the card again.
+#[test]
+fn a_whole_stack_is_taken_to_the_choice_s_limit_and_given_back_whole() {
+    let members = [obj(1), obj(2), obj(3), obj(4)];
+    let mut i = interaction(target_choice(members.to_vec(), vec![], 0, 3));
+    assert_eq!(i.toggle_all(&members), SelectionOutcome::Added);
+    assert_eq!(i.pick_count(), 3, "stopped at `max`, not past it");
+    assert!(
+        !i.is_selected(obj(1)),
+        "the card drawn for the stack stayed"
+    );
+
+    // Nothing more can be added — the answer is full — so the same gesture
+    // is the way back, and it is all the way back.
+    assert_eq!(i.toggle_all(&members[..3]), SelectionOutcome::Full);
+    assert_eq!(i.toggle_all(&members[1..]), SelectionOutcome::Removed);
+    assert_eq!(i.pick_count(), 0);
 }
 
 #[test]

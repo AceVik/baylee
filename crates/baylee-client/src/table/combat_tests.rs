@@ -31,6 +31,7 @@ fn creature(slot: u32) -> CardGroup {
         activatable: false,
         commander: false,
         individual: None,
+        proposed: None,
     }
 }
 
@@ -389,4 +390,75 @@ mod fan {
             "a card on the table already leans, so leaning proves nothing"
         );
     }
+}
+
+/// Twelve Soldiers, two clicks on the card standing for them, and the table
+/// draws two stepping forward beside ten staying home (#210). Measured
+/// through the click a pointer sends and the system that notices the answer
+/// changed, with nothing between them built by hand: until this, the second
+/// click took the first one back, and the whole card stepped forward for a
+/// declaration of one.
+#[test]
+fn two_clicks_on_a_stack_send_two_and_the_table_splits_them_off() {
+    let soldiers: Vec<_> = (1..=12)
+        .map(|slot| baylee_client_core::test_support::token(slot, 0, "Soldier", 1, 1))
+        .collect();
+    let ids: Vec<ObjectId> = soldiers.iter().map(|o| o.id).collect();
+    let mut view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .with_battlefield(0, soldiers)
+        .build();
+    view.awaiting = Some(view.seat);
+    let mut duel = Duel {
+        layout: Some(TableLayout::new(&[PlayerId::new(0)], 1.78, None)),
+        ..Duel::default()
+    };
+    duel.receive_view(view);
+    duel.receive_choice(Pending::ChooseAttackers {
+        player: PlayerId::new(0),
+        attackers: ids,
+        defenders: vec![Defender::Player(PlayerId::new(1))],
+    });
+    crate::rebuild_board(&mut duel);
+    let before = placements(&duel);
+    assert_eq!(before.len(), 1, "twelve Soldiers are one card");
+    let clicked = before[0].object;
+
+    // One click at a time, each followed by the frame that notices it, the
+    // way a player makes them.
+    let mut app = App::new();
+    app.insert_resource(duel)
+        .add_systems(Update, super::track_proposals);
+    let click = |app: &mut App| {
+        crate::input::activate_card(&mut app.world_mut().resource_mut::<Duel>(), clicked);
+        app.update();
+        placements(app.world().resource::<Duel>())
+    };
+    let first = click(&mut app);
+    let stepped = first
+        .iter()
+        .find(|p| p.selected)
+        .expect("the first declared")
+        .object;
+    let placed = click(&mut app);
+
+    let mut drawn: Vec<(usize, bool)> = placed.iter().map(|p| (p.stands_for, p.selected)).collect();
+    drawn.sort_unstable();
+    assert_eq!(
+        drawn,
+        vec![(2, true), (10, false)],
+        "two declared, drawn apart and chosen; ten at home"
+    );
+    let home = placed.iter().find(|p| p.stands_for == 10).expect("the ten");
+    assert_eq!(
+        home.object, clicked,
+        "the card under the pointer stayed put"
+    );
+    // And the declared card is still the entity that stepped forward: the
+    // pool is drawn from past each card's first member (`pool_order`), so a
+    // second declaration joins it rather than replacing it.
+    let declared = placed.iter().find(|p| p.selected).expect("the two");
+    assert_eq!(
+        declared.object, stepped,
+        "the card that stepped forward was replaced by another"
+    );
 }

@@ -701,6 +701,20 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
     }
 }
 
+/// Tells the board model what the answer being built now proposes.
+///
+/// A proposal is part of what a stack is merged on
+/// (`baylee_client_core::board::Proposal`): three Soldiers declared out of
+/// twelve are a card of their own. The answer changes through a click, a
+/// key, `Esc`, a row in the prompt bar — more doors than
+/// [`crate::rebuild_board`] has callers — so the change is noticed here,
+/// once a frame, the way [`track_canvas`] notices the window.
+pub fn track_proposals(mut duel: ResMut<Duel>) {
+    if crate::proposals(duel.interaction.as_ref()) != duel.proposed {
+        crate::rebuild_board(&mut duel);
+    }
+}
+
 /// Keeps the table framed as seats, focus and window size change.
 ///
 /// Whether it may is [`Duel::camera_held`], and that used to be a float
@@ -2909,10 +2923,11 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 // A group is one card standing for several, and combat is
                 // declared per creature — so the step is asked of the members
                 // and not of the representative. It cannot normally differ:
-                // a declared attacker is taken out of its group by the board
-                // model for exactly this reason. `any` rather than `all`
-                // because if that ever stops being true, a fighting card
-                // stepping forward is the better failure.
+                // a declared attacker, sent or only proposed, is taken out of
+                // its group by the board model for exactly this reason
+                // (`board::Proposal`). `any` rather than `all` because if
+                // that ever stops being true, a fighting card stepping
+                // forward is the better failure.
                 let staged = combat
                     .as_ref()
                     .is_some_and(|c| group.members.iter().any(|m| c.staged(*m)));

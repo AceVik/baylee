@@ -50,6 +50,7 @@ fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
         activatable: false,
         commander: false,
         individual: None,
+        proposed: None,
     }
 }
 

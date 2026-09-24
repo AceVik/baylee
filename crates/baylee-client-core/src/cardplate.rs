@@ -742,6 +742,7 @@ mod tests {
             activatable: false,
             commander: false,
             individual: None,
+            proposed: None,
         }
     }
 
