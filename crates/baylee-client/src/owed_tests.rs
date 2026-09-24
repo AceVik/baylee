@@ -8,8 +8,17 @@ use baylee_core::types::TypeSet;
 use baylee_engine::choice::LegalActions;
 
 /// A Forest on the table, untapped, that the engine is offering.
+///
+/// A card, not a bare object: a cardless one is a token, and tokens merge on
+/// any row (#210), which would draw the two as one.
 fn forest(slot: u32) -> baylee_view::PublicObject {
     let mut obj = baylee_client_core::test_support::token(slot, 0, "Forest", 0, 0);
+    obj.card = Some(baylee_view::CardIdentity {
+        index: baylee_core::generated::index::FOREST,
+        print: baylee_core::ids::PrintRef::new(0),
+        face: 0,
+    });
+    obj.rules = obj.card.map(baylee_view::RulesFace::from);
     obj.types = TypeSet::LAND;
     obj.power = None;
     obj.toughness = None;

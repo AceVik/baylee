@@ -849,19 +849,29 @@ impl PublicObject {
     ///
     /// Token-heavy boards are unreadable one card at a time; a client collapses
     /// objects that share this key into a single stack with a count. Two
-    /// objects group only when every visible property matches, so collapsing
-    /// can never hide a difference that matters to a decision.
+    /// objects group only when every property a decision reads matches —
+    /// drawn or not, since the merged card shows one member's — so collapsing
+    /// can never hide a difference that matters to a decision. Left out:
+    /// `id`; `targets` and `stack_item`, which a permanent never has; and
+    /// `rules` and `mana_value`, which `card`, `name` and `status` already
+    /// decide on the battlefield. `attached_to` is in only as a yes or no.
     #[must_use]
     pub fn summary_key(&self) -> ObjectSummaryKey {
         let mut counters: Vec<CounterEntry> = self.counters.clone();
         counters.sort_by_key(|c| (format!("{:?}", c.kind), c.count));
         ObjectSummaryKey {
             card: self.card.map(|c| (c.index, c.face)),
+            token: self.token,
             name: self.name.clone(),
             controller: self.controller,
+            owner: self.owner,
             commander: self.commander,
             status: self.status,
             types: self.types,
+            supertypes: self.supertypes,
+            subtypes: self.subtypes,
+            colors: self.colors,
+            keywords: self.keywords,
             power: self.power,
             toughness: self.toughness,
             base_power: self.base_power,
@@ -871,6 +881,8 @@ impl PublicObject {
             counters,
             attached: self.attached_to.is_some(),
             summoning_sick: self.summoning_sick,
+            granted_mana: self.granted_mana.clone(),
+            board_mana: self.board_mana.clone(),
         }
     }
 }
@@ -879,14 +891,28 @@ impl PublicObject {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct ObjectSummaryKey {
     card: Option<(CardIndex, u8)>,
+    /// A token has no `card`, so without this a Soldier with lifelink and
+    /// the plain Soldier another set prints group by name alone — and every
+    /// token merges, however roomy its row.
+    token: Option<u16>,
     name: String,
     controller: PlayerId,
+    /// Not drawn, but read: "a permanent you own" is a target filter, and a
+    /// stolen token answers it differently from its twin.
+    owner: PlayerId,
     /// A commander is drawn with a marker on it, so it must not group with an
     /// ordinary copy of the same card — the token a clone effect makes is
     /// identical in every other field.
     commander: bool,
     status: ObjectStatus,
+    /// The projection, all of it: an effect that makes one of two twins a
+    /// Zombie, blue or a flier makes them two different cards to decide
+    /// about, and the merged card shows only one of them.
     types: TypeSet,
+    supertypes: SupertypeSet,
+    subtypes: SubtypeSet,
+    colors: ColorSet,
+    keywords: u128,
     power: Option<i16>,
     toughness: Option<i16>,
     /// In the key because it is drawn. A printed 3/3 and a 2/2 under an
@@ -900,11 +926,16 @@ pub struct ObjectSummaryKey {
     counters: Vec<CounterEntry>,
     attached: bool,
     summoning_sick: bool,
+    /// What the permanent taps for when its card does not say: a land a
+    /// spell made tap for any colour is not the Forest beside it.
+    granted_mana: Option<GrantedMana>,
+    board_mana: Option<BoardMana>,
 }
 
 impl core::hash::Hash for ObjectSummaryKey {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.card.hash(state);
+        self.token.hash(state);
         self.name.hash(state);
         self.controller.hash(state);
         self.commander.hash(state);
@@ -1752,6 +1783,27 @@ mod tests {
             }),
             ("attached", |o| o.attached_to = Some(ObjectId::new(99, 0))),
             ("summoning_sick", |o| o.summoning_sick = true),
+            ("token", |o| o.token = Some(3)),
+            ("owner", |o| o.owner = PlayerId::new(1)),
+            ("supertypes", |o| o.supertypes = SupertypeSet::LEGENDARY),
+            ("subtypes", |o| {
+                o.subtypes.insert(baylee_core::ids::SubtypeId::new(1));
+            }),
+            ("colors", |o| o.colors = ColorSet::ALL),
+            ("keywords", |o| o.keywords = 1),
+            ("granted_mana", |o| {
+                o.granted_mana = Some(GrantedMana {
+                    slot: 0,
+                    colors: vec![baylee_core::mana::ManaColor::Blue],
+                    amount: 1,
+                });
+            }),
+            ("board_mana", |o| {
+                o.board_mana = Some(BoardMana {
+                    index: 0,
+                    colors: vec![baylee_core::mana::ManaColor::Red],
+                });
+            }),
         ];
 
         let base = obj(1, 0);
@@ -2134,7 +2186,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (28, 0xf237_33ce_fb69_cc7f);
+        const RECORDED: (u32, u64) = (28, 0xdcff_36e0_328c_354f);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

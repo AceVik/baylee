@@ -403,11 +403,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         }
     }
     duel.ability_menu = None;
-    let answered = duel
-        .interaction
-        .as_mut()
-        .is_some_and(|i| i.toggle(object) != SelectionOutcome::Rejected);
-    if answered || open_pile(duel, object) {
+    if answer_with(duel, object) || open_pile(duel, object) {
         Answer::Took
     } else {
         if let Some(reason) = hand_refusal(duel, object) {
@@ -415,6 +411,49 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         }
         Answer::Refused
     }
+}
+
+/// Puts a card into the answer being built, or takes it out.
+///
+/// A card on the table can stand for several, and a click on it means one
+/// more of them — or one fewer, on a card of ones already chosen — rather
+/// than the one it happens to be drawn as. Until #210 this toggled the drawn
+/// one only, so the second click on twelve Soldiers took back the first
+/// instead of sending a second.
+fn answer_with(duel: &mut Duel, object: ObjectId) -> bool {
+    let members = members_of(duel, object);
+    duel.interaction
+        .as_mut()
+        .is_some_and(|i| i.toggle_group(&members) != SelectionOutcome::Rejected)
+}
+
+/// Everything a card on the table stands for, or the object alone when it
+/// is not a battlefield card (a hand card, a pile's top, a stack entry).
+fn members_of(duel: &Duel, object: ObjectId) -> Vec<ObjectId> {
+    duel.board
+        .as_ref()
+        .and_then(|board| board.group(object))
+        .map_or_else(|| vec![object], |group| group.members.clone())
+}
+
+/// [`activate_card`], or with `whole` the same gesture meant for the whole
+/// card: every permanent it stands for, at once (`Interaction::toggle_all`).
+///
+/// Only a choice being answered has a whole card to take — a declaration,
+/// targets, a sacrifice. Anywhere else a card is one card, and the gesture
+/// is an ordinary tap on it.
+pub fn activate(duel: &mut Duel, object: ObjectId, whole: bool) -> Answer {
+    let members = members_of(duel, object);
+    let answered = whole
+        && members.len() > 1
+        && duel.interaction.as_mut().is_some_and(|i| {
+            i.legal_actions().is_none() && i.toggle_all(&members) != SelectionOutcome::Rejected
+        });
+    if answered {
+        duel.ability_menu = None;
+        return Answer::Took;
+    }
+    activate_card(duel, object)
 }
 
 /// Explain a refused hand-card gesture using facts visible to this seat.
@@ -1670,6 +1709,12 @@ fn move_the_cursor(fired: Fired, duel: &mut Duel) -> bool {
         && let Some(object) = duel.hovered
     {
         activate_card(duel, object);
+        return true;
+    }
+    if fired.has(Action::ActivateGroup)
+        && let Some(object) = duel.hovered
+    {
+        activate(duel, object, true);
         return true;
     }
     false
@@ -2934,6 +2979,16 @@ fn browser_click(
     false
 }
 
+/// Whether a click is the pointer's `ActivateGroup`: the whole merged card.
+///
+/// Read raw, like the shift that turns a preview over (`flip::turn`): a
+/// modifier held under a pointer gesture is no chord the keymap could bind,
+/// and no text field is reading the click. An app with no keyboard — a touch
+/// screen, a test harness — has no shift.
+fn shift_held(keys: Option<&ButtonInput<KeyCode>>) -> bool {
+    keys.is_some_and(|keys| keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]))
+}
+
 /// Pointer handling: clicking a card, a player tab, or a rail button.
 ///
 /// A click means "this object", and what that does depends entirely on the
@@ -2957,7 +3012,9 @@ pub fn pointer(
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut rig: ResMut<crate::table::CameraRig>,
     mut touched: ResMut<crate::touch::Touched>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
 ) {
+    let whole = shift_held(keys.as_deref());
     for click in clicks.read() {
         let e = click.entity;
         // Every click disarms the concession, and the concede branch below
@@ -2975,7 +3032,7 @@ pub fn pointer(
             // has to be told which way to come back. A card on the *table*
             // wears no touch, and the call is harmless there because the
             // release has already taken the finger off nothing.
-            let answer = activate_card(&mut duel, object);
+            let answer = activate(&mut duel, object, whole);
             crate::touch::answer(&mut touched, answer);
             continue;
         }

@@ -29,6 +29,7 @@
 //! what a player would conclude from it.
 
 use crate::images::{ArtSize, Face, ImageKey};
+use crate::interaction::CombatFocus;
 use crate::layout::{LaneKind, PileKind, pack_lane};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
@@ -218,6 +219,21 @@ pub enum Individual {
     Targeted,
 }
 
+/// What the answer being built says about one permanent, before it is sent.
+///
+/// A proposal splits a group the way a sent declaration does, so the card a
+/// player clicked shows exactly what has been declared: three of twelve
+/// Soldiers sent at a seat are a `×3` stepping forward beside a `×9`, not
+/// one card standing for twelve that looks as if all of them attack.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Proposal {
+    /// Paired in a combat declaration: an attacker with what it is sent at,
+    /// a blocker with the attacker it stands in front of.
+    Combat(CombatFocus),
+    /// One of the objects a choice is being answered with.
+    Picked,
+}
+
 /// One drawable card, which may stand for several identical permanents.
 //
 // Four independent facts about one card, not a state machine: a token can be
@@ -300,6 +316,11 @@ pub struct CardGroup {
     pub commander: bool,
     /// Why this card was kept separate, if it was.
     pub individual: Option<Individual>,
+    /// What the answer being built says about every member, if anything.
+    ///
+    /// The same for all of them by construction: it is part of what a group
+    /// is merged on (`group_objects`).
+    pub proposed: Option<Proposal>,
 }
 
 impl CardGroup {
@@ -783,6 +804,12 @@ pub struct Openings<'a> {
     /// do, and until this existed the table gave a player no way to tell
     /// them apart from a vanilla bear.
     pub activatable: &'a HashSet<ObjectId>,
+    /// What the answer being built says about each permanent it names.
+    ///
+    /// The fourth, and the only one that is the player's rather than the
+    /// engine's: nothing here has been sent. It is on the model because it
+    /// decides what is merged with what — see [`Proposal`].
+    pub proposed: &'a HashMap<ObjectId, Proposal>,
 }
 
 impl Openings<'_> {
@@ -792,10 +819,13 @@ impl Openings<'_> {
     pub fn none() -> Self {
         static EMPTY: std::sync::LazyLock<HashSet<ObjectId>> =
             std::sync::LazyLock::new(HashSet::new);
+        static UNPROPOSED: std::sync::LazyLock<HashMap<ObjectId, Proposal>> =
+            std::sync::LazyLock::new(HashMap::new);
         Self {
             playable: &EMPTY,
             reachable: &EMPTY,
             activatable: &EMPTY,
+            proposed: &UNPROPOSED,
         }
     }
 }
@@ -869,7 +899,7 @@ impl BoardModel {
                     view,
                     player,
                     &individual,
-                    openings.activatable,
+                    &openings,
                     lane_width(player),
                     roster
                         .iter()
@@ -998,6 +1028,21 @@ impl BoardModel {
     #[must_use]
     pub fn pod(&self, player: PlayerId) -> Option<&SeatPod> {
         self.pods.iter().find(|p| p.player == player)
+    }
+
+    /// The battlefield card drawn as `representative`, with everything it
+    /// stands for.
+    ///
+    /// Asked by the object a pointer or the card cursor is on, which is
+    /// always a representative: the other members have no card of their
+    /// own. `None` for a hand card, a pile's top and a stack entry.
+    #[must_use]
+    pub fn group(&self, representative: ObjectId) -> Option<&CardGroup> {
+        self.pods
+            .iter()
+            .flat_map(|pod| pod.lanes.iter())
+            .flat_map(|lane| lane.groups.iter())
+            .find(|group| group.representative == representative)
     }
 
     /// Which pile a hover has spread open, if any.
@@ -1436,7 +1481,7 @@ fn build_pod(
     view: &PlayerView,
     player: PlayerId,
     individual: &HashMap<ObjectId, Individual>,
-    activatable: &HashSet<ObjectId>,
+    openings: &Openings<'_>,
     pod_width: f32,
     role: SeatRole,
     reg: Registry<'_>,
@@ -1475,7 +1520,14 @@ fn build_pod(
             // seventy cards, so forty Soldiers would fan at a third of a card
             // apiece.
             let crowded = pack_lane(members.len(), pod_width).fanned;
-            let groups = group_objects(&members, individual, activatable, crowded, reg);
+            let groups = group_objects(
+                &members,
+                individual,
+                openings.activatable,
+                openings.proposed,
+                crowded,
+                reg,
+            );
             // Measured again on what is actually drawn, and against the
             // harder bound: forty Soldiers collapse to one card and the row
             // is no longer overflowing, while forty *distinct* creatures
@@ -1516,15 +1568,25 @@ fn build_pod(
 /// Without it every board was a collapsed board, which is right for forty
 /// tokens and wrong for two Forests: a counted stack is what a player falls
 /// back to when the cards will not fit, not what a table looks like.
+///
+/// Tokens merge whatever the answer (#210). A token is made to be one of
+/// many — the Treasures a spell leaves, the Soldiers it makes — and a row
+/// of them fanned out says nothing the card's `×N` does not. Cards keep
+/// the room test, because a second Forest swallowing the first was
+/// `docs/observed-faults.md` 19. The key still splits tokens by state, so
+/// a tapped Soldier stands beside the untapped ones rather than inside
+/// them: that difference is the one a player reads.
 fn group_objects(
     objects: &[&PublicObject],
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
+    proposed: &HashMap<ObjectId, Proposal>,
     collapse: bool,
     reg: Registry<'_>,
 ) -> Vec<CardGroup> {
     let mut groups: Vec<CardGroup> = Vec::new();
-    let mut index: HashMap<baylee_view::ObjectSummaryKey, usize> = HashMap::new();
+    let mut index: HashMap<(baylee_view::ObjectSummaryKey, Option<Proposal>), usize> =
+        HashMap::new();
 
     // Sort first so grouping and ordering are both deterministic: the same
     // board always produces the same scene, which is what lets the renderer
@@ -1540,18 +1602,23 @@ fn group_objects(
         // interchangeable — an aura on it, a spell pointed at it. The reason
         // travels either way: it is why a card is drawn on its own, and a
         // roomy row does not make an aura stop mattering.
-        if !collapse || reason.is_some() {
-            groups.push(card_group(obj, reason, can_act, reg));
+        let merges = collapse || provenance_of(obj, reg) == Provenance::Token;
+        let proposal = proposed.get(&obj.id).copied();
+        if !merges || reason.is_some() {
+            groups.push(card_group(obj, reason, can_act, proposal, reg));
             continue;
         }
-        let key = obj.summary_key();
+        // What is proposed for it is part of what it is merged on: the
+        // Soldiers declared at one seat are a card of their own, beside the
+        // ones declared at another and the ones not declared at all.
+        let key = (obj.summary_key(), proposal);
         if let Some(&i) = index.get(&key) {
             groups[i].members.push(obj.id);
             // "All", not "any" — see `CardGroup::activatable`.
             groups[i].activatable &= can_act;
         } else {
             index.insert(key, groups.len());
-            groups.push(card_group(obj, None, can_act, reg));
+            groups.push(card_group(obj, None, can_act, proposal, reg));
         }
     }
 
@@ -1565,6 +1632,7 @@ fn card_group(
     obj: &PublicObject,
     individual: Option<Individual>,
     activatable: bool,
+    proposed: Option<Proposal>,
     reg: Registry<'_>,
 ) -> CardGroup {
     CardGroup {
@@ -1594,6 +1662,7 @@ fn card_group(
         activatable,
         commander: obj.commander,
         individual,
+        proposed,
     }
 }
 

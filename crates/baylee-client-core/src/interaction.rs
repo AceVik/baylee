@@ -41,7 +41,7 @@ use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::GameStatic;
 
 /// What a combat declaration is currently pointed at.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CombatFocus {
     /// Attacks declared now are sent at this defender.
     Defender(Defender),
@@ -49,6 +49,21 @@ pub enum CombatFocus {
     Attacker(ObjectId),
     /// Not a combat choice, or nothing left to point at.
     None,
+}
+
+/// The order a click draws members out of a merged card: every one after
+/// the first, front to back, and the first last.
+///
+/// A card is drawn as its group's first member, and what is picked becomes
+/// a card of its own, drawn as *its* first. Measured on thirty Elves, taking
+/// from the back handed the declared card a new first member on every click
+/// (31, then 30, then 29), so the card that had stepped forward was
+/// replaced at each one. In this order the card left at home keeps its
+/// first member until it is the last one, and the declared card keeps the
+/// first it was given: every later pick sorts after it, and a take-back
+/// (`members.iter().rev()` in `toggle_group`) removes the newest.
+fn pool_order(members: &[ObjectId]) -> impl Iterator<Item = ObjectId> + '_ {
+    members.iter().skip(1).chain(members.first()).copied()
 }
 
 /// Every attacker any blocker may be assigned to, deduplicated, in the order
@@ -1178,12 +1193,16 @@ impl Interaction {
     /// Which four of the forty Soldiers is the engine's question, not the
     /// player's: they are identical, so the only thing a player can mean by
     /// clicking the stack four times is "four of these".
+    ///
+    /// In [`pool_order`]: the card drawn for a stack is its first member
+    /// (`board::CardGroup::representative`), and a pick splits the stack
+    /// (`board::Proposal`), so a pick has to leave both cards drawn as the
+    /// member they were drawn as before it.
     pub fn toggle_group(&mut self, members: &[ObjectId]) -> SelectionOutcome {
-        if let Some(next) = members
-            .iter()
-            .find(|id| self.is_selectable(**id) && !self.is_selected(**id))
+        if let Some(next) =
+            pool_order(members).find(|id| self.is_selectable(*id) && !self.is_selected(*id))
         {
-            return self.toggle(*next);
+            return self.toggle(next);
         }
         // Nothing left to pick, so the click takes one back — the newest pick
         // this stack made, so an over-shot click is undone where it was made
@@ -1202,6 +1221,43 @@ impl Interaction {
             Some(id) => self.toggle(*id),
             None => SelectionOutcome::Rejected,
         }
+    }
+
+    /// Answers a gesture that means the whole card: every member at once.
+    ///
+    /// Adds every member that can still be added, in [`Self::toggle_group`]'s
+    /// order, and stops at the first one refused — an answer that is full,
+    /// a block the focus cannot take — so a partial pool is what was asked
+    /// for, cut where the rules cut it. When none can be added, it takes
+    /// every picked member back. What it answers is what happened to the
+    /// first member it touched, which is the outcome a player is told about.
+    pub fn toggle_all(&mut self, members: &[ObjectId]) -> SelectionOutcome {
+        let open: Vec<ObjectId> = pool_order(members)
+            .filter(|id| self.is_selectable(*id) && !self.is_selected(*id))
+            .collect();
+        if let Some((&first, rest)) = open.split_first() {
+            let outcome = self.toggle(first);
+            if outcome == SelectionOutcome::Added {
+                for id in rest {
+                    if self.toggle(*id) != SelectionOutcome::Added {
+                        break;
+                    }
+                }
+            }
+            return outcome;
+        }
+        let picked: Vec<ObjectId> = members
+            .iter()
+            .copied()
+            .filter(|id| self.is_selected(*id))
+            .collect();
+        if picked.is_empty() {
+            return SelectionOutcome::Rejected;
+        }
+        for id in picked {
+            self.toggle(id);
+        }
+        SelectionOutcome::Removed
     }
 
     /// Takes back the last pick, leaving the rest of the answer standing.

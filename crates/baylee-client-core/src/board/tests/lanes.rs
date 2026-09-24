@@ -18,6 +18,130 @@ fn identical_tokens_collapse_into_one_counted_card() {
     assert_eq!(lane.permanent_count(), 12);
 }
 
+/// Tokens merge on any row, cards only on a full one (#210). A spell that
+/// leaves three Soldiers leaves one card saying three, however much room
+/// the row has; tapping one splits it off, because whether a blocker is
+/// still up is what a player reads the row for.
+#[test]
+fn tokens_merge_on_a_roomy_row_and_split_by_state() {
+    let lane_of = |objs: Vec<PublicObject>| {
+        let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
+        let m = model(&view);
+        let lane = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        let mut counts: Vec<usize> = lane.groups.iter().map(CardGroup::count).collect();
+        counts.sort_unstable();
+        counts
+    };
+    let soldiers =
+        || -> Vec<PublicObject> { (0..3).map(|i| token(i, 0, "Soldier", 1, 1)).collect() };
+
+    assert_eq!(
+        lane_of(soldiers()),
+        vec![3],
+        "three Soldiers on a roomy row"
+    );
+
+    let mut one_tapped = soldiers();
+    one_tapped[1].status = ObjectStatus::TAPPED;
+    assert_eq!(
+        lane_of(one_tapped),
+        vec![1, 2],
+        "the tapped one stands apart"
+    );
+
+    // The counter-test: the same three as cards keep the room test.
+    let bears: Vec<PublicObject> = (0..3).map(|i| printed(i, 0, "Grizzly Bears", 7)).collect();
+    assert_eq!(
+        lane_of(bears),
+        vec![1, 1, 1],
+        "cards on a roomy row stay cards"
+    );
+}
+
+/// What the answer being built proposes splits a stack the way a sent
+/// declaration does (#210), so the card a player clicked never says more is
+/// declared than is: three Soldiers sent at a seat are a `×3` beside a `×9`,
+/// two sent at a planeswalker a card of their own again, and targets picked
+/// out of a stack likewise.
+#[test]
+fn a_proposal_splits_a_stack_by_what_it_proposes() {
+    let soldiers: Vec<PublicObject> = (0..12).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
+    let ids: Vec<ObjectId> = soldiers.iter().map(|o| o.id).collect();
+    let view = ViewBuilder::new(2).with_battlefield(0, soldiers).build();
+    let drawn = |proposed: &[(usize, Proposal)]| {
+        let proposed: HashMap<ObjectId, Proposal> =
+            proposed.iter().map(|(at, p)| (ids[*at], *p)).collect();
+        let m = BoardModel::from_view(
+            &view,
+            Openings {
+                proposed: &proposed,
+                ..Openings::none()
+            },
+            |_| WIDE,
+            &[],
+            Registry::none(),
+        );
+        let mut cards: Vec<(usize, Option<Proposal>)> = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane")
+            .groups
+            .iter()
+            .map(|g| (g.count(), g.proposed))
+            .collect();
+        cards.sort_by_key(|(count, _)| *count);
+        cards
+    };
+    let at = |defender| Proposal::Combat(CombatFocus::Defender(defender));
+    let seat = at(Defender::Player(PlayerId::new(1)));
+    let walker = at(Defender::Planeswalker(ObjectId::new(99, 0)));
+
+    assert_eq!(drawn(&[]), vec![(12, None)]);
+    assert_eq!(
+        drawn(&[(9, seat), (10, seat), (11, seat)]),
+        vec![(3, Some(seat)), (9, None)]
+    );
+    assert_eq!(
+        drawn(&[(10, walker), (11, walker), (9, seat)]),
+        vec![(1, Some(seat)), (2, Some(walker)), (9, None)]
+    );
+    assert_eq!(
+        drawn(&[(0, Proposal::Picked), (1, Proposal::Picked)]),
+        vec![(2, Some(Proposal::Picked)), (10, None)]
+    );
+}
+
+/// A card is found by the object it is drawn as, and only by that one: the
+/// other members have no card, so a pointer is never on them.
+#[test]
+fn a_group_is_found_by_its_representative_and_by_nothing_else() {
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, (0..3).map(|i| token(i, 0, "Soldier", 1, 1)))
+        .build();
+    let m = model(&view);
+    let drawn = m
+        .pod(PlayerId::new(0))
+        .and_then(|p| p.lane(LaneKind::Creatures))
+        .expect("lane")
+        .groups[0]
+        .clone();
+
+    let found = m.group(drawn.representative).expect("the drawn card");
+    assert_eq!(found.count(), 3);
+    let other = drawn
+        .members
+        .iter()
+        .find(|m| **m != drawn.representative)
+        .expect("a second member");
+    assert!(
+        m.group(*other).is_none(),
+        "a member without a card was found"
+    );
+}
+
 #[test]
 fn a_tapped_token_does_not_hide_inside_the_untapped_stack() {
     let mut objs: Vec<PublicObject> = (0..5).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
@@ -208,14 +332,14 @@ fn a_second_copy_of_a_land_does_not_swallow_the_first() {
 #[test]
 fn each_pod_is_measured_against_its_own_row() {
     // Seats do not get equal space, so the collapse cannot be decided by
-    // one width for the whole table: the same four Soldiers are four
-    // cards on a roomy pod and one counted card on a cramped one, in the
-    // *same* board. Before this, the width was read off the first
-    // opponent and every other seat — the local one included — was gated
-    // against a row it was not standing on.
+    // one width for the whole table: the same four Bears are four cards
+    // on a roomy pod and one counted card on a cramped one, in the *same*
+    // board. Before this, the width was read off the first opponent and
+    // every other seat — the local one included — was gated against a
+    // row it was not standing on. Cards, because tokens merge on any row.
     let squad = |seat: u8| -> Vec<PublicObject> {
         (0..4)
-            .map(|i| token(u32::from(seat) * 10 + i, seat, "Soldier", 1, 1))
+            .map(|i| printed(u32::from(seat) * 10 + i, seat, "Grizzly Bears", 7))
             .collect()
     };
     let view = ViewBuilder::new(2)

@@ -384,37 +384,6 @@ fn a_seat_across_the_table_has_its_cards_turned_to_face_it() {
     );
 }
 
-#[test]
-fn only_counted_groups_get_a_badge() {
-    use baylee_client_core::board::{KeywordBadge, Provenance};
-    use baylee_view::ObjectStatus;
-
-    let mut group = CardGroup {
-        representative: ObjectId::new(1, 0),
-        members: vec![ObjectId::new(1, 0)],
-        name: "Soldier".into(),
-        power: Some(1),
-        toughness: Some(1),
-        base_power: Some(1),
-        base_toughness: Some(1),
-        damage: 0,
-        loyalty: None,
-        status: ObjectStatus::NONE,
-        counters: vec![],
-        badges: Vec::<KeywordBadge>::new(),
-        art: None,
-        provenance: Provenance::Token,
-        original: None,
-        summoning_sick: false,
-        activatable: false,
-        commander: false,
-        individual: None,
-    };
-    assert_eq!(stack_badge(&group), None);
-    group.members.push(ObjectId::new(2, 0));
-    group.members.push(ObjectId::new(3, 0));
-    assert_eq!(stack_badge(&group).as_deref(), Some("×3"));
-}
 /// The finish is a property of the *printing*, and the print table is per
 /// seat: a printing this seat has not earned reads as plain rather than
 /// as a hole in the hidden-information rule. This pins the lookup that

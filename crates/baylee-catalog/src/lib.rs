@@ -154,6 +154,9 @@ const SCHEMA_VERSION: i32 = 4;
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
 
+/// The key [`Catalog::data_version`] is stamped under.
+const DATA_VERSION_KEY: &str = "data_version";
+
 /// The advisory lock a rebuild holds.
 ///
 /// Two gateways starting against one database both find the version stale,
@@ -965,27 +968,7 @@ impl Catalog {
     /// # Errors
     /// When a query fails.
     pub async fn text(&self, ids: &[String], lang: &str) -> Result<Vec<CardTextEntry>> {
-        if ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        let rows = self
-            .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT scryfall_id::text AS scryfall_id, oracle_id::text AS oracle_id \
-                 FROM cards WHERE scryfall_id = ANY(string_to_array($1, ',')::uuid[]) \
-                 ORDER BY scryfall_id",
-                [Value::from(ids.join(","))],
-            ))
-            .await
-            .context("looking up printings")?;
-        let mut asked: Vec<(String, String)> = Vec::with_capacity(rows.len());
-        for row in rows {
-            asked.push((
-                row.try_get("", "scryfall_id")?,
-                row.try_get("", "oracle_id")?,
-            ));
-        }
+        let asked = self.cards_of(ids).await?;
         let mut cards: Vec<String> = asked.iter().map(|(_, card)| card.clone()).collect();
         cards.sort_unstable();
         cards.dedup();
@@ -1005,6 +988,111 @@ impl Catalog {
                 })
             })
             .collect())
+    }
+
+    /// A number that moves whenever the catalog's cards may have: what a
+    /// cache of their text is keyed on. `0` before the first ingest that
+    /// stamps it.
+    ///
+    /// Moved by [`Self::bump_data_version`], which [`ingest::bulk`] calls
+    /// when it starts and when it ends — not by each [`Self::upsert`]. An
+    /// ingest writes about 1 356 batches from a process of its own, and a
+    /// reader that rebuilt at every one of them would rebuild on nearly every
+    /// request while the ingest runs. The start stamp is what keeps an ingest
+    /// that dies halfway from leaving a cache on the old text; the end stamp
+    /// is what makes the finished catalog the one that is cached.
+    ///
+    /// # Errors
+    /// When the query fails, or the stamp is not a number.
+    pub async fn data_version(&self) -> Result<i64> {
+        let row = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT value FROM catalog_meta WHERE key = $1",
+                [Value::from(DATA_VERSION_KEY.to_string())],
+            ))
+            .await
+            .context("reading the data version")?;
+        let Some(row) = row else {
+            return Ok(0);
+        };
+        let value: String = row.try_get("", "value")?;
+        value
+            .parse()
+            .with_context(|| format!("the data version {value:?} is not a number"))
+    }
+
+    /// Moves [`Self::data_version`] on, and answers the new value.
+    ///
+    /// # Errors
+    /// When the statement fails.
+    pub async fn bump_data_version(&self) -> Result<i64> {
+        let row = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO catalog_meta (key, value) VALUES ($1, '1') \
+                 ON CONFLICT (key) DO UPDATE \
+                 SET value = (catalog_meta.value::bigint + 1)::text \
+                 RETURNING value",
+                [Value::from(DATA_VERSION_KEY.to_string())],
+            ))
+            .await
+            .context("moving the data version")?
+            .context("the data version statement returned no row")?;
+        let value: String = row.try_get("", "value")?;
+        value
+            .parse()
+            .with_context(|| format!("the data version {value:?} is not a number"))
+    }
+
+    /// Every language the catalog has a name for.
+    ///
+    /// # Errors
+    /// When the query fails.
+    pub async fn languages(&self) -> Result<Vec<String>> {
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT code FROM languages ORDER BY code",
+            ))
+            .await
+            .context("listing languages")?;
+        rows.into_iter()
+            .map(|row| Ok(row.try_get("", "code")?))
+            .collect()
+    }
+
+    /// Which card each known printing is, as `(scryfall_id, oracle_id)`,
+    /// in printing-id order. A printing the catalog lacks is left out.
+    ///
+    /// # Errors
+    /// When the query fails.
+    pub async fn cards_of(&self, ids: &[String]) -> Result<Vec<(String, String)>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT scryfall_id::text AS scryfall_id, oracle_id::text AS oracle_id \
+                 FROM cards WHERE scryfall_id = ANY(string_to_array($1, ',')::uuid[]) \
+                 ORDER BY scryfall_id",
+                [Value::from(ids.join(","))],
+            ))
+            .await
+            .context("looking up printings")?;
+        rows.into_iter()
+            .map(|row| {
+                Ok((
+                    row.try_get("", "scryfall_id")?,
+                    row.try_get("", "oracle_id")?,
+                ))
+            })
+            .collect()
     }
 
     /// Searches the catalog by name and rules text.

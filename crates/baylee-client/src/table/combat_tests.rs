@@ -1,5 +1,5 @@
 use super::*;
-use baylee_client_core::board::{BoardModel, Lane, Provenance, SeatPod};
+use baylee_client_core::board::{BoardModel, CardGroup, Lane, Provenance, SeatPod};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::LaneKind;
 use baylee_core::ids::Defender;
@@ -31,6 +31,7 @@ fn creature(slot: u32) -> CardGroup {
         activatable: false,
         commander: false,
         individual: None,
+        proposed: None,
     }
 }
 
@@ -141,6 +142,43 @@ fn a_stack_of_identical_creatures_is_chosen_by_any_of_its_members() {
         "the card drawn for the stack ignores a declaration by a member \
          that is not its representative"
     );
+}
+
+/// A merged card says how many it stands for, and a pile — whose size is
+/// the deck drawn under its top card — says nothing: #210 measured 54
+/// Goblins drawing as one Goblin, and a graveyard wearing `×10` would be a
+/// second, wrong answer to a question its seat bar already answers.
+#[test]
+fn a_card_standing_for_several_wears_their_count_and_a_pile_does_not() {
+    let mut goblins = creature(1);
+    goblins.members = (1..=54).map(obj).collect();
+    let mut model = board(vec![goblins, creature(60)]);
+    let pile = model.pods[0]
+        .piles
+        .iter_mut()
+        .find(|p| p.kind == baylee_client_core::PileKind::Graveyard)
+        .expect("every seat has a graveyard");
+    pile.count = 10;
+    pile.top = Some(obj(100));
+
+    let placed = placements(&duel(model, None));
+    let at = |id: ObjectId| {
+        placed
+            .iter()
+            .find(|p| p.object == id)
+            .unwrap_or_else(|| panic!("{id:?} is on the table"))
+    };
+    assert_eq!(at(obj(1)).stands_for, 54, "the Goblins do not say 54");
+    assert_eq!(at(obj(60)).stands_for, 1);
+    assert_eq!(at(obj(100)).count, 10, "the pile lost its deck");
+    assert_eq!(at(obj(100)).stands_for, 1, "the pile wears a count");
+
+    // And the look is what the shader is given: a count on the merged card,
+    // none on the lone one or the pile.
+    let look = |p: &Placement| CardLook::back(FinishTreatment::Plain, 0).with_count(p.stands_for);
+    assert_eq!(look(at(obj(1))).count, 54);
+    assert_eq!(look(at(obj(60))).count, 0);
+    assert_eq!(look(at(obj(100))).count, 0);
 }
 
 /// The same rule outside combat, where `selected()` *is* the answer being
@@ -352,4 +390,75 @@ mod fan {
             "a card on the table already leans, so leaning proves nothing"
         );
     }
+}
+
+/// Twelve Soldiers, two clicks on the card standing for them, and the table
+/// draws two stepping forward beside ten staying home (#210). Measured
+/// through the click a pointer sends and the system that notices the answer
+/// changed, with nothing between them built by hand: until this, the second
+/// click took the first one back, and the whole card stepped forward for a
+/// declaration of one.
+#[test]
+fn two_clicks_on_a_stack_send_two_and_the_table_splits_them_off() {
+    let soldiers: Vec<_> = (1..=12)
+        .map(|slot| baylee_client_core::test_support::token(slot, 0, "Soldier", 1, 1))
+        .collect();
+    let ids: Vec<ObjectId> = soldiers.iter().map(|o| o.id).collect();
+    let mut view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .with_battlefield(0, soldiers)
+        .build();
+    view.awaiting = Some(view.seat);
+    let mut duel = Duel {
+        layout: Some(TableLayout::new(&[PlayerId::new(0)], 1.78, None)),
+        ..Duel::default()
+    };
+    duel.receive_view(view);
+    duel.receive_choice(Pending::ChooseAttackers {
+        player: PlayerId::new(0),
+        attackers: ids,
+        defenders: vec![Defender::Player(PlayerId::new(1))],
+    });
+    crate::rebuild_board(&mut duel);
+    let before = placements(&duel);
+    assert_eq!(before.len(), 1, "twelve Soldiers are one card");
+    let clicked = before[0].object;
+
+    // One click at a time, each followed by the frame that notices it, the
+    // way a player makes them.
+    let mut app = App::new();
+    app.insert_resource(duel)
+        .add_systems(Update, super::track_proposals);
+    let click = |app: &mut App| {
+        crate::input::activate_card(&mut app.world_mut().resource_mut::<Duel>(), clicked);
+        app.update();
+        placements(app.world().resource::<Duel>())
+    };
+    let first = click(&mut app);
+    let stepped = first
+        .iter()
+        .find(|p| p.selected)
+        .expect("the first declared")
+        .object;
+    let placed = click(&mut app);
+
+    let mut drawn: Vec<(usize, bool)> = placed.iter().map(|p| (p.stands_for, p.selected)).collect();
+    drawn.sort_unstable();
+    assert_eq!(
+        drawn,
+        vec![(2, true), (10, false)],
+        "two declared, drawn apart and chosen; ten at home"
+    );
+    let home = placed.iter().find(|p| p.stands_for == 10).expect("the ten");
+    assert_eq!(
+        home.object, clicked,
+        "the card under the pointer stayed put"
+    );
+    // And the declared card is still the entity that stepped forward: the
+    // pool is drawn from past each card's first member (`pool_order`), so a
+    // second declaration joins it rather than replacing it.
+    let declared = placed.iter().find(|p| p.selected).expect("the two");
+    assert_eq!(
+        declared.object, stepped,
+        "the card that stepped forward was replaced by another"
+    );
 }

@@ -256,3 +256,70 @@ fn a_creature_that_cannot_block_the_aimed_attacker_is_not_offered() {
     assert!(i.is_selectable(obj(11)));
     assert!(!i.is_selectable(obj(10)));
 }
+
+// Twelve Soldiers are one card until some of them are declared, and a
+// declaration is what splits them (`board::Proposal`). So a click on the
+// undeclared card sends one more, a click on the declared card takes one
+// back, and neither is ever the same Soldier twice.
+#[test]
+fn a_stack_of_attackers_is_a_pool_a_click_draws_from() {
+    let soldiers: Vec<ObjectId> = (1..=5).map(obj).collect();
+    let mut i = interaction(attack_choice(soldiers.clone(), vec![seat(1)]));
+
+    assert_eq!(i.toggle_group(&soldiers), SelectionOutcome::Added);
+    assert_eq!(i.toggle_group(&soldiers), SelectionOutcome::Added);
+    assert_eq!(
+        i.assignments(),
+        vec![
+            (obj(2), CombatFocus::Defender(seat(1))),
+            (obj(3), CombatFocus::Defender(seat(1))),
+        ],
+        "two clicks, two Soldiers, and the card drawn for the stack stays home"
+    );
+
+    // The declared two are a card of their own now, drawn as the first of
+    // them; a click there takes the newest back and leaves that one.
+    let declared = [obj(2), obj(3)];
+    assert_eq!(i.toggle_group(&declared), SelectionOutcome::Removed);
+    assert!(i.is_selected(obj(2)) && !i.is_selected(obj(3)));
+
+    // And the whole card in one gesture, each paired with the focus.
+    let home = [obj(1), obj(3), obj(4), obj(5)];
+    assert_eq!(i.toggle_all(&home), SelectionOutcome::Added);
+    assert_eq!(i.declared(), 5);
+    assert_eq!(i.toggle_all(&soldiers), SelectionOutcome::Removed);
+    assert_eq!(i.declared(), 0);
+}
+
+// Blocking draws from a stack the same way, and stops where the rules do: a
+// whole card of blockers put in front of an attacker only some of them may
+// block is cut at the first that may not, not sent for the engine to bounce.
+#[test]
+fn a_stack_of_blockers_fills_in_front_of_the_focus_as_far_as_it_may() {
+    let wall = |blocker: u32, attackers: Vec<ObjectId>| BlockOption {
+        blocker: obj(blocker),
+        attackers,
+    };
+    // Eleven can block only the other attacker — a flier in the focus, say.
+    let mut i = interaction(block_choice(vec![
+        wall(12, vec![obj(1)]),
+        wall(13, vec![obj(1)]),
+        wall(11, vec![obj(2)]),
+    ]));
+    assert_eq!(i.combat_focus(), CombatFocus::Attacker(obj(1)));
+    let blockers = [obj(11), obj(12), obj(13)];
+    assert_eq!(i.toggle_group(&blockers), SelectionOutcome::Added);
+    assert_eq!(
+        i.assignments(),
+        vec![(obj(12), CombatFocus::Attacker(obj(1)))]
+    );
+    assert_eq!(i.toggle_all(&blockers), SelectionOutcome::Added);
+    assert_eq!(
+        i.assignments(),
+        vec![
+            (obj(12), CombatFocus::Attacker(obj(1))),
+            (obj(13), CombatFocus::Attacker(obj(1))),
+        ],
+        "the one that may not block the focus was left out, not sent"
+    );
+}

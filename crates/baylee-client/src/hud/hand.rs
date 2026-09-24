@@ -611,16 +611,10 @@ pub(super) fn preview_anchor(
             PreviewAt::Hand(hand_card_x(layout, scroll, i)),
         ));
     }
-    for pod in &board.pods {
-        for lane in &pod.lanes {
-            for group in &lane.groups {
-                if group.representative == h {
-                    // A token has no art; it still gets a preview, built from
-                    // its projected characteristics alone.
-                    return Some((group.art, at));
-                }
-            }
-        }
+    if let Some(group) = board.group(h) {
+        // A token has no art; it still gets a preview, built from its
+        // projected characteristics alone.
+        return Some((group.art, at));
     }
     // A pile's top card lies face up on the table beside its mat and lifts
     // under the pointer like any other card, so it has to preview like one —

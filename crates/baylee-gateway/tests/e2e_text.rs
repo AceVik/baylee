@@ -113,3 +113,78 @@ async fn text_is_served_by_card_and_by_printing() {
     let (status, body) = http(gw.port, "GET", "/catalog/text?lang=de", None, "");
     assert_eq!((status, body.as_str()), (200, "[]"));
 }
+
+/// Mind Stone as the pool names it. Unlike [`STONE`], a pool card's text is
+/// held in memory, which is what the test below is about.
+const POOL_STONE: &str = "c97361b5-af16-4a7b-af85-a429dbaf4ad2";
+const OLD_GERMAN: &str =
+    "{T}: Erhöhe deinen Manavorrat um {1}.\n{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte.";
+
+fn pool_printing(id: &str, released: &str, printed: &str) -> scryfall::Card {
+    scryfall::Card {
+        id: id.to_owned(),
+        oracle_id: Some(POOL_STONE.to_owned()),
+        released_at: Some(released.to_owned()),
+        set: format!("s{}", &id[id.len() - 4..]),
+        ..printing(id, "de", Some(printed))
+    }
+}
+
+/// An ingest writes from a process of its own. What it wrote is served,
+/// by `/catalog/text` and by `/pool` alike, once it moves the catalog's
+/// stamp, and not before: the gateway holds the pool's text until then.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_pool_card_is_held_until_the_catalog_is_stamped() {
+    let gw = spawn_gateway("text-held");
+    let catalog = Catalog::connect(&gw.database_url())
+        .await
+        .expect("connecting to the gateway's schema");
+    catalog
+        .upsert(&[pool_printing(
+            "00000000-0000-4000-8000-00000000b001",
+            "2007-07-13",
+            OLD_GERMAN,
+        )])
+        .await
+        .expect("seeding");
+    let printed = || {
+        let (status, body) = http(
+            gw.port,
+            "GET",
+            &format!("/catalog/text?lang=de&oracle_ids={POOL_STONE}"),
+            None,
+            "",
+        );
+        assert_eq!(status, 200, "{body}");
+        let found = entries(&body);
+        assert_eq!(found.len(), 1, "{body}");
+        found[0].faces[0].printed.clone()
+    };
+    let pool = || {
+        let (status, body) = http(gw.port, "GET", "/pool?lang=de", None, "");
+        assert_eq!(status, 200);
+        body
+    };
+    assert_eq!(printed().as_deref(), Some(OLD_GERMAN));
+    assert!(pool().contains("Erhöhe deinen Manavorrat"));
+
+    catalog
+        .upsert(&[pool_printing(
+            "00000000-0000-4000-8000-00000000b002",
+            "2025-06-13",
+            GERMAN,
+        )])
+        .await
+        .expect("an ingest's batch");
+    assert_eq!(printed().as_deref(), Some(OLD_GERMAN), "no stamp yet");
+    assert!(!pool().contains("Erzeuge {C}"), "no stamp yet");
+
+    catalog
+        .bump_data_version()
+        .await
+        .expect("the ingest's stamp");
+    assert_eq!(printed().as_deref(), Some(GERMAN));
+    let pool = pool();
+    assert!(pool.contains("Erzeuge {C}"), "the pool moved with the text");
+    assert!(!pool.contains("Erhöhe deinen Manavorrat"));
+}

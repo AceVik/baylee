@@ -11,6 +11,7 @@
 
 mod common;
 
+use baylee_core::ids::AbilityRef;
 use common::{http, login, spawn_gateway};
 
 fn ondu_cleric() -> u32 {
@@ -33,10 +34,12 @@ fn standing_answers_are_remembered_per_account() {
     );
 
     // Ondu Cleric's rally trigger — the card the feature was asked for by
-    // name. Sent twice and out of order to prove the gateway normalises.
+    // name — sent twice, after a question the card raises without listing
+    // it, to prove the gateway normalises.
     let card = ondu_cleric();
+    let enters = AbilityRef::ENTERS;
     let put = format!(
-        "{{\"answers\":[{{\"card\":{card},\"ability\":1,\"yes\":false}},\
+        "{{\"answers\":[{{\"card\":{card},\"ability\":{enters},\"yes\":false}},\
           {{\"card\":{card},\"ability\":0,\"yes\":true}},\
           {{\"card\":{card},\"ability\":0,\"yes\":true}}]}}"
     );
@@ -127,5 +130,103 @@ fn a_standing_answer_for_a_real_card_is_not_refused_as_unknown() {
     assert!(
         body.contains("\"answers\":[]"),
         "a refused answer reached the store: {body}"
+    );
+}
+
+/// The handle is checked whole, not only its card: Ondu Cleric lists one
+/// ability, so the engine can never ask about its ability `1`, and an
+/// answer filed there would never fire. `docs/protocol.md` said a handle
+/// the registry does not know is refused while only the card was looked
+/// up. The reserved questions (`AbilityRef::ENTERS` and the rest) are
+/// every card's, listed or not.
+#[test]
+fn a_standing_answer_for_an_ability_the_card_lacks_is_refused() {
+    let gw = spawn_gateway("automation-ability");
+    let token = login(gw.port, "rally@example.com", "rally_player");
+    let card = ondu_cleric();
+    let listed = baylee_cards::by_index(baylee_core::ids::CardIndex::new(card))
+        .expect("Ondu Cleric is compiled")
+        .abilities
+        .len();
+    assert_eq!(
+        listed, 1,
+        "the test's premise: Ondu Cleric lists one ability"
+    );
+    let put = |ability: u32| {
+        format!("{{\"answers\":[{{\"card\":{card},\"ability\":{ability},\"yes\":true}}]}}")
+    };
+
+    let (status, body) = http(gw.port, "PUT", "/automation", Some(&token), &put(1));
+    assert_eq!(
+        status, 400,
+        "an ability past the card's list was stored: {body}"
+    );
+    assert!(body.contains("no such ability"), "{body}");
+    let (status, body) = http(gw.port, "GET", "/automation", Some(&token), "");
+    assert_eq!(status, 200);
+    assert!(
+        body.contains("\"answers\":[]"),
+        "the refusal stored it: {body}"
+    );
+
+    // Both ends of what is valid: the one listed ability, and the lowest
+    // and highest of the reserved ones.
+    for ability in [0, AbilityRef::FIRST_RESERVED, AbilityRef::SPELL] {
+        let (status, body) = http(gw.port, "PUT", "/automation", Some(&token), &put(ability));
+        assert_eq!(status, 200, "ability {ability} was refused: {body}");
+    }
+    // And the last number below the reserved range is no ability either.
+    let (status, body) = http(
+        gw.port,
+        "PUT",
+        "/automation",
+        Some(&token),
+        &put(AbilityRef::FIRST_RESERVED - 1),
+    );
+    assert_eq!(status, 400, "{body}");
+}
+
+/// A row stored before the ability was checked is not handed out: a client
+/// that writes back what it read would otherwise be refused every write
+/// after, over an answer it never chose, and it can never fire anyway.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_row_the_route_would_refuse_is_not_listed() {
+    use sea_orm::{ConnectionTrait, Database};
+
+    let gw = spawn_gateway("automation-legacy");
+    let token = login(gw.port, "legacy@example.com", "legacy_player");
+    let card = ondu_cleric();
+    let put = format!("{{\"answers\":[{{\"card\":{card},\"ability\":0,\"yes\":true}}]}}");
+    let (status, body) = http(gw.port, "PUT", "/automation", Some(&token), &put);
+    assert_eq!(status, 200, "{body}");
+
+    // What the route stored for anybody who asked, until it looked at the
+    // ability: one Ondu Cleric does not have.
+    let db = Database::connect(&gw.database_url())
+        .await
+        .expect("connecting");
+    db.execute_unprepared(&format!(
+        "INSERT INTO standing_answer (account_id, card, ability, yes) \
+         SELECT id, {card}, 1, true FROM account WHERE email = 'legacy@example.com'"
+    ))
+    .await
+    .expect("seeding a row the route no longer takes");
+
+    let (status, listed) = http(gw.port, "GET", "/automation", Some(&token), "");
+    assert_eq!(status, 200);
+    assert!(
+        listed.contains("\"ability\":0"),
+        "the good row went too: {listed}"
+    );
+    assert!(
+        !listed.contains("\"ability\":1"),
+        "the bad row was listed: {listed}"
+    );
+
+    // The round trip a settings page makes goes through.
+    let (status, body) = http(gw.port, "PUT", "/automation", Some(&token), &listed);
+    assert_eq!(
+        status, 200,
+        "writing back what was read was refused: {body}"
     );
 }

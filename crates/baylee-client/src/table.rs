@@ -26,7 +26,7 @@ use crate::face;
 use crate::feltmat::FeltMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
-use baylee_client_core::board::{CardGroup, KeywordBadge};
+use baylee_client_core::board::KeywordBadge;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
@@ -697,6 +697,20 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
         .is_none_or(|shown| (shown - aspect).abs() > 0.01)
     {
         duel.canvas_aspect = Some(aspect);
+        crate::rebuild_board(&mut duel);
+    }
+}
+
+/// Tells the board model what the answer being built now proposes.
+///
+/// A proposal is part of what a stack is merged on
+/// (`baylee_client_core::board::Proposal`): three Soldiers declared out of
+/// twelve are a card of their own. The answer changes through a click, a
+/// key, `Esc`, a row in the prompt bar — more doors than
+/// [`crate::rebuild_board`] has callers — so the change is noticed here,
+/// once a frame, the way [`track_canvas`] notices the window.
+pub fn track_proposals(mut duel: ResMut<Duel>) {
+    if crate::proposals(duel.interaction.as_ref()) != duel.proposed {
         crate::rebuild_board(&mut duel);
     }
 }
@@ -2813,6 +2827,11 @@ struct Placement {
     /// corner are — this is where the group's members are.
     flying: bool,
     count: usize,
+    /// How many permanents this card stands for when it is a merged group on
+    /// the battlefield, which is what the count pill writes
+    /// ([`CardLook::with_count`]). One for a pile and a fanned card: a
+    /// pile's size is `count` above and is drawn as the deck under it.
+    stands_for: usize,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
     corner: baylee_client_core::cardplate::Corner,
@@ -2904,10 +2923,11 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 // A group is one card standing for several, and combat is
                 // declared per creature — so the step is asked of the members
                 // and not of the representative. It cannot normally differ:
-                // a declared attacker is taken out of its group by the board
-                // model for exactly this reason. `any` rather than `all`
-                // because if that ever stops being true, a fighting card
-                // stepping forward is the better failure.
+                // a declared attacker, sent or only proposed, is taken out of
+                // its group by the board model for exactly this reason
+                // (`board::Proposal`). `any` rather than `all` because if
+                // that ever stops being true, a fighting card stepping
+                // forward is the better failure.
                 let staged = combat
                     .as_ref()
                     .is_some_and(|c| group.members.iter().any(|m| c.staged(*m)));
@@ -2927,6 +2947,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // flying are two groups.
                     flying: group.badges.contains(&KeywordBadge::Flying),
                     count: group.count(),
+                    stands_for: group.count(),
                     art: group.art,
                     // Resolved here rather than in the sync loop, because
                     // here is where the group's *members* are: a plan taps
@@ -3003,6 +3024,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         } else {
                             1
                         },
+                        stands_for: 1,
                         art: card.art,
                         offer: crate::cardmat::Offer::on(duel.proposing(), &[card.object], false),
                         corner: baylee_client_core::cardplate::Corner::default(),
@@ -3035,6 +3057,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 tapped: false,
                 flying: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
+                stands_for: 1,
                 art: pile.art,
                 offer: crate::cardmat::Offer::on(duel.proposing(), &[top], false),
                 corner: baylee_client_core::cardplate::Corner::default(),
@@ -3183,7 +3206,9 @@ pub fn sync_scene(
             // material however many creatures are on it.
             let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
             let tint = face::table_color(colors);
-            let look = CardLook::flat(tint, finish, glow).with_corner(placement.corner);
+            let look = CardLook::flat(tint, finish, glow)
+                .with_corner(placement.corner)
+                .with_count(placement.stands_for);
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
@@ -3197,6 +3222,7 @@ pub fn sync_scene(
                 Some(key) => {
                     let look = CardLook::art(key, finish, glow)
                         .with_corner(placement.corner)
+                        .with_count(placement.stands_for)
                         .with_sweep(sheen.of(placement.object, crate::sheen::Surface::Table));
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
@@ -3505,12 +3531,6 @@ pub fn sync_scene(
         visible.extend(board.required_images());
     }
     textures.touch_visible(&visible);
-}
-
-/// How a group should be labelled in the overlay, if at all.
-#[must_use]
-pub fn stack_badge(group: &CardGroup) -> Option<String> {
-    group.is_stack().then(|| format!("×{}", group.count()))
 }
 
 #[cfg(test)]

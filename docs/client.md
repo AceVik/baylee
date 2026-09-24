@@ -720,17 +720,76 @@ accident, and arithmetic borrows nothing.
 
 ## Grouping and the token summary
 
-Identical permanents draw as one card with a `×N` badge. Two independent
-guards keep that honest:
+Identical permanents draw as one card saying `×N` on a pill in its top-right
+corner, over the printed cost (`cardplate::count_word`, `count_layer` in
+`card_common.wgsl`). It is the plate's register — same body, ink, rim and
+figure height — in the one corner nothing else uses, and it rotates with a
+tapped card. The `×` is load-bearing: a bare `12` over a cost slot reads as
+twelve generic mana. It grows sideways with its digits (`count_width`): at
+`×999` its left edge sits 0.67 card widths across, right of the centred name
+a token frame prints (measured on a Treasure at `×28`, whose pill starts at
+0.73), and `the_widest_count_stays_clear_of_the_slips_and_the_name` holds it
+to the right half of the title bar. Until #210 the sentence above was true
+of a function (`table::stack_badge`) that nothing called: 54 Goblins drew as
+one Goblin, the slab under the card was the only cue, and a pile's depth is
+capped. A pile never wears a count (`Placement::stands_for`); its size is
+the deck under it and the seat bar's number. The hover preview wears the
+same pill (`card_ui.wgsl`), because it is the table card held up larger and
+the count is the one thing its art cannot say; `BoardModel::group` is how
+it and `/state` find the card a pointer is on.
 
-- objects merge only when every visible property matches (name, P/T, damage,
-  counters, tap state, controller);
+When they merge depends on what they are (`board::group_objects`). Tokens
+merge from two, on any row: a token is made to be one of many, and a fan of
+Treasures says nothing their `×N` does not. Cards merge only once the row
+would have to fan them (`pack_lane(..).fanned`); two Forests on a roomy row
+are two Forests, because a second one swallowing the first was
+`docs/observed-faults.md` 19. A token is what `board::provenance_of` calls
+one, so a token copy of a card merges like a token.
+
+Two independent guards keep the merge honest:
+
+- objects merge only when every property a decision reads matches
+  (`PublicObject::summary_key`): name, card or token, controller and owner,
+  status (tapped, face down, …), the projected types, colours and keywords,
+  P/T and the printed P/T under it, damage, loyalty, counters, summoning
+  sickness and any granted mana. So a tapped Soldier stands beside the
+  untapped ones, and a Soldier with lifelink beside the plain ones;
 - objects with individual identity never merge, however identical they look —
-  attacking, blocking, enchanted, equipped, or targeted by the stack.
+  attacking or blocking (sent), enchanted, equipped, or targeted by the stack.
 
-Each seat also gets a text chip row (`12× 1/1 Soldier · 3× Treasure`) and a
-one-line threat read (power ready, blockers, open mana, cards in hand), which
-is what makes an unfocused pod useful at eight seats.
+**In a choice, a merged card is a pool** (#210). What the answer being built
+proposes for a permanent — declared at a defender, blocking an attacker,
+picked as a target (`board::Proposal`, from `crate::proposals`) — is part of
+what it is merged on, so the proposal splits the card the way a sent
+declaration does: three of twelve Soldiers declared at a seat are a `×3`
+stepping forward beside a `×9`, two sent at a planeswalker a card of their
+own again. `table::track_proposals` rebuilds the board the frame the answer
+changes, whichever door changed it. A click on a merged card is
+`Interaction::toggle_group`: on the undeclared card it adds the next member,
+on a declared one it takes the newest back. It draws past each card's first
+member (`pool_order`), because a card is drawn as its first member and
+taking from the back handed the declared card a new one on every click —
+measured on thirty Elves as 31, then 30, then 29, a card replaced each time.
+Now both cards stay the entities they were. The first split re-centres the
+row once (one card becoming two moved the `×29` from x 864 to 828 on a
+duel's row), so the second click lands where the card now is, and every
+later one where the second did. A declared card draws one arrow, from its
+first member (`combatlines::wanted_lines` finds no card for the others);
+its pill says how many it carries. `⇧`-click and `⇧E`
+(`Action::ActivateGroup`, `input::activate` with `whole`) take the whole card:
+`toggle_all` adds members until the choice refuses one (a full answer, a
+blocker the focus cannot take), and on a card with nothing left to add it
+takes them all back. Until #210 a click toggled the drawn member only, so
+the second click on twelve Soldiers took back the first and the whole card
+stepped forward for a declaration of one. Sent attackers still stand one
+card each; merging them by defender is its own change, because blocking two
+of a merged five needs a focus that walks to the next unblocked member.
+
+The board model also builds a text chip row per seat (`board::TokenChip`,
+`12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
+(`ThreatSummary`: power ready, blockers, open mana, cards in hand), meant for
+an unfocused pod at eight seats. **Neither is drawn** — measured for #210,
+nothing in `baylee-client` reads either.
 
 ## Which ability is on the stack (and how a client names it)
 
@@ -1179,8 +1238,8 @@ board. The model had always allowed it: `Interaction::toggle` takes "a
 permanent, a card in a zone, or a spell on the stack". Both halves are wired
 now. The **row** carries `HandCardVisual`, so a click on the picture, the
 name or the printed sentence goes through `activate_card` and lands on
-`toggle` — nothing earlier in that chain is ever true of an object on the
-stack — and the picture inside it is `Pickable::IGNORE`, because a pickable
+`toggle_group`, which for anything but a merged table card is `toggle` —
+nothing earlier in that chain is ever true of an object on the stack — and the picture inside it is `Pickable::IGNORE`, because a pickable
 child would take the row's hover for itself and the row would never light.
 `cursor_grid` gains the stack as its last row, which is the topmost, because
 the panel is drawn highest. `a_click_on_a_stack_row_answers_the_question_it_was_asked`
@@ -5731,6 +5790,15 @@ Rebinding takes every key while a row is armed, including the ones that mean
 something everywhere else: a player who wants `Esc` on some other action has
 to be able to press it. Escape backs out, backspace unbinds, and unbinding is
 a real answer because a pointer still reaches everything.
+
+An unbound action is a row with no chords, and that difference is what lets a
+new action reach players who saved their keys before it existed. A stored map
+replaces the standard one whole, so `⇧E` (take a whole merged card, #210) was
+dead on the first machine it was tried on: that machine's keymap had been
+saved a week earlier and had no row for it. `Keymap::migrated` now gives each
+*missing* row its standard chords, keeping only the ones no row in the map
+already holds. An empty row is the player's decision and stays empty, and no
+key the player bound is taken or shadowed.
 
 ## The interface's own words
 

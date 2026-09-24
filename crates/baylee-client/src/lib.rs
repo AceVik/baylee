@@ -491,6 +491,13 @@ pub struct Duel {
     /// abilities included. Kept here so the table can draw it and the board
     /// model does not have to recompute it per frame.
     pub activatable: std::collections::HashSet<ObjectId>,
+    /// What the answer being built proposed when the board was last built.
+    ///
+    /// A proposal is part of what the board merges on
+    /// (`baylee_client_core::board::Proposal`), so `table::track_proposals`
+    /// compares the answer against this every frame and rebuilds when they
+    /// part.
+    pub proposed: std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal>,
     /// The permanent whose abilities the prompt bar is offering.
     ///
     /// Only ever set for one with more than one thing to do: a single
@@ -1105,7 +1112,10 @@ fn add_present_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            table::track_canvas,
+            (
+                table::track_canvas,
+                table::track_proposals.before(table::sync_scene),
+            ),
             // Ahead of both things that draw a card, so a card arriving is
             // placed with its sheen already decided rather than a frame late.
             sheen::watch_for_arrivals
@@ -2070,6 +2080,22 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
     duel.interaction = None;
 }
 
+/// What the answer being built proposes for each permanent it names: the
+/// pairs of a combat declaration, and the objects a choice has picked.
+#[must_use]
+pub fn proposals(
+    interaction: Option<&Interaction>,
+) -> std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal> {
+    use baylee_client_core::board::Proposal;
+    interaction.map_or_else(std::collections::HashMap::new, |i| {
+        i.assignments()
+            .into_iter()
+            .map(|(id, focus)| (id, Proposal::Combat(focus)))
+            .chain(i.selected().map(|id| (id, Proposal::Picked)))
+            .collect()
+    })
+}
+
 /// Rebuilds the render model from the current view.
 ///
 /// `pub` because the two indigo sets it computes — [`Duel::reachable`] and
@@ -2080,6 +2106,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
     duel.suspend_reach = suspend_reach(duel);
     duel.activatable = activatable(duel);
+    duel.proposed = proposals(duel.interaction.as_ref());
 
     let Some(view) = duel.view.as_ref() else {
         return;
@@ -2147,6 +2174,7 @@ pub fn rebuild_board(duel: &mut Duel) {
             playable: &playable,
             reachable: &reach,
             activatable: &duel.activatable,
+            proposed: &duel.proposed,
         },
         // Each pod is measured against its own row. This used to be one
         // number taken off the first opponent, which is only ever right on a
