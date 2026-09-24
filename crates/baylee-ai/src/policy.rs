@@ -644,9 +644,13 @@ impl HeuristicAgent {
             if matches!(effect, Effect::PayCostOrLoseLater { .. }) {
                 return -10_000;
             }
+            // A spell that can't be countered is still a target (#243), and
+            // a counter pointed at it resolves and counters nothing. Only a
+            // stack object the counter would actually take off counts.
             if counter(effect)
                 && !view.stack.iter().any(|o| {
                     self.hostile(o.controller, view.seat)
+                        && crate::tactics::counterable(o)
                         && match effect {
                             Effect::CounterTargetSpell | Effect::CounterTargetSpellToExile => {
                                 !matches!(

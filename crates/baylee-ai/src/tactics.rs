@@ -75,6 +75,16 @@ pub(crate) fn amount(n: Amount, x: u32) -> i32 {
     }
 }
 
+/// Whether a counter pointed at `o` would take it off the stack.
+///
+/// The view sets `UNCOUNTERABLE` on a stack object from the predicate the
+/// engine's counter asks as it resolves, the printed words and the Cavern of
+/// Souls rider alike. Such a spell is a legal target all the same (#243), so
+/// the engine offers the counter and it is this seat that must not spend it.
+pub(crate) fn counterable(o: &PublicObject) -> bool {
+    o.keywords & baylee_cards_dsl::KeywordSet::UNCOUNTERABLE.bits() == 0
+}
+
 /// A deliberately partial evaluation vocabulary. Unsupported effects are not
 /// mistaken for removal; the coverage ledger records what remains to model.
 #[allow(clippy::too_many_lines)] // the partial effect vocabulary stays in one auditable table
@@ -487,6 +497,9 @@ impl HeuristicAgent {
                     if m.destroy
                         && o.keywords & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits() != 0
                     {
+                        score = 0;
+                    }
+                    if m.counter && !counterable(o) {
                         score = 0;
                     }
                     if m.damage > 0

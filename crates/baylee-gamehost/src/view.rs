@@ -208,7 +208,17 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // this crate is the one that can see both.
         token: obj.token.map(baylee_cards::tokens::token_id),
         colors: chars.colors,
-        keywords: chars.keywords.bits(),
+        // The projected keywords, and on the stack "can't be countered" as
+        // well when only a rider says so: the Cavern of Souls mana the spell
+        // was paid with. The bit comes from the predicate the counter itself
+        // asks, and only on the stack, since the rider belongs to the spell
+        // and not to the permanent it becomes (#243).
+        keywords: chars.keywords.bits()
+            | if obj.zone == Zone::Stack && !obj.can_be_countered() {
+                baylee_cards::dsl::KeywordSet::UNCOUNTERABLE.bits()
+            } else {
+                0
+            },
         power: chars.power,
         toughness: chars.toughness,
         // The base, straight off the object rather than out of the plan:
@@ -2736,7 +2746,8 @@ mod tests {
 
     /// Answers everything until seat 0 holds priority in its own first main
     /// phase with the stack empty, and returns seat 0's view there. A target
-    /// question gets `aim`, a scry keeps its card on top, and nobody attacks.
+    /// question gets `aim`, a scry keeps its card on top, nobody attacks, and
+    /// a Cavern of Souls names Bird.
     fn settle(engine: &mut Engine<Registry>, aim: Option<ObjectId>) -> PlayerView {
         let me = PlayerId::new(0);
         for _ in 0..100 {
@@ -2769,6 +2780,10 @@ mod tests {
                 Pending::ChooseAttackers { player, .. } => {
                     (player, PlayerAction::DeclareAttackers { attackers: vec![] })
                 }
+                Pending::ChooseSubtype { player, .. } => (
+                    player,
+                    PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::creature::BIRD),
+                ),
                 other => panic!("unexpected question: {other:?}"),
             };
             engine.apply(player, action).expect("a legal answer");
@@ -2913,6 +2928,124 @@ mod tests {
             "{written:?} print flashback and are implemented: the view prices a \
              graveyard cast at the card's mana cost, which is right for a \
              granted flashback only"
+        );
+    }
+
+    fn cavern_of_souls() -> CardIndex {
+        by_oracle_id("89ca686a-7c72-4d8f-9290-e89635624a83")
+            .unwrap()
+            .index
+    }
+
+    fn sea_eagle() -> CardIndex {
+        by_oracle_id("acb57162-7093-4a3c-9818-d3b61ce757c6")
+            .unwrap()
+            .index
+    }
+
+    /// Whether `seat` is told the object can't be countered.
+    fn uncounterable_to(engine: &Engine<Registry>, seat: PlayerId, id: ObjectId) -> bool {
+        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
+        let object = view.object(id).expect("the object is in public view");
+        object.keywords & baylee_cards::dsl::KeywordSet::UNCOUNTERABLE.bits() != 0
+    }
+
+    /// #243. A spell that can't be countered says so on the stack, to every
+    /// seat, even when no printed word makes it so.
+    ///
+    /// The printed "can't be countered" rode the projected keywords all
+    /// along. The Cavern of Souls kind is a rider on the spell that no
+    /// characteristic carries, so a creature cast with that mana looked
+    /// counterable to every seat, the house AI among them. The bit is now
+    /// set from `GameObject::can_be_countered`, the predicate the counter
+    /// itself asks.
+    ///
+    /// The same card is cast twice, once off Islands and once off the Cavern,
+    /// so only the mana differs between the two answers. The Cavern's Eagle
+    /// then loses the bit once it is a permanent, because the rider belongs
+    /// to the spell.
+    #[test]
+    fn a_spell_that_cannot_be_countered_says_so_on_the_stack() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let card = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![card(sea_eagle()), card(sea_eagle())]);
+        preset.seats[0].starting_battlefield = vec![
+            card(cavern_of_souls()),
+            card(island()),
+            card(island()),
+            card(island()),
+        ];
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+
+        let view = settle(&mut engine, None);
+        let eagles: Vec<ObjectId> = view.hand.iter().map(|c| c.id).collect();
+        let lands = |name: &str| -> Vec<ObjectId> {
+            view.battlefield_of(me)
+                .filter(|o| o.name == name)
+                .map(|o| o.id)
+                .collect()
+        };
+        let (cavern, islands) = (lands("Cavern of Souls")[0], lands("Island"));
+
+        for &source in &islands[..2] {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source })
+                .unwrap();
+        }
+        engine
+            .apply(me, PlayerAction::CastSpell { card: eagles[0] })
+            .expect("two Islands pay {1}{U}");
+        assert!(
+            !uncounterable_to(&engine, me, eagles[0])
+                && !uncounterable_to(&engine, them, eagles[0]),
+            "an Eagle paid for with Islands can be countered, and nobody is told otherwise"
+        );
+        settle(&mut engine, None);
+
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateAbility {
+                    source: cavern,
+                    ability_index: 1,
+                },
+            )
+            .expect("the Cavern's restricted mana");
+        engine
+            .apply(me, PlayerAction::ChooseColor(ManaColor::Blue))
+            .unwrap();
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: islands[2] })
+            .unwrap();
+        engine
+            .apply(me, PlayerAction::CastSpell { card: eagles[1] })
+            .expect("the Cavern's blue and an Island pay {1}{U}");
+        assert!(
+            engine
+                .state()
+                .object(eagles[1])
+                .is_some_and(|o| !o.can_be_countered()),
+            "the Cavern's mana paid for this one, so the engine will not counter it"
+        );
+        assert!(
+            uncounterable_to(&engine, me, eagles[1]) && uncounterable_to(&engine, them, eagles[1]),
+            "and every seat is told so while it is on the stack"
+        );
+
+        settle(&mut engine, None);
+        let eagle = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[])
+            .battlefield_of(me)
+            .filter(|o| o.name == "Sea Eagle")
+            .map(|o| o.id)
+            .max()
+            .expect("the second Eagle has resolved");
+        assert!(
+            !uncounterable_to(&engine, me, eagle),
+            "the rider belongs to the spell, and the permanent it became is not a spell"
         );
     }
 }

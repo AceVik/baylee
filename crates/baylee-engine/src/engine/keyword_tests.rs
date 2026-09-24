@@ -128,7 +128,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("can't block", K::CANT_BLOCK),        // combat::can_block
         ("undying", K::UNDYING),               // trigger.rs (synthetic)
         ("persist", K::PERSIST),               // trigger.rs (synthetic)
-        ("uncounterable", K::UNCOUNTERABLE),   // resolve (counter effects)
+        ("uncounterable", K::UNCOUNTERABLE),   // object::can_be_countered
         ("rebound", K::REBOUND),               // progress.rs (rider)
         ("daybound", K::DAYBOUND),             // progress::day_night_statics
         ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
@@ -343,6 +343,239 @@ fn ward_declined_counters_the_spell_that_targeted_it() {
         engine.state().players[1].mana_pool.total(),
         pool_before,
         "declining spends nothing",
+    );
+}
+
+fn swamp() -> baylee_core::ids::CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+fn island() -> baylee_core::ids::CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+fn forest() -> baylee_core::ids::CardIndex {
+    card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+}
+fn mountain() -> baylee_core::ids::CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+fn llanowar_elves() -> baylee_core::ids::CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
+/// Dualcaster Mage — {1}{R}{R}, flash: "When this creature enters, copy
+/// target instant or sorcery spell. You may choose new targets for the copy."
+fn dualcaster_mage() -> baylee_core::ids::CardIndex {
+    card_index("8eb7c0a5-6190-40de-b473-2d1daa3bbe28")
+}
+/// Abrupt Decay — {B}{G}: "This spell can't be countered. Destroy target
+/// nonland permanent with mana value 3 or less."
+fn abrupt_decay() -> baylee_core::ids::CardIndex {
+    card_index("1c747fe2-289e-492a-a846-aa77707e2dc3")
+}
+/// Absorb — {W}{U}{U}: "Counter target spell. You gain 3 life."
+fn absorb() -> baylee_core::ids::CardIndex {
+    card_index("132ca99a-a3c7-4ed6-b4d0-0edcd7140ca2")
+}
+/// Void Rend — {W}{U}{B}: "This spell can't be countered. Destroy target
+/// nonland permanent."
+fn void_rend() -> baylee_core::ids::CardIndex {
+    card_index("713f16db-95ec-479e-a48c-7a69f7668d7f")
+}
+
+/// #243. "This spell can't be countered" is about what a counter does to the
+/// spell, never about what may point at it. The Gatherer ruling on Abrupt
+/// Decay (2021-03-19): "A spell or ability that counters spells can still
+/// target Abrupt Decay." The CR has no rule narrowing targets for it; 701.6a
+/// says only what countering is.
+///
+/// The engine dropped a keyword-uncounterable spell from every
+/// `TargetSpec::Spell`, so a copy could not target it either: Dualcaster
+/// Mage entered beside an Abrupt Decay and its trigger had nothing to copy.
+#[test]
+fn a_spell_that_cannot_be_countered_can_still_be_copied() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(23, plains())
+        .battlefield(0, &[mountain(), mountain(), mountain(), llanowar_elves()])
+        .hand(0, &[dualcaster_mage()])
+        .battlefield(1, &[swamp(), forest(), ondu_cleric()])
+        .hand(1, &[abrupt_decay()])
+        .start();
+    keep_mulligans(&mut engine);
+    let my_elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    let their_cleric = on_battlefield(&engine, p1, ondu_cleric()).expect("the Cleric");
+
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, abrupt_decay());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_elves],
+            },
+        )
+        .expect("the Decay points at the Elves");
+    pass_until(&mut engine, |e| {
+        !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    let decay = engine.state().zones.list(crate::zone::ZoneLocation::Stack)[0];
+
+    tap_all_mana(&mut engine, p0);
+    let mage = in_hand(&engine, p0, dualcaster_mage()).expect("the Mage in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: mage })
+        .expect("flash, and three Mountains");
+    let offered = options_offered_including(&mut engine, decay);
+    assert!(
+        offered.contains(&decay),
+        "the Mage's trigger may copy a spell that can't be countered: {offered:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![decay],
+            },
+        )
+        .unwrap();
+    let retarget = options_offered_including(&mut engine, their_cleric);
+    assert!(
+        retarget.contains(&my_elves) && retarget.contains(&their_cleric),
+        "the copy is asked where it points, like any other copy: {retarget:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_cleric],
+            },
+        )
+        .expect("the copy is pointed at the Cleric");
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, ondu_cleric()).is_some()
+            && in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "one Decay and its copy: both permanents destroyed"
+    );
+}
+
+/// #243, the counter's own half. A counterspell may target a spell that
+/// can't be countered, and on resolution the spell stays where it is while
+/// the rest of the counterspell still happens. The ruling again: "When that
+/// spell or ability resolves, Abrupt Decay won't be countered, but any
+/// additional effects of the countering spell or ability will still happen."
+/// Absorb's additional effect is 3 life.
+#[test]
+fn a_counterspell_may_target_a_spell_that_cannot_be_countered_and_does_the_rest() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(29, plains())
+        .battlefield(0, &[swamp(), forest()])
+        .hand(0, &[abrupt_decay()])
+        .battlefield(1, &[plains(), island(), island(), ondu_cleric()])
+        .hand(1, &[absorb()])
+        .start();
+    keep_mulligans(&mut engine);
+    let cleric = on_battlefield(&engine, p1, ondu_cleric()).expect("the Cleric");
+
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, abrupt_decay());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .expect("the Decay points at the Cleric");
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    let decay = engine.state().zones.list(crate::zone::ZoneLocation::Stack)[0];
+    let life = engine.state().players[1].life;
+
+    tap_all_mana(&mut engine, p1);
+    let card = in_hand(&engine, p1, absorb()).expect("Absorb in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card })
+        .expect("a spell that can't be countered is still a legal target");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Absorb asks for its target, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![decay], "the Decay is the only spell there is");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![decay],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, ondu_cleric()).is_some(),
+        "the Decay was not countered and destroyed the Cleric"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        life + 3,
+        "and Absorb's other effect happened anyway"
+    );
+}
+
+/// #243, ward's half. Ward's "counter that spell unless its controller pays"
+/// is a counter like any other, so a spell that can't be countered goes
+/// through with the tax unpaid. The Gatherer ruling on Abrupt Decay
+/// (2024-04-12): "If you target a creature with ward, you may still pay the
+/// ward cost, but Abrupt Decay won't be countered even if you don't." Void
+/// Rend is the same clause without Abrupt Decay's mana-value limit, which
+/// Twining Twins is over.
+#[test]
+fn ward_declined_does_not_counter_a_spell_that_cannot_be_countered() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(31, plains())
+        .battlefield(0, &[twining_twins()])
+        .battlefield(1, &[plains(), island(), swamp()])
+        .hand(1, &[void_rend()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let twins = on_battlefield(&engine, p0, twining_twins()).expect("the warded creature");
+
+    cast_from_hand(&mut engine, p1, void_rend());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![twins],
+            },
+        )
+        .expect("Void Rend points at the warded creature");
+    for _ in 0..20 {
+        if matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::PayTax { .. },
+                ..
+            }
+        ) {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("ward never asked for its tax: {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    engine
+        .apply(p1, PlayerAction::YesNo(false))
+        .expect("declining the tax is an answer");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, twining_twins()).is_none(),
+        "the tax went unpaid and Void Rend resolved anyway: the Twins are destroyed"
     );
 }
 

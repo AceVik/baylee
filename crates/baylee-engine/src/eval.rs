@@ -583,12 +583,11 @@ pub fn target_options(
             .list(ZoneLocation::Stack)
             .iter()
             .filter(|id| {
+                // Uncounterable spells are targets like any other (#243):
+                // it is the counter that asks, as it resolves
+                // (`GameObject::can_be_countered`).
                 state.object(**id).is_some_and(|o| {
                     o.kind == crate::object::ObjectKind::Spell
-                        && !o
-                            .characteristics()
-                            .keywords
-                            .contains(baylee_cards_dsl::KeywordSet::UNCOUNTERABLE)
                         && matches(filter, state, o, you, this)
                 })
             })

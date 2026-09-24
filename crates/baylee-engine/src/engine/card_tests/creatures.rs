@@ -12841,24 +12841,23 @@ fn carnage_tyrant_cannot_be_countered_and_enters_with_keywords() {
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p1);
     let cs = in_hand(&engine, p1, counterspell()).expect("Counterspell in hand");
-    // The engine refuses the cast outright, which is a stronger reading of
-    // "this spell can't be countered" than the one this test was written to
-    // make. CR 601.2c: a spell that requires a target cannot be cast at all
-    // unless a legal one exists, and an uncounterable spell is not a legal
-    // target for Counterspell. So the proof is that Counterspell never
-    // reaches the stack, not that it resolves and does nothing.
-    assert!(
-        engine
-            .apply(p1, PlayerAction::CastSpell { card: cs })
-            .is_err(),
-        "Counterspell has no legal target while the only spell on the stack \
-         cannot be countered (CR 601.2c)"
-    );
-    assert!(
-        in_hand(&engine, p1, counterspell()).is_some(),
-        "the refused spell stays in its owner's hand, with the mana unspent"
-    );
-    let _ = tyrant;
+    // Refused outright until #243, which read "can't be countered" as "can't
+    // be targeted". The Gatherer ruling says otherwise: the counterspell may
+    // point at it, and resolves without countering it.
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: cs })
+        .expect("the Tyrant is a legal target for Counterspell");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![tyrant],
+            },
+        )
+        .expect("Counterspell points at the Tyrant");
+    pass_until(&mut engine, |e| {
+        in_graveyard(e, p1, counterspell()).is_some()
+    });
 
     pass_until(&mut engine, |e| {
         on_battlefield(e, p0, carnage_tyrant()).is_some()
@@ -13765,7 +13764,7 @@ fn altered_ego() -> CardIndex {
 
 /// `Altered Ego` prints `This spell can't be countered.` and `You may have this creature enter as a copy of any creature on the battlefield, except it enters with X additional +1/+1 counters on it.`
 ///
-/// Marked `Coverage::Partial`, it carries `KeywordSet::UNCOUNTERABLE`, causing an attempted `counterspell()` to be refused for lack of legal target (CR 601.2c).
+/// Marked `Coverage::Partial`, it carries `KeywordSet::UNCOUNTERABLE`: a `counterspell()` may still point at it and resolves without countering it (#243).
 /// Through `AbilityDef::CopyOnEnter`, it enters copying `young_wolf()`, but under `Coverage::Partial` the X additional `CounterKind::P1P1` counters are omitted.
 #[test]
 fn altered_ego_is_uncounterable_and_copies_creature_without_x_counters() {
@@ -13805,12 +13804,20 @@ fn altered_ego_is_uncounterable_and_copies_creature_without_x_counters() {
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p1);
     let cs = in_hand(&engine, p1, counterspell()).expect("counterspell in hand");
-    assert!(
-        engine
-            .apply(p1, PlayerAction::CastSpell { card: cs })
-            .is_err(),
-        "Counterspell cannot target Altered Ego due to `KeywordSet::UNCOUNTERABLE`"
-    );
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: cs })
+        .expect("Altered Ego is a legal target for Counterspell");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
+        .expect("Counterspell points at Altered Ego");
+    pass_until(&mut engine, |e| {
+        in_graveyard(e, p1, counterspell()).is_some()
+    });
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
@@ -14667,24 +14674,24 @@ fn oboro_envoy_counts_the_land_it_returned_to_pay_for_itself() {
     );
 }
 
-/// Thrun, the Last Troll: "this spell can't be countered", read the way this
-/// engine reads it — the counterspell is never castable at all.
+/// Thrun, the Last Troll: "this spell can't be countered". A Counterspell
+/// may point at it and resolves, and the Troll arrives anyway (#243; the
+/// Gatherer ruling on Abrupt Decay reads the same clause).
 ///
-/// `eval::target_options` leaves an uncounterable spell out of
-/// `TargetSpec::Spell`, so a Counterspell with nothing else on the stack has
-/// no legal target and is not offered. That is a *negative*, so the same
-/// hand casts the same Counterspell at an ordinary creature spell one step
-/// earlier and is offered it: the difference between the two offers is the
-/// keyword, and nothing about the board or the mana.
+/// This test used to pin the opposite: that the Counterspell was never
+/// offered, because the engine left an uncounterable spell out of
+/// `TargetSpec::Spell`. A Counterspell that resolves into its owner's
+/// graveyard is what proves it was cast and did nothing, and the positive
+/// needs no control beside it.
 #[test]
-fn thrun_the_last_troll_leaves_a_counterspell_no_target() {
+fn thrun_the_last_troll_arrives_through_a_counterspell_pointed_at_it() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(382, forest())
         .battlefield(
             0,
             &[forest(), forest(), forest(), forest(), forest(), forest()],
         )
-        .hand(0, &[llanowar_elves(), thrun_the_last_troll()])
+        .hand(0, &[thrun_the_last_troll()])
         .battlefield(1, &[island(), island()])
         .hand(1, &[counterspell()])
         .start();
@@ -14692,38 +14699,26 @@ fn thrun_the_last_troll_leaves_a_counterspell_no_target() {
     reach_main_phase(&mut engine, p0);
 
     let counter = in_hand(&engine, p1, counterspell()).expect("the counterspell is in hand");
-    tap_all_mana(&mut engine, p0);
-
-    // The control: an ordinary creature spell, and the counterspell is there.
-    cast_with_floating(&mut engine, p0, llanowar_elves());
+    cast_from_hand(&mut engine, p0, thrun_the_last_troll());
+    let troll = on_stack(&engine, thrun_the_last_troll()).expect("the troll is cast");
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p1);
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected p1 priority, got {:?}", engine.pending())
-    };
-    assert!(
-        legal.castable.contains(&counter),
-        "an ordinary creature spell is a target, so the mana and the hand are \
-         not the reason for what happens below"
-    );
-    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: counter })
+        .expect("the troll is a legal target for the counterspell");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![troll],
+            },
+        )
+        .expect("the counterspell points at the troll");
     pass_until(&mut engine, stack_is_empty);
-
-    // The subject: the same counterspell, the same floating mana, a spell
-    // that can't be countered.
-    cast_with_floating(&mut engine, p0, thrun_the_last_troll());
-    engine.apply(p0, PlayerAction::PassPriority).unwrap();
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected p1 priority, got {:?}", engine.pending())
-    };
     assert!(
-        !legal.castable.contains(&counter),
-        "the troll can't be countered, so the counterspell has no legal \
-         target and is not offered: {:?}",
-        legal.castable
+        in_graveyard(&engine, p1, counterspell()).is_some(),
+        "the counterspell resolved"
     );
-    engine.apply(p1, PlayerAction::PassPriority).unwrap();
-    pass_until(&mut engine, stack_is_empty);
     assert!(
         on_battlefield(&engine, p0, thrun_the_last_troll()).is_some(),
         "and the troll arrived"
@@ -14837,12 +14832,12 @@ fn supreme_verdict() -> CardIndex {
 /// Thrun, Breaker of Silence: the same keyword on a second card, and the
 /// trample the first one does not print.
 ///
-/// The control for the negative half is the test above, on the other Thrun;
-/// what is new here is that the permanent that arrives carries **both**
-/// printed keywords, which is the part a `Coverage::Partial` on the two
-/// unexpressible clauses says nothing about.
+/// The counterspell half is the test above, on the other Thrun; what is new
+/// here is that the permanent that arrives carries **both** printed
+/// keywords, which is the part a `Coverage::Partial` on the two unexpressible
+/// clauses says nothing about.
 #[test]
-fn thrun_breaker_of_silence_arrives_with_trample_and_no_counterspell_to_stop_it() {
+fn thrun_breaker_of_silence_arrives_with_trample_through_a_counterspell() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(383, forest())
         .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
@@ -14855,16 +14850,20 @@ fn thrun_breaker_of_silence_arrives_with_trample_and_no_counterspell_to_stop_it(
 
     let counter = in_hand(&engine, p1, counterspell()).expect("the counterspell is in hand");
     cast_from_hand(&mut engine, p0, thrun_breaker_of_silence());
+    let spell = on_stack(&engine, thrun_breaker_of_silence()).expect("the troll is cast");
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p1);
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected p1 priority, got {:?}", engine.pending())
-    };
-    assert!(
-        !legal.castable.contains(&counter),
-        "nothing on the stack may be countered"
-    );
-    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: counter })
+        .expect("the troll is a legal target for the counterspell");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![spell],
+            },
+        )
+        .expect("the counterspell points at the troll");
     pass_until(&mut engine, stack_is_empty);
 
     let thrun = on_battlefield(&engine, p0, thrun_breaker_of_silence()).expect("the troll arrived");

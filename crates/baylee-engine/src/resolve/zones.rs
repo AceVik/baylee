@@ -814,9 +814,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetSpellOrAbility => {
             if let Some(&target_id) = res.targets.first()
-                && !state
+                && state
                     .object(target_id)
-                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
+                    .is_none_or(crate::object::GameObject::can_be_countered)
             {
                 let kind = state.object(target_id).map(|o| o.kind);
                 if kind == Some(ObjectKind::AbilityOnStack) {
@@ -845,9 +845,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetSpellToExile => {
             if let Some(&target_id) = res.targets.first()
-                && !state
+                && state
                     .object(target_id)
-                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
+                    .is_none_or(crate::object::GameObject::can_be_countered)
             {
                 state
                     .journal
@@ -867,9 +867,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetSpell => {
             if let Some(&target_id) = res.targets.first()
-                && !state
+                && state
                     .object(target_id)
-                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
+                    .is_none_or(crate::object::GameObject::can_be_countered)
             {
                 state
                     .journal

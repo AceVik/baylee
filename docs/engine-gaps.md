@@ -87,8 +87,8 @@ the same card being booked as a win in three rows.
 Not merged, because they are adjacent and still different: `storm_kiln_artist`
 (magecraft needs an *event* "a spell was put on the stack as a copy", which
 the engine deliberately does not journal) does not belong to G12.
-`dualcaster_mage` (`TargetSpec::Spell` hard-wires `UNCOUNTERABLE`) is a
-one-card matter of its own. `derevi_empyrial_tactician` needs a third
+`dualcaster_mage` (`TargetSpec::Spell` hard-wired `UNCOUNTERABLE`) was a
+matter of its own, **closed 24.09.2026** (#243). `derevi_empyrial_tactician` needs a third
 `ActivationZone` plus an offer path, not G23. `golgari_thug` (Dredge) is an
 "instead of drawing" replacement effect that `ReplacementRule` knows in none
 of its four variants. `vampiric_tutor` is **not a gap** but a test workaround
@@ -1144,9 +1144,15 @@ name for it):
   card is `Coverage::Implemented` all the same, because the half that is
   missing hangs on the printed cost and not on the card's DSL — which means
   `validate` will never touch it.
-- **`TargetSpec::Spell` hard-wires `UNCOUNTERABLE`** (`dualcaster_mage`):
-  right for Counterspell, wrong for every copy effect. One card, depth 1, but
-  visible only because a test noticed it while it was being written.
+- ~~**`TargetSpec::Spell` hard-wires `UNCOUNTERABLE`**~~ (`dualcaster_mage`),
+  **closed 24.09.2026** (#243). It was written down as "right for
+  Counterspell, wrong for every copy effect", and it was wrong for
+  Counterspell too. The Gatherer ruling on Abrupt Decay lets a counterspell
+  target such a spell and resolve without countering it. Ward was the case
+  nobody had listed: it countered Abrupt Decay through a check that read
+  only Cavern of Souls' rider. Both representations now meet in
+  `GameObject::can_be_countered`, which only the counter asks, at
+  resolution.
 - **The magecraft copy half** (`storm_kiln_artist`): no event names "a spell
   is put on the stack as a copy", because `CopyTargetSpell` deliberately does
   not journal it (CR 707.10). That is not a missing variant but a missing

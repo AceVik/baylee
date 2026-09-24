@@ -1029,6 +1029,28 @@ impl GameObject {
         self.cache.value().unwrap_or(&self.base)
     }
 
+    /// Whether a counter effect would counter this spell (CR 701.6a).
+    ///
+    /// Two things say it can't be countered: the printed keyword, read off
+    /// the projection so a spell granted it is covered too, and the rider
+    /// that mana spent on it can attach (Cavern of Souls). The engine used to
+    /// read each in one place only — the keyword at targeting, the rider at
+    /// resolution — so a spell with the keyword was countered by ward and
+    /// could not be copied, and neither was ever the rule (#243).
+    ///
+    /// It is asked only when the counter resolves. Being uncounterable never
+    /// narrows what may target the spell. The Gatherer ruling on Abrupt Decay
+    /// (2021-03-19) says a counterspell may still target it, and anything
+    /// else the counterspell does still happens.
+    #[must_use]
+    pub fn can_be_countered(&self) -> bool {
+        !self
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::UNCOUNTERABLE)
+            && !self.riders.contains(&Rider::Uncounterable)
+    }
+
     /// Sets the controller permanently: both the value everyone reads and
     /// the one a layer-2 effect falls back to when it ends.
     ///

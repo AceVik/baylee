@@ -44,8 +44,10 @@ card the plan does not walk is one it never taps for. Steady and harder levels c
 can complete with the
 remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.
-Counterspells need an opposing stack entry, removal needs something opposing
-on the battlefield, and a deferred pay-or-lose obligation is declined: the
+Counterspells need an opposing stack entry they would take off, and never
+name one the view marks `UNCOUNTERABLE` while there is another: such a spell
+is a legal target, and the counter resolves and counters nothing (#243).
+Removal needs something opposing on the battlefield, and a deferred pay-or-lose obligation is declined: the
 current stateless policy cannot plan its future payment. An "unless" price
 paid by naming an object — a sacrifice, a discard, a card exiled from the
 graveyard — is the opposite case and is paid, with the least valuable card on

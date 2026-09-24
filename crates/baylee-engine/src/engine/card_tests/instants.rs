@@ -494,22 +494,25 @@ fn abrupt_decay() -> baylee_core::ids::CardIndex {
 ///
 /// The cap is pinned from both sides in one target list: Skyclave
 /// Apparition costs exactly three and is offered, Karn costs exactly four
-/// and is not, and not one of the five lands on the table is a nonland
+/// and is not, and not one of the four lands on the table is a nonland
 /// permanent. A filter one off in either direction, or one that dropped the
 /// word "nonland", moves that list.
 ///
-/// The counter half needs the same care, because "not offered" is also what
-/// a seat who could not have cast a counter at all looks like. So p0 puts a
-/// second spell on the stack *under* the Decay: when p1's Counterspell asks
-/// what it may point at, the Brainstorm is on the list and the Decay — up
-/// there beside it, and payable by the same two Islands — is not.
+/// The counter half is the Gatherer ruling (2021-03-19): "A spell or ability
+/// that counters spells can still target Abrupt Decay. When that spell or
+/// ability resolves, Abrupt Decay won't be countered." So p1's Counterspell
+/// is offered, points at the Decay, and resolves into the graveyard with the
+/// Decay still on the stack under it. This test used to pin the opposite,
+/// that the Decay was no target at all, which is how the engine read the
+/// keyword until #243.
 #[test]
 #[allow(clippy::too_many_lines)] // one game, played from the cast to the assertion
-fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_may_point_at() {
+fn abrupt_decay_destroys_a_small_permanent_and_the_counterspell_pointed_at_it_does_not_counter_it()
+{
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(17, forest())
-        .battlefield(0, &[swamp(), forest(), island()])
-        .hand(0, &[abrupt_decay(), brainstorm()])
+        .battlefield(0, &[swamp(), forest()])
+        .hand(0, &[abrupt_decay()])
         .battlefield(
             1,
             &[
@@ -529,11 +532,8 @@ fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_
     let apparition =
         on_battlefield(&engine, p1, skyclave_apparition()).expect("the Apparition is deployed");
     let karn = on_battlefield(&engine, p1, karn_the_great_creator()).expect("Karn is deployed");
-    let library_before = library_size(&engine, p0);
 
-    // The Swamp and the Forest pay for the Decay; the Island is held back for
-    // the spell that goes on the stack underneath it.
-    tap_all_mana_but(&mut engine, p0, Some(island()));
+    tap_all_mana(&mut engine, p0);
     let decay = in_hand(&engine, p0, abrupt_decay()).expect("the Decay is in hand");
     engine
         .apply(p0, PlayerAction::CastSpell { card: decay })
@@ -567,7 +567,7 @@ fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_
     assert_eq!(
         options.len(),
         2,
-        "and the five lands on the table are not nonland permanents: {options:?}"
+        "and the four lands on the table are not nonland permanents: {options:?}"
     );
     engine
         .apply(
@@ -578,16 +578,6 @@ fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_
         )
         .expect("the Decay points at the Elf");
 
-    // A second, ordinary spell on top of it, off the Island held back. It is
-    // the control for everything asserted below about the counter.
-    let storm = in_hand(&engine, p0, brainstorm()).expect("the Brainstorm is in hand");
-    cast_from_hand(&mut engine, p0, brainstorm());
-    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
-    assert!(
-        stack.len() == 2 && stack.contains(&decay) && stack.contains(&storm),
-        "both spells are on the stack, the Decay among them: {stack:?}"
-    );
-
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p1);
     let Pending::Priority { player, legal } = engine.pending().clone() else {
@@ -597,7 +587,7 @@ fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_
     let counter = in_hand(&engine, p1, counterspell()).expect("the Counterspell is in hand");
     assert!(
         legal.castable.contains(&counter),
-        "two Islands, and a counterable spell up there: the counter is offered"
+        "two Islands, and a spell up there to point at: the counter is offered"
     );
     engine
         .apply(p1, PlayerAction::CastSpell { card: counter })
@@ -610,18 +600,24 @@ fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_
     };
     assert_eq!(
         options,
-        vec![storm],
-        "\"This spell can't be countered\": the Decay is up there beside the \
-         Brainstorm and is not on the list"
+        vec![decay],
+        "\"This spell can't be countered\" does not take the Decay off the list"
     );
     engine
         .apply(
             p1,
             PlayerAction::ChooseObjects {
-                objects: vec![storm],
+                objects: vec![decay],
             },
         )
-        .expect("the Counterspell points at the Brainstorm");
+        .expect("the Counterspell points at the Decay");
+    pass_until(&mut engine, |e| {
+        in_graveyard(e, p1, counterspell()).is_some()
+    });
+    assert!(
+        on_stack(&engine, abrupt_decay()).is_some(),
+        "the Counterspell resolved and the Decay is still on the stack under it"
+    );
 
     pass_until(&mut engine, stack_is_empty);
 
@@ -636,12 +632,6 @@ fn abrupt_decay_destroys_a_small_permanent_and_is_not_a_target_the_counterspell_
     assert!(
         in_graveyard(&engine, p0, abrupt_decay()).is_some(),
         "the Decay resolved, and a resolved instant is a card in its owner's graveyard"
-    );
-    assert_eq!(
-        library_size(&engine, p0),
-        library_before,
-        "the same Counterspell did counter the spell it was allowed to point \
-         at: a Brainstorm that had resolved would have drawn three cards"
     );
     assert!(
         on_battlefield(&engine, p1, skyclave_apparition()).is_some(),
