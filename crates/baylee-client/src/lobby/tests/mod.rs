@@ -89,7 +89,25 @@ fn headless() -> App {
         state.lobby.set_registration_enabled(true);
     }
     app.update();
+    settle(&mut app);
     app
+}
+
+/// Turns the front door back to the gateway form, landed: where a launch
+/// starts, and where "Play offline" and the saved gateways are.
+fn to_gateway_face(app: &mut App) {
+    app.world_mut().resource_mut::<LobbyState>().leave_gateway();
+    settle(app);
+}
+
+/// Lands the front door's card on the face the lobby asks for, as if its
+/// turn had run its course, and draws that face.
+fn settle(app: &mut App) {
+    let account = app.world().resource::<LobbyState>().lobby.gateway_chosen();
+    app.world_mut()
+        .resource_mut::<super::front::FrontTurn>()
+        .settle(account);
+    app.update();
 }
 
 fn presses(app: &mut App) -> Vec<Press> {

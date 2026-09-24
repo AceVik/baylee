@@ -38,6 +38,10 @@ struct FrontalParams {
     height: f32,
     /// How far the **top two** corners are rounded, in pixels.
     corner: f32,
+    /// How far the **bottom two** are, in pixels. Zero on the hand's cloth,
+    /// which runs off the window; a lobby panel stands on the page and has a
+    /// foot to round.
+    foot_corner: f32,
     /// Virtual seconds, surface kind (skirt / rail / seat), reserved.
     surface: vec4<f32>,
     inlays: array<vec4<f32>, 5>,
@@ -145,6 +149,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // control flow is undefined, and `rounding` is per-fragment.
     let aa = max(0.5 * fwidth(out), 0.0001);
 
+    // The bottom two, for a surface that asks for them: the same
+    // construction mirrored, the centre clamped along the bottom edge. With
+    // `foot_corner` at zero `footing` is never true, `foot_depth` is `h - y`
+    // exactly as before, and the hand's cloth is drawn as it always was.
+    let r_foot = params.foot_corner;
+    let footing = r_foot > 0.0 && y > h - r_foot;
+    let foot_centre = vec2<f32>(clamp(across, r_foot, max(w - r_foot, r_foot)), h - r_foot);
+    let foot_out = distance(vec2<f32>(across, y), foot_centre);
+    let foot_aa = max(0.5 * fwidth(foot_out), 0.0001);
+    let foot_depth = select(h - y, r_foot - foot_out, footing);
+
     // How far under the surface's own top edge this fragment lies — measured
     // from the **rounded** edge where there is one, which is the whole point.
     // `y` alone is the distance from the node's top *row*, and a lip drawn on
@@ -160,7 +175,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let seat = params.surface.y > 1.5;
     let rail = params.surface.y > 0.5 && !seat;
     let side = min(across, w - across);
-    let foot = select(h - y, h + 1.0, params.surface.w > 0.5);
+    let foot = select(foot_depth, h + 1.0, params.surface.w > 0.5);
     // Negative w on the action rail is the drawer's half-width in UVs;
     // z is its centre. Suppress all tooling across the shared opening.
     let joined = params.surface.w < 0.0
@@ -227,6 +242,9 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // straddle the edge.
     if rounding {
         alpha = alpha * (1.0 - smoothstep(r - aa, r + aa, out));
+    }
+    if footing {
+        alpha = alpha * (1.0 - smoothstep(r_foot - foot_aa, r_foot + foot_aa, foot_out));
     }
 
     return vec4<f32>(

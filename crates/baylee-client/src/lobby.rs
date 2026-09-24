@@ -82,6 +82,8 @@ impl Plugin for LobbyPlugin {
             .init_resource::<Scrolled>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
+            .init_resource::<front::FrontTurn>()
+            .init_resource::<front::FrontFace>()
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             .add_systems(
                 Update,
@@ -96,7 +98,9 @@ impl Plugin for LobbyPlugin {
                     scrolls,
                     scrollbars::remember,
                     (hovers, hint::hint_hovers),
-                    ui,
+                    // The turn decides which face is drawn, and the pose
+                    // lands on the card the rebuild just stood up.
+                    (front::turn_front, ui, front::pose_front).chain(),
                     ui::blink,
                     dock::materialize,
                     button_style::materialize,
@@ -380,6 +384,7 @@ mod confirm;
 pub(crate) mod dock;
 mod editing;
 mod feed;
+mod front;
 mod gateway;
 mod hint;
 mod http;

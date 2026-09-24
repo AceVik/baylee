@@ -13,13 +13,90 @@ fn the_sign_in_screen_builds_with_its_controls() {
         Press::Focus(Field::Password),
         Press::Submit,
         Press::ToggleRegistering,
-        Press::PlayOffline,
+        Press::LeaveGateway,
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
     assert!(
         !found.contains(&Press::Focus(Field::DisplayName)),
         "the display name is only asked for when registering"
+    );
+    for elsewhere in [Press::PlayOffline, Press::AddGateway] {
+        assert!(
+            !found.contains(&elsewhere),
+            "{elsewhere:?} is on the other face of the card"
+        );
+    }
+}
+
+#[test]
+fn the_open_tab_is_the_lit_one_and_the_other_opens_its_form() {
+    fn lit(app: &mut App) -> Vec<(String, Press, Color)> {
+        let mut tabs = app.world_mut().query_filtered::<(
+            &Press,
+            &Children,
+            &BackgroundColor,
+        ), With<super::super::front::ActiveTab>>();
+        tabs.iter(app.world())
+            .map(|(press, children, fill)| {
+                let label = children
+                    .iter()
+                    .find_map(|kid| app.world().get::<Text>(kid))
+                    .map(|text| text.0.clone())
+                    .unwrap_or_default();
+                (label, *press, fill.0)
+            })
+            .collect()
+    }
+    let mut app = headless();
+    assert_eq!(
+        lit(&mut app),
+        [(
+            Phrase::SignIn.text(Lang::En).to_string(),
+            Press::PickerNothing,
+            palette::PANEL_HOT
+        )]
+    );
+    press(&mut app, Press::ToggleRegistering);
+    app.update();
+    assert_eq!(
+        lit(&mut app),
+        [(
+            Phrase::CreateAccount.text(Lang::En).to_string(),
+            Press::PickerNothing,
+            palette::PANEL_HOT
+        )],
+        "the tab pressed is the one lit, and pressing it again does nothing"
+    );
+}
+
+#[test]
+fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
+    let mut app = headless();
+    to_gateway_face(&mut app);
+    assert_eq!(roots(&mut app).len(), 1, "exactly one tree");
+    let found = presses(&mut app);
+    for wanted in [
+        Press::Focus(Field::Gateway),
+        Press::AddGateway,
+        Press::PlayOffline,
+        Press::OpenSettings,
+    ] {
+        assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
+    }
+    for elsewhere in [
+        Press::Submit,
+        Press::Focus(Field::Email),
+        Press::LeaveGateway,
+    ] {
+        assert!(
+            !found.contains(&elsewhere),
+            "{elsewhere:?} is on the other face of the card"
+        );
+    }
+    assert!(
+        labels(&mut app).iter().any(|l| l == baylee_build::short()),
+        "the build is on this face too"
     );
 }
 
@@ -321,8 +398,8 @@ fn the_sign_in_box_opens_on_the_address_that_used_it_last() {
     assert_eq!(blank.lobby.field(Field::Email), "");
     assert_eq!(
         blank.lobby.focus(),
-        Field::Email,
-        "with nothing stored the caret starts at the top"
+        Field::Gateway,
+        "the gateway form is the one on screen at launch"
     );
 
     let known = LobbyState::from_settings(crate::settings::ClientSettings {
@@ -330,7 +407,35 @@ fn the_sign_in_box_opens_on_the_address_that_used_it_last() {
         ..crate::settings::ClientSettings::default()
     });
     assert_eq!(known.lobby.field(Field::Email), "mail@acevik.de");
+    assert_eq!(
+        known.lobby.focus(),
+        Field::Gateway,
+        "the gateway form is the one on screen at launch"
+    );
+}
+
+/// The remembered address outlives the choice of gateway, which is the only
+/// way the sign-in form is ever reached.
+#[test]
+fn choosing_a_gateway_keeps_the_address_that_used_it_last() {
+    let mut known = LobbyState::from_settings(crate::settings::ClientSettings {
+        last_email: "mail@acevik.de".to_string(),
+        gateways: vec!["https://one.example".into()],
+        ..crate::settings::ClientSettings::default()
+    });
+    assert!(known.select_gateway(0));
+    assert_eq!(known.lobby.field(Field::Email), "mail@acevik.de");
     assert_eq!(known.lobby.focus(), Field::Password);
+
+    known.leave_gateway();
+    assert!(!known.gateway_selected);
+    assert_eq!(known.lobby.focus(), Field::Gateway);
+    assert!(known.select_gateway(0));
+    assert_eq!(
+        known.lobby.field(Field::Email),
+        "mail@acevik.de",
+        "and a round trip through the gateway form"
+    );
 }
 
 /// And it is written down by the sign-in that worked, not by the attempt.
@@ -550,6 +655,7 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
 #[test]
 fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
     let mut app = headless();
+    to_gateway_face(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.set_field(Field::Gateway, "https://new.example");
@@ -586,8 +692,45 @@ fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
 }
 
 #[test]
+fn enter_in_the_gateway_address_saves_it_and_signs_nothing_in() {
+    let mut app = headless();
+    to_gateway_face(&mut app);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_field(Field::Gateway, "https://new.example");
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.focus(),
+        Field::Gateway,
+        "the premise: the caret is in the address"
+    );
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Enter, Key::Enter));
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(
+        state.adding.as_deref(),
+        Some("https://new.example"),
+        "the address is asked about, as the Save button would"
+    );
+    assert_ne!(
+        state.lobby.tone(),
+        Tone::Refusal,
+        "and no sign-in was tried: {:?}",
+        state.lobby.status()
+    );
+    assert_eq!(
+        app.world_mut().resource_mut::<LobbyState>().check_gateway(),
+        None,
+        "and a second Enter asks nothing while the first answer is owed"
+    );
+}
+
+#[test]
 fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
     let mut app = headless();
+    to_gateway_face(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.gateways = vec![
@@ -620,9 +763,11 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
     let mut hints = app
         .world_mut()
         .query::<(Entity, &super::super::hint::HoverHint)>();
+    let offline = Phrase::OfflineBenefit.text(Lang::En);
     let marks: Vec<(Entity, String)> = hints
         .iter(app.world())
         .map(|(entity, hint)| (entity, hint.0.clone()))
+        .filter(|(_, said)| said != offline)
         .collect();
     assert_eq!(marks.len(), 2, "the compatible gateway carries no mark");
     let newer = (baylee_view::VIEW_VERSION + 1).to_string();
@@ -640,4 +785,101 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
     app.world_mut().write_message(aimed(*mark, Out { hit }));
     app.update();
     assert!(!labels(&mut app).iter().any(|l| l.contains(&newer)));
+}
+
+/// The front door card's scale across and its drift sideways, as posed.
+fn card_pose(app: &mut App) -> (f32, f32) {
+    let mut cards = app
+        .world_mut()
+        .query_filtered::<&bevy::ui::UiTransform, With<super::super::front::FrontCard>>();
+    let pose = cards.single(app.world()).expect("one card");
+    let drift = match pose.translation.x {
+        Val::Px(px) => px,
+        _ => 0.0,
+    };
+    (pose.scale.x, drift)
+}
+
+#[test]
+fn choosing_a_gateway_turns_the_card_over_and_back_turns_it_home() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateways = vec!["https://hall.example".into()];
+        let hall = gateway_info(Some("Hall"), "0.1.0", baylee_view::VIEW_VERSION);
+        state.probes.insert("https://hall.example".into(), hall);
+    }
+    to_gateway_face(&mut app);
+    assert_eq!(
+        card_pose(&mut app),
+        (1.0, 0.0),
+        "a card at rest carries no pose"
+    );
+
+    // A little over a quarter of the turn per frame.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_millis(100),
+    ));
+    assert!(
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .select_gateway(0)
+    );
+    app.update();
+    let (scale, drift) = card_pose(&mut app);
+    assert!(scale > 0.0 && scale < 0.95, "part way round: {scale}");
+    assert!(drift < 0.0, "going forward it leans left: {drift}");
+    assert!(
+        presses(&mut app).contains(&Press::AddGateway),
+        "the gateway face stays up until the card is edge-on"
+    );
+    // Pressed while it turns, the half-gone face answers nothing.
+    tap_control(&mut app, "save gateway", |p| *p == Press::AddGateway);
+    assert_eq!(app.world().resource::<LobbyState>().adding, None);
+
+    app.update();
+    app.update();
+    assert_eq!(card_pose(&mut app), (1.0, 0.0), "landed, and at rest again");
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::Submit) && found.contains(&Press::LeaveGateway));
+    let drawn = labels(&mut app);
+    assert!(
+        drawn.iter().any(|l| l == "Hall"),
+        "the account face names its gateway"
+    );
+    assert!(drawn.iter().any(|l| l == baylee_build::short()));
+
+    app.world_mut().resource_mut::<LobbyState>().leave_gateway();
+    app.update();
+    let (_, drift) = card_pose(&mut app);
+    assert!(drift > 0.0, "coming back it leans the other way: {drift}");
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(presses(&mut app).contains(&Press::AddGateway));
+    assert_eq!(card_pose(&mut app), (1.0, 0.0));
+}
+
+#[test]
+fn under_reduce_motion_the_card_changes_face_at_once() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().gateways = vec!["https://hall.example".into()];
+    to_gateway_face(&mut app);
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = true;
+    app.update();
+    assert!(
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .select_gateway(0)
+    );
+    app.update();
+    assert!(presses(&mut app).contains(&Press::Submit));
+    assert_eq!(
+        card_pose(&mut app),
+        (1.0, 0.0),
+        "and nothing moved on the way"
+    );
 }

@@ -31,6 +31,7 @@ pub(crate) fn icon(commands: &mut Commands, fonts: &UiFonts, id: Entity, press: 
         Press::ToggleStatistics => '\u{f080}',
         Press::ChooseCommander(_) => '\u{f521}',
         Press::ToggleDeckActions => '\u{f142}',
+        Press::LeaveGateway => '\u{f053}',
         _ => return,
     };
     let icon = commands

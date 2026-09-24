@@ -17,6 +17,7 @@ fn a_keyboard_can_leave_the_end_screen() {
         let mut app = headless();
         app.world_mut().resource_mut::<LobbyState>().offline =
             Some(super::offline::Offline::without_a_file());
+        to_gateway_face(&mut app);
         tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
         tap_control(&mut app, "play the house", |p| {
             *p == Press::Host(GameMode::Ai)
@@ -129,6 +130,7 @@ fn coming_back_from_an_offline_duel_leaves_no_table_and_no_refusal() {
     let mut app = headless();
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
+    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
     tap_control(&mut app, "play the house", |p| {
         *p == Press::Host(GameMode::Ai)
@@ -241,6 +243,7 @@ fn came_back_from_a_duel(duel: Option<crate::Duel>) -> App {
     let mut app = headless();
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
+    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
     tap_control(&mut app, "play the house", |p| {
         *p == Press::Host(GameMode::Ai)

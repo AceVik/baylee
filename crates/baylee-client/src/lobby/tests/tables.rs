@@ -72,6 +72,7 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
 
+    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
     assert_eq!(
         *app.world().resource::<LobbyState>().lobby.screen(),
@@ -123,6 +124,7 @@ fn playing_the_house_offline_is_still_one_press() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
 
+    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
     tap_control(&mut app, "play the house", |p| {
         *p == Press::Host(GameMode::Ai)
@@ -151,6 +153,7 @@ fn the_offline_lobby_draws_none_of_the_gateways_controls() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
 
+    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
     let presses: Vec<Press> = {
         let mut query = app.world_mut().query::<&Press>();

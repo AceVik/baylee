@@ -1037,6 +1037,9 @@ impl Lobby {
                 Field::Search => Field::RoomPassword,
                 _ => Field::Search,
             };
+        } else if !self.gateway_chosen() {
+            // The gateway form has one field, and a ring of one is that field.
+            self.focus = Field::Gateway;
         } else {
             self.focus = match (self.focus, self.registering(), dir) {
                 // Logging in: two fields, and a ring of two reverses to
@@ -1075,9 +1078,12 @@ impl Lobby {
     #[must_use]
     pub fn typing_here(&self) -> bool {
         match self.screen {
+            // One form at a time: the address without a gateway, the
+            // account's fields with one.
             Screen::SignIn { registering } => match self.focus {
-                Field::Email | Field::Password | Field::Gateway => true,
-                Field::DisplayName => registering,
+                Field::Gateway => !self.gateway_chosen(),
+                Field::Email | Field::Password => self.gateway_chosen(),
+                Field::DisplayName => registering && self.gateway_chosen(),
                 Field::RoomPassword | Field::Search => false,
             },
             Screen::Table => matches!(self.focus, Field::RoomPassword | Field::Search),
@@ -1166,12 +1172,33 @@ impl Lobby {
     }
 
     /// The shell controls whether an explicit gateway has been selected.
+    ///
+    /// The front door shows one form at a time, and this is what picks it:
+    /// the gateway form without a gateway, the account form with one. The
+    /// caret goes with the form. On the account form it lands on the
+    /// password when the address is already filled in, because that is
+    /// where the one thing still missing is.
     pub fn set_gateway_ready(&mut self, ready: bool) {
         self.gateway_selection = if ready {
             GatewaySelection::Selected
         } else {
             GatewaySelection::Missing
         };
+        let field = if !ready {
+            Field::Gateway
+        } else if self.email.text().trim().is_empty() {
+            Field::Email
+        } else {
+            Field::Password
+        };
+        self.focus_on(field);
+    }
+
+    /// Whether a gateway is chosen, which is whether the front door shows the
+    /// account form rather than the gateway form.
+    #[must_use]
+    pub fn gateway_chosen(&self) -> bool {
+        self.gateway_selection == GatewaySelection::Selected
     }
 
     /// Submits the sign-in form — the Enter key, or the button.

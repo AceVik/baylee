@@ -186,7 +186,7 @@ messages! {
     /// Gateway selection.
     ChooseGateway { en: "Choose your gateway", de: "Wähle deinen Gateway" },
     /// Gateway selection.
-    GatewayHint { en: "Your gateway is the server where your account, decks and tables live. Saved addresses stay on this device.", de: "Dein Gateway ist der Server für dein Konto, deine Decks und Tische. Gespeicherte Adressen bleiben auf diesem Gerät." },
+    GatewayHint { en: "Where your account, decks and tables live.", de: "Wo dein Konto, deine Decks und Tische zu Hause sind." },
     /// Gateway selection.
     ChooseGatewayFirst { en: "Select a gateway to sign in or register.", de: "Wähle einen Gateway, um dich anzumelden oder zu registrieren." },
     /// Gateway selection.
@@ -227,8 +227,6 @@ messages! {
     WelcomeTitle { en: "Your next game starts here.", de: "Dein nächstes Spiel beginnt hier." },
     /// Library and front-door interface.
     WelcomeNote { en: "Build a deck. Find your table. Make it yours.", de: "Baue dein Deck. Finde deinen Tisch. Spiele deinen Stil." },
-    /// Library and front-door interface.
-    AccountBenefit { en: "Your decks and their saved versions, together in one account.", de: "Deine Decks und ihre gespeicherten Versionen an einem Ort." },
     /// Library and front-door interface.
     OfflineBenefit { en: "Try a game without an account. Offline decks stay on this device.", de: "Spiele ohne Konto. Offline-Decks bleiben auf diesem Gerät." },
     /// Library and front-door interface.

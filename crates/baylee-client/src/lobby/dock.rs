@@ -2,6 +2,11 @@
 use crate::frontal::{Cloth, FrontalMaterial, Hanging};
 use bevy::prelude::*;
 
+/// The leather's corner radius: a lobby panel's (`front::CARD_RADIUS`, the
+/// same 14 as `ui::surface`), less the one-pixel border the ground sits
+/// inside.
+pub(super) const GROUND_RADIUS: f32 = super::front::CARD_RADIUS - 1.0;
+
 /// A bounded material slot: each differently sized panel needs its own uniforms.
 #[derive(Component, Clone, Copy)]
 pub(crate) struct Dock(pub u8);
@@ -33,6 +38,11 @@ pub(super) fn materialize(
             // behind a reading surface rather than the hand's bottom fade.
             material.params.ramp = Vec4::new(36.0, 0.98, 0.98, 0.0);
             material.params.surface = Vec4::ZERO;
+            // A lobby panel stands on the page, so all four corners are cut,
+            // one pixel inside the panel's own radius and border. The hand's
+            // cloth runs off the window and cuts only its top two.
+            material.params.corner = GROUND_RADIUS;
+            material.params.foot_corner = GROUND_RADIUS;
             let night = Color::srgb(0.026, 0.052, 0.10).to_linear();
             material.params.dye.x = night.red;
             material.params.dye.y = night.green;

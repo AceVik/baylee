@@ -245,3 +245,45 @@ fn typing_lands_in_the_focused_field_and_control_keys_do_not() {
     lobby.backspace();
     assert_eq!(lobby.field(Field::Email), "", "an empty field survives");
 }
+
+#[test]
+fn the_front_door_types_only_into_the_form_it_shows() {
+    let mut lobby = Lobby::new();
+    lobby.set_field(Field::Email, "mail@example.com");
+
+    lobby.set_gateway_ready(false);
+    assert!(!lobby.gateway_chosen());
+    assert_eq!(lobby.focus(), Field::Gateway);
+    assert!(lobby.typing_here());
+    lobby.cycle_focus(Tab::Next);
+    assert_eq!(lobby.focus(), Field::Gateway, "a ring of one is that field");
+    lobby.focus_on(Field::Password);
+    assert!(
+        !lobby.typing_here(),
+        "the account form is not on screen, so a password typed now goes nowhere"
+    );
+
+    lobby.set_gateway_ready(true);
+    assert_eq!(
+        lobby.focus(),
+        Field::Password,
+        "the address is filled in, so the password is what is missing"
+    );
+    assert!(lobby.typing_here());
+    lobby.focus_on(Field::Gateway);
+    assert!(
+        !lobby.typing_here(),
+        "and the gateway form is not on screen"
+    );
+    lobby.cycle_focus(Tab::Next);
+    assert_eq!(lobby.focus(), Field::Email);
+
+    lobby.set_field(Field::Email, " ");
+    lobby.set_gateway_ready(false);
+    lobby.set_gateway_ready(true);
+    assert_eq!(
+        lobby.focus(),
+        Field::Email,
+        "nothing filled in: from the top"
+    );
+}

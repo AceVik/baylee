@@ -588,6 +588,13 @@ fn text_field_keys(
             Key::Tab => state
                 .lobby
                 .cycle_focus(if shift { Tab::Back } else { Tab::Next }),
+            // In the gateway address, Enter is the Save button beside it:
+            // that face has no sign-in form to submit.
+            Key::Enter if !table && state.lobby.focus() == Field::Gateway => {
+                if let Some(url) = state.check_gateway() {
+                    http::probe_gateway(url, mailbox);
+                }
+            }
             Key::Enter => {
                 let request = if table {
                     state.lobby.search_again()
@@ -636,7 +643,15 @@ pub(super) fn clicks(
     mailbox: Res<Mailbox>,
     // Absent in a headless test, which has no settings file to write to.
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
+    turn: Res<super::front::FrontTurn>,
 ) {
+    // A card part way round answers nothing: what is under the pointer is
+    // half of a face that is on its way out, or in.
+    if turn.turning() {
+        pointer.clear();
+        ends.clear();
+        return;
+    }
     // A release always fires a click, drag or no drag, so a swipe down the
     // card list would add whichever card it started on. The scroll it already
     // performed is what the gesture meant.
@@ -732,6 +747,7 @@ pub(super) fn clicks(
                     http::probe_gateway(url, &mailbox);
                 }
             }
+            Press::LeaveGateway => state.leave_gateway(),
             Press::BrowseHouse | Press::BrowseHistory | Press::RetryLibrary => {
                 scrolled.set(List::Library, 0.0);
                 let history = *press == Press::BrowseHistory
@@ -1211,6 +1227,8 @@ pub(crate) enum List {
     Deck,
     /// The tables and decks on the lobby screen.
     Table,
+    /// The saved gateways on the front door.
+    Gateways,
     Library,
     PickerSets,
     PickerPanel,
@@ -1228,6 +1246,7 @@ pub(crate) struct Scrolled {
     pool: f32,
     deck: f32,
     table: f32,
+    gateways: f32,
     library: f32,
     picker_panel: f32,
 }
@@ -1238,6 +1257,7 @@ impl Scrolled {
             List::Pool => self.pool,
             List::Deck => self.deck,
             List::Table => self.table,
+            List::Gateways => self.gateways,
             List::Library => self.library,
             List::PickerSets => 0.0,
             List::PickerPanel => self.picker_panel,
@@ -1249,6 +1269,7 @@ impl Scrolled {
             List::Pool => self.pool = at,
             List::Deck => self.deck = at,
             List::Table => self.table = at,
+            List::Gateways => self.gateways = at,
             List::Library => self.library = at,
             List::PickerSets => {}
             List::PickerPanel => self.picker_panel = at,
@@ -1487,6 +1508,8 @@ pub(crate) enum Press {
     RoomSize(bool),
     AddGateway,
     SelectGateway(usize),
+    /// Back from the account form to the gateway form.
+    LeaveGateway,
     BrowseHouse,
     BrowseHistory,
     DeckHistory(usize),

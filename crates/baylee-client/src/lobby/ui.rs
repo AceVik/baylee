@@ -222,6 +222,7 @@ pub(super) fn ui(
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Res<crate::prefs::Prefs>,
+    face: Res<super::front::FrontFace>,
     mut drawn: Local<Option<Frame>>,
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
 ) {
@@ -232,6 +233,7 @@ pub(super) fn ui(
     let metrics = Metrics::of(width);
     if !state.is_changed()
         && !prefs.is_changed()
+        && !face.is_changed()
         && !root.is_empty()
         && *drawn == Some(metrics.frame)
     {
@@ -346,7 +348,16 @@ pub(super) fn ui(
                 Scrollable(List::Table),
                 ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
             ));
-            front_door(&mut commands, root, &state, &fonts, metrics, *registering);
+            front_door(
+                &mut commands,
+                root,
+                &state,
+                face.0,
+                &fonts,
+                metrics,
+                *registering,
+                &scrolled_to,
+            );
         }
         Screen::Table => table(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
         Screen::Build => {
@@ -376,187 +387,6 @@ pub(super) fn ui(
     if state.confirmation.is_some() {
         *builder_drawn = None;
     }
-}
-
-/// The sign-in card.
-#[allow(clippy::too_many_lines)] // one flat form, read top to bottom
-fn sign_in(
-    commands: &mut Commands,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    registering: bool,
-) -> Entity {
-    let lobby = &state.lobby;
-    let lang = lobby.lang();
-    let panel = commands
-        .spawn((
-            Node {
-                // Fills a phone, floats on anything wider.
-                width: percent(100),
-                max_width: px(480),
-                margin: if metrics.frame == Frame::Phone {
-                    UiRect::top(px(metrics.pad * 2.0))
-                } else {
-                    UiRect::ZERO
-                },
-                flex_direction: FlexDirection::Column,
-                row_gap: px(metrics.gap),
-                padding: UiRect::all(px(metrics.pad * 1.4)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(12)),
-                ..default()
-            },
-            BackgroundColor(palette::PANEL),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
-            soft_shadow(),
-        ))
-        .id();
-
-    commands.entity(panel).insert(super::dock::Dock(2));
-    let step = note(commands, fonts, metrics, Phrase::AccountStep.text(lang));
-    let title = heading(
-        commands,
-        fonts,
-        metrics,
-        if registering {
-            Phrase::CreateAccount
-        } else {
-            Phrase::SignIn
-        }
-        .text(lang),
-    );
-    let benefit = note(
-        commands,
-        fonts,
-        metrics,
-        if state.gateway_selected {
-            Phrase::AccountBenefit
-        } else {
-            Phrase::ChooseGatewayFirst
-        }
-        .text(lang),
-    );
-    commands.entity(panel).add_children(&[step, title, benefit]);
-    let tabs = row(commands, metrics, true);
-    for (label, active) in [
-        (Phrase::SignIn, !registering),
-        (Phrase::CreateAccount, registering),
-    ] {
-        let tab = button(
-            commands,
-            fonts,
-            metrics,
-            label.text(lang),
-            if active {
-                Press::PickerNothing
-            } else {
-                Press::ToggleRegistering
-            },
-            if active {
-                palette::PANEL_HOT
-            } else {
-                palette::PANEL
-            },
-            state.gateway_selected
-                && !lobby.busy()
-                && (label != Phrase::CreateAccount || lobby.registration_enabled()),
-        );
-        commands.entity(tabs).add_child(tab);
-    }
-    commands.entity(panel).add_child(tabs);
-
-    let email = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Email.text(lang),
-        &FieldLook {
-            buffer: lobby.buffer(Field::Email),
-            focused: lobby.focus() == Field::Email,
-            mask: None,
-            press: Press::Focus(Field::Email),
-            lead: None,
-            hint: None,
-            tail: None,
-        },
-    );
-    commands.entity(panel).add_child(email);
-    if registering {
-        let name = text_field(
-            commands,
-            fonts,
-            metrics,
-            Phrase::DisplayName.text(lang),
-            &FieldLook {
-                buffer: lobby.buffer(Field::DisplayName),
-                focused: lobby.focus() == Field::DisplayName,
-                mask: None,
-                press: Press::Focus(Field::DisplayName),
-                lead: None,
-                hint: None,
-                tail: None,
-            },
-        );
-        commands.entity(panel).add_child(name);
-        let hint = note(commands, fonts, metrics, Phrase::AccountNameHint.text(lang));
-        commands.entity(panel).add_child(hint);
-    }
-    let password = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Password.text(lang),
-        &FieldLook {
-            buffer: lobby.buffer(Field::Password),
-            focused: lobby.focus() == Field::Password,
-            mask: Some(Masked {
-                field: Field::Password,
-                shown: lobby.showing(Field::Password),
-            }),
-            press: Press::Focus(Field::Password),
-            lead: None,
-            hint: None,
-            tail: None,
-        },
-    );
-    commands.entity(panel).add_child(password);
-    if registering {
-        let hint = note(
-            commands,
-            fonts,
-            metrics,
-            Phrase::AccountPasswordHint.text(lang),
-        );
-        commands.entity(panel).add_child(hint);
-    }
-
-    let submit = button(
-        commands,
-        fonts,
-        metrics,
-        if registering {
-            Phrase::CreateAccount.text(lang)
-        } else {
-            Phrase::SignIn.text(lang)
-        },
-        Press::Submit,
-        palette::ACCENT,
-        state.gateway_selected && !lobby.busy(),
-    );
-    commands.entity(panel).add_child(submit);
-
-    let status = commands
-        .spawn((
-            Text::new(lobby.status()),
-            tf(fonts, metrics.small),
-            TextColor(status_ink(lobby.tone())),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(panel).add_child(status);
-
-    panel
 }
 
 /// The signed-in screen: decks and tables, side by side or stacked.
@@ -2258,13 +2088,16 @@ pub(super) fn surface(commands: &mut Commands, metrics: Metrics) -> Entity {
         .id()
 }
 
+#[allow(clippy::too_many_arguments)] // the face and its scroll come from two resources
 fn front_door(
     commands: &mut Commands,
     root: Entity,
     state: &LobbyState,
+    face: super::front::Face,
     fonts: &UiFonts,
     metrics: Metrics,
     registering: bool,
+    scrolled_to: &Scrolled,
 ) {
     let page = commands
         .spawn((
@@ -2302,44 +2135,14 @@ fn front_door(
         Phrase::WelcomeNote.text(state.lobby.lang()),
     );
     commands.entity(page).add_children(&[brand, tagline]);
-    let columns = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                max_width: px(1120),
-                min_width: px(0),
-                flex_shrink: 0.0,
-                flex_direction: if metrics.frame == Frame::Phone {
-                    FlexDirection::Column
-                } else {
-                    FlexDirection::Row
-                },
-                column_gap: px(metrics.pad * 1.5),
-                row_gap: px(metrics.pad),
-                align_items: AlignItems::Start,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let gateway = super::gateway::panel(commands, state, fonts, metrics);
-    let account = sign_in(commands, state, fonts, metrics, registering);
-    for entity in [gateway, account] {
-        commands
-            .entity(entity)
-            .entry::<Node>()
-            .and_modify(move |mut node| {
-                node.width = if metrics.frame == Frame::Phone {
-                    percent(100)
-                } else {
-                    percent(50)
-                };
-                node.max_width = Val::Auto;
-                node.min_width = px(0);
-                node.padding = UiRect::all(px(metrics.pad * 1.6));
-                node.margin = UiRect::ZERO;
-            });
-    }
-    commands.entity(columns).add_children(&[gateway, account]);
-    commands.entity(page).add_child(columns);
+    let card = super::front::card(
+        commands,
+        state,
+        face,
+        fonts,
+        metrics,
+        registering,
+        scrolled_to,
+    );
+    commands.entity(page).add_child(card);
 }

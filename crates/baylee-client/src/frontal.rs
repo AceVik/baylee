@@ -73,6 +73,10 @@ pub struct FrontalParams {
     pub height: f32,
     /// How far the top two corners are rounded, in pixels.
     pub corner: f32,
+    /// How far the bottom two are, in pixels: zero on the hand's cloth, which
+    /// runs off the bottom of the window, and a lobby panel's own radius on
+    /// a panel that stands on the page.
+    pub foot_corner: f32,
     /// Virtual seconds, surface kind (skirt / rail / seat), reserved.
     pub surface: Vec4,
     /// Stationary WUBRG inlays in linear light.
@@ -137,6 +141,7 @@ impl Cloth {
                 aspect: 1.0,
                 height: crate::hud::HAND_ZONE_H,
                 corner: CORNER,
+                foot_corner: 0.0,
                 surface: Vec4::ZERO,
                 inlays: inlays(),
             },
@@ -166,6 +171,7 @@ impl Cloth {
                 aspect: 1.0,
                 height: crate::hud::LEDGE_H,
                 corner: CORNER,
+                foot_corner: 0.0,
                 surface: Vec4::new(0.0, 1.0, 0.0, 0.0),
                 inlays: inlays(),
             },
@@ -213,6 +219,7 @@ impl Cloth {
                 aspect: 1.0,
                 height: 48.0,
                 corner: 4.0,
+                foot_corner: 0.0,
                 surface: Vec4::new(0.0, 2.0, 0.0, 0.0),
                 inlays: inlays(),
             },
