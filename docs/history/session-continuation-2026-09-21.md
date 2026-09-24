@@ -1,3 +1,7 @@
+> **Historical.** A handoff note another agent left at the repository root on
+> 2026-09-21, moved here on 2026-09-24. Its work is on `main`; the board, not
+> this file, says what is open.
+
 # Baylee session continuation
 
 ## Handoff to Claude (2026-09-21)
@@ -69,7 +73,7 @@ tests cover the stack, automation, persistence and localization changes.
   planeswalkers. Resolving PhaseOut removes the permanent from combat;
   a departed blocker still leaves its attacker blocked, with trample handled
   separately. Phased-out attacked planeswalkers receive no combat damage
-  and produce no lifelink gain (CR 702.26b).
+  and produce no lifelink gain (702.26b).
 - Battlefield SBAs skip phased-out permanents for lethal damage, loyalty,
   legend choices, counter annihilation and attachment cleanup. The deathtouch
   damage window still closes at each SBA check, including while phased out.
