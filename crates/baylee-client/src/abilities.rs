@@ -896,9 +896,7 @@ pub fn printed_words(
 ) -> Option<baylee_client_core::abilitysheet::Cut> {
     let at = option.printed?;
     let object = view.object(object)?;
-    let card = object.rules?.card;
-    let print = crate::cardtext::print_of(object, card);
-    let blocks = crate::cardtext::sentence(texts, card, print, at)?;
+    let blocks = crate::cardtext::sentence(texts, object.rules?.card, at)?;
     Some(baylee_client_core::abilitysheet::cut(
         blocks,
         option.cost.as_deref().unwrap_or_default(),
@@ -1023,6 +1021,7 @@ fn mana_choice(lang: Lang, colors: &[ManaColor], amount: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_client_core::card_face::{CardTextEntry, FaceText};
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
@@ -1125,13 +1124,7 @@ mod tests {
             (0, line.line, line.of)
         );
 
-        let object = view.object(id).expect("on the battlefield");
-        assert_eq!(
-            crate::cardtext::print_of(object, fox),
-            None,
-            "the Mimic's printing is not the Fox's, so no text filed for it applies"
-        );
-        let words: Vec<String> = crate::cardtext::sentence(None, fox, None, printed)
+        let words: Vec<String> = crate::cardtext::sentence(None, fox, printed)
             .expect("the Fox's English Oracle")
             .iter()
             .map(|b| b.text().to_string())
@@ -1146,7 +1139,36 @@ mod tests {
             Some("{1}{W}, Sacrifice this creature"),
             "the column is the copied card's printed cost"
         );
+
+        // And in German, which is what keying text by card bought: the
+        // copy holds no printing of the Fox, and the Fox's German is filed
+        // under the Fox. Text of woe #39, read from the catalog 2026-09-24.
+        let texts = crate::cardtext::CardTexts::filed(CardTextEntry {
+            scryfall_id: String::new(),
+            oracle_id: baylee_cards::by_index(fox)
+                .expect("in the pool")
+                .oracle_id
+                .to_string(),
+            lang: "de".to_string(),
+            layout: "normal".to_string(),
+            faces: vec![FaceText {
+                name: "Werfuchs-Leibwächterin".to_string(),
+                english_name: "Werefox Bodyguard".to_string(),
+                printed: Some(FOX_DE.to_string()),
+                oracle_text: FOX_DE.to_string(),
+                ..FaceText::default()
+            }],
+        });
+        let cut = printed_words(Some(&texts), &view, id, row).expect("the Fox's row");
+        assert_eq!(
+            cut.head.as_deref(),
+            Some("{1}{W}, opfere die Werfuchs-Leibwächterin"),
+            "the copy's row is the copied card's German"
+        );
     }
+
+    /// Werefox Bodyguard's German, woe #39.
+    const FOX_DE: &str = "Aufblitzen\nWenn die Werfuchs-Leibwächterin ins Spiel kommt, schicke bis zu eine andere Nicht-Fuchs-Kreatur deiner Wahl ins Exil, bis die Werfuchs-Leibwächterin das Spiel verlässt.\n{1}{W}, opfere die Werfuchs-Leibwächterin: Du erhältst 2 Lebenspunkte dazu.";
 
     /// The two synthetic indices are offered like any other ability and have
     /// to be labelled without asking the card about them.

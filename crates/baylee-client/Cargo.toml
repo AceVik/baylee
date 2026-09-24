@@ -19,6 +19,10 @@ baylee-cards.workspace = true
 # which of its abilities makes mana, and what colours it can make.
 baylee-cards-dsl.workspace = true
 baylee-build.workspace = true
+# Card text is filed by placing a served printing's sentences against the
+# compiled Oracle (`align`, `localized`), and the sheet sweep classifies a row
+# by where its sentence's cost colon is (`split_cost`).
+baylee-cardtext.workspace = true
 baylee-client-core.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
@@ -45,9 +49,6 @@ web-time.workspace = true
 # The same crate as above, with its view builders switched on. A test target
 # only; `cargo build` of the client never sees the feature.
 baylee-client-core = { workspace = true, features = ["test-support"] }
-# The sheet sweep classifies a row by where its sentence's cost colon is,
-# asked of the same `split_cost` the cut uses.
-baylee-cardtext.workspace = true
 naga.workspace = true
 # The networked host is tested against a real websocket server built from a
 # real `Session` — the transport is the part that cannot be unit-tested.

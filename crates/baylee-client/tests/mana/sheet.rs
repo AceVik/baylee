@@ -1008,7 +1008,7 @@ fn every_written_row_has_words_with_no_text_filed() {
 /// The sweep's question, taken out so that its failing branch can be seen to
 /// fail.
 fn has_words(card: baylee_core::ids::CardIndex, at: baylee_view::StackText) -> bool {
-    baylee_client::cardtext::sentence(None, card, None, at)
+    baylee_client::cardtext::sentence(None, card, at)
         .is_some_and(|blocks| blocks.iter().any(|b| !b.text().is_empty()))
 }
 
@@ -1108,7 +1108,7 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
                 let Some(printed) = option.printed else {
                     continue;
                 };
-                let sentence = baylee_client::cardtext::sentence(None, card, None, printed)
+                let sentence = baylee_client::cardtext::sentence(None, card, printed)
                     .expect("every written row has words offline");
                 let key = option.cost.as_deref().unwrap_or_default();
                 let first = sentence.first().map(|b| b.text().to_string());
@@ -1193,7 +1193,7 @@ fn a_row_whose_key_does_not_license_its_head_is_refused() {
         of: 2,
     };
     let sentence =
-        baylee_client::cardtext::sentence(None, card, None, at).expect("Mind Stone's draw line");
+        baylee_client::cardtext::sentence(None, card, at).expect("Mind Stone's draw line");
     assert_eq!(column(&sentence, "{1}, {T}"), Column::Head);
     assert_eq!(column(&sentence, "{W}, {T}"), Column::Refused);
     let equip = vec![baylee_client_core::card_face::TextBlock::Rules(

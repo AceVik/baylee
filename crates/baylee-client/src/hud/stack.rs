@@ -1302,7 +1302,7 @@ fn spawn_stack_entry(
         || item.name.clone(),
         |o| crate::face::name_of(o, view, faces.texts),
     );
-    let title = heading(item, full, title, view, faces);
+    let title = heading(item, full, title, faces);
     let mut name = commands.spawn((
         // A card's name is set in the card's face, not the interface's:
         // Faustina carries every printed word this client draws, wherever
@@ -1402,7 +1402,7 @@ fn spawn_stack_entry(
         // The full row only. A queued row answers "what else is coming", and
         // six sentences stacked under one another would be a wall of text
         // where the size ramp used to carry the order.
-        if let Some(blocks) = stack_sentence(item, view, faces) {
+        if let Some(blocks) = stack_sentence(item, faces) {
             let line = spawn_stack_sentence(commands, fonts, key, blocks, room);
             commands.entity(body).add_child(line);
         }
@@ -1860,12 +1860,12 @@ fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
 /// The printed sentence a stack entry stands for, in the player's own
 /// language, or `None` when there is nothing trustworthy to draw.
 ///
-/// Two things have to line up and either may be missing, which is why every
-/// step is a `?` and the panel falls back to the label it drew before. The
-/// host has to know which sentence it is (it does not for a token's ability,
-/// an emblem's, or one a continuous effect granted), and the source has to
-/// still be findable, because the card is what the text is filed under and
-/// an ability on the stack outlives its source (CR 113.7a). The words are
+/// The host has to know which sentence it is and on which card — it does
+/// not for a token's ability, an emblem's, or one a continuous effect
+/// granted — which is why each is a `?` and the panel falls back to the
+/// label it drew before. The source need not still be there: text is filed
+/// under the card the entry's `rules` names, and that is a property of the
+/// ability itself, which outlives its source (CR 113.7a). The words are
 /// [`crate::cardtext::sentence`]'s, which falls to the card's English Oracle
 /// when the player's language has none that pairs — offline, always.
 ///
@@ -1873,22 +1873,12 @@ fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
 /// the reason `baylee_view::StackText::face` gives.
 pub(super) fn stack_sentence(
     item: &baylee_client_core::board::StackItem,
-    view: &PlayerView,
     faces: &FaceCtx<'_>,
 ) -> Option<Vec<TextBlock>> {
-    let baylee_client_core::board::StackKind::Ability {
-        source,
-        text,
-        rules,
-    } = item.kind
-    else {
+    let baylee_client_core::board::StackKind::Ability { text, rules, .. } = item.kind else {
         return None;
     };
-    let (text, card) = (text?, rules?.card);
-    let print = view
-        .object(source)
-        .and_then(|source| crate::cardtext::print_of(source, card));
-    crate::cardtext::sentence(Some(faces.texts), card, print, text)
+    crate::cardtext::sentence(Some(faces.texts), rules?.card, text?)
 }
 
 /// What a **queued** ability row is headed, which is not its source's name.
@@ -1912,16 +1902,15 @@ pub(super) fn stack_sentence(
 /// single `Text` and not the span chain a full row builds.
 ///
 /// [`None`] whenever the sentence is not *known*, and the caller then draws
-/// the name as before: the host sends no line index for some abilities, and
-/// the catalog's text arrives over a socket that a client playing offline
-/// against the house may not have at all. A row must never come out blank
-/// because a lookup missed.
+/// the name as before: the host sends no line index for some abilities (a
+/// token's, an emblem's, a granted one's). Where it does, the words are
+/// there offline too — the English Oracle is compiled in — so a row never
+/// comes out blank because a request did not get through.
 fn queued_ability_line(
     item: &baylee_client_core::board::StackItem,
-    view: &PlayerView,
     faces: &FaceCtx<'_>,
 ) -> Option<String> {
-    ability_line(&stack_sentence(item, view, faces)?)
+    ability_line(&stack_sentence(item, faces)?)
 }
 
 /// What a row is headed, given the `name` its object is drawn under.
@@ -1937,13 +1926,12 @@ fn heading(
     item: &baylee_client_core::board::StackItem,
     full: bool,
     name: String,
-    view: &PlayerView,
     faces: &FaceCtx<'_>,
 ) -> String {
     if full {
         return name;
     }
-    queued_ability_line(item, view, faces).unwrap_or(name)
+    queued_ability_line(item, faces).unwrap_or(name)
 }
 
 /// The prose half of [`queued_ability_line`], with the two lookups taken
@@ -2263,32 +2251,20 @@ mod tests {
         assert!(cut.chars().count() < 20, "{cut} was not cut at all");
     }
 
-    /// A printing whose text is two printed **lines**, which is what
-    /// `baylee_core::oracle::sentences` splits on and what
-    /// `StackText::line` indexes into — not two sentences of prose.
-    fn two_line_printing() -> crate::cardtext::CardTexts {
-        use baylee_client_core::card_face::{CardTextEntry, FaceText};
-        crate::cardtext::CardTexts::filed(
-            baylee_core::ids::PrintRef::new(7),
-            CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "abc".to_string(),
-                lang: "de".to_string(),
-                faces: vec![FaceText {
-                    printed: None,
-                    name: "Sheoldred".to_string(),
-                    english_name: "Sheoldred".to_string(),
-                    type_line: "Kreatur".to_string(),
-                    oracle_text: "Immer wenn ein Spieler eine Karte zieht, \
-                                  erhältst du 2 Lebenspunkte.\n\
-                                  Immer wenn ein Gegner eine Karte zieht, \
-                                  verliert er 2 Lebenspunkte."
-                        .to_string(),
-                    mana_cost: String::new(),
-                }],
-            },
-        )
+    /// Sheoldred's German dmu printing, read from the catalog 2026-09-24:
+    /// three printed **lines**, which is what `baylee_core::oracle::sentences`
+    /// splits on and what `StackText::line` indexes into — not three
+    /// sentences of prose.
+    fn sheoldred_in_german() -> crate::cardtext::CardTexts {
+        crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            "Sheoldred, the Apocalypse",
+            "Sheoldred die Apokalypse",
+            Some(
+                "Todesberührung\n\
+                 Immer wenn du eine Karte ziehst, erhältst du 2 Lebenspunkte dazu.\n\
+                 Immer wenn ein Gegner eine Karte zieht, verliert er 2 Lebenspunkte.",
+            ),
+        ))
     }
 
     /// One permanent, and one stack ability per entry of `lines` — `None`
@@ -2297,6 +2273,7 @@ mod tests {
         use baylee_client_core::board::Openings;
         use baylee_client_core::test_support::{ViewBuilder, printed, token};
 
+        let card = crate::cardtext::fixture::card("Sheoldred, the Apocalypse");
         let on_stack: Vec<_> = lines
             .iter()
             .enumerate()
@@ -2306,21 +2283,24 @@ mod tests {
                 ability.stack_item = Some(baylee_view::StackItem::Ability {
                     source: ObjectId::new(7, 0),
                     ability: None,
-                    rules: Some(baylee_view::RulesFace {
-                        card: baylee_core::ids::CardIndex::new(7),
-                        face: 0,
-                    }),
+                    rules: Some(baylee_view::RulesFace { card, face: 0 }),
                     text: line.map(|line| baylee_view::StackText {
                         face: 0,
                         line,
-                        of: 2,
+                        of: 3,
                     }),
                 });
                 ability
             })
             .collect();
         let view = ViewBuilder::new(2)
-            .with_battlefield(0, vec![printed(7, 0, "Sheoldred", 7)])
+            .with_battlefield(
+                0,
+                vec![crate::cardtext::fixture::showing(
+                    printed(7, 0, "Sheoldred", 7),
+                    card,
+                )],
+            )
             .with_stack(on_stack)
             .build();
         let board = baylee_client_core::BoardModel::from_view(
@@ -2344,8 +2324,8 @@ mod tests {
     /// than through the lookup underneath it.
     #[test]
     fn two_abilities_of_one_permanent_are_two_different_queued_rows() {
-        let texts = two_line_printing();
-        let (board, view) = a_stack_of(&[Some(0), Some(1)]);
+        let texts = sheoldred_in_german();
+        let (board, view) = a_stack_of(&[Some(1), Some(2)]);
         let mode = crate::face::FaceMode::default();
         let settings = crate::settings::ClientSettings::default();
         let faces = FaceCtx {
@@ -2365,7 +2345,7 @@ mod tests {
         let headings: Vec<String> = board
             .stack
             .iter()
-            .map(|item| heading(item, false, named(item), &view, &faces))
+            .map(|item| heading(item, false, named(item), &faces))
             .collect();
 
         assert_ne!(
@@ -2374,7 +2354,7 @@ mod tests {
         );
         // On the set, not on the order: `BoardModel` walks the stack top
         // first, and which end that is has nothing to do with this claim.
-        for clause in ["Immer wenn ein Spieler", "Immer wenn ein Gegner"] {
+        for clause in ["Immer wenn du", "Immer wenn ein Gegner"] {
             assert!(
                 headings.iter().any(|h| h.starts_with(clause)),
                 "a row is headed by its own clause: {headings:?}"
@@ -2391,7 +2371,7 @@ mod tests {
         // already and the name is the one thing it does not otherwise say.
         for item in &board.stack {
             assert_eq!(
-                heading(item, true, named(item), &view, &faces),
+                heading(item, true, named(item), &faces),
                 named(item),
                 "a full row is headed by its name"
             );
@@ -2415,15 +2395,9 @@ mod tests {
             settings: &settings,
             view: Some(&view),
         };
-        assert!(queued_ability_line(&board.stack[0], &view, &faces).is_none());
+        assert!(queued_ability_line(&board.stack[0], &faces).is_none());
         assert_eq!(
-            heading(
-                &board.stack[0],
-                false,
-                "Sheoldred".to_string(),
-                &view,
-                &faces
-            ),
+            heading(&board.stack[0], false, "Sheoldred".to_string(), &faces),
             "Sheoldred"
         );
     }

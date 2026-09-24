@@ -112,7 +112,7 @@ fn printed_sentence(
         line: found.line,
         of: found.of,
     };
-    let blocks = crate::cardtext::sentence(names.texts, card.index, Some(card.print), printed)?;
+    let blocks = crate::cardtext::sentence(names.texts, card.index, printed)?;
     let said: Vec<&str> = blocks
         .iter()
         .filter_map(|block| match block {
@@ -635,23 +635,22 @@ mod tests {
             types: def.faces[0].types,
             commander: false,
         }];
-        let texts = crate::cardtext::CardTexts::filed(
-            print,
-            CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "x".to_string(),
-                lang: lang.to_string(),
-                faces: vec![FaceText {
-                    printed: None,
-                    name: def.faces[0].name.to_string(),
-                    english_name: def.faces[0].name.to_string(),
-                    type_line: String::new(),
-                    oracle_text: oracle.to_string(),
-                    mana_cost: String::new(),
-                }],
-            },
-        );
+        // Served the way the gateway serves it: `printed` is the asked
+        // language's text, and never English.
+        let texts = crate::cardtext::CardTexts::filed(CardTextEntry {
+            oracle_id: oracle_id.to_string(),
+            layout: "normal".to_string(),
+            scryfall_id: "x".to_string(),
+            lang: lang.to_string(),
+            faces: vec![FaceText {
+                printed: (lang != "en").then(|| oracle.to_string()),
+                name: def.faces[0].name.to_string(),
+                english_name: def.faces[0].name.to_string(),
+                type_line: String::new(),
+                oracle_text: oracle.to_string(),
+                mana_cost: String::new(),
+            }],
+        });
         (view, texts, id)
     }
 

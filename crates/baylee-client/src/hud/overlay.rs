@@ -276,7 +276,7 @@ pub fn sync_overlay(
         && revision.focus == focus
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
         && revision.faces == faces.always()
-        && revision.texts == texts.len()
+        && revision.texts == texts.generation()
         && revision.arrivals == textures.epoch()
         && revision.combat == combat
         && revision.armed == armed_deed
@@ -306,7 +306,7 @@ pub fn sync_overlay(
     revision.focus = focus;
     revision.preview_scale = preview_scale;
     revision.faces = faces.always();
-    revision.texts = texts.len();
+    revision.texts = texts.generation();
     revision.arrivals = textures.epoch();
     revision.combat = combat;
     revision.armed.clone_from(&armed_deed);
@@ -3734,38 +3734,26 @@ mod tests {
     // what those cannot say is whether `sync_overlay` ever builds one.
     // "Declared but never wired" is a bug this client has shipped before.
 
+    /// Ondu Cleric's German zen printing, read from the catalog 2026-09-24.
+    const ONDU_CLERIC: &str = "Immer wenn der Ondu-Kleriker oder ein anderer Verbündeter unter deiner Kontrolle ins Spiel kommt, kannst du soviele Lebenspunkte dazuerhalten, wie du Verbündete kontrollierst.";
+
     /// A duel with one ability on the stack, its source on the battlefield,
     /// and the pointer on the stack entry.
     fn hovering_the_stack(hovered: bool) -> (Duel, crate::cardtext::CardTexts) {
-        use baylee_client_core::card_face::{CardTextEntry, FaceText};
         use baylee_client_core::test_support::{ViewBuilder, printed, statics, token};
 
-        let texts = crate::cardtext::CardTexts::filed(
-            baylee_core::ids::PrintRef::new(7),
-            CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "abc".to_string(),
-                lang: "de".to_string(),
-                faces: vec![FaceText {
-                    printed: None,
-                    name: "Ondu-Kleriker".to_string(),
-                    english_name: "Ondu Cleric".to_string(),
-                    type_line: "Kreatur".to_string(),
-                    oracle_text: "Ziehe eine Karte.".to_string(),
-                    mana_cost: String::new(),
-                }],
-            },
-        );
+        let texts = crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            "Ondu Cleric",
+            "Ondu-Kleriker",
+            Some(ONDU_CLERIC),
+        ));
+        let card = crate::cardtext::fixture::card("Ondu Cleric");
         let mut ability = token(30, 0, "Ondu Cleric", 0, 0);
         ability.card = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(7, 0),
             ability: None,
-            rules: Some(baylee_view::RulesFace {
-                card: baylee_core::ids::CardIndex::new(7),
-                face: 0,
-            }),
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
             text: Some(baylee_view::StackText {
                 face: 0,
                 line: 0,
@@ -3786,7 +3774,13 @@ mod tests {
         };
         duel.view = Some(
             ViewBuilder::new(2)
-                .with_battlefield(0, vec![printed(7, 0, "Ondu Cleric", 7)])
+                .with_battlefield(
+                    0,
+                    vec![crate::cardtext::fixture::showing(
+                        printed(7, 0, "Ondu Cleric", 7),
+                        card,
+                    )],
+                )
                 .with_stack(vec![ability])
                 .build(),
         );
@@ -3880,7 +3874,7 @@ mod tests {
         // there would silence it wherever a gateway serves no art.
         assert_eq!(
             said.iter()
-                .filter(|line| line.contains("Ziehe eine Karte."))
+                .filter(|line| line.contains("Immer wenn der Ondu-Kleriker"))
                 .count(),
             3,
             "the row, the fallback face and the sheet: {said:?}"
@@ -3917,7 +3911,7 @@ mod tests {
         // anyone is looking or not, and the sheet is what the looking buys.
         assert_eq!(
             said.iter()
-                .filter(|line| line.contains("Ziehe eine Karte."))
+                .filter(|line| line.contains("Immer wenn der Ondu-Kleriker"))
                 .count(),
             1,
             "the row says it and nothing else does: {said:?}"

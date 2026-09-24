@@ -1,53 +1,47 @@
-//! Card text, fetched from the gateway once per game and kept on disk.
+//! Card text, asked for by card and kept on disk.
 //!
-//! # Why the gateway and not the binary
+//! # Keyed by card, not by printing
 //!
-//! Rules text is the one part of a card that is neither rules data nor art: it
-//! changes with every oracle update, it exists in a dozen languages, and it is
-//! far too large to compile into a client. It travels the same road as card
-//! images — Scryfall to the gateway, gateway to the client — and is cached at
-//! both ends, so a game costs one request and a second launch costs none.
+//! Text is a property of the card and not of a printing
+//! (`docs/protocol.md` §"Card text"): the gateway picks one printing per card
+//! and language by `baylee_cardtext::pick`, and every face comes from it. A
+//! printing id was therefore never the key, and it could not be one: a copy's
+//! abilities are printed on a card the copy is not, so a table keyed by the
+//! copy's printing had nothing to say about them. Keyed by card, a Spark
+//! Double showing Sheoldred reads Sheoldred's German, and a second game
+//! reuses the first game's text because a card says the same in every game.
 //!
-//! # Why a whole game in one request
+//! # What is asked, and when
 //!
-//! The print table is sent once, when the client attaches, and it names every
-//! card that can appear in the game. Asking for all of it at that moment means
-//! the text is there before the first card is drawn, instead of a request per
-//! card arriving during play.
+//! The cards this seat's view names ([`PlayerView::cards`]) and nothing else.
+//! That walk is the one the print table's entitlement walks, so a seat never
+//! asks about a card it could not see. Each card is asked once per language,
+//! in one request at a time; cards the view names while one is out wait for
+//! the next. The library is not prefetched — a card drawn is asked for when
+//! it reaches the hand — which is a request a turn at most.
 //!
-//! # The gateway is asked first, and Scryfall second
+//! Under English nothing is asked at all. The gateway would answer with the
+//! English Oracle (`printed` is `null` under `en`), and that is compiled in.
 //!
-//! Every ability the sheet draws says what the *card* says, in the player's
-//! language, and there are no other words anywhere — a client that composed
-//! its own prose for an ability it could not look up was drawing three
-//! different things depending on what happened to be reachable. So there is
-//! one source with two doors: the gateway's catalog, which knows the
-//! player's language and falls back to English printing by printing, and
-//! [`scryfall`] behind it for whatever the gateway did not answer — a
-//! gateway with no ingest, a gateway that is not running at all, or a
-//! printing its catalog has never seen.
+//! A gateway that does not answer, or refuses `oracle_ids` because it
+//! predates them, is not asked again until the language or the game changes:
+//! a retry per card drawn against a dead endpoint is noise, not a recovery.
 //!
-//! Scryfall is asked by **printing id**, so what comes back is that piece of
-//! cardboard's own text. A deck names English printings, so in practice the
-//! fallback is the English fallback the owner asked for; it is not a second
-//! translator, and it is not meant to be one — the gateway is where a
-//! language is chosen and this is where a hole is filled.
+//! # Under all of it, the English Oracle
 //!
-//! # Under both of them, the English Oracle
-//!
-//! Neither door is there offline, and a translation that is there does not
-//! always pair line for line with the English the ability-line table was
-//! counted in. A sentence is therefore never drawn from this table alone:
-//! [`sentence`] answers from it when it can and from the card's English
-//! Oracle, compiled into the client, when it cannot. What a row says never
-//! depends on whether a request got through.
+//! A sentence is never drawn from this table alone: [`sentence`] answers
+//! from the player's language where the served printing lines up with the
+//! compiled English Oracle (`baylee_cardtext::align`, placed once when the
+//! entry is filed), and from that Oracle where it does not. A card face
+//! draws the same floor ([`CardTexts::face`]). What a row or a face says
+//! never depends on whether a request got through — the owner's rule,
+//! "Fallback ist immer englisch".
 
-use baylee_client_core::card_face::{
-    CardText, CardTextEntry, TextBlock, sentence_blocks, split_blocks,
-};
-use baylee_core::ids::{CardIndex, PrintRef};
-use baylee_view::{GameStatic, StackText};
-use bevy::platform::collections::HashMap;
+use baylee_cardtext::Aligned;
+use baylee_client_core::card_face::{CardText, CardTextEntry, TextBlock, split_blocks};
+use baylee_core::ids::CardIndex;
+use baylee_view::{PlayerView, StackText};
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
 
@@ -56,54 +50,189 @@ use std::sync::{Arc, Mutex};
 /// A channel would be the obvious choice, but `Receiver` is not `Sync` and a
 /// Bevy resource must be — and there is only ever one answer, so a slot is
 /// both smaller and enough.
-type Slot = Arc<Mutex<Option<Vec<CardTextEntry>>>>;
+type Slot = Arc<Mutex<Option<Reply>>>;
 
-/// Where the fallback's answers gather.
-///
-/// Scryfall takes at most [`scryfall::BATCH`] identifiers in one call, so a
-/// table of two decks is two or three requests and they finish in whatever
-/// order they finish in. A slot that could only hold one answer would file
-/// the first and drop the rest, which is a hole that looks exactly like a
-/// card the catalog has never heard of.
-type Gathering = Arc<Mutex<Gather>>;
-
-/// The fallback's answers, and how many requests are still out.
-#[derive(Default)]
-struct Gather {
-    /// Requests sent and not yet answered. Zero is the signal.
-    outstanding: usize,
-    /// What has come back so far.
-    entries: Vec<CardTextEntry>,
+/// What one request came back with.
+enum Reply {
+    /// The entries the gateway knew; a card it lacks is simply absent.
+    Answered(Vec<CardTextEntry>),
+    /// No answer: unreachable, refused, or unreadable.
+    Failed,
 }
 
-/// Card text for the current game.
+/// One card's text as served, with each face's printed sentences already
+/// placed against the compiled Oracle.
+struct Filed {
+    entry: CardTextEntry,
+    /// Per face: the printed lines in the Oracle's positions, or `None` where
+    /// the face was not translated or does not line up — the Oracle is drawn
+    /// there. Placed once, when the entry is filed, so a frame never aligns.
+    aligned: Vec<Option<Aligned>>,
+}
+
+/// Card text for this client, in the language it is set to.
 #[derive(Resource, Default)]
 pub struct CardTexts {
-    /// Text by printing, in the language actually served.
-    by_print: HashMap<PrintRef, CardTextEntry>,
-    /// What the fetch is doing.
-    state: Fetch,
-    /// The language everything here was fetched for; a change re-fetches.
-    lang: String,
-    /// How many printings the last request covered.
+    /// Text by card.
+    by_card: HashMap<CardIndex, Filed>,
+    /// Moves whenever anything is filed. A panel drawn from this table keeps
+    /// the number it was drawn at, and redraws when it differs.
     ///
-    /// The print table grows during a game: a seat earns an opponent's
-    /// printing the first time it sees the card. Without this the text for
-    /// everything the opponent plays would be missing for the rest of the
-    /// game, because the one request went out before any of it was known.
-    covered: usize,
+    /// A count of entries is not that number: a cached entry replaced by the
+    /// gateway's fresher one changes the text and not the count.
+    generation: u64,
+    /// The language everything here is in; a change starts over.
+    lang: String,
+    /// Cards asked about in [`Self::lang`], answered or not.
+    asked: HashSet<CardIndex>,
+    /// The view last walked for cards to ask about, by its `seq`.
+    walked: Option<u64>,
+    /// The game the gateway's reachability was learned in.
+    game: String,
+    /// The gateway did not answer in this language and game.
+    down: bool,
+    /// The one request out, if any, and the cards it names.
+    waiting: Option<(Slot, Vec<CardIndex>)>,
+}
+
+impl CardTexts {
+    /// The served text for one face of a card, if it has arrived.
+    #[must_use]
+    pub fn get(&self, card: CardIndex, face: u8) -> Option<CardText> {
+        CardText::of(&self.by_card.get(&card)?.entry, usize::from(face))
+    }
+
+    /// The text to draw for one face of a card: the served text where it has
+    /// arrived, else the card's own English ([`english`]).
+    #[must_use]
+    pub fn face(&self, card: CardIndex, face: u8) -> Option<CardText> {
+        self.get(card, face)
+            .or_else(|| english(card, usize::from(face)))
+    }
+
+    /// Which filing this table is at; see the field.
+    #[must_use]
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// How many cards have text.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.by_card.len()
+    }
+
+    /// Whether any card has text.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.by_card.is_empty()
+    }
+
+    /// One card's text, filed as the gateway's would be, for a test elsewhere
+    /// in the crate that is about what is *drawn* rather than how it is
+    /// fetched. The entry names its card by `oracle_id`, as the wire does.
+    #[cfg(test)]
+    pub(crate) fn filed(entry: CardTextEntry) -> Self {
+        let mut texts = Self::default();
+        texts.absorb(vec![entry]);
+        texts
+    }
+
+    /// Files entries by the card their `oracle_id` names, and returns how
+    /// many were filed.
+    ///
+    /// An entry naming no card of this pool is dropped — among them every
+    /// entry a cache wrote before text was keyed by card, which named a
+    /// printing and left `oracle_id` empty.
+    fn absorb(&mut self, entries: Vec<CardTextEntry>) -> usize {
+        let mut filed = 0;
+        for entry in entries {
+            let Some(def) = baylee_cards::by_oracle_id(&entry.oracle_id.to_ascii_lowercase())
+            else {
+                continue;
+            };
+            let aligned = (0..entry.faces.len())
+                .map(|face| {
+                    let oracle = baylee_cards::oracle::face(def.index, face)?;
+                    let printed = entry.faces[face].printed.as_deref()?;
+                    baylee_cardtext::align(oracle, printed, &entry.layout)
+                })
+                .collect();
+            self.by_card.insert(def.index, Filed { entry, aligned });
+            filed += 1;
+        }
+        if filed > 0 {
+            self.generation += 1;
+        }
+        filed
+    }
+
+    /// The player's-language sentence standing for one line of a card, if
+    /// the served printing has one there.
+    fn localized(&self, card: CardIndex, at: StackText) -> Option<&str> {
+        let aligned = self
+            .by_card
+            .get(&card)?
+            .aligned
+            .get(usize::from(at.face))?
+            .as_ref()?;
+        let oracle = baylee_cards::oracle::face(card, usize::from(at.face))?;
+        baylee_cardtext::localized(oracle, aligned, usize::from(at.line))
+    }
+
+    /// Starts over in another language: this one's table from disk, nothing
+    /// asked yet.
+    fn relang(&mut self, lang: &str) {
+        self.by_card.clear();
+        self.asked.clear();
+        self.walked = None;
+        self.down = false;
+        self.waiting = None;
+        self.lang = lang.to_string();
+        if lang != "en" {
+            self.absorb(cache::load(lang));
+        }
+        self.generation += 1;
+    }
+
+    /// Takes one request's reply, and answers whether anything was filed.
+    ///
+    /// A failed request gives its cards back: they were never answered, and
+    /// the next game — the one place a gateway gets asked again — asks
+    /// about them. A card the gateway answered without is left asked.
+    fn receive(&mut self, reply: Reply, cards: &[CardIndex]) -> bool {
+        match reply {
+            Reply::Answered(entries) => self.absorb(entries) > 0,
+            Reply::Failed => {
+                for card in cards {
+                    self.asked.remove(card);
+                }
+                self.down = true;
+                false
+            }
+        }
+    }
+
+    /// Everything filed, for the on-disk cache.
+    ///
+    /// The cache is replaced wholesale, so it is written from the table and
+    /// never from one answer: storing one answer alone would throw away
+    /// every card asked about before it.
+    fn filed_entries(&self) -> Vec<CardTextEntry> {
+        self.by_card.values().map(|f| f.entry.clone()).collect()
+    }
 }
 
 /// The printed sentence at one line of a card's face, as blocks to draw.
 ///
-/// The player's own language when this seat holds text for the printing and
-/// that text lines up with the English the index was counted in; the card's
-/// **English Oracle** sentence otherwise. The second half is the owner's rule
-/// for every row drawn from card text — "Fallback ist immer englisch" — and it
-/// is what takes a row's words off the network: the Oracle is compiled in
-/// (`baylee_cards::oracle`), so a client with no gateway, a card nobody
-/// translated and a translation whose lines do not pair all draw the card's
-/// own English rather than a blank.
+/// The player's own language where this seat holds the card's text and the
+/// served printing lines up with the English the index was counted in; the
+/// card's **English Oracle** sentence otherwise. The second half is the
+/// owner's rule for every row drawn from card text — "Fallback ist immer
+/// englisch" — and it is what takes a row's words off the network: the
+/// Oracle is compiled in (`baylee_cards::oracle`), so a client with no
+/// gateway, a card nobody translated and a translation whose lines do not
+/// pair all draw the card's own English rather than a blank.
 ///
 /// `None` only where no sentence exists at all: a line the table does not
 /// have, or a card the pool does not compile. Neither is a coordinate the
@@ -115,214 +244,92 @@ pub struct CardTexts {
 /// ability says.
 ///
 /// `card` is the card the sentence is printed on — [`PublicObject::rules`],
-/// which for a copy is the copied card — and `print` is the printing this
-/// seat holds text for, which exists only where the object *is* that card
-/// ([`print_of`]). A copy's rows are therefore the copied card's English
-/// Oracle until text can be asked for by card rather than by printing.
+/// which for a copy is the copied card, and whose text this table holds
+/// under that card.
 ///
 /// [`PublicObject::rules`]: baylee_view::PublicObject::rules
 #[must_use]
 pub fn sentence(
     texts: Option<&CardTexts>,
     card: CardIndex,
-    print: Option<PrintRef>,
     at: StackText,
 ) -> Option<Vec<TextBlock>> {
     texts
-        .zip(print)
-        .and_then(|(texts, print)| texts.get(print, at.face))
-        .and_then(|text| sentence_blocks(&text.oracle_text, at.line, at.of))
+        .and_then(|texts| texts.localized(card, at))
+        .map(split_blocks)
         .or_else(|| {
             baylee_cards::oracle::sentence(card, usize::from(at.face), at.line).map(split_blocks)
         })
 }
 
-/// The printing `object` shows, when it is `card` — the only printing whose
-/// text this seat holds for it. `None` for a copy, whose abilities are
-/// printed on a card it is not.
+/// One face as the card prints it in English, out of the compiled registry:
+/// the floor under every face drawn.
+///
+/// A face with no text is a face that says nothing, and before the Oracle was
+/// compiled in that was every face in a game with no gateway — an offline
+/// duel against the house showed blank cards unless Scryfall happened to be
+/// reachable. The name is the printed name, which [`CardText::english_name`]
+/// also is, so the clone guard in `CardFace::build` still compares like with
+/// like.
 #[must_use]
-pub fn print_of(object: &baylee_view::PublicObject, card: CardIndex) -> Option<PrintRef> {
-    object
-        .card
-        .filter(|shown| shown.index == card)
-        .map(|shown| shown.print)
+pub fn english(card: CardIndex, face: usize) -> Option<CardText> {
+    let printed = baylee_cards::by_index(card)?.faces.get(face)?;
+    Some(CardText {
+        lang: "en".to_string(),
+        name: printed.name.to_string(),
+        english_name: printed.name.to_string(),
+        type_line: baylee_cards::pool::type_line(printed),
+        oracle_text: baylee_cards::oracle::face(card, face)
+            .unwrap_or_default()
+            .to_string(),
+        mana_cost: printed.mana_cost.to_string(),
+    })
 }
 
-/// State of the one in-flight request.
-#[derive(Default)]
-enum Fetch {
-    /// Nothing requested yet.
-    #[default]
-    Idle,
-    /// A request is out; the slot receives the decoded answer.
-    Waiting(Slot),
-    /// The gateway has answered and left gaps, and Scryfall is being asked
-    /// about them.
-    ///
-    /// A state of its own rather than a second `Waiting`, because the two
-    /// are asked different questions and only one of them leads on to the
-    /// other: a gap the fallback could not fill is a card nobody has text
-    /// for, and asking the gateway about it a second time would be a
-    /// request loop against an answer that has already been given.
-    ///
-    /// The whole road is walked again when the print table *grows* — a seat
-    /// earns an opponent's printing by seeing the card — because that is a
-    /// new question rather than the same one re-asked. [`request`] is where
-    /// that happens.
-    Falling(Gathering),
-    /// Finished, successfully or not. Either way the client stops asking:
-    /// a gateway that is not there will not appear mid-game, and a retry
-    /// loop against a dead endpoint costs a frame every time.
-    Settled,
-}
+/// How many cards one request names; the gateway reads the first 500.
+const BATCH: usize = 500;
 
-impl CardTexts {
-    /// The text for a printing's face, if it has arrived.
-    #[must_use]
-    pub fn get(&self, print: PrintRef, face: u8) -> Option<CardText> {
-        CardText::of(self.by_print.get(&print)?, face as usize)
-    }
-
-    /// Whether any text is available at all.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.by_print.is_empty()
-    }
-
-    /// How many printings have text.
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.by_print.len()
-    }
-
-    /// One printing's text, filed directly, for a test elsewhere in the crate
-    /// that is about what a name is *drawn* as rather than about how text is
-    /// fetched. The ordinary road in is [`Self::absorb`], which needs a
-    /// `GameStatic` to turn a Scryfall id into a [`PrintRef`].
-    #[cfg(test)]
-    pub(crate) fn filed(print: PrintRef, entry: CardTextEntry) -> Self {
-        let mut texts = Self::default();
-        texts.by_print.insert(print, entry);
-        texts
-    }
-
-    /// Files entries against the print table.
-    ///
-    /// The catalog answers by Scryfall id; the renderer asks by [`PrintRef`].
-    /// This is where the two meet, and an entry for a printing the game does
-    /// not contain — or which this seat has not been shown — is dropped rather
-    /// than kept for a game that will never ask.
-    fn absorb(&mut self, statics: &GameStatic, entries: Vec<CardTextEntry>) {
-        for entry in entries {
-            let found = statics.prints.iter().position(|p| {
-                p.as_ref()
-                    .is_some_and(|p| p.scryfall_id.eq_ignore_ascii_case(&entry.scryfall_id))
-            });
-            if let Some(index) = found {
-                self.by_print.insert(PrintRef::new(index as u16), entry);
-            }
-        }
-    }
-
-    /// The printings this seat has been shown and still has no text for.
-    ///
-    /// The gap between [`known_ids`] and what is filed, which is what the
-    /// fallback is asked about. It is computed after the gateway has
-    /// answered rather than from its answer, because the two disagree in
-    /// both directions: the catalog resolves an id to another printing of
-    /// the same card and answers under the id that was *asked* for, and a
-    /// cached entry from a previous session fills a printing this request
-    /// never mentioned.
-    fn missing_ids(&self, statics: &GameStatic) -> Vec<String> {
-        statics
-            .prints
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| !self.by_print.contains_key(&PrintRef::new(*index as u16)))
-            .filter_map(|(_, p)| p.as_ref().map(|p| p.scryfall_id.clone()))
-            .collect()
-    }
-
-    /// Everything filed, for the on-disk cache.
-    ///
-    /// The cache is replaced wholesale, so it is written from the table and
-    /// never from one answer: storing the fallback's entries alone would
-    /// throw away the gateway's, and a language a gateway serves well would
-    /// come back from disk as the handful of cards Scryfall filled in.
-    fn filed_entries(&self) -> Vec<CardTextEntry> {
-        self.by_print.values().cloned().collect()
-    }
-}
-
-/// The printings this seat has actually been shown.
-///
-/// The print table has holes in it: a seat is entitled to its own deck from
-/// the start and to the rest only as it sees the cards. Asking the catalog
-/// about a hole would be asking about a card this client is not allowed to
-/// know, and would send an empty id that reads like a bug at the other end.
-fn known_ids(statics: &GameStatic) -> Vec<&str> {
-    statics
-        .prints
-        .iter()
-        .filter_map(|p| p.as_ref().map(|p| p.scryfall_id.as_str()))
-        .collect()
-}
-
-/// How many printings this seat has been shown.
-///
-/// Counted rather than collected: this runs every frame, and the ids are only
-/// needed on the frame a request actually goes out.
-fn known_count(statics: &GameStatic) -> usize {
-    statics.prints.iter().filter(|p| p.is_some()).count()
-}
-
-/// Starts the fetch once the print table is known.
+/// Asks the gateway about every card the view names that has not been asked
+/// about in this language.
 pub fn request(
     mut texts: ResMut<CardTexts>,
     duel: Res<crate::Duel>,
     settings: Res<crate::settings::ClientSettings>,
 ) {
-    let Some(statics) = duel.statics.as_ref() else {
+    if texts.lang != settings.lang {
+        texts.relang(&settings.lang);
+    }
+    let (Some(statics), Some(view)) = (duel.statics.as_ref(), duel.view.as_ref()) else {
         return;
     };
-    // A language change invalidates everything; the simplest correct answer is
-    // to ask again rather than to translate what is already here.
-    let known = known_count(statics);
-    if !matches!(texts.state, Fetch::Idle) && texts.lang == settings.lang && known <= texts.covered
+    if texts.game != statics.game_id {
+        // A new game may be on another gateway, or on one that is up now.
+        texts.game.clone_from(&statics.game_id);
+        texts.down = false;
+        texts.walked = None;
+    }
+    if texts.lang == "en" || texts.down || texts.waiting.is_some() || texts.walked == Some(view.seq)
     {
         return;
     }
-    if texts.lang != settings.lang {
-        texts.by_print.clear();
-        texts.state = Fetch::Idle;
-    }
-    // A printing this seat has just earned: ask again, for the whole table.
-    // The catalog answers from its own cache, and one request is cheaper than
-    // tracking which ids of a few dozen are new.
-    if known > texts.covered && matches!(texts.state, Fetch::Settled) {
-        texts.state = Fetch::Idle;
-    }
-    if !matches!(texts.state, Fetch::Idle) {
+    texts.walked = Some(view.seq);
+    let wanted = unasked(view, &texts.asked);
+    if wanted.is_empty() {
         return;
     }
-    texts.lang.clone_from(&settings.lang);
-    texts.covered = known;
-
-    // Whatever a previous session stored is usable immediately, and covers
-    // the whole game when nothing changed — the request that follows only
-    // has to fill gaps.
-    let cached = cache::load(&settings.lang);
-    if !cached.is_empty() {
-        texts.absorb(statics, cached);
-    }
-
-    let ids: Vec<&str> = known_ids(statics);
+    let ids: Vec<&str> = wanted
+        .iter()
+        .filter_map(|card| baylee_cards::by_index(*card))
+        .map(|def| def.oracle_id)
+        .collect();
+    texts.asked.extend(wanted.iter().copied());
     if ids.is_empty() {
-        texts.state = Fetch::Settled;
+        // Cards this build's pool does not compile: a newer host's. There is
+        // nothing to name them by, and nothing to draw them with either.
         return;
     }
     let url = format!(
-        "{}/catalog/text?lang={}&ids={}",
+        "{}/catalog/text?lang={}&oracle_ids={}",
         crate::settings::gateway_url(),
         settings.lang,
         ids.join(",")
@@ -330,196 +337,74 @@ pub fn request(
     let slot: Slot = Arc::default();
     let target = Arc::clone(&slot);
     ehttp::fetch(ehttp::Request::get(&url), move |result| {
-        let entries = match result {
+        let reply = match result {
             Ok(response) if response.ok => response
                 .text()
                 .and_then(|body| serde_json::from_str::<Vec<CardTextEntry>>(body).ok())
-                .unwrap_or_default(),
+                .map_or(Reply::Failed, Reply::Answered),
             Ok(response) => {
                 bevy::log::warn!(status = response.status, "card text request refused");
-                Vec::new()
+                Reply::Failed
             }
             Err(err) => {
-                // Not an error worth interrupting a game for: every card still
-                // renders, just without rules text.
+                // Not an error worth interrupting a game for: every card
+                // still draws its English Oracle.
                 bevy::log::info!("card text unavailable: {err}");
-                Vec::new()
+                Reply::Failed
             }
         };
         if let Ok(mut slot) = target.lock() {
-            *slot = Some(entries);
+            *slot = Some(reply);
         }
     });
-    texts.state = Fetch::Waiting(slot);
+    texts.waiting = Some((slot, wanted));
     bevy::log::info!(cards = ids.len(), "requesting card text");
 }
 
-/// Files the answer when it arrives, and fills what it left out.
-pub fn poll(mut texts: ResMut<CardTexts>, duel: Res<crate::Duel>) {
-    // Asked before the answer is taken, and not after: an answer taken with
-    // nowhere to file it is gone — the slot is emptied, the state stays
-    // `Waiting`, and `request` has no reason to ask again — so the whole
-    // game would run with no text because one frame arrived between the
-    // duel closing and the fetch returning.
-    let Some(statics) = duel.statics.as_ref() else {
-        return;
-    };
-    // Whichever door is open, its answer is taken here and the borrow of
-    // `state` ends with it: everything below writes to the table.
-    let arrived = match &texts.state {
-        Fetch::Waiting(slot) => slot
-            .lock()
-            .ok()
-            .and_then(|mut s| s.take())
-            .map(|entries| (entries, true)),
-        Fetch::Falling(gathering) => gathering
-            .lock()
-            .ok()
-            .filter(|gather| gather.outstanding == 0)
-            .map(|mut gather| (std::mem::take(&mut gather.entries), false)),
-        Fetch::Idle | Fetch::Settled => None,
-    };
-    let Some((entries, from_the_gateway)) = arrived else {
-        return;
-    };
-    texts.absorb(statics, entries);
-
-    // The gateway has had its turn. Whatever it left is a hole in what the
-    // player reads, and there is exactly one thing to do about a hole: ask
-    // the other door.
-    let missing = if from_the_gateway {
-        texts.missing_ids(statics)
-    } else {
-        Vec::new()
-    };
-    if !missing.is_empty() {
-        bevy::log::info!(
-            printings = missing.len(),
-            "asking Scryfall for the text the catalog did not have"
-        );
-        texts.state = Fetch::Falling(scryfall::fill(&missing));
-        return;
-    }
-    texts.state = Fetch::Settled;
-    cache::store(&texts.lang, &texts.filed_entries());
-    bevy::log::info!(printings = texts.len(), "card text ready");
+/// The cards `view` names that have not been asked about, each once, at most
+/// one request's worth, in index order so a request is the same for the
+/// same view.
+fn unasked(view: &PlayerView, asked: &HashSet<CardIndex>) -> Vec<CardIndex> {
+    let named: std::collections::BTreeSet<CardIndex> =
+        view.cards().filter(|card| !asked.contains(card)).collect();
+    named.into_iter().take(BATCH).collect()
 }
 
-/// The door behind the gateway.
+/// Files the answer when it arrives.
+pub fn poll(mut texts: ResMut<CardTexts>) {
+    let Some(reply) = texts
+        .waiting
+        .as_ref()
+        .and_then(|(slot, _)| slot.lock().ok()?.take())
+    else {
+        return;
+    };
+    let Some((_, cards)) = texts.waiting.take() else {
+        return;
+    };
+    // Cards the view named while this was out are asked about next frame.
+    texts.walked = None;
+    if texts.receive(reply, &cards) {
+        cache::store(&texts.lang, &texts.filed_entries());
+        bevy::log::info!(cards = texts.len(), "card text filed");
+    }
+}
+
+/// Scryfall's answer about one printing, read the way the catalog reads it.
 ///
-/// Scryfall's own guidelines ask for a `User-Agent`, at most ten requests a
-/// second and no more than 75 identifiers per `/cards/collection` call. A
-/// whole table is one or two of those and they go out once per game, which
-/// is well inside all three — there is no pacing here because there is
-/// nothing to pace.
+/// The deck builder's door (`lobby::localization`), which asks Scryfall for a
+/// card's printings in a language when the gateway has no translated
+/// catalog. A game no longer asks Scryfall by printing: text is keyed by
+/// card, and what a printing id could fetch was the deck's own English
+/// printing, which the compiled Oracle already is.
 pub(crate) mod scryfall {
-    use super::{Gather, Gathering};
     use baylee_client_core::card_face::{CardTextEntry, FaceText};
-    use std::sync::{Arc, Mutex};
-
-    /// How many identifiers Scryfall takes in one call.
-    pub const BATCH: usize = 75;
-
-    /// The endpoint that answers about many printings at once.
-    const COLLECTION: &str = "https://api.scryfall.com/cards/collection";
-
-    /// Sends one request per batch and hands back where they gather.
-    pub(super) fn fill(ids: &[String]) -> Gathering {
-        let bodies = bodies(ids);
-        let gathering: Gathering = Arc::new(Mutex::new(Gather {
-            outstanding: bodies.len(),
-            entries: Vec::new(),
-        }));
-        for body in bodies {
-            let target = Arc::clone(&gathering);
-            ehttp::fetch(request(body), move |result| {
-                let entries = match result {
-                    Ok(response) if response.ok => response.text().map(parse).unwrap_or_default(),
-                    Ok(response) => {
-                        bevy::log::warn!(status = response.status, "Scryfall refused a collection");
-                        Vec::new()
-                    }
-                    Err(err) => {
-                        // The same non-error as a gateway that is not there:
-                        // every card still renders, this one without words.
-                        bevy::log::info!("Scryfall unavailable: {err}");
-                        Vec::new()
-                    }
-                };
-                if let Ok(mut gather) = target.lock() {
-                    gather.entries.extend(entries);
-                    gather.outstanding = gather.outstanding.saturating_sub(1);
-                }
-            });
-        }
-        gathering
-    }
-
-    /// One `/cards/collection` call, headers and all.
-    ///
-    /// The headers are **set**, not added, and that is the whole reason this
-    /// is a function with a test on it. `ehttp::Headers::insert` appends —
-    /// "if the key already exists, it will also be kept" — and
-    /// `Request::post` has already written `Content-Type: text/plain`, so
-    /// inserting `application/json` beside it sent both and Scryfall read
-    /// the first: every request answered `400` and every card at the table
-    /// came up wordless. Nothing in this module could see it, because a
-    /// body is not a request.
-    ///
-    /// Scryfall's guidelines also ask for a `User-Agent`, and this is the
-    /// only place the client identifies itself to anyone.
-    pub fn request(body: String) -> ehttp::Request {
-        ehttp::Request {
-            headers: ehttp::Headers::new(&[
-                ("Accept", "application/json"),
-                ("Content-Type", "application/json"),
-                (
-                    "User-Agent",
-                    concat!("baylee-client/", env!("CARGO_PKG_VERSION")),
-                ),
-            ]),
-            ..ehttp::Request::post(COLLECTION, body.into_bytes())
-        }
-    }
-
-    /// One request body per batch, and none at all for nothing to ask.
-    ///
-    /// Split out from [`fill`] because the batching is the half that can be
-    /// wrong without anything failing: 76 ids in one body is a `422` from
-    /// Scryfall and reads here as a table whose text simply never arrived.
-    #[must_use]
-    pub fn bodies(ids: &[String]) -> Vec<String> {
-        ids.chunks(BATCH).map(body).collect()
-    }
-
-    /// The request body: `{"identifiers":[{"id":"…"},…]}`.
-    ///
-    /// Written rather than serialised through a type, because the whole
-    /// shape is one key and a list of one-key objects and a `serde` struct
-    /// for it would be three declarations saying the same thing. The ids
-    /// are escaped all the same — one arrives from a `GameStatic` a
-    /// gateway sent, which is not this client's to vouch for.
-    #[must_use]
-    pub fn body(ids: &[String]) -> String {
-        let list: Vec<String> = ids
-            .iter()
-            .map(|id| format!("{{\"id\":{}}}", escape(id)))
-            .collect();
-        format!("{{\"identifiers\":[{}]}}", list.join(","))
-    }
-
-    /// One JSON string literal, quotes included.
-    fn escape(text: &str) -> String {
-        serde_json::to_string(text).unwrap_or_else(|_| "\"\"".to_string())
-    }
 
     /// Scryfall's answer, as the entries the catalog would have sent.
     ///
-    /// `not_found` is not read: an id nobody has heard of is a printing
-    /// with no text, which is what the caller already had. What matters is
-    /// that the entry is filed under the id that was **asked** for — the
-    /// same rule the catalog's own query obeys, because `PrintRef` is
-    /// resolved through the print table and a different id files nowhere.
+    /// A list envelope (`{"data": […]}`), which both `/cards/search` and
+    /// `/cards/collection` answer with. Each entry keeps the printing's own
+    /// id; the deck builder files it under the id it asked about.
     #[must_use]
     pub fn parse(body: &str) -> Vec<CardTextEntry> {
         let Ok(list) = serde_json::from_str::<Collection>(body) else {
@@ -691,225 +576,247 @@ pub(crate) mod cache {
     }
 }
 
+/// Card text for tests elsewhere in the crate that are about what is
+/// *drawn*: real cards of the pool, with the German their printings carry.
+///
+/// Real because the table is keyed by card and a sentence is placed against
+/// the card's compiled Oracle, so a fixture filing invented words under an
+/// invented index would test a path no game takes.
+#[cfg(test)]
+pub(crate) mod fixture {
+    use baylee_client_core::card_face::{CardTextEntry, FaceText};
+    use baylee_core::ids::CardIndex;
+    use baylee_view::{PublicObject, RulesFace};
+
+    /// A pool card by its English name.
+    pub fn card(name: &str) -> CardIndex {
+        baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("{name} is in the pool"))
+    }
+
+    /// The German entry the gateway serves for a pool card with one face.
+    /// `printed` is the face's German rules text, or `None` where only the
+    /// name is translated.
+    pub fn german(english: &str, name: &str, printed: Option<&str>) -> CardTextEntry {
+        let def = baylee_cards::by_index(card(english)).expect("compiled");
+        let oracle = baylee_cards::oracle::face(def.index, 0).unwrap_or_default();
+        CardTextEntry {
+            scryfall_id: String::new(),
+            oracle_id: def.oracle_id.to_string(),
+            lang: "de".to_string(),
+            layout: "normal".to_string(),
+            faces: vec![FaceText {
+                name: name.to_string(),
+                english_name: english.to_string(),
+                type_line: baylee_cards::pool::type_line(&def.faces[0]),
+                oracle_text: printed.unwrap_or(oracle).to_string(),
+                mana_cost: def.faces[0].mana_cost.to_string(),
+                printed: printed.map(str::to_string),
+            }],
+        }
+    }
+
+    /// `object` showing `card`, as the host sends a permanent: the card is
+    /// both what it is and whose rules it has.
+    pub fn showing(mut object: PublicObject, card: CardIndex) -> PublicObject {
+        if let Some(shown) = object.card.as_mut() {
+            shown.index = card;
+        }
+        object.rules = Some(RulesFace { card, face: 0 });
+        object
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use baylee_client_core::card_face::FaceText;
-    use baylee_view::{Finish, PrintEntry, SeatIdentity};
+    use baylee_client_core::test_support::{ViewBuilder, printed};
 
-    fn statics(ids: &[&str]) -> GameStatic {
-        GameStatic {
-            decision_secs: None,
-            reconnect_secs: None,
-            view_version: baylee_view::VIEW_VERSION,
-            game_id: "test".to_string(),
-            your_seat: baylee_core::ids::PlayerId::new(0),
-            seats: vec![SeatIdentity {
-                player: baylee_core::ids::PlayerId::new(0),
-                display_name: "You".to_string(),
-                is_ai: false,
-                away: false,
-                team: None,
-            }],
-            prints: ids
-                .iter()
-                .map(|id| {
-                    Some(PrintEntry {
-                        scryfall_id: (*id).to_string(),
-                        lang: "en".to_string(),
-                        finish: Finish::Normal,
-                    })
-                })
-                .collect(),
-        }
+    /// The pool's Mind Stone and its oracle id.
+    fn mind_stone_card() -> (CardIndex, &'static str) {
+        let card = baylee_cards::decks::by_name("Mind Stone").expect("in the pool");
+        (
+            card,
+            baylee_cards::by_index(card).expect("compiled").oracle_id,
+        )
     }
 
-    /// A hole in the print table is a card this seat has not been shown.
-    /// Asking the catalog about it would be asking about a card the client is
-    /// not entitled to know is in the game.
-    #[test]
-    fn a_hole_in_the_print_table_is_never_asked_about() {
-        let mut statics = statics(&["aaa", "bbb"]);
-        statics.prints[0] = None;
-        assert_eq!(known_ids(&statics), vec!["bbb"]);
-        assert_eq!(known_count(&statics), 1);
-    }
-
-    /// And the entry that fills the hole still lands on the right `PrintRef`:
-    /// the index is the handle, so a hole may never shorten the table.
-    #[test]
-    fn a_filled_hole_files_against_its_own_index() {
-        let mut statics = statics(&["aaa", "bbb"]);
-        statics.prints[0] = None;
-        let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("bbb", "Forest")]);
-        assert!(texts.get(PrintRef::new(0), 0).is_none());
-        assert_eq!(
-            texts.get(PrintRef::new(1), 0).map(|t| t.name.clone()),
-            Some("Forest".to_string())
-        );
-    }
-
-    fn entry(id: &str, name: &str) -> CardTextEntry {
+    /// One served entry for a card, one face, named `name`.
+    fn entry(oracle_id: &str, name: &str) -> CardTextEntry {
         CardTextEntry {
-            oracle_id: String::new(),
-            layout: String::new(),
-            scryfall_id: id.to_string(),
-            lang: "en".to_string(),
+            oracle_id: oracle_id.to_string(),
+            layout: "normal".to_string(),
+            scryfall_id: String::new(),
+            lang: "de".to_string(),
             faces: vec![FaceText {
                 printed: None,
                 name: name.to_string(),
-                english_name: name.to_string(),
-                type_line: "Instant".to_string(),
-                oracle_text: "Draw a card.".to_string(),
-                mana_cost: "{U}".to_string(),
+                english_name: "Mind Stone".to_string(),
+                type_line: "Artefakt".to_string(),
+                oracle_text: String::new(),
+                mana_cost: "{2}".to_string(),
             }],
         }
     }
 
+    /// An entry is filed under the card its `oracle_id` names, whatever the
+    /// case it arrives in: a case mismatch would cost the card its text in
+    /// silence.
     #[test]
-    fn entries_are_filed_against_the_print_table() {
-        let statics = statics(&["aaa", "bbb"]);
+    fn an_entry_is_filed_under_the_card_its_oracle_id_names() {
+        let (card, oracle_id) = mind_stone_card();
         let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("bbb", "Brainstorm")]);
-
-        let found = texts.get(PrintRef::new(1), 0).expect("print 1 has text");
-        assert_eq!(found.name, "Brainstorm");
-        assert!(texts.get(PrintRef::new(0), 0).is_none());
+        assert_eq!(
+            texts.absorb(vec![entry(
+                &oracle_id.to_ascii_uppercase(),
+                "Gedankenstein"
+            )]),
+            1
+        );
+        assert_eq!(
+            texts.get(card, 0).map(|t| t.name),
+            Some("Gedankenstein".to_string())
+        );
     }
 
-    /// The catalog answers with whatever ids it could resolve; one for a game
-    /// this client is not in must not land in the table under a wrong index.
+    /// An entry naming no card of this pool files nowhere — and every entry a
+    /// cache wrote before text was keyed by card is one, because it named a
+    /// printing and left `oracle_id` empty. Nothing filed, nothing to redraw.
     #[test]
-    fn text_for_a_printing_this_game_does_not_have_is_dropped() {
-        let statics = statics(&["aaa"]);
+    fn an_entry_naming_no_card_of_the_pool_is_dropped() {
         let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("zzz", "Something Else")]);
+        let before = texts.generation();
+        let mut old = entry("", "Gedankenstein");
+        old.scryfall_id = "b50fd971-3dd1-4878-889f-81e38970408c".to_string();
+        assert_eq!(texts.absorb(vec![old, entry("not-a-card", "Nichts")]), 0);
         assert!(texts.is_empty());
+        assert_eq!(texts.generation(), before);
     }
 
-    /// Scryfall ids are lowercase hex, but a preset assembled by hand may not
-    /// be, and a case mismatch would silently cost every card its text.
-    #[test]
-    fn print_matching_ignores_case() {
-        let statics = statics(&["AAA-BBB"]);
-        let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("aaa-bbb", "Brainstorm")]);
-        assert_eq!(texts.len(), 1);
-    }
-
-    /// A card with one face must not answer for a second one — a renderer
-    /// asking for the back of a single-faced card gets nothing, not face 0.
+    /// A card with one face does not answer for a second one.
     #[test]
     fn a_missing_face_has_no_text() {
-        let statics = statics(&["aaa"]);
-        let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("aaa", "Brainstorm")]);
-        assert!(texts.get(PrintRef::new(0), 0).is_some());
-        assert!(texts.get(PrintRef::new(0), 1).is_none());
+        let (card, oracle_id) = mind_stone_card();
+        let texts = CardTexts::filed(entry(oracle_id, "Gedankenstein"));
+        assert!(texts.get(card, 0).is_some());
+        assert!(texts.get(card, 1).is_none());
     }
 
-    /// The order the owner asked for, seen from the client's side: the
-    /// gateway answers, and **what it left out** is what the second door is
-    /// asked about. Not the whole table, and not nothing.
+    /// The number a panel redraws on moves when a card's text is replaced,
+    /// which a count of cards does not: the cache's entry, then the
+    /// gateway's fresher one, is one card both times.
     #[test]
-    fn what_the_gateway_left_out_is_what_scryfall_is_asked_for() {
-        let statics = statics(&["aaa", "bbb", "ccc"]);
-        let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("bbb", "Brainstorm")]);
-        assert_eq!(texts.missing_ids(&statics), vec!["aaa", "ccc"]);
+    fn a_refiled_card_moves_the_generation_and_not_the_count() {
+        let (card, oracle_id) = mind_stone_card();
+        let mut texts = CardTexts::filed(entry(oracle_id, "Gedankenstein"));
+        let before = texts.generation();
+        texts.absorb(vec![entry(oracle_id, "Geiststein")]);
+        assert_eq!(texts.len(), 1);
+        assert_ne!(texts.generation(), before);
+        assert_eq!(
+            texts.get(card, 0).map(|t| t.name),
+            Some("Geiststein".to_string())
+        );
     }
 
-    /// A gateway that is not running answers nothing, and then every card at
-    /// the table goes to the fallback. This is the case the owner reported —
-    /// a sheet with no words in it — so it is the one pinned by name.
-    #[test]
-    fn a_gateway_that_answers_nothing_sends_the_whole_table_to_scryfall() {
-        let statics = statics(&["aaa", "bbb"]);
-        let texts = CardTexts::default();
-        assert_eq!(texts.missing_ids(&statics), vec!["aaa", "bbb"]);
-    }
-
-    /// And a hole in the print table is still never asked about — by either
-    /// door. The fallback would otherwise send an empty identifier and, worse,
-    /// ask about a card this seat is not entitled to know is in the game.
-    #[test]
-    fn the_fallback_never_asks_about_a_hole_either() {
-        let mut statics = statics(&["aaa", "bbb"]);
-        statics.prints[0] = None;
-        let texts = CardTexts::default();
-        assert_eq!(texts.missing_ids(&statics), vec!["bbb"]);
-    }
-
-    /// Text that arrived from either door is one cache, because the cache is
-    /// replaced wholesale: a session that filled two gaps out of sixty must
-    /// not come back from disk as two cards.
+    /// The cache is replaced wholesale, so it is written from the table: a
+    /// second answer must not leave the first answer's cards off the disk.
     #[test]
     fn the_cache_is_written_from_the_table_and_not_from_one_answer() {
-        let statics = statics(&["aaa", "bbb"]);
+        let (_, stone) = mind_stone_card();
+        let forest =
+            baylee_cards::by_index(baylee_cards::decks::by_name("Forest").expect("in the pool"))
+                .expect("compiled")
+                .oracle_id;
         let mut texts = CardTexts::default();
-        texts.absorb(&statics, vec![entry("aaa", "Brainstorm")]);
-        texts.absorb(&statics, vec![entry("bbb", "Forest")]);
+        texts.absorb(vec![entry(stone, "Gedankenstein")]);
+        texts.absorb(vec![entry(forest, "Wald")]);
         let mut names: Vec<String> = texts
             .filed_entries()
             .iter()
             .map(|e| e.faces[0].name.clone())
             .collect();
         names.sort();
-        assert_eq!(names, vec!["Brainstorm".to_string(), "Forest".to_string()]);
+        assert_eq!(names, vec!["Gedankenstein".to_string(), "Wald".to_string()]);
     }
 
-    /// Scryfall's limit is 75 identifiers, and the whole of a game's text
-    /// rides on nobody quietly exceeding it.
+    /// A served face is what a card draws, where one has arrived.
     #[test]
-    fn a_table_larger_than_one_collection_is_asked_for_in_batches() {
-        let ids: Vec<String> = (0..160).map(|n| format!("id-{n}")).collect();
-        let bodies = scryfall::bodies(&ids);
-        assert_eq!(bodies.len(), 3);
-        assert_eq!(bodies[0].matches("\"id\"").count(), scryfall::BATCH);
-        assert_eq!(
-            bodies[2].matches("\"id\"").count(),
-            160 - 2 * scryfall::BATCH
-        );
-        assert!(bodies[0].starts_with("{\"identifiers\":[{\"id\":\"id-0\"}"));
-        assert!(scryfall::bodies(&[]).is_empty());
+    fn a_served_face_is_drawn_over_the_english_one() {
+        let (card, oracle_id) = mind_stone_card();
+        let texts = CardTexts::filed(entry(oracle_id, "Gedankenstein"));
+        let face = texts.face(card, 0).expect("a face");
+        assert_eq!(face.name, "Gedankenstein");
+        assert_eq!(face.lang, "de");
     }
 
-    /// A request says `application/json` **once**.
-    ///
-    /// The header the whole fallback turned on: `ehttp::Headers::insert`
-    /// appends rather than replaces, and `Request::post` writes
-    /// `text/plain` first, so a request built by inserting beside it carried
-    /// both and Scryfall answered `400` to every one — a table with no words
-    /// on any card, through a road that logged every step as working. The
-    /// count is the assertion, not the presence.
+    /// And where none has — no gateway, English, a card nobody translated —
+    /// the card draws its own English, with words on it. Before the floor, an
+    /// offline duel drew every face blank.
     #[test]
-    fn a_collection_request_names_json_once_and_says_who_is_asking() {
-        let request = scryfall::request(scryfall::bodies(&["aaa".to_string()]).remove(0));
-        let kinds: Vec<&str> = request.headers.get_all("content-type").collect();
-        assert_eq!(kinds, vec!["application/json"]);
-        assert_eq!(request.method, ehttp::Method::POST);
+    fn a_face_with_nothing_served_is_the_card_s_english() {
+        let (card, _) = mind_stone_card();
+        let face = CardTexts::default().face(card, 0).expect("a face");
+        assert_eq!(face.name, "Mind Stone");
+        assert_eq!(face.english_name, "Mind Stone");
+        assert_eq!(face.lang, "en");
+        assert_eq!(face.mana_cost, "{2}");
+        assert!(face.type_line.contains("Artifact"), "{}", face.type_line);
         assert!(
-            request
-                .headers
-                .get("user-agent")
-                .is_some_and(|ua| ua.starts_with("baylee-client/")),
-            "Scryfall's guidelines ask every client to name itself"
+            face.oracle_text.contains("Draw a card."),
+            "{}",
+            face.oracle_text
         );
-        assert_eq!(request.body, b"{\"identifiers\":[{\"id\":\"aaa\"}]}");
+        assert!(CardTexts::default().face(card, 1).is_none());
     }
 
-    /// An id is escaped rather than pasted: it arrives in a `GameStatic` a
-    /// gateway sent, which is not this client's to vouch for.
+    /// A request that failed gives its cards back, so the next game asks
+    /// about them; one that was answered keeps even the cards it left out.
     #[test]
-    fn an_id_is_escaped_into_the_request() {
-        let body = scryfall::bodies(&["a\"b".to_string()]).remove(0);
-        assert_eq!(body, "{\"identifiers\":[{\"id\":\"a\\\"b\"}]}");
+    fn a_failed_request_gives_its_cards_back() {
+        let (card, oracle_id) = mind_stone_card();
+        let other = CardIndex::new(u32::MAX - 1);
+        let mut texts = CardTexts::default();
+        texts.asked.extend([card, other]);
+        assert!(!texts.receive(Reply::Failed, &[card]));
+        assert!(texts.down);
+        assert!(!texts.asked.contains(&card));
+        assert!(texts.asked.contains(&other), "only the request's own cards");
+
+        texts.asked.insert(card);
+        let answered = Reply::Answered(vec![entry(oracle_id, "Gedankenstein")]);
+        assert!(texts.receive(answered, &[card, other]));
+        assert!(texts.asked.contains(&card) && texts.asked.contains(&other));
     }
 
-    /// The whole point of the fallback: the printed sentence comes back and
-    /// is filed under the id that was **asked** for, which is the id the
-    /// print table names — anything else files nowhere.
+    /// What is asked is a set: a card the view names twice is asked about
+    /// once, a card already asked about is not asked again, and one request
+    /// names no more than the gateway reads.
+    #[test]
+    fn a_card_is_asked_about_once() {
+        let view = ViewBuilder::new(2)
+            .with_hand(vec![("Seven", 1, 7), ("Nine", 1, 9)])
+            .with_battlefield(
+                0,
+                [printed(20, 0, "Seven again", 7), printed(21, 1, "Three", 3)],
+            )
+            .build();
+        let asked = HashSet::from_iter([CardIndex::new(9)]);
+        assert_eq!(
+            unasked(&view, &asked),
+            vec![CardIndex::new(3), CardIndex::new(7)]
+        );
+        let crowd = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                (0..BATCH as u32 + 3).map(|n| printed(n, 0, "One of many", n as u16)),
+            )
+            .build();
+        assert_eq!(unasked(&crowd, &HashSet::default()).len(), BATCH);
+    }
+
+    /// The deck builder's door: the printed sentence comes back under the
+    /// printing's own id, which is the id the deck builder asked about.
     #[test]
     fn scryfall_answers_the_printed_text_of_one_face() {
         let entries = scryfall::parse(
@@ -928,8 +835,8 @@ mod tests {
 
     /// A translated printing writes its rules text in `printed_text` and
     /// keeps the English in `oracle_text`, and the player reads the first.
-    /// This is the same field-by-field fallback `Catalog::text` performs, and
-    /// the two must not disagree about which one a player sees.
+    /// This is the same field-by-field choice `Catalog::text` makes, and the
+    /// two must not disagree about which one a player sees.
     #[test]
     fn a_translated_printing_is_read_the_way_the_catalog_reads_it() {
         let entries = scryfall::parse(
@@ -995,22 +902,11 @@ mod tests {
 
     /// Mind Stone, with one German printing's text filed for it.
     fn mind_stone(printed: &str) -> (CardIndex, CardTexts) {
-        let card = baylee_cards::decks::by_name("Mind Stone").expect("in the pool");
-        let entry = CardTextEntry {
-            oracle_id: String::new(),
-            layout: String::new(),
-            scryfall_id: "b50fd971-3dd1-4878-889f-81e38970408c".to_string(),
-            lang: "de".to_string(),
-            faces: vec![FaceText {
-                printed: None,
-                name: "Gedankenstein".to_string(),
-                english_name: "Mind Stone".to_string(),
-                type_line: "Artifact".to_string(),
-                oracle_text: printed.to_string(),
-                mana_cost: "{2}".to_string(),
-            }],
-        };
-        (card, CardTexts::filed(PrintRef::new(0), entry))
+        let (card, oracle_id) = mind_stone_card();
+        let mut served = entry(oracle_id, "Gedankenstein");
+        served.faces[0].oracle_text = printed.to_string();
+        served.faces[0].printed = Some(printed.to_string());
+        (card, CardTexts::filed(served))
     }
 
     /// The words of a sentence, blocks joined.
@@ -1044,7 +940,7 @@ mod tests {
     fn a_sentence_is_the_player_s_language_when_it_pairs() {
         let (card, texts) = mind_stone(FIC);
         assert_eq!(
-            words(sentence(Some(&texts), card, Some(PrintRef::new(0)), DRAW)).as_deref(),
+            words(sentence(Some(&texts), card, DRAW)).as_deref(),
             Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.")
         );
     }
@@ -1056,29 +952,31 @@ mod tests {
     fn a_sentence_falls_to_the_english_oracle() {
         let (card, glued) = mind_stone(C15);
         assert_eq!(
-            words(sentence(Some(&glued), card, Some(PrintRef::new(0)), DRAW)).as_deref(),
+            words(sentence(Some(&glued), card, DRAW)).as_deref(),
             Some(ENGLISH)
         );
         let empty = CardTexts::default();
         assert_eq!(
-            words(sentence(Some(&empty), card, Some(PrintRef::new(0)), DRAW)).as_deref(),
+            words(sentence(Some(&empty), card, DRAW)).as_deref(),
             Some(ENGLISH)
         );
-        assert_eq!(
-            words(sentence(None, card, Some(PrintRef::new(0)), DRAW)).as_deref(),
-            Some(ENGLISH)
-        );
+        assert_eq!(words(sentence(None, card, DRAW)).as_deref(), Some(ENGLISH));
     }
 
-    /// A copy holds no printing of the card its abilities are printed on,
-    /// so its row is that card's English even where the seat holds a German
-    /// text — for the copy's *own* printing, which is another card's.
+    /// A sentence is looked up under the card it is printed on, and under no
+    /// other: German filed for Mind Stone says nothing about Forest's line.
     #[test]
-    fn a_sentence_with_no_printing_of_its_card_is_english() {
-        let (card, texts) = mind_stone(FIC);
+    fn a_sentence_is_looked_up_under_its_own_card() {
+        let (_, texts) = mind_stone(FIC);
+        let forest = baylee_cards::decks::by_name("Forest").expect("in the pool");
+        let first = StackText {
+            face: 0,
+            line: 0,
+            of: 1,
+        };
         assert_eq!(
-            words(sentence(Some(&texts), card, None, DRAW)).as_deref(),
-            Some(ENGLISH)
+            words(sentence(Some(&texts), forest, first)),
+            words(sentence(None, forest, first))
         );
     }
 
@@ -1088,13 +986,7 @@ mod tests {
     fn a_line_nobody_prints_has_no_words() {
         let (card, texts) = mind_stone(FIC);
         let past = StackText { line: 2, ..DRAW };
-        assert_eq!(
-            sentence(Some(&texts), card, Some(PrintRef::new(0)), past),
-            None
-        );
-        assert_eq!(
-            sentence(None, card, None, StackText { face: 1, ..DRAW }),
-            None
-        );
+        assert_eq!(sentence(Some(&texts), card, past), None);
+        assert_eq!(sentence(None, card, StackText { face: 1, ..DRAW }), None);
     }
 }

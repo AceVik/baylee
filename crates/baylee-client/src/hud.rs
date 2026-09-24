@@ -1145,9 +1145,10 @@ pub struct HudRevision {
     /// Whether cards are drawing their constructed face. Held on a key, so
     /// it changes between snapshots and has to be part of the redraw gate.
     faces: bool,
-    /// How many printings have text. Text arrives over the network mid-game,
-    /// and a face built before it lands says a good deal less.
-    texts: usize,
+    /// Which filing of the card-text table this was drawn at. Text arrives
+    /// over the network mid-game, and a face built before it lands says a
+    /// good deal less.
+    texts: u64,
     /// The last refusal, so that one appearing rebuilds the bar.
     ///
     /// Separate from `prompt` because it no longer replaces it: a refusal

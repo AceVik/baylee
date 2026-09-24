@@ -220,7 +220,7 @@ pub(super) fn says(
     let seat = statics.seat_name(item.controller).to_string();
     match item.kind {
         baylee_client_core::board::StackKind::Ability { source, .. } => {
-            let blocks = super::stack::stack_sentence(item, view, faces)?;
+            let blocks = super::stack::stack_sentence(item, faces)?;
             let kind = view.object(source).map_or_else(
                 || Phrase::StackAbilityBare.text(lang).to_string(),
                 |o| Phrase::StackAbility.fill(lang, &[&crate::face::name_of(o, view, faces.texts)]),
@@ -235,8 +235,14 @@ pub(super) fn says(
             })
         }
         baylee_client_core::board::StackKind::Spell => {
-            let card = view.object(id)?.card?;
-            let text = faces.texts.get(card.print, card.face)?;
+            // The card the spell's text is printed on: a copy of a spell is
+            // the copied card's words, and the English floor stands under it.
+            let object = view.object(id)?;
+            let (card, face) = object
+                .rules
+                .map(|r| (r.card, r.face))
+                .or_else(|| object.card.map(|c| (c.index, c.face)))?;
+            let text = faces.texts.face(card, face)?;
             // Split by paragraph *here* and hand each one to `split_blocks`
             // on its own, which is what keeps the boundary the flat list
             // loses. `split_blocks` over one paragraph is exactly the
@@ -726,27 +732,17 @@ mod tests {
 
     // ---- what the slip says, and when it says nothing --------------------
 
-    /// A printing with one sentence on it, filed where the fixtures put
-    /// theirs.
+    /// Ondu Cleric's German zen printing, read from the catalog 2026-09-24:
+    /// one sentence.
+    const ONDU_CLERIC: &str = "Immer wenn der Ondu-Kleriker oder ein anderer Verbündeter unter deiner Kontrolle ins Spiel kommt, kannst du soviele Lebenspunkte dazuerhalten, wie du Verbündete kontrollierst.";
+
+    /// Ondu Cleric's text, filed.
     fn one_sentence() -> crate::cardtext::CardTexts {
-        use baylee_client_core::card_face::{CardTextEntry, FaceText};
-        crate::cardtext::CardTexts::filed(
-            baylee_core::ids::PrintRef::new(7),
-            CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "abc".to_string(),
-                lang: "de".to_string(),
-                faces: vec![FaceText {
-                    printed: None,
-                    name: "Ondu-Kleriker".to_string(),
-                    english_name: "Ondu Cleric".to_string(),
-                    type_line: "Kreatur".to_string(),
-                    oracle_text: "Ziehe eine Karte.".to_string(),
-                    mana_cost: String::new(),
-                }],
-            },
-        )
+        crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            "Ondu Cleric",
+            "Ondu-Kleriker",
+            Some(ONDU_CLERIC),
+        ))
     }
 
     /// A table with one permanent, one ability of that permanent on the
@@ -754,15 +750,13 @@ mod tests {
     fn a_table() -> (baylee_client_core::BoardModel, PlayerView) {
         use baylee_client_core::board::Openings;
         use baylee_client_core::test_support::{ViewBuilder, printed, token};
+        let card = crate::cardtext::fixture::card("Ondu Cleric");
         let mut ability = token(30, 0, "Ondu Cleric", 0, 0);
         ability.card = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(7, 0),
             ability: None,
-            rules: Some(baylee_view::RulesFace {
-                card: baylee_core::ids::CardIndex::new(7),
-                face: 0,
-            }),
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
             text: Some(baylee_view::StackText {
                 face: 0,
                 line: 0,
@@ -770,7 +764,13 @@ mod tests {
             }),
         });
         let view = ViewBuilder::new(2)
-            .with_battlefield(0, vec![printed(7, 0, "Ondu Cleric", 7)])
+            .with_battlefield(
+                0,
+                vec![crate::cardtext::fixture::showing(
+                    printed(7, 0, "Ondu Cleric", 7),
+                    card,
+                )],
+            )
             .with_stack(vec![ability])
             .with_hand(vec![("Ondu Cleric", 7, 50)])
             .build();
@@ -827,7 +827,7 @@ mod tests {
                 .flatten()
                 .map(|piece| piece.text.as_str())
                 .collect::<String>(),
-            "Ziehe eine Karte.",
+            ONDU_CLERIC,
             "the player's own printing, in the player's own language"
         );
     }
@@ -842,32 +842,28 @@ mod tests {
     #[test]
     fn a_walker_on_the_stack_keeps_its_abilities_apart() {
         use baylee_client_core::board::Openings;
-        use baylee_client_core::card_face::{CardTextEntry, FaceText};
         use baylee_client_core::test_support::{ViewBuilder, printed};
-        let texts = crate::cardtext::CardTexts::filed(
-            baylee_core::ids::PrintRef::new(9),
-            CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "def".to_string(),
-                lang: "de".to_string(),
-                faces: vec![FaceText {
-                    printed: None,
-                    name: "Aminatou, die Schicksalswenderin".to_string(),
-                    english_name: "Aminatou, the Fateshifter".to_string(),
-                    type_line: "Legendärer Planeswalker — Aminatou".to_string(),
-                    oracle_text: "+1: Ziehe eine Karte. Lege dann eine Karte \
-                        aus deiner Hand oben auf deine Bibliothek.\n\
-                        −1: Schicke eine bleibende Karte, die du kontrollierst, \
-                        ins Exil. Bringe sie dann unter der Kontrolle ihres \
-                        Besitzers ins Spiel zurück.\n\
-                        −6: Wähle bis zu einen Spieler."
-                        .to_string(),
-                    mana_cost: String::new(),
-                }],
-            },
+        // The c18 printing, read from the catalog 2026-09-24.
+        let texts = crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            "Aminatou, the Fateshifter",
+            "Aminatou die Schicksalswandlerin",
+            Some(
+                "+1: Ziehe eine Karte und lege dann eine Karte aus deiner Hand oben \
+                auf deine Bibliothek.\n\
+                −1: Schicke eine andere bleibende Karte deiner Wahl, die du \
+                besitzt, ins Exil und bringe sie dann unter deiner Kontrolle \
+                ins Spiel zurück.\n\
+                −6: Bestimme Links oder Rechts. Jeder Spieler übernimmt die \
+                Kontrolle über alle bleibenden Nichtland-Karten, die vom \
+                nächsten Spieler in der bestimmten Richtung kontrolliert \
+                werden, außer Aminatou der Schicksalswandlerin.\n\
+                Aminatou die Schicksalswandlerin kann dein Kommandeur sein.",
+            ),
+        ));
+        let mut spell = crate::cardtext::fixture::showing(
+            printed(31, 0, "Aminatou, the Fateshifter", 9),
+            crate::cardtext::fixture::card("Aminatou, the Fateshifter"),
         );
-        let mut spell = printed(31, 0, "Aminatou, the Fateshifter", 9);
         spell.stack_item = Some(baylee_view::StackItem::Spell);
         let view = ViewBuilder::new(2).with_stack(vec![spell]).build();
         let board = baylee_client_core::BoardModel::from_view(
@@ -890,7 +886,11 @@ mod tests {
         )
         .expect("a spell on the stack, with its printing filed");
         let runs = super::runs(&slip);
-        assert_eq!(runs.len(), 3, "three loyalty abilities, three paragraphs");
+        assert_eq!(
+            runs.len(),
+            4,
+            "three loyalty abilities and the commander line, four paragraphs"
+        );
         let said: Vec<String> = runs
             .iter()
             .map(|para| para.iter().map(|piece| piece.text.as_str()).collect())

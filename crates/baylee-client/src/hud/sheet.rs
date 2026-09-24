@@ -520,8 +520,9 @@ pub struct SheetRevision {
     /// row *says* is the card text, which arrives over the network after the
     /// sheet can already be opened. Nothing else in the fingerprint moves
     /// when it lands, so a sheet opened first would keep showing the fallback
-    /// label for as long as it stood.
-    texts: usize,
+    /// label for as long as it stood. The table's filing, not its size: a
+    /// cached entry replaced by a fresher one changes words and not count.
+    texts: u64,
 }
 
 /// Which of the two models a sheet is drawing.
@@ -837,7 +838,7 @@ pub fn sync_ability_sheet(
         && revision.armed == open.armed
         && revision.lang == Some(lang)
         && revision.fingerprint == open.fingerprint
-        && revision.texts == faces.len()
+        && revision.texts == faces.generation()
     {
         return;
     }
@@ -865,7 +866,7 @@ pub fn sync_ability_sheet(
     revision.armed = open.armed;
     revision.lang = Some(lang);
     revision.fingerprint.clone_from(&open.fingerprint);
-    revision.texts = faces.len();
+    revision.texts = faces.generation();
 
     for entity in &existing {
         commands.entity(entity).despawn();

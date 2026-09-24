@@ -905,24 +905,39 @@ ways), and none is refused. The armed shelf draws the same head
 (`abilitysheet::loyalty_cut`), because it has no cost to license any other
 cut with.
 
-**The text itself has two doors, and the gateway is the first.**
-`crates/baylee-client/src/cardtext.rs` asks `GET /catalog/text?lang=…&ids=…`
-once per game, for every printing the seat has been shown — the catalog knows
-the player's language and falls back to English printing by printing. What it
-did *not* answer is then asked of **Scryfall**, `POST
-/cards/collection` in batches of 75, and only that: the gap, computed from the
-table rather than from the answer, because the catalog resolves an id to
-another printing of the same card and a cached entry from a previous session
-fills a printing this request never mentioned. A gateway with no ingest, a
-gateway that is not running, a printing the catalog has never seen — all three
-used to be a sheet with no words in it, and are now one extra request.
+**The text is asked for by card, and the English Oracle is under all of it**
+(#212). `crates/baylee-client/src/cardtext.rs` asks `GET
+/catalog/text?lang=…&oracle_ids=…` about the cards the seat's view names
+(`PlayerView::cards`: the hand, each public object's card and the card whose
+rules it has, each stack ability's card), each card once per language, one
+request out at a time, at most 500 ids in it. The key is the card and not the
+printing because text belongs to the card (`docs/protocol.md` §"Card text"):
+the gateway picks one printing per card and language
+(`baylee_cardtext::pick`), and a copy's abilities are printed on the copied
+card, which the copy's own printing says nothing about. `PlayerView::cards`
+walks the same objects `prints` does, so a seat asks about no card it has not
+been shown: a face-down permanent names none, and another seat's hand is a
+count. Under English nothing is asked at all, because the compiled Oracle is
+the English. A gateway that does not answer, or answers `400` because it
+predates `oracle_ids`, is not asked again until the language or the game
+changes.
 
-It is not a second translator and is not meant to be: Scryfall is asked by
-**printing id**, so what comes back is that piece of cardboard's own text, and
-a deck names English printings. The gateway is where a language is chosen and
-this is where a hole is filled. Both answers land in one cache, keyed by the
-language asked for, written from the whole table so a session that filled two
-gaps out of sixty does not come back from disk as two cards.
+A face or a row never waits on that request. `CardTexts::face` falls to
+`cardtext::english` (the registry's name and cost, `pool::type_line`,
+`oracle::face`), and `cardtext::sentence` draws the served `printed` line
+where `baylee_cardtext::align` pairs it with the Oracle (placed once, when the
+entry is filed) and the Oracle's own line where it does not. An offline duel
+reads English on every card, and a translation that joins two lines costs
+that card its German and not its words — "Fallback ist immer englisch".
+
+The Scryfall door this replaced (`POST /cards/collection`, by printing id) is
+gone: a deck names English printings, so all it could fetch was the English
+the Oracle now compiles in. A gateway with no translated catalog leaves a
+non-English client on English. The cache is one document per language, keyed
+by card and written from the whole table; an entry written before the rekey
+names a printing and no `oracle_id`, and is dropped when read. Panels redraw
+on `CardTexts::generation`, which moves on every filing — a count of cards
+does not, since a fresher entry replaces a cached one.
 
 **The host does the lookup, and the face is the part that is easy to get
 wrong.** `gamehost::view::stack_item` fills `StackText` in, which is why a

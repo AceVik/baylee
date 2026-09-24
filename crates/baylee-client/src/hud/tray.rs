@@ -575,8 +575,9 @@ pub struct TrayRevision {
 
     /// The text-face latch, which turns every thumbnail over at once.
     faces: bool,
-    /// How many card texts have been fetched.
-    texts: usize,
+    /// Which filing of the card-text table this was drawn at
+    /// ([`CardTexts::generation`](crate::cardtext::CardTexts::generation)).
+    texts: u64,
     /// The window, rounded to whole pixels — a band a sheet is re-fitted to.
     window: (i32, i32),
     /// Set by whatever has just finished changing the sheet's **size**.
@@ -705,7 +706,7 @@ pub fn sync_tray(
         && revision.aim == aim
         && revision.arrangement.as_ref() == arrangement
         && revision.faces == faces_always
-        && revision.texts == texts.len()
+        && revision.texts == texts.generation()
         && revision.window == canvas
         && showing == browser.sheet.open()
         && !revision.stale
@@ -732,7 +733,7 @@ pub fn sync_tray(
     revision.aim = aim;
     revision.arrangement = arrangement.cloned();
     revision.faces = faces_always;
-    revision.texts = texts.len();
+    revision.texts = texts.generation();
     revision.window = canvas;
 
     // Sent away rather than despawned, which is `sync_drawer`'s word for the

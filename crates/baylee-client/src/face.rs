@@ -116,10 +116,7 @@ pub fn of_object(
         .and_then(|c| baylee_cards::by_index(c.index).map(|def| (def, c)))
         .and_then(|(def, c)| def.faces.get(c.face as usize));
     let cost = printed.map(|f| &f.mana_cost);
-    let text = view
-        .and_then(|view| printing_of(object, view))
-        .or_else(|| object.card.map(|c| (c.print, c.face)))
-        .and_then(|(print, face)| texts.get(print, face));
+    let text = card_of(object, view).and_then(|(card, face)| texts.face(card, face));
     CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref())
 }
 
@@ -157,7 +154,7 @@ pub fn name_of(
     view: &baylee_view::PlayerView,
     texts: &crate::cardtext::CardTexts,
 ) -> String {
-    let text = printing_of(object, view).and_then(|(print, face)| texts.get(print, face));
+    let text = card_of(object, Some(view)).and_then(|(card, face)| texts.face(card, face));
     baylee_client_core::card_face::shown_name(&object.name, text.as_ref()).to_string()
 }
 
@@ -187,16 +184,22 @@ pub fn face_name(
         .hand
         .iter()
         .find(|c| c.id == object)
-        .map(|c| c.card)
-        .or_else(|| view.object(object).and_then(|o| o.card))?;
+        .map(|c| c.card.index)
+        .or_else(|| {
+            let object = view.object(object)?;
+            object
+                .rules
+                .map(|r| r.card)
+                .or_else(|| object.card.map(|c| c.index))
+        })?;
     let served = u8::try_from(face)
         .ok()
         .zip(texts)
-        .and_then(|(face, texts)| texts.get(card.print, face))
+        .and_then(|(face, texts)| texts.get(card, face))
         .map(|text| text.name);
     served.or_else(|| {
         Some(
-            baylee_cards::by_index(card.index)?
+            baylee_cards::by_index(card)?
                 .faces
                 .get(face)?
                 .name
@@ -205,19 +208,40 @@ pub fn face_name(
     })
 }
 
-/// Which printing's text names this object, and which face of it.
-fn printing_of(
+/// Which card's text names this object, and which face of it.
+///
+/// The card its abilities are printed on ([`baylee_view::PublicObject::rules`])
+/// before the card it is. The two differ only for a copy, and a copy is
+/// drawn with the copied card's name, so the copied card's text is the one
+/// that describes it — the clone guard in `CardFace::build` compares exactly
+/// that. An ability on the stack has no card of its own: its text is the
+/// card its sentence is printed on (its own `rules`), else its source's.
+fn card_of(
     object: &baylee_view::PublicObject,
-    view: &baylee_view::PlayerView,
-) -> Option<(baylee_core::ids::PrintRef, u8)> {
-    if let Some(card) = object.card {
-        return Some((card.print, card.face));
+    view: Option<&baylee_view::PlayerView>,
+) -> Option<(baylee_core::ids::CardIndex, u8)> {
+    if let Some(rules) = object.rules {
+        return Some((rules.card, rules.face));
     }
-    let Some(baylee_view::StackItem::Ability { source, text, .. }) = object.stack_item else {
+    if let Some(card) = object.card {
+        return Some((card.index, card.face));
+    }
+    let Some(baylee_view::StackItem::Ability {
+        source,
+        text,
+        rules,
+        ..
+    }) = object.stack_item
+    else {
         return None;
     };
-    let card = view.object(source)?.card?;
-    Some((card.print, text.map_or(card.face, |t| t.face)))
+    let (card, face) = if let Some(rules) = rules {
+        (rules.card, rules.face)
+    } else {
+        let card = view?.object(source)?.card?;
+        (card.index, card.face)
+    };
+    Some((card, text.map_or(face, |t| t.face)))
 }
 
 /// The face for a card in hand.
@@ -244,7 +268,7 @@ pub fn of_hand(card: &baylee_view::HandObject, texts: &crate::cardtext::CardText
         loyalty: face_def.and_then(|f| f.loyalty),
         damage: 0,
     };
-    let text = texts.get(card.card.print, card.card.face);
+    let text = texts.face(card.card.index, card.card.face);
     CardFace::build(
         &chars,
         face_def.map(|f| &f.mana_cost),
@@ -740,26 +764,11 @@ mod tests {
         assert!(wants_face(&quiet, &plain, &textures, Some(lost)));
     }
 
-    /// A face's helper for the two tests below: one printing, translated.
+    /// A face's helper for the tests below: one card, its name translated.
     fn german(english: &str, translated: &str) -> crate::cardtext::CardTexts {
-        use baylee_client_core::card_face::{CardTextEntry, FaceText};
-        crate::cardtext::CardTexts::filed(
-            baylee_core::ids::PrintRef::new(7),
-            CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "abc".to_string(),
-                lang: "de".to_string(),
-                faces: vec![FaceText {
-                    printed: None,
-                    name: translated.to_string(),
-                    english_name: english.to_string(),
-                    type_line: "Land".to_string(),
-                    oracle_text: String::new(),
-                    mana_cost: String::new(),
-                }],
-            },
-        )
+        crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            english, translated, None,
+        ))
     }
 
     /// An ability has no card of its own, so its name has to be looked up
@@ -772,15 +781,13 @@ mod tests {
         use baylee_client_core::test_support::{ViewBuilder, printed, token};
 
         let texts = german("Flooded Strand", "Gefluteter Strand");
+        let card = crate::cardtext::fixture::card("Flooded Strand");
         let mut ability = token(30, 0, "Flooded Strand", 0, 0);
         ability.card = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: baylee_core::ids::ObjectId::new(7, 0),
             ability: None,
-            rules: Some(baylee_view::RulesFace {
-                card: baylee_core::ids::CardIndex::new(7),
-                face: 0,
-            }),
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
             text: Some(baylee_view::StackText {
                 face: 0,
                 line: 0,
@@ -788,7 +795,13 @@ mod tests {
             }),
         });
         let view = ViewBuilder::new(2)
-            .with_battlefield(0, vec![printed(7, 0, "Flooded Strand", 7)])
+            .with_battlefield(
+                0,
+                vec![crate::cardtext::fixture::showing(
+                    printed(7, 0, "Flooded Strand", 7),
+                    card,
+                )],
+            )
             .with_stack(vec![ability.clone()])
             .build();
 
@@ -819,15 +832,13 @@ mod tests {
         use baylee_client_core::test_support::{ViewBuilder, printed, token};
 
         let texts = german("Marsh Flats", "Brackmarsch");
+        let card = crate::cardtext::fixture::card("Marsh Flats");
         let mut ability = token(30, 0, "Marsh Flats", 0, 0);
         ability.card = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: baylee_core::ids::ObjectId::new(7, 0),
             ability: None,
-            rules: Some(baylee_view::RulesFace {
-                card: baylee_core::ids::CardIndex::new(7),
-                face: 0,
-            }),
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
             text: Some(baylee_view::StackText {
                 face: 0,
                 line: 0,
@@ -835,7 +846,13 @@ mod tests {
             }),
         });
         let view = ViewBuilder::new(2)
-            .with_battlefield(0, vec![printed(7, 0, "Marsh Flats", 7)])
+            .with_battlefield(
+                0,
+                vec![crate::cardtext::fixture::showing(
+                    printed(7, 0, "Marsh Flats", 7),
+                    card,
+                )],
+            )
             .with_stack(vec![ability.clone()])
             .build();
 

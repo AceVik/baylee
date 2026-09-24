@@ -1466,25 +1466,58 @@ impl PlayerView {
     /// follow what the view actually says, or a seat is handed a card
     /// identity it has no printing for and draws a hole.
     pub fn prints(&self) -> impl Iterator<Item = PrintRef> + '_ {
+        self.identities().map(|card| card.print)
+    }
+
+    /// Every card this view names, as the card rather than a printing of it.
+    ///
+    /// What card text is asked for by. The walk is [`Self::prints`]' own —
+    /// one walk, so a seat is never asked about text it could not see the
+    /// art of — plus the card each object's abilities are printed on
+    /// ([`PublicObject::rules`], and a stack ability's `rules`). Those differ
+    /// only for a copy, which names two cards: the one it is and the one
+    /// whose text it has. The `rules` fields carry the entitlement of the
+    /// objects they sit on, so adding them hands the seat nothing it was not
+    /// already shown.
+    ///
+    /// A card may come up more than once; a caller collects into a set.
+    pub fn cards(&self) -> impl Iterator<Item = CardIndex> + '_ {
+        let printed_on = self.public_objects().flat_map(|object| {
+            let ability = match object.stack_item {
+                Some(StackItem::Ability { rules, .. }) => rules,
+                _ => None,
+            };
+            object.rules.into_iter().chain(ability).map(|r| r.card)
+        });
+        self.identities().map(|card| card.index).chain(printed_on)
+    }
+
+    /// Every card identity this view shows, zone by zone: the walk
+    /// [`Self::prints`] and [`Self::cards`] share.
+    fn identities(&self) -> impl Iterator<Item = CardIdentity> + '_ {
         let commanders = self
             .seats
             .iter()
             .flat_map(|s| s.commanders.iter())
-            .filter_map(|c| c.card.map(|k| k.print));
-        let public = self
-            .battlefield
+            .filter_map(|c| c.card);
+        let public = self.public_objects().filter_map(|o| o.card);
+        self.hand
+            .iter()
+            .map(|o| o.card)
+            .chain(public)
+            .chain(commanders)
+    }
+
+    /// Every object in a zone this seat can see into, hand excluded (a hand
+    /// card is a [`HandObject`]).
+    fn public_objects(&self) -> impl Iterator<Item = &PublicObject> + '_ {
+        self.battlefield
             .iter()
             .chain(&self.stack)
             .chain(self.graveyards.iter().flatten())
             .chain(self.exile.iter().flatten())
             .chain(self.command.iter().flatten())
             .chain(&self.looking_at)
-            .filter_map(|o| o.card.map(|c| c.print));
-        self.hand
-            .iter()
-            .map(|o| o.card.print)
-            .chain(public)
-            .chain(commanders)
     }
 
     /// Every permanent controlled by a seat, in battlefield order.
@@ -1614,6 +1647,40 @@ mod tests {
             owed: None,
             sorcery_lock: None,
         }
+    }
+
+    /// Text is asked for by card, so a copy names the card it is *and* the
+    /// card its abilities are printed on, a stack ability names the card it
+    /// was printed on, and an object showing no card — face down, here —
+    /// names none. The walk is `prints`' own, which the last line holds: one
+    /// printing shown, and nothing asked about the face-down one.
+    #[test]
+    fn a_copy_names_two_cards_and_a_face_down_permanent_none() {
+        let rules = |card: u32| RulesFace {
+            card: CardIndex::new(card),
+            face: 0,
+        };
+        let mut copy = obj(1, 0);
+        copy.card = Some(CardIdentity {
+            index: CardIndex::new(10),
+            print: PrintRef::new(0),
+            face: 0,
+        });
+        copy.rules = Some(rules(20));
+        let mut ability = obj(3, 1);
+        ability.stack_item = Some(StackItem::Ability {
+            source: ObjectId::new(1, 0),
+            ability: None,
+            text: None,
+            rules: Some(rules(30)),
+        });
+        let mut v = view(2);
+        v.battlefield = vec![copy, obj(2, 1)];
+        v.stack = vec![ability];
+
+        let cards: std::collections::BTreeSet<u32> = v.cards().map(CardIndex::get).collect();
+        assert_eq!(cards, [10, 20, 30].into());
+        assert_eq!(v.prints().count(), 1);
     }
 
     #[test]
