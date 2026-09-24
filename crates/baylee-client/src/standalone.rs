@@ -88,6 +88,13 @@ pub fn run() {
             meta_check: bevy::asset::AssetMetaCheck::Never,
             ..default()
         });
+    // Card art over `http` and `https` (#250): bevy's own reader caches in
+    // the working directory, and a desktop app started from Finder runs in
+    // `/`. Before `AssetPlugin`, which builds its sources from what has been
+    // registered by then. A browser build keeps bevy's reader.
+    #[cfg(not(target_arch = "wasm32"))]
+    let plugins = plugins
+        .add_before::<bevy::asset::AssetPlugin>(crate::artreader::ArtReaderPlugin::default());
     // What this build refuses to let a driver do. Empty everywhere but on a
     // phone, where one feature bit keeps bevy off a compute shader PowerVR's
     // compiler aborts on; `crate::gpu::disabled_features` has the whole

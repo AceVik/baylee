@@ -1584,18 +1584,51 @@ a `SeatTicket` — `dev-table`, or a browser handed `?game=…&token=…` — ne
 and keeps the CDN. That is the correct fallback rather than a gap: the pictures
 still arrive, they are simply not the gateway's copies.
 
-**Both schemes have to be built in.** Bevy registers `http` and `https` as two
-asset sources behind two separate cargo features, and a scheme with no source
-does not fail the way a missing file does: the request never leaves, the load
-never settles, and `textures::Failure` never hears about it. The table draws
-constructed faces on grey slabs and looks like a slow network. The workspace
-therefore enables **both**, and `textures`'
-`a_card_picture_can_arrive_over_either_scheme` is what stops the pair being
-trimmed to one — because a development gateway is `http://127.0.0.1:28766`, so
-`https` alone means every picture disappears the moment a client signs in and
-adopts the mirror, while an unsigned-in client on the CDN goes on looking
-perfectly healthy. That asymmetry is what made it look like a card bug for a
-week.
+**Both schemes have to be registered.** A scheme with no asset source does not
+fail the way a missing file does: the request never leaves, the load never
+settles, and `textures::Failure` never hears about it. The table draws
+constructed faces on grey slabs and looks like a slow network. A native client
+registers both through its own reader (below); a browser gets them from bevy's
+`http` and `https` cargo features, which only the wasm build turns on.
+`textures`' `a_card_picture_can_arrive_over_either_scheme` is what stops the
+pair being trimmed to one — because a development gateway is
+`http://127.0.0.1:28766`, so `https` alone means every picture disappears the
+moment a client signs in and adopts the mirror, while an unsigned-in client on
+the CDN goes on looking perfectly healthy. That asymmetry is what made it look
+like a card bug for a week.
+
+**A native client fetches art through its own reader (#250, `artreader.rs`).**
+Bevy's `web_asset_cache` kept its cache in `.web-asset-cache` under the
+*working directory*, and `save_to_cache(..).await?` failed the load after a
+download that had succeeded (bevy_asset 0.19.1, `io/web.rs`). A macOS app
+started from Finder or the Dock runs in `/`, so every card drew its text face
+and the log said only `No such file or directory`. Measured: the same binary
+and config drew no art started from `/` and all of it from any writable
+directory. `ArtReaderPlugin` now registers the `http` and `https` sources
+before `AssetPlugin`, and:
+
+- caches in `$XDG_CACHE_HOME/baylee/art` when that is set, else
+  `~/Library/Caches/baylee/art` (macOS, iOS), `%LOCALAPPDATA%\baylee\art`
+  (Windows), `~/.cache/baylee/art` elsewhere, and the app's cache directory on
+  Android. It never uses the working directory;
+- treats the cache as optional: a read or write that fails is one `WARN` per
+  operation and error kind, and the downloaded bytes still load;
+- names a cached picture by the SHA-256 of its URL, and writes it to a `.part`
+  that is synced and then renamed into place, so a crash cannot leave half a
+  JPEG that fails to decode on every later launch;
+- asks only under `https://cards.scryfall.io/`, `https://backs.scryfall.io/`
+  and the art base in force (`images::art_base`, which is the gateway mirror
+  after sign-in). Anything else, and any path containing `..`, is refused with
+  an error naming the host before a request is sent;
+- follows no redirect, and a non-success answer (a 3xx among them) is an error
+  and never a picture, since a redirect could leave the allowlist;
+- sends `baylee-client/<version>` as its User-Agent, gives up connecting after
+  10 s and on the whole request after 30 s, reads at most 16 MB, and trusts
+  certificates the way the system does (`platform-verifier`, as bevy's reader
+  did).
+
+A cache that bevy's reader left in `<repo>/.web-asset-cache` is simply no
+longer read: pictures are fetched again, once, into the new place.
 
 
 Board cards are fetched `small` (146×204); only the focused card is fetched

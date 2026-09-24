@@ -66,6 +66,9 @@ rand_chacha = "0.10"
 rand_core = "0.10"
 clap = { version = "4", features = ["derive"] }
 ureq = { version = "3", features = ["json"] }
+# Runs a blocking download off the asset executor (the client's art reader),
+# as bevy's own web reader did; already in the tree through `async-fs`.
+blocking = "1"
 heck = "0.5"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -148,13 +151,9 @@ bevy = { version = "0.19", default-features = false, features = [
     "bevy_pbr", "bevy_light", "bevy_anti_alias", "tonemapping_luts", "zstd_rust",
     "picking", "mesh_picking",
     "png", "jpeg", "webp",
-    # Both schemes, and `http` is not the careless half of the pair: the
-    # gateway's art mirror is what a client is *told* to use, and a
-    # development gateway is `http://127.0.0.1:28766`. Bevy registers the two
-    # asset sources behind separate features, so with `https` alone every
-    # mirrored picture failed with "Asset Source 'AssetSourceId::Name(http)'
-    # does not exist" and the table drew constructed faces on grey slabs.
-    "http", "https", "web_asset_cache",
+    # No `http`/`https` here: a native client fetches card art through its
+    # own reader (`baylee-client` `artreader.rs`, #250), and only the browser
+    # build turns bevy's on (`crates/baylee-client/Cargo.toml`).
     "keyboard", "mouse", "touch", "gestures",
     # The browser build renders through **WebGPU**. The two are one feature
     # apart and mutually exclusive: `webgl2` puts wgpu on the GL backend,

@@ -593,8 +593,9 @@ pub(crate) mod scryfall {
     use baylee_cardtext::{TextFace, TextPrinting};
     use baylee_client_core::card_face::CardTextEntry;
 
-    /// Who is asking, which Scryfall asks every client to say.
-    const AGENT: &str = concat!("baylee-client/", env!("CARGO_PKG_VERSION"));
+    /// Who is asking, which Scryfall asks every client to say. The art
+    /// reader says it too (`crate::artreader`).
+    pub(crate) const AGENT: &str = concat!("baylee-client/", env!("CARGO_PKG_VERSION"));
 
     /// The search for every printing of one card in one language.
     ///

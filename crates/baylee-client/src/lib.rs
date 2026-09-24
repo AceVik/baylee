@@ -38,6 +38,8 @@
 pub mod abilities;
 pub mod ambience;
 pub mod arrowmat;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod artreader;
 pub mod buildui;
 mod card_loading;
 pub mod cardart;

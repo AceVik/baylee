@@ -958,8 +958,9 @@ mod tests {
     /// Every scheme a card picture can arrive over has to be a source the
     /// asset server knows about.
     ///
-    /// Bevy registers `http` and `https` as two asset sources behind two
-    /// separate cargo features, and a scheme with no source does not fail the
+    /// A native client registers both through its own reader
+    /// ([`crate::artreader::ArtReaderPlugin`]); a browser gets them from bevy's
+    /// two cargo features. A scheme with no source does not fail the
     /// way a missing file does — the request never leaves, the load never
     /// settles, and `Failure` never hears about it. The table simply draws
     /// constructed faces on grey slabs, which reads as "the art is slow"
@@ -975,8 +976,9 @@ mod tests {
     #[test]
     fn a_card_picture_can_arrive_over_either_scheme() {
         let mut app = App::new();
-        app.add_plugins(bevy::asset::io::web::WebAssetPlugin {
-            silence_startup_warning: true,
+        app.add_plugins(crate::artreader::ArtReaderPlugin {
+            cache: None,
+            ..default()
         })
         .add_plugins(bevy::asset::AssetPlugin::default());
         let server = app.world().resource::<AssetServer>();

@@ -133,6 +133,12 @@ path = "src/main.rs"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Only reached through the `dev-control` feature; see its comment above.
 image = { workspace = true, optional = true }
+# Card art over HTTP(S) with a disk cache (`src/artreader.rs`, #250).
+# `platform-verifier` so a gateway's mirror is trusted the way the system
+# trusts it, as bevy's reader did.
+ureq = { workspace = true, features = ["platform-verifier"] }
+blocking.workspace = true
+sha2.workspace = true
 
 # Android never calls `main`: it loads a shared object and calls
 # `android_main`, and `android-activity` — winit's door to that — refuses to
@@ -152,6 +158,14 @@ bevy = { workspace = true, features = ["android-native-activity"] }
 # `--cfg getrandom_backend="wasm_js"`, which 0.4 no longer declares as a
 # value, so the flag went from load-bearing to an unexpected cfg nobody reads.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# The browser fetches card art through bevy's own reader, and the browser
+# caches it. Both schemes, and `http` is not the careless half of the pair:
+# the gateway's art mirror is what a client is *told* to use, and a
+# development gateway is `http://127.0.0.1:28766`. Bevy registers the two
+# asset sources behind separate features, so with `https` alone every
+# mirrored picture failed with "Asset Source 'AssetSourceId::Name(http)'
+# does not exist" and the table drew constructed faces on grey slabs.
+bevy = { workspace = true, features = ["http", "https"] }
 getrandom = { workspace = true, features = ["wasm_js"] }
 web-sys = { workspace = true, features = [
     "Document",
