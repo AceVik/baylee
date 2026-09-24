@@ -19,11 +19,13 @@
 
 use baylee_db::entity::prelude::*;
 use baylee_db::entity::{account, client_settings, deck, deck_version, session_token};
+use baylee_db::migration::Migrator;
 use sea_orm::{
     ActiveValue::{NotSet, Set},
     ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbBackend, EntityTrait,
     PaginatorTrait, QueryFilter, Statement,
 };
+use sea_orm_migration::MigratorTrait as _;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -38,6 +40,13 @@ struct Sandbox {
 impl Sandbox {
     /// Make a fresh schema and migrate it.
     async fn open(what: &str) -> Self {
+        Self::open_at(what, None).await
+    }
+
+    /// Make a fresh schema and apply the first `applied` migrations, or all
+    /// of them. A migration that changes rows is tested from the schema
+    /// before it, holding the rows it has to change.
+    async fn open_at(what: &str, applied: Option<u32>) -> Self {
         let url = std::env::var("DATABASE_URL")
             .ok()
             .filter(|u| !u.is_empty())
@@ -67,9 +76,18 @@ impl Sandbox {
         // finding it.
         let sep = if url.contains('?') { '&' } else { '?' };
         let scoped = format!("{url}{sep}options=-c%20search_path%3D{schema},public");
-        let db = baylee_db::connect(&scoped, 2)
-            .await
-            .expect("migrating a fresh schema");
+        let db = match applied {
+            None => baylee_db::connect(&scoped, 2)
+                .await
+                .expect("migrating a fresh schema"),
+            Some(steps) => {
+                let db = Database::connect(&scoped).await.expect("connecting");
+                Migrator::up(&db, Some(steps))
+                    .await
+                    .expect("migrating part of the way");
+                db
+            }
+        };
 
         Self {
             db,
@@ -98,7 +116,9 @@ fn an_account(email: &str) -> account::ActiveModel {
 fn named(email: &str, display_name: &str) -> account::ActiveModel {
     account::ActiveModel {
         id: Set(Uuid::now_v7()),
-        email: Set(email.to_owned()),
+        email: Set(Some(email.to_owned())),
+        username: Set(None),
+        username_key: Set(None),
         display_name: Set(display_name.to_owned()),
         // The database hands this out. Setting it here would be the one
         // way to collide with a later registration, because an explicit
@@ -178,7 +198,15 @@ async fn the_standing_answers_go_only_from_the_schema_being_migrated() {
     assert_ne!(path, sandbox.scoped, "the second schema went onto the path");
     let db = Database::connect(&path).await.expect("connecting behind");
 
-    Migrator::down(&db, Some(1))
+    // Back past the drop and every migration after it, counted from the list
+    // rather than assumed to be the last one: it was, until #269.
+    let migrations = Migrator::migrations();
+    let drop_at = migrations
+        .iter()
+        .position(|m| m.name() == "m20260924_000005_drop_standing_answer")
+        .expect("the drop is in the list");
+    let back = u32::try_from(migrations.len() - drop_at).expect("a handful");
+    Migrator::down(&db, Some(back))
         .await
         .expect("stepping back past the drop");
     assert!(
@@ -780,9 +808,14 @@ async fn a_store_file_becomes_the_tables_it_describes() {
 
     let saved = Account::find().one(&sandbox.db).await.unwrap().unwrap();
     assert_eq!(
-        saved.email, "Keeper@Example.COM",
+        saved.email.as_deref(),
+        Some("Keeper@Example.COM"),
         "the address is kept as it was typed"
     );
+    // It signed in with that address, and signs in with a name from it now
+    // (#269), as every account the migration found does.
+    assert_eq!(saved.username.as_deref(), Some("Keeper"));
+    assert_eq!(saved.username_key.as_deref(), Some("keeper"));
     assert!(saved.confirmed_at.is_some());
 
     let deck = Deck::find()
@@ -806,6 +839,96 @@ async fn a_store_file_becomes_the_tables_it_describes() {
         1,
         "the second import wrote rows anyway"
     );
+
+    sandbox.close().await;
+}
+
+/// The accounts that signed in with an address before usernames (#269) are
+/// each given a name from it: the part before the `@`, made to keep the
+/// rule, the tag added where that part is too short or already taken, the
+/// older account keeping the plain name. Then the name is unique, whatever
+/// its case, and an account may have no address at all.
+#[tokio::test]
+async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() {
+    // The schema before the migration that names them.
+    let sandbox = Sandbox::open_at("usernames", Some(5)).await;
+    for (email, display_name) in [
+        ("alice@example.com", "Alice"),
+        ("Alice@other.example", "Alice"),
+        ("bob+baylee@example.com", "Bob"),
+        ("x@example.com", "Xavier"),
+    ] {
+        sandbox
+            .db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO account (email, display_name, password_hash, created_at, lang) \
+                 VALUES ($1, $2, 'hash', now(), 'de')",
+                [email.into(), display_name.into()],
+            ))
+            .await
+            .expect("an account as the old schema held it");
+    }
+    Migrator::up(&sandbox.db, None)
+        .await
+        .expect("the migration names them");
+
+    let names = |db: DatabaseConnection| async move {
+        Account::find()
+            .all(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|a| {
+                (
+                    a.tag,
+                    (
+                        a.username.unwrap_or_default(),
+                        a.username_key.unwrap_or_default(),
+                    ),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let named = names(sandbox.db.clone()).await;
+    let shown: Vec<&str> = named.values().map(|(shown, _)| shown.as_str()).collect();
+    assert_eq!(
+        shown,
+        ["alice", "Alice-0002", "bob-baylee", "x-0004"],
+        "by tag: the plain name, a taken one, a `+`, a short one"
+    );
+    for (shown, key) in named.values() {
+        let rule = baylee_protocol::names::username(shown).expect("a name its owner can type");
+        assert_eq!(&rule.key, key);
+    }
+
+    // Unique whatever the case.
+    let mut again = an_account("carol@example.com");
+    again.username = Set(Some("ALICE".into()));
+    again.username_key = Set(Some("alice".into()));
+    assert!(
+        Account::insert(again).exec(&sandbox.db).await.is_err(),
+        "a second account signed in as alice"
+    );
+
+    // Back past it and forward again: the names come back the same.
+    Migrator::down(&sandbox.db, Some(1))
+        .await
+        .expect("the migration steps back");
+    Migrator::up(&sandbox.db, None)
+        .await
+        .expect("and forward again");
+    assert_eq!(names(sandbox.db.clone()).await, named);
+
+    // And an account needs no address: two without one are no clash.
+    for _ in 0..2 {
+        let mut nameless = an_account("unused@example.com");
+        nameless.email = Set(None);
+        Account::insert(nameless)
+            .exec(&sandbox.db)
+            .await
+            .expect("an account without an address");
+    }
 
     sandbox.close().await;
 }

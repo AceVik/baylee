@@ -91,7 +91,10 @@ fn a_file_with_standing_answers_imports_everything_but_them() {
 fn an_address_keeps_the_case_its_owner_typed() {
     let legacy = read_legacy(ANCIENT).unwrap();
     let made = plan(&legacy, OffsetDateTime::UNIX_EPOCH);
-    assert_eq!(set(&made.accounts[0].email), "Player@Example.COM");
+    assert_eq!(
+        set(&made.accounts[0].email).as_deref(),
+        Some("Player@Example.COM")
+    );
 }
 
 /// A deck whose owner is not in the file is dropped and counted. The old

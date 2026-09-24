@@ -254,7 +254,12 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
             ids.insert(a.id.as_str(), id);
             account::ActiveModel {
                 id: Set(id),
-                email: Set(a.email.clone()),
+                email: Set(Some(a.email.clone())),
+                // Named from the address once the rows are in
+                // (`import_legacy`), the way the migration named the
+                // accounts it found.
+                username: Set(None),
+                username_key: Set(None),
                 display_name: Set(a.display_name.clone()),
                 // The tag is the database's. An imported account is a new
                 // one as far as the sequence is concerned, and it gets its
@@ -435,6 +440,12 @@ pub async fn import_legacy(db: &DatabaseConnection, legacy: &Legacy) -> Result<O
     // into this one, so a child written before its parent fails rather than
     // dangles.
     insert_all::<Account, _>(&txn, plan.accounts).await?;
+    // The old store signed in with an address; its players sign in with a
+    // name now, made from that address as for every account the migration
+    // found (#269).
+    crate::usernames::name_the_unnamed(&txn)
+        .await
+        .context("naming the imported accounts")?;
     insert_all::<Deck, _>(&txn, plan.decks).await?;
     insert_all::<SessionToken, _>(&txn, plan.tokens).await?;
     insert_all::<Confirmation, _>(&txn, plan.confirmations).await?;

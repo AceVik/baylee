@@ -2,7 +2,7 @@
 
 use sea_orm::entity::prelude::*;
 
-/// One account. The e-mail is the login; the display name is what other
+/// One account. The username is the login; the display name is what other
 /// players see.
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "account")]
@@ -11,12 +11,21 @@ pub struct Model {
     /// is time-ordered.
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    /// Login e-mail, stored as the player typed it.
+    /// The e-mail address, stored as the player typed it; `None` for an
+    /// account made without one, which since usernames (#269) is every new
+    /// one.
     ///
     /// Uniqueness is enforced on `lower(email)` by an expression index
     /// rather than by lowercasing the column, because the address a
     /// confirmation mail is sent to should be the one its owner recognises.
-    pub email: String,
+    pub email: Option<String>,
+    /// The login name as its owner typed it, after the rule's folding
+    /// (`baylee_protocol::names`). Private: never shown to another player.
+    /// `None` only for an account that does not sign in with one.
+    pub username: Option<String>,
+    /// What [`Self::username`] is unique under and looked up by: its lower
+    /// case.
+    pub username_key: Option<String>,
     /// Display name. **Not** unique: two players may both be Alice.
     pub display_name: String,
     /// The discriminator that tells two Alices apart, rendered to a player

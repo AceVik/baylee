@@ -72,8 +72,8 @@ pub struct NewAccount {
 pub struct Account {
     /// Account id (`UUIDv7`).
     pub id: String,
-    /// Login e-mail (lowercased, unique).
-    pub email: String,
+    /// The e-mail address (lowercased, unique), if the account has one.
+    pub email: Option<String>,
     /// Display name shown in the lobby. Not unique — [`Account::tag`] is.
     pub display_name: String,
     /// The discriminator, handed out by the database. See [`crate::handle`].
@@ -401,7 +401,9 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
 pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<Option<Account>> {
     let row = account::ActiveModel {
         id: NotSet,
-        email: Set(new.email),
+        email: Set(Some(new.email)),
+        username: NotSet,
+        username_key: NotSet,
         display_name: Set(new.display_name),
         tag: NotSet,
         password_hash: Set(new.password_hash),

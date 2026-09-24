@@ -66,6 +66,7 @@
 pub mod entity;
 pub mod import;
 pub mod migration;
+pub mod usernames;
 
 use anyhow::{Context, Result};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};

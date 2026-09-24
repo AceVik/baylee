@@ -897,6 +897,7 @@ name = "baylee-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "baylee-protocol",
  "sea-orm",
  "sea-orm-migration",
  "serde",

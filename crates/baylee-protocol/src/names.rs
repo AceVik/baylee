@@ -96,6 +96,41 @@ pub fn username(typed: &str) -> Result<Username, UsernameFault> {
     })
 }
 
+/// The nearest thing to `text` that keeps [`username`]'s character rules,
+/// for a name made on a player's behalf rather than typed.
+///
+/// Folded (NFKC) like a typed name; every character that is still not an
+/// ASCII letter, digit or separator becomes `-`; a run of separators is
+/// squeezed to its first; none is left at either end; and it is cut to
+/// [`USERNAME_MAX`]. What it does not do is make the name long enough: the
+/// result may be shorter than [`USERNAME_MIN`], or empty, and the caller
+/// decides what to add.
+#[must_use]
+pub fn nearest(text: &str) -> String {
+    let mut name = String::new();
+    for c in text.nfkc() {
+        let c = if c.is_ascii_alphanumeric() || SEPARATORS.contains(&c) {
+            c
+        } else {
+            '-'
+        };
+        let separator = !c.is_ascii_alphanumeric();
+        let after_one = name
+            .chars()
+            .next_back()
+            .is_none_or(|last| !last.is_ascii_alphanumeric());
+        if separator && after_one {
+            continue;
+        }
+        name.push(c);
+    }
+    name.truncate(USERNAME_MAX);
+    while name.ends_with(SEPARATORS) {
+        name.pop();
+    }
+    name
+}
+
 /// A control character, or a format character that draws nothing or turns
 /// the direction of what follows it (Unicode's `Cf` that a name could hide).
 fn invisible(c: char) -> bool {
@@ -192,6 +227,36 @@ mod tests {
         assert_eq!(username(""), Err(UsernameFault::Length));
         // Counted after folding: three full-width letters are three.
         assert!(username("ＡＢＣ").is_ok());
+    }
+
+    /// What a name made on a player's behalf looks like: the characters a
+    /// typed one may have, and only where it may have them.
+    #[test]
+    fn the_nearest_name_keeps_the_rules_and_leaves_the_length_to_the_caller() {
+        use super::nearest;
+        assert_eq!(nearest("alice+baylee"), "alice-baylee");
+        assert_eq!(nearest("Jürgen.Müller"), "J-rgen.M-ller");
+        assert_eq!(nearest("ａｌｉｃｅ"), "alice");
+        assert_eq!(nearest("..a..b--c__"), "a.b-c");
+        assert_eq!(nearest("a.-_b"), "a.b");
+        assert_eq!(nearest("+++"), "");
+        assert_eq!(nearest("x"), "x");
+        assert_eq!(nearest("ali\u{200B}ce"), "ali-ce");
+        // Cut, and a separator the cut left at the end goes too.
+        let long = format!("{}.b", "a".repeat(23));
+        assert_eq!(nearest(&long), "a".repeat(23));
+        for text in [
+            "alice+baylee",
+            "Jürgen.Müller",
+            "..a..b--c__",
+            "日本語の名前だよ",
+        ] {
+            let near = nearest(text);
+            assert!(
+                near.len() < 3 || username(&near).is_ok(),
+                "{text:?} came out as {near:?}"
+            );
+        }
     }
 
     #[test]

@@ -797,7 +797,11 @@ async fn mail_confirmation(state: &Shared, account_id: &str) {
         tracing::error!("{e:#}");
         return;
     }
+    // An account without an address has nowhere to be sent a link.
     let Ok(Some(account)) = store::account(&state.db, account_id).await else {
+        return;
+    };
+    let Some(address) = account.email else {
         return;
     };
     let link = Confirmation {
@@ -812,7 +816,7 @@ async fn mail_confirmation(state: &Shared, account_id: &str) {
     state
         .mail
         .send_confirmation(
-            &account.email,
+            &address,
             &account.display_name,
             &account.lang,
             &issued.token,
