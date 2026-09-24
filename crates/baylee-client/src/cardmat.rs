@@ -28,7 +28,6 @@
 //! nothing here is written per frame: a material is created once and never
 //! touched again while it is on screen.
 
-use baylee_client_core::cardrail;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_core::ids::ObjectId;
 use bevy::asset::embedded_asset;
@@ -101,24 +100,14 @@ pub mod glow {
     /// the overlay would be the same card disagreeing with itself.
     pub const COMMANDER: u32 = 128;
 
-    /// Where the keyword rail's twelve marks begin in the word.
-    ///
-    /// The rail is a *field* and not twelve more flags, because the shader
-    /// has to walk it: which mark a fragment is inside is the k-th set bit,
-    /// found in one loop bound at compile time. Slot order is
-    /// `baylee_client_core::cardrail::MARK_ORDER`, and nothing on the GPU
-    /// side ever sees the engine's keyword numbering.
-    pub const MARK_SHIFT: u32 = 8;
-
-    /// The twelve mark bits, in place.
-    pub const MARK_MASK: u32 = 0xfff << MARK_SHIFT;
-
     /// This permanent has no card under it at all: a token (CR 111.1).
     ///
-    /// The first of the two provenance bits, and they are the first thing in
-    /// this word *above* the rail's field rather than below it — the eight
-    /// low bits were full, and a bit that landed in [`MARK_MASK`] would grow
-    /// a keyword mark on every token on the table.
+    /// The first of the two provenance bits. Bits 8 to 19 are empty: the
+    /// keyword rail's twelve marks rode there until #274 made them an object
+    /// of their own with its own material ([`crate::marksmat`]), and the bits
+    /// above kept their numbers rather than moving, because
+    /// `card_common.wgsl`'s `GLOW_*` constants are the other half of every one
+    /// of them.
     ///
     /// Provenance is the [`COMMANDER`] question asked a second way: not what
     /// a card can do but what it *is*, true in every zone and for the whole
@@ -146,8 +135,7 @@ pub mod glow {
     /// is this client's offer to spend the mana first. Never set with it;
     /// [`super::glow_of`] picks one.
     ///
-    /// Above [`MARK_MASK`] for the reason [`TOKEN`] is: the eight low bits
-    /// are full.
+    /// Where it is for the reason [`TOKEN`] is.
     pub const REACHABLE: u32 = 1 << 23;
 }
 
@@ -162,14 +150,16 @@ const KEYWORD_BITS: [(u32, u32); 3] = [
     (14, glow::SHROUD),
 ];
 
-/// Translates the view's keyword bitset into what the shader draws.
+/// Translates the view's keyword bitset into what the frame's paper is.
 ///
-/// Two different things come out. The band bits are the three keywords the
-/// border is a *material* for; the rail field is the eleven the card wears as
-/// marks along its bottom edge. Which keyword goes where is not a matter of
-/// taste: a material composes with at most one other material before it says
-/// neither thing, and a creature can carry six combat keywords at once, so
-/// those have to be countable rather than mixed.
+/// Three keywords come out: the ones the paper is a *material* for. The
+/// twelve a card wears as marks are not here: they are the strip's
+/// ([`baylee_client_core::cardrail::mark_bits`]), which is an object of its own lying on the card
+/// with a material of its own, so a card's material has no dimension for
+/// them. Which keyword goes where is not a matter of taste: a material
+/// composes with at most one other material before it says neither thing,
+/// and a creature can carry six combat keywords at once, so those have to be
+/// countable rather than mixed.
 ///
 /// Shroud swallows hexproof on the way through, because that is what the two
 /// keywords do to each other: a permanent with both may be targeted by
@@ -187,15 +177,6 @@ pub fn glow_bits(keywords: u128) -> u32 {
     }
     if bits & glow::SHROUD != 0 {
         bits &= !glow::HEXPROOF;
-    }
-    // The slot is counted in `u32` from the shift, rather than as an
-    // `enumerate()` index cast to one, so this function has no panic in it at
-    // all: eleven slots cannot overflow, but saying so with an `expect` would
-    // put a panic in the path every card on the board takes every frame.
-    for (slot, badge) in (glow::MARK_SHIFT..).zip(cardrail::MARK_ORDER) {
-        if keywords & badge.bit() != 0 {
-            bits |= 1 << slot;
-        }
     }
     bits
 }
@@ -532,14 +513,15 @@ pub struct CardMaterial {
     /// Everything else.
     #[uniform(2)]
     pub params: CardParams,
-    /// The keyword rail's twelve marks, baked out of the Mana font.
+    /// The glyph atlas the ledge's numerals and the crests are drawn from,
+    /// baked at startup.
     ///
     /// Always [`markatlas::MARKS`], which is why it is not an `Option`: the
     /// handle is filled with a blank field before any material is built, so
     /// there is no moment at which a card could be asked to bind an image
     /// that does not exist — and a `None` here would bind the fallback white
     /// texture, which decodes as a distance of -0.25 everywhere and floods
-    /// every slot with ink.
+    /// every glyph with ink.
     #[texture(3)]
     #[sampler(4)]
     pub marks: Handle<Image>,
@@ -576,14 +558,15 @@ pub struct CardUiMaterial {
     /// Everything else.
     #[uniform(2)]
     pub params: CardParams,
-    /// The keyword rail's twelve marks, baked out of the Mana font.
+    /// The glyph atlas the ledge's numerals and the crests are drawn from,
+    /// baked at startup.
     ///
     /// Always [`markatlas::MARKS`], which is why it is not an `Option`: the
     /// handle is filled with a blank field before any material is built, so
     /// there is no moment at which a card could be asked to bind an image
     /// that does not exist — and a `None` here would bind the fallback white
     /// texture, which decodes as a distance of -0.25 everywhere and floods
-    /// every slot with ink.
+    /// every glyph with ink.
     #[texture(3)]
     #[sampler(4)]
     pub marks: Handle<Image>,
@@ -1055,9 +1038,10 @@ impl Plugin for CardMaterialPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/card.wgsl");
         embedded_asset!(app, "shaders/card_ui.wgsl");
-        // The rail both of them import. Registered here rather than loaded on
-        // demand because it is not a shader in its own right: nothing sets it
-        // on a pipeline, and the two that import it name it by this path.
+        // The file both of them import, and the keyword strip's two shaders
+        // (`marksmat`) besides. Registered here rather than loaded on demand
+        // because it is not a shader in its own right: nothing sets it on a
+        // pipeline, and the four that import it name it by this path.
         embedded_asset!(app, "shaders/card_common.wgsl");
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
@@ -1127,6 +1111,7 @@ fn dress_the_card_backs(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use baylee_client_core::cardrail;
 
     #[test]
     fn game_materials_do_not_reuse_previous_games_print_references() {
@@ -1208,7 +1193,7 @@ pub(crate) mod tests {
         }
     }
 
-    /// The border speaks for three keywords and the rail for eleven more;
+    /// The paper speaks for three keywords and the strip for twelve more;
     /// the engine numbers over a hundred and generates that numbering. A card
     /// glowing for the wrong keyword would be a rules lie a player would
     /// believe.
@@ -1221,10 +1206,10 @@ pub(crate) mod tests {
         );
         assert_eq!(glow_bits(KeywordSet::HEXPROOF.bits()), glow::HEXPROOF);
         assert_eq!(glow_bits(KeywordSet::SHROUD.bits()), glow::SHROUD);
-        // And nothing else lights the *border* up: flying is a mark on the
-        // rail, and a keyword that turned the border green would be claiming
-        // a protection the card does not have.
-        assert_eq!(glow_bits(KeywordSet::FLYING.bits()) & !glow::MARK_MASK, 0);
+        // And nothing else reaches the card's material: flying is a mark on
+        // the strip, which is its own object, and a keyword that turned the
+        // paper green would be claiming a protection the card does not have.
+        assert_eq!(glow_bits(KeywordSet::FLYING.bits()), 0);
         assert_eq!(glow_bits(0), 0);
     }
 
@@ -1283,35 +1268,38 @@ pub(crate) mod tests {
         );
     }
 
-    /// A defender is a mark on the rail and nothing more.
+    /// A defender is a mark on the strip and nothing more.
     ///
     /// It used to be drawn twice — the mark, and a brick wall crossing the
     /// card's face — and the wall went with #274, because the face is the
-    /// print and nothing of ours lies on it. What is pinned is that a
-    /// defender's glow word is exactly its rail bit, so the material key has
-    /// no dimension left that the shader no longer reads, and that a sick one
-    /// adds the night and nothing else.
+    /// print and nothing of ours is painted on it. What is pinned is that a
+    /// defender's card material is a plain card's, since the mark is the
+    /// strip's and the material key has no dimension left that the shader
+    /// does not read, and that a sick one adds the night and nothing else.
     #[test]
-    fn a_defender_is_a_mark_on_the_rail_and_nothing_more() {
+    fn a_defender_is_a_mark_on_the_strip_and_nothing_more() {
         use baylee_cards_dsl::KeywordSet;
         use baylee_client_core::board::KeywordBadge;
         use baylee_core::types::TypeSet;
-        let slot = cardrail::slot_of(KeywordBadge::Defender).expect("defender rides the rail");
-        let rail =
-            1u32 << (glow::MARK_SHIFT + u32::try_from(slot).expect("twelve slots fit in a u32"));
+        let slot = cardrail::slot_of(KeywordBadge::Defender).expect("defender rides the strip");
 
         let mut wall = permanent(TypeSet::CREATURE);
         wall.keywords = KeywordSet::DEFENDER.bits();
         assert_eq!(
             glow_of(Some(&wall), Offer::NONE),
-            rail,
+            0,
             "a defender is its mark, and no second drawing"
+        );
+        assert_eq!(
+            cardrail::mark_bits(wall.keywords),
+            1 << slot,
+            "and the mark is on the strip"
         );
 
         wall.summoning_sick = true;
         assert_eq!(
             glow_of(Some(&wall), Offer::NONE),
-            rail | glow::SUMMONING_SICK,
+            glow::SUMMONING_SICK,
             "and a creature that arrived this turn wears the night besides"
         );
     }
@@ -1474,16 +1462,18 @@ pub(crate) mod tests {
         out
     }
 
-    /// The rail is laid out twice — once in Rust so the pointer can hit-test
-    /// a mark, once in WGSL so the GPU can draw one — and the two have to be
-    /// the same rail. Nothing in either compiler can notice that they are.
+    /// The strip is laid out twice — once in Rust so the pointer can
+    /// hit-test a mark and the table can place the quad, once in WGSL so the
+    /// GPU can draw one — and the two have to be the same strip. Nothing in
+    /// either compiler can notice that they are.
     #[test]
-    fn the_rail_is_in_the_same_place_in_both_languages() {
+    fn the_strip_is_in_the_same_place_in_both_languages() {
         let src = include_str!("shaders/card_common.wgsl");
         for (name, ours) in [
-            ("RAIL_INSET", cardrail::RAIL_INSET),
-            ("RAIL_SLOT", cardrail::RAIL_SLOT),
-            ("RAIL_SPAN", cardrail::RAIL_SPAN),
+            ("STRIP_PAD", cardrail::STRIP_PAD),
+            ("MARK", cardrail::MARK),
+            ("MARK_GAP", cardrail::MARK_GAP),
+            ("SHADOW_MARGIN", cardrail::SHADOW_MARGIN),
             ("CARD_ASPECT", cardrail::CARD_ASPECT),
         ] {
             let theirs = wgsl_const(src, name);
@@ -1495,18 +1485,12 @@ pub(crate) mod tests {
         assert_eq!(
             wgsl_const(src, "MARK_COUNT") as usize,
             cardrail::MARK_ORDER.len(),
-            "the shader draws a different number of marks than the rail has"
+            "the shader draws a different number of marks than the strip has"
         );
-        assert!(
-            (wgsl_const(src, "MARK_SHIFT") - glow::MARK_SHIFT as f32).abs() < f32::EPSILON,
-            "the marks are shifted differently on the two sides"
-        );
-        // The shift alone is not enough: a mask one bit short would drop the
-        // eleventh keyword silently, and defender is the eleventh.
-        assert!(
-            (wgsl_const(src, "MARK_FIELD") - (glow::MARK_MASK >> glow::MARK_SHIFT) as f32).abs()
-                < f32::EPSILON,
-            "the shader reads a different number of mark bits than the mask holds"
+        assert_eq!(
+            wgsl_const(src, "PER_ROW") as usize,
+            cardrail::PER_ROW,
+            "the shader wraps the strip at a different mark than the hit test"
         );
     }
 
@@ -1807,18 +1791,19 @@ pub(crate) mod tests {
         }
     }
 
-    /// Every flag below the rail is the same number on both sides.
+    /// Every flag is the same number on both sides, and a bit of its own.
     ///
     /// Two copies of the same table — one Rust, one WGSL — and nothing in
     /// either compiler can notice when one of them moves. A wrong number here
-    /// has no error and no crash: the card draws a fact it does not have, or a
-    /// bit lands in the rail's field and a permanent grows a keyword mark.
+    /// has no error and no crash: the card draws a fact it does not have, or
+    /// two flags share a bit and one fact draws as another.
     /// Since #274 the WGSL copy is one: `frame_layer` in `card_common.wgsl` is
     /// the only reader, and the card shaders may not keep a table of their own
     /// that could drift from it.
     #[test]
     fn the_glow_flags_are_the_same_number_on_both_sides() {
         let common = include_str!("shaders/card_common.wgsl");
+        let mut taken = 0u32;
         for (name, ours) in [
             ("GLOW_INDESTRUCTIBLE", glow::INDESTRUCTIBLE),
             ("GLOW_HEXPROOF", glow::HEXPROOF),
@@ -1837,9 +1822,9 @@ pub(crate) mod tests {
                 (theirs - ours as f32).abs() < f32::EPSILON,
                 "{name}: {ours} here, {theirs} in card_common.wgsl"
             );
-            // And none of them may reach into the rail, which would draw a
-            // keyword mark for something that is not a keyword.
-            assert_eq!(ours & glow::MARK_MASK, 0, "{name} overlaps the rail");
+            assert_eq!(ours.count_ones(), 1, "{name} is not one bit");
+            assert_eq!(ours & taken, 0, "{name} shares a bit with another flag");
+            taken |= ours;
         }
         for (which, src) in [
             ("card.wgsl", include_str!("shaders/card.wgsl")),
@@ -1872,8 +1857,7 @@ pub(crate) mod tests {
             | glow::ARMED
             | glow::WILL_TAP
             | glow::COMMANDER
-            | glow::REACHABLE
-            | glow::MARK_MASK;
+            | glow::REACHABLE;
         assert_eq!(glow::TOKEN & others, 0, "the token bit is somebody else's");
         assert_eq!(glow::COPY & others, 0, "the copy bit is somebody else's");
         assert_eq!(glow::TOKEN & glow::COPY, 0, "and they are not each other");
@@ -2165,42 +2149,34 @@ pub(crate) mod tests {
         );
     }
 
-    /// Every mark the rail carries is the keyword it claims to be, and the
-    /// three the border speaks for are not on it twice.
+    /// Every mark the strip carries is the keyword it claims to be, the
+    /// three the paper speaks for are not on it twice, and none of the
+    /// twelve reaches the card's own material.
     #[test]
-    fn the_rail_carries_the_keywords_it_says_it_does() {
+    fn the_strip_carries_the_keywords_it_says_it_does() {
         use baylee_cards_dsl::KeywordSet;
-        // Masked, not merely shifted. This helper used to shift the whole
-        // word right by `MARK_SHIFT` and compare, which was the same thing
-        // only for as long as `glow_bits` set nothing above the rail's field
-        // — `glow::DEFENDER` is the first bit that does, and it arrived as
-        // `1 << 14` in a number this test reads as slots. A shift is not a
-        // mask, and a helper that names a field has to cut it out.
-        let slot = |set: KeywordSet| (glow_bits(set.bits()) & glow::MARK_MASK) >> glow::MARK_SHIFT;
+        let slot = |set: KeywordSet| cardrail::mark_bits(set.bits());
         assert_eq!(slot(KeywordSet::FLYING), 1 << 0);
         assert_eq!(slot(KeywordSet::DEATHTOUCH), 1 << 3);
         assert_eq!(slot(KeywordSet::DEFENDER), 1 << 10);
-        // Prowess is bit 23 of the engine's word and slot 11 of the rail,
+        // Prowess is bit 23 of the engine's word and slot 11 of the strip,
         // which is the whole reason the two numberings are pinned rather
         // than assumed to be the same list.
         assert_eq!(slot(KeywordSet::PROWESS), 1 << 11);
-        // The band's three keep the band and stay off the rail.
+        // The paper's three keep the paper and stay off the strip.
         assert_eq!(slot(KeywordSet::HEXPROOF), 0);
         assert_eq!(slot(KeywordSet::INDESTRUCTIBLE), 0);
         assert_eq!(slot(KeywordSet::SHROUD), 0);
-        // And a creature wearing six of them is one word with six bits in it.
+        // And a creature wearing six of them is one word with six bits in it,
+        // and a card material with none: the strip is the key for those.
         let six = KeywordSet::FLYING
             .union(KeywordSet::TRAMPLE)
             .union(KeywordSet::LIFELINK)
             .union(KeywordSet::VIGILANCE)
             .union(KeywordSet::HASTE)
             .union(KeywordSet::MENACE);
-        assert_eq!(
-            glow_bits(six.bits()).count_ones(),
-            6,
-            "six keywords, six marks"
-        );
-        assert_eq!(glow_bits(six.bits()) & !glow::MARK_MASK, 0);
+        assert_eq!(slot(six).count_ones(), 6, "six keywords, six marks");
+        assert_eq!(glow_bits(six.bits()), 0);
     }
 
     /// A mark that takes the phase and never uses it has to say why.
@@ -2269,7 +2245,7 @@ pub(crate) mod tests {
             still.push(slot);
         }
 
-        assert_eq!(seen, 12, "twelve marks on the rail, twelve arms");
+        assert_eq!(seen, 12, "twelve marks on the strip, twelve arms");
         assert_eq!(
             still,
             [10],
@@ -2312,7 +2288,7 @@ pub(crate) mod tests {
     #[test]
     fn the_ink_below_a_mark_is_not_told_which_mark_it_is() {
         let src = include_str!("shaders/card_common.wgsl");
-        let open = src.find("fn mark_layer(").expect("the mark layer");
+        let open = src.find("fn marks_strip(").expect("the strip");
         let body = &src[open..];
         let body = &body[..body.find("\n}").expect("a brace at column zero")];
 
@@ -2437,7 +2413,7 @@ struct Globals { time: f32 };
     /// Thirty numbers with no compiler between them, and every one of them
     /// fails silently: a slot boundary a bit out draws a 4/4 as a 0/16, a
     /// glyph word off by a copy-paste draws every 6 as an 8, and a geometry
-    /// constant that drifts puts the plate over the keyword rail. The
+    /// constant that drifts puts the plate over the print. The
     /// packing is checked from the other side by
     /// `cardplate::tests::every_number_survives_the_packing`; this is the
     /// half that checks the shader agrees about where the bits are.

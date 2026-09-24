@@ -1,12 +1,15 @@
 //! The frame a card's print sits in (#274).
 //!
-//! Nothing this client draws lies on the print. Scryfall's image terms ask
+//! Nothing this client paints lies on the print. Scryfall's image terms ask
 //! that a card image is not covered, cropped, tinted or stamped, and the
 //! artist's name and the copyright line run along the print's bottom edge —
 //! exactly where a keyword rail and a power/toughness plate used to be. So a
 //! card is a print in a window, and the paper around the window is ours:
 //! what the rules have made the card, what this client offers to do with it,
-//! and the numbers are all drawn there.
+//! and the numbers are all drawn there. The one object that overlaps the
+//! print, by the owner's decision, is the keyword strip ([`crate::cardrail`]):
+//! lying on the card over the art's bottom edge, never over the name, the
+//! cost, the type line or the artist.
 //!
 //! The card keeps its size — 1 × 1/[`CARD_ASPECT`] card widths, one table
 //! unit wide — so no lane, pile, hit test or shadow moves. The print shrinks

@@ -12,21 +12,25 @@
 // own and what keeps it out of the two different bind groups the two shaders
 // read `globals` from.
 //
-// # Why a rail and not more paint
+// # Why a strip of marks and not more paint
 //
 // The paper is a *material* — indestructible is what the card is made of,
 // hexproof and shroud are what lies over it — and a material composes with at
 // most one other material before it stops saying either thing. The keywords
-// on the rail are not like that. There are twelve of them — eleven combat
+// on the strip are not like that. There are twelve of them — eleven combat
 // words and prowess, which earns its slot by being the one a player most
 // wants to watch fire — they are equal, a creature can carry six at once, and
 // what a player needs is to *count* them and name them. Paint cannot count.
 // Marks can: one slot each, always in the same order, so the row is read the
 // way a row of icons is read and not the way a colour is guessed at.
 //
-// The three paper keywords are deliberately absent from the rail. The paper
+// The three paper keywords are deliberately absent from the strip. The paper
 // already says them, and a mark that repeated it would be the same claim
 // twice in two languages.
+//
+// The strip is drawn here (`marks_strip`) but not by the card: it is an
+// object of its own lying on the card, with its own quad and material
+// (`marks.wgsl`, `marks_ui.wgsl`), which import this file for the marks.
 
 /// The card's aspect, so a length measured in card widths means the same on
 /// both axes.
@@ -54,7 +58,7 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
 
 // ---- the frame: a print in a frame of our own
 //
-// Nothing this client draws lies on the print (#274, `docs/legal.md` §3).
+// Nothing this client *paints* on the print (#274, `docs/legal.md` §3).
 // Scryfall's terms ask that a card image is not covered, cropped, tinted or
 // stamped, and the artist's name and the copyright line run along the
 // print's bottom edge, which is exactly where a rail and a plate used to be.
@@ -64,6 +68,11 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
 // thing drawn on the print is its own finish (`print_finish`), because a foil
 // is what that printing *is*; and light that passes over the whole card and
 // leaves nothing behind — the lamp, the arrival sweep, a door.
+//
+// One object lies over the print, by the owner's decision, and it is not
+// this shader's: the keyword strip (`marks_strip`), standing on the art's
+// bottom edge. It never lies over the name, the cost, the type line or the
+// artist.
 //
 // The quad does not grow, so no lane, pile, hit test or shadow moves. What
 // the frame costs is the print's size: 87.8% of the card's width.
@@ -321,9 +330,8 @@ fn frame_layer(
 
     // ---- the ledge: the numbers from the left, the identity at the end
     //
-    // The keyword rail is not drawn while it moves off the card (#274): it
-    // lay across the print's bottom edge, and it comes back as an object of
-    // its own lifted over the art.
+    // The keywords are not here: they are the strip's, an object of its own
+    // lying on the art (#274, `marks_strip`).
     let night = (glow & GLOW_SUMMONING_SICK) != 0u;
     out = plate_layer(uv, plate, chips_a, chips_b, night, out, marks, marks_s);
     out = crest_layer(uv, glow, out, marks, marks_s);
@@ -584,33 +592,45 @@ fn door_layer(uv: vec2<f32>, phase: f32, door: u32) -> vec3<f32> {
     return door_tone(door) * figure * DOOR_GLOSS;
 }
 
-/// How many keywords can ride the rail.
+/// How many keywords the strip can carry.
 const MARK_COUNT: u32 = 12u;
 
-/// Where the marks begin in the glow word, and how wide the field is.
-///
-/// Both card shaders do the shifting at the call site, so nothing below this
-/// line knows that the flags for indestructible, hexproof, shroud, a sleeping
-/// creature and the three lights this client offers live underneath. The
-/// Rust half is
-/// `cardmat::glow::MARK_SHIFT`, and a test reads this file to check that the
-/// two still agree.
-const MARK_SHIFT: u32 = 8u;
-const MARK_FIELD: u32 = 0xfffu;
+// The strip's shape, in card widths: `baylee_client_core::cardrail`'s
+// constants, mirrored, and `cardmat`'s tests read these lines to hold the two
+// to the same digits. Where the strip lies on the card is not here at all:
+// the quad it is drawn on is placed by the table and the preview, and this
+// file only draws inside it.
 
-/// How far the rail sits in from the printed edge, in card widths.
-const RAIL_INSET: f32 = 0.052;
+/// The strip's inner margin round its marks. `cardrail::STRIP_PAD`.
+const STRIP_PAD: f32 = 0.012;
 
-/// A slot's size when there is room for it, in card widths.
-const RAIL_SLOT: f32 = 0.115;
+/// A mark's square, eight physical pixels on a card 94 wide.
+/// `cardrail::MARK`.
+const MARK: f32 = 0.085;
 
-/// How much of the card's width the rail may ever take.
-///
-/// The remaining fifth of the bottom edge is reserved, on purpose and before
-/// anything needs it: power/toughness and the counter dice belong in that
-/// corner, and a rail that had to move once they arrived would move on every
-/// card in every screenshot ever taken of this client.
-const RAIL_SPAN: f32 = 0.70;
+/// The air between two marks. `cardrail::MARK_GAP`.
+const MARK_GAP: f32 = 0.012;
+
+/// How many marks a row holds; a seventh opens a row above the first.
+/// `cardrail::PER_ROW`.
+const PER_ROW: u32 = 6u;
+
+/// How far the strip's contact shadow spreads past it, on the left, the right
+/// and the top. The quad has no margin below: the strip stands on the seam's
+/// rule, and under it is the type line. `cardrail::SHADOW_MARGIN`.
+const SHADOW_MARGIN: f32 = 0.02;
+
+/// How dark the contact shadow is where it meets the strip, as coverage of
+/// black. It falls off as the square of the distance, so by half the margin
+/// it is a quarter of this.
+const SHADOW_DEPTH: f32 = 0.55;
+
+/// The strip's corner radius.
+const STRIP_CORNER: f32 = 0.018;
+
+/// The strip's edge, a slate lighter than the plate, so a dark strip on dark
+/// artwork still has an outline.
+const STRIP_RIM: vec3<f32> = vec3<f32>(0.16, 0.17, 0.19);
 
 /// The beat every mark breathes on, in radians per second.
 ///
@@ -618,7 +638,7 @@ const RAIL_SPAN: f32 = 0.70;
 /// own timing would strobe, and thirty cards of them would be a fairground.
 const BEAT: f32 = 1.15;
 
-/// The plate the marks sit on, so ivory reads on any artwork.
+/// The strip's own colour, so ivory reads on any artwork.
 const PLATE: vec3<f32> = vec3<f32>(0.045, 0.052, 0.062);
 
 /// The ink every mark is drawn in, before its own colour is mixed into it.
@@ -645,16 +665,18 @@ fn sd_round_box(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
 // with that are kept apart.
 //
 // Cell coordinates still run -0.5..0.5 with **y downward**, the way the
-// card's UV does, and a mark still reaches no further than its own slot:
-// `mark_layer` guillotines at the slot, and the sampler clamps inside the
-// cell so a mark can never fetch its neighbour's texels.
+// card's UV does, and the sampler clamps inside the cell so a mark can never
+// fetch its neighbour's texels.
 //
 // # What a motion has to be, at ten pixels
 //
-// A card on the felt is 86 physical pixels wide and a slot is `RAIL_SLOT` of
-// that, so **one cell is ten pixels**, and one cell unit is those ten pixels.
-// That number is the whole of this design, and it was arrived at by
-// photographing a table rather than by reading this file.
+// A card on the felt was 86 physical pixels wide when this was measured, and
+// a rail slot was 0.115 of that, so **one cell was ten pixels**, and one cell
+// unit was those ten pixels. That number is the whole of this design, and it
+// was arrived at by photographing a table rather than by reading this file.
+// Since #274 a mark is `MARK` of a card 94 pixels wide — eight pixels — so
+// everything below about what a sub-pixel movement cannot show holds with a
+// fifth less room.
 //
 // The rail once shipped with nine marks carrying a `sin(ph)` term of 0.012 to
 // 0.03 cell units: between an eighth and a third of a pixel. Measured live,
@@ -683,7 +705,7 @@ fn sd_round_box(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
 //
 // # And rarely
 //
-// A row of twelve symbols that all move is not a row of symbols. Every
+// A strip of twelve symbols that all move is not a row of symbols. Every
 // impulse below runs `mark_event` over `fract(ph * K)`, and `fract` has
 // period **one**: with `ph` advancing at `BEAT` radians a second, a rate `K`
 // wraps every `1 / (BEAT * K)` seconds, which is 0.8696 / K and not the
@@ -703,7 +725,7 @@ fn sd_round_box(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
 // whose meaning *is* a period, and prowess on its own slow `sin` because a
 // bonus with a deadline is the one claim that is about *this turn*. An event
 // lasts one to two seconds, so a mark is still for nine tenths of its life
-// and a full rail of eleven has, on average, nine tenths of one mark moving.
+// and a full strip of twelve has, on average, nine tenths of one mark moving.
 
 /// One mark's square in the atlas, in texels. `markatlas::CELL`.
 const MARK_CELL: f32 = 96.0;
@@ -714,14 +736,14 @@ const MARK_RANGE: f32 = 0.25;
 
 /// How many cells the atlas holds altogether. `markatlas::CELLS`.
 ///
-/// One row and one texture: the rail's twelve marks, then the corner's
+/// One row and one texture: the strip's twelve marks, then the corner's
 /// fifteen characters. Only the bake rule and the encoded range differ
 /// between the two halves, and both of those are settled before a texel is
 /// written — so a second texture would be two more bindings in two
 /// materials for nothing.
 const ATLAS_CELLS: u32 = 31u;
 
-/// The envelope every impulse on the rail shares: up over `a`, held until
+/// The envelope every impulse on the strip shares: up over `a`, held until
 /// `h`, down over `r`, and flat zero through the rest of the period — which
 /// is most of it. All three are fractions of that mark's own period, so the
 /// numbers at each call site are read against the table above.
@@ -733,11 +755,11 @@ fn mark_event(f: f32, a: f32, h: f32, r: f32) -> f32 {
 /// beat early.
 ///
 /// A rate of `1 / (4 * 2 * pi)` is a whole beat every fourth one — the only
-/// place on the rail where a period is *meant* to line up with the ink
+/// place on the strip where a period is *meant* to line up with the ink
 /// pulse, because first strike's claim is about arriving before something,
 /// and earliness is only legible against a reference. Do not expect a player
 /// to feel it; it costs nothing and is right when lifelink is on the same
-/// rail to be early *against*.
+/// strip to be early *against*.
 fn strike_clock(ph: f32) -> f32 {
     return fract(ph * 0.03979 - 0.0375);
 }
@@ -745,7 +767,7 @@ fn strike_clock(ph: f32) -> f32 {
 /// How big a mark is drawn, as a multiple of its resting size.
 ///
 /// One verb, twelve readings of it. The amplitudes are the same everywhere
-/// but the strikes, because a rail whose marks swelled by different amounts
+/// but the strikes, because a strip whose marks swelled by different amounts
 /// would be saying something about their importance; what differs is the
 /// *envelope* — how sharply a mark arrives at its size and how long it holds
 /// there — which is the difference between a blow, a breath and a heartbeat.
@@ -756,7 +778,7 @@ fn strike_clock(ph: f32) -> f32 {
 ///
 /// This arm is the only thing that sentence is true of, and the comment here
 /// claimed the whole drawing until #102. Scale is not the mark's only
-/// movement: the ink in `mark_layer` breathes every mark on the row —
+/// movement: the ink in `marks_strip` breathes every mark on the strip —
 /// `(0.95 + 0.05 * sin(phase))`, with no `which` in it — so defender has no
 /// swell *event* and is in continuous motion exactly like everything beside
 /// it. "It is the stillness that is the drawing" was the argument, and the
@@ -777,7 +799,7 @@ fn mark_pulse(which: u32, ph: f32) -> f32 {
             let ev = mark_event(fract(ph * 0.0664), 0.0115, 0.0878, 0.0267);
             return 1.0 + 0.16 * pow(0.5 + 0.5 * sin(ph * 11.0), 2.0) * ev;
         }
-        // First strike: a blow. Nothing else on the rail arrives this fast.
+        // First strike: a blow. Nothing else on the strip arrives this fast.
         case 1u: { return 1.0 + 0.22 * mark_event(strike_clock(ph), 0.004, 0.030, 0.026); }
         // Double strike: the same blow, twice, on the same clock.
         case 2u: {
@@ -803,7 +825,7 @@ fn mark_pulse(which: u32, ph: f32) -> f32 {
         // than it was — the eye used to close and a shape has to travel
         // further than a size to say the same thing.
         case 9u: { return 1.0 + 0.17 * mark_event(fract(ph * 0.0600), 0.0250, 0.0560, 0.0280); }
-        // Defender: STILL — the scale only. The ink in `mark_layer` breathes
+        // Defender: STILL — the scale only. The ink in `marks_strip` breathes
         // this mark with the rest of the row; see the note on this function
         // and `the_ink_below_a_mark_is_not_told_which_mark_it_is`.
         case 10u: { return 1.0; }
@@ -817,7 +839,7 @@ fn mark_pulse(which: u32, ph: f32) -> f32 {
 ///
 /// `marks` is one row of `ATLAS_CELLS` squares, each holding a distance with
 /// the outline at 0.5 and `range` cell units of field either side of it —
-/// the rail's marks, the corner's alphabet and the identity column's three
+/// the strip's marks, the corner's alphabet and the identity column's three
 /// symbols, which differ in how they were baked and in nothing else. This is
 /// the only function that fetches from it, which is why the two awkward
 /// parts of that fetch are written down once:
@@ -831,7 +853,7 @@ fn mark_pulse(which: u32, ph: f32) -> f32 {
 ///
 /// And it is `textureSampleLevel` and not `textureSample`: a cell is picked
 /// in *non-uniform* control flow — which slot a fragment lands in is the
-/// whole point of the rail — and an implicit derivative asked for there is
+/// whole point of the strip — and an implicit derivative asked for there is
 /// undefined. There is nothing to choose a mip from in any case; the atlas
 /// has one level.
 fn cell_sdf(
@@ -849,7 +871,7 @@ fn cell_sdf(
     return (0.5 - field) * (2.0 * range) + length(wanted - inside);
 }
 
-/// The rail's own reading of a cell: the same fetch, with the pulse on it.
+/// The strip's own reading of a cell: the same fetch, with the pulse on it.
 ///
 /// The **pulse divides** rather than multiplying, because growing a picture
 /// means reading its field closer to the middle, and the distance that comes
@@ -890,29 +912,42 @@ fn mark_color(which: u32) -> vec3<f32> {
     }
 }
 
-/// Draws the rail over `color` and returns what is left.
+/// The keyword strip: a dark plate carrying a card's marks, and the contact
+/// shadow it throws on the art round it, as colour and coverage.
 ///
-/// `bits` is the twelve-bit mark field, already shifted down out of the glow
-/// word: this file never sees the engine's keyword numbering, or the client's
-/// either. `t` is `globals.time`, which the two shaders read from two
-/// different bind groups — the reason it is a parameter and not a binding,
-/// and the same reason `marks` is one: the atlas is bound at a different
-/// index in a material bind group than in a UI one, and this file has no
-/// bindings of its own so that `cardmat::tests` can parse it alone.
-fn mark_layer(
-    uv: vec2<f32>,
+/// Its own quad draws it (`marks.wgsl` on the table, `marks_ui.wgsl` in the
+/// preview), so what it returns is blended over the card rather than mixed
+/// into it: the strip is an object lying on the card, not paint on the print
+/// (#274). `q` is the point in that quad and `quad` its size, both in card
+/// widths from the quad's top-left corner with `y` growing down. The strip
+/// stands on the quad's bottom edge — which the quad's owner puts on the
+/// seam between the art and the type line — `SHADOW_MARGIN` in from its
+/// left, and grows upwards: a seventh mark opens a row above the first, so
+/// the row a creature already wears never moves.
+///
+/// `bits` is the twelve-bit word `cardrail::mark_bits` makes: this file never
+/// sees the engine's keyword numbering, or the client's either. `t` is the
+/// strip's clock, `globals.time * motion`, and `aa` the antialiasing width in
+/// card widths — both taken by the caller, because the two shaders read
+/// `globals` from different bind groups and a derivative must be taken in
+/// uniform control flow, which the mark a fragment lands in is not. `marks`
+/// is a parameter and not a binding for the same reason: this file has no
+/// bindings of its own, so `cardmat::tests` can parse it alone.
+fn marks_strip(
+    q: vec2<f32>,
+    quad: vec2<f32>,
     bits: u32,
     t: f32,
-    color: vec3<f32>,
+    aa: f32,
     marks: texture_2d<f32>,
     marks_s: sampler,
-) -> vec3<f32> {
+) -> vec4<f32> {
     // Counted in a loop bound at compile time, and not with `countOneBits`.
     // naga lowers that to GLSL's `bitCount`, which arrived in ES 3.10, and it
     // lowers it *unguarded* — WebGL2 compiles ES 3.00, so the browser would
-    // reject this shader, the card pipeline would fail to build, and the
-    // table would draw no cards at all. The rail has to walk these twelve
-    // bits below in any case.
+    // reject this shader, the strip's pipeline would fail to build, and no
+    // card would carry its marks. The strip has to walk these twelve bits
+    // below in any case.
     var n = 0u;
     for (var i = 0u; i < MARK_COUNT; i = i + 1u) {
         if (bits & (1u << i)) != 0u {
@@ -920,46 +955,43 @@ fn mark_layer(
         }
     }
     if n == 0u {
-        return color;
+        return vec4<f32>(0.0);
     }
 
-    // Width-units, so a slot is square and a length means one thing.
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let height = 1.0 / CARD_ASPECT;
-    let slot = min(RAIL_SLOT, RAIL_SPAN / f32(n));
-    let x0 = RAIL_INSET;
-    let x1 = x0 + f32(n) * slot;
-    let y1 = height - RAIL_INSET;
-    let y0 = y1 - slot;
+    // `cardrail::strip_rect`, in the quad's own coordinates.
+    let rows = (n + PER_ROW - 1u) / PER_ROW;
+    let columns = min(n, PER_ROW);
+    let pitch = MARK + MARK_GAP;
+    let size = vec2<f32>(
+        2.0 * STRIP_PAD + f32(columns) * pitch - MARK_GAP,
+        2.0 * STRIP_PAD + f32(rows) * pitch - MARK_GAP,
+    );
+    let x0 = SHADOW_MARGIN;
+    let y1 = quad.y;
+    let mid = vec2<f32>(x0 + 0.5 * size.x, y1 - 0.5 * size.y);
+    let body = sd_round_box(q - mid, 0.5 * size, STRIP_CORNER);
+    let cover = 1.0 - smoothstep(-aa, aa, body);
 
-    // The antialiasing width, taken once and in uniform control flow — the
-    // slot a fragment lands in is not uniform, and a derivative asked for
-    // inside that branch is undefined on half the backends we ship to.
-    let aa = max(fwidth(p.x), 0.0015);
+    // The shadow falls on the art round the strip and is gone by the quad's
+    // edge; below the strip there is no quad to fall on.
+    let fall = 1.0 - smoothstep(0.0, SHADOW_MARGIN, max(body, 0.0));
+    let shade = SHADOW_DEPTH * fall * fall;
 
-    // The plate: without it a pale mark disappears into pale artwork, and
-    // the row would be legible on some cards and not others.
-    //
-    // 0.85 and not 0.62, which is the number it carried while the marks were
-    // thin strokes. The mix happens in *linear* light and the framebuffer is
-    // sRGB, so 0.62 darkens white paper to 168 of 255 — a 27% darkening, not
-    // a 62% one — and an ivory wing at 227 stood on it at 1.35:1. At 0.85 the
-    // paper reads 118 and the ink about 2:1. Not higher: 0.90 is 98, which is
-    // the bar 0.62 was probably meant to be and is a black stripe over dark
-    // artwork.
-    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
-    let half = vec2<f32>((x1 - x0) * 0.5 + 0.014, slot * 0.5 + 0.014);
-    let plate = sd_round_box(p - mid, half, slot * 0.30);
-    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.85);
+    // The plate, with an edge a pixel and a half wide, so the strip keeps an
+    // outline on artwork as dark as it is.
+    let edge = 1.0 - smoothstep(0.0, 1.5 * aa, -body);
+    var out = mix(PLATE, STRIP_RIM, edge);
 
-    if p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 {
-        return out;
-    }
+    // Which mark's cell this point is nearest, counted from the bottom-left:
+    // the first row stands on the seam and the second opens above it.
+    let across = q.x - (x0 + STRIP_PAD);
+    let up = (y1 - STRIP_PAD) - q.y;
+    let column = u32(clamp(floor((across + 0.5 * MARK_GAP) / pitch), 0.0, f32(columns - 1u)));
+    let level = u32(clamp(floor((up + 0.5 * MARK_GAP) / pitch), 0.0, f32(rows - 1u)));
+    let k = level * PER_ROW + column;
 
-    let k = u32(floor((p.x - x0) / slot));
-
-    // The k-th mark this card actually carries. Eleven iterations, bounded at
-    // compile time, no dynamic indexing: the whole reason the rail is a
+    // The k-th mark this card actually carries. Twelve iterations, bounded at
+    // compile time, no dynamic indexing: the whole reason the strip is a
     // bitfield and not a list.
     var seen = 0u;
     var which = MARK_COUNT;
@@ -973,10 +1005,12 @@ fn mark_layer(
         }
     }
     if which == MARK_COUNT {
-        return out;
+        return strip_over_shadow(out, cover, shade);
     }
 
-    let cell = vec2<f32>((p.x - x0) / slot - f32(k), (p.y - y0) / slot) - vec2<f32>(0.5);
+    let left = x0 + STRIP_PAD + f32(column) * pitch;
+    let top = y1 - STRIP_PAD - f32(level) * pitch - MARK;
+    let cell = vec2<f32>((q.x - left) / MARK, (q.y - top) / MARK) - vec2<f32>(0.5);
     let phase = t * BEAT + f32(k) * 0.22;
     let d = mark_sdf(which, cell, phase, marks, marks_s);
     let accent = mark_color(which);
@@ -986,7 +1020,7 @@ fn mark_layer(
     // now has to happen in the ink or not at all.
     //
     // The pulse is 0.05 and was 0.10: it is the one *continuous* movement on a
-    // row whose whole argument is that rest is the state and motion is an
+    // strip whose whole argument is that rest is the state and motion is an
     // event, and a solid silhouette breathes over five times the pixels a
     // stroke did. Not removed, because `strike_clock` is timed to land early
     // against this beat and needs a beat to be early against.
@@ -995,9 +1029,9 @@ fn mark_layer(
     // read twice above this line and never again, so the twelve marks are
     // drawn by one arithmetic and defender's `mark_pulse` arm — the only
     // STILL one — stills its size and nothing else. `phase` offsets by `k`,
-    // the slot, so the row is a staggered breath rather than one; #24's lane
-    // wave rides this same term and inherits the same answer, which is why
-    // that ticket waited on this one. `cardmat`'s
+    // the mark's place, so the strip is a staggered breath rather than one;
+    // #24's lane wave rides this same term and inherits the same answer,
+    // which is why that ticket waited on this one. `cardmat`'s
     // `the_ink_below_a_mark_is_not_told_which_mark_it_is` pins the count, so
     // a guard added here cannot land without saying it is answering #23.
     let ink = mix(INK, accent, 0.70) * (0.95 + 0.05 * sin(phase));
@@ -1006,11 +1040,11 @@ fn mark_layer(
     // across the table.
     //
     // Half of `aa`, and both numbers were tuned for a one-pixel stroke that
-    // should never quite reach full ink. `aa / slot` is 0.101 cell at the
+    // should never quite reach full ink. `aa / slot` was 0.101 cell at the
     // table, so the ramp spanned two whole pixels — on a solid glyph that is
     // not softness, it is a blur, and it is what closed the skull's eye
     // sockets and the tower's crenellations at 17 pixels.
-    let e = max(0.5 * aa / slot, 0.012);
+    let e = max(0.5 * aa / MARK, 0.012);
     // A rim, not a bloom. At 9 the halo was still 18% of the accent a tenth of
     // a cell out and 5% at the cell wall, so it filled every hole in a solid
     // silhouette — measured on deathtouch, whose eye sockets came back
@@ -1019,7 +1053,18 @@ fn mark_layer(
     let halo = exp(-max(d, 0.0) * 24.0) * 0.30;
     out = out + accent * halo;
     out = mix(out, ink, 1.0 - smoothstep(-e, e, d));
-    return out;
+    return strip_over_shadow(out, cover, shade);
+}
+
+/// The strip laid over its own shadow: `cover` of `plate`, and under the
+/// rest of it `shade` of black, as one colour and one coverage for the
+/// blend. The colour is not premultiplied; the blend multiplies it.
+fn strip_over_shadow(plate: vec3<f32>, cover: f32, shade: f32) -> vec4<f32> {
+    let alpha = cover + shade * (1.0 - cover);
+    if alpha <= 0.0 {
+        return vec4<f32>(0.0);
+    }
+    return vec4<f32>(plate * (cover / alpha), alpha);
 }
 
 // ------------------------------------------------------------ the identities
@@ -1167,7 +1212,7 @@ const PLATE_LORE: u32 = 3u;
 /// an edge at any size, and an *advance* is what centring a line of type
 /// means. The face is `AlegreyaSans-Bold`, which this client already sets
 /// its interface in; `baylee_client_core::cardplate::TEXT_CHARS` is the
-/// order and `markatlas` bakes them into the same row as the rail's marks.
+/// order and `markatlas` bakes them into the same row as the strip's marks.
 const TEXT_BASE: u32 = 12u;
 const TEXT_COUNT: u32 = 16u;
 const GLYPH_MINUS: u32 = 10u;
@@ -1302,7 +1347,7 @@ const BASE_FADE: f32 = 0.52;
 /// The power and not both numbers, because that is the half of the body the
 /// keyword acts through: a 1/1 deathtoucher trades with anything, and what
 /// does the trading is the 1 on the left. Green rather than a thirteenth
-/// mark on a rail that holds twelve — the number *is* the thing the keyword
+/// mark on a strip that holds twelve — the number *is* the thing the keyword
 /// changes the meaning of, so the colour belongs on it.
 const DEADLY: vec3<f32> = vec3<f32>(0.42, 0.86, 0.45);
 

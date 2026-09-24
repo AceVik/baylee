@@ -88,7 +88,7 @@ Urheber- und Medienrecht.
    codepoint is checked against that table **before** it is used, and the
    check is reading the policy page, not recalling it. And the glyph
    constants stay behind one door per purpose — `manapip::glyph` for the mana
-   symbols, `cardrail::MARK_GLYPHS` for the keyword rail's twelve marks,
+   symbols, `cardrail::MARK_GLYPHS` for the keyword strip's twelve marks,
    `cardcrest::GLYPHS` for the three the identity column wears — because a
    scattered `'\u{e6xx}'` is a decision nobody can audit later. All three
    doors are in `baylee-client-core`, which draws nothing, so the set in use
@@ -118,13 +118,18 @@ Urheber- und Medienrecht.
    back is the one card image a client would be tempted to bundle: it never
    changes and every game needs it.
 
-   **Nothing we draw lies on a card image** (#274). Scryfall asks that an
+   **Nothing we paint lies on a card image** (#274). Scryfall asks that an
    image is not covered, cropped, tinted or stamped, and the artist's name
    and the © line run along its bottom edge. So the client draws a print
    whole, scaled into a window of a frame that is ours, and everything it
-   says about the card — identity, keywords' state, offers, numbers — is on
-   that frame or on an object of its own lying above the card. What reaches
-   the image: its own **finish** (a foil is what that printing is, the one
+   says about the card — identity, offers, numbers — is on that frame. One
+   object of ours overlaps the print, by the owner's decision: the
+   **keyword strip**, a small dark plate with its own contact shadow lying on
+   the card over the art's bottom-left edge, where a modern frame's art meets
+   its type line. It is an object over the card, not paint in the image, and
+   it never lies over the name, the cost, the type line or the artist
+   (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`).
+   What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival
    sweep and the zone-change doors. The brushed coating every card used to

@@ -23,7 +23,8 @@ struct CardParams {
     finish: u32,
     /// What the rules have made this card, what it cannot do this turn, and
     /// what this client is offering to do with it — the bits are
-    /// `cardmat::glow`, and the eleven above `MARK_SHIFT` are the rail.
+    /// `cardmat::glow`. The keywords a card wears as marks are not here:
+    /// they are the strip's, which is its own object (`marks.wgsl`).
     glow: u32,
     /// What the reserved bottom-right corner says, packed by
     /// `cardplate::Plate::packed`: a creature's power, toughness and marked
@@ -57,9 +58,10 @@ struct CardParams {
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var art: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var art_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> params: CardParams;
-// The keyword rail's marks: one row of square distance fields, baked out of
-// the Mana font at startup by `markatlas.rs`. Every card material carries the
-// same handle, so this is one texture for the whole table.
+// The glyph atlas the ledge's numerals and the identity crests are drawn
+// from: one row of square distance fields, baked at startup by
+// `markatlas.rs`. Every card material carries the same handle, so this is one
+// texture for the whole table.
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var marks: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var marks_sampler: sampler;
 

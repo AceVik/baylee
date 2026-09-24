@@ -55,7 +55,7 @@ struct CardParams {
 @group(1) @binding(0) var art: texture_2d<f32>;
 @group(1) @binding(1) var art_sampler: sampler;
 @group(1) @binding(2) var<uniform> params: CardParams;
-// The keyword rail's marks; see the table shader, which binds the same atlas.
+// The glyph atlas; see the table shader, which binds the same one.
 @group(1) @binding(3) var marks: texture_2d<f32>;
 @group(1) @binding(4) var marks_sampler: sampler;
 

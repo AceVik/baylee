@@ -1,6 +1,6 @@
-//! The keyword rail's twelve marks, baked out of the Mana font at startup.
+//! The keyword strip's twelve marks, baked out of the Mana font at startup.
 //!
-//! The rail used to be twelve procedural pictograms drawn in
+//! The marks used to be twelve procedural pictograms drawn in
 //! `card_common.wgsl` — a wing, a skull, an eye that closed — each one
 //! authored against the ten physical pixels a slot gets on a table card. They
 //! are gone, and what is drawn in their place is the Mana font's own ability
@@ -10,8 +10,8 @@
 //!
 //! # Why a distance field and not a picture
 //!
-//! `mark_layer` does not draw a mark, it consumes a *signed distance* to one:
-//! the plate underneath, the halo (`exp(-d * 24)`), the ink ramp and the
+//! `marks_strip` does not draw a mark, it consumes a *signed distance* to
+//! one: the plate underneath, the halo (`exp(-d * 24)`), the ink ramp and the
 //! pulse are all arithmetic on `d`. A coverage bitmap has an edge and no
 //! distance, so it would keep the silhouette and lose everything around it.
 //! So each glyph is rasterised large, run through an exact Euclidean distance
@@ -64,7 +64,7 @@ pub const MARKS: Handle<Image> = uuid_handle!("6e2f0c41-7b85-4b0f-9b2a-2f59b0f1a
 
 /// One mark's square in the atlas, in texels.
 ///
-/// The rail is 10 physical pixels a slot on a table card and about 46 in the
+/// A mark is 8 physical pixels on a table card and several times that in the
 /// preview, so this is generous on purpose: the distance is what is sampled,
 /// and an undersized field rounds a thin stroke away before the shader ever
 /// sees it.
@@ -99,7 +99,7 @@ pub const TEXT_BASE: usize = MARK_CELLS;
 /// Where the identity column's three glyphs start.
 pub const CREST_BASE: usize = TEXT_BASE + TEXT_CHARS.len();
 
-/// The whole row: the rail's marks, the corner's characters, then the
+/// The whole row: the strip's marks, the corner's characters, then the
 /// identity column's three.
 ///
 /// One texture and not three. The cells are the same square and the
@@ -124,7 +124,7 @@ pub fn atlas_size() -> (u32, u32) {
 /// An atlas with no marks in it — every texel "far outside".
 ///
 /// This is what the handle holds until the font arrives, and what it keeps if
-/// the font never does. A rail of empty plates is the honest failure: it says
+/// the font never does. A strip of empty plates is the honest failure: it says
 /// the creature has keywords and does not lie about which.
 #[must_use]
 pub fn blank() -> Image {
@@ -162,7 +162,7 @@ pub fn blank() -> Image {
     image
 }
 
-/// Bakes the whole row: the rail's marks out of the Mana font, the corner's
+/// Bakes the whole row: the strip's marks out of the Mana font, the corner's
 /// alphabet out of the interface face.
 ///
 /// `None` if the mark font is not one this can read — the atlas has no shape
@@ -182,7 +182,7 @@ pub fn bake(marks: &[u8], text: &[u8]) -> Option<Vec<u8>> {
 
 /// Every cell that comes out of the Mana font, and which glyph fills it.
 ///
-/// The rail's twelve and the identity column's three, in one list because
+/// The strip's twelve and the identity column's three, in one list because
 /// they obey one rule — the alternative was a second copy of the
 /// render-twice-and-normalise loop below, which is exactly the kind of
 /// duplicate that drifts.
@@ -549,7 +549,7 @@ fn install(mut images: ResMut<Assets<Image>>) {
 ///
 /// A system rather than part of startup because the font is an asset: on the
 /// web it is an HTTP fetch and there is no frame at which it is simply there.
-/// Until then the rail draws its plates with nothing on them, which lasts a
+/// Until then the strip draws its plates with nothing on them, which lasts a
 /// frame or two and is what the blank atlas is for.
 fn bake_when_the_font_arrives(
     fonts: Res<Assets<Font>>,
@@ -580,14 +580,14 @@ fn bake_when_the_font_arrives(
         warn!("the mana font draws no glyph for: {absent:?}");
     }
     let Some(baked) = bake(marks.data.data(), text.data.data()) else {
-        warn!("the mana font could not be read; the keyword rail will be blank");
+        warn!("the mana font could not be read; the keyword marks will be blank");
         return;
     };
     let Some(mut image) = images.get_mut(&MARKS) else {
         // Not "not yet": `install` put it there at startup, so this can only
         // mean somebody took the handle out from under the materials, and
-        // saying so beats a rail that is blank for the rest of the session.
-        warn!("the mark atlas is gone from Assets<Image>; the keyword rail will be blank");
+        // saying so beats a strip that is blank for the rest of the session.
+        warn!("the mark atlas is gone from Assets<Image>; the keyword marks will be blank");
         return;
     };
     image.data = Some(baked);

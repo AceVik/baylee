@@ -24,9 +24,11 @@ use crate::Duel;
 use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
 use crate::feltmat::FeltMaterial;
+use crate::marksmat::MarksMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
+use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
@@ -186,6 +188,28 @@ const STACK_LIFT: f32 = 0.006;
 const LANE_RISE: f32 = 0.004;
 // A row that rose further than a card floats would be a staircase, not a row.
 const _: () = assert!(LANE_RISE < CARD_LIFT);
+
+/// How far above its card's face the keyword strip lies (#274), as a share
+/// of the step between two cards of its row.
+///
+/// A share of a step, and not a card's thickness, which is what the strip was
+/// first planned at. The card laid over this one in a fanned lane is one step
+/// higher, and a whole row's rise is [`LANE_RISE`] — 0.004, a quarter of a
+/// thousandth a step in a fan of seventeen — so a strip lifted 0.055 would be
+/// nearer the camera than the neighbour covering it and would be drawn over
+/// that card's art. Under half a step, the neighbour hides the strip the way
+/// it hides the rest of this card. What makes it read as an object lying on
+/// the card is its contact shadow; a height of a card's thickness would not
+/// have shown at this camera in any case.
+///
+/// A share rather than a length because the step shrinks as the row grows,
+/// and half of any step is still that far from both of the faces around it.
+const STRIP_STEP_SHARE: f32 = 0.5;
+const _: () = assert!(STRIP_STEP_SHARE > 0.0 && STRIP_STEP_SHARE < 1.0);
+
+/// Where the keyword strip sits in the transparent pass: the height it lies
+/// at, on a card's face. See [`sort_bias`].
+pub(crate) const STRIP_RUNG: f32 = CARD_LIFT + CARD_THICKNESS;
 /// The back of a card: what a stack behind a counted group is made of, and
 /// what a card whose art never arrives falls back to.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
@@ -1494,6 +1518,19 @@ pub struct SceneIndex {
     /// whose card changed (an anthem, a counter, a clone) without rebuilding
     /// every face every frame.
     faces: HashMap<ObjectId, (u64, Vec<Entity>)>,
+    /// The keyword strip lying on each card that wears marks (#274): the
+    /// word and the row step it was put on for, and the strip itself.
+    ///
+    /// Held here for the reason [`Self::faces`] is: a strip comes and goes
+    /// with what the rules do to the card, and has to be taken off as cheaply
+    /// as it was put on.
+    marks: HashMap<ObjectId, (u32, f32, Entity)>,
+    /// One strip material per word, shared by every card wearing it — a lane
+    /// of twelve Soldiers with the same keywords is one.
+    marks_materials: HashMap<u32, Handle<MarksMaterial>>,
+    /// The quad every strip is drawn on: [`cardrail::quad_rect`], one mesh
+    /// for the whole table, since the shader sizes the strip inside it.
+    marks_quad: Option<Handle<Mesh>>,
     /// What stood in a pile's hover fan on the **previous** frame, and which
     /// pile each card came out of.
     ///
@@ -1868,6 +1905,11 @@ pub fn spawn_stage(
     adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
 ) {
     index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
+    let strip = crate::marksmat::quad_size();
+    index.marks_quad = Some(meshes.add(Rectangle::new(
+        strip.x * CARD_WIDTH,
+        strip.y * DOWN_THE_CARD,
+    )));
 
     // The contact shadow: a quad a little larger than a card, carrying a
     // painted halo that is dense under the card and gone by its own edge.
@@ -2749,6 +2791,8 @@ pub fn despawn_stage(
     index.materials.clear();
     index.face_materials.clear();
     index.faces.clear();
+    index.marks.clear();
+    index.marks_materials.clear();
     watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
     // it; what is left is the bookkeeping that would otherwise point at
@@ -2791,6 +2835,91 @@ fn card_transform(slot: &SeatSlot, position: Vec2, tapped: bool, lift: f32) -> T
         rotation,
         scale: Vec3::ONE,
     }
+}
+
+/// One card width down the card, in table units.
+///
+/// The mesh is [`CARD_HEIGHT`] tall and the shaders measure a card as
+/// 1/[`cardrail::CARD_ASPECT`] card widths, and the two differ in the fourth
+/// place. Anything placed on the card in the shaders' units goes down it by
+/// this, so the strip's bottom edge lands on the seam the card shader draws
+/// and not a ten-thousandth beside it.
+const DOWN_THE_CARD: f32 = CARD_HEIGHT * cardrail::CARD_ASPECT;
+
+/// The keyword strip lying on a card (#274): a marker, so a strip can be
+/// found and counted without being taken for the card or its shadow.
+#[derive(Component)]
+pub struct KeywordStrip;
+
+/// Where a card's keyword strip lies, in the card's own space: at
+/// [`cardrail::quad_rect`], a share of its row's step over the face.
+fn strip_transform(rung: f32) -> Transform {
+    let [x0, y0, x1, y1] = cardrail::quad_rect();
+    Transform::from_xyz(
+        (f32::midpoint(x0, x1) - 0.5) * CARD_WIDTH,
+        CARD_HEIGHT * 0.5 - f32::midpoint(y0, y1) * DOWN_THE_CARD,
+        CARD_THICKNESS + rung * STRIP_STEP_SHARE,
+    )
+}
+
+/// Puts the keyword strip on a card, changes it, or takes it off (#274).
+///
+/// A diff like the rest of [`sync_scene`]: a card whose word and row step
+/// have not moved costs one lookup. The strip is a child of the card, so it
+/// follows every glide, tap, lift and exit with nothing to keep in step, and
+/// goes when the card does. It is not a [`CardShadow`] —
+/// [`ground_the_shadows`] must not flatten it onto the felt — and it is not
+/// pickable: a click on a mark is a click on the card.
+fn sync_strip(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<MarksMaterial>,
+    card: Entity,
+    placement: &Placement,
+    motion: f32,
+) {
+    let current = index.marks.get(&placement.object).copied();
+    if current.is_some_and(|(bits, rung, _)| {
+        bits == placement.marks && rung.to_bits() == placement.rung.to_bits()
+    }) {
+        return;
+    }
+    if placement.marks == 0 {
+        if let Some((_, _, strip)) = index.marks.remove(&placement.object) {
+            commands.entity(strip).despawn();
+        }
+        return;
+    }
+    let Some(quad) = index.marks_quad.clone() else {
+        return;
+    };
+    let material = index
+        .marks_materials
+        .entry(placement.marks)
+        .or_insert_with(|| materials.add(MarksMaterial::new(placement.marks, motion)))
+        .clone();
+    let transform = strip_transform(placement.rung);
+    let strip = if let Some((_, _, strip)) = current {
+        commands
+            .entity(strip)
+            .try_insert((MeshMaterial3d(material), transform));
+        strip
+    } else {
+        let strip = commands
+            .spawn((
+                KeywordStrip,
+                Mesh3d(quad),
+                MeshMaterial3d(material),
+                transform,
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(card).add_child(strip);
+        strip
+    };
+    index
+        .marks
+        .insert(placement.object, (placement.marks, placement.rung, strip));
 }
 
 /// How one card of a pile's hover fan is turned.
@@ -2845,6 +2974,12 @@ struct Placement {
     /// covered by the one that landed on it, and wrong for seven cards that
     /// have to drop back into the pile they came out of.
     fan: Option<(baylee_client_core::FanPose, PileKind)>,
+    /// The keyword strip's word ([`cardrail::badge_bits`]): zero for a card
+    /// wearing no marks, which is every card that is not a permanent.
+    marks: u32,
+    /// How much higher the next card of this card's row stands, which the
+    /// strip lies a share of: see [`STRIP_STEP_SHARE`].
+    rung: f32,
 }
 
 /// The place a pile stands for, for the zone machinery that speaks in places.
@@ -2940,6 +3075,8 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // the way a hand of cards does — each card over the one
                     // before it, and never in bands of both.
                     lift: LANE_RISE * i as f32 / steps,
+                    marks: cardrail::badge_bits(&group.badges),
+                    rung: LANE_RISE / steps,
                     tapped: group.status.is_tapped(),
                     // A group is one card standing for several and every
                     // member of it has the same keywords — `ObjectSummaryKey`
@@ -3033,6 +3170,8 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                             .as_ref()
                             .is_some_and(|i| i.is_selected(card.object)),
                         fan: Some((pose, pile.kind)),
+                        marks: 0,
+                        rung: 0.0,
                     });
                 }
                 continue;
@@ -3066,6 +3205,8 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     .as_ref()
                     .is_some_and(|i| i.is_selected(top)),
                 fan: None,
+                marks: 0,
+                rung: 0.0,
             });
         }
     }
@@ -3099,6 +3240,7 @@ pub fn sync_scene(
     mut watch: ResMut<ZoneWatch>,
     mut textures: Option<ResMut<CardTextures>>,
     mut card_materials: ResMut<Assets<CardMaterial>>,
+    mut strip_materials: ResMut<Assets<MarksMaterial>>,
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
@@ -3171,6 +3313,11 @@ pub fn sync_scene(
             .collect();
         for handle in handles {
             if let Some(mut material) = card_materials.get_mut(&handle) {
+                material.params.motion = motion;
+            }
+        }
+        for handle in index.marks_materials.values() {
+            if let Some(mut material) = strip_materials.get_mut(handle) {
                 material.params.motion = motion;
             }
         }
@@ -3441,6 +3588,15 @@ pub fn sync_scene(
             entity
         };
 
+        sync_strip(
+            &mut commands,
+            &mut index,
+            &mut strip_materials,
+            entity,
+            placement,
+            motion,
+        );
+
         // The text children follow the same decision as the material, and are
         // rebuilt when the snapshot they were made from is no longer current:
         // an anthem, a counter or a clone all change what the face should say.
@@ -3478,8 +3634,10 @@ pub fn sync_scene(
             // Despawning a card takes its text children with it, so the map
             // only has to forget them — and it keeps them for as long as the
             // card is still leaving, which is what makes a named card sink
-            // into the graveyard rather than a blank one.
+            // into the graveyard rather than a blank one. The strip is a child
+            // in the same way.
             index.faces.remove(&id);
+            index.marks.remove(&id);
             // A stale id with no move behind it did not leave anywhere: it is
             // a graveyard's old top card, covered by the one that landed on
             // it this frame, or a group that re-keyed when its lowest-id
@@ -3631,3 +3789,5 @@ mod framing_tests;
 /// shadow is left behind on the felt when the card takes off.
 #[cfg(test)]
 mod flying_tests;
+#[cfg(test)]
+mod strip_tests;

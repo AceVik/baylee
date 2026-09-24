@@ -25,11 +25,13 @@ fn card(slot: u32, flying: bool) -> Placement {
         corner: baylee_client_core::cardplate::Corner::default(),
         selected: false,
         fan: None,
+        marks: 0,
+        rung: 0.0,
     }
 }
 
 /// One creature, with whatever keywords the caller wants drawn on it.
-fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
+pub(super) fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
     CardGroup {
         representative: obj(slot),
         members: vec![obj(slot)],
@@ -55,7 +57,7 @@ fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
 }
 
 /// A one-seat table with those creatures standing in the creature lane.
-fn duel(groups: Vec<CardGroup>) -> Duel {
+pub(super) fn duel(groups: Vec<CardGroup>) -> Duel {
     use baylee_client_core::board::{BoardModel, Lane, SeatPod};
     use baylee_client_core::layout::LaneKind;
     Duel {

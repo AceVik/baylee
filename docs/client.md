@@ -1509,7 +1509,7 @@ The mark is the **frame's paper** (#274): verdigris for a token, violet for a
 copy, oxblood for a commander — see "The card surface". It was an **identity
 slip** under the printed name before that: the Mana font's `ms-token` (a
 squirrel), `ms-ability-copy` (two cards) and `ms-commander` on those papers,
-sampled out of the same atlas the rail's marks come from. Before the slips it
+sampled out of the same atlas the keyword marks come from. Before the slips it
 was two **fixed rows** in a column in the right margin, and before those a
 filled disc in the card's **top-left corner**. All three homes were on the
 print. The paper is what carried the distinction even then, and it is the
@@ -1520,8 +1520,9 @@ Proved on a running table rather than argued, in the slips' day: Llanowar
 Elves, a Spark Double that entered as a copy of it and a Rite of Replication
 token of it, drawn side by side — no mark, two cards, a squirrel.
 
-The bits are `cardmat::glow::TOKEN` and `::COPY`, the first two in that word
-above the rail's twelve-bit field. `glow_of` reaches the registry itself here
+The bits are `cardmat::glow::TOKEN` and `::COPY`, 20 and 21 of that word,
+above the twelve bits the keyword rail rode until #274 (empty since; the
+numbers stayed so the WGSL `GLOW_*` constants did not move). `glow_of` reaches the registry itself here
 rather than being handed it — the opposite of the seam one crate down, and
 deliberately: this crate links `baylee-cards`, and all three of its callers
 would otherwise pass the same closure to get the same answer, which is three
@@ -1724,14 +1725,17 @@ Art is the texture; the *finish* and the keywords are the shader. One material
 is one card and not three draws, and a board of three hundred permanents can
 afford one pipeline.
 
-**The print and its frame (#274).** Nothing this client draws lies on the
+**The print and its frame (#274).** Nothing this client *paints* lies on the
 print. It is the owner's rule and Scryfall's: their image terms ask that a
 card image is not covered, cropped, blurred, tinted or stamped, and the
 artist's name, the collector line and the © line run along the print's bottom
 edge — exactly where the keyword rail and the power/toughness plate used to
 lie, with the ward bands tinting the rest of that strip (8.2:1 contrast down
 to 2.6:1 under shroud, measured in #270). So a card is now a print in a
-window, and the paper around the window is ours:
+window, and the paper around the window is ours. One object of ours
+overlaps the print, by the owner's decision: the keyword strip, lying on the
+card over the art's bottom edge and never over the name, the cost, the type
+line or the artist (below, "The strip says what the card does in combat").
 
 - The quad keeps its size, 1 × 1.397 card widths, so no lane, pile, hit test
   or shadow moved. The print is scaled into it at `cardframe::PRINT_SCALE`
@@ -1754,9 +1758,12 @@ window, and the paper around the window is ours:
   `print_cover`. `nothing_but_the_finish_is_drawn_on_the_print` reads both
   fragments as text and fails if anything but the finish writes the print,
   or anything but light and the corner touches the colour after the merge.
-  The live half is a window diff: the same card rendered with every state
-  on and then off, clock paused, must be identical inside the window —
-  including the bottom 7% of the window, where the artist and © lines are.
+  The live half is a window diff, clock paused, in two halves: the same
+  card rendered with every state but its keywords on and then off must be
+  identical inside the window — including the bottom 7% of the window,
+  where the artist and © lines are — and with its keywords on and then off
+  must differ inside the strip's rectangle (`cardrail::quad_rect`) and
+  nowhere else.
 - A world-text face (a card drawn from our own text on the table) is laid
   out against the window too (`face::spawn_world`, `cardframe::window_lift`),
   so its lines never run under the rim or the ledge.
@@ -1818,8 +1825,8 @@ three registers of the frame, and that separation is the whole grammar:
   levels from the plain paper.
 
   Defender used to be drawn a second time as a brick wall crossing the face;
-  the face is the print, so the wall went, and defender is its rail mark
-  alone (`a_defender_is_a_mark_on_the_rail_and_nothing_more`).
+  the face is the print, so the wall went, and defender is its mark on the
+  strip alone (`a_defender_is_a_mark_on_the_strip_and_nothing_more`).
 - **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
   same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
   `LegalActions` rather than from the card, and is drawn as a warm light
@@ -1850,27 +1857,50 @@ three registers of the frame, and that separation is the whole grammar:
   are *any* where `CardGroup::activatable` is *all*, because that rule exists
   to stop an offer inviting a click that gets refused and these two invite
   nothing.
-- **The rail says what the card does in combat.** Eleven keywords — flying,
-  first and double strike, deathtouch, haste, lifelink, menace, reach,
-  trample, vigilance, defender — are marks in a row, one slot
-  each, always in the same order (`client-core/src/cardrail.rs`). They are
-  marks and not more paint because paint cannot *count*: a creature can carry
-  six of these at once, and six colours mixed into one border is one colour
-  that says nothing. The row used to run along the card's bottom edge, over
-  the artist's line, and is **not drawn** while it moves off the card
-  (#274): it comes back as an object of its own lifted over the art. **The mark is the Mana font's own ability glyph**, baked
-  to a distance field at startup by `markatlas.rs` and sampled out of one
-  atlas row — twelve procedural pictograms drawn in WGSL until September
-  2026, and replaced not because they were bad but because a player arriving
-  here has already learned Magic's icons somewhere else and no drawing of
-  ours can be the picture they already know. `cardrail::MARK_GLYPHS` is one
-  of the three doors those codepoints come through, and `docs/legal.md` §2a
-  is what makes that a rule rather than tidiness. Hexproof and indestructible are deliberately absent —
-  the band already says them, and a mark repeating a sheath would be the same
-  claim twice in two languages. The marks shrink rather than spill, so eleven
-  keywords are eleven coloured pips where six are six pictograms; that
-  degradation is the honest one, since a rail that ran off the card or hid its
-  tail would both be lying about the creature.
+- **The strip says what the card does in combat.** Twelve keywords —
+  flying, first and double strike, deathtouch, haste, lifelink, menace,
+  reach, trample, vigilance, defender and prowess — are marks in a row, one
+  place each, always in the same order (`client-core/src/cardrail.rs`). They
+  are marks and not more paint because paint cannot *count*: a creature can
+  carry six of these at once, and six colours mixed into one border is one
+  colour that says nothing. **The mark is the Mana font's own ability
+  glyph**, baked to a distance field at startup by `markatlas.rs` and sampled
+  out of one atlas row — twelve procedural pictograms drawn in WGSL until
+  September 2026, and replaced not because they were bad but because a player
+  arriving here has already learned Magic's icons somewhere else and no
+  drawing of ours can be the picture they already know.
+  `cardrail::MARK_GLYPHS` is one of the three doors those codepoints come
+  through, and `docs/legal.md` §2a is what makes that a rule rather than
+  tidiness. Hexproof and indestructible are deliberately absent — the paper
+  already says them, and a mark repeating it would be the same claim twice in
+  two languages.
+
+  The row ran along the card's bottom edge as a *rail* until #274, over the
+  artist's line. It is an **object** now (`marksmat.rs`, `marks.wgsl`,
+  `marks_ui.wgsl`; the drawing is `card_common.wgsl`'s `marks_strip`): a
+  dark plate with its own contact shadow, one quad per card that wears
+  marks, a child of the card so it follows every glide, tap and lift, not
+  pickable and not a `CardShadow`. Its bottom edge stands on the seam where a
+  modern frame's art meets its type line — `cardrail::M15_SEAM`, measured on
+  36 scans, row 378 of 680 — at the card's left, where a fanned lane leaves
+  every card's edge in sight, and its shadow falls left, right and up on to
+  the art, never down on to the type line. Marks never shrink (0.085 card
+  widths, eight pixels on the felt); a seventh opens a row **above** the
+  first, so the row a creature already wears never moves and the strip's
+  foot stays on the seam. The card's own material has no dimension for
+  them any more: the strip's material is keyed on the twelve-bit word alone
+  (`cardrail::mark_bits`), so a table has one strip material per distinct
+  set of keywords on it.
+
+  It lies half a row step over its card's face, not a card's thickness as
+  first planned: a lane's whole rise is `LANE_RISE` (0.004) shared out over
+  its cards, and a strip lifted 0.055 was nearer the camera than the card
+  laid over it and drew on that card's art
+  (`a_strip_lies_on_its_card_and_under_the_next_one`). The shadow is what
+  makes it read as lying on the card. **Accepted:** a tapped creature in a
+  fanned lane turns its strip out of the exposed edge and shows its plate,
+  not its marks — its attack is declared, and the preview names them. The
+  preview draws the same strip as a UI node over the art at the same place.
 - **Identity used to be slips under the name**, paper tabs with the Mana
   font's `ms-commander`, `ms-token` and `ms-ability-copy` — after a crown on
   the top edge and a column in the right margin were both sent back. All
@@ -1905,8 +1935,8 @@ three registers of the frame, and that separation is the whole grammar:
   fixed box sat wherever the picture put it. A distance field has an edge at
   any size and an *advance* is what centring a line of type means, so the
   corner now sets `AlegreyaSans-Bold` — already shipped, already the
-  interface's face — out of the same atlas `markatlas` bakes the rail's marks
-  into. Two features are asked for at bake time and both are load-bearing:
+  interface's face — out of the same atlas `markatlas` bakes the keyword
+  marks into. Two features are asked for at bake time and both are load-bearing:
   `lnum`, because this face's **default** figures are oldstyle and `3`, `4`,
   `5`, `7` and `9` would hang below the baseline; and `tnum`, so that a
   creature growing from `9/9` to `10/10` does not shunt its own slash
@@ -1922,7 +1952,7 @@ three registers of the frame, and that separation is the whole grammar:
   and what does the trading is the 1 on the left. A colour on the number
   rather than a thirteenth mark on a rail that holds twelve, because the
   number *is* what the keyword changes the meaning of. `cardplate::Tone`
-  reads it off the rail's own badges rather than off the raw keyword word, so
+  reads it off the strip's own badges rather than off the raw keyword word, so
   the mark and the colour cannot disagree. Toxic is written into the enum and
   reaches nothing: `board::keyword_bits` has no toxic bit yet.
 - **And the counters stand beside it, on a chip.** The net power and

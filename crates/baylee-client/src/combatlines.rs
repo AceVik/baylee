@@ -101,7 +101,7 @@ const DASHES: f32 = 7.0;
 ///
 /// The table's own tempo, and the same number `BEAT` is — one dash per beat.
 /// `docs/design.md` §1.6 is why it is not a rate of its own: the current is
-/// on the felt beside the keyword rail and the focus ring, and a third clock
+/// on the felt beside the keyword marks and the focus ring, and a third clock
 /// among them is the fairground that section exists to prevent.
 const CURRENT: f32 = BEAT;
 

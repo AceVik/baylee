@@ -601,6 +601,10 @@ fn text_font(fonts: &UiFonts, size: f32) -> TextFont {
 #[derive(Component)]
 pub struct WorldFace;
 
+/// How far under the seam the world face's type line is centred, in card
+/// widths: half its line and a gap, so its ascenders clear the keyword strip.
+const TYPE_LINE_DROP: f32 = 0.07;
+
 /// Attaches the compact face to a card quad on the table.
 ///
 /// Positions are in the quad's local space, where the card is
@@ -624,11 +628,18 @@ pub fn spawn_world(
     const PX_PER_UNIT: f32 = 100.0;
     let scale = 1.0 / PX_PER_UNIT;
     // Laid out against the print's window and not the whole card (#274): the
-    // frame round it is where the shader draws the rail, the plate and the
+    // frame round it is where the shader draws the plate, the crests and the
     // offers, and a line of text on the frame would be under all three. A
     // card width is a table unit, so the frame's card widths are world units.
     let half_h = cardframe::PRINT_TALL * CARD_WIDTH / 2.0;
     let lift = cardframe::window_lift() * CARD_WIDTH;
+    // The type line stands under the seam, where a printed card has it: the
+    // keyword strip stands on the seam and reaches up from it, and a type
+    // line at the window's middle ran under the strip on any creature with
+    // two marks.
+    let type_line = (cardframe::FRAME_TOP + cardframe::PRINT_TALL * 0.5
+        - (baylee_client_core::cardrail::strip_bottom() + TYPE_LINE_DROP))
+        * CARD_WIDTH;
     let width_px = cardframe::PRINT_SCALE * CARD_WIDTH * PX_PER_UNIT * 0.88;
 
     let mut spawned = Vec::with_capacity(4);
@@ -665,7 +676,7 @@ pub fn spawn_world(
                 .join(" ");
             line(cost, 11.0, Color::srgb(0.85, 0.82, 0.72), half_h * 0.44, z);
         }
-        line(face.type_line.clone(), 10.0, MUTED, half_h * 0.06, z);
+        line(face.type_line.clone(), 10.0, MUTED, type_line, z);
         if let Some(stats) = world_stats(face.stats, plate) {
             line(
                 stats_label(stats),

@@ -256,7 +256,7 @@ pub fn counter_swing(counters: &[CounterEntry]) -> Option<(i16, i16)> {
 /// Deathtouch and toxic are the two keywords that change what a creature's
 /// *numbers mean* rather than what it can do with them: a 1/1 deathtoucher
 /// trades with anything, and the number that does it is the power. So the
-/// colour goes on the number, not on a thirteenth mark in a rail that has
+/// colour goes on the number, not on a thirteenth mark on a strip that has
 /// twelve.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Tone {
@@ -280,7 +280,7 @@ pub enum Tone {
 /// The tone a permanent's keywords ask for.
 ///
 /// Read off the **badges** rather than off the raw keyword word, so that the
-/// colour on a number and the mark on the rail can never disagree about
+/// colour on a number and the mark on the strip can never disagree about
 /// whether a creature has the keyword. The preview, which starts from a view
 /// object rather than from a board group, goes through
 /// [`KeywordBadge::from_bits`] to get here rather than testing a bit itself.
@@ -1019,7 +1019,7 @@ mod tests {
         assert_eq!(((word >> SLOT_BITS) & SLOT_MASK) as i32 - BIAS, 2);
     }
 
-    /// Deathtouch colours a number, and only through the rail's own badges.
+    /// Deathtouch colours a number, and only through the strip's own badges.
     #[test]
     fn deathtouch_turns_the_corner_deadly() {
         let mut deadly = group(Some(1), Some(1), None);

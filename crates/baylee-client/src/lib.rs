@@ -72,6 +72,7 @@ pub mod lobby;
 pub mod manasources;
 pub mod manaui;
 pub mod markatlas;
+pub mod marksmat;
 pub mod matmat;
 pub mod net;
 pub mod prefs;
@@ -1518,6 +1519,7 @@ impl Plugin for DuelPlugin {
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(markatlas::MarkAtlasPlugin)
+            .add_plugins(marksmat::MarksMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
             .add_plugins(frontal::FrontalPlugin)
             .add_plugins(matmat::MatMaterialPlugin)

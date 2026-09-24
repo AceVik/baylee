@@ -69,7 +69,7 @@ pub mod keyword_bits {
     pub const DEFENDER: u128 = 1 << 12;
     /// Prowess.
     ///
-    /// The one mark on the rail that is not a combat keyword. It is here
+    /// The one mark on the strip that is not a combat keyword. It is here
     /// because it is a keyword a creature *is* — a printed word on the card
     /// that changes what it does — and because a player who casts a spell
     /// wants to see which of their creatures just grew.
