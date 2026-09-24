@@ -116,7 +116,7 @@ const UNAUDITED: &[(&str, usize)] = &[
     ("resolve/tokens.rs", 2),
     ("resolve/zones.rs", 2),
     ("sba.rs", 3),
-    ("state.rs", 3),
+    ("state.rs", 2),
     ("trigger.rs", 1),
 ];
 

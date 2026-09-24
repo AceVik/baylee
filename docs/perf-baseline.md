@@ -237,3 +237,38 @@ packed into one `NonZeroU32` instead, so the `Option` is four bytes and the
 object grows by the eight its alignment rounds them to. The budget was raised
 to 288 deliberately. `state/clone` was not re-benched, on the argument the
 entry above makes for the same eight bytes.
+
+## The snapshot hash names every field (24.09.2026, #122)
+
+`GameState::snapshot_hash` now takes every struct it walks apart by name, so
+it reads about forty fields it used to skip: X, kicker, the chosen mode, the
+land drop, the delayed triggers, the queued extra turns, what was used this
+turn, the cards outside the game and more. Both columns are on this machine,
+under the cargo lock, in two interleaved rounds (old, new, old, new).
+`state/snapshot_hash_3k_tokens` is new: the token board from
+`layers/refresh_3k_tokens`, where every token carries its definition and has
+one entry in `ability_fires`.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `state/snapshot_hash` | 7.37 / 7.28 µs | 8.41 / 8.25 µs | +14 % |
+| `state/snapshot_hash_3k_tokens` | 233 / 232 µs | 259 / 260 µs | +12 % |
+
+The two maps (`ability_fires`, `restriction_info`) are summed entry by entry,
+so the order they iterate in cannot reach the hash. The variants below were
+measured in an earlier series, on the 3k board with the start-of-game bench in
+brackets, where the kept version measured 271 µs (8.25 µs):
+
+- Sorting the entries into a `Vec` first: 328 µs (8.27 µs). It allocates on
+  every call and gains nothing.
+- A streaming xxh3 state set up per entry: 320 µs. That setup costs more
+  than a thirteen-byte entry, so `ability_fires` entries go to the one-shot
+  `xxh3_64` instead, which is the kept version.
+- A 64-byte write buffer in front of `Xxh3`: 616 µs (15.6 µs), twice as slow.
+  `Xxh3::update` already buffers, and a copy of runtime length per write costs
+  more than it saves. Not kept.
+
+A token's definition is hashed by its content, never by its address, and on
+the 3k board that was about 40 µs in the same series (13 ns a token).
+Counters no longer go through a `Vec` per object; what that saves was not
+measured on its own.

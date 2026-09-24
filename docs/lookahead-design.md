@@ -23,10 +23,12 @@ the answer. The anti-cheat boundary is the input, not the dependency edge.
 `Engine::new` is the only engine constructor. There is a capability-checked
 `Engine::dev_state_mut(seat)`, contrary to the brief's broader claim about
 mutable access, but it cannot install a complete continuation and is not a
-simulation interface. `GameState` currently has **33 public fields and two
-private scratch fields**. `PlayerView` has **20 public fields**. The
+simulation interface. When this was written, `GameState` had **33 public
+fields and two private scratch fields**; `ltb_counters`, `reflexive` and
+`projected_cross_zone` have come since, and `effect_generation`, which
+nothing wrote, has gone (#122). `PlayerView` had **20 public fields**. The
 `VIEW_VERSION` of the day is read out of `crates/baylee-view/src/lib.rs`, not
-from here — it has moved four times since this sentence was written. The field inventory below covers the current code,
+from here — it has moved four times since this sentence was written. The field inventory below covers the code of that day,
 rather than treating the brief's thirteen fields as a complete state.
 
 The timing measurement used the shared cargo lock, with
@@ -236,7 +238,6 @@ the simulation; rules facts may not.
 | 30 | `effects` | Partial | Rebuild statics through the ordinary engine machinery; recover temporary effects, source bindings, expiry and ordering from observations. Matching projected P/T at this instant is necessary but insufficient. |
 | 31 | `replacement_rules` | Partial | Rebuild registered rules from the fabricated sources and the normal registration machinery. Preserve controller and provenance. Do not copy the host registry. |
 | 32 | `characteristics_generation` | Partial; derived | Start invalid and refresh. Its numeric value need not equal the host's; equality with the rebuilt effect generation must have the usual meaning. |
-| 33 | `effect_generation` | Partial; derived | Use a local generation advanced by ordinary invalidation. Never trust copied view characteristics as a valid engine cache. |
 
 The private `projection_ids` and `token_cleanup` are initialized inside the
 engine's position builder. They are empty at the supported settled root.
@@ -544,12 +545,13 @@ all enabling gates still apply regardless of rank.
    present heuristic does not do that; adding determinization without
    removing this input would make the boundary depend on restraint.
 2. **Snapshot hashes are not complete continuation identities.**
-   `GameState::snapshot_hash` claims to include everything affecting future
-   outcomes but does not hash `lands_played_this_turn`, `per_turn`,
-   `delayed`, `extra_turns` or `ability_fires`, among others.
-   `Engine::snapshot_hash` does not add all driver fields either, including
-   `loyalty_used_this_turn`. Equal hashes therefore do not establish equal
-   futures. Keep the requested unchanged-source hash assertion, add direct
+   `GameState::snapshot_hash` names every field of every struct it walks
+   since #122, so a field added later cannot be left out by accident. It
+   still leaves out the journal, although two rules read this turn's part of
+   it (`EnteredThisTurn`, life lost this turn): a known gap, because that
+   window belongs in `per_turn` (#241). `Engine::snapshot_hash` does not add all driver fields,
+   including `loyalty_used_this_turn` (#238). Equal hashes therefore do not
+   establish equal futures. Keep the requested unchanged-source hash assertion, add direct
    checks, and audit hashing separately before using it for transpositions.
 3. **Public reveal events have no observation-history consumer here.**
    The engine journals `Revealed`, but the house AI receives snapshots and

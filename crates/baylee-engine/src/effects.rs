@@ -232,6 +232,19 @@ impl EffectTable {
     pub fn len(&self) -> usize {
         self.effects.len()
     }
+
+    /// Every field of the table, for `GameState::snapshot_hash`.
+    ///
+    /// Named rather than matched with `..`, so a field added here does not
+    /// compile until the hash has been told about it (#122).
+    pub(crate) fn hashed_parts(&self) -> (&[ContinuousEffect], u32, u64) {
+        let Self {
+            effects,
+            next_id,
+            generation,
+        } = self;
+        (effects, *next_id, *generation)
+    }
 }
 
 /// The activated ability a continuous effect grants `source`, if any.

@@ -439,7 +439,7 @@ impl CachedChar {
 pub use baylee_cards_dsl::CounterKind;
 
 /// Counters on an object.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Hash, Debug, Default)]
 pub struct Counters(SmallVec<[(CounterKind, u16); 4]>);
 
 impl Counters {
@@ -576,7 +576,7 @@ pub type RiderSet = SmallVec<[Rider; 2]>;
 /// narrowing drops an illegal target from a list, which would slide a fight's
 /// second creature into the first one's place. Read by
 /// [`baylee_cards_dsl::TargetSlot::Second`] and nothing else.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct SecondInstance {
     /// What was chosen for it.
     pub targets: SmallVec<[ObjectId; 1]>,

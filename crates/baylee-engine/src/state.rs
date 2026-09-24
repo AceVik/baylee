@@ -1,10 +1,13 @@
 //! Game state: the complete, cloneable, hashable world.
 
+use std::hash::Hash;
 use std::sync::Arc;
 
 use crate::arena::Arena;
 use crate::event::{Cause, GameEvent, Journal, LossReason};
-use crate::object::{CardRef, Characteristics, CounterKind, GameObject, ObjectKind, Rider};
+use crate::object::{
+    CardRef, Characteristics, CounterKind, GameObject, ObjectKind, PrintedFace, Rider,
+};
 use crate::rng::GameRng;
 use crate::turn::{DayNight, TurnInfo};
 use crate::zone::{Zone, ZoneLocation, ZonePosition, Zones};
@@ -152,7 +155,7 @@ impl Names {
 
 /// A delayed trigger registered for a future game point (suspend finishes,
 /// pact payments, rebound re-casts).
-#[derive(Clone, Debug)]
+#[derive(Clone, Hash, Debug)]
 pub struct DelayedTrigger {
     /// Controlling player.
     pub controller: PlayerId,
@@ -163,7 +166,7 @@ pub struct DelayedTrigger {
 }
 
 /// When a delayed trigger fires.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {
     /// At the controller's next upkeep.
     NextUpkeep,
@@ -176,7 +179,7 @@ pub enum DelayedWhen {
 }
 
 /// What a delayed trigger does.
-#[derive(Clone, Debug)]
+#[derive(Clone, Hash, Debug)]
 pub enum DelayedAction {
     /// Cast a card from exile without paying its mana cost (rebound,
     /// suspend finish).
@@ -215,7 +218,7 @@ pub enum DelayedAction {
 }
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
-#[derive(Clone, Debug)]
+#[derive(Clone, Hash, Debug)]
 pub struct PerTurn {
     /// Noncreature spells cast this turn, per player.
     pub noncreature_spells: Vec<u32>,
@@ -258,7 +261,7 @@ impl PerTurn {
 /// Two numbers rather than a whole `PerTurn` snapshot: the untap step asks
 /// exactly one question of the previous turn, and copying every counter to
 /// answer it would put a per-seat allocation on every turn boundary.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct PreviousTurn {
     /// Whose turn it was.
     pub active: PlayerId,
@@ -267,7 +270,7 @@ pub struct PreviousTurn {
 }
 
 /// A registered replacement rule from a permanent on the battlefield.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Hash, Debug)]
 pub struct ReplacementEntry {
     /// The source permanent.
     pub source: ObjectId,
@@ -327,7 +330,7 @@ pub struct BaseCache {
 }
 
 /// One of a seat's commanders (CR 903.3), and what it has cost so far.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Commander {
     /// The card. Its [`ObjectId`] is the marker, because it survives the
     /// zone changes that make the card a new object (CR 400.7).
@@ -493,10 +496,10 @@ pub struct GameState {
     ///
     /// Written and cleared exactly where [`Self::ltb_abilities`] is, so an
     /// entry only ever names an object that is not on the battlefield and
-    /// the move that brings one back removes its entry. Excluded from
-    /// `snapshot_hash` and `loop_signature` for the reason
-    /// [`Self::ceased`] gives: it is scan bookkeeping that never survives a
-    /// priority grant.
+    /// the move that brings one back removes its entry. That lifetime is
+    /// also why [`Self::snapshot_hash`] reads it, as it reads the other two:
+    /// an entry is not scan bookkeeping that a priority grant clears, it
+    /// stays for as long as its object stays off the battlefield.
     pub ltb_counters: Vec<(ObjectId, crate::object::Counters)>,
     /// Objects that have ceased to exist but whose triggers have not fired.
     ///
@@ -597,8 +600,6 @@ pub struct GameState {
     pub replacement_rules: Vec<ReplacementEntry>,
     /// The effect generation the characteristic caches were computed at.
     pub characteristics_generation: u64,
-    /// Effect-set generation for characteristic caches (M2).
-    pub effect_generation: u64,
     /// Scratch list reused by [`GameState::refresh_characteristics`].
     ///
     /// A refresh runs after every effect-set change, so allocating its
@@ -743,7 +744,6 @@ impl GameState {
             effects: crate::effects::EffectTable::default(),
             replacement_rules: Vec::new(),
             characteristics_generation: u64::MAX,
-            effect_generation: 0,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
             token_cleanup: Vec::new(),
@@ -1802,61 +1802,98 @@ impl GameState {
 
     /// Streaming xxh3 hash over the entire deterministic state.
     ///
-    /// Caches and the journal *content* are excluded (they are derived
-    /// data); everything that can influence future outcomes is included.
+    /// Every struct on the way is taken apart by name, here and in the
+    /// helpers it calls, so a field added tomorrow does not compile until it
+    /// is either hashed or bound to `_` beside the reason it is left out. The
+    /// list this replaced was written by hand and went blind to every field
+    /// added after it, among them the X, the kicker and the chosen mode of a
+    /// spell on the stack (#122). A type whose every field counts derives
+    /// `Hash` instead, which reaches a new field without being asked.
+    ///
+    /// Nothing here depends on the order a map iterates in (`hash_unordered`)
+    /// or on an address: a `&'static` definition hashes what it says, or the
+    /// printed face that names it (`hash_ability_list`).
     #[must_use]
+    #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
     pub fn snapshot_hash(&self) -> u64 {
+        let Self {
+            arena,
+            zones,
+            players,
+            turn,
+            turn_start_seq,
+            combat,
+            per_turn,
+            delayed,
+            pending_miracle,
+            extra_turns,
+            restriction_info,
+            next_restriction_id,
+            commander_casts,
+            commander_redirect,
+            pending_copied_faces,
+            ltb_abilities,
+            ltb_attachments,
+            ltb_counters,
+            // Empty again before any question is out; the field says why.
+            ceased: _,
+            // Empty whenever a question is out, by a rule the build
+            // enforces; the field says which.
+            reflexive: _,
+            commanders,
+            monarch,
+            day_night,
+            previous_turn,
+            starting_player,
+            ability_fires,
+            rng,
+            // A record of what happened, not an input to what happens next,
+            // with one exception that is a known gap: `Filter::EnteredThisTurn`
+            // and `Effect::IfNotLostLifeThisTurn` read its entries since
+            // `turn_start_seq` (hashed below), and that window is not hashed.
+            // It belongs in `per_turn`, whose `life_lost` was meant to carry
+            // half of it and is never written (#241).
+            journal: _,
+            names,
+            // Printed faces shared between objects. Each object's face is
+            // hashed with the object, whether or not it is shared.
+            bases: _,
+            timestamp,
+            effects,
+            replacement_rules,
+            characteristics_generation,
+            // Scratch, always left empty.
+            projection_ids: _,
+            // A cache flag, derived from the effects hashed below.
+            projected_cross_zone: _,
+            // Drained by every pass, before anyone can look.
+            token_cleanup: _,
+        } = self;
         let mut h = Hasher::new();
-        h.u64(self.timestamp);
-        h.u64(self.effect_generation);
-        h.u64(self.characteristics_generation);
-        self.hash_effects(&mut h);
-        h.u32(self.turn.number);
-        h.u8(self.turn.active.get());
-        h.u8(self.turn.phase as u8);
-        h.u8(self.turn.step as u8);
-        h.u8(self.day_night.map_or(255, |d| d as u8));
-        h.u8(self.previous_turn.map_or(255, |p| p.active.get()));
-        h.u32(self.previous_turn.map_or(0, |p| p.spells_cast));
-        h.bytes(&self.rng.seed());
-        h.bytes(&self.rng.word_pos().to_le_bytes());
-        h.usize(self.names.len());
-        h.usize(self.players.len());
-        for p in &self.players {
-            h.u8(p.id.get());
-            h.i32(p.life);
-            h.u16(p.poison);
-            h.u16(p.energy);
-            h.i8(p.hand_modifier);
-            h.u64(p.turn_start_timestamp);
-            // Why, and not only whether: two engines that eliminated the
-            // same seat by different state-based actions ran different
-            // rules, and once that seat's objects have left the game the
-            // reason is the only trace of which one fired. `None` hashes as
-            // the `false` it replaced, so a state nobody has lost in hashes
-            // byte for byte as before.
-            h.u8(loss_byte(p.loss));
-            for color in ManaColor::ALL {
-                h.u16(p.mana_pool.available(color));
-                h.u16(p.mana_pool.snow_available(color));
-            }
-            h.usize(p.mana_pool.restricted().len());
-            for r in p.mana_pool.restricted() {
-                h.u8(r.color as u8);
-                h.u16(r.amount);
-                h.u8(r.flags.bits());
-                h.u32(r.restriction.0);
-            }
-            // Commander damage (CR 903.10a), which no life total records:
-            // two seats on the same life with twelve and twenty points from
-            // the same commander are one attack apart from different games.
-            h.usize(p.commander_damage.len());
-            for (source, amount) in &p.commander_damage {
-                h.u32(source.slot());
-                h.u16(*amount);
-            }
+        h.u64(*timestamp);
+        h.u64(*characteristics_generation);
+        hash_effects(&mut h, effects);
+        replacement_rules.hash(&mut h);
+        turn.hash(&mut h);
+        turn_start_seq.hash(&mut h);
+        day_night.hash(&mut h);
+        previous_turn.hash(&mut h);
+        monarch.hash(&mut h);
+        starting_player.hash(&mut h);
+        per_turn.hash(&mut h);
+        delayed.hash(&mut h);
+        pending_miracle.hash(&mut h);
+        extra_turns.hash(&mut h);
+        rng.hash(&mut h);
+        // The interner's order is the game's history, and every object
+        // hashes the `NameRef` it carries; the count keeps apart two
+        // histories that interned a different number of names.
+        h.usize(names.len());
+        h.usize(players.len());
+        for player in players {
+            hash_player(&mut h, player);
         }
-        for (slot, generation, value) in self.arena.slots() {
+        for (slot, generation, value) in arena.slots() {
             h.u32(slot);
             h.u8(generation);
             h.boolean(value.is_some());
@@ -1864,89 +1901,56 @@ impl GameState {
                 hash_object(&mut h, obj);
             }
         }
-        hash_zone(&mut h, self.zones.list(ZoneLocation::Battlefield));
-        hash_zone(&mut h, self.zones.list(ZoneLocation::Stack));
-        h.usize(self.combat.attackers.len());
-        for a in &self.combat.attackers {
-            h.u32(a.creature.slot());
-            hash_defender(&mut h, a.defending, ObjectId::slot);
-            h.boolean(a.blocked);
+        zones.hash(&mut h);
+        combat.hash(&mut h);
+        // The commander counters, which no zone can stand in for: a
+        // commander cast and then returned leaves the command zone exactly
+        // as it found it, and the only difference between the two states is
+        // what the next cast costs (CR 903.8). `Commander::answered` rides
+        // along: two states that differ only in whether the owner has said
+        // no yet (CR 903.9a) are two states.
+        commander_casts.hash(&mut h);
+        commanders.hash(&mut h);
+        // Answers taken but not yet spent (CR 903.9b), and copies created
+        // but not yet handed the rules text they copied. A resolution can
+        // suspend on a choice with either outstanding, which is a moment
+        // this hash is taken at.
+        commander_redirect.hash(&mut h);
+        pending_copied_faces.hash(&mut h);
+        // The look-back lists are not scan bookkeeping that a priority
+        // grant clears: an entry stays until its object moves again, and
+        // `eval::matches` consults `ltb_attachments` in general.
+        h.usize(ltb_abilities.len());
+        for (object, list) in ltb_abilities {
+            object.hash(&mut h);
+            hash_ability_list(&mut h, list.abilities, list.printed);
         }
-        h.usize(self.combat.blockers.len());
-        for b in &self.combat.blockers {
-            h.u32(b.blocker.slot());
-            h.u32(b.attacker.slot());
-        }
-        for seat in 0..self.players.len() {
-            let p = PlayerId::new(seat as u8);
-            for loc in [
-                ZoneLocation::Library(p),
-                ZoneLocation::Hand(p),
-                ZoneLocation::Graveyard(p),
-                ZoneLocation::Exile(p),
-                ZoneLocation::Command(p),
-            ] {
-                hash_zone(&mut h, self.zones.list(loc));
-            }
-            // The commander counters, which no zone can stand in for: a
-            // commander cast and then returned leaves the command zone
-            // exactly as it found it, and the only difference between the
-            // two states is what the next cast costs (CR 903.8). That is a
-            // future outcome, so it belongs in the hash.
-            h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
-            h.usize(self.commanders.get(seat).map_or(0, Vec::len));
-            for c in self.commanders.get(seat).into_iter().flatten() {
-                h.u32(c.object.slot());
-                h.u32(c.casts);
-                // And which arrival in a graveyard or exile has already
-                // been offered (CR 903.9a) — two states that differ only in
-                // whether the owner has said no yet are two states.
-                h.u64(c.answered);
-            }
-        }
-        // Answers taken but not yet spent (CR 903.9b). A game suspended
-        // mid-effect with "yes" recorded and one with "no" recorded differ
-        // in nothing else, and they end differently.
-        h.usize(self.commander_redirect.len());
-        for (object, home) in &self.commander_redirect {
-            h.u32(object.slot());
-            h.boolean(*home);
-        }
-        // And the same for a copy that has been created but not yet handed
-        // the rules text it copied: a resolution can suspend on a choice
-        // between the two, which is a moment this hash is taken at.
-        h.usize(self.pending_copied_faces.len());
-        for (object, card, face) in &self.pending_copied_faces {
-            h.u32(object.slot());
-            h.u32(card.get());
-            h.u8(*face);
-        }
+        ltb_attachments.hash(&mut h);
+        ltb_counters.hash(&mut h);
+        hash_unordered(
+            &mut h,
+            restriction_info.iter(),
+            |(id, (source, filter, rider))| {
+                let mut one = Hasher::new();
+                id.hash(&mut one);
+                source.hash(&mut one);
+                filter_hash(&mut one, filter);
+                rider.hash(&mut one);
+                one.finish()
+            },
+        );
+        next_restriction_id.hash(&mut h);
+        // Thirteen bytes an entry, digested in one call: a streaming state
+        // set up per entry costs more than the entry does.
+        hash_unordered(&mut h, ability_fires.iter(), |((object, index), uses)| {
+            let mut entry = [0u8; 13];
+            entry[..4].copy_from_slice(&object.slot().to_le_bytes());
+            entry[4] = object.generation();
+            entry[5..9].copy_from_slice(&index.to_le_bytes());
+            entry[9..].copy_from_slice(&uses.to_le_bytes());
+            xxhash_rust::xxh3::xxh3_64(&entry)
+        });
         h.finish()
-    }
-
-    fn hash_effects(&self, h: &mut Hasher) {
-        for fx in self.effects.iter() {
-            h.u32(fx.id.get());
-            h.u32(fx.source.map_or(u32::MAX, baylee_core::ids::ObjectId::slot));
-            h.u8(fx.source.map_or(0, baylee_core::ids::ObjectId::generation));
-            match fx.filter {
-                crate::effects::EffectFilter::Dsl(filter) => {
-                    h.u8(0);
-                    filter_hash(h, filter);
-                }
-                crate::effects::EffectFilter::ObjectIs(id, version) => {
-                    h.u8(1);
-                    h.u32(id.slot());
-                    h.u8(id.generation());
-                    h.u32(version);
-                }
-            }
-            h.u8(fx.controller.get());
-            h.u8(fx.layer as u8);
-            h.u64(fx.timestamp);
-            h.u8(fx.duration as u8);
-            hash_modifier(h, &fx.modifier);
-        }
     }
 
     /// A hash of the *rules-visible situation*, blind to object identity and
@@ -2238,14 +2242,6 @@ impl Hasher {
     }
 }
 
-fn hash_zone(h: &mut Hasher, list: &[ObjectId]) {
-    h.usize(list.len());
-    for id in list {
-        h.u32(id.slot());
-        h.u8(id.generation());
-    }
-}
-
 /// Hashes a defender. `locate` maps an object to whatever identity the
 /// caller's hash is built on — the arena slot for the snapshot, a
 /// canonical position for the loop signature.
@@ -2337,80 +2333,233 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     }
 }
 
+/// Hashes a map's entries without depending on the order it iterates in.
+///
+/// `digest` hashes one entry on its own and the digests are summed, so any
+/// iteration order gives one total and nothing is allocated. Sorting the
+/// entries first would put a `Vec` on every call, and the harness takes
+/// this hash after every action (#213).
+fn hash_unordered<T>(
+    h: &mut Hasher,
+    entries: impl ExactSizeIterator<Item = T>,
+    digest: impl Fn(T) -> u64,
+) {
+    h.usize(entries.len());
+    let sum = entries.fold(0u64, |sum, entry| sum.wrapping_add(digest(entry)));
+    h.u64(sum);
+}
+
+/// Hashes an ability list by what names it, which is never its address.
+///
+/// A printed list is named by its face: [`AbilityList`] carries the two
+/// together, and every place that builds one takes both from the same face,
+/// so the face stands for the list. A token's or an emblem's has no face,
+/// and there the list's content is hashed, because an address is no name:
+/// it differs between builds, and the compiler merges identical lists into
+/// one ([`PrintedFace`]).
+///
+/// [`AbilityList`]: crate::object::AbilityList
+fn hash_ability_list(
+    h: &mut Hasher,
+    abilities: &[baylee_cards_dsl::AbilityDef],
+    printed: Option<PrintedFace>,
+) {
+    h.usize(abilities.len());
+    if let Some(face) = printed {
+        h.u8(1);
+        face.hash(h);
+    } else {
+        h.u8(0);
+        abilities.hash(h);
+    }
+}
+
+fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
+    let (effects, next_id, generation) = table.hashed_parts();
+    next_id.hash(h);
+    generation.hash(h);
+    h.usize(effects.len());
+    for fx in effects {
+        let crate::effects::ContinuousEffect {
+            id,
+            source,
+            controller,
+            layer,
+            timestamp,
+            duration,
+            filter,
+            modifier,
+        } = fx;
+        id.hash(h);
+        source.hash(h);
+        controller.hash(h);
+        layer.hash(h);
+        timestamp.hash(h);
+        duration.hash(h);
+        match filter {
+            crate::effects::EffectFilter::Dsl(filter) => {
+                h.u8(0);
+                filter_hash(h, filter);
+            }
+            crate::effects::EffectFilter::ObjectIs(id, version) => {
+                h.u8(1);
+                id.hash(h);
+                version.hash(h);
+            }
+        }
+        hash_modifier(h, modifier);
+    }
+}
+
+fn hash_player(h: &mut Hasher, player: &Player) {
+    let Player {
+        id,
+        life,
+        poison,
+        energy,
+        mana_pool,
+        hand_modifier,
+        lands_played_this_turn,
+        turn_start_timestamp,
+        tried_empty_draw,
+        commander_damage,
+        loss,
+        // Preset-constant, so it tells no two states of one game apart
+        // (`docs/engine-internals.md`).
+        team: _,
+    } = player;
+    id.hash(h);
+    life.hash(h);
+    poison.hash(h);
+    energy.hash(h);
+    mana_pool.hash(h);
+    hand_modifier.hash(h);
+    lands_played_this_turn.hash(h);
+    turn_start_timestamp.hash(h);
+    tried_empty_draw.hash(h);
+    // Commander damage (CR 903.10a), which no life total records: two
+    // seats on the same life with twelve and twenty points from the same
+    // commander are one attack apart from different games.
+    commander_damage.hash(h);
+    // Why, and not only whether: two engines that eliminated the same seat
+    // by different state-based actions ran different rules, and once that
+    // seat's objects have left the game the reason is the only trace of
+    // which one fired.
+    h.u8(loss_byte(*loss));
+}
+
+fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
+    let Characteristics {
+        name,
+        mana_cost,
+        colors,
+        types,
+        supertypes,
+        subtypes,
+        keywords,
+        power,
+        toughness,
+        loyalty,
+        color_identity,
+        produced_colors,
+        produced_colorless,
+        produced_chosen,
+    } = characteristics;
+    name.hash(h);
+    hash_mana_cost(h, mana_cost);
+    colors.hash(h);
+    types.hash(h);
+    supertypes.hash(h);
+    subtypes.hash(h);
+    keywords.hash(h);
+    power.hash(h);
+    toughness.hash(h);
+    loyalty.hash(h);
+    color_identity.hash(h);
+    produced_colors.hash(h);
+    produced_colorless.hash(h);
+    produced_chosen.hash(h);
+}
+
+#[allow(clippy::too_many_lines)] // one line per field: the list is the guard
 fn hash_object(h: &mut Hasher, obj: &GameObject) {
-    h.u32(obj.id.slot());
-    h.u8(obj.id.generation());
-    h.u8(obj.owner.get());
-    h.u8(obj.controller.get());
+    let GameObject {
+        id,
+        owner,
+        controller,
+        base_controller,
+        zone,
+        zone_owner,
+        kind,
+        card,
+        base,
+        // The layer projection of `base` under the effect table, both of
+        // which are hashed; it is recomputed whenever the table moves.
+        cache: _,
+        counters,
+        damage,
+        deathtouched,
+        regeneration_shields,
+        status,
+        attached_to,
+        timestamp,
+        version,
+        riders,
+        targets,
+        target_req,
+        second,
+        original_base,
+        ability,
+        x_value,
+        kicked,
+        alt_cast,
+        chosen_player,
+        target_players,
+        mode_index,
+        chosen_subtype,
+        chosen_color,
+        face_index,
+        own_abilities,
+        own_abilities_until_eot,
+        own_face,
+        token,
+        pending_face_change,
+        event_object,
+        cast_from_hand,
+    } = obj;
+    id.hash(h);
+    owner.hash(h);
+    controller.hash(h);
     // Not derivable from the projected controller: it is who the permanent
     // goes back to when a control effect ends, so a resync that lost it
     // would hand the permanent to the wrong seat later.
-    h.u8(obj.base_controller.get());
-    h.u8(obj.zone as u8);
-    h.u8(obj.zone_owner.map_or(255, baylee_core::ids::PlayerId::get));
-    h.u8(obj.kind as u8);
-    match &obj.card {
-        Some(c) => {
-            h.u8(1);
-            h.u32(c.index.get());
-            h.u16(c.print.get());
-        }
-        None => h.u8(0),
+    base_controller.hash(h);
+    zone.hash(h);
+    zone_owner.hash(h);
+    kind.hash(h);
+    card.hash(h);
+    // Base characteristics (copiable values), and the ones a copy gives
+    // back when it changes zones (CR 400.7).
+    hash_characteristics(h, base);
+    h.boolean(original_base.is_some());
+    if let Some(original) = original_base {
+        hash_characteristics(h, original);
     }
-    // Base characteristics (copiable values).
-    let b = &obj.base;
-    h.u32(b.name.get());
-    hash_mana_cost(h, &b.mana_cost);
-    h.u8(b.colors.bits());
-    h.u16(b.types.bits());
-    h.u8(b.supertypes.bits());
-    for word in b.subtypes.words() {
-        h.u64(*word);
-    }
-    h.u128(b.keywords.bits());
-    h.option_u32(b.power.map(|v| v as u32));
-    h.option_u32(b.toughness.map(|v| v as u32));
-    h.option_u32(b.loyalty.map(u32::from));
-    // Counters.
-    let counters: Vec<_> = obj.counters.iter().collect();
-    h.usize(counters.len());
-    for (kind, n) in counters {
-        hash_counter(h, kind);
-        h.u16(n);
-    }
-    h.u16(obj.damage);
-    // Status and the deathtouch mark share one word; bit 8 is out of the
-    // status byte, so packing them cannot collide.
-    h.u16(u16::from(obj.status.bits()) | (u16::from(obj.deathtouched) << 8));
-    h.u8(obj.regeneration_shields);
-    h.option_u32(obj.attached_to.map(baylee_core::ids::ObjectId::slot));
-    h.u64(obj.timestamp);
-    h.u32(obj.version);
-    // Targets + ability location.
-    h.usize(obj.targets.len());
-    for t in &obj.targets {
-        h.u32(t.slot());
-    }
-    h.usize(obj.second_targets().len());
-    for t in obj.second_targets() {
-        h.u32(t.slot());
-    }
-    match &obj.ability {
-        Some(loc) => {
-            h.u8(1);
-            h.option_u32(loc.card.map(baylee_core::ids::CardIndex::get));
-            h.u32(loc.index);
-            h.u32(loc.source.slot());
-        }
-        None => h.u8(0),
-    }
+    counters.hash(h);
+    damage.hash(h);
+    deathtouched.hash(h);
+    regeneration_shields.hash(h);
+    status.hash(h);
+    attached_to.hash(h);
+    timestamp.hash(h);
+    version.hash(h);
     // Exile riders.
-    h.usize(obj.riders.len());
-    for rider in &obj.riders {
+    h.usize(riders.len());
+    for rider in riders {
         match rider {
             Rider::Linked { host } => {
                 h.u8(1);
-                h.u32(host.slot());
+                host.hash(h);
             }
             Rider::Rebound => h.u8(2),
             Rider::Adventure => h.u8(3),
@@ -2427,6 +2576,37 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::SpellCopy => h.u8(11),
         }
     }
+    // What the spell or ability on the stack was cast or put there with:
+    // its targets, what it may retarget to, which ability it is, and every
+    // choice made on the way — two copies of one spell with X 3 and X 0 are
+    // two different futures.
+    targets.hash(h);
+    target_req.hash(h);
+    second.hash(h);
+    ability.hash(h);
+    x_value.hash(h);
+    kicked.hash(h);
+    alt_cast.hash(h);
+    chosen_player.hash(h);
+    target_players.hash(h);
+    mode_index.hash(h);
+    chosen_subtype.hash(h);
+    chosen_color.hash(h);
+    face_index.hash(h);
+    pending_face_change.hash(h);
+    event_object.hash(h);
+    cast_from_hand.hash(h);
+    // What the object can do when it is not what its card says: a copy's
+    // list, an emblem's, an ability's captured one. `own_face` names it.
+    h.boolean(own_abilities.is_some());
+    if let Some(list) = own_abilities {
+        hash_ability_list(h, list, *own_face);
+    }
+    own_face.hash(h);
+    own_abilities_until_eot.hash(h);
+    // A token's definition, hashed by what it says for the reason
+    // `hash_ability_list` gives.
+    token.hash(h);
 }
 
 /// Whether a DSL filter reads **board state** rather than a characteristic:
@@ -3112,6 +3292,273 @@ mod tests {
             untouched,
             state.loop_signature(),
             "cleared is back to where it started, which is what a turn boundary does"
+        );
+    }
+
+    /// A two-seat game with one bare permanent on the battlefield: the
+    /// object the snapshot-hash tests below change one thing about.
+    fn hash_fixture() -> (GameState, ObjectId) {
+        let mut state =
+            GameState::from_preset(&make_preset(3), &RegistryLookup).expect("game starts");
+        let name = state.names.intern("Test Permanent");
+        let id = state.create_bare(
+            PlayerId::new(0),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        (state, id)
+    }
+
+    fn fixture_object(state: &mut GameState, id: ObjectId) -> &mut GameObject {
+        state.object_mut(id).expect("the fixture's permanent")
+    }
+
+    /// Every field the snapshot hash was blind to until #122, one at a time.
+    ///
+    /// Each entry changes exactly one thing a later rule reads: an X on the
+    /// stack, a land drop, a queued extra turn, a card outside the game. A
+    /// hash that stays put across one of them calls two different games the
+    /// same, which is what a replay or a cross-machine comparison then
+    /// believes. The misses are collected rather than asserted one at a
+    /// time, so a red run names every field it could not see.
+    #[test]
+    #[allow(clippy::too_many_lines)] // one entry per field
+    fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
+        use crate::effects::{ContinuousEffect, EffectFilter};
+        use crate::object::{AbilityList, Counters, PrintedFace, SecondInstance};
+        use baylee_cards_dsl::{
+            Filter, ReplacementRule, SpendRider, TargetReq, TargetSpec, TokenDef,
+        };
+        use baylee_core::color::ColorSet;
+        use baylee_core::ids::SubtypeId;
+
+        static TOKEN: TokenDef = TokenDef {
+            name: "Test Token",
+            ..TokenDef::DEFAULT
+        };
+        static REQ: TargetReq = TargetReq::one(TargetSpec::Object(&Filter::Any));
+
+        type Mutation = (&'static str, fn(&mut GameState, ObjectId));
+        let mutations: &[Mutation] = &[
+            ("turn_start_seq", |s, _| s.turn_start_seq += 1),
+            ("per_turn", |s, _| s.per_turn.creatures_died += 1),
+            ("delayed", |s, _| {
+                s.delayed.push(DelayedTrigger {
+                    controller: PlayerId::new(0),
+                    when: DelayedWhen::NextUpkeep,
+                    action: DelayedAction::AddMana {
+                        color: ManaColor::Green,
+                        amount: 1,
+                    },
+                });
+            }),
+            ("pending_miracle", |s, id| {
+                s.pending_miracle.push_back((PlayerId::new(0), id));
+            }),
+            ("extra_turns", |s, _| {
+                s.extra_turns.push_back(PlayerId::new(1));
+            }),
+            ("restriction_info", |s, id| {
+                s.restriction_info
+                    .insert(1, (id, &Filter::Any, SpendRider::None));
+            }),
+            ("next_restriction_id", |s, _| s.next_restriction_id += 1),
+            ("ltb_abilities", |s, id| {
+                s.ltb_abilities.push((id, AbilityList::NONE));
+            }),
+            ("ltb_attachments", |s, id| {
+                s.ltb_attachments.push((id, Vec::new()));
+            }),
+            ("ltb_counters", |s, id| {
+                s.ltb_counters.push((id, Counters::default()));
+            }),
+            ("monarch", |s, _| s.monarch = Some(PlayerId::new(1))),
+            ("starting_player", |s, _| {
+                s.starting_player = PlayerId::new(1);
+            }),
+            ("ability_fires", |s, id| {
+                s.ability_fires.insert((id, 0), 1);
+            }),
+            ("replacement_rules", |s, id| {
+                s.replacement_rules.push(ReplacementEntry {
+                    source: id,
+                    controller: PlayerId::new(0),
+                    rule: ReplacementRule::DoubleTokenCreation {
+                        controller_filter: &Filter::Any,
+                    },
+                });
+            }),
+            // An effect that came and went leaves the table as it found it
+            // but for the next id it hands out, which is what the next
+            // effect is then called.
+            ("the effect table's next id", |s, _| {
+                s.effects.register(ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: None,
+                    controller: PlayerId::new(0),
+                    layer: baylee_cards_dsl::Layer::Text,
+                    timestamp: 0,
+                    duration: baylee_cards_dsl::Duration::Indefinitely,
+                    filter: EffectFilter::Dsl(&Filter::Any),
+                    modifier: baylee_cards_dsl::Modifier::ManaIsAnyColor,
+                });
+                s.effects.remove_where(|_| true);
+            }),
+            ("a card outside the game", |s, id| {
+                s.zones.insert(
+                    id,
+                    ZoneLocation::OutsideGame(PlayerId::new(0)),
+                    ZonePosition::Top,
+                    false,
+                );
+            }),
+            ("lands_played_this_turn", |s, _| {
+                s.players[0].lands_played_this_turn += 1;
+            }),
+            ("tried_empty_draw", |s, _| {
+                s.players[0].tried_empty_draw = true;
+            }),
+            ("x_value", |s, id| fixture_object(s, id).x_value = 3),
+            ("kicked", |s, id| fixture_object(s, id).kicked = true),
+            ("alt_cast", |s, id| fixture_object(s, id).alt_cast = true),
+            ("chosen_player", |s, id| {
+                fixture_object(s, id).chosen_player = Some(PlayerId::new(1));
+            }),
+            ("target_players", |s, id| {
+                fixture_object(s, id)
+                    .target_players
+                    .insert(PlayerId::new(1));
+            }),
+            ("mode_index", |s, id| {
+                fixture_object(s, id).mode_index = Some(1);
+            }),
+            ("chosen_subtype", |s, id| {
+                fixture_object(s, id).chosen_subtype = Some(SubtypeId::new(1));
+            }),
+            ("chosen_color", |s, id| {
+                fixture_object(s, id).chosen_color = Some(ManaColor::Blue);
+            }),
+            ("face_index", |s, id| fixture_object(s, id).face_index = 1),
+            ("own_abilities", |s, id| {
+                fixture_object(s, id).own_abilities = Some(&[]);
+            }),
+            ("own_abilities_until_eot", |s, id| {
+                fixture_object(s, id).own_abilities_until_eot = true;
+            }),
+            ("own_face", |s, id| {
+                fixture_object(s, id).own_face = PrintedFace::new(CardIndex::new(1), 0);
+            }),
+            ("token", |s, id| fixture_object(s, id).token = Some(&TOKEN)),
+            ("pending_face_change", |s, id| {
+                fixture_object(s, id).pending_face_change = Some(1);
+            }),
+            ("event_object", |s, id| {
+                fixture_object(s, id).event_object = Some(id);
+            }),
+            ("cast_from_hand", |s, id| {
+                let object = fixture_object(s, id);
+                object.cast_from_hand = !object.cast_from_hand;
+            }),
+            ("target_req", |s, id| {
+                fixture_object(s, id).target_req = Some(REQ);
+            }),
+            ("the second instance's requirement", |s, id| {
+                fixture_object(s, id).second = Some(Box::new(SecondInstance {
+                    targets: smallvec::SmallVec::new(),
+                    req: Some(REQ),
+                }));
+            }),
+            ("original_base", |s, id| {
+                let object = fixture_object(s, id);
+                object.original_base = Some(Arc::clone(&object.base));
+            }),
+            ("color_identity", |s, id| {
+                fixture_object(s, id).base_mut().color_identity = ColorSet::ALL;
+            }),
+            ("produced_colors", |s, id| {
+                fixture_object(s, id).base_mut().produced_colors = ColorSet::ALL;
+            }),
+            ("produced_colorless", |s, id| {
+                fixture_object(s, id).base_mut().produced_colorless = true;
+            }),
+            ("produced_chosen", |s, id| {
+                fixture_object(s, id).base_mut().produced_chosen = true;
+            }),
+        ];
+
+        let (base, id) = hash_fixture();
+        let before = base.snapshot_hash();
+        let blind: Vec<&str> = mutations
+            .iter()
+            .filter_map(|(field, mutate)| {
+                let mut state = base.clone();
+                mutate(&mut state, id);
+                (state.snapshot_hash() == before).then_some(*field)
+            })
+            .collect();
+        assert!(blind.is_empty(), "the snapshot hash cannot see {blind:?}");
+    }
+
+    /// A list of abilities no card prints (a token's, an emblem's) is
+    /// hashed by what it says, because nothing else names it: the address
+    /// of a `&'static` differs between builds and is shared between lists
+    /// the compiler merged.
+    #[test]
+    fn a_list_no_card_prints_is_hashed_by_what_it_says() {
+        let (mut state, id) = hash_fixture();
+        fixture_object(&mut state, id).own_abilities = Some(&[]);
+        let empty = state.snapshot_hash();
+        let said = baylee_cards::by_index(force_of_will())
+            .expect("the registry has Force of Will")
+            .abilities;
+        assert!(!said.is_empty(), "the list has to say something to differ");
+        fixture_object(&mut state, id).own_abilities = Some(said);
+        assert_ne!(
+            state.snapshot_hash(),
+            empty,
+            "two unprinted lists that say different things are two states"
+        );
+    }
+
+    /// The two hashed maps are summed entry by entry, so the order a map
+    /// happens to iterate in cannot reach the hash. Laid out at two
+    /// capacities the same entries iterate in a different order, which
+    /// the test checks first: an equality between two maps that iterate
+    /// alike would prove nothing.
+    #[test]
+    fn the_snapshot_hash_does_not_depend_on_the_order_a_map_iterates_in() {
+        let (base, id) = hash_fixture();
+        let entries: Vec<((ObjectId, u32), u32)> = (0..40).map(|i| ((id, i), i + 1)).collect();
+
+        let mut small = base.clone();
+        for (key, n) in &entries {
+            small.ability_fires.insert(*key, *n);
+        }
+        let mut large = base.clone();
+        large.ability_fires =
+            rustc_hash::FxHashMap::with_capacity_and_hasher(4096, rustc_hash::FxBuildHasher);
+        for (key, n) in entries.iter().rev() {
+            large.ability_fires.insert(*key, *n);
+        }
+
+        let order = |s: &GameState| s.ability_fires.keys().copied().collect::<Vec<_>>();
+        assert_ne!(
+            order(&small),
+            order(&large),
+            "the two layouts must iterate differently, or this proves nothing"
+        );
+        assert_eq!(small.snapshot_hash(), large.snapshot_hash());
+        assert_eq!(
+            small.snapshot_hash(),
+            small.snapshot_hash(),
+            "and one state hashed twice is one hash"
+        );
+        let (again, _) = hash_fixture();
+        assert_eq!(
+            base.snapshot_hash(),
+            again.snapshot_hash(),
+            "two games built from one preset are one state"
         );
     }
 

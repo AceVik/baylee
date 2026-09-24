@@ -94,6 +94,24 @@ fn bench_snapshot_hash(c: &mut Criterion) {
     c.bench_function("state/snapshot_hash", |b| {
         b.iter(|| state.snapshot_hash());
     });
+
+    // The start of a game above hashes empty maps and no tokens. Here every
+    // token carries its definition and has spent a once-each-turn ability,
+    // so the object walk and the unordered map walk are both at a size
+    // where they cost something (#122).
+    let mut board = token_board(3_000);
+    let tokens = board
+        .zones
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
+        .to_owned();
+    for id in tokens {
+        board.object_mut(id).expect("token").token =
+            Some(&baylee_cards::generated_tokens::ZOMBIE_2_2_BLACK);
+        board.ability_fires.insert((id, 0), 1);
+    }
+    c.bench_function("state/snapshot_hash_3k_tokens", |b| {
+        b.iter(|| board.snapshot_hash());
+    });
 }
 
 fn bench_priority_pass(c: &mut Criterion) {

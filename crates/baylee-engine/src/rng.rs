@@ -72,6 +72,20 @@ impl GameRng {
     }
 }
 
+/// Written out because `ChaCha8Rng` has no `Hash` of its own: the seed, the
+/// stream and the position in it are the whole of what it draws next.
+/// Every field is named, so a new one does not compile until it is hashed
+/// or left out on purpose (#122).
+impl std::hash::Hash for GameRng {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let Self { rng, calls } = self;
+        rng.get_seed().hash(state);
+        rng.get_stream().hash(state);
+        rng.get_word_pos().hash(state);
+        calls.hash(state);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

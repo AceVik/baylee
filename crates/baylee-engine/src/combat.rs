@@ -20,7 +20,7 @@ use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 
 /// One declared attacker.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Hash, Debug)]
 pub struct AttackerInfo {
     /// The attacking creature.
     pub creature: ObjectId,
@@ -38,7 +38,7 @@ pub struct AttackerInfo {
 }
 
 /// One declared blocker.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Hash, Debug)]
 pub struct BlockerInfo {
     /// The blocking creature.
     pub blocker: ObjectId,
@@ -47,7 +47,7 @@ pub struct BlockerInfo {
 }
 
 /// The combat phase's mutable state.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Hash, Debug, Default)]
 pub struct CombatState {
     /// Declared attackers.
     pub attackers: Vec<AttackerInfo>,

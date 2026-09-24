@@ -125,7 +125,7 @@ pub enum ZonePosition {
 }
 
 /// Ordered zone contents for the whole game.
-#[derive(Clone, Debug)]
+#[derive(Clone, Hash, Debug)]
 pub struct Zones {
     battlefield: Vec<ObjectId>,
     stack: Vec<ObjectId>,
