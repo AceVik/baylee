@@ -1,8 +1,7 @@
 use super::{
     AbilityDef, AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
-    LossReason, ObjectId, ObjectKind, PaymentWindow, Pending, PlanKind, PlayerAction, PlayerId,
-    SmallVec, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve,
-    sba,
+    ObjectId, ObjectKind, PaymentWindow, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Zone,
+    ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve, sba,
 };
 use crate::choice::CastModeKind;
 
@@ -895,7 +894,7 @@ impl<L: CardLookup> Engine<L> {
                         );
                     debug_assert!(!answer || paid, "pact cost was offered as payable");
                     if !paid {
-                        sba::eliminate_player(&mut self.state, player, LossReason::Effect);
+                        let _ = sba::lose_by_effect(&mut self.state, player);
                     }
                     return Ok(());
                 }

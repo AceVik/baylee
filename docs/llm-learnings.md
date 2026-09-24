@@ -148,9 +148,14 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   the build breaks with non-exhaustive errors.
 - `Filter::Attacking` (Maze of Ith): evaluated against
   `state.combat.attackers` in `eval.rs`.
-- No-lose suppression: `Modifier::PlayersCantLose` checked in
-  `engine/mod.rs::game_result` AND `sba.rs`; `CantLoseLife` checked in the
-  `LoseLife` resolve op.
+- No-lose suppression: `Modifier::PlayersCantLose` is read by one predicate,
+  `sba::players_cant_lose`, which both the SBA loss check and
+  `sba::lose_by_effect` (an effect saying a player loses, e.g. an unpaid
+  pact; #237) consult. A new "you lose the game" effect goes through
+  `lose_by_effect`, never straight to `eliminate_player`, which does not
+  check (its other callers are concession, which "can't lose" does not
+  stop, and the SBA loop, which checks first). `CantLoseLife` is checked in
+  the `LoseLife` resolve op.
 
 Error classes hit (orchestrator-side, relevant for prompt design):
 

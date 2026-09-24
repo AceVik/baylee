@@ -35,10 +35,7 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
 
     // --- Player losses (CR 704.5a-c) -----------------------------------
     // Everybody Lives: no losses while the effect is active.
-    let cant_lose = state
-        .effects
-        .iter()
-        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose));
+    let cant_lose = players_cant_lose(state);
     for player in 0..state.players.len() {
         if cant_lose {
             break;
@@ -560,6 +557,34 @@ pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId)
         ZonePosition::Top,
         Cause::StateBased,
     );
+}
+
+/// Whether an effect says players can't lose the game (Everybody Lives!).
+///
+/// One reading for every way the game says a player loses other than a
+/// concession: the state-based losses above and an effect's
+/// [`lose_by_effect`]. A second copy of the scan is how the pact came to
+/// ignore it (#237).
+#[must_use]
+pub fn players_cant_lose(state: &GameState) -> bool {
+    state
+        .effects
+        .iter()
+        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose))
+}
+
+/// An effect says `player` loses the game (CR 104.3e), such as a pact left
+/// unpaid. They do, unless an effect says players can't lose the game, and
+/// then nothing happens: the effect that said so has done all it does.
+///
+/// Returns whether the player lost. Not for a concession, which "can't lose
+/// the game" does not stop (CR 104.3a); that calls [`eliminate_player`].
+pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
+    if players_cant_lose(state) {
+        return false;
+    }
+    eliminate_player(state, player, LossReason::Effect);
+    true
 }
 
 /// Eliminates a player (S2: mark + journal; CR 800.4 object cleanup is

@@ -1,8 +1,8 @@
 use super::{
     AbilityDef, AbilityLoc, CardLookup, Cause, CombatDeclared, EndReason, Engine, GameEvent,
-    GameObject, GameResult, LossReason, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind,
-    PlayerId, Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval,
-    mana_pay, resolve, sba, trigger,
+    GameObject, GameResult, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId,
+    Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval, mana_pay,
+    resolve, sba, trigger,
 };
 use crate::choice::{
     CastModeDesc, CastModeKind, ChoicePrompt, PlayerAction, PriorityHold, SeatAutomation,
@@ -3671,7 +3671,7 @@ impl<L: CardLookup> Engine<L> {
         let can_pay =
             mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
         if !can_pay {
-            sba::eliminate_player(&mut self.state, active, LossReason::Effect);
+            let _ = sba::lose_by_effect(&mut self.state, active);
             return false;
         }
         self.pending_plan = Some(PlanKind::DelayedPay { cost });

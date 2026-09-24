@@ -17550,14 +17550,14 @@ fn pact_of_negation_counters_a_spell_now_and_charges_for_it_at_the_next_upkeep()
 
 /// Casts Pact of Negation at p0's own Llanowar Elves, the one spell a duel
 /// with nothing else in hand can offer it, and lets it resolve. What is left
-/// is the debt.
-fn a_pact_owed_by_p0() -> Engine<RegistryLookup> {
+/// is the debt, with `board` to pay it from and `also_in_hand` still held.
+fn a_pact_owed_by_p0(board: &[CardIndex], also_in_hand: &[CardIndex]) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
-    let mut board = vec![island(); 8];
-    board.push(forest());
+    let mut hand = vec![llanowar_elves(), pact_of_negation()];
+    hand.extend_from_slice(also_in_hand);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &board)
-        .hand(0, &[llanowar_elves(), pact_of_negation()])
+        .battlefield(0, board)
+        .hand(0, &hand)
         .start();
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
@@ -17595,8 +17595,10 @@ fn a_pact_owed_by_p0() -> Engine<RegistryLookup> {
 #[test]
 fn a_pact_nobody_pays_for_loses_the_game_to_its_own_effect() {
     let p0 = PlayerId::new(0);
+    let mut board = vec![island(); 8];
+    board.push(forest());
     for has_the_mana in [true, false] {
-        let mut engine = a_pact_owed_by_p0();
+        let mut engine = a_pact_owed_by_p0(&board, &[]);
         let mut asked = false;
         for _ in 0..600 {
             match engine.pending().clone() {
@@ -17643,6 +17645,89 @@ fn a_pact_nobody_pays_for_loses_the_game_to_its_own_effect() {
             "and not to its life total"
         );
         assert_eq!(engine.state().players[1].loss, None);
+    }
+}
+
+/// "Players can't lose the game" (Everybody Lives!) stops a pact's "you lose
+/// the game" just as it stops a life total at zero: both are the game saying
+/// a player loses, and an effect saying so (CR 104.3e) is one of them (#237).
+///
+/// Cast in the upkeep the debt comes due in, it keeps the seat in the game on
+/// both roads the pact has. With the mana there the question is put and
+/// declined; with a pool that cannot cover it the question never comes. Either
+/// way the debt is simply gone, because the trigger that demanded it has
+/// resolved.
+#[test]
+fn a_pact_left_unpaid_under_everybody_lives_costs_nothing() {
+    let p0 = PlayerId::new(0);
+    for has_the_mana in [true, false] {
+        let board = if has_the_mana {
+            let mut board = vec![island(); 8];
+            board.extend([forest(), plains()]);
+            board
+        } else {
+            vec![island(), forest(), plains()]
+        };
+        let mut engine = a_pact_owed_by_p0(&board, &[everybody_lives()]);
+        let cast_turn = engine.state().turn.number;
+        let (mut protected, mut asked) = (false, false);
+        for _ in 0..600 {
+            if protected && engine.state().turn.step != crate::turn::Step::Upkeep {
+                break;
+            }
+            match engine.pending().clone() {
+                Pending::GameOver(_) => break,
+                Pending::YesNo { player, .. } => {
+                    assert_eq!(player, p0, "the debt is the caster's");
+                    asked = true;
+                    engine
+                        .apply(p0, PlayerAction::YesNo(false))
+                        .expect("declining is an answer");
+                }
+                Pending::Priority { player, .. } => {
+                    let turn = &engine.state().turn;
+                    let the_upkeep_it_is_due = player == p0
+                        && turn.active == p0
+                        && turn.number > cast_turn
+                        && turn.step == crate::turn::Step::Upkeep;
+                    if the_upkeep_it_is_due && !protected {
+                        tap_all_mana(&mut engine, p0);
+                        cast_with_floating(&mut engine, p0, everybody_lives());
+                        pass_until(&mut engine, stack_is_empty);
+                        protected = true;
+                        continue;
+                    }
+                    engine
+                        .apply(player, PlayerAction::PassPriority)
+                        .expect("passing priority is always legal");
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                Pending::ChooseBlockers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected on the way to the deferred upkeep cost: {other:?}"),
+            }
+        }
+        assert!(protected, "the upkeep the debt is due in was never reached");
+        assert_eq!(
+            asked, has_the_mana,
+            "the question is put exactly when the pool could pay"
+        );
+        assert_eq!(
+            engine.state().players[0].loss,
+            None,
+            "players can't lose the game this turn (has the mana: {has_the_mana})"
+        );
+        assert!(
+            !matches!(engine.pending(), Pending::GameOver(_)),
+            "and the game goes on"
+        );
     }
 }
 
