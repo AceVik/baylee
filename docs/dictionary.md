@@ -218,7 +218,7 @@ in both directions.
 
 | Session | Tree | Branch | Owns |
 |---|---|---|---|
-| PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, the cross-cutting `docs/` |
+| PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, the cross-cutting `docs/`, CI/CD (`.github/`, `scripts/gate*.sh`), releases and the workspace version |
 | engine | `…/baylee-engine` | `engine` | `baylee-engine`, `baylee-core`, `baylee-cards`, `-cards-dsl`, `-cards-codegen`, `-cards-index`, `baylee-gamehost`, `baylee-engine-server`, `xtask` |
 | client | `…/baylee-client` | `client` | `baylee-client`, `baylee-client-core`, `baylee-client-android`, `scripts/mobile` |
 | gateway | `…/baylee-gateway` | `gateway` | `baylee-gateway`, `baylee-agent`, `baylee-protocol`, `baylee-db`, `baylee-catalog` |

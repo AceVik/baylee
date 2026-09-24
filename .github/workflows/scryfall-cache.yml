@@ -51,7 +51,12 @@ jobs:
       - id: held
         shell: bash
         run: |
-          count=$(find data/scryfall-cache -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+          # A full miss restores no directory, and `find` on a missing path
+          # fails the pipe under the runner's `pipefail` (run 35956102520).
+          count=0
+          if [ -d data/scryfall-cache ]; then
+            count=$(find data/scryfall-cache -name '*.json' | wc -l | tr -d ' ')
+          fi
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "scryfall cache holds $count payloads under ${{ steps.scryfall.outputs.key }}"
       # Only when the exact key missed. A restore-key fallback counts as a
