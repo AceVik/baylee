@@ -152,6 +152,19 @@ Urheber- und Medienrecht.
    It is **not committed** — 1371 files of it were, until it was taken out.
    CI restores it from its own cache and `xtask` refetches whatever is
    missing, so holding the line costs nothing.
+9. **The English Oracle, compiled in.**
+   `crates/baylee-cards/src/generated_oracle.rs` holds the English Oracle
+   text of every card in the pool, one string per face. It is not a new kind
+   of thing in the tree: every card file already carries the same words as
+   its `//! Oracle:` header, on the footing clause 2a names for card names
+   and Oracle text — Wizards' material in free fan content — and the table
+   is those words again, with the face boundary a header cannot mark. It is
+   **not** clause 8's cache: it is written from the cache the way a card
+   file is, and it holds the words and nothing else — no image, no price, no
+   other Scryfall field. It exists because a client with no gateway and no
+   network still has to show a player what an ability does, and the owner's
+   rule is that what it shows is the card's own English, never a sentence
+   the client made up.
 
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet

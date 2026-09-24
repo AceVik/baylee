@@ -21,6 +21,8 @@ pub mod generated;
 pub mod generated_lines;
 /// Generated: the name table — which card a printed English name is.
 pub mod generated_names;
+/// Generated: every card's English Oracle text, per face.
+pub mod generated_oracle;
 /// Generated: which cards have a back, and which are double-faced.
 pub mod generated_sides;
 /// Generated: the token ledger — which id every token there is was assigned.
@@ -31,6 +33,9 @@ pub mod lines;
 /// Pool-wide lints over the card data (tests only).
 #[cfg(test)]
 mod lints;
+/// The English Oracle text of a card's face (the reader of
+/// [`generated_oracle`]).
+pub mod oracle;
 /// The registry as deck-builder rows — what a deck may be built from.
 pub mod pool;
 /// Whether a card has a back to show, and whether it is double-faced.
