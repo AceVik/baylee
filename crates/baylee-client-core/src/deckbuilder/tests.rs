@@ -913,6 +913,39 @@ fn naming_a_commander_seats_it_in_the_deck() {
     assert_eq!(b.commander_names(), ["Nissa, Who Shakes the World"]);
 }
 
+/// The commander box shows the printing the deck holds, so it asks for the
+/// commander's own row in the main list: found by card, not by position,
+/// with the other rows around it, and gone once the card has left the list.
+#[test]
+fn a_commander_is_found_in_its_own_deck_row() {
+    let mut b = commander_pool();
+    let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
+    let bears = b.slot_of("Grizzly Bears").unwrap();
+    assert!(b.add(bears, Zone::Main));
+    let foil = PrintChoice {
+        scryfall_id: Some("nissa-foil".into()),
+        finish: Some(Finish::Foil),
+        ..PrintChoice::default()
+    };
+    assert!(b.add_print(nissa, Zone::Main, foil.clone()));
+    assert!(b.set_commander(nissa));
+
+    let at = b
+        .commander_row(nissa)
+        .expect("the commander is in the deck");
+    let row = &b.entries(Zone::Main)[at];
+    assert_eq!(row.slot, nissa);
+    assert_eq!(row.print, foil, "the row the player chose a printing for");
+    assert_ne!(
+        b.entries(Zone::Main)[b.commander_row(bears).unwrap()].slot,
+        nissa
+    );
+
+    assert!(b.move_entry(at, Zone::Main, Zone::Side));
+    assert_eq!(b.commanders(), [nissa], "still named as the commander");
+    assert_eq!(b.commander_row(nissa), None, "but no longer in the deck");
+}
+
 /// Clearing the mark leaves the card where it is: a player demoting their
 /// commander is not asking to lose the card.
 #[test]

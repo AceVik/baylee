@@ -65,6 +65,12 @@ Commander management (#194) has its own always-visible section: choose/replace,
 remove a role without removing the card, and add a rules-compatible partner.
 The gateway's pool exports partner compatibility computed by the existing deck
 legality rules; older gateways safely default to no advertised partners.
+Each commander is drawn as a deck row draws its card (#255): the picture of
+the printing the deck holds, at the row's full height, with the same hover
+preview. A click on the picture opens the printing picker on the commander's
+own row in the deck (`DeckBuilder::commander_row`), even while the sideboard
+is on screen; a click on the rest of the line reads the card. A commander
+moved out of the deck keeps its line with the pool's picture and no picker.
 
 The blue-hour ambient field is procedural. Shared HUD buttons use the same
 borders, bevels and interaction treatment as the table's draw/concede controls.

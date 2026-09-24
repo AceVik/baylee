@@ -701,6 +701,85 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
     );
 }
 
+/// #255: the commander's picture is a deck row's picture. It is drawn at the
+/// row's full height, shows the printing the deck holds rather than the
+/// registry's, and opens the picker on the commander's own row, even while
+/// the sideboard is the list on screen. A commander moved out of the deck
+/// keeps its line but offers no picker, since no row is left to restyle.
+#[test]
+fn a_commanders_picture_is_a_deck_rows_picture() {
+    let chosen = "11111111-2222-3333-4444-555555555555";
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let mut cards = pool_cards();
+        cards[0].commander = true;
+        cards[0].scryfall_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string();
+        let deck = state.lobby.builder_mut();
+        deck.set_pool(cards, true);
+        assert!(deck.add(1, Zone::Main));
+        let foil = baylee_core::deckrow::PrintChoice {
+            scryfall_id: Some(chosen.to_string()),
+            finish: Some(Finish::Foil),
+            ..baylee_core::deckrow::PrintChoice::default()
+        };
+        assert!(deck.add_print(0, Zone::Main, foil));
+        assert!(deck.set_commander(0));
+        deck.set_zone(Zone::Side);
+    }
+    app.update();
+
+    let (picture, node) = app
+        .world_mut()
+        .query::<(Entity, &Press, &Node)>()
+        .iter(app.world())
+        .find(|(_, p, _)| **p == Press::PickCommanderPrint(0))
+        .map(|(entity, _, node)| (entity, node.clone()))
+        .expect("the commander's picture opens the picker");
+    assert_eq!(node.width, Val::Auto, "as tall as its row, as a deck row's");
+    assert_eq!(node.height, percent(100));
+    assert!(node.aspect_ratio.is_some());
+    let line = app
+        .world()
+        .entity(picture)
+        .get::<ChildOf>()
+        .unwrap()
+        .parent();
+    let hover = app
+        .world()
+        .entity(line)
+        .get::<HoverCard>()
+        .expect("the line previews its card");
+    let url = hover.url.clone().expect("a real id has art");
+    assert!(
+        url.contains(chosen),
+        "the deck's printing, not the pool's: {url}"
+    );
+    assert_eq!(hover.finish, FinishTreatment::Foil);
+
+    press(&mut app, Press::PickCommanderPrint(0));
+    let state = app.world().resource::<LobbyState>();
+    let picker = state.lobby.builder().picker().expect("the picker is open");
+    assert!(picker.replacing(), "it restyles the commander's row");
+    assert_eq!(picker.slot(), 0);
+    assert_eq!(picker.zone(), Zone::Main, "with the sideboard on screen");
+
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let deck = state.lobby.builder_mut();
+        deck.close_picker();
+        let at = deck.commander_row(0).unwrap();
+        assert!(deck.move_entry(at, Zone::Main, Zone::Side));
+    }
+    app.update();
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::RemoveCommander(0)), "{found:?}");
+    assert!(!found.contains(&Press::PickCommanderPrint(0)), "{found:?}");
+}
+
 #[test]
 fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
     use crate::buildui::virtual_rows::VirtualRow;

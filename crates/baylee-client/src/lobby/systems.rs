@@ -1240,6 +1240,14 @@ pub(super) fn clicks(
                 let request = state.lobby.builder_mut().open_row_picker(at, zone);
                 dispatch(&mut state, &mailbox, request);
             }
+            Press::PickCommanderPrint(slot) => {
+                let Some(at) = state.lobby.builder().commander_row(slot) else {
+                    continue;
+                };
+                scrolled.set(List::PickerPanel, 0.0);
+                let request = state.lobby.builder_mut().open_row_picker(at, Zone::Main);
+                dispatch(&mut state, &mailbox, request);
+            }
             Press::PickPrint(slot) => {
                 scrolled.set(List::PickerPanel, 0.0);
                 let zone = state.lobby.builder().zone();
@@ -1835,6 +1843,10 @@ pub(crate) enum Press {
     /// Open the printing picker on a pool card, by its slot.
     PickPrint(usize),
     PickRowPrint(usize),
+    /// Open the printing picker on a commander's own deck row, by the
+    /// commander's slot: its picture in the commander box does what a deck
+    /// row's picture does, with either list open (#255).
+    PickCommanderPrint(usize),
     /// Move the picker's carousel.
     PickerStep(i32),
     /// Jump the carousel to one printing, by its place in the visible list.

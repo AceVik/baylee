@@ -1311,6 +1311,17 @@ impl DeckBuilder {
         self.commanders.contains(&slot)
     }
 
+    /// The deck row that holds this commander, as an index into
+    /// `entries(Zone::Main)`, whichever list is on screen.
+    ///
+    /// The commander box draws the printing this row names and opens the
+    /// picker on it, as a deck row does for itself. `None` when the card is
+    /// not in the deck, for instance after it was moved to the sideboard.
+    #[must_use]
+    pub fn commander_row(&self, slot: usize) -> Option<usize> {
+        self.main.iter().position(|entry| entry.slot == slot)
+    }
+
     /// The commanders' English names — what the gateway is told.
     #[must_use]
     pub fn commander_names(&self) -> Vec<String> {
