@@ -412,6 +412,14 @@ impl<L: CardLookup> Engine<L> {
             Step::Cleanup => self.cleanup_step(),
             Step::DeclareAttackers if self.combat_declared != CombatDeclared::Attackers => {
                 let attacker = self.state.turn.active;
+                // The turn goes on without an active player (CR 800.4j), and
+                // nobody declares attackers in their place: the declaration
+                // is empty, and CR 508.8 skips what an empty one skips.
+                if self.active_has_left() {
+                    self.declare_attackers(attacker, Vec::new())
+                        .expect("declaring no attackers is always legal");
+                    return false;
+                }
                 let attackers: Vec<ObjectId> = self
                     .state
                     .zones
@@ -502,7 +510,14 @@ impl<L: CardLookup> Engine<L> {
         // `priority_holder` is `Some` and `passes` is zero, so the round
         // below would read it as a round in progress and hand priority to
         // the *next* player.
-        if let Some(player) = self.regrant_priority.take() {
+        if let Some(mut player) = self.regrant_priority.take() {
+            // A player who left the game in the course of their own action
+            // has no priority to be given back: it passes to the next player
+            // in turn order still in the game (CR 800.4a).
+            if self.state.players[usize::from(player.get())].has_lost() {
+                player = self.next_alive_after(player);
+                self.priority_holder = Some(player);
+            }
             self.pending = Pending::Priority {
                 player,
                 legal: Box::new(self.compute_legal(player)),
@@ -511,12 +526,19 @@ impl<L: CardLookup> Engine<L> {
             return true;
         }
         if self.priority_holder.is_none() && self.passes == 0 {
-            // Open a new round with the active player (CR 117.3a).
+            // Open a new round with the active player (CR 117.3a), or, once
+            // they have left the game, with the next player in turn order
+            // (CR 800.4j).
             let active = self.state.turn.active;
-            self.priority_holder = Some(active);
+            let first = if self.active_has_left() {
+                self.next_alive_after(active)
+            } else {
+                active
+            };
+            self.priority_holder = Some(first);
             self.pending = Pending::Priority {
-                player: active,
-                legal: Box::new(self.compute_legal(active)),
+                player: first,
+                legal: Box::new(self.compute_legal(first)),
             };
             self.awaiting_answer = true;
             return true;
@@ -553,6 +575,11 @@ impl<L: CardLookup> Engine<L> {
                 // priority again (CR 117.5), and returning `false` with the
                 // round reset above reopens it with the active player
                 // (CR 117.3b).
+                // The payments are the active player's own, and one who has
+                // left the game is asked for nothing (CR 800.4a).
+                if self.active_has_left() {
+                    self.upkeep_payments.clear();
+                }
                 if let Some(action) = self.upkeep_payments.pop_front() {
                     // Filled only by `queue_upkeep_delayed`, and every upkeep
                     // closes a round of its own, so nothing can be left in it
@@ -1684,6 +1711,14 @@ impl<L: CardLookup> Engine<L> {
             counted += 1;
         }
         false
+    }
+
+    /// Whether the active player has left the game. Their turn then goes on
+    /// to its end without an active player (CR 800.4j): nobody takes their
+    /// turn-based actions, and a priority they would receive goes to the
+    /// next player in turn order.
+    pub(crate) fn active_has_left(&self) -> bool {
+        self.state.players[usize::from(self.state.turn.active.get())].has_lost()
     }
 
     pub(crate) fn next_alive_after(&self, player: PlayerId) -> PlayerId {
@@ -3761,7 +3796,8 @@ impl<L: CardLookup> Engine<L> {
                 let skip = self.state.turn.number == 1
                     && self.state.players.len() == 2
                     && self.state.turn.active.get() == 0;
-                if !skip {
+                // Nobody draws for an active player who has left (CR 800.4j).
+                if !skip && !self.active_has_left() {
                     let active = self.state.turn.active;
                     self.state.draw_cards(active, 1);
                 }

@@ -876,6 +876,8 @@ mod progress;
 #[cfg(test)]
 mod activation_target_tests;
 #[cfg(test)]
+mod active_left_tests;
+#[cfg(test)]
 mod amount_sign_tests;
 #[cfg(test)]
 mod answer_door_tests;
