@@ -8,7 +8,7 @@ use crate::casting::{self, CastFailure};
 use crate::choice::{LegalActions, Pending, PlayerAction};
 use crate::combat::{self, AttackerInfo};
 use crate::eval;
-use crate::event::{Cause, GameEvent, LossReason};
+use crate::event::{Cause, GameEvent};
 use crate::mana_pay;
 use crate::object::{AbilityLoc, GameObject, ObjectKind, Status};
 use crate::resolve::{self, Resolution};
@@ -813,29 +813,10 @@ impl<L: CardLookup> Engine<L> {
         if self.mulligans.is_some() {
             return self.apply_in_mulligans(player, action);
         }
-        // Concession is always legal for any seated player (CR 104.3a).
-        // The machine runs after every one: the game may be over, and the
-        // board the leaver's objects left behind is owed its state-based
-        // actions before anybody is asked anything (CR 117.5).
+        // Concession is always legal for any seated player (CR 104.3a), and
+        // what it does to the question on the table is `leave`'s.
         if let PlayerAction::Concede = action {
-            // A priority the leaver held passes to the next player still in
-            // the game, which the round does on its own (CR 800.4a). One held
-            // by anybody else stays with them (#275): it is asked again, with
-            // what is legal now. A pass the leaver had already made is no
-            // longer one of the passes in succession the round waits for,
-            // because it is not a pass by a player still in the game
-            // (CR 117.4).
-            if let Pending::Priority { player: holder, .. } = self.pending
-                && holder != player
-            {
-                if self.passed_before(player, holder) {
-                    self.passes -= 1;
-                }
-                self.regrant_priority = Some(holder);
-            }
-            sba::eliminate_player(&mut self.state, player, LossReason::Conceded);
-            self.awaiting_answer = false;
-            self.run_until_choice();
+            self.concede(player);
             return Ok(());
         }
         // A draw offer interrupts whoever holds priority and asks every
@@ -870,6 +851,7 @@ pub use decision::DecisionContext;
 mod actions;
 mod cast_wizard;
 pub(crate) mod cost_wizard;
+mod leave;
 mod mulligan;
 mod progress;
 
@@ -938,6 +920,8 @@ mod keyword_tests;
 mod land_mana_tests;
 #[cfg(test)]
 mod land_play_tests;
+#[cfg(test)]
+mod leave_tests;
 #[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
