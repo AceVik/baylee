@@ -378,6 +378,10 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         // Treasure is asked by identity and not by name: the token table is
         // compiled, so a pointer comparison against `tokens::TREASURE`
         // cannot drift the way a string would.
+        //
+        // Spent, #223: `a_treasure_pays_for_a_spell_when_nothing_else_can`.
+        // The agent read a registry token as printing nothing, so a Treasure
+        // was never a mana source.
         (
             "Alternate resource engines (treasure)",
             count_reaching(|effect| {

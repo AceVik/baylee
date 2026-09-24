@@ -3978,6 +3978,60 @@ mod tests {
         );
     }
 
+    /// #223 (a). A Treasure is a registry token: no card, so no `rules`, and
+    /// its text is its definition's (CR 111.3), which the view names by
+    /// `token`. The agent read abilities off `rules` alone, so a Treasure was
+    /// no source at all and a one-mana spell beside it went uncast. With a
+    /// Mountain untapped too, the Mountain pays and the Treasure is kept.
+    #[test]
+    fn a_treasure_pays_for_a_spell_when_nothing_else_can() {
+        let mut treasure = permanent(obj(20), PlayerId::new(0), 0);
+        treasure.name = "Treasure".into();
+        treasure.types = TypeSet::ARTIFACT;
+        treasure.power = None;
+        treasure.toughness = None;
+        treasure.token = Some(baylee_cards::tokens::token_id(
+            &baylee_cards::tokens::TREASURE,
+        ));
+        let mut mountain = permanent(obj(21), PlayerId::new(0), 0);
+        mountain.types = TypeSet::LAND;
+        mountain
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::MOUNTAIN);
+        mountain.power = None;
+        mountain.toughness = None;
+        let pending = |mana_abilities: Vec<ObjectId>| Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                abilities: vec![(obj(20), 0)],
+                mana_abilities,
+                ..Default::default()
+            }),
+        };
+        let mut v = view(0, &[20, 20], vec![treasure.clone()]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![hand_card(1, "Ragavan, Nimble Pilferer")];
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending(vec![])),
+                PlayerAction::ActivateAbility {
+                    source: obj(20),
+                    ability_index: 0
+                },
+                "{name} left the Treasure unspent"
+            );
+        }
+        v.battlefield.push(mountain);
+        for (name, profile) in PROFILES {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending(vec![obj(21)])),
+                PlayerAction::ActivateManaAbility { source: obj(21) },
+                "{name} sacrificed the Treasure with a Mountain untapped"
+            );
+        }
+    }
+
     /// The planner's half of the kicker: the engine asks with no window to
     /// tap anything more, so the kicked price is floated before the cast.
     /// The spell is castable with its base cost floating, which is where the

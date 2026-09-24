@@ -78,17 +78,20 @@ pub(crate) fn printed(
 /// a Glasspool Mimic that entered as a Werefox Bodyguard is still a Mimic
 /// underneath and has the Fox's abilities (CR 707.2), and the engine offers
 /// them as indices into the Fox's list (#214). A token copy has no card at
-/// all and a `rules` all the same, so its abilities are read here too; a
-/// registry token and a face-down permanent the seat may not look at have
-/// neither, and read as printing nothing.
+/// all and a `rules` all the same, so its abilities are read here too. A
+/// registry token has no `rules`: its text is its definition's (CR 111.3),
+/// which `token` names — a Treasure read as printing nothing until #223.
+/// Face down it has no text at all (CR 708.2).
 pub(crate) fn printed_list(object: &PublicObject) -> &'static [AbilityDef] {
+    if let Some(rules) = object.rules {
+        return baylee_cards::by_index(rules.card)
+            .map_or(&[], |def| def.abilities_for_face(usize::from(rules.face)));
+    }
     object
-        .rules
-        .and_then(|rules| {
-            baylee_cards::by_index(rules.card)
-                .map(|def| def.abilities_for_face(usize::from(rules.face)))
-        })
-        .unwrap_or(&[])
+        .token
+        .filter(|_| !object.status.is_face_down())
+        .and_then(baylee_cards::tokens::by_token_id)
+        .map_or(&[], |token| token.abilities)
 }
 
 /// The activation cost and effects of an ability, for the two shapes that
