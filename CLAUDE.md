@@ -91,7 +91,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 ```
 
 - `compose.yaml` pins `name: baylee` so worktrees share one container; keep it (`COMPOSE_PROJECT_NAME`/`-p` still override).
-- `baylee-db` is the gateway's store (accounts, sessions, decks, confirmations, standing answers, preferences; entities + migrator); no `DATABASE_URL`, no gateway. A leftover `gateway-store.json` is imported into an empty DB, then moved aside.
+- `baylee-db` is the gateway's store (accounts, sessions, decks, confirmations, preferences; entities + migrator); no `DATABASE_URL`, no gateway. A leftover `gateway-store.json` is imported into an empty DB (its `automation` map is dropped), then moved aside.
 - The card catalog is optional (same Postgres, hand-written SQL); without an ingest games still run without card text: the client draws faces from the engine's projection. Ingest every language: the client asks `/catalog/text` in its own, English fallback per printing. Plain `RUST_LOG=info` logs every INSERT.
 - Search reads `card_search` (per oracle face; bigram and `tsvector` GINs), not `cards`. `Catalog::project()` rebuilds it after ingest, `migrate()` when it is empty or the stamped `SCHEMA_VERSION` (`crates/baylee-catalog/src/lib.rs`) differs; bump that on a shape change.
 - Never put name and rules-text matches in one predicate: union the tiers, resolve the printing after `LIMIT`. Names use bigrams, not `pg_trgm`.
@@ -124,7 +124,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - Exposes essentially `pending()`, `apply(player, action)`, `state()`, `journal()`, `snapshot_hash()`; advances only via `apply`, which validates against what `Pending` enumerated. Never add action methods. Combat options come from `Pending::ChooseAttackers`/`ChooseBlockers`, not the client.
 - Layers: cached projection, one `u64` generation compare. Events: propose → replacement → apply → journal → triggers. SBAs: fixpoint before each priority grant. Loops: Brent over `loop_signature`, never `snapshot_hash`. `docs/engine-internals.md` is normative.
 - Deterministic: seeded ChaCha8, no `HashMap` iteration in hot paths; `std::time`, `std::random`, `algebraic_*` floats banned in engine and core. Synchronous; async only as transport (engine-server, gateway, agent).
-- No card text in the engine: abilities are `AbilityRef { card, index }`, reserved indices (`SPELL`, `ENTERS`, …) down from `u32::MAX`; it also keys the gateway's standing answers.
+- No card text in the engine: abilities are `AbilityRef { card, index }`, reserved indices (`SPELL`, `ENTERS`, …) down from `u32::MAX`; it also keys a seat's standing answers, which the client keeps in its preferences (`ability_orders`).
 - An `AbilityList` carries its `PrintedFace`, as do the view's `rules` fields: a copy shows the copied card's text. Never recover a face from a list's address; identical lists are merged constants.
 
 ### Hidden information and seats
