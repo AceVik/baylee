@@ -184,13 +184,13 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         PlayerRel::Opponent | PlayerRel::EachOpponent => state
             .players
             .iter()
-            .filter(|p| state.is_opponent(p.id, you) && !p.has_lost)
+            .filter(|p| state.is_opponent(p.id, you) && !p.has_lost())
             .map(|p| p.id)
             .collect(),
         PlayerRel::EachPlayer => state
             .players
             .iter()
-            .filter(|p| !p.has_lost)
+            .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
         PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
@@ -528,7 +528,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         .players
         .iter()
         .filter(|p| {
-            if p.has_lost {
+            if p.has_lost() {
                 return false;
             }
             // "Target opponent" is a choice over a smaller set, not a
@@ -1158,7 +1158,7 @@ mod tests {
     #[test]
     fn a_player_who_has_lost_is_no_longer_each_player() {
         let mut state = empty_state();
-        state.players[1].has_lost = true;
+        state.players[1].loss = Some(crate::event::LossReason::Conceded);
         assert_eq!(players(PlayerRel::EachPlayer, &state, P0), Some(vec![P0]));
         assert_eq!(players(PlayerRel::EachOpponent, &state, P0), Some(vec![]));
         assert_eq!(

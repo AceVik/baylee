@@ -50,7 +50,7 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
                 pl.life,
                 pl.poison,
                 pl.tried_empty_draw,
-                pl.has_lost,
+                pl.has_lost(),
                 pl.commander_damage
                     .iter()
                     .map(|(_, n)| *n)
@@ -302,7 +302,7 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
             if arrived == state.commanders[seat][i].answered {
                 continue; // this arrival has been offered already
             }
-            if state.players[owner.get() as usize].has_lost {
+            if state.players[owner.get() as usize].has_lost() {
                 continue; // nobody there to answer
             }
             // Recorded before the question is asked, not after it is
@@ -565,7 +565,11 @@ pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId)
 /// Eliminates a player (S2: mark + journal; CR 800.4 object cleanup is
 /// refined with multiplayer polish — here their objects leave the game).
 pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossReason) {
-    state.players[player.get() as usize].has_lost = true;
+    // The first loss is the one that happened: a seat that has already lost
+    // and then concedes has not lost a second time for a second reason.
+    let _ = state.players[player.get() as usize]
+        .loss
+        .get_or_insert(reason);
     state
         .journal
         .record(GameEvent::PlayerLost { player, reason });
@@ -1219,5 +1223,50 @@ mod tests {
             on_battlefield(&state, creature),
             "deathtouch only applies since the last SBA check"
         );
+    }
+
+    /// The seat that lost keeps why, for anything reading the state after
+    /// the event that said so has scrolled past; the seat that did not lose
+    /// carries nothing.
+    #[test]
+    fn a_seat_that_loses_keeps_why() {
+        let mut state =
+            GameState::from_preset(&empty_boards_preset(31), &RegistryLookup).expect("game starts");
+        state.players[1].poison = 10;
+        let _ = run(&mut state, &RegistryLookup);
+        assert_eq!(state.players[1].loss, Some(LossReason::Poison));
+        assert!(state.players[1].has_lost());
+        assert_eq!(state.players[0].loss, None);
+        assert!(!state.players[0].has_lost());
+    }
+
+    /// A player loses the game once. A seat already out that is eliminated
+    /// again (a concession arriving after the SBA) keeps the reason it
+    /// actually lost to.
+    #[test]
+    fn a_second_elimination_does_not_rewrite_the_first() {
+        let mut state =
+            GameState::from_preset(&empty_boards_preset(37), &RegistryLookup).expect("game starts");
+        eliminate_player(&mut state, PlayerId::new(1), LossReason::Life);
+        eliminate_player(&mut state, PlayerId::new(1), LossReason::Conceded);
+        assert_eq!(state.players[1].loss, Some(LossReason::Life));
+    }
+
+    /// Two engines that put the same seat out for different reasons have
+    /// diverged, and the determinism hash is what a replay and a
+    /// cross-machine comparison compare, so it tells them apart. The loop
+    /// signature does not need to: a loss cannot repeat inside a loop.
+    #[test]
+    fn the_snapshot_hash_tells_two_losses_apart() {
+        let base =
+            GameState::from_preset(&empty_boards_preset(41), &RegistryLookup).expect("game starts");
+        let lost = |reason| {
+            let mut state = base.clone();
+            eliminate_player(&mut state, PlayerId::new(1), reason);
+            state
+        };
+        let (life, conceded) = (lost(LossReason::Life), lost(LossReason::Conceded));
+        assert_ne!(life.snapshot_hash(), conceded.snapshot_hash());
+        assert_eq!(life.loop_signature(), conceded.loop_signature());
     }
 }

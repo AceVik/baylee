@@ -698,7 +698,7 @@ pub fn player_view(
                 hand_count: state.zones.list(ZoneLocation::Hand(p.id)).len() as u32,
                 library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,
                 graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
-                has_lost: p.has_lost,
+                has_lost: p.has_lost(),
                 mana_pool: mana_pool(&p.mana_pool),
                 commanders: state
                     .commanders

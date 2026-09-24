@@ -11,7 +11,7 @@ pub(super) fn ask(state: &mut GameState, res: &mut Resolution) -> Option<Pending
     let seats: Vec<_> = state
         .players
         .iter()
-        .filter(|p| !p.has_lost)
+        .filter(|p| !p.has_lost())
         .map(|p| p.id)
         .collect();
     let at = seats.iter().position(|&p| p == res.controller)?;

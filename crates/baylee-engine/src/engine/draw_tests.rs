@@ -32,7 +32,7 @@ fn an_accepted_offer_ends_the_game_in_a_draw() {
     assert_eq!(result.winner, None);
     assert_eq!(result.reason, crate::win::EndReason::Draw);
     // A draw is not an elimination: nobody lost.
-    assert!(engine.state().players.iter().all(|p| !p.has_lost));
+    assert!(engine.state().players.iter().all(|p| !p.has_lost()));
 }
 
 /// One refusal and the game carries on from exactly where it was.

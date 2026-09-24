@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use crate::arena::Arena;
-use crate::event::{Cause, GameEvent, Journal};
+use crate::event::{Cause, GameEvent, Journal, LossReason};
 use crate::object::{CardRef, Characteristics, CounterKind, GameObject, ObjectKind, Rider};
 use crate::rng::GameRng;
 use crate::turn::{DayNight, TurnInfo};
@@ -71,15 +71,29 @@ pub struct Player {
     /// commanders at a table, and a hashed collection would put iteration
     /// order into a hash that has to be identical on every machine.
     pub commander_damage: Vec<(ObjectId, u16)>,
-    /// Whether this player has lost (stays seated in multiplayer until
-    /// CR 800.4 cleanup runs).
-    pub has_lost: bool,
+    /// Why this player lost, or `None` while they are still in the game
+    /// (they stay seated in multiplayer until CR 800.4 cleanup runs).
+    ///
+    /// Written only by [`crate::sba::eliminate_player`], and once: a player
+    /// loses the game a single time, so a later concession does not rewrite
+    /// how the game was lost. The same reason is in the journal's
+    /// [`GameEvent::PlayerLost`], but the journal is a record of what
+    /// happened and not state anyone queries; this is what a view reads.
+    pub loss: Option<LossReason>,
     /// Which team this seat plays for, or `None` for a seat that plays for
     /// itself. It comes from the preset and never changes during a game,
     /// which is why it is deliberately absent from
     /// [`GameState::snapshot_hash`]: it cannot tell two states of one game
     /// apart, and hashing it would only churn every recorded hash.
     pub team: Option<u8>,
+}
+
+impl Player {
+    /// Whether this player has lost the game.
+    #[must_use]
+    pub const fn has_lost(&self) -> bool {
+        self.loss.is_some()
+    }
 }
 
 /// The side a seat plays for.
@@ -694,7 +708,7 @@ impl GameState {
                     turn_start_timestamp: 0,
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),
-                    has_lost: false,
+                    loss: None,
                     team: s.team,
                 })
                 .collect(),
@@ -1815,7 +1829,13 @@ impl GameState {
             h.u16(p.energy);
             h.i8(p.hand_modifier);
             h.u64(p.turn_start_timestamp);
-            h.boolean(p.has_lost);
+            // Why, and not only whether: two engines that eliminated the
+            // same seat by different state-based actions ran different
+            // rules, and once that seat's objects have left the game the
+            // reason is the only trace of which one fired. `None` hashes as
+            // the `false` it replaced, so a state nobody has lost in hashes
+            // byte for byte as before.
+            h.u8(loss_byte(p.loss));
             for color in ManaColor::ALL {
                 h.u16(p.mana_pool.available(color));
                 h.u16(p.mana_pool.snow_available(color));
@@ -1991,7 +2011,7 @@ impl GameState {
             h.u16(p.poison);
             h.u16(p.energy);
             h.i8(p.hand_modifier);
-            h.boolean(p.has_lost);
+            h.boolean(p.has_lost());
             for color in ManaColor::ALL {
                 h.u16(p.mana_pool.available(color));
                 h.u16(p.mana_pool.snow_available(color));
@@ -2095,6 +2115,24 @@ impl GameState {
             locs.push(ZoneLocation::OutsideGame(p.id));
         }
         locs
+    }
+}
+
+/// A loss as [`GameState::snapshot_hash`] folds it in: `0` for none, which
+/// is what the boolean it replaced wrote for `false`, and one value per
+/// reason after it.
+///
+/// Spelled out rather than `reason as u8`, so reordering the enum cannot
+/// move a hash and a new reason has to be given a byte here on purpose.
+const fn loss_byte(loss: Option<LossReason>) -> u8 {
+    match loss {
+        None => 0,
+        Some(LossReason::Life) => 1,
+        Some(LossReason::EmptyDraw) => 2,
+        Some(LossReason::Poison) => 3,
+        Some(LossReason::CommanderDamage) => 4,
+        Some(LossReason::Conceded) => 5,
+        Some(LossReason::Effect) => 6,
     }
 }
 

@@ -47,7 +47,7 @@ impl<L: CardLookup> Engine<L> {
             .state
             .players
             .iter()
-            .filter(|p| !p.has_lost && p.id != player)
+            .filter(|p| !p.has_lost() && p.id != player)
             .map(|p| p.id)
             .collect();
         if remaining.is_empty() {
@@ -895,7 +895,7 @@ impl<L: CardLookup> Engine<L> {
                         );
                     debug_assert!(!answer || paid, "pact cost was offered as payable");
                     if !paid {
-                        sba::eliminate_player(&mut self.state, player, LossReason::Life);
+                        sba::eliminate_player(&mut self.state, player, LossReason::Effect);
                     }
                     return Ok(());
                 }

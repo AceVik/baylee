@@ -265,7 +265,7 @@ fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_bef
     assert_eq!(player, me, "the active player is asked first (CR 117.3a)");
     assert_eq!(engine.state().turn.step, Step::Upkeep);
     assert!(
-        !engine.state().players[0].has_lost,
+        !engine.state().players[0].has_lost(),
         "nothing has been demanded yet"
     );
 
@@ -301,7 +301,7 @@ fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_bef
     }
     assert!(asked, "the upkeep payment was never demanded");
     assert!(
-        !engine.state().players[0].has_lost,
+        !engine.state().players[0].has_lost(),
         "the Island's mana paid it"
     );
     assert_eq!(

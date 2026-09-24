@@ -1638,7 +1638,7 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .players
             .iter()
-            .filter(|p| !p.has_lost)
+            .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect()
     }
@@ -1648,7 +1648,7 @@ impl<L: CardLookup> Engine<L> {
         let start = player.get();
         for offset in 1..=n {
             let candidate = PlayerId::new((start + offset) % n);
-            if !self.state.players[candidate.get() as usize].has_lost {
+            if !self.state.players[candidate.get() as usize].has_lost() {
                 return candidate;
             }
         }
@@ -3671,7 +3671,7 @@ impl<L: CardLookup> Engine<L> {
         let can_pay =
             mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
         if !can_pay {
-            sba::eliminate_player(&mut self.state, active, LossReason::Life);
+            sba::eliminate_player(&mut self.state, active, LossReason::Effect);
             return false;
         }
         self.pending_plan = Some(PlanKind::DelayedPay { cost });

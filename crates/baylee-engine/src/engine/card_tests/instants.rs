@@ -17548,6 +17548,104 @@ fn pact_of_negation_counters_a_spell_now_and_charges_for_it_at_the_next_upkeep()
     assert!(asked, "the deferred pay-or-lose cost was never demanded");
 }
 
+/// Casts Pact of Negation at p0's own Llanowar Elves, the one spell a duel
+/// with nothing else in hand can offer it, and lets it resolve. What is left
+/// is the debt.
+fn a_pact_owed_by_p0() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![island(); 8];
+    board.push(forest());
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .hand(0, &[llanowar_elves(), pact_of_negation()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, |e| {
+        !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    cast_with_floating(&mut engine, p0, pact_of_negation());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let elves = on_stack(&engine, llanowar_elves()).expect("the Elves are on the stack");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("the Pact targets the Elves");
+    pass_until(&mut engine, stack_is_empty);
+    engine
+}
+
+/// "If you don't, you lose the game" is an effect saying the seat loses
+/// (CR 104.3e), and the seat keeps that as its reason. It used to be recorded
+/// as a loss to life, which the table is now shown: a player on twenty life
+/// told they lost to their life total.
+///
+/// Both ways of not paying are played. With the mana floating the question is
+/// put and declined; with an empty pool it is never put, because a payment
+/// the pool cannot cover is one that is not made.
+#[test]
+fn a_pact_nobody_pays_for_loses_the_game_to_its_own_effect() {
+    let p0 = PlayerId::new(0);
+    for has_the_mana in [true, false] {
+        let mut engine = a_pact_owed_by_p0();
+        let mut asked = false;
+        for _ in 0..600 {
+            match engine.pending().clone() {
+                Pending::GameOver(_) => break,
+                Pending::YesNo { player, .. } => {
+                    assert_eq!(player, p0, "the debt is the caster's");
+                    asked = true;
+                    engine
+                        .apply(p0, PlayerAction::YesNo(false))
+                        .expect("declining is an answer");
+                }
+                Pending::Priority { player, .. } => {
+                    if has_the_mana && player == p0 {
+                        tap_all_mana(&mut engine, p0);
+                    }
+                    engine
+                        .apply(player, PlayerAction::PassPriority)
+                        .expect("passing priority is always legal");
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                Pending::ChooseBlockers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected on the way to the deferred upkeep cost: {other:?}"),
+            }
+        }
+        assert_eq!(
+            asked, has_the_mana,
+            "the question is put exactly when the pool could pay"
+        );
+        assert_eq!(
+            engine.state().players[0].loss,
+            Some(crate::event::LossReason::Effect),
+            "has the mana: {has_the_mana}"
+        );
+        assert!(
+            engine.state().players[0].life > 0,
+            "and not to its life total"
+        );
+        assert_eq!(engine.state().players[1].loss, None);
+    }
+}
+
 /// Vanishing Verse is a `{W}{B}` instant whose whole text is "Exile target
 /// monocolored permanent", and "monocolored" names a **count of colours**
 /// rather than a type line: an object with exactly one colour in it qualifies

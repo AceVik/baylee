@@ -154,7 +154,7 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
     let opponents: Vec<PlayerId> = state
         .players
         .iter()
-        .filter(|p| state.is_opponent(p.id, player) && !p.has_lost)
+        .filter(|p| state.is_opponent(p.id, player) && !p.has_lost())
         .map(|p| p.id)
         .collect();
     let mut options: Vec<Defender> = opponents.iter().copied().map(Defender::Player).collect();
@@ -839,7 +839,7 @@ mod tests {
             .iter_mut()
             .find(|p| p.id == enemy)
             .expect("seated")
-            .has_lost = true;
+            .loss = Some(crate::event::LossReason::Conceded);
         assert_eq!(
             defender_options(&state, me),
             vec![Defender::Player(other_enemy)],

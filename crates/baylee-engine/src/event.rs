@@ -329,6 +329,13 @@ pub enum LossReason {
     CommanderDamage,
     /// Concession (CR 104.3a).
     Conceded,
+    /// An effect said so (CR 104.3e): a pact's "if you don't, you lose the
+    /// game" and its kind.
+    ///
+    /// Its own reason for the same cause [`Self::CommanderDamage`] is: the
+    /// seat that did not pay for its pact may be on twenty life, and "life"
+    /// would name a loss that did not happen.
+    Effect,
 }
 
 /// One journaled entry.
