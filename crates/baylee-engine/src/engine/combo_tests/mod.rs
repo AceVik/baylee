@@ -1084,6 +1084,55 @@ fn a_thief_over_a_karn(seed: u64, season: usize) -> (u16, (i16, i16)) {
     (loyalty, pt(&engine, thief))
 }
 
+/// A clone's choice says what it is (#227).
+///
+/// It arrives as a target question with nothing behind it — copying is an
+/// `AbilityDef`, not an `Effect` — and `decision_context` answered it with
+/// no source and no effects. An agent could not tell it from any other
+/// target question and fell back to taking an opponent's permanent. It
+/// names the entering clone now, and what its copy changes; the priority
+/// before it names no copy at all.
+#[test]
+fn a_clones_choice_is_explained_as_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(3, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[spark_double()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.decision_context().copying,
+        None,
+        "a priority is not a clone's choice"
+    );
+
+    let double = in_hand(&engine, p0, spark_double()).expect("the Double in hand");
+    cast_from_hand(&mut engine, p0, spark_double());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let printed = baylee_cards::by_index(spark_double())
+        .expect("registered")
+        .abilities_for_face(0)
+        .iter()
+        .find_map(|a| match a {
+            baylee_cards_dsl::AbilityDef::CopyOnEnter { mods, .. } => Some(*mods),
+            _ => None,
+        })
+        .expect("Spark Double prints its copy");
+    assert!(
+        !printed.is_empty(),
+        "Spark Double's copy changes something, so carrying it is visible"
+    );
+    let context = engine.decision_context();
+    assert_eq!(context.source, Some(double), "the clone is named");
+    assert_eq!(context.copying, Some(printed), "with what its copy changes");
+}
+
 /// A Spark Double copying seat 0's Llanowar Elves, with a Doubling Season on
 /// the board only when `season` says so.
 ///

@@ -3,7 +3,7 @@
 use super::{Engine, PlanKind};
 use crate::choice::CastModeKind;
 use crate::state::CardLookup;
-use baylee_cards_dsl::{AbilityDef, CostPart, Effect};
+use baylee_cards_dsl::{AbilityDef, CopyMod, CostPart, Effect};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaCost;
 
@@ -36,6 +36,16 @@ pub struct DecisionContext<'a> {
     /// What the first instance already chose, while the second is asked —
     /// the fighter an agent weighs each candidate against.
     pub first_targets: &'a [ObjectId],
+    /// What the copy changes, while the question is which object the
+    /// source enters as a copy of (CR 707.2, asked before it enters by CR
+    /// 614.12a); `None` for every other question.
+    ///
+    /// The clone's choice arrives as a target question with nothing behind
+    /// it: copying is an `AbilityDef`, not an `Effect`, so `effects` is empty
+    /// and the source was not named either. An agent reading only those fell
+    /// back to taking an opponent's permanent — Phyrexian Metamorph copied a
+    /// Llanowar Elves over its own controller's Serra Angel (#227).
+    pub copying: Option<&'static [CopyMod]>,
 }
 
 /// Effects of the chosen ability or mode. An unknown ability stays unknown.
@@ -61,6 +71,13 @@ impl<L: CardLookup> Engine<L> {
     pub fn decision_context(&self) -> DecisionContext<'_> {
         if let Some(wizard) = &self.cast_wizard {
             return self.wizard_context(wizard);
+        }
+        if let Some(PlanKind::CopyOnEnter { object, .. }) = &self.pending_plan {
+            return DecisionContext {
+                source: Some(*object),
+                copying: self.copy_on_enter(*object).map(|(_, mods)| mods),
+                ..DecisionContext::default()
+            };
         }
         let mut first: &[ObjectId] = &[];
         let handle = match &self.pending_plan {
@@ -180,6 +197,8 @@ impl<L: CardLookup> Engine<L> {
                 }),
             second_instance: wizard.stage == super::cast_wizard::WizardStage::SecondTargets,
             first_targets: &wizard.targets,
+            // A clone chooses as it resolves, never while it is being cast.
+            copying: None,
         }
     }
 }

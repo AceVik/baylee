@@ -1076,17 +1076,31 @@ impl<L: CardLookup> Engine<L> {
     /// the difference between them is only the timing — a shared body is what
     /// stops the two from drifting into offering different lists.
     fn copy_on_enter_question(&self, id: ObjectId) -> Option<(Vec<ObjectId>, PlayerId)> {
-        let obj = self.state.object(id)?;
-        let spec = obj.abilities(&self.lookup).iter().find_map(|a| match a {
-            AbilityDef::CopyOnEnter { target, .. }
-            | AbilityDef::CopyOnEnterUntilEot { target, .. } => Some(*target),
-            _ => None,
-        })?;
-        let controller = obj.controller;
+        let (spec, _) = self.copy_on_enter(id)?;
+        let controller = self.state.object(id)?.controller;
         Some((
             eval::target_options(&spec, &self.state, controller, id),
             controller,
         ))
+    }
+
+    /// The clone ability on `id`: what it may copy, and what the copy
+    /// changes. One reader for the offer above and for the agent's
+    /// explanation of it (`decision_context`), so the two cannot name
+    /// different abilities.
+    pub(super) fn copy_on_enter(
+        &self,
+        id: ObjectId,
+    ) -> Option<(TargetSpec, &'static [baylee_cards_dsl::CopyMod])> {
+        self.state
+            .object(id)?
+            .abilities(&self.lookup)
+            .iter()
+            .find_map(|a| match a {
+                AbilityDef::CopyOnEnter { target, mods }
+                | AbilityDef::CopyOnEnterUntilEot { target, mods } => Some((*target, *mods)),
+                _ => None,
+            })
     }
 
     /// Publishes the clone choice and says whether it was published.
