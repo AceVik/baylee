@@ -1999,6 +1999,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             state.extra_turns.push_back(you);
             None
         }
+        // An emblem is owned by the player who gets it (CR 114.2), and a
+        // copy of a spell by the player it is put on the stack under
+        // (CR 707.10). Neither is created for a player who has left the game
+        // (CR 800.4d), though their own resolution goes on without them
+        // (CR 608.2m).
+        Effect::CreateEmblem { .. } | Effect::CopyTargetSpell { .. } if state.has_left(you) => None,
         Effect::CreateEmblem { abilities } => {
             let name = match state.object(res.source) {
                 Some(o) => o.base.name,
@@ -2465,5 +2471,73 @@ mod bound_now_tests {
             vec![theirs],
             "the seat the card named, and not the one that cast it"
         );
+    }
+}
+
+/// Nothing a resolution would create for its controller is created once
+/// they have left the game (CR 800.4d), though the resolution goes on
+/// without them (CR 608.2m).
+#[cfg(test)]
+mod created_for_the_departed_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    /// Two seats, seat 1 gone, and a spell of seat 0's on the stack.
+    fn state() -> (GameState, ObjectId) {
+        let mut state = GameState::from_preset(&preset(278, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let name = state.names.intern("Spell");
+        let spell = state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
+        crate::sba::eliminate_player(&mut state, them(), crate::event::LossReason::Conceded);
+        (state, spell)
+    }
+
+    /// A resolution of seat 1's, which has left, with `effect` next.
+    fn theirs(effect: Effect, target: ObjectId) -> Resolution {
+        Resolution {
+            source: ObjectId::NO_SOURCE,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: them(),
+            effects: vec![effect],
+            pc: 0,
+            targets: SmallVec::from_slice(&[target]),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+        }
+    }
+
+    /// An emblem is owned by the player who gets it (CR 114.2).
+    #[test]
+    fn a_player_who_has_left_gets_no_emblem() {
+        let (mut state, spell) = state();
+        let mut res = theirs(Effect::CreateEmblem { abilities: &[] }, spell);
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        assert!(state.zones.list(ZoneLocation::Command(them())).is_empty());
+    }
+
+    /// A copy of a spell is owned by the player under whose control it was
+    /// put on the stack (CR 707.10).
+    #[test]
+    fn a_player_who_has_left_gets_no_copy_of_a_spell() {
+        let (mut state, spell) = state();
+        let mut res = theirs(Effect::CopyTargetSpell { mods: &[] }, spell);
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        assert_eq!(state.zones.list(ZoneLocation::Stack)[..], [spell]);
     }
 }

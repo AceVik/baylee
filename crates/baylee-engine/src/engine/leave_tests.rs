@@ -7,6 +7,10 @@
 //! The resolution goes on from where it stopped, never from its first
 //! instruction. Three seats, where a game outlives a player, except where a
 //! duel has to end.
+//!
+//! And after they have gone (#278): a triggered ability they would control
+//! is never put on the stack, a delayed one included, and nothing is
+//! created for them (CR 800.4d).
 
 use super::testkit::{
     Duel, RegistryLookup, basic_forest, card_index, cast_from_hand, in_graveyard, in_hand,
@@ -911,4 +915,212 @@ fn a_leavers_pass_does_not_count_when_the_round_resumes() {
         engine.pending()
     );
     assert_eq!(engine.state().turn.step, step);
+}
+
+/// `{U}{U}` "Counter target spell. At the beginning of your next main
+/// phase, add an amount of {C} equal to that spell's mana value."
+fn mana_drain() -> CardIndex {
+    card_index("74d3277a-38e5-4732-afed-084a56148f20")
+}
+
+/// `{W}` "Whenever another creature enters, you gain 1 life."
+fn soul_warden() -> CardIndex {
+    card_index("f3fad295-1af2-4ecc-8546-b121ad6be27b")
+}
+
+/// Swift Spiral resolves on seat 1's creature, and its caster leaves before
+/// the end step. The return is a delayed trigger seat 0 controls
+/// (CR 603.7d), and one controlled by a player who has left isn't put on
+/// the stack (CR 800.4d): the creature stays in exile, and nothing is left
+/// waiting for a turn that seat 0 will never have.
+#[test]
+fn a_departed_casters_end_step_return_does_not_happen() {
+    let mut engine = swift_spiral_asking_for_a_target(&[1]);
+    let [theirs] = creatures_of(&engine, seat(1))[..] else {
+        panic!("one creature for seat 1");
+    };
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(creatures_of(&engine, seat(1)).is_empty());
+    assert_eq!(engine.state().delayed.len(), 1, "the return is waiting");
+
+    engine.apply(seat(0), PlayerAction::Concede).unwrap();
+    assert!(
+        engine.state().delayed.is_empty(),
+        "{:?}",
+        engine.state().delayed
+    );
+    let turn = engine.state().turn.number;
+    pass_until(&mut engine, |e| e.state().turn.number != turn);
+    assert!(
+        creatures_of(&engine, seat(1)).is_empty(),
+        "the creature came back"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(seat(1)))
+            .len(),
+        1
+    );
+}
+
+/// Seat 1 casts Brainstorm in seat 0's upkeep, and seat 0 Mana Drains it.
+/// Seat 0 leaves before its main phase, and nobody gets the mana
+/// (CR 800.4d).
+#[test]
+fn a_departed_players_mana_drain_adds_nothing() {
+    let mut engine = Duel::table(278, island(), 3)
+        .hand(0, &[mana_drain()])
+        .battlefield(0, &[island(), island()])
+        .hand(1, &[brainstorm()])
+        .battlefield(1, &[island()])
+        .start();
+    keep_mulligans(&mut engine);
+    engine.apply(seat(0), PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, seat(1), brainstorm());
+    pass_until(&mut engine, |e| {
+        e.pending().asked() == Some(seat(0)) && !stack_is_empty(e)
+    });
+    let spell = on_stack(&engine, brainstorm()).expect("on the stack");
+    cast_from_hand(&mut engine, seat(0), mana_drain());
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::ChooseTargets {
+                objects: vec![spell],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().turn.step, Step::Upkeep);
+    assert_eq!(engine.state().delayed.len(), 1, "the mana is waiting");
+
+    engine.apply(seat(0), PlayerAction::Concede).unwrap();
+    pass_until(&mut engine, |e| e.state().turn.step == Step::Main);
+    assert_eq!(engine.state().turn.number, 1);
+    let pools: Vec<u32> = engine
+        .state()
+        .players
+        .iter()
+        .map(|p| p.mana_pool.total())
+        .collect();
+    assert_eq!(pools, [0, 0, 0]);
+}
+
+/// Ravenous Chupacabra enters under seat 0, and seat 1's Soul Warden
+/// triggers on it as well. Seat 0's trigger is put on the stack first
+/// (CR 603.3b) and asks for its target, and seat 1 leaves while it does.
+/// Their trigger has triggered and is waiting for the stack, and it never
+/// gets there (CR 800.4d).
+#[test]
+fn a_trigger_waiting_for_the_stack_goes_with_its_controller() {
+    let mut engine = Duel::table(278, swamp(), 3)
+        .hand(0, &[ravenous_chupacabra()])
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[soul_warden()])
+        .battlefield(2, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat(0));
+    cast_from_hand(&mut engine, seat(0), ravenous_chupacabra());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let controllers: Vec<PlayerId> = engine.trigger_queue.iter().map(|t| t.controller).collect();
+    assert_eq!(controllers, [seat(0), seat(1)]);
+
+    engine.apply(seat(1), PlayerAction::Concede).unwrap();
+    let [theirs] = creatures_of(&engine, seat(2))[..] else {
+        panic!("one creature for seat 2");
+    };
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .unwrap();
+    assert!(engine.trigger_queue.is_empty());
+    assert_eq!(stack_size(&engine), 1, "Chupacabra's trigger alone");
+    let before = engine.state().players[1].life;
+    pass_until(&mut engine, stack_is_empty);
+    assert!(creatures_of(&engine, seat(2)).is_empty());
+    assert_eq!(engine.state().players[1].life, before);
+}
+
+/// The door is where a delayed action is performed, not only the list it
+/// waits in: one that had already come due when its controller left is
+/// not performed either (CR 800.4d).
+#[test]
+fn a_delayed_action_come_due_is_not_performed_for_a_player_who_has_left() {
+    let mut engine = Duel::table(278, plains(), 3)
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    let [theirs] = creatures_of(&engine, seat(1))[..] else {
+        panic!("one creature for seat 1");
+    };
+    engine
+        .state
+        .move_object(
+            theirs,
+            ZoneLocation::Exile(seat(1)),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let card = engine.state().zones.list(ZoneLocation::Exile(seat(1)))[0];
+    engine.delayed_queue.push_back((
+        seat(0),
+        crate::state::DelayedAction::ReturnToBattlefield { card },
+    ));
+    sba::eliminate_player(
+        &mut engine.state,
+        seat(0),
+        crate::event::LossReason::Conceded,
+    );
+
+    assert!(!engine.process_delayed());
+    assert!(engine.delayed_queue.is_empty());
+    assert!(creatures_of(&engine, seat(1)).is_empty());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Exile(seat(1)))[..],
+        [card]
+    );
+}
+
+/// Mana a delayed trigger adds goes to the player who controls it
+/// (CR 603.7d), whoever is active.
+#[test]
+fn delayed_mana_goes_to_its_controller() {
+    let mut engine = Duel::table(278, plains(), 3).start();
+    keep_mulligans(&mut engine);
+    assert_eq!(engine.state().turn.active, seat(0));
+    engine.delayed_queue.push_back((
+        seat(2),
+        crate::state::DelayedAction::AddMana {
+            color: baylee_core::mana::ManaColor::Colorless,
+            amount: 2,
+        },
+    ));
+
+    assert!(!engine.process_delayed());
+    let pools: Vec<u32> = engine
+        .state()
+        .players
+        .iter()
+        .map(|p| p.mana_pool.total())
+        .collect();
+    assert_eq!(pools, [0, 0, 2]);
 }

@@ -255,8 +255,9 @@ pub struct Engine<L: CardLookup> {
     capabilities: Vec<baylee_core::preset::SeatCapabilities>,
     /// Journal seq up to which as-it-enters modifiers were applied.
     entry_scan_seq: u64,
-    /// Delayed actions queued by upkeep processing.
-    delayed_queue: VecDeque<crate::state::DelayedAction>,
+    /// Delayed actions come due, each with the player who controls it
+    /// (CR 603.7d), which [`Self::process_delayed`] reads as it performs it.
+    delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
     /// Upkeep payments that have triggered and not yet been answered: echo,
     /// and a pact's "pay …; if you don't, you lose the game".
     ///

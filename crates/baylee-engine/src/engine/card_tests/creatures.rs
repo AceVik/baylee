@@ -90,7 +90,7 @@ fn rebound_does_not_follow_a_card_out_of_exile_and_back() {
             Cause::Effect,
         )
         .unwrap();
-    engine.delayed_queue.push_back(delayed);
+    engine.delayed_queue.push_back((p0, delayed));
     assert!(
         !engine.process_delayed(),
         "CR 400.7: the returning card is a new object"

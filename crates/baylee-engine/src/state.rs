@@ -1374,6 +1374,13 @@ impl GameState {
         self.characteristics_generation = generation;
     }
 
+    /// Whether `player` has left the game (CR 800.4a). Nothing is created
+    /// for them any more, and nothing they control triggers (CR 800.4d).
+    #[must_use]
+    pub fn has_left(&self, player: PlayerId) -> bool {
+        self.players[usize::from(player.get())].has_lost()
+    }
+
     /// Object access.
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&GameObject> {

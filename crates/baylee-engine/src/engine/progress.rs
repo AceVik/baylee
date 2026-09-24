@@ -589,7 +589,8 @@ impl<L: CardLookup> Engine<L> {
                         Step::Upkeep,
                         "an upkeep payment outlived its upkeep"
                     );
-                    self.delayed_queue.push_back(action);
+                    self.delayed_queue
+                        .push_back((self.state.turn.active, action));
                     return false;
                 }
                 self.advance_step();
@@ -1924,6 +1925,14 @@ impl<L: CardLookup> Engine<L> {
         }
         self.queue_new_triggers();
         while let Some(t) = self.trigger_queue.front().cloned() {
+            // A triggered ability controlled by a player who has left the
+            // game isn't put on the stack (CR 800.4d). Every queued trigger
+            // comes through here before it is asked about or stacked, one
+            // that triggered before they left included.
+            if self.state.has_left(t.controller) {
+                self.trigger_queue.pop_front();
+                continue;
+            }
             // "This ability triggers only once each turn." The fire is
             // recorded when the trigger goes on the stack and `ability_fires`
             // is cleared at end of turn, but nothing ever read it back, so the
@@ -3211,12 +3220,13 @@ impl<L: CardLookup> Engine<L> {
                 if let Some(obj) = self.state.object_mut(card) {
                     obj.counters.set(baylee_cards_dsl::CounterKind::Time, 0);
                 }
-                self.delayed_queue.push_back(
+                self.delayed_queue.push_back((
+                    active,
                     crate::state::DelayedAction::CastFromExileWithoutPaying {
                         card,
                         version: self.state.object(card).map_or(0, |o| o.version),
                     },
-                );
+                ));
             } else if let Some(obj) = self.state.object_mut(card) {
                 obj.counters
                     .set(baylee_cards_dsl::CounterKind::Time, remaining - 1);
@@ -3246,7 +3256,8 @@ impl<L: CardLookup> Engine<L> {
                 ) {
                     self.upkeep_payments.push_back(trigger.action);
                 } else {
-                    self.delayed_queue.push_back(trigger.action);
+                    self.delayed_queue
+                        .push_back((trigger.controller, trigger.action));
                 }
             } else {
                 i += 1;
@@ -3330,7 +3341,8 @@ impl<L: CardLookup> Engine<L> {
             ) && self.state.delayed[i].controller == active;
             if fire {
                 let trigger = self.state.delayed.remove(i);
-                self.delayed_queue.push_back(trigger.action);
+                self.delayed_queue
+                    .push_back((trigger.controller, trigger.action));
             } else {
                 i += 1;
             }
@@ -3609,7 +3621,8 @@ impl<L: CardLookup> Engine<L> {
                 crate::state::DelayedWhen::NextEndStep
             ) {
                 let trigger = self.state.delayed.remove(i);
-                self.delayed_queue.push_back(trigger.action);
+                self.delayed_queue
+                    .push_back((trigger.controller, trigger.action));
             } else {
                 i += 1;
             }
@@ -3619,9 +3632,17 @@ impl<L: CardLookup> Engine<L> {
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     pub(crate) fn process_delayed(&mut self) -> bool {
-        let Some(action) = self.delayed_queue.pop_front() else {
+        let Some((controller, action)) = self.delayed_queue.pop_front() else {
             return false;
         };
+        // This is where a delayed trigger that has come due would be put on
+        // the stack, and one controlled by a player who has left the game
+        // isn't (CR 800.4d): Swift Spiral's creature stays in exile once
+        // its caster has gone. The controller is the one who controlled the
+        // spell or ability that made it (CR 603.7d, 603.7e).
+        if self.state.has_left(controller) {
+            return false;
+        }
         match action {
             crate::state::DelayedAction::CastFromExileWithoutPaying { card, version } => {
                 let Some(object) = self
@@ -3658,13 +3679,14 @@ impl<L: CardLookup> Engine<L> {
                 }
                 false
             }
+            // Mana Drain's "add": its controller's pool, whose first main
+            // phase it waits for.
             crate::state::DelayedAction::AddMana { color, amount } => {
-                let active = self.state.turn.active;
-                self.state.players[active.get() as usize]
+                self.state.players[controller.get() as usize]
                     .mana_pool
                     .add(color, amount);
                 self.state.journal.record(GameEvent::ManaProduced {
-                    player: active,
+                    player: controller,
                     color,
                     amount,
                     source: None,

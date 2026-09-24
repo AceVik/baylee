@@ -630,6 +630,10 @@ pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossRea
         .collect();
     state.combat.attackers = attackers;
     state.combat.blockers = blockers;
+    // A delayed trigger they control can never be put on the stack again
+    // (CR 800.4d), and one waiting for a turn of theirs would otherwise sit
+    // in the hashed state for the rest of the game.
+    state.delayed.retain(|d| d.controller != player);
 }
 
 #[cfg(test)]

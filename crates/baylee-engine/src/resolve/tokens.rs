@@ -255,6 +255,11 @@ pub(super) fn create_tokens(
     size: Option<i16>,
     count: u32,
 ) -> Vec<ObjectId> {
+    // The player a token is created under owns it (CR 111.2), and nothing
+    // is created for a player who has left the game (CR 800.4b, 800.4d).
+    if state.has_left(controller) {
+        return Vec::new();
+    }
     let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
     (0..count)
         .map(|_| create_token(state, controller, token, size))
@@ -288,6 +293,10 @@ pub(super) fn create_token_copies(
     base: &std::sync::Arc<Characteristics>,
     count: u32,
 ) -> Vec<ObjectId> {
+    // As `create_tokens` (CR 800.4b, 800.4d).
+    if state.has_left(controller) {
+        return Vec::new();
+    }
     let (own, token, face) = state.object(original).map_or((None, None, None), |o| {
         (
             o.own_abilities.map(|abilities| crate::object::AbilityList {
@@ -641,6 +650,25 @@ mod tests {
             ),
             "recorded {:?}",
             state.journal.entries().last().expect("an entry").event
+        );
+    }
+
+    /// A token is owned by the player it is created under (CR 111.2), and
+    /// nothing is created for a player who has left the game (CR 800.4b,
+    /// 800.4d): neither door makes one.
+    #[test]
+    fn no_token_is_created_for_a_player_who_has_left() {
+        let mut state = state();
+        let forest = the_forest(&state);
+        let base = state.object(forest).expect("a Forest").base.clone();
+        crate::sba::eliminate_player(&mut state, them(), crate::event::LossReason::Conceded);
+
+        assert!(create_tokens(&mut state, them(), treasure(), None, 1).is_empty());
+        assert!(create_token_copies(&mut state, them(), forest, &base, 1).is_empty());
+        assert_eq!(
+            state.zones.list(ZoneLocation::Battlefield)[..],
+            [forest],
+            "the Forest alone"
         );
     }
 }
