@@ -273,23 +273,38 @@ crates cannot see each other — the gateway has no client dependency, and it
 must not gain one — so **each side tests the shape against this section**
 rather than against a shared constant.
 
-Three properties are load-bearing:
+Four properties are load-bearing:
 
+- **It serves this gateway's players and nobody else (#273).** Scryfall
+  welcomes a cache for one's own players and forbids republishing or proxying
+  its data, and an open route in Scryfall's own path shape was a public mirror
+  in all but name. So `/art` wants the same `Authorization: Bearer` session as
+  every other route that serves a player (a guest's session counts, once there
+  are guests), and asks for it before it reads the path: without one the
+  answer is 401 and nothing leaves for the origin. The client sends the
+  session **to this route only**, never to `cards.scryfall.io` or
+  `backs.scryfall.io` (`crates/baylee-client/src/artreader.rs`, pinned by a
+  test there), and never in a query string, where it would land in logs.
+  **A browser does not use the mirror at all:** bevy's web asset reader
+  cannot send a header, so a wasm build's art base is Scryfall's CDN at
+  compile time (`baylee_client_core::images::art_base`), which has no rate
+  limit for images, and the browser's cache covers the repeats.
 - **It is a cache keyed by an id, never a proxy.** The only thing a caller may
-  name is a printing id; the origin URL is rebuilt from the fixed shape above.
-  There is nothing to point at another host with, which is what makes an
-  unauthenticated route safe to leave open — and it is unauthenticated on
-  purpose, because it serves public artwork the client would otherwise fetch
-  straight from a public CDN, and a token would break plain image loads while
-  protecting nothing.
+  name is a printing id; the origin URL is rebuilt from the fixed shape above,
+  so there is nothing to point at another host with.
 - **One rate limiter for the whole gateway**, not one per game: `docs/legal.md`
   §3 allows ten requests a second, and four tables starting at once must not
-  leave at four times that.
-- **`Access-Control-Allow-Origin: *` and a one-year `Cache-Control`.** The
-  browser client is served from one origin and talks to the gateway on another,
-  so without the first it loads no art at all and fails silently. The second is
-  the client-side half of the cache, and on wasm it is the only half there is —
-  a printing's art never changes, because the id *is* the version.
+  leave at four times that. Inside it each account has a share of its own,
+  300 trips to the origin a minute (half the gateway's), so one player cannot
+  spend all of it; what the mirror already holds costs nothing, and a spent
+  share answers 429. Per account and not per session, since a session is one
+  sign-in away.
+- **`Cache-Control: private` for a year, and `Access-Control-Allow-Origin:
+  *`.** A printing's art never changes, because the id *is* the version, so a
+  client may keep it for good; `private`, because a proxy or CDN on the way
+  would otherwise hand one player's copy to anyone who asks. `*` is what every
+  route here answers: the session rides in a header, never in a cookie, and
+  no `Allow-Credentials` is ever sent beside it.
 
 ### Warming a table
 

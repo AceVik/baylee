@@ -101,11 +101,7 @@ pub(super) fn poll(
             }
             Reply::Registration { enabled, art_cache } => {
                 state.lobby.set_registration_enabled(enabled);
-                if art_cache {
-                    client_core::images::use_art_base(client_core::images::gateway_art_base(
-                        &state.gateway,
-                    ));
-                }
+                state.art_cache = art_cache;
             }
             Reply::Expired => {
                 state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
@@ -562,6 +558,42 @@ fn choose_gateway(
         state.probes.insert(url.clone(), Probe::Asking);
         http::probe_gateway(url, mailbox);
     }
+}
+
+/// Where card art comes from for the lobby as it stands, and the session the
+/// gateway's mirror is shown: the mirror while signed in to a gateway that
+/// has one, else Scryfall.
+pub(super) fn art_source(state: &LobbyState) -> (Option<String>, Option<&str>) {
+    let token = state.lobby.token();
+    let mirror = (token.is_some() && state.art_cache)
+        .then(|| client_core::images::gateway_art_base(&state.gateway));
+    (mirror, token)
+}
+
+/// Keeps the art base and the mirror's session with the lobby's (#273).
+///
+/// The mirror serves only a session, so a client that is not signed in to its
+/// gateway, offline play among them, takes art from Scryfall and shows the
+/// mirror nothing. The one place either is set, so the two cannot disagree.
+pub(super) fn art_follows_the_session(
+    state: Res<LobbyState>,
+    mut applied: Local<Option<(Option<String>, Option<String>)>>,
+) {
+    if !state.is_changed() {
+        return;
+    }
+    let (mirror, token) = art_source(&state);
+    let now = (mirror, token.map(str::to_string));
+    if applied.as_ref() == Some(&now) {
+        return;
+    }
+    match &now.0 {
+        Some(mirror) => client_core::images::use_art_base(mirror.clone()),
+        None => client_core::images::reset_art_base(),
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::artreader::use_session(now.1.as_deref());
+    *applied = Some(now);
 }
 
 /// Writes the saved gateways and their uses back to the settings file.

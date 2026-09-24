@@ -228,9 +228,9 @@ async fn main() {
         .route("/printings", get(pool::printings))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
-        // Public artwork, mirrored from Scryfall by printing id. Unauthenticated
-        // like the CDN it stands in for, and an id cache rather than a proxy —
-        // see `art.rs`.
+        // Card art, mirrored from Scryfall by printing id for this gateway's
+        // own players: a session is required, and it is an id cache rather
+        // than a proxy — see `art.rs`.
         .route("/art/{size}/{face}/{a}/{b}/{file}", get(art::art))
         // Axum caps a body at 2 MB by default, which is under a phone
         // photograph. The cap that matters is the one in `cosmetics`,

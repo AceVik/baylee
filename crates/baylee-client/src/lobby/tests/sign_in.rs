@@ -1329,3 +1329,37 @@ fn a_long_list_of_gateways_scrolls_in_a_frame_that_keeps_its_height() {
     let top = offset(&mut app);
     assert!(top.abs() < 0.5, "and the first: {top}");
 }
+
+/// The gateway's mirror serves only a session (#273), so card art comes from
+/// it only while signed in there, and the session goes with it; signed out,
+/// or at a gateway without a mirror, art comes from Scryfall and the mirror
+/// is shown nothing.
+///
+/// Through `art_source` rather than the system that applies it: the base is
+/// process-wide, and a test that set it would move every other test's art.
+#[test]
+fn card_art_comes_from_the_mirror_only_while_signed_in_there() {
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    state.gateway = "http://127.0.0.1:28766".to_string();
+    state.art_cache = true;
+    assert_eq!(art_source(&state), (None, None), "signed out: Scryfall");
+
+    state.lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+    });
+    assert_eq!(
+        art_source(&state),
+        (Some("http://127.0.0.1:28766/art".to_string()), Some("tok"))
+    );
+
+    state.art_cache = false;
+    assert_eq!(
+        art_source(&state).0,
+        None,
+        "a gateway without a mirror leaves art with Scryfall"
+    );
+
+    state.art_cache = true;
+    state.lobby.sign_out();
+    assert_eq!(art_source(&state), (None, None), "and signing out ends it");
+}

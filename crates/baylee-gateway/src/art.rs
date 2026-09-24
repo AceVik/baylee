@@ -27,6 +27,17 @@
 //! committed to the repo. The limiter below is the whole gateway's, shared by
 //! the warming task and by live requests, so the cap holds however many games
 //! are running.
+//!
+//! # Only for this gateway's players (#273)
+//!
+//! Scryfall welcomes a cache for one's own players and forbids republishing
+//! or proxying its data. A route anyone could call, in Scryfall's own path
+//! shape, was a public Scryfall mirror in all but name. So `/art` answers only
+//! a signed-in session, as every other route that serves a player does; it is
+//! cached as `private`, so nothing between here and the player hands one
+//! player's copy to anybody else; and each account has its own share of the
+//! trips to the origin ([`OUTBOUND_PER_ACCOUNT`]), so one player cannot spend
+//! the whole gateway's.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -34,7 +45,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axum::extract::{Path, State};
-use axum::http::{StatusCode, header};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use parking_lot::Mutex;
 
@@ -57,9 +68,22 @@ const MIN_GAP: Duration = Duration::from_millis(100);
 
 /// How long a client may consider a fetched image fresh.
 ///
-/// A printing's art never changes — the id *is* the version — so this is the
-/// browser-side half of the cache, and the only one a wasm client has.
-const MAX_AGE: &str = "public, max-age=31536000, immutable";
+/// A printing's art never changes — the id *is* the version — so a client
+/// may keep it for good. `private`: only the player who asked may keep it,
+/// never a proxy or a CDN on the way, which would hand it on to whoever asks
+/// next without a session.
+const MAX_AGE: &str = "private, max-age=31536000, immutable";
+
+/// How many images one account may have fetched from the origin in one
+/// [`OUTBOUND_WINDOW`]: half the gateway's whole budget at [`MIN_GAP`], so no
+/// one player can spend all of it. What the cache already holds costs nothing.
+///
+/// Per account rather than per session: a session is one sign-in away, and a
+/// budget per session would be as many budgets as sign-ins.
+const OUTBOUND_PER_ACCOUNT: usize = 300;
+
+/// The window [`OUTBOUND_PER_ACCOUNT`] is counted over.
+const OUTBOUND_WINDOW: Duration = Duration::from_secs(60);
 
 /// The sizes this cache mirrors, spelled exactly as Scryfall's paths do.
 ///
@@ -104,6 +128,8 @@ pub struct ArtCache {
     /// one refetch per printing per gateway restart is cheap, and a negative
     /// answer that outlived a Scryfall backfill would be worse than the fetch.
     missing: Mutex<HashSet<String>>,
+    /// Each account's trips to the origin ([`OUTBOUND_PER_ACCOUNT`]).
+    outbound: crate::auth::RateLimiter,
 }
 
 impl ArtCache {
@@ -128,10 +154,17 @@ impl ArtCache {
     /// Builds a cache over a given directory, or a disabled one for `None`.
     #[must_use]
     pub fn new(dir: Option<PathBuf>) -> Self {
+        Self::with_budget(dir, OUTBOUND_PER_ACCOUNT)
+    }
+
+    /// The same, with each account allowed `per_account` trips to the origin
+    /// per [`OUTBOUND_WINDOW`].
+    fn with_budget(dir: Option<PathBuf>, per_account: usize) -> Self {
         Self {
             dir,
             next_slot: tokio::sync::Mutex::new(Instant::now()),
             missing: Mutex::new(HashSet::new()),
+            outbound: crate::auth::RateLimiter::new(OUTBOUND_WINDOW, per_account),
         }
     }
 
@@ -167,17 +200,33 @@ impl ArtCache {
     /// Returns one printing's image, fetching and storing it if this is the
     /// first time anyone has asked.
     ///
+    /// `asker` is the account a trip to the origin is counted against, and
+    /// `None` for the gateway's own warming, which the gateway's limiter
+    /// alone bounds.
+    ///
     /// # Errors
     /// [`StatusCode::NOT_FOUND`] when the cache is off or the origin has no
-    /// such image, [`StatusCode::BAD_GATEWAY`] when the origin could not be
-    /// reached.
-    async fn fetch(&self, size: &str, face: &str, id: &str) -> Result<Vec<u8>, StatusCode> {
+    /// such image, [`StatusCode::TOO_MANY_REQUESTS`] when the asker has spent
+    /// its trips to the origin, [`StatusCode::BAD_GATEWAY`] when the origin
+    /// could not be reached.
+    async fn fetch(
+        &self,
+        size: &str,
+        face: &str,
+        id: &str,
+        asker: Option<&str>,
+    ) -> Result<Vec<u8>, StatusCode> {
         let path = self.path(size, face, id).ok_or(StatusCode::NOT_FOUND)?;
         if let Ok(bytes) = tokio::fs::read(&path).await {
             return Ok(bytes);
         }
         if self.missing.lock().contains(id) {
             return Err(StatusCode::NOT_FOUND);
+        }
+        if let Some(account) = asker
+            && !self.outbound.allow(account)
+        {
+            return Err(StatusCode::TOO_MANY_REQUESTS);
         }
         self.slot().await;
         let url = origin_url(size, face, id);
@@ -223,7 +272,7 @@ impl ArtCache {
         tokio::spawn(async move {
             let mut fetched = 0usize;
             for id in &prints {
-                if cache.fetch("small", "front", id).await.is_ok() {
+                if cache.fetch("small", "front", id, None).await.is_ok() {
                     fetched += 1;
                 }
             }
@@ -303,14 +352,18 @@ fn well_formed(id: &str) -> bool {
 /// derivable from the id — and are checked rather than ignored, so one printing
 /// cannot be cached under two names.
 ///
-/// Unauthenticated on purpose. This serves public artwork that the client
-/// would otherwise fetch straight from a public CDN, and requiring a token
-/// would buy nothing while breaking every plain image load. What bounds it is
-/// that only an id can be named and that the outbound side is rate limited.
+/// For a signed-in session only (see the module's "Only for this gateway's
+/// players"), and asked before the path is read: a caller without one learns
+/// nothing about the route and starts no trip to the origin.
 pub async fn art(
     State(state): State<Shared>,
+    headers: HeaderMap,
     Path((size, face, a, b, file)): Path<(String, String, String, String, String)>,
 ) -> Response {
+    let account = match crate::authed(&state, &headers).await {
+        Ok(account) => account,
+        Err(refused) => return refused.into_response(),
+    };
     let Some(id) = file.strip_suffix(".jpg") else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -322,16 +375,15 @@ pub async fn art(
     {
         return StatusCode::NOT_FOUND.into_response();
     }
-    match state.art.fetch(&size, &face, id).await {
+    match state.art.fetch(&size, &face, id, Some(&account)).await {
         Ok(bytes) => (
             [
                 (header::CONTENT_TYPE, "image/jpeg"),
                 (header::CACHE_CONTROL, MAX_AGE),
-                // The browser client is served from one origin and talks to the
-                // gateway on another, so without this a wasm build loads no art
-                // at all — and fails silently, which is the worst shape a bug
-                // can take. Public artwork, no credentials, so `*` is the whole
-                // answer.
+                // Any origin, as every route of this gateway answers (`cors` in
+                // `main.rs`): the session rides in a header and never in a
+                // cookie, so a page elsewhere gets nothing a caller without the
+                // token could not.
                 (header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"),
             ],
             bytes,
@@ -450,9 +502,46 @@ mod tests {
         cache.warm(vec!["e3285e6b-3e79-4d7c-bf96-d920f973b0d1".into()]);
         assert!(
             cache
-                .fetch("small", "front", "e3285e6b-3e79-4d7c-bf96-d920f973b0d1")
+                .fetch(
+                    "small",
+                    "front",
+                    "e3285e6b-3e79-4d7c-bf96-d920f973b0d1",
+                    None
+                )
                 .await
                 .is_err()
         );
+    }
+
+    /// A trip to the origin is counted against the account that asked, and
+    /// what the cache already holds costs nothing: an account with no trips
+    /// left is still served every picture the gateway has, and refused before
+    /// anything leaves for one it has not. The refusal comes before the
+    /// download, which is also why this test needs no network.
+    #[tokio::test]
+    async fn an_account_out_of_trips_is_served_the_cache_and_refused_the_origin() {
+        let dir = std::env::temp_dir().join(format!("baylee-art-budget-{}", std::process::id()));
+        let cached = "e3285e6b-3e79-4d7c-bf96-d920f973b0d1";
+        std::fs::create_dir_all(dir.join("small").join("front")).expect("a scratch directory");
+        std::fs::write(dir.join("small").join("front").join(cached), b"a picture")
+            .expect("a cached picture");
+        let cache = ArtCache::with_budget(Some(dir.clone()), 0);
+
+        assert_eq!(
+            cache.fetch("small", "front", cached, Some("spent")).await,
+            Ok(b"a picture".to_vec())
+        );
+        assert_eq!(
+            cache
+                .fetch(
+                    "small",
+                    "front",
+                    "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+                    Some("spent")
+                )
+                .await,
+            Err(StatusCode::TOO_MANY_REQUESTS)
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

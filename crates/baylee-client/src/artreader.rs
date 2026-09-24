@@ -16,7 +16,10 @@
 //!   that fails to decode on every launch after;
 //! - it asks only where card art comes from ([`allowed`]): the Scryfall CDNs
 //!   and the gateway mirror the client was told to use. It follows no
-//!   redirect, since a redirect could lead anywhere else.
+//!   redirect, since a redirect could lead anywhere else;
+//! - it shows the signed-in session to the gateway's mirror, which serves
+//!   nobody else (#273), and to nothing but the mirror ([`authorization`]):
+//!   never to a Scryfall host, and never in a URL, where it would land in logs.
 //!
 //! A browser keeps bevy's fetch reader (`crates/baylee-client/Cargo.toml`),
 //! because the browser caches.
@@ -43,6 +46,28 @@ const LARGEST: u64 = 16 * 1024 * 1024;
 /// request because signing in changes it.
 type Base = Arc<dyn Fn() -> Arc<str> + Send + Sync>;
 
+/// The session the mirror is shown, asked for on every request for the same
+/// reason.
+type Session = Arc<dyn Fn() -> Option<Arc<str>> + Send + Sync>;
+
+/// The signed-in session's token, which the lobby keeps here as it signs in
+/// and out ([`use_session`]).
+static SESSION: std::sync::RwLock<Option<Arc<str>>> = std::sync::RwLock::new(None);
+
+/// Keeps the token the gateway's mirror is shown, or forgets it.
+pub fn use_session(token: Option<&str>) {
+    if let Ok(mut session) = SESSION.write()
+        && session.as_deref() != token
+    {
+        *session = token.map(Into::into);
+    }
+}
+
+/// The token in force.
+fn session() -> Option<Arc<str>> {
+    SESSION.read().ok().and_then(|session| session.clone())
+}
+
 /// Registers [`ArtReader`] as the `http` and `https` asset sources.
 ///
 /// It has to be added before `AssetPlugin`, which builds its sources from
@@ -52,6 +77,8 @@ pub struct ArtReaderPlugin {
     pub cache: Option<PathBuf>,
     /// The mirror in force ([`images::art_base`] in the app).
     pub base: Base,
+    /// The session the mirror is shown ([`use_session`] in the app).
+    pub session: Session,
 }
 
 impl Default for ArtReaderPlugin {
@@ -59,6 +86,7 @@ impl Default for ArtReaderPlugin {
         Self {
             cache: cache_home().map(|home| home.join("art")),
             base: Arc::new(images::art_base),
+            session: Arc::new(session),
         }
     }
 }
@@ -75,6 +103,7 @@ impl Plugin for ArtReaderPlugin {
                 scheme,
                 cache: self.cache.clone(),
                 base: self.base.clone(),
+                session: self.session.clone(),
             };
             app.register_asset_source(
                 scheme,
@@ -93,6 +122,8 @@ pub struct ArtReader {
     pub cache: Option<PathBuf>,
     /// The mirror in force.
     pub base: Base,
+    /// The session the mirror is shown.
+    pub session: Session,
 }
 
 impl AssetReader for ArtReader {
@@ -103,13 +134,17 @@ impl AssetReader for ArtReader {
         else {
             return Err(AssetReaderError::NotFound(path.to_path_buf()));
         };
-        allowed(&url, &(self.base)())
+        let base = (self.base)();
+        allowed(&url, &base)
             .map_err(|refusal| AssetReaderError::Io(Arc::new(io::Error::other(refusal))))?;
+        let shown = authorization(&url, &base, (self.session)().as_deref());
         let cache = self.cache.clone();
         let asked = path.to_path_buf();
         // Off the asset executor: the download and the cache are both
         // blocking, and a table asks for dozens of pictures at once.
-        let bytes = blocking::unblock(move || fetch(&url, cache.as_deref(), asked)).await?;
+        let bytes =
+            blocking::unblock(move || fetch(&url, shown.as_deref(), cache.as_deref(), asked))
+                .await?;
         Ok(VecReader::new(bytes))
     }
 
@@ -165,6 +200,29 @@ pub fn allowed(url: &str, base: &str) -> Result<(), String> {
     ))
 }
 
+/// The `Authorization` a request for `url` carries: the session, for the
+/// gateway's mirror at `base` and for nothing else.
+///
+/// Never for a Scryfall host, even one that is `base` (a gateway without a
+/// mirror leaves the CDN as the base): the session is the player's key to
+/// their account, and a third party must never be handed it.
+#[must_use]
+pub fn authorization(url: &str, base: &str, session: Option<&str>) -> Option<String> {
+    let session = session?;
+    let host = url.split_once("://").map_or("", |(_, rest)| {
+        rest.split(['/', '?', '#']).next().unwrap_or(rest)
+    });
+    let name = host.rsplit_once('@').map_or(host, |(_, name)| name);
+    let name = name.split(':').next().unwrap_or(name).to_ascii_lowercase();
+    if name == "scryfall.io" || name.ends_with(".scryfall.io") {
+        return None;
+    }
+    let under = url
+        .strip_prefix(base.trim_end_matches('/'))
+        .is_some_and(|rest| rest.starts_with('/'));
+    under.then(|| format!("Bearer {session}"))
+}
+
 /// The per-user cache directory, `…/baylee`.
 ///
 /// `$XDG_CACHE_HOME` when it is set and absolute (the XDG spec ignores a
@@ -215,9 +273,15 @@ static AGENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
         .new_agent()
 });
 
-/// The picture at `url`: from the cache when it is there, else downloaded and
-/// then cached. Blocking.
-fn fetch(url: &str, cache: Option<&Path>, asked: PathBuf) -> Result<Vec<u8>, AssetReaderError> {
+/// The picture at `url`: from the cache when it is there, else downloaded,
+/// showing `shown` as its `Authorization` when there is one, and then cached.
+/// Blocking.
+fn fetch(
+    url: &str,
+    shown: Option<&str>,
+    cache: Option<&Path>,
+    asked: PathBuf,
+) -> Result<Vec<u8>, AssetReaderError> {
     let file = cache.map(|dir| dir.join(key(url)));
     if let Some(file) = &file {
         match std::fs::read(file) {
@@ -227,7 +291,7 @@ fn fetch(url: &str, cache: Option<&Path>, asked: PathBuf) -> Result<Vec<u8>, Ass
             Err(err) => warn_once("read", file, &err),
         }
     }
-    let bytes = download(url, asked)?;
+    let bytes = download(url, shown, asked)?;
     if let Some(file) = &file
         && let Err(err) = store(file, &bytes)
     {
@@ -239,11 +303,16 @@ fn fetch(url: &str, cache: Option<&Path>, asked: PathBuf) -> Result<Vec<u8>, Ass
 /// `url`'s body, or the error bevy's own reader gave for the same answer.
 ///
 /// Only a success is a picture.
-fn download(url: &str, asked: PathBuf) -> Result<Vec<u8>, AssetReaderError> {
+fn download(url: &str, shown: Option<&str>, asked: PathBuf) -> Result<Vec<u8>, AssetReaderError> {
     let failed = |err: ureq::Error| {
         AssetReaderError::Io(Arc::new(io::Error::other(format!("{url}: {err}"))))
     };
-    match AGENT.get(url).call() {
+    let request = AGENT.get(url);
+    let request = match shown {
+        Some(value) => request.header("Authorization", value),
+        None => request,
+    };
+    match request.call() {
         // A redirect among them: with none followed, ureq hands it back as
         // an answer, and its body is not the picture.
         Ok(response) if !response.status().is_success() => {
@@ -347,10 +416,24 @@ mod tests {
     /// A web server on loopback that answers every request with `head` and
     /// [`PICTURE`], counting requests. Returns its art base (`…/art`).
     fn serve(head: String) -> (String, Arc<AtomicUsize>) {
+        let (base, served, _) = listen(head);
+        (base, served)
+    }
+
+    /// The same, keeping the head of every request it was sent.
+    fn serve_seen(head: String) -> (String, Arc<Mutex<Vec<String>>>) {
+        let (base, _, seen) = listen(head);
+        (base, seen)
+    }
+
+    /// [`serve`] and [`serve_seen`] in one.
+    fn listen(head: String) -> (String, Arc<AtomicUsize>, Arc<Mutex<Vec<String>>>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("a port");
         let base = format!("http://{}/art", listener.local_addr().expect("bound"));
         let served = Arc::new(AtomicUsize::new(0));
         let count = served.clone();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let heads = seen.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(mut stream) = stream else { continue };
@@ -362,6 +445,9 @@ mod tests {
                         Ok(n) => request.extend_from_slice(&chunk[..n]),
                     }
                 }
+                if let Ok(mut heads) = heads.lock() {
+                    heads.push(String::from_utf8_lossy(&request).to_ascii_lowercase());
+                }
                 count.fetch_add(1, Ordering::SeqCst);
                 let _ = write!(
                     stream,
@@ -371,16 +457,17 @@ mod tests {
                 let _ = stream.write_all(PICTURE);
             }
         });
-        (base, served)
+        (base, served, seen)
     }
 
-    /// The `http` reader with `base` as the mirror in force.
+    /// The `http` reader with `base` as the mirror in force, signed out.
     fn reader(base: &str, cache: Option<PathBuf>) -> ArtReader {
         let base: Arc<str> = base.into();
         ArtReader {
             scheme: "http",
             cache,
             base: Arc::new(move || base.clone()),
+            session: Arc::new(|| None),
         }
     }
 
@@ -510,13 +597,82 @@ mod tests {
         assert_eq!(served.load(Ordering::SeqCst), 0, "no request left");
     }
 
+    /// The session goes to the gateway's mirror and nowhere else (#273). A
+    /// Scryfall host is never shown it, not even when it is the base, which is
+    /// where a gateway without a mirror leaves it; nor is a host that only
+    /// begins like the mirror, or the mirror's host outside its art.
+    #[test]
+    fn only_the_gateway_s_mirror_is_shown_the_session() {
+        let mirror = "http://127.0.0.1:28766/art";
+        let session = Some("tok");
+        assert_eq!(
+            authorization(
+                "http://127.0.0.1:28766/art/normal/front/a/b/x.jpg",
+                mirror,
+                session
+            ),
+            Some("Bearer tok".to_string())
+        );
+        for base in [mirror, SCRYFALL_CDN, SCRYFALL_BACKS_CDN] {
+            for url in [
+                "https://cards.scryfall.io/normal/front/a/b/x.jpg",
+                "https://backs.scryfall.io/normal/0/a/x.jpg",
+                "https://CARDS.Scryfall.IO/normal/front/a/b/x.jpg",
+                "https://api.scryfall.io/cards/x",
+                "https://cards.scryfall.io:443/normal/front/a/b/x.jpg",
+            ] {
+                assert_eq!(
+                    authorization(url, base, session),
+                    None,
+                    "{url} under {base}"
+                );
+            }
+        }
+        for url in [
+            "http://127.0.0.1:28766/artifacts/x.jpg",
+            "http://127.0.0.1:28766/auth/config",
+            "http://127.0.0.1:28767/art/normal/front/a/b/x.jpg",
+            "https://evil.example/art/normal/front/a/b/x.jpg",
+        ] {
+            assert_eq!(authorization(url, mirror, session), None, "{url}");
+        }
+        assert_eq!(
+            authorization(
+                "http://127.0.0.1:28766/art/normal/front/a/b/x.jpg",
+                mirror,
+                None
+            ),
+            None,
+            "signed out, nothing is shown"
+        );
+
+        // And on the wire: the mirror is sent the header, and signed out it
+        // is not.
+        let (mirror, seen) = serve_seen("200 OK".into());
+        let mut art = reader(&mirror, None);
+        art.session = Arc::new(|| Some("tok".into()));
+        read(&art, &format!("{mirror}/normal/front/a/b/x.jpg")).expect("a picture");
+        let signed_out = reader(&mirror, None);
+        read(&signed_out, &format!("{mirror}/normal/front/a/b/y.jpg")).expect("a picture");
+        let heads = seen.lock().expect("the heads").clone();
+        assert_eq!(heads.len(), 2);
+        assert!(
+            heads[0].contains("\r\nauthorization: bearer tok\r\n"),
+            "{}",
+            heads[0]
+        );
+        assert!(!heads[1].contains("authorization"), "{}", heads[1]);
+    }
+
     /// A redirect is not followed. The mirror is allowed, and the place it
-    /// points to is not.
+    /// points to is not: asked with the session, as a mirror is (#273), so a
+    /// followed redirect would have carried the session there too.
     #[test]
     fn a_redirect_is_not_followed() {
         let (elsewhere, followed) = serve("200 OK".into());
         let (mirror, _) = serve(format!("302 Found\r\nLocation: {elsewhere}/x.jpg"));
-        let art = reader(&mirror, None);
+        let mut art = reader(&mirror, None);
+        art.session = Arc::new(|| Some("tok".into()));
         assert!(read(&art, &format!("{mirror}/normal/front/a/b/x.jpg")).is_err());
         assert_eq!(
             followed.load(Ordering::SeqCst),

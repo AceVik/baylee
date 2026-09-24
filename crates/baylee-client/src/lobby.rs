@@ -125,6 +125,8 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
             )
+            // In every phase: a table is where most pictures are asked for.
+            .add_systems(Update, art_follows_the_session)
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
             .init_resource::<Hovered>()
             .add_message::<Pointer<Over>>()
@@ -169,6 +171,9 @@ pub struct LobbyState {
     pub(crate) gateway_cursor: Option<usize>,
     /// Whether the front door's gear menu is open.
     pub(crate) front_menu: bool,
+    /// Whether the chosen gateway mirrors card art, as its `/auth/config`
+    /// said. Used only while signed in there (`systems::art_follows_the_session`).
+    pub(crate) art_cache: bool,
     /// The language the card pool is asked for, from the same setting the
     /// duel reads card text in — a builder in English over a table in German
     /// would be the same card under two names.
@@ -307,6 +312,7 @@ impl LobbyState {
             uses: stored.gateway_uses,
             gateway_cursor: None,
             front_menu: false,
+            art_cache: false,
             gateway_selected: false,
             gateway_epoch: 0,
             probes: std::collections::HashMap::new(),
@@ -443,7 +449,8 @@ mod tests;
 use http::{ask_about_registration, ask_about_saved_gateways, dispatch};
 use preview::{Hovered, despawn_preview, hovers, preview};
 use systems::{
-    came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls, softkeys, waiting, watch,
+    art_follows_the_session, came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls,
+    softkeys, waiting, watch,
 };
 use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 

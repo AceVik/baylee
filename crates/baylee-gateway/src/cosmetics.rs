@@ -356,9 +356,11 @@ pub async fn upload(
 
 /// `GET /images/{id}` — one stored cosmetic.
 ///
-/// Unauthenticated on purpose, exactly like the card-art mirror: everyone at a
-/// table sees everyone's sleeves, and the id is a content hash nobody can
-/// guess their way through.
+/// Unauthenticated on purpose: everyone at a table sees everyone's sleeves,
+/// they are our own players' uploads rather than anybody else's data, and the
+/// id is a content hash nobody can guess their way through. The card-art
+/// mirror next door is the opposite case (#273): its pictures are Scryfall's,
+/// and it serves only this gateway's players.
 ///
 /// The path is the bare id, with no `.jpg` on the end — which is where this
 /// differs from [`crate::art`] next door, and the difference is a decision

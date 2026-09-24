@@ -34,7 +34,7 @@ impl LobbyState {
         self.lobby = Lobby::new();
         self.lobby.set_lang(lang);
         self.lobby.set_field(Field::Email, &email);
-        client_core::images::reset_art_base();
+        self.art_cache = false;
         self.gateway = url;
         self.gateway_selected = true;
         self.gateway_cursor = None;

@@ -317,14 +317,26 @@ pub fn use_art_base(base: String) {
     }
 }
 
-/// The base in force. The CDN until [`use_art_base`] says otherwise.
+/// The base in force. The CDN until [`use_art_base`] says otherwise, and
+/// always the CDN in a browser (see [`base_in_force`]).
 #[must_use]
 pub fn art_base() -> std::sync::Arc<str> {
-    ART_BASE
-        .read()
-        .ok()
-        .and_then(|base| base.clone())
-        .unwrap_or_else(|| SCRYFALL_CDN.into())
+    base_in_force(
+        cfg!(target_arch = "wasm32"),
+        ART_BASE.read().ok().and_then(|base| base.clone()),
+    )
+}
+
+/// The base a client uses: the mirror it was told of, or the CDN.
+///
+/// A browser always takes the CDN, because bevy's web reader sends no header
+/// and the mirror serves only a session (#273); Scryfall's image hosts have no
+/// rate limit, and the browser's cache covers the repeats.
+fn base_in_force(browser: bool, told: Option<std::sync::Arc<str>>) -> std::sync::Arc<str> {
+    match told {
+        Some(mirror) if !browser => mirror,
+        _ => SCRYFALL_CDN.into(),
+    }
 }
 
 /// Clear a previous gateway's mirror when the selected server changes.
@@ -724,6 +736,22 @@ mod tests {
         // which is also what makes every other test in this file independent
         // of this one.
         assert_eq!(art_base().as_ref(), SCRYFALL_CDN);
+    }
+
+    /// A browser build takes art from Scryfall even when a gateway offers its
+    /// mirror (#273): the mirror serves only a session, and a browser cannot
+    /// show it one. Everywhere else the mirror, once told of, is used.
+    #[test]
+    fn a_browser_takes_art_from_scryfall_and_everything_else_from_the_mirror() {
+        let mirror: std::sync::Arc<str> = gateway_art_base("http://127.0.0.1:28766").into();
+        assert_eq!(
+            base_in_force(true, Some(mirror.clone())).as_ref(),
+            SCRYFALL_CDN
+        );
+        assert_eq!(base_in_force(true, None).as_ref(), SCRYFALL_CDN);
+        assert_eq!(base_in_force(false, Some(mirror.clone())), mirror);
+        assert_eq!(base_in_force(false, None).as_ref(), SCRYFALL_CDN);
+        assert!(SCRYFALL_CDN.starts_with("https://cards.scryfall.io"));
     }
 
     /// The printed back comes off a shelf of its own, and both halves of the
