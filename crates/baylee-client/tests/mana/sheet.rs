@@ -940,3 +940,90 @@ fn every_written_row_knows_which_printed_sentence_it_is() {
         found.join("\n")
     );
 }
+
+/// What the sweep above leaves open: that a row which knows its sentence also
+/// has **words** with nothing filed at all — the client offline, which is also
+/// every client before its gateway has answered.
+///
+/// Each row goes through `cardtext::sentence`, the one door the sheet, the
+/// stack and the cast chooser draw through, with no text filed, so what is
+/// asked is exactly whether the compiled English Oracle carries the sentence
+/// the line table points at. Before it was compiled in, every one of these
+/// rows was blank offline.
+#[test]
+fn every_written_row_has_words_with_no_text_filed() {
+    let cards = candidates();
+    let mut blank: Vec<String> = Vec::new();
+    let mut rows = 0usize;
+
+    for batch in cards.chunks(BATCH) {
+        let Some(Seated {
+            view, interaction, ..
+        }) = seated(batch)
+        else {
+            continue;
+        };
+        for def in batch {
+            let Some(object) = view
+                .battlefield
+                .iter()
+                .find(|o| o.card.as_ref().is_some_and(|c| c.index == def.index))
+            else {
+                continue;
+            };
+            let card = object.card.expect("found by its card");
+            for option in abilities::options(Lang::En, &view, &interaction, object.id) {
+                let Some(printed) = option.printed else {
+                    continue;
+                };
+                rows += 1;
+                if !has_words(card, printed) {
+                    blank.push(format!(
+                        "{}: line {} of {}",
+                        def.name(),
+                        printed.line,
+                        printed.of
+                    ));
+                }
+            }
+        }
+    }
+
+    println!("offline words: {rows} rows, {} blank", blank.len());
+    assert!(
+        rows >= SHEET_FLOOR,
+        "only {rows} rows were read, under the floor of {SHEET_FLOOR}"
+    );
+    assert!(
+        blank.is_empty(),
+        "{} rows know their sentence and draw no words offline:\n{}",
+        blank.len(),
+        blank.join("\n")
+    );
+}
+
+/// The sweep's question, taken out so that its failing branch can be seen to
+/// fail.
+fn has_words(card: baylee_view::CardIdentity, at: baylee_view::StackText) -> bool {
+    baylee_client::cardtext::sentence(None, card, at)
+        .is_some_and(|blocks| blocks.iter().any(|b| !b.text().is_empty()))
+}
+
+/// The injection for the sweep above: a coordinate past the card's last
+/// sentence has no words, so a sweep that found none blank was asking a
+/// question that can be answered no.
+#[test]
+fn a_row_pointing_past_its_card_s_text_has_no_words() {
+    let card = baylee_view::CardIdentity {
+        index: by_name("Mind Stone"),
+        print: baylee_core::ids::PrintRef::new(0),
+        face: 0,
+    };
+    let draw = baylee_view::StackText {
+        face: 0,
+        line: 1,
+        of: 2,
+    };
+    assert!(has_words(card, draw));
+    assert!(!has_words(card, baylee_view::StackText { line: 2, ..draw }));
+}

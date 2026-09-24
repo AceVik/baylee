@@ -76,14 +76,15 @@ const CAST_FACE: usize = 0;
 /// One printed sentence of the card `object` is, in the player's own
 /// language — the label a row of the cast chooser wants.
 ///
-/// The same three steps a stack entry's sentence is drawn through, and each
-/// of them may honestly come up empty: the generated table has to know
-/// which sentence a mode or an alternative cost is
-/// ([`baylee_cards::lines::mode_line`] and its twin), the card has to be
+/// The same steps a stack entry's sentence is drawn through, and two of
+/// them may honestly come up empty: the generated table has to know which
+/// sentence a mode or an alternative cost is
+/// ([`baylee_cards::lines::mode_line`] and its twin), and the card has to be
 /// findable — it is in **hand**, which is the one zone `PlayerView::object`
-/// does not answer for — and the printing's text has to have arrived, which
-/// it has not offline. A caller falls back to the phrase the row said
-/// before.
+/// does not answer for. A caller falls back to the phrase the row said
+/// before when either does. The words themselves never come up empty: they
+/// are [`crate::cardtext::sentence`]'s, the player's language when its text
+/// pairs and the card's English Oracle when it does not or has not arrived.
 ///
 /// Reminder text is dropped. It is the card explaining itself, which is
 /// worth a whole line on a card and is not what a button says: evoke's
@@ -106,10 +107,12 @@ fn printed_sentence(
         .map(|c| c.card)
         .or_else(|| view.object(object).and_then(|o| o.card))?;
     let found = line(card.index, CAST_FACE, at)?;
-    let face = u8::try_from(CAST_FACE).ok()?;
-    let text = names.texts?.get(card.print, face)?;
-    let blocks =
-        baylee_client_core::card_face::sentence_blocks(&text.oracle_text, found.line, found.of)?;
+    let printed = baylee_view::StackText {
+        face: u8::try_from(CAST_FACE).ok()?,
+        line: found.line,
+        of: found.of,
+    };
+    let blocks = crate::cardtext::sentence(names.texts, card, printed)?;
     let said: Vec<&str> = blocks
         .iter()
         .filter_map(|block| match block {
@@ -749,14 +752,17 @@ mod tests {
         );
     }
 
-    /// A printing whose own split is a different length is refused whole.
+    /// A printing whose own split is a different length is refused whole,
+    /// and the row falls to the card's English Oracle rather than to a number.
     ///
     /// The `of` guard, at the one surface where being off by one is worst:
-    /// an index merely out of range falls back, while an index that is *in*
-    /// range names the mode beside the right one and draws it as the card's
-    /// own words. Here the row goes back to the number it used to carry.
+    /// an index that is *in* range of a printing one mode short names the
+    /// mode beside the right one and draws it as the card's own words. So the
+    /// printing is not read at all, and the owner's rule for every row drawn
+    /// from card text — "Fallback ist immer englisch" — supplies the
+    /// sentence the index was counted against.
     #[test]
-    fn a_printing_of_a_different_length_falls_back_to_the_number() {
+    fn a_printing_of_a_different_length_falls_to_the_english_oracle() {
         let (view, texts, object) = asking_about(
             "217062f5-96f1-454c-9507-17f34ef37070",
             "en",
@@ -773,7 +779,10 @@ mod tests {
             },
             Lang::En,
         );
-        assert_eq!(rows[0].label, "Mode 2", "one-based, as the card numbers it");
+        assert_eq!(
+            rows[0].label,
+            "Each opponent sacrifices a creature token of their choice."
+        );
     }
 
     /// The owner's other half of AM1: an alternative cost is a sentence too.
@@ -805,12 +814,10 @@ mod tests {
         assert_eq!(rows[1].label, "Evoke—Exile a white card from your hand.");
     }
 
-    /// With no card text at all, every row says what it said before.
-    ///
-    /// The ordinary offline case — a gateway serving no catalog — and the
-    /// reason each row keeps its phrase rather than drawing nothing.
+    /// With no card text filed at all — the ordinary offline case — a row
+    /// says the card's English Oracle sentence, not the phrase it had.
     #[test]
-    fn a_row_with_no_text_to_read_keeps_the_phrase_it_had() {
+    fn a_row_with_no_text_filed_says_the_english_oracle() {
         let (view, _, object) = asking_about(
             "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
             "en",
@@ -818,14 +825,52 @@ mod tests {
         );
         let rows = cast_rows(
             object,
-            &[CastModeKind::Alternative(0), CastModeKind::Mode(1)],
+            &[CastModeKind::Alternative(0)],
             FaceNames {
                 view: Some(&view),
                 texts: None,
             },
             Lang::En,
         );
-        assert_eq!(rows[0].label, "Alternative cost");
-        assert_eq!(rows[1].label, "Mode 2");
+        assert_eq!(rows[0].label, "Evoke—Exile a white card from your hand.");
+    }
+
+    /// Where the card prints no sentence for the row at all, or the card
+    /// cannot be found, the row keeps the phrase it had: there is nothing
+    /// printed to say, and the phrase is the only wording there has been.
+    ///
+    /// Solitude has no modes, so its `Mode(1)` has no line in the table; and
+    /// with no view the card in hand cannot be named, so even its evoke cost
+    /// has no sentence to draw.
+    #[test]
+    fn a_row_with_no_printed_sentence_keeps_the_phrase_it_had() {
+        let (view, texts, object) = asking_about(
+            "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
+            "en",
+            "Evoke—Exile a white card from your hand.",
+        );
+        let unprinted = cast_rows(
+            object,
+            &[CastModeKind::Mode(1)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            unprinted[0].label, "Mode 2",
+            "one-based, as a card numbers it"
+        );
+        let unfound = cast_rows(
+            object,
+            &[CastModeKind::Alternative(0)],
+            FaceNames {
+                view: None,
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(unfound[0].label, "Alternative cost");
     }
 }

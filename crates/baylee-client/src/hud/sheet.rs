@@ -2032,11 +2032,12 @@ fn spawn_pager(
 
 /// What a row says: the ability's own printed sentence, or nothing.
 ///
-/// Three things have to line up before the sentence can be drawn and any of
-/// them may be missing — the generated table has to know which sentence it is,
-/// the permanent has to still carry a printing, and that printing's text has
-/// to have arrived, which it has not offline. That is the same triple
-/// `stack_sentence` walks.
+/// Two things have to line up before the sentence can be drawn — the
+/// generated table has to know which sentence it is, and the permanent has to
+/// still carry a card. The words are then [`crate::cardtext::sentence`]'s: the
+/// player's language when its text pairs with the line table, the card's
+/// English Oracle when it does not or has not arrived, which is the ordinary
+/// case offline.
 ///
 /// `None` rather than the fallback itself, because the *caller* has to know
 /// which of the two it got: the fallback label is what the ability costs, and
@@ -2054,10 +2055,8 @@ fn row_text(
     option: &crate::abilities::AbilityOption,
 ) -> Option<Vec<TextBlock>> {
     let text = option.printed?;
-    let print = duel.view.as_ref()?.object(object)?.card?.print;
-    let card = faces.get(print, text.face)?;
-    let blocks =
-        baylee_client_core::card_face::sentence_blocks(&card.oracle_text, text.line, text.of)?;
+    let card = duel.view.as_ref()?.object(object)?.card?;
+    let blocks = crate::cardtext::sentence(Some(faces), card, text)?;
     let blocks = abilitysheet::effect(blocks, option.cost.as_deref());
     (!blocks.is_empty()).then_some(blocks)
 }

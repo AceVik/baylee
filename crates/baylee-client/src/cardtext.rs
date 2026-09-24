@@ -32,10 +32,21 @@
 //! fallback is the English fallback the owner asked for; it is not a second
 //! translator, and it is not meant to be one — the gateway is where a
 //! language is chosen and this is where a hole is filled.
+//!
+//! # Under both of them, the English Oracle
+//!
+//! Neither door is there offline, and a translation that is there does not
+//! always pair line for line with the English the ability-line table was
+//! counted in. A sentence is therefore never drawn from this table alone:
+//! [`sentence`] answers from it when it can and from the card's English
+//! Oracle, compiled into the client, when it cannot. What a row says never
+//! depends on whether a request got through.
 
-use baylee_client_core::card_face::{CardText, CardTextEntry};
+use baylee_client_core::card_face::{
+    CardText, CardTextEntry, TextBlock, sentence_blocks, split_blocks,
+};
 use baylee_core::ids::PrintRef;
-use baylee_view::GameStatic;
+use baylee_view::{CardIdentity, GameStatic, StackText};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
@@ -81,6 +92,40 @@ pub struct CardTexts {
     /// everything the opponent plays would be missing for the rest of the
     /// game, because the one request went out before any of it was known.
     covered: usize,
+}
+
+/// The printed sentence at one line of a card's face, as blocks to draw.
+///
+/// The player's own language when this seat holds text for the printing and
+/// that text lines up with the English the index was counted in; the card's
+/// **English Oracle** sentence otherwise. The second half is the owner's rule
+/// for every row drawn from card text — "Fallback ist immer englisch" — and it
+/// is what takes a row's words off the network: the Oracle is compiled in
+/// (`baylee_cards::oracle`), so a client with no gateway, a card nobody
+/// translated and a translation whose lines do not pair all draw the card's
+/// own English rather than a blank.
+///
+/// `None` only where no sentence exists at all: a line the table does not
+/// have, or a card the pool does not compile. Neither is a coordinate the
+/// host or the line table hands out, and a caller that meets one draws no
+/// words rather than invented ones.
+///
+/// One door for the three places a sentence is drawn — the ability sheet, the
+/// stack and the cast chooser — so no two of them can disagree about what an
+/// ability says.
+#[must_use]
+pub fn sentence(
+    texts: Option<&CardTexts>,
+    card: CardIdentity,
+    at: StackText,
+) -> Option<Vec<TextBlock>> {
+    texts
+        .and_then(|texts| texts.get(card.print, at.face))
+        .and_then(|text| sentence_blocks(&text.oracle_text, at.line, at.of))
+        .or_else(|| {
+            baylee_cards::oracle::sentence(card.index, usize::from(at.face), at.line)
+                .map(split_blocks)
+        })
 }
 
 /// State of the one in-flight request.
@@ -920,5 +965,91 @@ mod tests {
         // record Scryfall has ever written without one is.
         let entries = scryfall::parse(r#"{"data":[{"id":"eee","name":"Forest"}]}"#);
         assert_eq!(entries[0].lang, "en");
+    }
+
+    /// Mind Stone, with one German printing's text filed for it.
+    fn mind_stone(printed: &str) -> (CardIdentity, CardTexts) {
+        let index = baylee_cards::decks::by_name("Mind Stone").expect("in the pool");
+        let card = CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let entry = CardTextEntry {
+            scryfall_id: "b50fd971-3dd1-4878-889f-81e38970408c".to_string(),
+            lang: "de".to_string(),
+            faces: vec![FaceText {
+                name: "Gedankenstein".to_string(),
+                english_name: "Mind Stone".to_string(),
+                type_line: "Artifact".to_string(),
+                oracle_text: printed.to_string(),
+                mana_cost: "{2}".to_string(),
+            }],
+        };
+        (card, CardTexts::filed(PrintRef::new(0), entry))
+    }
+
+    /// The words of a sentence, blocks joined.
+    fn words(blocks: Option<Vec<TextBlock>>) -> Option<String> {
+        blocks.map(|blocks| {
+            blocks
+                .iter()
+                .map(TextBlock::text)
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+    }
+
+    /// Mind Stone's second ability, as the line table places it.
+    const DRAW: StackText = StackText {
+        face: 0,
+        line: 1,
+        of: 2,
+    };
+
+    /// Mind Stone's German fic printing, read from the catalog 2026-09-24.
+    const FIC: &str = "{T}: Erzeuge {C}.\n{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.";
+
+    /// Its c15 printing, which prints the two abilities as one line.
+    const C15: &str = "{T}: Erhöhe deinen Manavorrat um {1}.{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte.";
+
+    const ENGLISH: &str = "{1}, {T}, Sacrifice this artifact: Draw a card.";
+
+    /// A translation that pairs with the line table is what is drawn.
+    #[test]
+    fn a_sentence_is_the_player_s_language_when_it_pairs() {
+        let (card, texts) = mind_stone(FIC);
+        assert_eq!(
+            words(sentence(Some(&texts), card, DRAW)).as_deref(),
+            Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.")
+        );
+    }
+
+    /// The other branch, by each of its three ways in: a translation that
+    /// does not pair, an empty table, and no table at all. Each of them drew
+    /// a blank row before the Oracle was compiled in.
+    #[test]
+    fn a_sentence_falls_to_the_english_oracle() {
+        let (card, glued) = mind_stone(C15);
+        assert_eq!(
+            words(sentence(Some(&glued), card, DRAW)).as_deref(),
+            Some(ENGLISH)
+        );
+        let empty = CardTexts::default();
+        assert_eq!(
+            words(sentence(Some(&empty), card, DRAW)).as_deref(),
+            Some(ENGLISH)
+        );
+        assert_eq!(words(sentence(None, card, DRAW)).as_deref(), Some(ENGLISH));
+    }
+
+    /// No card prints a sentence past its last one, in any language, and the
+    /// door invents none.
+    #[test]
+    fn a_line_nobody_prints_has_no_words() {
+        let (card, texts) = mind_stone(FIC);
+        let past = StackText { line: 2, ..DRAW };
+        assert_eq!(sentence(Some(&texts), card, past), None);
+        assert_eq!(sentence(None, card, StackText { face: 1, ..DRAW }), None);
     }
 }

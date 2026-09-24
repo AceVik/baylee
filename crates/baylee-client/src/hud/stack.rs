@@ -1863,14 +1863,14 @@ fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
 /// The printed sentence a stack entry stands for, in the player's own
 /// language, or `None` when there is nothing trustworthy to draw.
 ///
-/// Three things have to line up and any of them may be missing, which is
-/// why every step is a `?` and the panel falls back to the label it drew
-/// before. The host has to know which sentence it is (it does not for a
-/// token's ability, an emblem's, or one a continuous effect granted); the
-/// source has to still be findable, because the *printing* is what the
-/// text is filed under and an ability on the stack outlives its source
-/// (CR 113.7a); and that printing's text has to have arrived — a gateway
-/// with no catalog serves none, which is the ordinary case offline.
+/// Two things have to line up and either may be missing, which is why every
+/// step is a `?` and the panel falls back to the label it drew before. The
+/// host has to know which sentence it is (it does not for a token's ability,
+/// an emblem's, or one a continuous effect granted), and the source has to
+/// still be findable, because the card is what the text is filed under and
+/// an ability on the stack outlives its source (CR 113.7a). The words are
+/// [`crate::cardtext::sentence`]'s, which falls to the card's English Oracle
+/// when the player's language has none that pairs — offline, always.
 ///
 /// The face is the host's answer and not the source's current one, for
 /// the reason `baylee_view::StackText::face` gives.
@@ -1883,9 +1883,8 @@ pub(super) fn stack_sentence(
         return None;
     };
     let text = text?;
-    let print = view.object(source)?.card?.print;
-    let card = faces.texts.get(print, text.face)?;
-    baylee_client_core::card_face::sentence_blocks(&card.oracle_text, text.line, text.of)
+    let card = view.object(source)?.card?;
+    crate::cardtext::sentence(Some(faces.texts), card, text)
 }
 
 /// What a **queued** ability row is headed, which is not its source's name.
