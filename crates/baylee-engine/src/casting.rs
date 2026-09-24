@@ -11,10 +11,12 @@ use crate::object::ObjectKind;
 use crate::state::{GameState, StateError};
 use crate::turn::Phase;
 use crate::zone::{Zone, ZoneLocation, ZonePosition};
+use baylee_cards_dsl::SpendRider;
 use baylee_core::generated::subtypes::land;
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::mana::{ManaColor, ManaCost, ManaPool};
+use baylee_core::mana::{ManaColor, ManaCost, ManaFlags, ManaPool, RestrictedMana};
 use baylee_core::types::TypeSet;
+use smallvec::SmallVec;
 
 /// Why a card cannot be cast right now (validated before the action).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -365,27 +367,89 @@ pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) ->
     wild_or_not(mana_is_wild(state), pool, cost)
 }
 
-/// The pool a *particular spell* may be paid from, or `None` when that is
-/// simply the player's pool.
+/// What a payment is for, which is what restricted mana asks (CR 106.6).
 ///
-/// Restricted mana — Cavern of Souls, Path of Ancestry — does not live in the
-/// pool's plain counters, and [`mana_pay::can_pay`] reads nothing else. So a
-/// player whose only mana came off a Cavern was offered **nothing to cast**,
-/// while `Engine::spend_restricted` on the far side of the wizard would have
-/// paid the cost with it without complaint. That is the whole of the fault:
-/// the offer and the payment were answering different questions about the
+/// Cavern of Souls' mana may pay for a creature spell of the named type and
+/// for nothing else, so the same pool answers two payments two ways. The
+/// offer and the payment have to put the same question to it, or a spell
+/// is offered in `LegalActions` and refused the moment it is taken.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum SpendFor {
+    /// Casting this spell (CR 601.2h).
+    Spell(ObjectId),
+    /// Activating an ability of this source (CR 602.2b, CR 113.7).
+    Ability(
+        #[expect(
+            dead_code,
+            reason = "no restriction the DSL can write names an ability yet"
+        )]
+        ObjectId,
+    ),
+    /// Anything else that costs mana: suspend (a special action, CR 116.2f),
+    /// an "unless you pay", echo, a pact. No restriction names these.
+    Other,
+}
+
+/// The restricted mana in `player`'s pool that may pay for `what`, in pool
+/// order, each with the permanent that made it and the rider it carries.
+///
+/// An entry counts when its own filter matches the spell. The rider is not
+/// consulted: it changes what the spell becomes once the mana is spent,
+/// never whether the mana may be spent. A spell restriction admits no
+/// ability. The walk is over the pool's list and never over the map, which
+/// is keyed by a hash.
+fn admitted(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
+    let SpendFor::Spell(card) = what else {
+        return SmallVec::new();
+    };
+    let Some(spell) = state.object(card) else {
+        return SmallVec::new();
+    };
+    state.players[player.get() as usize]
+        .mana_pool
+        .restricted()
+        .iter()
+        .filter_map(|mana| {
+            let &(source, filter, rider) = state.restriction_info.get(&mana.restriction.0)?;
+            crate::eval::matches(filter, state, spell, player, source)
+                .then_some((*mana, source, rider))
+        })
+        .collect()
+}
+
+/// `pool` with every admitted restricted unit added to its plain counters.
+fn merged(pool: &ManaPool, entries: &[(RestrictedMana, ObjectId, SpendRider)]) -> ManaPool {
+    let mut merged = pool.clone();
+    for (mana, ..) in entries {
+        if mana.flags.contains(ManaFlags::SNOW) {
+            merged.add_snow(mana.color, mana.amount);
+        } else {
+            merged.add(mana.color, mana.amount);
+        }
+    }
+    merged
+}
+
+/// The pool a payment for `what` may draw on, or `None` when that is simply
+/// the player's pool.
+///
+/// Restricted mana does not live in the pool's plain counters, and
+/// [`mana_pay::can_pay`] reads nothing else. So a player whose only mana
+/// came off a Cavern was offered **nothing to cast**, while the payment on
+/// the far side of the wizard would have spent it without complaint. The
+/// offer and the payment were answering different questions about the same
+/// pool. They ask one question here, and [`pay_mana_for`] pays from this
 /// same pool.
-///
-/// They ask the same one here. An entry counts exactly when its own filter
-/// matches this spell — the test `spend_restricted` applies, against the same
-/// `restriction_info` — so a Cavern naming Ally pays for an Ally and stays
-/// invisible to everything else at the table.
 ///
 /// The card is still in a hand rather than on the stack, which is the one
 /// difference from the payment site and does not reach these filters: they
 /// read characteristics and a chosen subtype, neither of which the stack
-/// confers. A rider (uncounterable) is not consulted at all — a rider changes
-/// what the spell *becomes*, never whether it can be cast.
+/// confers.
+///
 /// It is `pub(crate)` because it has **two** callers and they must not
 /// disagree: the wizard enumerates the ways to cast a spell with the same
 /// probe `can_cast` used to offer it, or a spell is offered in
@@ -395,27 +459,96 @@ pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) ->
 pub(crate) fn spendable_pool(
     state: &GameState,
     player: PlayerId,
-    card: ObjectId,
+    what: SpendFor,
 ) -> Option<ManaPool> {
     let pool = &state.players[player.get() as usize].mana_pool;
     if pool.restricted().is_empty() {
         return None;
     }
-    let spell = state.object(card)?;
-    let mut probe = pool.clone();
-    for mana in pool.restricted() {
-        let Some(&(source, filter, _)) = state.restriction_info.get(&mana.restriction.0) else {
-            continue;
+    Some(merged(pool, &admitted(state, player, what)))
+}
+
+/// Pays `cost` for `what` out of `player`'s pool, and returns the restricted
+/// mana it spent, each part with its source and rider. `None` leaves the
+/// pool untouched, because partial payments are not allowed (CR 601.2h).
+///
+/// The payment is solved once, on the same pool [`spendable_pool`] offers
+/// from, so it pays whatever was offered. The solver prefers the admitted
+/// restricted units wherever it has a choice. That is what spends the
+/// Cavern's unit rather than a land's beside it, so the rider lands. It
+/// then charges what was consumed to the restricted entries first, colour
+/// by colour and snow apart from the rest, and takes only what is left from
+/// the plain counters. Surplus restricted mana stays in the pool as it was.
+///
+/// The payer this replaces took each admitted entry whole and subtracted it
+/// from the cost one unit at a time, generic before the coloured pip,
+/// because `ManaCost` sorts the generic part first. So a Cavern's {U} paid
+/// the {1} of a {1}{U} spell and left the {U} to a Forest, which cannot pay
+/// it. Three {C} from a Workshop were all taken for a {1}. A restricted {G}
+/// that matched no pip was taken and lost. Under Mycosynth Lattice it
+/// matched colours literally, so it refused what the Lattice made payable.
+pub(crate) fn pay_mana_for(
+    state: &mut GameState,
+    player: PlayerId,
+    what: SpendFor,
+    cost: &ManaCost,
+) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
+    let wild = mana_is_wild(state);
+    let entries = admitted(state, player, what);
+    let real = &state.players[player.get() as usize].mana_pool;
+    let merged = merged(real, &entries);
+    let mut prefer = [0_u16; 6];
+    for (mana, ..) in &entries {
+        let slot = &mut prefer[mana.color.index()];
+        *slot = slot.saturating_add(mana.amount);
+    }
+    let paid = mana_pay::payment_preferring(&merged, cost, wild, prefer)?;
+
+    // What the payment consumed, per colour, and how much of it was snow.
+    // Exact, because `spend` takes ordinary units before snow ones and
+    // `spend_snow` takes only snow ones.
+    let mut used_snow = [0_u16; 6];
+    let mut used_plain = [0_u16; 6];
+    for color in ManaColor::ALL {
+        let used = merged.available(color) - paid.available(color);
+        let snow = merged.snow_available(color) - paid.snow_available(color);
+        used_snow[color.index()] = snow;
+        used_plain[color.index()] = used - snow;
+    }
+
+    // Restricted entries first, in pool order, each class charged apart.
+    let mut pool = real.clone();
+    let mut spent = SmallVec::new();
+    for (mana, source, rider) in entries {
+        let budget = if mana.flags.contains(ManaFlags::SNOW) {
+            &mut used_snow[mana.color.index()]
+        } else {
+            &mut used_plain[mana.color.index()]
         };
-        if crate::eval::matches(filter, state, spell, player, source) {
-            if mana.flags.contains(baylee_core::mana::ManaFlags::SNOW) {
-                probe.add_snow(mana.color, mana.amount);
-            } else {
-                probe.add(mana.color, mana.amount);
+        let k = mana.amount.min(*budget);
+        if k == 0 {
+            continue;
+        }
+        let taken = pool.take_restricted_units(mana.restriction.0, k)?;
+        *budget -= taken.amount;
+        spent.push((taken, source, rider));
+    }
+    // The rest off the plain counters. The solver paid from the real pool
+    // plus the admitted units, and every class was charged to those units
+    // first, so what is left fits the real pool. A remainder that did not
+    // would be a solver fault, and it refuses rather than half-paying.
+    for color in ManaColor::ALL {
+        if !pool.spend(color, used_plain[color.index()]) {
+            return None;
+        }
+        for _ in 0..used_snow[color.index()] {
+            if !pool.spend_snow(color) {
+                return None;
             }
         }
     }
-    Some(probe)
+    state.players[player.get() as usize].mana_pool = pool;
+    Some(spent)
 }
 
 /// [`affordable`] with the conversion flag already read.
@@ -640,7 +773,7 @@ pub fn can_cast(
     }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
-    let with_restricted = spendable_pool(state, player, card);
+    let with_restricted = spendable_pool(state, player, SpendFor::Spell(card));
     let pool = with_restricted
         .as_ref()
         .unwrap_or(&state.players[player.get() as usize].mana_pool);

@@ -1547,3 +1547,13 @@ that cannot run the test has no way to tell which one is true. The Gold
 Saucer test had the Dragonback gap again: "sacrifice two artifacts" was
 played with no artifact across the table, so "your" had no witness. One
 was added.
+
+The lane run of 24.09.2026 for step 7 (three tests: Bretagard Stronghold,
+Abstergo Entertainment, Yawgmoth) wasted a third of its work. Yawgmoth
+already had a test in `card_tests/creatures.rs`, and the lane wrote a
+second one for the same printed sentences, which was not adopted. The
+lane is not told which cards have a test, and it cannot find out without
+reading 17 000 lines of card tests. So before a card goes to the lane, grep
+`crates/baylee-engine/src/engine/*_tests.rs` (recursively) for its
+`oracle_id`. A card that already has a test gets its existing test extended
+by hand, or nothing at all.

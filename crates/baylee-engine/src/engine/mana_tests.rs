@@ -219,8 +219,8 @@ fn command_tower_without_a_commander_makes_colorless() {
 /// The mana was made and the mana matched. What could not see it was
 /// `casting::can_cast` — restricted mana is not in the pool's plain counters
 /// and `mana_pay::can_pay` reads nothing else, so the spell was never
-/// *offered*, while `spend_restricted` on the far side of the cast wizard
-/// would have paid for it without complaint. Both halves ask the same
+/// *offered*, while the payment on the far side of the cast wizard would
+/// have paid for it without complaint. Both halves ask the same
 /// question now, and the counter-half of this test is the one that says the
 /// answer is still a restriction: Charming Prince is no Ally and the same
 /// two mana buy it nothing.
@@ -602,4 +602,404 @@ fn a_mana_ability_that_does_something_else_too_still_skips_the_stack() {
         "the {{1}} came out of the pool and the {{U}} went back in",
     );
     assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+}
+
+// ---------------------------------------------------------------------------
+// Paying with restricted mana: one solve, charged to the admitted entries.
+// ---------------------------------------------------------------------------
+
+fn sea_eagle() -> CardIndex {
+    card_index("acb57162-7093-4a3c-9818-d3b61ce757c6")
+}
+fn mishras_workshop() -> CardIndex {
+    card_index("ba284fe6-bb29-455c-8321-9714a0cdc05e")
+}
+fn sol_ring() -> CardIndex {
+    card_index("6ad8011d-3471-4369-9d68-b264cc027487")
+}
+fn oakhollow_village() -> CardIndex {
+    card_index("177b7fe4-8565-4631-b4d9-8b2b4282f3ac")
+}
+fn goblin_balloon_brigade() -> CardIndex {
+    card_index("10bc98b0-3fdc-46d1-8d3b-6d160e9dd62f")
+}
+fn mycosynth_lattice() -> CardIndex {
+    card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805")
+}
+fn mulldrifter() -> CardIndex {
+    card_index("24d0f5e7-0d9e-4b76-900e-a7274e80312d")
+}
+fn henge_guardian() -> CardIndex {
+    card_index("71744428-65ae-42ac-893d-0802fd41e9b4")
+}
+fn island() -> CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+fn swamp() -> CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// Keeps both hands and answers a Cavern's "choose a creature type" with
+/// `named`, whichever order the two arrive in, then walks to seat 0's main
+/// phase.
+fn settle(engine: &mut Engine<RegistryLookup>, named: baylee_core::ids::SubtypeId) {
+    for _ in 0..6 {
+        match engine.pending().clone() {
+            Pending::Priority { .. } => break,
+            Pending::Mulligan { player, .. } => {
+                engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+            }
+            Pending::ChooseSubtype { player, options } => {
+                assert!(options.contains(&named), "the Cavern may name it");
+                engine
+                    .apply(player, PlayerAction::ChooseSubtype(named))
+                    .expect("a creature type is chosen");
+            }
+            other => panic!("expected a mulligan or the type choice, got {other:?}"),
+        }
+    }
+    reach_main_phase(engine, PlayerId::new(0));
+}
+
+/// Taps a basic land of seat 0's for its CR 305.6 mana.
+fn tap_basic(engine: &mut Engine<RegistryLookup>, card: CardIndex) {
+    let source = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.card.is_some_and(|c| c.index == card)
+                    && !o.status.contains(crate::object::Status::TAPPED)
+            })
+        })
+        .expect("an untapped copy of the land");
+    engine
+        .apply(
+            PlayerId::new(0),
+            PlayerAction::ActivateManaAbility { source },
+        )
+        .expect("a basic land taps for its mana");
+}
+
+/// The Cavern's restricted ability, answered with `color`.
+fn tap_cavern_for(engine: &mut Engine<RegistryLookup>, color: ManaColor) {
+    activate(engine, PlayerId::new(0), cavern_of_souls(), 1);
+    engine
+        .apply(PlayerId::new(0), PlayerAction::ChooseColor(color))
+        .expect("colour chosen");
+}
+
+/// Casts `card` from seat 0's hand, which has to be offered first.
+#[track_caller]
+fn cast(engine: &mut Engine<RegistryLookup>, card: CardIndex) -> Result<(), EngineError> {
+    let spell = super::testkit::in_hand(engine, PlayerId::new(0), card).expect("in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&spell),
+        "the spell is offered before it is taken"
+    );
+    engine.apply(PlayerId::new(0), PlayerAction::CastSpell { card: spell })
+}
+
+/// How much restricted mana seat 0 has floating.
+fn restricted_total(engine: &Engine<RegistryLookup>) -> u16 {
+    engine.state().players[0]
+        .mana_pool
+        .restricted()
+        .iter()
+        .map(|m| m.amount)
+        .sum()
+}
+
+/// A payment that cannot be made leaves the pool exactly as it was, the
+/// restricted entries included — partial payments are not allowed
+/// (CR 601.2h), and a refused one must not have eaten a Workshop's mana on
+/// the way to refusing.
+#[test]
+fn a_failed_payment_leaves_restricted_mana_where_it_was() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[mishras_workshop()])
+        .hand(0, &[sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    activate(&mut engine, PlayerId::new(0), mishras_workshop(), 0);
+    let ring = super::testkit::in_hand(&engine, PlayerId::new(0), sol_ring()).unwrap();
+    let before = engine.state().players[0].mana_pool.clone();
+    assert_eq!(restricted_total(&engine), 3, "the Workshop's three");
+
+    let too_much = baylee_core::mana!("{4}");
+    let paid = crate::casting::pay_mana_for(
+        &mut engine.state,
+        PlayerId::new(0),
+        crate::casting::SpendFor::Spell(ring),
+        &too_much,
+    );
+    assert!(paid.is_none(), "three mana do not pay four");
+    assert_eq!(engine.state().players[0].mana_pool, before);
+
+    // And a payment nothing restricted may serve reads the plain pool
+    // alone, which is empty.
+    let one = baylee_core::mana!("{1}");
+    let paid = crate::casting::pay_mana_for(
+        &mut engine.state,
+        PlayerId::new(0),
+        crate::casting::SpendFor::Other,
+        &one,
+    );
+    assert!(
+        paid.is_none(),
+        "an artifact spell's mana pays for nothing else"
+    );
+    assert_eq!(engine.state().players[0].mana_pool, before);
+}
+
+/// **A restricted colour pays its own pip, not the generic.** Cavern of
+/// Souls naming Bird makes `{U}`, a Forest makes `{G}`, and Sea Eagle costs
+/// `{1}{U}`. The payer this replaced took the Cavern's entry whole and
+/// subtracted it from the cost generic-first, so the blue paid the `{1}` and
+/// the Forest was left to pay `{U}`: the spell was offered and then refused
+/// as "cannot pay the total cost".
+#[test]
+fn a_restricted_colour_pays_its_own_pip_not_the_generic() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[cavern_of_souls(), forest()])
+        .hand(0, &[sea_eagle()])
+        .start();
+    settle(
+        &mut engine,
+        baylee_core::generated::subtypes::creature::BIRD,
+    );
+    tap_cavern_for(&mut engine, ManaColor::Blue);
+    tap_basic(&mut engine, forest());
+
+    cast(&mut engine, sea_eagle()).expect("the Cavern's blue pays the blue");
+    let spell = super::testkit::on_stack(&engine, sea_eagle()).expect("on the stack");
+    assert!(
+        engine
+            .state()
+            .object(spell)
+            .unwrap()
+            .riders
+            .contains(&crate::object::Rider::Uncounterable),
+        "the Cavern's mana was spent on it, so it can't be countered"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+/// **Restricted mana a payment did not need stays, and stays restricted.**
+/// Mishra's Workshop makes `{C}{C}{C}` for artifact spells and Sol Ring
+/// costs `{1}`. The replaced payer took the entry whole, so two colourless
+/// vanished into a one-mana spell.
+#[test]
+fn restricted_mana_left_over_after_a_payment_stays_restricted() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[mishras_workshop()])
+        .hand(0, &[sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    activate(&mut engine, PlayerId::new(0), mishras_workshop(), 0);
+    let before: Vec<_> = engine.state().players[0].mana_pool.restricted().to_vec();
+    assert_eq!(before.len(), 1);
+
+    cast(&mut engine, sol_ring()).expect("an artifact spell, paid by the Workshop");
+    let after = engine.state().players[0].mana_pool.restricted().to_vec();
+    assert_eq!(after.len(), 1, "one entry, not a new one: {after:?}");
+    assert_eq!(after[0].amount, 2, "one of the three was spent");
+    assert_eq!(after[0].color, ManaColor::Colorless);
+    assert_eq!(
+        after[0].restriction, before[0].restriction,
+        "the two left are still for artifact spells only"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0
+    );
+}
+
+/// **Restricted mana that matches no pip is left alone.** Oakhollow
+/// Village's `{G}` is for creature spells, and Goblin Balloon Brigade is
+/// one — but it costs `{R}`, which the Mountain pays. The green was admitted,
+/// paid nothing, and was taken and lost by the payer this replaced.
+#[test]
+fn restricted_mana_that_matches_no_pip_is_left_in_the_pool() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[oakhollow_village(), mountain()])
+        .hand(0, &[goblin_balloon_brigade()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    activate(&mut engine, PlayerId::new(0), oakhollow_village(), 1);
+    tap_basic(&mut engine, mountain());
+
+    cast(&mut engine, goblin_balloon_brigade()).expect("the Mountain pays the {R}");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(restricted_total(&engine), 1, "the green is still there");
+    assert_eq!(pool.restricted()[0].color, ManaColor::Green);
+    assert_eq!(pool.available(ManaColor::Red), 0, "the red paid");
+}
+
+/// **Under Mycosynth Lattice restricted mana pays any pip** (CR 106.6 still
+/// decides what it may be spent on, the Lattice decides as what). Oakhollow's
+/// green alone casts a `{R}` creature. The replaced payer matched colours
+/// literally, so the spell was offered — the probe honours the Lattice —
+/// and then refused.
+#[test]
+fn under_a_lattice_restricted_mana_pays_any_pip() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[oakhollow_village(), mycosynth_lattice()])
+        .hand(0, &[goblin_balloon_brigade()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    activate(&mut engine, PlayerId::new(0), oakhollow_village(), 1);
+
+    cast(&mut engine, goblin_balloon_brigade()).expect("the Lattice lets green pay red");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert!(super::testkit::on_stack(&engine, goblin_balloon_brigade()).is_some());
+}
+
+/// **An alternative cost is priced against the same pool the spell was
+/// offered from.** Cavern of Souls naming Elemental makes `{U}`, two Swamps
+/// make `{B}{B}`, and Mulldrifter's evoke is `{2}{U}`. `can_cast` counted
+/// the Cavern and offered the spell; the wizard's alternative-cost probe
+/// read the plain pool, found `{B}{B}`, and answered "no way to cast this
+/// spell".
+#[test]
+fn an_alternative_cost_counts_the_restricted_mana_the_spell_may_spend() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[cavern_of_souls(), swamp(), swamp()])
+        .hand(0, &[mulldrifter()])
+        .start();
+    settle(
+        &mut engine,
+        baylee_core::generated::subtypes::creature::ELEMENTAL,
+    );
+    tap_cavern_for(&mut engine, ManaColor::Blue);
+    tap_basic(&mut engine, swamp());
+    tap_basic(&mut engine, swamp());
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(PlayerId::new(0)))
+        .len();
+
+    cast(&mut engine, mulldrifter()).expect("offered, so it may be taken");
+    // Three mana cannot pay `{4}{U}`, so evoke is the only way there is and
+    // the wizard takes it without asking. Where it does ask, it is answered.
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let evoke = options
+            .iter()
+            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Alternative(_)))
+            .expect("the evoke cost is offered: three mana, one of them the Cavern's");
+        engine
+            .apply(PlayerId::new(0), PlayerAction::ChooseMode(evoke))
+            .expect("the evoke cost is paid");
+    }
+    let spell = super::testkit::on_stack(&engine, mulldrifter()).expect("on the stack");
+    assert!(
+        engine
+            .state()
+            .object(spell)
+            .unwrap()
+            .riders
+            .contains(&crate::object::Rider::Uncounterable),
+        "the Cavern's mana paid for it"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+
+    // It resolves, is sacrificed for its evoke, and still draws two.
+    pass_until(&mut engine, super::testkit::stack_is_empty);
+    assert!(
+        super::testkit::in_graveyard(&engine, PlayerId::new(0), mulldrifter()).is_some(),
+        "evoked, so sacrificed on entering"
+    );
+    let hand_after = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(PlayerId::new(0)))
+        .len();
+    assert_eq!(hand_after, hand_before - 1 + 2, "cast one, drew two");
+}
+
+/// **The rider lands even with other mana floating.** Cavern of Souls
+/// naming Bird makes `{R}` this time — no pip of Sea Eagle's — beside an
+/// Island and a Swamp. Three mana pay `{1}{U}` two ways, and only the one
+/// that spends the Cavern's unit on the `{1}` makes the spell uncounterable.
+/// The solver prefers the admitted units wherever it has a choice; without
+/// that, `W-U-B-R-G-C` order spends the Swamp's black first and the Cavern
+/// stays in the pool.
+#[test]
+fn a_caverns_rider_lands_when_surplus_mana_floats_beside_it() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[cavern_of_souls(), island(), swamp()])
+        .hand(0, &[sea_eagle()])
+        .start();
+    settle(
+        &mut engine,
+        baylee_core::generated::subtypes::creature::BIRD,
+    );
+    tap_cavern_for(&mut engine, ManaColor::Red);
+    tap_basic(&mut engine, island());
+    tap_basic(&mut engine, swamp());
+
+    cast(&mut engine, sea_eagle()).expect("{1}{U} out of three mana");
+    let spell = super::testkit::on_stack(&engine, sea_eagle()).expect("on the stack");
+    assert!(
+        engine
+            .state()
+            .object(spell)
+            .unwrap()
+            .riders
+            .contains(&crate::object::Rider::Uncounterable),
+        "the Cavern's red paid the {{1}}"
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the Swamp's black floats"
+    );
+    assert_eq!(restricted_total(&engine), 0);
+}
+
+/// **A spell restriction pays no activation.** Mishra's Workshop's mana is
+/// for artifact *spells*, and Henge Guardian is an artifact — whose `{2}`
+/// is an ability, not a spell (CR 106.6).
+#[test]
+fn a_spells_only_restriction_pays_no_activation() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[mishras_workshop(), henge_guardian()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    let guardian = land_object(&engine, henge_guardian());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    assert!(
+        !legal.abilities.contains(&(guardian, 0)),
+        "nothing floats yet, so {{2}} is not offered"
+    );
+    activate(&mut engine, PlayerId::new(0), mishras_workshop(), 0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    assert_eq!(restricted_total(&engine), 3);
+    assert!(
+        !legal.abilities.contains(&(guardian, 0)),
+        "three colourless for artifact spells buy the Guardian no trample: {:?}",
+        legal.abilities
+    );
 }

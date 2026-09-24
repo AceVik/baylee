@@ -733,6 +733,32 @@ impl ManaPool {
         let pos = self.restricted.iter().position(|m| m.restriction.0 == id)?;
         Some(self.restricted.remove(pos))
     }
+
+    /// Takes up to `n` units off the restricted entry with the given id, and
+    /// returns the part taken.
+    ///
+    /// What is left keeps its restriction, its flags and its place in the
+    /// pool, so three restricted {C} that pay a {1} leave two restricted {C}
+    /// behind. Taking the whole entry here lost the other two: the surplus
+    /// was neither spent nor in the pool afterwards. The entry goes when its
+    /// last unit does. `None` is an id nobody holds mana for, or `n == 0`.
+    pub fn take_restricted_units(&mut self, id: u32, n: u16) -> Option<RestrictedMana> {
+        if n == 0 {
+            return None;
+        }
+        let pos = self.restricted.iter().position(|m| m.restriction.0 == id)?;
+        let entry = &mut self.restricted[pos];
+        let taken = n.min(entry.amount);
+        entry.amount -= taken;
+        let part = RestrictedMana {
+            amount: taken,
+            ..*entry
+        };
+        if entry.amount == 0 {
+            self.restricted.remove(pos);
+        }
+        Some(part)
+    }
 }
 
 impl ManaCost {
@@ -1204,6 +1230,53 @@ mod tests {
             "and the one nobody asked for is untouched"
         );
         assert_eq!(pool.total(), 1);
+    }
+
+    /// Units come off an entry in place: the rest keeps its restriction and
+    /// its position, and the entry goes with its last unit.
+    #[test]
+    fn restricted_units_are_taken_and_the_rest_keeps_its_restriction() {
+        let mut pool = ManaPool::new();
+        let entry = |id: u32, amount: u16| RestrictedMana {
+            color: ManaColor::Colorless,
+            amount,
+            flags: ManaFlags::NONE,
+            restriction: RestrictionId(id),
+        };
+        pool.add_restricted(entry(3, 3));
+        pool.add_restricted(entry(5, 1));
+
+        let taken = pool.take_restricted_units(3, 1).expect("one of three");
+        assert_eq!(taken, entry(3, 1), "the part taken carries the restriction");
+        assert_eq!(
+            pool.restricted(),
+            &[entry(3, 2), entry(5, 1)],
+            "two are left, under the same id and in the same place"
+        );
+
+        let rest = pool
+            .take_restricted_units(3, 9)
+            .expect("more than there is");
+        assert_eq!(rest.amount, 2, "an entry gives up what it has and no more");
+        assert_eq!(
+            pool.restricted(),
+            &[entry(5, 1)],
+            "and goes with its last unit"
+        );
+
+        assert!(
+            pool.take_restricted_units(3, 1).is_none(),
+            "an id nobody holds"
+        );
+        assert!(
+            pool.take_restricted_units(5, 0).is_none(),
+            "nothing asked for"
+        );
+        assert_eq!(
+            pool.restricted(),
+            &[entry(5, 1)],
+            "and neither touched anything"
+        );
     }
 
     /// `colors_available` reads the **plain** part of the pool and nothing

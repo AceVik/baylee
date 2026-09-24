@@ -7,14 +7,14 @@
 
 use super::{
     AbilityDef, CardLookup, Cause, Engine, EngineError, GameEvent, ObjectId, ObjectKind, Pending,
-    PlayerId, SmallVec, ZoneLocation, ZonePosition, eval, mana_pay,
+    PlayerId, SmallVec, ZoneLocation, ZonePosition, eval,
 };
 use crate::casting;
 use crate::choice::{CastModeDesc, CastModeKind, ChoicePrompt, TargetPrompt, YesNoPrompt};
 use crate::object::GameObject;
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::NameRef;
-use baylee_core::mana::{ManaColor, ManaCost};
+use baylee_core::mana::ManaCost;
 
 /// The largest X the wizard will offer, before anything narrows it.
 ///
@@ -279,7 +279,8 @@ impl<L: CardLookup> Engine<L> {
         // `casting::can_cast`'s have to be the same probe, or the Cavern's
         // Ally is offered in `LegalActions` and refused the moment it is
         // taken.
-        let with_restricted = casting::spendable_pool(&self.state, player, card);
+        let with_restricted =
+            casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
         let pool = with_restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
@@ -386,7 +387,14 @@ impl<L: CardLookup> Engine<L> {
                 mana: alt.cost.mana.with_more_generic(tax),
                 ..alt.cost
             };
-            if !condition_ok || !self.can_afford(player, card, &taxed) {
+            // The spell's own payment, restricted mana included: `can_cast`
+            // probes an alternative cost against the same pool, and a probe
+            // that read the plain pool here offered an evoke off a Cavern in
+            // `LegalActions` and then refused it as "no way to cast this
+            // spell".
+            if !condition_ok
+                || !self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+            {
                 continue;
             }
             options.push(CastModeDesc {
@@ -916,37 +924,19 @@ impl<L: CardLookup> Engine<L> {
             total = reduce_generic(&total, reduction);
         }
         if !wizard.free {
-            // Restricted mana (Cavern of Souls & co.): matching entries
-            // pay first, their riders apply; the rest comes from the pool.
-            let (remaining, riders) = self.spend_restricted(player, wizard.card, total);
-            // Mycosynth Lattice: spend mana as though it were any color.
-            let wild = self
-                .state
-                .effects
-                .iter()
-                .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor));
-            let paid = if wild {
-                mana_pay::pay_wild(
-                    &mut self.state.players[player.get() as usize].mana_pool,
-                    &remaining,
-                )
-            } else {
-                mana_pay::pay(
-                    &mut self.state.players[player.get() as usize].mana_pool,
-                    &remaining,
-                )
-            };
-            if !paid {
-                // Refund restricted entries (cast cancelled).
-                for (mana, _, _) in &riders {
-                    self.state.players[player.get() as usize]
-                        .mana_pool
-                        .add_restricted(*mana);
-                }
+            // Restricted mana (Cavern of Souls & co.) is spent where the
+            // spell may spend it, and a rider applies for each entry that
+            // actually paid. A failed payment has touched nothing.
+            let Some(spent) = casting::pay_mana_for(
+                &mut self.state,
+                player,
+                casting::SpendFor::Spell(wizard.card),
+                &total,
+            ) else {
                 self.cast_wizard = None;
                 return Err(EngineError::IllegalAction("cannot pay the total cost"));
-            }
-            self.apply_spend_riders(player, wizard.card, &riders);
+            };
+            self.apply_spend_riders(player, wizard.card, &spent);
         }
         // The mana is paid, so the rest of the cost may now be spent.
         for &card in &wizard.delve_exiles {
@@ -1169,53 +1159,7 @@ fn reduce_generic(cost: &ManaCost, n: u32) -> ManaCost {
     cost.with_less_generic(n)
 }
 
-/// Reduces a cost by one mana of the given color (colored first, then
-/// generic).
 impl<L: CardLookup> Engine<L> {
-    /// Spends restricted pool entries whose filter matches the spell;
-    /// returns the reduced cost and the spent `(mana, source, rider)`.
-    #[allow(clippy::type_complexity)]
-    fn spend_restricted(
-        &mut self,
-        player: PlayerId,
-        spell: ObjectId,
-        cost: ManaCost,
-    ) -> (
-        ManaCost,
-        Vec<(
-            baylee_core::mana::RestrictedMana,
-            ObjectId,
-            baylee_cards_dsl::SpendRider,
-        )>,
-    ) {
-        let mut remaining = cost;
-        let mut spent = Vec::new();
-        let pool = &mut self.state.players[player.get() as usize].mana_pool;
-        let entries: Vec<baylee_core::mana::RestrictedMana> = pool.restricted().to_vec();
-        for mana in entries {
-            let id = mana.restriction.0;
-            let Some(&(source, filter, rider)) = self.state.restriction_info.get(&id) else {
-                continue;
-            };
-            let Some(spell_obj) = self.state.object(spell) else {
-                continue;
-            };
-            if !crate::eval::matches(filter, &self.state, spell_obj, player, source) {
-                continue;
-            }
-            // Consume the entry and reduce the cost by its mana.
-            let taken = self.state.players[player.get() as usize]
-                .mana_pool
-                .take_restricted(id);
-            let Some(mana) = taken else { continue };
-            for _ in 0..mana.amount {
-                remaining = reduce_one(&remaining, mana.color);
-            }
-            spent.push((mana, source, rider));
-        }
-        (remaining, spent)
-    }
-
     /// Applies spend riders after a restricted-mana payment (uncounterable
     /// marks, scry triggers).
     fn apply_spend_riders(
@@ -1274,36 +1218,6 @@ impl<L: CardLookup> Engine<L> {
             }
         }
     }
-}
-
-/// Reduces a cost by one mana of the given color (colored first, then
-/// generic).
-fn reduce_one(cost: &ManaCost, color: ManaColor) -> ManaCost {
-    let colored = match color {
-        ManaColor::White => Some(baylee_core::mana::ManaSymbol::White),
-        ManaColor::Blue => Some(baylee_core::mana::ManaSymbol::Blue),
-        ManaColor::Black => Some(baylee_core::mana::ManaSymbol::Black),
-        ManaColor::Red => Some(baylee_core::mana::ManaSymbol::Red),
-        ManaColor::Green => Some(baylee_core::mana::ManaSymbol::Green),
-        ManaColor::Colorless => Some(baylee_core::mana::ManaSymbol::Colorless),
-    };
-    let mut out = ManaCost::ZERO;
-    let mut consumed = false;
-    for s in cost.symbols() {
-        if !consumed && Some(s) == colored {
-            consumed = true;
-            continue;
-        }
-        if !consumed && let baylee_core::mana::ManaSymbol::Generic(amount) = s {
-            consumed = true;
-            if amount > 1 {
-                out = out.combine(&ManaCost::from_symbol_generic(amount - 1));
-            }
-            continue;
-        }
-        out = out.combine(&ManaCost::from_symbol(s));
-    }
-    out
 }
 
 static SCRY_ONE: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::Scry {

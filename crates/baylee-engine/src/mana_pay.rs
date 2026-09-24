@@ -5,6 +5,7 @@
 //! Phyrexian life is handled by the casting wizard rather than this module.
 
 use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSymbol};
+use smallvec::SmallVec;
 
 /// Whether `pool` can pay `cost` at all (ignoring Phyrexian life).
 #[must_use]
@@ -45,20 +46,69 @@ pub fn pay(pool: &mut ManaPool, cost: &ManaCost) -> bool {
 }
 
 fn payment(pool: &ManaPool, cost: &ManaCost) -> Option<ManaPool> {
+    payment_preferring(pool, cost, false, [0; 6])
+}
+
+/// The pool after paying `cost`, spending the `prefer`red units first
+/// wherever the payment has a choice, or `None` when it cannot be paid.
+///
+/// `prefer[c]` counts units of colour `c` already in `pool` that the caller
+/// would rather see spent. That is the restricted mana a spell or an
+/// ability may use: Cavern of Souls' mana beside a land's, so that the
+/// Cavern's unit pays and its rider lands. `wild` is Mycosynth Lattice,
+/// applied exactly as [`pay_wild`] applies it.
+///
+/// The preference only reorders. At every choice the same alternatives are
+/// tried, a preferred one first: which half of a hybrid, which colour pays a
+/// snow pip, which colours the generic remainder takes. So this succeeds on
+/// exactly the pools [`can_pay`] and [`can_pay_wild`] accept, and a payer
+/// built on it never refuses what a probe built on those offered. With
+/// `prefer == [0; 6]` it is [`payment`], unit for unit.
+#[must_use]
+pub fn payment_preferring(
+    pool: &ManaPool,
+    cost: &ManaCost,
+    wild: bool,
+    prefer: [u16; 6],
+) -> Option<ManaPool> {
+    let cost = if wild { wild_cost(cost) } else { *cost };
     let mut symbols: Vec<_> = cost.symbols().collect();
     symbols.sort_by_key(|s| match s {
         ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => 1,
         ManaSymbol::Generic(_) => 2,
         _ => 0,
     });
-    assign(pool.clone(), &symbols, 0)
+    assign(pool.clone(), &symbols, 0, prefer)
+}
+
+/// `prefer` with one unit of `color` spent.
+fn spent(mut prefer: [u16; 6], color: ManaColor) -> [u16; 6] {
+    prefer[color.index()] = prefer[color.index()].saturating_sub(1);
+    prefer
+}
+
+/// `options` with the colours that still have preferred units first, each
+/// half in its given order.
+fn preferred_first(options: &[ManaColor], prefer: [u16; 6]) -> SmallVec<[ManaColor; 6]> {
+    let wanted = |c: &&ManaColor| prefer[c.index()] > 0;
+    options
+        .iter()
+        .filter(wanted)
+        .chain(options.iter().filter(|c| !wanted(c)))
+        .copied()
+        .collect()
 }
 
 /// Reserve constrained symbols first, backtracking on flexible choices.
 /// Generic fallback is deferred so it cannot consume a later symbol's color.
-fn assign(mut pool: ManaPool, symbols: &[ManaSymbol], generic: u32) -> Option<ManaPool> {
+fn assign(
+    mut pool: ManaPool,
+    symbols: &[ManaSymbol],
+    generic: u32,
+    prefer: [u16; 6],
+) -> Option<ManaPool> {
     let Some((symbol, rest)) = symbols.split_first() else {
-        return pay_any(&mut pool, generic).then_some(pool);
+        return pay_any(&mut pool, generic, prefer).then_some(pool);
     };
     let colors: &[ManaColor] = match *symbol {
         ManaSymbol::White => &[ManaColor::White],
@@ -68,10 +118,10 @@ fn assign(mut pool: ManaPool, symbols: &[ManaSymbol], generic: u32) -> Option<Ma
         ManaSymbol::Green => &[ManaColor::Green],
         ManaSymbol::Colorless => &[ManaColor::Colorless],
         ManaSymbol::Snow => {
-            for color in ManaColor::ALL {
+            for color in preferred_first(&ManaColor::ALL, prefer) {
                 let mut trial = pool.clone();
                 if trial.spend_snow(color)
-                    && let Some(paid) = assign(trial, rest, generic)
+                    && let Some(paid) = assign(trial, rest, generic, spent(prefer, color))
                 {
                     return Some(paid);
                 }
@@ -83,27 +133,40 @@ fn assign(mut pool: ManaPool, symbols: &[ManaSymbol], generic: u32) -> Option<Ma
             ManaColor::from_color(p.first()),
             ManaColor::from_color(p.second()),
         ],
-        ManaSymbol::Generic(n) => return assign(pool, rest, generic.saturating_add(n)),
+        ManaSymbol::Generic(n) => return assign(pool, rest, generic.saturating_add(n), prefer),
         ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => {
-            return assign(pool, rest, generic);
+            return assign(pool, rest, generic, prefer);
         }
     };
-    for &color in colors {
+    for color in preferred_first(colors, prefer) {
         let mut trial = pool.clone();
         if trial.spend(color, 1)
-            && let Some(paid) = assign(trial, rest, generic)
+            && let Some(paid) = assign(trial, rest, generic, spent(prefer, color))
         {
             return Some(paid);
         }
     }
     if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
-        return assign(pool, rest, generic.saturating_add(2));
+        return assign(pool, rest, generic.saturating_add(2), prefer);
     }
     None
 }
 
-fn pay_any(pool: &mut ManaPool, n: u32) -> bool {
+/// Pays `n` generic out of whatever is left, the preferred units first.
+///
+/// It succeeds exactly when the pool holds `n` units in all, whatever the
+/// preference: the first pass only decides which units the second pass
+/// does not have to find.
+fn pay_any(pool: &mut ManaPool, n: u32, prefer: [u16; 6]) -> bool {
     let mut remaining = n;
+    for color in ManaColor::ALL {
+        let take = pool
+            .available(color)
+            .min(prefer[color.index()])
+            .min(u16::try_from(remaining).unwrap_or(u16::MAX));
+        pool.spend(color, take);
+        remaining -= u32::from(take);
+    }
     for color in ManaColor::ALL {
         let take = pool
             .available(color)
@@ -395,5 +458,102 @@ mod tests {
         assert!(!can_pay_wild(&pool, &cost));
         assert!(!pay_wild(&mut pool, &cost));
         assert_eq!(pool.total(), 2, "a refused wild payment spends nothing");
+    }
+
+    /// **A preference reorders and never decides.** Restricted mana is paid
+    /// by preferring its units, and a preference that could turn a payable
+    /// cost into a refused one would refuse a spell `LegalActions` offered.
+    /// So over a grid of pools, costs and preferences, the preferring payer
+    /// answers exactly what `can_pay` answers, and spends exactly the cost's
+    /// mana value.
+    #[test]
+    fn a_preference_never_changes_whether_a_cost_is_paid() {
+        let costs = [
+            baylee_core::mana!("{1}{U}"),
+            baylee_core::mana!("{2}{G}"),
+            baylee_core::mana!("{W/U}{W/B}"),
+            baylee_core::mana!("{G/U}{1}"),
+            baylee_core::mana!("{C}{1}"),
+            baylee_core::mana!("{3}"),
+            baylee_core::mana!("{U}{U}{G}"),
+        ];
+        let colors = [ManaColor::Blue, ManaColor::Green, ManaColor::Colorless];
+        let mut checked = 0;
+        for blue in 0..=2 {
+            for green in 0..=2 {
+                for colorless in 0..=2 {
+                    let pool = pool_of(&[
+                        (ManaColor::Blue, blue),
+                        (ManaColor::Green, green),
+                        (ManaColor::Colorless, colorless),
+                    ]);
+                    for cost in &costs {
+                        let possible = can_pay(&pool, cost);
+                        for wanted in colors {
+                            for n in 0..=pool.available(wanted) {
+                                let mut prefer = [0_u16; 6];
+                                prefer[wanted.index()] = n;
+                                let paid = payment_preferring(&pool, cost, false, prefer);
+                                assert_eq!(paid.is_some(), possible, "{cost} from {pool:?}");
+                                if let Some(paid) = paid {
+                                    assert_eq!(
+                                        pool.total() - paid.total(),
+                                        cost.cmc(),
+                                        "{cost} from {pool:?} preferring {prefer:?}",
+                                    );
+                                }
+                                checked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(checked > 500, "the grid is the evidence: {checked}");
+    }
+
+    /// With nothing preferred it is the plain payment, unit for unit.
+    #[test]
+    fn with_nothing_preferred_it_is_the_plain_payment() {
+        let pool = pool_of(&[
+            (ManaColor::White, 1),
+            (ManaColor::Blue, 2),
+            (ManaColor::Green, 1),
+        ]);
+        for cost in [
+            baylee_core::mana!("{1}{U}"),
+            baylee_core::mana!("{W/U}{2}"),
+            baylee_core::mana!("{G}{1}"),
+        ] {
+            assert_eq!(
+                payment_preferring(&pool, &cost, false, [0; 6]),
+                payment(&pool, &cost)
+            );
+        }
+    }
+
+    /// The generic part takes the preferred colour first, which is what puts
+    /// a Cavern's unit into a spell's `{1}` rather than a Forest's.
+    #[test]
+    fn the_generic_part_takes_the_preferred_colour_first() {
+        let pool = pool_of(&[(ManaColor::Green, 1), (ManaColor::Blue, 1)]);
+        let mut prefer = [0; 6];
+        prefer[ManaColor::Green.index()] = 1;
+        let paid = payment_preferring(&pool, &baylee_core::mana!("{1}"), false, prefer).unwrap();
+        assert_eq!(remaining(&paid), vec![(ManaColor::Blue, 1)]);
+        prefer = [0; 6];
+        prefer[ManaColor::Blue.index()] = 1;
+        let paid = payment_preferring(&pool, &baylee_core::mana!("{1}"), false, prefer).unwrap();
+        assert_eq!(remaining(&paid), vec![(ManaColor::Green, 1)]);
+    }
+
+    /// A hybrid symbol pays with its preferred half where it has the choice.
+    #[test]
+    fn a_hybrid_pays_with_its_preferred_half() {
+        let pool = pool_of(&[(ManaColor::White, 1), (ManaColor::Blue, 1)]);
+        let mut prefer = [0; 6];
+        prefer[ManaColor::Blue.index()] = 1;
+        let paid = payment_preferring(&pool, &baylee_core::mana!("{W/U}"), false, prefer).unwrap();
+        assert_eq!(remaining(&paid), vec![(ManaColor::White, 1)]);
     }
 }

@@ -2,7 +2,7 @@ use super::{
     AbilityDef, AbilityLoc, ActivationTiming, CardLookup, Cause, Cost, CostPart, Engine,
     EngineError, GameEvent, GameObject, LegalActions, NameRef, ObjectId, ObjectKind, Pending,
     Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation,
-    ZonePosition, casting, cost_wizard, eval, mana_pay, resolve,
+    ZonePosition, casting, cost_wizard, eval, resolve,
 };
 use crate::choice::TargetPrompt;
 use baylee_cards_dsl::{ActivationLimit, ActivationZone};
@@ -253,7 +253,7 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, id, cost) {
+                        if self.can_afford(player, id, cost, casting::SpendFor::Ability(id)) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -284,7 +284,7 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, id, cost) {
+                        if self.can_afford(player, id, cost, casting::SpendFor::Ability(id)) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -353,7 +353,7 @@ impl<L: CardLookup> Engine<L> {
                 .take(crate::choice::GRANTED_SLOTS as usize)
                 .enumerate()
             {
-                if !self.can_afford(player, id, &granted.cost) {
+                if !self.can_afford(player, id, &granted.cost, casting::SpendFor::Ability(id)) {
                     continue;
                 }
                 legal
@@ -421,7 +421,7 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, card, cost) {
+                        if self.can_afford(player, card, cost, casting::SpendFor::Ability(card)) {
                             legal.abilities.push((card, i as u32));
                         }
                     }
@@ -459,7 +459,7 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, card, cost) {
+                        if self.can_afford(player, card, cost, casting::SpendFor::Ability(card)) {
                             legal.abilities.push((card, i as u32));
                         }
                     }
@@ -476,7 +476,8 @@ impl<L: CardLookup> Engine<L> {
                     // disagrees with is worse than no offer, because the
                     // client draws it as something to click.
                     AbilityDef::Suspend { cost, .. }
-                        if sorcery_timing && self.can_pay_mana(player, cost) =>
+                        if sorcery_timing
+                            && self.can_pay_mana(player, casting::SpendFor::Other, cost) =>
                     {
                         legal.suspendable.push(card);
                     }
@@ -630,30 +631,37 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    /// Whether `player`'s pool covers a bare mana cost.
+    /// Whether `player`'s pool covers a bare mana cost paid for `what`.
     ///
     /// Split out of [`Self::can_afford`] for suspend, whose cost is a
     /// `ManaCost` and not a `Cost` — it has no parts to check. An offer that
     /// asked the same question a second way would be free to answer it
-    /// differently, and this one is asked against a pool the apply path then
-    /// spends.
+    /// differently, and this one is asked against the pool
+    /// [`casting::pay_mana_for`] then spends: the plain counters plus the
+    /// restricted mana `what` may use.
     pub(crate) fn can_pay_mana(
         &self,
         player: PlayerId,
+        what: casting::SpendFor,
         cost: &baylee_core::mana::ManaCost,
     ) -> bool {
-        let pool = &self.state.players[player.get() as usize].mana_pool;
+        let with_restricted = casting::spendable_pool(&self.state, player, what);
+        let pool = with_restricted
+            .as_ref()
+            .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
         // Mycosynth Lattice: mana spends as though it were any colour, so a
         // five-colour activation cost is payable off five Islands.
-        if casting::mana_is_wild(&self.state) {
-            mana_pay::can_pay_wild(pool, cost)
-        } else {
-            mana_pay::can_pay(pool, cost)
-        }
+        casting::affordable(&self.state, pool, cost)
     }
 
-    pub(crate) fn can_afford(&self, player: PlayerId, source: ObjectId, cost: &Cost) -> bool {
-        if !self.can_pay_mana(player, &cost.mana) {
+    pub(crate) fn can_afford(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        what: casting::SpendFor,
+    ) -> bool {
+        if !self.can_pay_mana(player, what, &cost.mana) {
             return false;
         }
         for part in cost.parts {
@@ -1228,7 +1236,13 @@ impl<L: CardLookup> Engine<L> {
             // announced. So the question is the legality, which is where
             // this engine puts every other one.
             let max = (0..=crate::engine::cast_wizard::X_CEILING)
-                .take_while(|x| self.can_pay_mana(player, &cost.mana.with_x(*x)))
+                .take_while(|x| {
+                    self.can_pay_mana(
+                        player,
+                        casting::SpendFor::Ability(source),
+                        &cost.mana.with_x(*x),
+                    )
+                })
                 .last()
                 .unwrap_or(0);
             self.pending_plan = Some(PlanKind::ChooseActivationX {
@@ -1337,7 +1351,7 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
         }
-        if !self.can_afford(player, source, &cost) {
+        if !self.can_afford(player, source, &cost, casting::SpendFor::Ability(source)) {
             self.activation_cost_choices.clear();
             self.activation_x = None;
             return Err(EngineError::IllegalAction("cannot pay the cost"));
@@ -1738,13 +1752,19 @@ impl<L: CardLookup> Engine<L> {
             // path, whose caller substitutes before it gets here, and the
             // whole of the cost for an activated one.
             let mana = cost.mana.with_x(x);
-            // Mycosynth Lattice: any mana pays any pip (read before the pool
-            // is borrowed mutably).
-            let wild = casting::mana_is_wild(&self.state);
-            let pool = &mut self.state.players[player.get() as usize].mana_pool;
-            if !casting::pay_with(wild, pool, &mana) {
-                return Err(EngineError::IllegalAction("not enough mana"));
-            }
+            // Out of the pool the offer read, restricted mana this ability
+            // may spend included, and before any other part. A part that
+            // sacrifices, discards or exiles the source would otherwise move
+            // it before a restriction naming "abilities of creatures" reads
+            // what it is. Nothing that admits an ability carries a rider, so
+            // what was spent needs no second look.
+            casting::pay_mana_for(
+                &mut self.state,
+                player,
+                casting::SpendFor::Ability(source),
+                &mana,
+            )
+            .ok_or(EngineError::IllegalAction("not enough mana"))?;
         }
         for part in cost.parts {
             if paid_by_the_casting_wizard(part) {
