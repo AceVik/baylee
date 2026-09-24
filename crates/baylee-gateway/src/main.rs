@@ -169,6 +169,10 @@ async fn main() {
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
     let catalog = connect_catalog(db.clone()).await;
+    // Bound after the database and the catalog, and before anything that has
+    // to know the port: with `PORT=0` the kernel chooses it (#279), and the
+    // address an engine is told to dial back on below must be that one.
+    let (listener, port) = listen(port).await;
     let agent_token = std::env::var("BAYLEE_AGENT_TOKEN")
         .ok()
         .filter(|t| !t.is_empty());
@@ -250,7 +254,7 @@ async fn main() {
         // the method, so `/images/{kind}` and `/images/{file}` are the same
         // route wearing two different parameter names, and building the
         // router panics. It panicked at startup, which meant the gateway
-        // never bound its port and every end-to-end test in the crate failed
+        // never served and every end-to-end test in the crate failed
         // with "connection refused" — a message that says nothing about
         // routing. `/images` is the collection and `/images/{file}` is one
         // member of it, which is the shape that had no conflict to resolve.
@@ -264,16 +268,56 @@ async fn main() {
         .layer(axum::middleware::from_fn(cors))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
-        .await
-        .expect("bind gateway port");
-    tracing::info!(port, "baylee-gateway listening");
+    announce(port);
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .await
     .expect("gateway serves");
+}
+
+/// Binds the gateway's port, and answers which port that is: the one asked
+/// for, or with `PORT=0` the one the kernel chose.
+async fn listen(port: u16) -> (tokio::net::TcpListener, u16) {
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await
+        .expect("bind gateway port");
+    let port = listener
+        .local_addr()
+        .expect("a bound listener has an address")
+        .port();
+    (listener, port)
+}
+
+/// Says the gateway is about to serve, and where: in the log, and to
+/// `BAYLEE_PORT_FILE` when one is named.
+fn announce(port: u16) {
+    tracing::info!(port, "baylee-gateway listening");
+    if let Some(path) = std::env::var_os("BAYLEE_PORT_FILE") {
+        write_port_file(std::path::Path::new(&path), port)
+            .unwrap_or_else(|e| panic!("BAYLEE_PORT_FILE {}: {e}", path.display()));
+    }
+}
+
+/// Writes the port the gateway is listening on to `path`, for whoever
+/// started it with `PORT=0` and needs to know where it went (#279).
+///
+/// The e2e suite is that caller. It used to pick a port by binding
+/// `127.0.0.1:0`, reading the number and letting go, and the gateway bound
+/// `0.0.0.0` on that number seconds later, after its database was up. Any
+/// other process could take the port in that gap, and with several worktrees
+/// gating at once one did, often enough to fail two feature gates in three.
+/// Binding port 0 here and saying which port it was leaves no gap.
+///
+/// Written beside the target and renamed over it, so a reader polling for
+/// the file never reads half a number. Called just before the gateway
+/// serves, so the file's appearance also says it is past its database and
+/// catalog.
+fn write_port_file(path: &std::path::Path, port: u16) -> std::io::Result<()> {
+    let partial = path.with_extension("partial");
+    std::fs::write(&partial, format!("{port}\n"))?;
+    std::fs::rename(&partial, path)
 }
 
 /// Open the one connection pool the gateway has, and take over a store file

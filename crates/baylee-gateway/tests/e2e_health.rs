@@ -129,3 +129,31 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
         "no name set, so none is sent and the client shows the address: {body}"
     );
 }
+
+/// #279: gateways started side by side each find a port of their own. The
+/// helper used to choose a port for a gateway and let go of it before the
+/// gateway bound it, which is the gap a neighbour fell into; now each
+/// gateway binds port 0 and says where it went, so four at once come up on
+/// four different ports and each answers there as itself.
+#[test]
+fn gateways_started_at_once_each_bind_a_port_of_their_own() {
+    // Two collects, not one chain: `map` is lazy, and one chain would spawn
+    // each gateway only after joining the one before it, which is four in a
+    // row and not four at once.
+    let starting: Vec<_> = (0..4)
+        .map(|n| std::thread::spawn(move || spawn_gateway(&format!("ports_{n}"))))
+        .collect();
+    let gateways: Vec<_> = starting
+        .into_iter()
+        .map(|started| started.join().expect("a gateway came up"))
+        .collect();
+    let mut ports: Vec<u16> = gateways.iter().map(|g| g.port).collect();
+    assert!(ports.iter().all(|p| *p != 0), "{ports:?}");
+    ports.sort_unstable();
+    ports.dedup();
+    assert_eq!(ports.len(), 4, "four gateways, four ports");
+    for gw in &gateways {
+        let (status, body) = http(gw.port, "GET", "/health", None, "");
+        assert_eq!(status, 200, "{}: {body}", gw.port);
+    }
+}

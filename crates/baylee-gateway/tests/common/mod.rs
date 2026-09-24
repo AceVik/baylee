@@ -23,6 +23,7 @@ pub struct Gateway {
     pub agent_token: String,
     child: std::process::Child,
     store_path: std::path::PathBuf,
+    port_file: std::path::PathBuf,
     schema: String,
 }
 
@@ -105,6 +106,7 @@ impl Drop for Gateway {
         let _ = self.child.kill();
         let _ = self.child.wait();
         let _ = std::fs::remove_file(&self.store_path);
+        let _ = std::fs::remove_file(&self.port_file);
         ddl(&format!(
             "DROP SCHEMA IF EXISTS \"{}\" CASCADE",
             self.schema
@@ -171,18 +173,33 @@ pub fn spawn_gateway(label: &str) -> Gateway {
 /// whether `BAYLEE_SMTP_URL` is set.
 #[allow(dead_code)] // not every test binary in this directory needs it
 pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
-    let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("a free port");
-    let port = probe.local_addr().expect("bound").port();
-    drop(probe);
-    let store_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{port}.json"));
+    // No port is chosen here (#279). This used to bind `127.0.0.1:0`, read
+    // the number and let go, and the gateway bound `0.0.0.0` on it seconds
+    // later, after its database was up: any other process could take the
+    // port in between, and with several worktrees gating at once one did,
+    // two feature gates in three. The gateway now binds port 0 itself and
+    // writes the port it got to `BAYLEE_PORT_FILE`, read below.
+    //
+    // So everything that used to be named after the port is named after this
+    // process and a count of the gateways it has started, which is unique
+    // across concurrent test binaries without asking the kernel anything.
+    static STARTED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let id = format!(
+        "{}_{}",
+        std::process::id(),
+        STARTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
+    let store_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.json"));
     let _ = std::fs::remove_file(&store_path);
-    let agent_token = format!("test-agent-secret-{port}");
+    let port_file = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.port"));
+    let _ = std::fs::remove_file(&port_file);
+    let agent_token = format!("test-agent-secret-{id}");
     // A schema per gateway, so three dozen of these run against one server
     // without seeing each other's accounts — and so none of them can touch
     // the catalog's tables in `public`, which on a developer's machine hold
     // half a gigabyte that took three minutes to ingest. The name carries
     // the test's, so a schema left behind by a crash says which one left it.
-    let schema = format!("t_{label}_{port}").replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+    let schema = format!("t_{label}_{id}").replace(|c: char| !c.is_ascii_alphanumeric(), "_");
     ddl(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"));
     ddl(&format!("CREATE SCHEMA \"{schema}\""));
     let base = database_url();
@@ -190,14 +207,15 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let scoped = format!("{base}{sep}options=-c%20search_path%3D{schema},public");
     // Beside the store and named the same way, so a failure that outlives the
     // run leaves both halves of the evidence in one place.
-    let stderr_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{port}.stderr"));
+    let stderr_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.stderr"));
     let loud = std::env::var("GATEWAY_DEBUG").is_ok();
-    let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
         // The gateway reads `data/acceptance-decks.txt` for the house deck by
         // a workspace-relative path; a test binary's working directory is its
         // own crate, which is not where that file is.
         .current_dir(workspace_root())
-        .env("PORT", port.to_string())
+        .env("PORT", "0")
+        .env("BAYLEE_PORT_FILE", &port_file)
         .env("STORE_PATH", &store_path)
         .env("BAYLEE_AGENT_TOKEN", &agent_token)
         .env("DATABASE_URL", &scoped)
@@ -251,9 +269,34 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     // an accident of ordering is exactly what stops being true the day
     // somebody binds earlier to shorten startup. Asking the route that
     // answers the question costs one round trip and cannot rot that way.
+    //
+    // The port file comes first: the gateway writes it once its listener is
+    // bound, which is after the database and the catalog. A gateway that
+    // dies on the way up never writes it, and is noticed here the moment it
+    // exits rather than after the whole budget.
+    let their_words = || {
+        std::fs::read_to_string(&stderr_path)
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "(nothing on stderr — run with GATEWAY_DEBUG=1)".to_string())
+    };
+    let mut port = None;
     let mut up = false;
     for _ in 0..300 {
-        if let Some((200, _)) = try_http(port, "GET", "/health") {
+        if let Ok(Some(status)) = child.try_wait() {
+            panic!(
+                "the gateway exited on the way up ({status}). Its own words:\n{}",
+                their_words()
+            );
+        }
+        if port.is_none() {
+            port = std::fs::read_to_string(&port_file)
+                .ok()
+                .and_then(|text| text.trim().parse::<u16>().ok());
+        }
+        if let Some(port) = port
+            && let Some((200, _)) = try_http(port, "GET", "/health")
+        {
             up = true;
             break;
         }
@@ -261,17 +304,17 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     }
     assert!(
         up,
-        "the gateway never answered GET /health on port {port}. Its own words:\n{}",
-        std::fs::read_to_string(&stderr_path)
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| "(nothing on stderr — run with GATEWAY_DEBUG=1)".to_string())
+        "the gateway never answered GET /health (port file {}: {port:?}). Its own words:\n{}",
+        port_file.display(),
+        their_words()
     );
+    let port = port.expect("a gateway that answered has a port");
     Gateway {
         port,
         agent_token,
         child,
         store_path,
+        port_file,
         schema,
     }
 }

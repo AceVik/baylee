@@ -224,6 +224,26 @@ fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
     }
 }
 
+/// The port file (#279) holds the port and a newline, replaces what an
+/// earlier run left, and leaves no half-written file behind it.
+#[test]
+fn the_port_file_says_the_port_and_nothing_else() {
+    let dir = std::env::temp_dir().join(format!("baylee-port-file-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("gateway.port");
+    std::fs::write(&path, "28766\n").unwrap();
+
+    write_port_file(&path, 49_152).unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "49152\n");
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(left, [std::ffi::OsString::from("gateway.port")]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The guest cap (#269): a thousand when unset, none for `0`, and a
 /// value that is not a count stops the gateway rather than reading as either.
 #[test]
