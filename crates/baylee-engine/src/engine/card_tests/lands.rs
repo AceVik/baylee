@@ -7168,7 +7168,14 @@ fn a_land_whose_cost_names_an_object_is_paid_with_that_object() {
         // summoning-sick lands rather than costs.
         cross_into_the_next_own_main(&mut engine, p0);
         // Everything but the land itself: its `{T}` is part of the price.
-        tap_all_mana_but(&mut engine, p0, Some(card));
+        // And never the Plaza. It is the one thing on this board that can
+        // answer Heap Gate's "tap an untapped Gate you control", because
+        // Heap Gate cannot be that Gate: its own `{T}` has already spent it
+        // (CR 118.3). This row used to pass with the Plaza tapped, paying
+        // the Gate with the source a second time, which is the defect
+        // `cost_wizard::menu` closes.
+        let plaza = on_battlefield(&engine, p0, gateway_plaza());
+        tap_mana_where(&mut engine, p0, |id| id != land && Some(id) != plaza);
 
         let (source, index) = ability_that_asks(&engine, card)
             .unwrap_or_else(|| panic!("{oracle} offers no ability that asks for an object"));
@@ -13570,24 +13577,250 @@ fn tectonic_edge_destroys_a_nonbasic_land_only_once_an_opponent_has_four() {
     assert!(on_battlefield(&engine, p1, irrigated_farmland()).is_none());
 }
 
-/// The Gold Saucer: "{T}: Add {C}." / "{2}, {T}: Flip a coin. If you win the flip, create a Treasure token." / "{3}, {T}, Sacrifice two artifacts: Draw a card."
-/// Under `Coverage::Partial`, flipping a coin and sacrificing multiple artifacts are unsupported, leaving only the mana ability.
-/// Activating ability 0 adds one colorless mana to the pool and taps the land.
+/// The Gold Saucer is a Town land printing three lines and only two of them are
+/// written: "{T}: Add {C}" and "{3}, {T}, Sacrifice two artifacts: Draw a
+/// card" — the coin flip has no vocabulary, so nothing here asks for one. Both
+/// written lines are played on one board: the {3} comes out of a pool three
+/// Forests really filled, and "sacrifice two artifacts" is read as *two*
+/// questions whose menu is the two Sol Rings this seat controls and never the
+/// Saucer itself, which is a land. The turn cycle afterwards is the mana half:
+/// the untap step stands the Saucer back up and its own tap is the whole price
+/// of one colourless, which no Forest on this board could have made.
 #[test]
-fn the_gold_saucer_taps_for_colorless_mana() {
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn the_gold_saucer_eats_two_artifacts_for_a_card_and_taps_for_colorless() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(125, forest())
-        .battlefield(0, &[the_gold_saucer()])
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                the_gold_saucer(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_artifact(),
+                quiet_artifact(),
+            ],
+        )
+        .battlefield(1, &[quiet_artifact()])
         .start();
     keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
-    let saucer = on_battlefield(&engine, p0, the_gold_saucer()).expect("The Gold Saucer deployed");
+    let saucer = on_battlefield(&engine, p0, the_gold_saucer()).expect("the Saucer is out");
+    let theirs =
+        on_battlefield(&engine, p1, quiet_artifact()).expect("an artifact across the table");
+    assert!(!is_tapped(&engine, saucer), "it enters untapped and ready");
+    let rings = all_on_battlefield(&engine, p0, quiet_artifact());
+    assert_eq!(rings.len(), 2, "two artifacts are what the draw charges");
+    let (first, second) = (rings[0], rings[1]);
+
+    // The Saucer prints a mana ability whose whole price is its own {T}, and so
+    // do the two Sol Rings, so all three are named as kept back: `tap_all_mana`
+    // would otherwise have spent the very activation this test is about (#159).
+    let taken = tap_mana_where(&mut engine, p0, |id| {
+        id != saucer && id != first && id != second
+    });
+    assert_eq!(
+        taken, 3,
+        "the three Forests, and nothing else on this board"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three green floating: the {{3}} the draw charges is payable"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == saucer)
+        .map(|(_, index)| *index)
+        .collect();
+    assert_eq!(
+        offered,
+        vec![0, 1],
+        "the printed mana ability and the two-artifact draw, and no coin flip: \
+         a random outcome has no vocabulary to be written in"
+    );
+
+    // Ability 0 is the mana ability; ability 1 is the one that draws.
+    activate(&mut engine, p0, the_gold_saucer(), 1);
+
+    // "Sacrifice two artifacts" is two parts, and each part is asked where the
+    // rules put it (CR 601.2h) — the menu is read on the spot, which is what
+    // says the two are different artifacts rather than one answering for both.
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the sacrifice is a cost and is asked before it is paid: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
+    assert_eq!(
+        prompt,
+        ChoicePrompt::CostSacrifice,
+        "a cost and not a search, which is all a client has to tell the two apart"
+    );
+    assert_eq!((min, max), (1, 1), "one artifact, and the part asks once");
+    assert_eq!(
+        options.len(),
+        2,
+        "the two artifacts this seat controls: {options:?}"
+    );
+    assert!(
+        options.contains(&first) && options.contains(&second),
+        "both Sol Rings are on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&saucer),
+        "the Saucer is a land: \"an artifact\" is read, not skipped: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"sacrifice two artifacts\" means two of *yours* (CR 701.21a): the one \
+         across the table is not on the menu: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![first],
+            },
+        )
+        .expect("the artifact the question offered pays the cost");
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "`Sacrifice two artifacts` is two parts, so it asks a second time: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "and the same seat answers both parts");
+    assert_eq!(prompt, ChoicePrompt::CostSacrifice);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(
+        options.len(),
+        1,
+        "one artifact is left, and the one already given up is not offered a \
+         second time: {options:?}"
+    );
+    assert!(
+        options.contains(&second),
+        "and the artifact left over is exactly the second one: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![second],
+            },
+        )
+        .expect("the artifact the second part asked for");
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    assert!(
+        is_tapped(&engine, saucer),
+        "{{T}} is part of the price and is paid as the ability is activated"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the {{3}} it charges came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "drawing a card is no mana ability, so the ability is waiting on the stack"
+    );
+    assert!(
+        on_battlefield(&engine, p0, the_gold_saucer()).is_some(),
+        "the land is the source of the ability and never part of its price"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        all_on_battlefield(&engine, p0, quiet_artifact()).is_empty(),
+        "both artifacts the cost named left the battlefield"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        2,
+        "and both are in their owner's graveyard, which is where a sacrificed \
+         permanent goes"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"Draw a card\": one card left the top of the library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "and it reached the hand, so an emptied library would not satisfy the \
+         count above"
+    );
+
+    // The mana half needs the untap step, because the draw spent the {T}: a
+    // whole turn cycle is what stands the Saucer back up, and the empty pool
+    // that comes with it is the CR 500.5 control for the single colourless.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !is_tapped(&engine, saucer),
+        "the untap step stood the Saucer back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended"
+    );
+
     activate(&mut engine, p0, the_gold_saucer(), 0);
-
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseColor { .. }),
+        "`{{C}}` is a fixed colourless and not \"any color\", so nothing is asked \
+         on the way: {:?}",
+        engine.pending()
+    );
+    assert!(is_tapped(&engine, saucer), "the Saucer paid its own {{T}}");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
     let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert!(is_tapped(&engine, saucer));
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        1,
+        "\"{{T}}: Add {{C}}\" — one, off the land's own tap"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "and no green: the Forests are untapped on this turn and were never \
+         asked for anything, so the colourless has no other source on the board"
+    );
+    assert_eq!(pool.total(), 1, "one mana, and nothing else came with it");
 }
 
 /// The Grey Havens: "When The Grey Havens enters, scry 1." / "{T}: Add {C}." / "{T}: Add one mana of any color among legendary creature cards in your graveyard."
@@ -25710,64 +25943,251 @@ fn the_last_two_shelf_taplands_enter_tapped_and_offer_one_ability_each() {
     }
 }
 
-/// Grove of the Guardian's token ability costs "{3}{G}{W}, {T}, Tap two
-/// untapped creatures you control, Sacrifice this land", and
-/// `CostPart::TapOther` names exactly one permanent and carries no count —
-/// so the file is `Coverage::Partial` and the land offers its mana ability
-/// and nothing else.
+/// Grove of the Guardian prints one small ability and one enormous one:
+/// "{T}: Add {C}" and "{3}{G}{W}, {T}, Tap two untapped creatures you control,
+/// Sacrifice this land: Create an 8/8 green and white Elemental creature token
+/// with vigilance."
 ///
-/// The board is built so that the **price** is not the reason. `can_afford`
-/// gates every entry in the offer, so a pin standing on a board that could
-/// not pay would keep passing after the ability was written and prove
-/// nothing: three Forests and two Plains are the {3}{G}{W} in the two
-/// colours it names, and two untapped creatures are standing there to be
-/// tapped. What is missing is the sentence, and this is **meant to fail**
-/// the day a `CostPart` can carry a count.
+/// All four parts of that price are paid in one activation, which is what makes
+/// the scenario worth playing: five lands' worth of mana leaves the pool, the
+/// land taps itself, two *separate* creatures each answer their own tap
+/// question — the second menu holding only the creature the first did not take
+/// (CR 118.3) — and the land is sacrificed, so the 8/8 is all that is left of
+/// it. The creature across the table is the control for "you control", and
+/// reading the offer before the mana is tapped is the control for the price:
+/// an empty pool pays no {3}{G}{W}, and a line the pool cannot pay is not
+/// offered at all.
 #[test]
-fn grove_of_the_guardian_offers_only_the_half_its_coverage_says_is_built() {
-    let p0 = PlayerId::new(0);
-    let mut grove = Duel::new(SEED, forest())
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn grove_of_the_guardian_taps_two_creatures_and_itself_for_an_eight_eight_elemental() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
             &[
-                grove_of_the_guardian(),
-                quiet_creature(),
-                quiet_creature(),
                 forest(),
                 forest(),
                 forest(),
                 plains(),
                 plains(),
+                myr_retriever(),
+                myr_retriever(),
             ],
         )
+        .hand(0, &[grove_of_the_guardian()])
+        // A creature across the table: "you control" is the word that keeps it
+        // off the tap menu, and the same card on both sides is the only
+        // witness that can say so.
+        .battlefield(1, &[myr_retriever()])
         .start();
-    keep_mulligans(&mut grove);
-    reach_main_phase(&mut grove, p0);
-    let land = on_battlefield(&grove, p0, grove_of_the_guardian()).expect("the land is in play");
-    // `can_afford` reads the pool and not the board, so the {3}{G}{W} is
-    // floated off the five lands beside it — while the land itself and the
-    // two creatures stay untapped, because those are what the missing
-    // ability taps. (Llanowar Elves makes mana too, which is exactly why
-    // this is `tap_mana_where` and not `tap_mana_except`.)
-    let creatures = all_on_battlefield(&grove, p0, quiet_creature());
-    assert_eq!(creatures.len(), 2, "the two the ability would tap");
-    tap_mana_where(&mut grove, p0, |id| id != land && !creatures.contains(&id));
-    let Pending::Priority { legal, .. } = grove.pending().clone() else {
-        panic!("expected priority, got {:?}", grove.pending())
-    };
-    assert_eq!(
-        legal.abilities.iter().filter(|(id, _)| *id == land).count(),
-        1,
-        "only the mana ability, although the {{3}}{{G}}{{W}} is floating and \
-         the two untapped creatures are standing here"
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The land drop is played for real, so the permanent under test arrived
+    // the way a land arrives.
+    let grove = play_land(&mut engine, p0, grove_of_the_guardian());
+    assert!(!is_tapped(&engine, grove), "a land enters untapped");
+
+    let mine = all_on_battlefield(&engine, p0, myr_retriever());
+    assert_eq!(mine.len(), 2, "two creatures to tap, one each");
+    let (first, second) = (mine[0], mine[1]);
+    let theirs = on_battlefield(&engine, p1, myr_retriever()).expect("their creature is out");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and nothing has been made yet"
     );
-    activate(&mut grove, p0, grove_of_the_guardian(), 0);
+
+    // `LegalActions::abilities` is filtered through `can_afford`, and that
+    // reads the *pool* rather than the untapped lands: with nothing floating
+    // the {3}{G}{W} is unpayable and the token line is off the offer. Ability
+    // 0 is the printed {T}: Add {C}; ability 1 is the one this test plays.
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the seat with the Grove holds it");
+    assert!(
+        !legal.abilities.contains(&(grove, 1)),
+        "an empty pool pays no {{3}}{{G}}{{W}}, so the token line is not \
+         offered: {:?}",
+        legal.abilities
+    );
+
+    // Mana before the claim. The Grove is named as the printing kept back,
+    // because its own `{T}: Add {C}` costs exactly its own tap — the tap the
+    // ability still needs (#17). The two creatures print no mana ability at
+    // all, so they are still standing to pay their half of the price.
+    tap_all_mana_but(&mut engine, p0, Some(grove_of_the_guardian()));
     assert_eq!(
-        grove.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        1,
-        "{{T}}: Add {{C}} is the half that is built"
+        engine.state().players[0].mana_pool.total(),
+        5,
+        "three Forests and two Plains: exactly the {{3}}{{G}}{{W}}"
+    );
+    assert!(
+        !is_tapped(&engine, grove),
+        "the Grove was the one kept back"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(grove, 1)),
+        "with all five mana in the pool the whole price is payable: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, grove_of_the_guardian(), 1);
+
+    // "Tap two untapped creatures you control" is two cost parts, so it is two
+    // questions of one creature each (CR 601.2h).
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the first tap cost asks which creature, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat answers its own cost");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostTap,
+        "a cost and not an effect, which is all a client has to tell the two apart"
+    );
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature per part, and the cost asks twice"
+    );
+    assert!(
+        options.contains(&first) && options.contains(&second),
+        "both untapped creatures you control are on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"you control\": the creature across the table is not yours to tap: {options:?}"
+    );
+    assert_eq!(options.len(), 2, "and those two are the whole menu");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![first],
+            },
+        )
+        .expect("the creature the question offered pays the cost");
+    assert!(
+        !is_tapped(&engine, first),
+        "nothing is paid before the last question is answered: CR 601.2h pays \
+         the total cost at once"
+    );
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("the second tap cost asks again, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the same seat answers the same cost");
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostTap);
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature, and the second part is its own question"
+    );
+    assert_eq!(
+        options,
+        vec![second],
+        "the first answer comes off the second menu, so one creature cannot \
+         pay both taps (CR 118.3)"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![second],
+            },
+        )
+        .expect("the remaining creature pays the second part");
+    assert!(
+        is_tapped(&engine, first) && is_tapped(&engine, second),
+        "both creatures paid a tap each, once the last question was answered"
+    );
+
+    // The other halves of the price landed where they can be read: the pool is
+    // empty, the land that was tapped and sacrificed is gone, and the ability
+    // is waiting on the stack.
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{3}}{{G}}{{W}} came out of the pool"
+    );
+    assert!(
+        on_battlefield(&engine, p0, grove_of_the_guardian()).is_none(),
+        "\"Sacrifice this land\" is the last part of the cost"
+    );
+    assert!(
+        in_graveyard(&engine, p0, grove_of_the_guardian()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is waiting on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Elemental arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Elemental");
+    let elemental = tokens[0];
+    let kinds = types(&engine, elemental);
+    assert!(
+        kinds.contains(TypeSet::CREATURE),
+        "the token is a creature: {kinds:?}"
+    );
+    assert_eq!(
+        pt(&engine, elemental),
+        (8, 8),
+        "the 8/8 body the card prints"
+    );
+    let printed = engine
+        .state()
+        .object(elemental)
+        .expect("the Elemental is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert!(
+        printed.colors.contains(baylee_core::color::Color::Green)
+            && printed.colors.contains(baylee_core::color::Color::White),
+        "green and white, and not a colourless 8/8"
+    );
+    assert!(
+        printed.keywords.contains(KeywordSet::VIGILANCE),
+        "\"with vigilance\", read off the token the card names"
+    );
+
+    // The creatures were the price and not the victim: both are still on the
+    // battlefield, and the one across the table never moved at all.
+    assert_eq!(
+        all_on_battlefield(&engine, p0, myr_retriever()).len(),
+        2,
+        "tapping a creature to pay a cost does not remove it"
+    );
+    assert!(
+        !is_tapped(&engine, theirs),
+        "and nothing of the opponent's ever moved"
     );
 }
 
@@ -31881,24 +32301,28 @@ fn westvale_abbey() -> CardIndex {
     card_index("04eeb9ad-5c59-411b-8809-db8349838588")
 }
 
-/// `Westvale Abbey` prints `{{T}}: Add {{C}}.`, `{{5}}, {{T}}, Pay 1 life: Create a 1/1 white and black Human Cleric creature token.`, and `{{5}}, {{T}}, Sacrifice five creatures: Transform this land, then untap it.`
-///
-/// Under `Coverage::Partial`, only the colorless mana ability and `Ormendahl, Profane Prince`'s printed keywords are implemented; both `{{5}}, {{T}}` activated abilities are omitted.
-/// With five controlled creatures and floating `{{5}}` mana from basic forests, ability 0 is offered while ability 1 and ability 2 are withheld from `legal.abilities`.
-/// Activating ability 0 adds one colorless mana to the pool and leaves `Westvale Abbey` tapped.
+/// Westvale Abbey's front face is a colourless land with two written lines:
+/// "`{T}`: Add `{C}`" and "`{5}`, `{T}`, Pay 1 life: Create a 1/1 white and
+/// black Human Cleric creature token." Both are played, a turn apart because
+/// they share the one tap symbol, and every part of the second price is read
+/// where it lands: the `{5}` out of a pool only the tapped Forests filled (the
+/// offer is claimed with the mana already floating, since `can_afford` reads
+/// the pool and not the lands), the `{T}` as a status change on the Abbey, and
+/// the life as a life total one lower. The Cleric is read only once the stack
+/// has emptied — making a token is no mana ability — and both of its printed
+/// colours are asserted, because a token that was merely white would still
+/// fill the body and the name.
 #[test]
-fn westvale_abbey_taps_for_colorless_and_omits_unsupported_activations() {
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn westvale_abbey_taps_for_colorless_and_sells_a_life_for_a_black_white_cleric() {
     let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
             &[
                 westvale_abbey(),
-                young_wolf(),
-                young_wolf(),
-                young_wolf(),
-                young_wolf(),
-                young_wolf(),
+                forest(),
                 forest(),
                 forest(),
                 forest(),
@@ -31906,39 +32330,153 @@ fn westvale_abbey_taps_for_colorless_and_omits_unsupported_activations() {
                 forest(),
             ],
         )
+        .life(0, 20)
+        .life(1, 20)
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let abbey = on_battlefield(&engine, p0, westvale_abbey()).expect("abbey on battlefield");
+    let abbey = on_battlefield(&engine, p0, westvale_abbey()).expect("the Abbey is on the table");
+    assert!(
+        !is_tapped(&engine, abbey),
+        "a land placed on the battlefield arrives untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and nothing floats before anything is tapped"
+    );
 
-    // Float {{5}} green mana from basic forests while keeping Westvale Abbey untapped.
-    tap_mana_except(&mut engine, p0, abbey);
-    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
-    assert!(!is_tapped(&engine, abbey));
+    // Ability 0 is the printed "{T}: Add {C}": a fixed colourless, so nothing
+    // is asked on the way and the mana is in the pool the moment it is
+    // activated (CR 605.3b). Pressed by hand, because `tap_all_mana` takes
+    // this very line (#159) and the tap belongs to the token below.
+    activate(&mut engine, p0, westvale_abbey(), 0);
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseColor { .. }),
+        "`{{C}}` is a fixed colourless and not \"any color\", so there is \
+         nothing to name: {:?}",
+        engine.pending()
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1, "{{T}}: Add {{C}}");
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "and not a single colour beside it"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(is_tapped(&engine, abbey), "the Abbey paid its own {{T}}");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting"
+    );
 
+    // The tap is spent, so the token line needs the untap step: across the
+    // opponent's turn and back, where the pool emptied with the step that
+    // ended (CR 500.5) and the Abbey is standing again.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "the Abbey's controller takes another turn"
+    );
+    assert!(
+        !is_tapped(&engine, abbey),
+        "the untap step stood the land back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool the {{C}} was in is gone"
+    );
+
+    // Six Forests are exactly the {5} the ability charges, and the Abbey is
+    // kept back: `tap_all_mana` would have spent the very {T} under test.
+    tap_all_mana_but(&mut engine, p0, Some(westvale_abbey()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        6,
+        "six tapped Forests and an untapped Abbey, which makes no mana of its own"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and nobody has paid a life yet"
+    );
+
+    // `LegalActions::abilities` is filtered through `can_afford`, and that
+    // reads the pool rather than the untapped lands — so the claim about the
+    // offer is made with the mana already floating.
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+        panic!("expected priority, got {:?}", engine.pending())
     };
     assert!(
-        legal.abilities.contains(&(abbey, 0)),
-        "ability 0 ({{T}}: Add {{C}}) is offered"
-    );
-    assert!(
-        !legal.abilities.contains(&(abbey, 1)),
-        "Cleric token ability is omitted under `Coverage::Partial` despite floating {{5}} and life"
-    );
-    assert!(
-        !legal.abilities.contains(&(abbey, 2)),
-        "transform ability is omitted under `Coverage::Partial` despite floating {{5}} and five creatures"
+        legal.abilities.contains(&(abbey, 1)),
+        "with {{5}} in the pool the token line is offered: {:?}",
+        legal.abilities
     );
 
-    activate(&mut engine, p0, westvale_abbey(), 0);
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert_eq!(pool.available(ManaColor::Green), 5);
-    assert_eq!(pool.total(), 6);
-    assert!(is_tapped(&engine, abbey));
+    activate(&mut engine, p0, westvale_abbey(), 1);
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "\"Pay 1 life\" is part of the price: one, and never a life per mana spent"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{5}} came out of the pool, so one green is left"
+    );
+    assert!(
+        is_tapped(&engine, abbey),
+        "{{T}} was the other half of the price"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "making a token is no mana ability, so the ability is on the stack"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and the Cleric arrives on resolution, not on announcement"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Human Cleric");
+    let cleric = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Cleric is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(cleric.name, "Human Cleric", "the name the card gives it");
+    assert_eq!(
+        (cleric.power, cleric.toughness),
+        (Some(1), Some(1)),
+        "\"a 1/1\""
+    );
+    assert!(
+        cleric.colors.contains(baylee_core::color::Color::White),
+        "\"...white...\""
+    );
+    assert!(
+        cleric.colors.contains(baylee_core::color::Color::Black),
+        "and \"...black\": a token that was white alone would fill the body and \
+         the name just as well"
+    );
+    assert!(
+        types(&engine, tokens[0]).contains(TypeSet::CREATURE),
+        "a creature token and not a permanent of some other card type"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the life belongs to the seat that paid it, not to the opponent"
+    );
+    assert!(
+        on_battlefield(&engine, p0, westvale_abbey()).is_some(),
+        "the price was a tap and no sacrifice, so the Abbey stays to make another"
+    );
 }
 
 /// `Witch's Cottage` prints `({{T}}: Add {{B}}.)`, `This land enters tapped unless you control three or more other Swamps.`, and `When this land enters untapped, you may put target creature card from your graveyard on top of your library.`

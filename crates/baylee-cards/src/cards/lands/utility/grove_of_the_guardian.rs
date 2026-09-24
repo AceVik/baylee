@@ -2,9 +2,8 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {3}{G}{W}, {T}, Tap two untapped creatures you control, Sacrifice this land: Create an 8/8 green and white Elemental creature token with vigilance.
 //! Set: RTR #240 — Return to Ravnica | Scryfall ID: 3cf60ca0-e01f-499c-8d04-d59050f38c33 | Oracle ID: f746612a-fbed-44ca-b2cc-5928e10cf4bb
-// PARTIAL — the mana ability is built; the Elemental ability is off the
-// card (see the NOT SUPPORTED line below).
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -13,18 +12,22 @@ card!(
     scryfall_id = "3cf60ca0-e01f-499c-8d04-d59050f38c33",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
     faces = &[face!(name = "Grove of the Guardian", types = TypeSet::LAND,),],
-    coverage = Coverage::Partial(
-        "activation cost \"Tap two untapped creatures you control\": \
-         CostPart::TapOther names exactly one permanent and carries no count"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // NOT SUPPORTED: "{3}{G}{W}, {T}, Tap two untapped creatures you
-        // control, Sacrifice this land: Create an 8/8 green and white
-        // Elemental creature token with vigilance." — the cost taps TWO
-        // creatures, and `cost!(…, TapOther(filter))` taps one. Written with
-        // a single `TapOther` the ability would be strictly cheaper and would
-        // trade two creatures for one, so the ability comes off the card
-        // rather than being approximated into a different one.
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        // "Tap two untapped creatures" is two parts, one question each, the
+        // way Time Sieve writes its five sacrifices.
+        activated!(
+            cost!(
+                "{3}{G}{W}",
+                TapSelf,
+                TapOther(&Filter::YOUR_CREATURE),
+                TapOther(&Filter::YOUR_CREATURE),
+                SacrificeSelf
+            ),
+            &[Effect::CreateToken {
+                token: &generated_tokens::ELEMENTAL_8_8_WHITE_GREEN_VIGILANCE
+            }]
+        ),
     ],
 );

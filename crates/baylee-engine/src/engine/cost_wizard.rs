@@ -31,15 +31,15 @@
 //! something the payment will not accept.
 //!
 //! One thing the pair is honestly not exact about, and no card in the pool
-//! reaches it: `can_afford` reads each asking part on its own, so a cost
-//! printing **two** of them over one narrow board — two sacrifices where the
-//! seat controls a single creature — is offered, asks its first question,
-//! and is then refused at the second for want of anything left to name.
-//! `start_activation` takes the answers so far off each later menu, so the
-//! one permanent is never eaten twice, and nothing has been paid at the
-//! moment of the refusal. Making the offer exact would mean counting the
-//! parts against a board where two filters may overlap, which is a real
-//! question and not one a card is asking yet.
+//! reaches it. `can_afford` counts **equal** parts against the menu — Time
+//! Sieve's five sacrifices, Mines of Moria's three exiles — but two
+//! *different* asking parts whose filters overlap on one narrow board ("sacrifice
+//! a creature, sacrifice an artifact" over a single artifact creature) are each
+//! read on their own, so the ability is offered, asks its first question, and
+//! is refused at the second for want of anything left to name. Nothing has
+//! been paid at the moment of the refusal, because `start_activation` asks
+//! every question before `pay_cost` runs. Making the offer exact is a matching
+//! problem, and not one a card is asking yet.
 
 use super::{
     Cause, Cost, CostPart, EngineError, GameEvent, ObjectId, PlayerId, Status, ZoneLocation,
@@ -148,9 +148,16 @@ pub(crate) fn options(
     else {
         return Vec::new();
     };
-    state
-        .zones
-        .list(zone)
+    // The battlefield as the rules see it, not as the zone lists it: a
+    // phased-out permanent is treated as though it does not exist
+    // (CR 702.26b), so it can neither be sacrificed, tapped nor returned to
+    // pay anything.
+    let listed = if zone == ZoneLocation::Battlefield {
+        state.battlefield_view()
+    } else {
+        state.zones.list(zone).clone()
+    };
+    listed
         .iter()
         .filter(|id| {
             state.object(**id).is_some_and(|o| {
@@ -161,6 +168,54 @@ pub(crate) fn options(
         })
         .copied()
         .collect()
+}
+
+/// What `part` may be paid with **as part of `cost`**: [`options`], less
+/// the source when the same cost already spends it the same way.
+///
+/// "{T}, Tap an untapped creature you control" is Selesnya Evangel's price,
+/// and the Evangel is an untapped creature its controller controls — so
+/// [`options`] lists it, and a menu of one would pay both taps with one
+/// permanent. It cannot: the `{T}` taps it, and a permanent that is already
+/// tapped cannot be tapped to pay a cost (CR 118.3, CR 701.26a). The same
+/// holds for each pair where the cost names the source and then asks for
+/// "another" of the same kind of payment — a sacrifice beside
+/// `SacrificeSelf`, a return beside `ReturnSelfToHand`, a discard beside
+/// `DiscardSelf`, an exile beside `ExileSelf` — because an object moved by
+/// one part is not there to be moved by the other.
+///
+/// A different kind of payment leaves the source on the menu: "{T},
+/// Sacrifice a creature" may sacrifice the creature that tapped, and
+/// Viscera Seer, which prints no `{T}`, may sacrifice itself.
+///
+/// `can_afford` counts this and the prompt shows it, so the offer and the
+/// question cannot disagree. `PlayerMayPayCostOr` asks [`options`] instead:
+/// its price is one part with no source-spending part beside it.
+pub(crate) fn menu(
+    state: &GameState,
+    player: PlayerId,
+    source: ObjectId,
+    cost: &Cost,
+    part: &CostPart,
+) -> Vec<ObjectId> {
+    let mut listed = options(state, player, source, part);
+    if cost.parts.iter().any(|own| spends_the_source_as(own, part)) {
+        listed.retain(|id| *id != source);
+    }
+    listed
+}
+
+/// Whether `own` pays with the source the way `part` would pay with a
+/// chosen object — the pairs [`menu`] keeps the source off.
+const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
+    matches!(
+        (own, part),
+        (CostPart::TapSelf, CostPart::TapOther(_))
+            | (CostPart::SacrificeSelf, CostPart::Sacrifice(_))
+            | (CostPart::ReturnSelfToHand, CostPart::ReturnToHand(_))
+            | (CostPart::DiscardSelf, CostPart::Discard(_))
+            | (CostPart::ExileSelf, CostPart::ExileFromGraveyard(_))
+    )
 }
 
 /// What the player is being asked for.
@@ -440,6 +495,66 @@ mod tests {
         assert_eq!(
             options(&state, me(), source, &CostPart::Sacrifice(anything)),
             vec![source, untapped, tapped]
+        );
+    }
+
+    /// A phased-out permanent is treated as though it does not exist
+    /// (CR 702.26b), so it pays no cost: not by being sacrificed, tapped or
+    /// returned. The zone still lists it, which is why the reader has to be
+    /// the battlefield as the rules see it.
+    #[test]
+    fn a_phased_out_permanent_pays_no_cost() {
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Outlet");
+        let present = creature(&mut state, me(), ZoneLocation::Battlefield, "Present");
+        let away = creature(&mut state, me(), ZoneLocation::Battlefield, "Away");
+        state
+            .object_mut(away)
+            .expect("just made it")
+            .status
+            .insert(Status::PHASED_OUT);
+
+        let anything = &Filter::CREATURE;
+        for part in [
+            CostPart::Sacrifice(anything),
+            CostPart::TapOther(anything),
+            CostPart::ReturnToHand(anything),
+        ] {
+            assert_eq!(
+                options(&state, me(), source, &part),
+                vec![source, present],
+                "{part:?} is not paid with a permanent that has phased out"
+            );
+        }
+    }
+
+    /// A cost that spends its source one way does not offer the source
+    /// again for the same kind of payment, and a cost that spends it some
+    /// other way does. Selesnya Evangel's `{T}` beside "tap an untapped
+    /// creature you control" is the pool's case; "{T}, sacrifice a
+    /// creature" may still sacrifice the creature that tapped.
+    #[test]
+    fn a_source_spent_by_name_is_not_on_the_menu_for_the_same_payment() {
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Evangel");
+        let other = creature(&mut state, me(), ZoneLocation::Battlefield, "Other");
+
+        let tap = CostPart::TapOther(&Filter::CREATURE);
+        let evangel = baylee_cards_dsl::cost!("{1}", TapSelf, TapOther(&Filter::CREATURE));
+        assert_eq!(menu(&state, me(), source, &evangel, &tap), vec![other]);
+
+        let sacrifice = CostPart::Sacrifice(&Filter::CREATURE);
+        let tap_and_sacrifice = baylee_cards_dsl::cost!(TapSelf, Sacrifice(&Filter::CREATURE));
+        assert_eq!(
+            menu(&state, me(), source, &tap_and_sacrifice, &sacrifice),
+            vec![source, other],
+            "a tap and a sacrifice are two ways, and one permanent may pay both"
+        );
+        let both = baylee_cards_dsl::cost!(SacrificeSelf, Sacrifice(&Filter::CREATURE));
+        assert_eq!(
+            menu(&state, me(), source, &both, &sacrifice),
+            vec![other],
+            "a source sacrificed by name is not there to be sacrificed again"
         );
     }
 

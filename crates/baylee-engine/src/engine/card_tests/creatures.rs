@@ -35327,6 +35327,11 @@ fn selesnya_evangel_taps_two_creatures_for_one_green_saproling() {
         !options.contains(&theirs),
         "\"a creature *you* control\": the Elf across the table is not mine: {options:?}"
     );
+    assert!(
+        !options.contains(&evangel),
+        "the Evangel's own {{T}} is half the price, so it cannot also be the \
+         creature it taps (CR 118.3): {options:?}"
+    );
 
     engine
         .apply(

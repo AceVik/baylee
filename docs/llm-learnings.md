@@ -1533,3 +1533,17 @@ Elves was put into the same graveyard, and the test now fails when the
 card's filter is widened; that was injected and seen red. A menu
 assertion only tests a filter if the board also holds something the
 filter must refuse.
+
+The third batch that day (Grove of the Guardian, The Gold Saucer and
+Westvale Abbey, three tests) was the first to go red. Grove's test asserted
+that the first creature was tapped as soon as it was named. It is not,
+because CR 601.2h pays the whole cost at once: every question is answered
+first and nothing moves until the last one. The engine was right and the
+test had the order of the rule wrong. The same test explained the second
+menu's shorter length as "a tapped creature is no longer untapped", when
+the reason is that each answer is taken off the menus after it. Both
+explanations are plausible, which is why the lane wrote them, and a model
+that cannot run the test has no way to tell which one is true. The Gold
+Saucer test had the Dragonback gap again: "sacrifice two artifacts" was
+played with no artifact across the table, so "your" had no witness. One
+was added.

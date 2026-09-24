@@ -36,6 +36,18 @@ way round is a transcription error rather than a card — which is why it is a
 pool lint (`baylee-cards::lints::no_cost_asks_for_a_permanent_it_has_already_spent`)
 and not a refusal at the moment of activation.
 
+**A part that names an object never names the source twice.** Five parts
+ask the player for an object (`cost_wizard`), and the menu they are asked
+from is `cost_wizard::menu`, which is the board less the source whenever the
+same cost already spends the source the same way: `TapSelf` beside
+`TapOther`, `SacrificeSelf` beside `Sacrifice`, and the return, discard and
+exile pairs likewise. Selesnya Evangel's "{1}, {T}, Tap an untapped creature
+you control" is the pool's case — alone on the table it is not offered,
+because its own `{T}` leaves nothing untapped to tap (CR 118.3). A different
+kind of payment keeps the source on the menu: a creature that taps may still
+be the creature sacrificed. And the battlefield the menu reads is the one
+the rules see, so a phased-out permanent pays nothing (CR 702.26b).
+
 **A counter paid as a cost is not multiplied.** CR 614.16 and the
 counter-doubling replacements are about counters being *put* on a permanent,
 and Magic prints nothing that multiplies a removal — so `RemoveCounterSelf`

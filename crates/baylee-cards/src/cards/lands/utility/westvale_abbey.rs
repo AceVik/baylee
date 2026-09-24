@@ -6,9 +6,10 @@
 //! Set: INR #287 — Innistrad Remastered | Scryfall ID: 5fbc6091-a161-45b0-9932-543b569caaee | Oracle ID: 04eeb9ad-5c59-411b-8809-db8349838588
 //! Face: Westvale Abbey —  — Land
 //! Face: Ormendahl, Profane Prince —  — Legendary Creature — Demon
-// PARTIAL — {T}: Add {C} and Ormendahl's printed keyword line; the two
-// {5}, {T} abilities are not expressible (see the NOT SUPPORTED lines below).
+// PARTIAL — {T}: Add {C}, the Human Cleric line and Ormendahl's printed
+// keyword line; the transform is not expressible (see NOT SUPPORTED below).
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -37,21 +38,23 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "the two {5}, {T} abilities are not expressible: there is no 1/1 white \
-         and black Human Cleric token in crate::tokens, and CostPart::Sacrifice \
-         names one permanent and carries no count for \"sacrifice five creatures\"",
+        "\"Sacrifice five creatures: Transform this land\": no effect transforms \
+         a permanent in place",
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: "{5}, {T}, Pay 1 life: Create a 1/1 white and black
-        // Human Cleric creature token." — `Effect::CreateToken` needs a
-        // `&'static TokenDef` from `crate::tokens` (the index into the ledger
-        // IS the token's art id), and no such token is in it; a card file may
-        // not define one of its own.
+        activated!(
+            cost!("{5}", TapSelf, PayLife(1)),
+            &[Effect::CreateToken {
+                token: &generated_tokens::HUMAN_CLERIC_1_1_WHITE_BLACK
+            }]
+        ),
         // NOT SUPPORTED: "{5}, {T}, Sacrifice five creatures: Transform this
-        // land, then untap it." — `CostPart::Sacrifice(filter)` names one
-        // permanent and has no count, so the printed five cannot be said. (The
-        // effect half would be `Effect::ExileSelfReturnAsFace { face: 1 }` then
-        // `Effect::UntapSelf`.)
+        // land, then untap it." — the cost is sayable (five
+        // `Sacrifice(&Filter::YOUR_CREATURE)` parts), but no effect
+        // transforms a permanent in place: `Effect::ExileSelfReturnAsFace`
+        // exiles it and returns a new object (CR 400.7), which is not what
+        // CR 701.27a does — the permanent would lose its counters, its
+        // attachments and "then untap it" would read the wrong object.
     ],
 );

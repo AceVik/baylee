@@ -23518,8 +23518,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Grove of the Guardian
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -27429,8 +27429,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 3,
-            stackable: 0,
-            lines: &[Some(0)],
+            stackable: 1,
+            lines: &[Some(0), Some(1)],
             modes: &[],
             alternatives: &[],
         },
@@ -47803,8 +47803,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // The Gold Saucer
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

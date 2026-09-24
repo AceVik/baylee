@@ -698,6 +698,46 @@ fn a_cost_that_exiles_from_the_graveyard_is_offered_only_over_enough_cards() {
     assert_eq!(treasures, 2, "two Treasure tokens");
 }
 
+/// A source that pays with its own `{T}` is not also the creature it taps.
+///
+/// Selesnya Evangel prints "{1}, {T}, Tap an untapped creature you
+/// control". Alone on the table it is the only untapped creature its
+/// controller has, and the menu used to hold it — so the ability was
+/// offered, and paid both taps with one permanent, a second `ObjectTapped`
+/// journalled for a creature that was already tapped. CR 118.3 says a
+/// tapped permanent cannot be tapped to pay a cost, and the `{T}` is paid
+/// in the same payment (CR 601.2h), so with nothing else to tap the price
+/// cannot be paid and the ability is not offered at all.
+#[test]
+fn a_source_that_taps_itself_is_not_offered_as_the_creature_it_taps() {
+    let p0 = PlayerId::new(0);
+    let evangel = card_index("4a2fea39-99d6-4766-9f2c-0a63925349cb");
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let mut engine = Duel::new(SEED, forest)
+        .battlefield(0, &[forest, evangel])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "the board never reached seat 0's own main phase"
+    );
+    let source = on_battlefield(&engine, p0, evangel).expect("the Evangel is out");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{1}} is floating, so only the second tap can refuse the price"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(source, 0)),
+        "the Evangel is the only creature, and its own {{T}} spends it: \
+         nothing is left to tap: {:?}",
+        legal.abilities
+    );
+}
+
 // The two guards this file used to carry here, and why they are gone.
 //
 // Until `cost_wizard` existed, `can_afford` refused `CostPart::Sacrifice`

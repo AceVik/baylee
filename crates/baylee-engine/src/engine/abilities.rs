@@ -709,7 +709,7 @@ impl<L: CardLookup> Engine<L> {
                     // between them is a matching problem this does not
                     // pretend to solve. Nothing in the pool prints one.
                     let asked = cost.parts.iter().filter(|other| *other == part).count();
-                    if cost_wizard::options(&self.state, player, source, part).len() < asked {
+                    if cost_wizard::menu(&self.state, player, source, cost, part).len() < asked {
                         return false;
                     }
                 }
@@ -1327,7 +1327,7 @@ impl<L: CardLookup> Engine<L> {
             let part = cost_wizard::asking_parts(&cost)
                 .nth(asked)
                 .expect("fewer answers in hand than the cost has asking parts");
-            let mut options = cost_wizard::options(&self.state, player, source, part);
+            let mut options = cost_wizard::menu(&self.state, player, source, &cost, part);
             // Nothing is paid until every question has an answer (CR 601.2h
             // pays the whole cost at once), so the board the second question
             // is asked of still holds the object the first one named. Taking
