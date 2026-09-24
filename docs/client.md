@@ -839,10 +839,15 @@ is a **face**, because abilities are per face (`abilities_for_face`, and a
 back face never inherits) while `AbilityRef` carries no face: whoever looks a
 line up supplies it, and for a stack entry that is *not* the face the source
 object is showing — see below. And the English sentence *count* travels beside the index
-(`AbilityLine::of`), because the index is resolved against a text that may be
-an older printing or a translation that joins two lines — an index merely out
-of range is caught by anyone, but one that is in range and off by one is shown
-to the player as precise text, which is worse than `+1`.
+(`AbilityLine::of`), because the index is resolved against a text the host
+did not count: the client's compiled Oracle, which `refresh-oracle` can move
+without a view bump. `cardtext::sentence` refuses a face whose count differs
+(`a_line_counted_against_other_text_draws_nothing`) — an index merely out of
+range is caught by anyone, but one that is in range and off by one is shown to
+the player as precise text, which is worse than `+1`. A translation that
+joins two lines is no longer this guard's case: `baylee_cardtext::align`
+places the printed lines against the Oracle, and one that does not pair
+draws the Oracle's line.
 
 It does not reach every ability, and the misses are honest: 485 of the pool's
 500 stack-capable abilities know their sentence, and every one of the fifteen

@@ -433,11 +433,11 @@ fn type_kind_order() -> [(TypeSet, SubtypeKind); 7] {
 /// a depth counter is enough and an unbalanced parenthesis degrades to rules
 /// text rather than swallowing the rest of the card.
 ///
-/// Public for the one caller that wants a whole card body and has no
-/// [`CardFace`] to take it off: the slip under the hover preview, which draws
-/// what a *spell* on the stack is about to do from the printing it already
-/// holds. [`sentence_blocks`] is this same split over one sentence, which is
-/// what an **ability** on the stack needs instead.
+/// Public for the client's two draws that have no [`CardFace`] to take a
+/// body off: the slip under the hover preview, which draws what a *spell* on
+/// the stack is about to do from the printing it already holds, and
+/// `cardtext::sentence`, which splits one sentence of it for an **ability**
+/// — the same split, so a row and its card agree where reminder text starts.
 #[must_use]
 pub fn split_blocks(oracle: &str) -> Vec<TextBlock> {
     let mut blocks = Vec::new();
@@ -482,31 +482,6 @@ fn push_block(blocks: &mut Vec<TextBlock>, buffer: &mut String, reminder: bool) 
     } else {
         TextBlock::Rules(text)
     });
-}
-
-/// The one printed sentence a stack entry stands for, split into rules and
-/// reminder blocks.
-///
-/// The host says *which* sentence an ability on the stack is printed as, as a
-/// coordinate into the text rather than as prose, because the text belongs to
-/// the client: the player's own printing, in the player's own language. What
-/// holds the two together is `of` — the number of sentences the host counted.
-/// A text of a different length is refused whole rather than indexed, and
-/// that is the case worth the field: an index merely out of range is caught
-/// by anyone, while a text one sentence shorter puts the index *in* range and
-/// on the sentence beside the right one, which is drawn to the player as
-/// precise text and is worse than the label it replaced.
-///
-/// The split is [`split_blocks`], the same one a whole card is drawn with, so
-/// a stack entry and the card it came from never disagree about where the
-/// reminder text starts.
-#[must_use]
-pub fn sentence_blocks(oracle: &str, line: u8, of: u8) -> Option<Vec<TextBlock>> {
-    if baylee_core::oracle::sentence_count(oracle) != usize::from(of) {
-        return None;
-    }
-    let sentence = baylee_core::oracle::sentences(oracle).nth(usize::from(line))?;
-    Some(split_blocks(sentence))
 }
 
 #[cfg(test)]
@@ -897,50 +872,6 @@ mod tests {
         assert_eq!(face.type_line, "Basisland — Wald");
     }
 
-    /// Jace is the card the whole feature was asked for: four loyalty
-    /// abilities, and a stack that says `+1` tells a player nothing.
-    #[test]
-    fn a_stack_entry_draws_the_sentence_its_ability_is_printed_as() {
-        let jace = "+2: Look at the top card of target player's library. You may put that \
-                    card on the bottom of that player's library.\n\
-                    0: Draw three cards, then put two cards from your hand on top of your \
-                    library in any order.\n\
-                    −1: Return target creature to its owner's hand.\n\
-                    −12: Exile all cards from target player's library, then that player \
-                    shuffles their hand into their library.";
-        let blocks = sentence_blocks(jace, 1, 4).expect("four sentences, asked for four");
-        assert_eq!(
-            blocks,
-            vec![TextBlock::Rules(
-                "0: Draw three cards, then put two cards from your hand on top of your \
-                 library in any order."
-                    .to_string()
-            )]
-        );
-    }
-
-    /// The guard, and the reason `of` is on the wire at all.
-    ///
-    /// An index that is merely out of range is caught by anyone. This is
-    /// the other case: a text one sentence shorter, where the index lands
-    /// *in* range and points at the sentence beside the right one — which
-    /// is drawn to the player as precise text and is worse than the label
-    /// it replaced. The count is the only thing that can tell them apart.
-    #[test]
-    fn a_text_of_a_different_length_is_refused_rather_than_indexed() {
-        let three = "+1: Do a thing.\n0: Do another.\n−7: Win.";
-        assert_eq!(
-            sentence_blocks(three, 1, 3),
-            Some(vec![TextBlock::Rules("0: Do another.".to_string())])
-        );
-        assert_eq!(
-            sentence_blocks(three, 1, 4),
-            None,
-            "the host counted four sentences and this text has three"
-        );
-        assert_eq!(sentence_blocks(three, 3, 3), None, "past the last sentence");
-    }
-
     /// The whole of V1 in one assertion: a translated client showed a German
     /// sentence under an English title, because six places read the
     /// projection and only [`CardFace`] ever reached the catalog.
@@ -979,23 +910,6 @@ mod tests {
         assert_eq!(
             shown_name("Snapcaster Mage", Some(&german)),
             "Snapcaster Mage"
-        );
-    }
-
-    /// A sentence carries its own reminder text, and it is greyed like any
-    /// other — the panel is drawing one paragraph of a card, not a label.
-    #[test]
-    fn a_sentences_reminder_text_stays_its_own_block() {
-        let text = "Flying (This creature can't be blocked except by creatures with flying.)\n\
-                    {T}: Add {G}.";
-        assert_eq!(
-            sentence_blocks(text, 0, 2),
-            Some(vec![
-                TextBlock::Rules("Flying".to_string()),
-                TextBlock::Reminder(
-                    "This creature can't be blocked except by creatures with flying.".to_string()
-                ),
-            ])
         );
     }
 }

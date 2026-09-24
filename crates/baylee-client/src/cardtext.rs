@@ -239,6 +239,14 @@ impl CardTexts {
 /// host or the line table hands out, and a caller that meets one draws no
 /// words rather than invented ones.
 ///
+/// And `None` where the host counted another text: `at.of` is how many
+/// sentences the face had where the host looked the line up, and a compiled
+/// Oracle with a different count is a client built against other card text
+/// than its host (`refresh-oracle` moves the text and not the view version).
+/// An index merely out of range is caught by anyone; this is the case where
+/// it lands *in* range, on the sentence beside the right one, and would be
+/// drawn to the player as precise text — worse than no words.
+///
 /// One door for the three places a sentence is drawn — the ability sheet, the
 /// stack and the cast chooser — so no two of them can disagree about what an
 /// ability says.
@@ -254,6 +262,10 @@ pub fn sentence(
     card: CardIndex,
     at: StackText,
 ) -> Option<Vec<TextBlock>> {
+    let oracle = baylee_cards::oracle::face(card, usize::from(at.face))?;
+    if baylee_core::oracle::sentence_count(oracle) != usize::from(at.of) {
+        return None;
+    }
     texts
         .and_then(|texts| texts.localized(card, at))
         .map(split_blocks)
@@ -978,6 +990,18 @@ mod tests {
             words(sentence(Some(&texts), forest, first)),
             words(sentence(None, forest, first))
         );
+    }
+
+    /// A coordinate counted against another text draws nothing, in either
+    /// language: the German pairs and the Oracle has the line, but the host
+    /// said the face had three sentences and this build's Mind Stone has two.
+    #[test]
+    fn a_line_counted_against_other_text_draws_nothing() {
+        let (card, texts) = mind_stone(FIC);
+        let skewed = StackText { of: 3, ..DRAW };
+        assert_eq!(sentence(Some(&texts), card, skewed), None);
+        assert_eq!(sentence(None, card, skewed), None);
+        assert!(sentence(None, card, DRAW).is_some(), "the counter-test");
     }
 
     /// No card prints a sentence past its last one, in any language, and the
