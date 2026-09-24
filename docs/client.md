@@ -729,16 +729,28 @@ twelve generic mana. It grows sideways with its digits (`count_width`): at
 `×999` its left edge sits 0.67 card widths across, right of the centred name
 a token frame prints (measured on a Treasure at `×28`, whose pill starts at
 0.73), and `the_widest_count_stays_clear_of_the_slips_and_the_name` holds it
-to the right half of the title bar. Until #210 the sentence above was true of a function
-(`table::stack_badge`) that nothing called: 54 Goblins drew as one Goblin,
-the slab under the card was the only cue, and a pile's depth is capped. A
-pile never wears a count (`Placement::stands_for`); its size is the deck
-under it and the seat bar's number.
+to the right half of the title bar. Until #210 the sentence above was true
+of a function (`table::stack_badge`) that nothing called: 54 Goblins drew as
+one Goblin, the slab under the card was the only cue, and a pile's depth is
+capped. A pile never wears a count (`Placement::stands_for`); its size is
+the deck under it and the seat bar's number.
+
+When they merge depends on what they are (`board::group_objects`). Tokens
+merge from two, on any row: a token is made to be one of many, and a fan of
+Treasures says nothing their `×N` does not. Cards merge only once the row
+would have to fan them (`pack_lane(..).fanned`); two Forests on a roomy row
+are two Forests, because a second one swallowing the first was
+`docs/observed-faults.md` 19. A token is what `board::provenance_of` calls
+one, so a token copy of a card merges like a token.
 
 Two independent guards keep the merge honest:
 
-- objects merge only when every visible property matches (name, P/T, damage,
-  counters, tap state, controller);
+- objects merge only when every property a decision reads matches
+  (`PublicObject::summary_key`): name, card or token, controller and owner,
+  status (tapped, face down, …), the projected types, colours and keywords,
+  P/T and the printed P/T under it, damage, loyalty, counters, summoning
+  sickness and any granted mana. So a tapped Soldier stands beside the
+  untapped ones, and a Soldier with lifelink beside the plain ones;
 - objects with individual identity never merge, however identical they look —
   attacking, blocking, enchanted, equipped, or targeted by the stack.
 

@@ -307,6 +307,11 @@ not by the order they were told, and nothing here is fixed yet.
     flips between the two every time a token dies and comes back, which is
     the version a player will actually notice.
 
+    Since #210 the gate holds for cards only. Tokens merge from two on any
+    row, and a merged card says `×N`, so a token splitting off when it taps
+    is the count changing in front of the player rather than a card
+    vanishing — which is what the owner asked for.
+
     The gate made `pod_width` load-bearing, and it was wrong: one number for
     the whole table, read off the *first opponent's* row. That is only ever
     right on a table nobody has focused, where seats divide the ring evenly.

@@ -18,6 +18,49 @@ fn identical_tokens_collapse_into_one_counted_card() {
     assert_eq!(lane.permanent_count(), 12);
 }
 
+/// Tokens merge on any row, cards only on a full one (#210). A spell that
+/// leaves three Soldiers leaves one card saying three, however much room
+/// the row has; tapping one splits it off, because whether a blocker is
+/// still up is what a player reads the row for.
+#[test]
+fn tokens_merge_on_a_roomy_row_and_split_by_state() {
+    let lane_of = |objs: Vec<PublicObject>| {
+        let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
+        let m = model(&view);
+        let lane = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        let mut counts: Vec<usize> = lane.groups.iter().map(CardGroup::count).collect();
+        counts.sort_unstable();
+        counts
+    };
+    let soldiers =
+        || -> Vec<PublicObject> { (0..3).map(|i| token(i, 0, "Soldier", 1, 1)).collect() };
+
+    assert_eq!(
+        lane_of(soldiers()),
+        vec![3],
+        "three Soldiers on a roomy row"
+    );
+
+    let mut one_tapped = soldiers();
+    one_tapped[1].status = ObjectStatus::TAPPED;
+    assert_eq!(
+        lane_of(one_tapped),
+        vec![1, 2],
+        "the tapped one stands apart"
+    );
+
+    // The counter-test: the same three as cards keep the room test.
+    let bears: Vec<PublicObject> = (0..3).map(|i| printed(i, 0, "Grizzly Bears", 7)).collect();
+    assert_eq!(
+        lane_of(bears),
+        vec![1, 1, 1],
+        "cards on a roomy row stay cards"
+    );
+}
+
 #[test]
 fn a_tapped_token_does_not_hide_inside_the_untapped_stack() {
     let mut objs: Vec<PublicObject> = (0..5).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
@@ -208,14 +251,14 @@ fn a_second_copy_of_a_land_does_not_swallow_the_first() {
 #[test]
 fn each_pod_is_measured_against_its_own_row() {
     // Seats do not get equal space, so the collapse cannot be decided by
-    // one width for the whole table: the same four Soldiers are four
-    // cards on a roomy pod and one counted card on a cramped one, in the
-    // *same* board. Before this, the width was read off the first
-    // opponent and every other seat — the local one included — was gated
-    // against a row it was not standing on.
+    // one width for the whole table: the same four Bears are four cards
+    // on a roomy pod and one counted card on a cramped one, in the *same*
+    // board. Before this, the width was read off the first opponent and
+    // every other seat — the local one included — was gated against a
+    // row it was not standing on. Cards, because tokens merge on any row.
     let squad = |seat: u8| -> Vec<PublicObject> {
         (0..4)
-            .map(|i| token(u32::from(seat) * 10 + i, seat, "Soldier", 1, 1))
+            .map(|i| printed(u32::from(seat) * 10 + i, seat, "Grizzly Bears", 7))
             .collect()
     };
     let view = ViewBuilder::new(2)

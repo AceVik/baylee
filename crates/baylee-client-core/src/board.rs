@@ -1516,6 +1516,14 @@ fn build_pod(
 /// Without it every board was a collapsed board, which is right for forty
 /// tokens and wrong for two Forests: a counted stack is what a player falls
 /// back to when the cards will not fit, not what a table looks like.
+///
+/// Tokens merge whatever the answer (#210). A token is made to be one of
+/// many — the Treasures a spell leaves, the Soldiers it makes — and a row
+/// of them fanned out says nothing the card's `×N` does not. Cards keep
+/// the room test, because a second Forest swallowing the first was
+/// `docs/observed-faults.md` 19. The key still splits tokens by state, so
+/// a tapped Soldier stands beside the untapped ones rather than inside
+/// them: that difference is the one a player reads.
 fn group_objects(
     objects: &[&PublicObject],
     individual: &HashMap<ObjectId, Individual>,
@@ -1540,7 +1548,8 @@ fn group_objects(
         // interchangeable — an aura on it, a spell pointed at it. The reason
         // travels either way: it is why a card is drawn on its own, and a
         // roomy row does not make an aura stop mattering.
-        if !collapse || reason.is_some() {
+        let merges = collapse || provenance_of(obj, reg) == Provenance::Token;
+        if !merges || reason.is_some() {
             groups.push(card_group(obj, reason, can_act, reg));
             continue;
         }
