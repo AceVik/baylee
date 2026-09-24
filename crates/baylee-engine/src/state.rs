@@ -1370,9 +1370,17 @@ impl GameState {
     }
 
     /// The battlefield as rules see it: phased-out permanents are treated
-    /// as though they don't exist (CR 702.26).
+    /// as though they don't exist (CR 702.26b).
     #[must_use]
     pub fn battlefield_view(&self) -> Vec<ObjectId> {
+        self.battlefield_seen().collect()
+    }
+
+    /// [`Self::battlefield_view`] without the allocation, for a walk that
+    /// only counts or filters.
+    pub fn battlefield_seen(&self) -> impl Iterator<Item = ObjectId> + '_ {
+        // phasing: the one walk that filters phased-out permanents for
+        // everybody else.
         self.zones
             .list(ZoneLocation::Battlefield)
             .iter()
@@ -1381,7 +1389,6 @@ impl GameState {
                 self.object(*id)
                     .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT))
             })
-            .collect()
     }
 
     /// Mutable object access.

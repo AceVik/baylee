@@ -1053,13 +1053,13 @@ impl<L: CardLookup> Engine<L> {
         controller: PlayerId,
         entering: ObjectId,
     ) -> usize {
+        // A phased-out Swamp does not exist for a checkland (CR 702.26b),
+        // and a phased-out land does not count against a fastland (#209).
         self.state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
+            .battlefield_seen()
             .filter(|other| {
-                **other != entering
-                    && self.state.object(**other).is_some_and(|o| {
+                *other != entering
+                    && self.state.object(*other).is_some_and(|o| {
                         eval::matches(filter, &self.state, o, controller, entering)
                     })
             })

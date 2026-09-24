@@ -552,6 +552,23 @@ would take away the look the card prints. What is *not* asked is the rest of
 a dig with one card left, which its player has just seen in the question
 before.
 
+## Phasing: the battlefield the rules see (CR 702.26b)
+A phased-out permanent is treated as though it does not exist, except by
+rules and effects that mention phased-out permanents.
+`GameState::battlefield_seen` is that battlefield (`battlefield_view`
+collects it). A raw `zones.list(ZoneLocation::Battlefield)` walk also yields
+phased-out permanents, and `eval::matches` never reads `PHASED_OUT`. A count
+over a raw walk therefore saw a phased-out Swamp: checklands and fastlands
+asked `controls_count` exactly that way (#209).
+
+Every such `.list` walk says why it may see phased-out permanents, in a
+`// phasing:` comment within three lines above it (for example, the untap
+step phases them in). Otherwise it is listed in `phasing_tests::UNAUDITED`.
+Walks over every object (hashing, the projection refresh, cleanup) are not
+battlefield queries and are not counted. The table must
+match exactly: auditing a walk lowers its row, and a new unexplained walk
+fails the test.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
