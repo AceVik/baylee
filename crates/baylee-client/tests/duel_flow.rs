@@ -943,10 +943,13 @@ fn a_human_seat_is_dealt_a_real_opening_hand_and_library() {
     assert_eq!(me.library_count, 53);
     assert!(!me.is_decking_out());
 
-    // And the opponent's hand is a count, never contents.
+    // And the opponent's hand is a count, never contents. The house has
+    // already answered the AI chair's mulligan (#257). A hand of seven
+    // Forests is never a keep for its policy, so it takes until its limit
+    // and keeps five.
     let them = view.seat(PlayerId::new(1)).expect("opponent seat line");
-    assert_eq!(them.hand_count, 7);
-    assert_eq!(them.library_count, 53);
+    assert_eq!(them.hand_count, 5);
+    assert_eq!(them.hand_count + them.library_count, 60);
 }
 
 #[test]

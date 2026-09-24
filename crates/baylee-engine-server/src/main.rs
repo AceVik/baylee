@@ -559,27 +559,23 @@ mod attached {
         tracing::info!(game_id = attach.game_id, url = attach.url, "attached");
 
         let mut runner = EngineRunner::new();
-        // The deadline is anchored to what it was armed for, so it restarts
-        // when the game actually moves rather than every time a frame from
-        // the other seat wakes this task up.
-        let mut armed: Option<(baylee_engine_server::Clock, tokio::time::Instant)> = None;
+        // Each deadline is anchored to what it was armed for, so it restarts
+        // when its seat is asked something new rather than every time a frame
+        // from another seat wakes this task up.
+        let mut armed = baylee_engine_server::Armed::default();
         loop {
-            match (runner.clock(), armed) {
-                (Some(now), Some((was, _))) if was == now => {}
-                (Some(now), _) => {
-                    let at = tokio::time::Instant::now()
-                        + std::time::Duration::from_secs(u64::from(now.secs));
-                    armed = Some((now, at));
-                }
-                (None, _) => armed = None,
-            }
+            let now = tokio::time::Instant::now();
+            armed.sync(&runner.clocks(), |clock| {
+                now + std::time::Duration::from_secs(u64::from(clock.secs))
+            });
+            let next = armed.next();
             tokio::select! {
-                () = deadline(armed.map(|(_, at)| at)) => {
+                () = deadline(next.map(|(_, at)| at)) => {
                     // The clock is the one thing the rules kernel must not
                     // own: it is deterministic and may not read a wall clock.
-                    let Some((clock, _)) = armed else { continue };
+                    let Some((clock, _)) = next else { continue };
                     tracing::info!(seat = clock.seat.get(), "decision timed out");
-                    armed = None;
+                    armed.fired(clock);
                     for envelope in runner.timeout(clock) {
                         send(&mut ws, &envelope).await?;
                     }
@@ -591,19 +587,17 @@ mod attached {
                         continue;
                     }
                     let envelope = Envelope::decode(frame.into_data())?;
-                    // Read the clock before handing the frame over: this
-                    // frame may move the game, and after it has, the number
+                    // Read the clocks before handing the frame over: this
+                    // frame may move the game, and after it has, a number
                     // belongs to a question nobody is being asked any more.
                     // Saturating rather than clamped-signed — a deadline
                     // already past is nought left, not a negative countdown.
-                    let remaining_ms = armed.map(|(_, at)| {
-                        u32::try_from(
-                            at.saturating_duration_since(tokio::time::Instant::now())
-                                .as_millis(),
-                        )
-                        .unwrap_or(u32::MAX)
+                    let read = tokio::time::Instant::now();
+                    let remaining = armed.remaining(|at| {
+                        u32::try_from(at.saturating_duration_since(read).as_millis())
+                            .unwrap_or(u32::MAX)
                     });
-                    for out in runner.handle(envelope, remaining_ms) {
+                    for out in runner.handle(envelope, &remaining) {
                         send(&mut ws, &out).await?;
                     }
                 }

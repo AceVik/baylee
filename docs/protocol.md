@@ -577,7 +577,8 @@ field is an `Option` and not a sentinel.
 deterministic and a session that timed itself would replay differently on
 every machine, so the one value here made of elapsed time arrives from
 outside: `EngineRunner` resolves it and `Session::set_decision_remaining`
-stores it **with the `decision_seq` it was true of**.
+stores it, per seat, **with the `Session::asked_at` it was true of**: the
+`decision_seq` at which that seat was asked the question it owes.
 
 That anchor is the whole of `Session::decision_remaining_ms`. A reading only
 describes the question it was taken for, so once the question has moved the
@@ -585,9 +586,24 @@ reading is discarded and the seat is given the table's whole allowance — a
 question just asked has had no time taken off it. Without that branch the
 first view of every new question would carry the previous question's
 leftovers, and a seat would be shown four seconds to answer something it was
-asked a moment ago. It is anchored to `decision_seq` and not to a timestamp
-for the reason that counter exists at all: it counts *questions asked* rather
-than frames sent, so an opponent's priority hold cannot wind it.
+asked a moment ago. It is anchored to a count of questions and not to a
+timestamp for the reason that counter exists at all: it counts *questions
+asked* rather than frames sent, so an opponent's priority hold cannot wind it.
+
+### Every seat is asked its mulligan at once
+
+Before turn 1 every seat owes its own `Mulligan`, and later its own
+`MulliganBottom` (`Engine::awaited`, `Engine::pending_for`), and a pump sends
+each socket seat its own `ChoiceRequest` at the same time. The house answers
+its chairs first, so an AI chair keeps while a human is still deciding. Each
+seat is on its own clock (`EngineRunner::clocks`, one per awaited seat), and
+the anchor is per seat for exactly this window: one seat's keep moves the game
+without asking any other seat anything new, so a clock anchored to the shared
+`decision_seq` would restart every other seat's deadline at every keep.
+`Session::asked_at(seat)` moves only for the seat that answered and for a seat
+asked something it was not asked before; outside the window every move asks
+the one awaited seat anew, exactly as the shared count did. A seat's expired
+clock keeps its hand (`choice::timeout_answer`, #258).
 
 The resolution happens twice per frame, and the second time is not
 redundant. Registering a socket moves the awaited seat off the reconnect
@@ -958,10 +974,10 @@ exactly the shape it had; a client cannot tell it is being proxied.
 
 Two things moved out of the gateway with the rules:
 
-- **The decision clock.** It has to sit where `awaiting_seat()` and the
-  session's counters can be read, which is now the engine process. It is
-  anchored to `Session::decision_seq` — how many *questions* the game has
-  asked, not how many frames it has sent — so one seat's expired clock can
+- **The decision clock.** It has to sit where `Session::awaited()` and the
+  session's counters can be read, which is now the engine process. Each
+  seat's is anchored to `Session::asked_at` — counted in *questions* the game
+  has asked, not frames it has sent — so one seat's expired clock can
   never take another seat's decision, and it does not run for a seat with no
   socket, because a player who walked away is not on a clock they cannot see.
   The distinction between the two counters is not cosmetic: a priority hold and

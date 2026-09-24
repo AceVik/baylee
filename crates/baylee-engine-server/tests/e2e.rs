@@ -374,26 +374,55 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
     assert!(second_refused, "a chair already being driven is refused");
     drop(queue_jumper);
 
-    // Seat 0 answers. The next question belongs to seat 1, and it must come
-    // out of the socket rather than into `HeuristicAgent::act`.
-    if !driver_asked {
-        answer(&mut human, &asked_seat_0).await;
-        for _ in 0..20 {
-            let Some(env) = next(&mut driver).await else {
-                break;
-            };
-            match env.msg {
-                Some(v1::envelope::Msg::StateDelta(delta)) => assert_eq!(
-                    view_seat(&delta),
-                    Some(PlayerId::new(1)),
-                    "the driven socket is sent its own seat's view"
-                ),
-                Some(v1::envelope::Msg::ChoiceRequest(_)) => {
-                    driver_asked = true;
-                    break;
+    // Seat 0 answers until a question belongs to seat 1, and that one must
+    // come out of the socket rather than into `HeuristicAgent::act`. The
+    // house kept seat 1's hand while seat 0 was still deciding its own (every
+    // seat is asked its mulligan at once), so that is turn 1's first priority
+    // pass rather than a mulligan.
+    let mut seat_0_asked = Some(asked_seat_0);
+    for _ in 0..10 {
+        if driver_asked {
+            break;
+        }
+        let Some(pending) = seat_0_asked.take() else {
+            break;
+        };
+        answer(&mut human, &pending).await;
+        let asked = tokio::time::timeout(WAIT_BUDGET, async {
+            loop {
+                tokio::select! {
+                    env = next(&mut driver) => match env?.msg {
+                        Some(v1::envelope::Msg::StateDelta(delta)) => assert_eq!(
+                            view_seat(&delta),
+                            Some(PlayerId::new(1)),
+                            "the driven socket is sent its own seat's view"
+                        ),
+                        Some(v1::envelope::Msg::ChoiceRequest(_)) => return Some(Asked::Driver),
+                        _ => {}
+                    },
+                    env = next(&mut human) => match env?.msg {
+                        Some(v1::envelope::Msg::StateDelta(delta)) => assert_eq!(
+                            view_seat(&delta),
+                            Some(PlayerId::new(0)),
+                            "seat 0 was sent another seat's view"
+                        ),
+                        Some(v1::envelope::Msg::ChoiceRequest(req)) => {
+                            let pending = serde_json::from_slice(&req.pending_json)
+                                .expect("seat 0's question decodes");
+                            return Some(Asked::Human(pending));
+                        }
+                        _ => {}
+                    },
                 }
-                _ => {}
             }
+        })
+        .await
+        .ok()
+        .flatten();
+        match asked {
+            Some(Asked::Driver) => driver_asked = true,
+            Some(Asked::Human(pending)) => seat_0_asked = Some(pending),
+            None => break,
         }
     }
     assert!(
@@ -545,6 +574,14 @@ async fn next_within(ws: &mut Client, millis: u64) -> Option<Envelope> {
 fn view_seat(delta: &v1::StateDelta) -> Option<PlayerId> {
     let view: serde_json::Value = serde_json::from_slice(&delta.view_json).ok()?;
     serde_json::from_value(view.get("seat")?.clone()).ok()
+}
+
+/// Which of two sockets was asked the next question.
+enum Asked {
+    /// The socket driving an AI chair.
+    Driver,
+    /// Seat 0, and what it was asked.
+    Human(Pending),
 }
 
 /// Answers a pending with the most trivial legal reply it has.

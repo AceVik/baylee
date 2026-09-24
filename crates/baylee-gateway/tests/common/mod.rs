@@ -417,7 +417,7 @@ async fn run_engine(
         // has nothing to read off one. Every question therefore reaches a
         // seat with its allowance whole, which is what an untimed in-process
         // runner should show.
-        for out in runner.handle(Envelope { msg: Some(msg) }, None) {
+        for out in runner.handle(Envelope { msg: Some(msg) }, &[]) {
             send(&mut ws, &out).await;
         }
         if runner.finished() {

@@ -56,15 +56,70 @@ pub struct Clock {
     /// player who reconnects turns a `StandIn` deadline into a `Decide` one
     /// simply by being a different `Clock`.
     pub what: Deadline,
-    /// The number of *questions* the game has asked so far
-    /// ([`Session::decision_seq`], not `Session::seq`). The deadline is
-    /// anchored to it, so it restarts when the game actually moves rather than
-    /// every time something else happens — and an opponent's priority hold or
-    /// reconnect, which produce frames without moving the game, cannot restart
-    /// it at all.
+    /// When the seat was asked the question it owes ([`Session::asked_at`],
+    /// counted in questions, not `Session::seq` frames). The deadline is
+    /// anchored to it, so it restarts when the seat is asked something new
+    /// rather than every time something else happens: an opponent's priority
+    /// hold or reconnect, which produce frames without moving the game, and
+    /// during the opening mulligans another seat's answer, which moves the
+    /// game without asking this seat anything new, cannot restart it at all.
     pub seq: u64,
     /// How long the seat has, in seconds.
     pub secs: u32,
+}
+
+/// The deadlines armed for the clocks that are running, at most one per
+/// seat, each at the moment it was armed plus its allowance.
+///
+/// Generic over the instant so the arming rule can be tested without a
+/// runtime; the attach loop keeps `tokio::time::Instant`s in it.
+#[derive(Debug)]
+pub struct Armed<T> {
+    deadlines: Vec<(Clock, T)>,
+}
+
+impl<T> Default for Armed<T> {
+    fn default() -> Self {
+        Self {
+            deadlines: Vec::new(),
+        }
+    }
+}
+
+impl<T: Copy + Ord> Armed<T> {
+    /// Brings the deadlines in line with `clocks`. A clock still running
+    /// unchanged keeps the deadline it has: that is what stops a seat's time
+    /// from starting over every time another seat's frame wakes the loop. A
+    /// clock that has stopped or changed loses its deadline, and a new one is
+    /// armed at `at(clock)`.
+    pub fn sync(&mut self, clocks: &[Clock], at: impl Fn(&Clock) -> T) {
+        self.deadlines.retain(|(armed, _)| clocks.contains(armed));
+        for clock in clocks {
+            if !self.deadlines.iter().any(|(armed, _)| armed == clock) {
+                self.deadlines.push((*clock, at(clock)));
+            }
+        }
+    }
+
+    /// The deadline that falls first, if any is armed.
+    #[must_use]
+    pub fn next(&self) -> Option<(Clock, T)> {
+        self.deadlines.iter().copied().min_by_key(|(_, at)| *at)
+    }
+
+    /// Forgets a deadline that has fired.
+    pub fn fired(&mut self, clock: Clock) {
+        self.deadlines.retain(|(armed, _)| *armed != clock);
+    }
+
+    /// Each armed clock, with what `left` says remains of it.
+    #[must_use]
+    pub fn remaining(&self, left: impl Fn(T) -> u32) -> Vec<(Clock, u32)> {
+        self.deadlines
+            .iter()
+            .map(|(clock, at)| (*clock, left(*at)))
+            .collect()
+    }
 }
 
 /// A game, and everything the gateway can ask of it.
@@ -79,13 +134,14 @@ pub struct EngineRunner {
     attached: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
-    /// The decision-clock remainder the caller last read off its own timer.
+    /// What the caller last read off its own timers: each armed clock, and
+    /// how much of it was left.
     ///
     /// Kept rather than passed straight through because it is read once per
-    /// frame but resolved more than once: registering a socket can move the
+    /// frame but resolved more than once: registering a socket can move an
     /// awaited seat from the reconnect window onto the decision clock, and
     /// that happens after the frame has arrived and before any view is built.
-    reading: Option<u32>,
+    readings: Vec<(Clock, u32)>,
 }
 
 impl EngineRunner {
@@ -113,7 +169,7 @@ impl EngineRunner {
         self.session.as_ref()
     }
 
-    /// What is on the clock, if anything.
+    /// What is on the clock: one clock per seat being asked, if any.
     ///
     /// A seat being asked is on exactly one of the two: the decision clock if
     /// it can see the question, the reconnect window if its socket is gone. A
@@ -123,11 +179,24 @@ impl EngineRunner {
     ///
     /// Nothing is on either clock when nobody is being asked, when the table
     /// set that limit to zero, or when the awaited seat is an AI chair — it
-    /// never had a socket to lose, so its absence means nothing.
+    /// never had a socket to lose, so its absence means nothing. During the
+    /// opening mulligans several seats are asked at once, each on its own
+    /// clock, and one seat's answer leaves every other seat's clock exactly
+    /// as it was.
     #[must_use]
-    pub fn clock(&self) -> Option<Clock> {
-        let session = self.session.as_ref()?;
-        let seat = session.awaiting_seat()?;
+    pub fn clocks(&self) -> Vec<Clock> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        session
+            .awaited()
+            .iter()
+            .filter_map(|seat| self.clock_for(session, seat))
+            .collect()
+    }
+
+    /// `seat`'s clock, if it is on one.
+    fn clock_for(&self, session: &Session, seat: PlayerId) -> Option<Clock> {
         let (what, secs) = if self.attached.contains(&seat.get()) {
             (Deadline::Decide, session.decision_timeout_secs())
         } else if session
@@ -144,20 +213,20 @@ impl EngineRunner {
         Some(Clock {
             seat,
             what,
-            seq: session.decision_seq(),
+            seq: session.asked_at(seat)?,
             secs,
         })
     }
 
-    /// The clock ran out. Acts for the seat, and only for that seat at that
-    /// sequence number — the opponent may have moved between the timer firing
-    /// and this being called, and one seat's expired clock must never take
-    /// another seat's decision.
+    /// The clock ran out. Acts for the seat, and only for that seat and the
+    /// question it was armed for — the seat may have answered between the
+    /// timer firing and this being called, and one seat's expired clock must
+    /// never take another seat's decision, nor this seat's next one.
     pub fn timeout(&mut self, clock: Clock) -> Vec<Envelope> {
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
-        if session.decision_seq() != clock.seq {
+        if session.asked_at(clock.seat) != Some(clock.seq) {
             return Vec::new();
         }
         match clock.what {
@@ -165,7 +234,7 @@ impl EngineRunner {
             // over this question.
             // Through the session's clock door rather than `apply`, so the
             // views sent on the way out say the clock answered this one.
-            Deadline::Decide => match session.answer_by_clock(clock.seat) {
+            Deadline::Decide => match session.answer_by_clock(clock.seat, clock.seq) {
                 None => Vec::new(),
                 Some(Ok(routed)) => {
                     let mut out = self.route(&routed);
@@ -205,27 +274,43 @@ impl EngineRunner {
     /// waited *for* rather than deciding, and a countdown drawn against it on
     /// everyone else's screen would name the wrong thing happening.
     ///
-    /// With nothing read, the seat gets the allowance whole, which is what a
-    /// question nobody has spent time on is worth.
+    /// With nothing read for exactly this clock, the seat gets the allowance
+    /// whole, which is what a question nobody has spent time on is worth. A
+    /// reading of the reconnect window is not one: a seat that has just come
+    /// back is armed a fresh decision clock, and shown that.
     fn absorb_clock(&mut self) {
-        let resolved = match self.clock() {
-            Some(clock) if clock.what == Deadline::Decide => Some(
-                self.reading
-                    .unwrap_or_else(|| clock.secs.saturating_mul(1_000)),
-            ),
-            _ => None,
+        let Some(session) = self.session.as_ref() else {
+            return;
         };
+        let resolved: Vec<(PlayerId, u64, Option<u32>)> = session
+            .awaited()
+            .iter()
+            .filter_map(|seat| {
+                let asked_at = session.asked_at(seat)?;
+                let remaining = self
+                    .clock_for(session, seat)
+                    .filter(|clock| clock.what == Deadline::Decide)
+                    .map(|clock| {
+                        self.readings
+                            .iter()
+                            .find(|(armed, _)| *armed == clock)
+                            .map_or_else(|| clock.secs.saturating_mul(1_000), |(_, ms)| *ms)
+                    });
+                Some((seat, asked_at, remaining))
+            })
+            .collect();
         if let Some(session) = self.session.as_mut() {
-            let seq = session.decision_seq();
-            session.set_decision_remaining(seq, resolved);
+            for (seat, asked_at, remaining) in resolved {
+                session.set_decision_remaining(seat, asked_at, remaining);
+            }
         }
     }
 
     /// Applies one frame from the gateway and returns what to send back.
     ///
-    /// `remaining_ms` is how much of the **currently armed** deadline is
-    /// left, read from the caller's clock a moment ago, or `None` if the
-    /// caller has nothing armed. It is a parameter rather than something the
+    /// `remaining` is how much of each **currently armed** deadline is left,
+    /// read from the caller's clocks a moment ago, and empty if the caller
+    /// has nothing armed. It is a parameter rather than something the
     /// runner reads for itself because the `Instant` lives with whoever runs
     /// the timer, and it is a parameter rather than an optional setter
     /// because a caller that forgot it would produce views whose countdown
@@ -237,8 +322,8 @@ impl EngineRunner {
     /// rather than the ten minutes it started with. Every other frame either
     /// moves the game — in which case the question is new and the allowance
     /// is whole — or is answered the same way by both.
-    pub fn handle(&mut self, envelope: Envelope, remaining_ms: Option<u32>) -> Vec<Envelope> {
-        self.reading = remaining_ms;
+    pub fn handle(&mut self, envelope: Envelope, remaining: &[(Clock, u32)]) -> Vec<Envelope> {
+        self.readings = remaining.to_vec();
         self.absorb_clock();
         match envelope.msg {
             Some(v1::envelope::Msg::GameSetup(setup)) => self.setup(&setup),
@@ -473,6 +558,23 @@ fn ended(game_id: &str, reason: &str) -> Envelope {
 mod tests {
     use super::*;
 
+    /// The one clock a duel with one human seat can have running.
+    fn on_clock(runner: &EngineRunner) -> Option<Clock> {
+        let clocks = runner.clocks();
+        assert!(clocks.len() <= 1, "a duel with one human ran {clocks:?}");
+        clocks.first().copied()
+    }
+
+    /// `ms` left on every clock running now, as the attach loop reads its
+    /// timers before handing a frame in.
+    fn reading(runner: &EngineRunner, ms: u32) -> Vec<(Clock, u32)> {
+        runner
+            .clocks()
+            .into_iter()
+            .map(|clock| (clock, ms))
+            .collect()
+    }
+
     /// The acceptance duel, seat 0 human and seat 1 the house.
     fn duel(timeout_secs: u32) -> GamePreset {
         let text = std::fs::read_to_string(
@@ -497,7 +599,7 @@ mod tests {
                     seat_names: vec!["You".to_string(), "House".to_string()],
                 })),
             },
-            None,
+            &[],
         )
     }
 
@@ -513,7 +615,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat })),
             },
-            None,
+            &[],
         )
     }
 
@@ -525,7 +627,7 @@ mod tests {
                     resync: false,
                 })),
             },
-            None,
+            &[],
         )
     }
 
@@ -545,7 +647,7 @@ mod tests {
                     envelope: prost::Message::encode_to_vec(&inner),
                 })),
             },
-            None,
+            &[],
         )
     }
 
@@ -669,11 +771,11 @@ mod tests {
         setup(&mut runner, &duel(30));
         attach(&mut runner, 0);
         attach(&mut runner, 1);
-        let before = runner.clock().expect("a seat is on the clock");
+        let before = on_clock(&runner).expect("a seat is on the clock");
         let out = act(&mut runner, 0, &PlayerAction::PassPriority);
         assert!(!out.is_empty(), "the refusal was answered at all");
         assert_eq!(
-            runner.clock(),
+            on_clock(&runner),
             Some(before),
             "a refused action re-armed the clock"
         );
@@ -685,6 +787,75 @@ mod tests {
         let mut preset = duel(timeout_secs);
         preset.seats[1].controller = baylee_core::preset::SeatController::Open;
         preset
+    }
+
+    /// During the opening mulligans each human seat is on its own clock, and
+    /// one seat's answer leaves the other's exactly as it was: the same
+    /// `Clock`, which is what keeps the attach loop from arming it again
+    /// ([`Armed::sync`]). The old deadline of the seat that answered answers
+    /// nothing, and the other seat's still answers for it.
+    #[test]
+    fn each_seat_deciding_its_mulligan_is_on_its_own_clock() {
+        let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(30));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        let before = runner.clocks();
+        assert_eq!(
+            before.iter().map(|c| (c.seat, c.what)).collect::<Vec<_>>(),
+            [(zero, Deadline::Decide), (one, Deadline::Decide)]
+        );
+        act(&mut runner, 0, &PlayerAction::MulliganTake);
+        let after = runner.clocks();
+        assert_eq!(after[1], before[1], "seat 0's take re-armed seat 1's clock");
+        assert_ne!(after[0], before[0], "seat 0 is asked anew after its take");
+        assert!(
+            runner.timeout(before[0]).is_empty(),
+            "a stale deadline answered"
+        );
+        assert!(!runner.timeout(before[1]).is_empty());
+        let session = runner.session().expect("a game");
+        assert!(!session.awaited().contains(one), "seat 1 did not keep");
+        assert_eq!(runner.clocks(), vec![after[0]]);
+    }
+
+    /// A deadline whose clock still runs unchanged keeps its moment; one that
+    /// changed is armed anew; one that stopped is gone.
+    #[test]
+    fn a_running_clock_keeps_the_deadline_it_was_armed_with() {
+        let clock = |seat: u8, seq: u64| Clock {
+            seat: PlayerId::new(seat),
+            what: Deadline::Decide,
+            seq,
+            secs: 30,
+        };
+        let mut armed = Armed::default();
+        armed.sync(&[clock(0, 0), clock(1, 0)], |c| 100 + u64::from(c.secs));
+        // Ten seconds on, seat 0 is asked something new and seat 1 is not.
+        armed.sync(&[clock(0, 1), clock(1, 0)], |c| 110 + u64::from(c.secs));
+        assert_eq!(armed.next(), Some((clock(1, 0), 130)));
+        assert_eq!(
+            armed.remaining(|at| u32::try_from(at).unwrap_or(u32::MAX)),
+            vec![(clock(1, 0), 130), (clock(0, 1), 140)]
+        );
+        armed.fired(clock(1, 0));
+        assert_eq!(armed.next(), Some((clock(0, 1), 140)));
+        armed.sync(&[], |_| 0);
+        assert_eq!(armed.next(), None);
+    }
+
+    /// Both seats keep their opening hands, so that turn 1 has begun and one
+    /// seat is being asked.
+    fn keep_both(runner: &mut EngineRunner) {
+        for seat in [0, 1] {
+            act(runner, seat, &PlayerAction::MulliganKeep);
+        }
+        assert_eq!(
+            runner.session().expect("a game").awaited().len(),
+            1,
+            "turn 1 has not begun"
+        );
     }
 
     /// The clock belongs to the seat being asked, and nobody else may wind it.
@@ -701,7 +872,10 @@ mod tests {
         setup(&mut runner, &two_humans(30));
         attach(&mut runner, 0);
         attach(&mut runner, 1);
-        let before = runner.clock().expect("a seat is on the clock");
+        // Past the mulligans, which ask both seats at once: this is about
+        // the seat that is not being asked.
+        keep_both(&mut runner);
+        let before = on_clock(&runner).expect("a seat is on the clock");
         let frames_before = runner.session().expect("a game").seq();
         let idle = u32::from(before.seat.get() == 0);
         for _ in 0..3 {
@@ -722,7 +896,7 @@ mod tests {
             "the seat that was not being asked could not state a hold at all"
         );
         assert_eq!(
-            runner.clock(),
+            on_clock(&runner),
             Some(before),
             "the seat not being asked wound the other seat's clock"
         );
@@ -739,13 +913,13 @@ mod tests {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(60, 30));
         attach(&mut runner, 0);
-        let clock = runner.clock().expect("the seat being asked is here");
+        let clock = on_clock(&runner).expect("the seat being asked is here");
         assert_eq!(clock.seat.get(), 0);
         assert_eq!(clock.what, Deadline::Decide);
         assert_eq!(clock.secs, 60);
 
         detach(&mut runner, 0);
-        let clock = runner.clock().expect("the table is still waiting on it");
+        let clock = on_clock(&runner).expect("the table is still waiting on it");
         assert_eq!(clock.seat.get(), 0);
         assert_eq!(
             clock.what,
@@ -764,11 +938,11 @@ mod tests {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(0, 30));
         attach(&mut runner, 0);
-        assert_eq!(runner.clock(), None);
+        assert_eq!(on_clock(&runner), None);
 
         detach(&mut runner, 0);
         assert_eq!(
-            runner.clock().map(|c| (c.what, c.secs)),
+            on_clock(&runner).map(|c| (c.what, c.secs)),
             Some((Deadline::StandIn, 30)),
             "no decision limit is not no reconnect window"
         );
@@ -781,7 +955,7 @@ mod tests {
         setup(&mut runner, &duel_window(60, 0));
         attach(&mut runner, 0);
         detach(&mut runner, 0);
-        assert_eq!(runner.clock(), None);
+        assert_eq!(on_clock(&runner), None);
     }
 
     /// The bug the reconnect window exists for: seat 0 closes its laptop
@@ -799,7 +973,7 @@ mod tests {
         detach(&mut runner, 0);
         let stuck = runner.session().expect("the game is built").decision_seq();
 
-        let clock = runner.clock().expect("the chair is on a clock");
+        let clock = on_clock(&runner).expect("the chair is on a clock");
         assert_eq!(clock.what, Deadline::StandIn);
         let _ = runner.timeout(clock);
         assert!(
@@ -817,7 +991,7 @@ mod tests {
         setup(&mut runner, &duel_window(60, 30));
         attach(&mut runner, 0);
         detach(&mut runner, 0);
-        let clock = runner.clock().expect("the chair is on a clock");
+        let clock = on_clock(&runner).expect("the chair is on a clock");
         attach(&mut runner, 0);
 
         assert!(
@@ -825,7 +999,7 @@ mod tests {
             "the deadline fired for a chair that is occupied again"
         );
         assert_eq!(
-            runner.clock().map(|c| c.what),
+            on_clock(&runner).map(|c| c.what),
             Some(Deadline::Decide),
             "and the seat is simply being asked again"
         );
@@ -839,7 +1013,7 @@ mod tests {
         setup(&mut runner, &duel_window(60, 30));
         attach(&mut runner, 0);
         detach(&mut runner, 0);
-        let clock = runner.clock().expect("the chair is on a clock");
+        let clock = on_clock(&runner).expect("the chair is on a clock");
         let _ = runner.timeout(clock);
         assert!(
             runner
@@ -868,7 +1042,7 @@ mod tests {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(60));
         attach(&mut runner, 0);
-        let clock = runner.clock().expect("someone is being asked");
+        let clock = on_clock(&runner).expect("someone is being asked");
         let stale = Clock {
             seq: clock.seq + 1,
             ..clock
@@ -900,7 +1074,7 @@ mod tests {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(60));
         attach(&mut runner, 0);
-        let clock = runner.clock().expect("someone is being asked");
+        let clock = on_clock(&runner).expect("someone is being asked");
         assert_eq!(clock.what, Deadline::Decide);
         let out = runner.timeout(clock);
         let view = last_view(&out, clock.seat.get().into()).expect("the seat is sent the table");
@@ -924,7 +1098,7 @@ mod tests {
                     seat_names: Vec::new(),
                 })),
             },
-            None,
+            &[],
         );
         assert!(
             matches!(
@@ -952,7 +1126,7 @@ mod tests {
                             envelope: Vec::new(),
                         })),
                     },
-                    None
+                    &[]
                 )
                 .is_empty()
         );
@@ -1026,7 +1200,7 @@ mod tests {
                     resync: true,
                 })),
             },
-            Some(4_000),
+            &reading(&runner, 4_000),
         );
         assert_eq!(
             last_view(&out, 0)
@@ -1066,7 +1240,7 @@ mod tests {
                     envelope: prost::Message::encode_to_vec(&inner),
                 })),
             },
-            Some(4_000),
+            &reading(&runner, 4_000),
         );
         assert_ne!(
             runner.session().expect("a game").decision_seq(),
@@ -1106,12 +1280,15 @@ mod tests {
         setup(&mut runner, &two_humans(600));
         attach(&mut runner, 0);
         attach(&mut runner, 1);
+        // Past the mulligans, which ask both seats at once: this is about
+        // the seat that is not being asked.
+        keep_both(&mut runner);
         detach(&mut runner, 0);
         // Seat 1 is still here and still being sent views; seat 0, which the
         // table is waiting on, is on the reconnect window instead.
         let out = attach(&mut runner, 1);
         assert_eq!(
-            runner.clock().map(|c| c.what),
+            on_clock(&runner).map(|c| c.what),
             Some(Deadline::StandIn),
             "this test needs seat 0 to be on the reconnect window"
         );

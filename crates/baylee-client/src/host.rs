@@ -545,9 +545,13 @@ pub(crate) mod tests {
         assert_eq!(view.seat, PlayerId::new(0));
         assert_eq!(view.seats.len(), 2);
         // The opening hand reached the client, and the opponent's did not.
+        // The house has already answered the AI chair's mulligan (#257). A
+        // hand of seven Islands is never a keep for its policy, so it takes
+        // until its limit and keeps five: still only a count.
         assert_eq!(view.hand.len(), 7);
-        assert_eq!(view.seats[1].hand_count, 7);
-        assert_eq!(view.seats[1].library_count, 53);
+        let them = &view.seats[1];
+        assert_eq!(them.hand_count, 5);
+        assert_eq!(them.hand_count + them.library_count, 60);
     }
 
     #[test]

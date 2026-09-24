@@ -269,10 +269,15 @@ fn a_networked_seat_is_dealt_in() {
 
     let view = views(&messages)[0];
     assert_eq!(view.hand.len(), 7);
-    assert_eq!(view.seats[1].hand_count, 7);
+    // The house has already answered the AI chair's mulligan (#257). A hand
+    // of seven Islands is never a keep for its policy, so it takes until its
+    // limit and keeps five.
+    let them = &view.seats[1];
+    assert_eq!(them.hand_count, 5);
     assert_eq!(
-        view.seats[1].library_count, 53,
-        "the opponent's library is a count and nothing else"
+        them.hand_count + them.library_count,
+        60,
+        "the opponent's hand and library are counts and nothing else"
     );
     assert!(matches!(choices(&messages)[0], Pending::Mulligan { .. }));
 }

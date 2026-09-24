@@ -2,9 +2,9 @@
 //! tests and both servers (engine-server dev harness, gateway) drive it
 //! directly; transport lives with the callers.
 
-use baylee_ai::{HeuristicAgent, pending_player, policy_seed};
+use baylee_ai::{HeuristicAgent, policy_seed};
 use baylee_cards::dsl::CardDef;
-use baylee_core::ids::{CardIndex, PlayerId};
+use baylee_core::ids::{CardIndex, PlayerId, SeatSet};
 use baylee_core::preset::{AIProfile, GamePreset, HouseRules, PrintInfo, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
@@ -97,8 +97,12 @@ pub struct Session {
     decisions: u64,
     /// Kept for the decision clock; the engine has its own copy for rules.
     house_rules: HouseRules,
-    /// The last decision-clock reading the caller took, and the question it
-    /// was taken for.
+    /// Per seat, the [`Session::decision_seq`] at which it was asked the
+    /// question it owes now: the anchor its decision clock runs against
+    /// ([`Session::asked_at`]).
+    asked_at: Vec<u64>,
+    /// Per seat, the last decision-clock reading the caller took, and the
+    /// question it was taken for.
     ///
     /// A reading rather than a clock: this crate may not own one, so the
     /// number arrives from outside and is stored with the `decision_seq` it
@@ -115,7 +119,7 @@ pub struct Session {
     /// has been read when a game starts, so the opening question of every
     /// game came out as "no clock" and was the one decision nobody was shown
     /// a countdown for.
-    clock: Option<(u64, Option<u32>)>,
+    clock: Vec<Option<(u64, Option<u32>)>>,
     /// The print table the game was built from.
     ///
     /// The rules kernel has no use for it; a client has nothing without it.
@@ -200,7 +204,8 @@ impl Session {
             seq: 0,
             decisions: 0,
             house_rules: preset.house_rules.clone(),
-            clock: None,
+            asked_at: vec![0; preset.seats.len()],
+            clock: vec![None; preset.seats.len()],
             prints: preset.prints.clone(),
             revealed: preset
                 .seats
@@ -468,17 +473,18 @@ impl Session {
     ///
     /// The order matters: the entry has to be there before the object that
     /// points at it, or the client draws a card it cannot key an image on.
-    fn view_envelopes(&mut self, seat: PlayerId, awaiting: Option<PlayerId>) -> Vec<Envelope> {
+    fn view_envelopes(&mut self, seat: PlayerId) -> Vec<Envelope> {
+        let awaiting = self.awaiting_seat();
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
             self.seq,
-            Some(self.engine.pending()),
+            self.engine.pending_for(seat),
             &crate::view::SeatContext {
                 awaiting,
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
-                decision_remaining_ms: self.decision_remaining_ms(),
+                decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
             },
             &self.house_answered,
         );
@@ -512,35 +518,46 @@ impl Session {
 
     /// Drains AI-controlled pendings, then returns per-seat envelopes:
     /// a fresh hidden-information view for every human seat plus a
-    /// choice request for the acting seat (or game over for everyone).
-    /// Capped so an all-AI game can never hang the server.
+    /// choice request for every seat being asked (or game over for
+    /// everyone). Capped so an all-AI game can never hang the server.
     pub fn pump(&mut self) -> Vec<(PlayerId, Envelope)> {
         let mut out = Vec::new();
         for _ in 0..4096 {
-            let pending = self.engine.pending().clone();
-            let Some(player) = pending_player(&pending) else {
+            let awaited = self.engine.awaited();
+            if awaited.is_empty() {
+                let pending = self.engine.pending().clone();
                 if let Pending::GameOver(_) = &pending {
                     for seat in self.human_seats() {
-                        let envelopes = self.view_envelopes(seat, None);
+                        let envelopes = self.view_envelopes(seat);
                         out.extend(envelopes.into_iter().map(|env| (seat, env)));
                         out.push((seat, choice_envelope(self.seq, &pending)));
                     }
                 }
                 return out;
-            };
-            let is_human = self
-                .seats
-                .get(player.get() as usize)
-                .is_some_and(SeatKind::answers_over_socket);
-            if is_human {
-                let awaiting = pending_player(&pending);
+            }
+            // The house answers first, in seat order: during the opening
+            // mulligans several seats are asked at once, and a human who is
+            // still deciding must not hold up an AI chair's keep.
+            let house = awaited.iter().find_map(|seat| {
+                let socket = self
+                    .seats
+                    .get(seat.get() as usize)
+                    .is_some_and(SeatKind::answers_over_socket);
+                let pending = self.engine.pending_for(seat).filter(|_| !socket)?;
+                Some((seat, pending.clone()))
+            });
+            let Some((player, pending)) = house else {
                 for seat in self.human_seats() {
-                    let envelopes = self.view_envelopes(seat, awaiting);
+                    let envelopes = self.view_envelopes(seat);
                     out.extend(envelopes.into_iter().map(|env| (seat, env)));
                 }
-                out.push((player, choice_envelope(self.seq, &pending)));
+                for seat in awaited.iter() {
+                    if let Some(pending) = self.engine.pending_for(seat) {
+                        out.push((seat, choice_envelope(self.seq, pending)));
+                    }
+                }
                 return out;
-            }
+            };
             let action = match &self.seats[player.get() as usize] {
                 // Both receive a filtered view. Scouting checks the live
                 // seat kind separately and denies a human's stand-in.
@@ -551,7 +568,7 @@ impl Session {
                         self.seq,
                         Some(&pending),
                         &crate::view::SeatContext {
-                            awaiting: pending_player(&pending),
+                            awaiting: self.awaiting_seat(),
                             held: self.engine.automation(player).hold.suppresses(),
                             owed: crate::view::owed_payment(&self.engine),
                             // No clock in a view an agent answers from. This
@@ -585,10 +602,11 @@ impl Session {
             let by = self.seats[player.get() as usize]
                 .is_away()
                 .then_some(HouseAnswer::StandIn);
+            let deciding = self.deciding();
             let moves_the_game = self.apply_house_action(player, action);
             self.seq += 1;
             if moves_the_game {
-                self.decisions += 1;
+                self.moved(player, deciding);
                 self.house_answered[player.get() as usize] = by;
             }
         }
@@ -604,10 +622,10 @@ impl Session {
         // Re-read the actual question: a rejected proposal can have entered
         // a casting/payment wizard. The ordinary timeout policy covers all
         // question kinds instead of a positive list containing only Priority.
-        let (seat, fallback) = self
-            .house_action()
+        let fallback = self
+            .house_action(player)
             .expect("refused AI action left no decision");
-        self.engine.apply(seat, fallback).expect(
+        self.engine.apply(player, fallback).expect(
             "both AI proposal and recovery were refused; refusing to silently stall the table",
         );
         true
@@ -638,11 +656,11 @@ impl Session {
         self.house_rules.reconnect_window_secs
     }
 
-    /// Tell this session how much of the awaited seat's decision clock is
-    /// left, as read by whoever owns the clock.
+    /// Tell this session how much of `seat`'s decision clock is left, as read
+    /// by whoever owns the clock.
     ///
-    /// `seq` is the [`Session::decision_seq`] the reading was taken against,
-    /// and passing it is not ceremony: the caller reads its clock *before*
+    /// `seq` is the [`Session::asked_at`] the reading was taken against, and
+    /// passing it is not ceremony: the caller reads its clock *before*
     /// handing a frame in, and handling that frame may move the game, so by
     /// the time a view is built the number can already belong to a question
     /// nobody is being asked any more.
@@ -652,16 +670,18 @@ impl Session {
     /// window rather than deciding. That is a different statement from never
     /// having called this at all, and [`Session::decision_remaining_ms`]
     /// treats them differently.
-    pub const fn set_decision_remaining(&mut self, seq: u64, remaining_ms: Option<u32>) {
-        self.clock = Some((seq, remaining_ms));
+    pub fn set_decision_remaining(&mut self, seat: PlayerId, seq: u64, remaining_ms: Option<u32>) {
+        if let Some(slot) = self.clock.get_mut(seat.get() as usize) {
+            *slot = Some((seq, remaining_ms));
+        }
     }
 
-    /// How long the awaited seat has left, in milliseconds, or `None` when no
-    /// decision clock is running.
+    /// How long `seat` has left to answer, in milliseconds, or `None` when it
+    /// is not being asked or no decision clock is running for it.
     ///
     /// Almost all of this is the anchor check. A reading is only true of the
-    /// question it was taken for, so once [`Session::decision_seq`] has moved
-    /// past it the reading is discarded and the seat is given the table's
+    /// question it was taken for, so once the seat has been asked a new one
+    /// ([`Session::asked_at`]) the reading is discarded and the seat is given the table's
     /// whole allowance instead — which is exactly right, because a question
     /// that has only just been asked has had no time taken off it. Without
     /// that branch the first view of every new question would carry the
@@ -673,13 +693,13 @@ impl Session {
     /// player rather than deciding, so neither inherits an allowance merely
     /// because the seat asked before them had one.
     #[must_use]
-    pub fn decision_remaining_ms(&self) -> Option<u32> {
-        if let Some((seq, reading)) = self.clock
-            && seq == self.decisions
+    pub fn decision_remaining_ms(&self, seat: PlayerId) -> Option<u32> {
+        let asked_at = self.asked_at(seat)?;
+        if let Some(Some((seq, reading))) = self.clock.get(seat.get() as usize)
+            && *seq == asked_at
         {
-            return reading;
+            return *reading;
         }
-        let seat = self.awaiting_seat()?;
         if !self
             .seat_kind(seat)
             .is_some_and(SeatKind::answers_over_socket)
@@ -692,10 +712,75 @@ impl Session {
         }
     }
 
-    /// The seat that currently owes an answer, if any.
+    /// Every seat that owes an answer: all that are still deciding their
+    /// opening mulligans, and after them the one the game is waiting on.
+    #[must_use]
+    pub fn awaited(&self) -> SeatSet {
+        self.engine.awaited()
+    }
+
+    /// The seat the table is waiting on, as every view names it: the one
+    /// [`Engine::pending`](baylee_engine::engine::Engine::pending) is
+    /// addressed to. During the opening mulligans that is the lowest seat
+    /// still deciding, and [`Session::awaited`] is every one of them.
     #[must_use]
     pub fn awaiting_seat(&self) -> Option<PlayerId> {
-        pending_player(self.engine.pending())
+        self.engine.pending().asked()
+    }
+
+    /// The [`Session::decision_seq`] at which `seat` was asked the question
+    /// it owes now, or `None` when it owes none: what a decision clock for
+    /// `seat` is anchored to.
+    ///
+    /// Not `decision_seq` itself, because during the opening mulligans
+    /// several seats are asked at once and each answers in its own time. One
+    /// seat's keep moves the game without asking any other seat anything
+    /// new, and a clock anchored to the shared count would restart every
+    /// other seat's deadline at every keep: free time for whoever waits.
+    /// Everywhere else one seat is asked, and its anchor moves exactly when
+    /// the shared count does ([`Session::moved`]).
+    #[must_use]
+    pub fn asked_at(&self, seat: PlayerId) -> Option<u64> {
+        if !self.engine.awaited().contains(seat) {
+            return None;
+        }
+        self.asked_at.get(seat.get() as usize).copied()
+    }
+
+    /// The seats owing an opening mulligan question.
+    fn deciding(&self) -> SeatSet {
+        self.engine
+            .awaited()
+            .iter()
+            .filter(|seat| {
+                matches!(
+                    self.engine.pending_for(*seat),
+                    Some(Pending::Mulligan { .. } | Pending::MulliganBottom { .. })
+                )
+            })
+            .collect()
+    }
+
+    /// The game moved, by `answered`'s answer or concession: counts the
+    /// question and re-anchors every seat that is now asked something new.
+    ///
+    /// `deciding` is [`Session::deciding`] read before the move. A seat
+    /// keeps its anchor only if it owed an opening mulligan question before,
+    /// still owes one and did not answer: that seat is asked exactly what it
+    /// was asked, and its clock runs on. Every other seat still being asked
+    /// is asked anew, and outside the mulligans that is every move, as it
+    /// was when the one count was the anchor: a bystander's concession or
+    /// draw offer changes the awaited seat's question without that seat
+    /// saying anything.
+    fn moved(&mut self, answered: PlayerId, deciding: SeatSet) {
+        self.decisions += 1;
+        let still = self.deciding();
+        for seat in self.engine.awaited().iter() {
+            let holds = seat != answered && deciding.contains(seat) && still.contains(seat);
+            if !holds && let Some(at) = self.asked_at.get_mut(seat.get() as usize) {
+                *at = self.decisions;
+            }
+        }
     }
 
     /// The action to apply when a seat's decision clock runs out: the
@@ -711,15 +796,12 @@ impl Session {
     /// know. A question with no answer that does nothing (a discard, a
     /// target) is still the house's.
     #[must_use]
-    pub fn timeout_action(&self) -> Option<(PlayerId, PlayerAction)> {
-        let player = self.awaiting_seat()?;
-        match baylee_engine::choice::timeout_answer(self.engine.pending()) {
-            Some(nothing) => Some((player, nothing)),
-            None => self.house_action(),
-        }
+    pub fn timeout_action(&self, seat: PlayerId) -> Option<PlayerAction> {
+        let pending = self.engine.pending_for(seat)?;
+        baylee_engine::choice::timeout_answer(pending).or_else(|| self.house_action(seat))
     }
 
-    /// What the house answers for the awaited seat.
+    /// What the house answers for `seat`, if it is being asked anything.
     ///
     /// The house agent answers rather than a hand-written table of defaults.
     /// It already produces a *legal* answer for every `Pending`, and a
@@ -727,19 +809,18 @@ impl Session {
     /// exists to unstick — the seat would be asked again, time out again,
     /// and the table would never move.
     #[must_use]
-    pub fn house_action(&self) -> Option<(PlayerId, PlayerAction)> {
-        let player = self.awaiting_seat()?;
+    pub fn house_action(&self, player: PlayerId) -> Option<PlayerAction> {
+        let pending = self.engine.pending_for(player)?;
         // Teams included, as `stand_in` builds it: without them every other
         // chair reads as an enemy, the seat's own partner among them.
         let agent = HeuristicAgent::new(AIProfile::default()).with_teams(self.teams.clone());
-        let pending = self.engine.pending();
         let view = crate::view::player_view(
             self.engine.state(),
             player,
             self.seq,
             Some(pending),
             &crate::view::SeatContext {
-                awaiting: pending_player(pending),
+                awaiting: self.awaiting_seat(),
                 held: self.engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 // As in `pump`, and pointedly so here: this view exists
@@ -749,7 +830,7 @@ impl Session {
             },
             &self.house_answered,
         );
-        Some((player, agent.act(&view, pending)))
+        Some(agent.act(&view, pending))
     }
 
     /// The sequence number a client should report back when it resumes.
@@ -783,25 +864,27 @@ impl Session {
     /// would let a reconnect take a turn on the AI's behalf.
     #[must_use]
     pub fn snapshot(&self, seat: PlayerId) -> Vec<Envelope> {
-        let pending = self.engine.pending().clone();
+        let own = self.engine.pending_for(seat);
+        let awaiting = self.awaiting_seat();
         // Read-only, so no printing is revealed here: this rebuilds a state a
         // `pump` already showed this seat, and the reveal happened there.
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
             self.seq,
-            Some(&pending),
+            own,
             &crate::view::SeatContext {
-                awaiting: pending_player(&pending),
+                awaiting,
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
-                decision_remaining_ms: self.decision_remaining_ms(),
+                decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
             },
             &self.house_answered,
         );
         let mut out = vec![view_envelope(self.seq, &view)];
-        if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
-            out.push(choice_envelope(self.seq, &pending));
+        let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));
+        if let Some(pending) = own.or(over) {
+            out.push(choice_envelope(self.seq, pending));
         }
         out
     }
@@ -849,16 +932,17 @@ impl Session {
     pub fn answer_by_clock(
         &mut self,
         seat: PlayerId,
+        asked_at: u64,
     ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
-        if self.awaiting_seat()? != seat {
+        if self.asked_at(seat)? != asked_at {
             return None;
         }
-        let pending = self.engine.pending().clone();
+        let pending = self.engine.pending_for(seat)?.clone();
         by_clock(
             self,
             &pending,
             |session, action| session.answer(seat, action, Some(HouseAnswer::Clock)),
-            |session| session.house_action().map(|(_, action)| action),
+            |session| session.house_action(seat),
         )
     }
 
@@ -880,12 +964,13 @@ impl Session {
         // thing the engine takes from a seat that is not being asked, and it
         // leaves the question standing. See [`Session::decision_seq`].
         let moves_the_game = !action.is_automation_setting();
+        let deciding = self.deciding();
         if self.engine.apply(player, action).is_err() {
             return Err("illegal action for your seat".to_string());
         }
         self.seq += 1;
         if moves_the_game {
-            self.decisions += 1;
+            self.moved(player, deciding);
             self.house_answered[player.get() as usize] = by;
         }
         Ok(self.pump())
@@ -960,6 +1045,27 @@ fn choice_envelope(seq: u64, pending: &Pending) -> Envelope {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The awaited seat's clock answer, as a one-seat table asks it.
+    fn timeout(session: &Session) -> Option<(PlayerId, PlayerAction)> {
+        let seat = session.awaiting_seat()?;
+        Some((seat, session.timeout_action(seat)?))
+    }
+
+    /// The house's answer for the awaited seat, as a one-seat table asks it.
+    fn house(session: &Session) -> Option<(PlayerId, PlayerAction)> {
+        let seat = session.awaiting_seat()?;
+        Some((seat, session.house_action(seat)?))
+    }
+
+    /// `seat`'s clock running out on the question it owes now.
+    fn clock_answers(
+        session: &mut Session,
+        seat: PlayerId,
+    ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
+        let asked_at = session.asked_at(seat)?;
+        session.answer_by_clock(seat, asked_at)
+    }
     use baylee_core::ids::PrintRef;
     use baylee_core::preset::{
         AIProfile, DeckEntry, Finish, FormatId, HouseRules, PrintInfo, SeatSpec,
@@ -1924,7 +2030,7 @@ mod tests {
     fn only_the_asked_seat_is_sent_the_choice() {
         let (session, human) = started_session();
         let others: Vec<PlayerId> = (0..2).map(PlayerId::new).filter(|p| *p != human).collect();
-        let asked = super::pending_player(session.pending());
+        let asked = session.pending().asked();
         for seat in others {
             let has_choice = session
                 .snapshot(seat)
@@ -2001,9 +2107,7 @@ mod tests {
     fn a_timed_out_seat_is_answered_legally() {
         let mut session = Session::new(&test_preset()).expect("session builds");
         let _ = session.pump();
-        let (player, action) = session
-            .timeout_action()
-            .expect("somebody is being asked something");
+        let (player, action) = timeout(&session).expect("somebody is being asked something");
         assert_eq!(Some(player), session.awaiting_seat());
 
         let seq_before = session.seq();
@@ -2054,7 +2158,7 @@ mod tests {
             "the table never reached the first seat's attack"
         );
 
-        let (player, action) = session.house_action().expect("the attack is asked");
+        let (player, action) = house(&session).expect("the attack is asked");
         assert_eq!(player, me);
         let PlayerAction::DeclareAttackers { attackers } = action else {
             panic!("the clock answered an attack with {action:?}")
@@ -2119,19 +2223,15 @@ mod tests {
             my_main(&session),
             "the table never reached the seat's main phase"
         );
-        let (_, house) = session.house_action().expect("the seat is asked");
+        let (_, house) = house(&session).expect("the seat is asked");
         assert_ne!(
             house,
             PlayerAction::PassPriority,
             "the house would pass here too, so this proves nothing"
         );
-        assert_eq!(
-            session.timeout_action(),
-            Some((me, PlayerAction::PassPriority))
-        );
+        assert_eq!(timeout(&session), Some((me, PlayerAction::PassPriority)));
 
-        session
-            .answer_by_clock(me)
+        clock_answers(&mut session, me)
             .expect("the seat is being asked")
             .expect("passing is legal");
         let state = session.engine.state();
@@ -2240,7 +2340,7 @@ mod tests {
             if asked == seat {
                 return;
             }
-            let (player, action) = session.timeout_action().expect("a question is out");
+            let (player, action) = timeout(session).expect("a question is out");
             session.act(player, action).expect("a legal answer");
         }
         panic!("seat {seat:?} was never asked");
@@ -2257,8 +2357,7 @@ mod tests {
         let me = PlayerId::new(0);
         until_asked(&mut session, me);
 
-        let routed = session
-            .answer_by_clock(me)
+        let routed = clock_answers(&mut session, me)
             .expect("the seat is being asked")
             .expect("the house's answer is legal");
         let seats = routed_view(&routed, me).seats;
@@ -2281,7 +2380,7 @@ mod tests {
         );
 
         until_asked(&mut session, me);
-        let (_, action) = session.timeout_action().expect("the seat is asked");
+        let (_, action) = timeout(&session).expect("the seat is asked");
         let routed = session.act(me, action).expect("a legal answer");
         assert_eq!(routed_view(&routed, me).seats[0].house_answered, None);
     }
@@ -2295,7 +2394,7 @@ mod tests {
         let me = PlayerId::new(0);
         until_asked(&mut session, me);
         let before = session.decision_seq();
-        assert!(session.answer_by_clock(PlayerId::new(1)).is_none());
+        assert!(clock_answers(&mut session, PlayerId::new(1)).is_none());
         assert_eq!(session.decision_seq(), before);
         assert_eq!(seat_view(&session, me).seats[0].house_answered, None);
     }
@@ -2326,7 +2425,7 @@ mod tests {
         );
 
         until_asked(&mut session, me);
-        let (_, action) = session.timeout_action().expect("the seat is asked");
+        let (_, action) = timeout(&session).expect("the seat is asked");
         let routed = session.act(me, action).expect("a legal answer");
         assert_eq!(routed_view(&routed, other).seats[0].house_answered, None);
     }
@@ -2340,8 +2439,7 @@ mod tests {
         assert!(session.take_over(driven));
         let _ = session.pump();
         until_asked(&mut session, driven);
-        let routed = session
-            .answer_by_clock(driven)
+        let routed = clock_answers(&mut session, driven)
             .expect("the seat is being asked")
             .expect("the house's answer is legal");
         assert_eq!(routed_view(&routed, driven).seats[1].house_answered, None);
@@ -2355,7 +2453,7 @@ mod tests {
         let _ = session.pump();
         let mut answered = 0;
         for _ in 0..40 {
-            let Some((player, action)) = session.timeout_action() else {
+            let Some((player, action)) = timeout(&session) else {
                 break;
             };
             if session.act(player, action).is_err() {
@@ -2504,5 +2602,160 @@ mod tests {
                 &[]
             )
         );
+    }
+
+    /// Two human seats, both on a 30-second decision clock.
+    fn two_humans() -> GamePreset {
+        let mut preset = test_preset();
+        preset.seats[1].controller = SeatController::Open;
+        preset.house_rules.decision_timeout_secs = 30;
+        preset
+    }
+
+    /// Every question `routed` asks, by seat.
+    fn asked(routed: &[(PlayerId, Envelope)]) -> Vec<(u8, Pending)> {
+        routed
+            .iter()
+            .filter_map(|(seat, env)| match &env.msg {
+                Some(v1::envelope::Msg::ChoiceRequest(req)) => Some((
+                    seat.get(),
+                    serde_json::from_slice(&req.pending_json).expect("the question decodes"),
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Every seat is asked its opening mulligan at once, each only its own,
+    /// and a seat that comes back mid-window is asked its own again.
+    #[test]
+    fn every_human_seat_is_asked_its_own_mulligan_at_once() {
+        let mut session = Session::new(&two_humans()).expect("session builds");
+        let routed = session.pump();
+        let questions = asked(&routed);
+        assert_eq!(questions.len(), 2, "{questions:?}");
+        for (seat, pending) in &questions {
+            assert!(
+                matches!(pending, Pending::Mulligan { player, .. } if player.get() == *seat),
+                "seat {seat} was asked {pending:?}"
+            );
+        }
+        let me = PlayerId::new(1);
+        let resumed = asked(
+            &session
+                .snapshot(me)
+                .into_iter()
+                .map(|env| (me, env))
+                .collect::<Vec<_>>(),
+        );
+        assert!(
+            matches!(resumed.as_slice(), [(1, Pending::Mulligan { player, .. })] if *player == me),
+            "{resumed:?}"
+        );
+    }
+
+    /// An AI chair keeps while a human is still deciding: nobody waits on
+    /// anybody before turn 1.
+    #[test]
+    fn an_ai_chair_keeps_while_a_human_is_still_deciding() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let routed = session.pump();
+        assert_eq!(session.awaited(), [PlayerId::new(0)].into_iter().collect());
+        assert!(session.engine.pending_for(PlayerId::new(1)).is_none());
+        assert!(
+            matches!(asked(&routed).as_slice(), [(0, Pending::Mulligan { .. })]),
+            "{:?}",
+            asked(&routed)
+        );
+    }
+
+    /// One seat's mulligan answer asks no other seat anything new, so the
+    /// other seat's clock runs on: its anchor stays, its reading is what it
+    /// is shown, and its deadline still answers for it (a keep, #258).
+    #[test]
+    fn one_seats_mulligan_answer_leaves_the_other_seats_clock_running() {
+        let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
+        for answer in [PlayerAction::MulliganTake, PlayerAction::MulliganKeep] {
+            let mut session = Session::new(&two_humans()).expect("session builds");
+            let _ = session.pump();
+            let at_zero = session.asked_at(zero).expect("seat 0 is asked");
+            let at_one = session.asked_at(one).expect("seat 1 is asked");
+            session.set_decision_remaining(zero, at_zero, Some(9_000));
+            session.set_decision_remaining(one, at_one, Some(4_000));
+
+            session.act(zero, answer.clone()).expect("seat 0 answers");
+            assert_eq!(session.asked_at(one), Some(at_one), "after {answer:?}");
+            assert_eq!(
+                session.decision_remaining_ms(one),
+                Some(4_000),
+                "seat 1's clock started over after seat 0's {answer:?}"
+            );
+            assert!(
+                clock_answers(&mut session, zero)
+                    .is_none_or(|_| session.asked_at(zero) != Some(at_zero)),
+                "seat 0's old deadline still answered for it"
+            );
+            assert!(
+                session
+                    .answer_by_clock(one, at_one)
+                    .is_some_and(|r| r.is_ok()),
+                "seat 1's deadline did not answer after seat 0's {answer:?}"
+            );
+            assert!(
+                session.engine.pending_for(one).is_none(),
+                "seat 1 did not keep when its clock ran out"
+            );
+        }
+    }
+
+    /// A deadline armed for a question that has since moved on answers
+    /// nothing: the seat's own answer moves its anchor.
+    #[test]
+    fn a_deadline_for_a_question_already_answered_answers_nothing() {
+        let zero = PlayerId::new(0);
+        let mut session = Session::new(&two_humans()).expect("session builds");
+        let _ = session.pump();
+        let at_zero = session.asked_at(zero).expect("seat 0 is asked");
+        session
+            .act(zero, PlayerAction::MulliganTake)
+            .expect("seat 0 takes");
+        assert_ne!(session.asked_at(zero), Some(at_zero));
+        assert!(session.answer_by_clock(zero, at_zero).is_none());
+        assert!(
+            matches!(
+                session.engine.pending_for(zero),
+                Some(Pending::Mulligan { taken: 1, .. })
+            ),
+            "the stale deadline answered seat 0's new question"
+        );
+    }
+
+    /// Outside the mulligans a bystander's move asks the awaited seat anew,
+    /// as it did when one count was every clock's anchor. A concession is
+    /// the one such move (only the seat with priority may offer a draw).
+    /// Today the engine hands seat 0's priority on to seat 1 when seat 2
+    /// concedes (#275); once seat 0 keeps it, as CR 800.4a has it, this is a
+    /// seat asked anew without having answered, and the same assertions hold.
+    #[test]
+    fn a_bystanders_concession_asks_the_awaited_seat_anew() {
+        let (zero, two) = (PlayerId::new(0), PlayerId::new(2));
+        let mut preset = two_humans();
+        preset.seats.push(preset.seats[1].clone());
+        let mut session = Session::new(&preset).expect("session builds");
+        let _ = session.pump();
+        for seat in 0..3 {
+            session
+                .act(PlayerId::new(seat), PlayerAction::MulliganKeep)
+                .expect("keeps");
+        }
+        until_asked(&mut session, zero);
+        let before = session.asked_at(zero).expect("seat 0 is asked");
+        session.set_decision_remaining(zero, before, Some(4_000));
+        session
+            .act(two, PlayerAction::Concede)
+            .expect("seat 2 may concede");
+        let asked = session.awaiting_seat().expect("the game goes on");
+        assert_eq!(session.asked_at(asked), Some(session.decision_seq()));
+        assert_eq!(session.decision_remaining_ms(asked), Some(30_000));
     }
 }
