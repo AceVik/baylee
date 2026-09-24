@@ -364,6 +364,34 @@ being legendary (Spark Double), because the legend rule keeps only one
 take the lowest id; and Sakashima, whose own static switches the legend rule
 off for its controller, is ranked as if it did not.
 
+**A redirect or a copy is answered by the spell it turns or copies.**
+Misdirection, Deflecting Swat, Hydroelectric Specimen and Dualcaster Mage each
+ask two target questions, and their own effect means nothing to
+`tactics::meaning`, so the fallback's opponent-first rule answered both
+(#226): Misdirection turned the agent's own Path to Exile from Serra Angel
+onto an Ondu Cleric, a turned Path went to the first creature on offer rather
+than the best, and Dualcaster Mage's copy of the agent's Path went where the
+Path already was. `redirect::stack_targets` answers both now. *Which spell*: a
+redirect is worth what of this seat's the spell it turns is aimed at, when
+that spell is an opponent's and hurts (`HeuristicAgent::redirect_worth`), and
+`policy::spell_score` asks the same number before casting one, so a redirect
+with nothing of this seat's under attack stays in hand. A copy is worth what
+the copied effect does on this board, whoever controls the original, because
+the copy is this seat's. *What it becomes* is asked as the redirect or copy
+resolves, and is answered by what the turned or copied spell means: a Path
+goes to the best creature across the table, and a Lightning Bolt goes where it
+kills, the caster's face at 3 life. What a harmful spell on the stack is
+already aimed at scores nothing, whoever cast it, unless the turned or copied
+spell is a gift; a copy is one such spell, since it starts with the original's
+targets (CR 707.10) and may change them (CR 707.10c). The two questions are
+told apart by the stack: the resolving redirect or copy is on it, and a card
+being cast is not yet. Open: a spell's X is not in the view and reads as 0; an
+opponent's gift to their own creature is not turned onto this seat's; the
+Specimen does not weigh that the new target is itself; nothing holds a
+redirect or a Dualcaster Mage back for a later spell; and an opponent's
+redirect aimed at this seat's own spell is not turned back, because a redirect
+hurts nothing by itself.
+
 ### Authorized AI scouting
 
 House AIs now have an intentional advantage. The host's private

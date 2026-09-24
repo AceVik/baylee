@@ -47,6 +47,15 @@ impl Meaning {
     }
 }
 
+/// What a target question offers, and how many of it may be named.
+#[derive(Clone, Copy)]
+pub(crate) struct Offer<'a> {
+    pub objects: &'a [ObjectId],
+    pub players: &'a [PlayerId],
+    pub min: u8,
+    pub max: u8,
+}
+
 /// A deliberately partial evaluator: an amount this side of the wire cannot
 /// count answers zero rather than a guess.
 ///
@@ -96,24 +105,7 @@ pub(crate) fn counterable(o: &PublicObject) -> bool {
 /// purpose: an effect it does not name makes the spell worth countering,
 /// which every spell was before, and so does a spell it cannot read.
 pub(crate) fn only_replaces_itself(o: &PublicObject) -> bool {
-    // An ability on the stack has no types (its base is blank) and names its
-    // source's card: a cycling ability of Opt is not Opt.
-    if !o.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)) {
-        return false;
-    }
-    let Some(def) = o.card.and_then(|c| baylee_cards::by_index(c.index)) else {
-        return false;
-    };
-    let face = o.card.map_or(0, |c| usize::from(c.face));
-    let mut effects = def
-        .abilities_for_face(face)
-        .iter()
-        .filter_map(|a| match a {
-            AbilityDef::Spell { effects, .. } => Some(*effects),
-            _ => None,
-        })
-        .flatten()
-        .peekable();
+    let mut effects = printed_effects(o).into_iter().flatten().peekable();
     if effects.peek().is_none() {
         return false;
     }
@@ -129,6 +121,38 @@ pub(crate) fn only_replaces_itself(o: &PublicObject) -> bool {
         }
     }
     net <= 1
+}
+
+/// The effects an instant or sorcery on the stack prints, read off its card:
+/// the view carries no effect list. Nothing for anything else — an ability
+/// on the stack has no types (its base is blank) and names its source's
+/// card, and a cycling ability of Opt is not Opt — and nothing for a card
+/// this side cannot look up.
+pub(crate) fn printed_effects(o: &PublicObject) -> Vec<&'static [Effect]> {
+    if !o.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)) {
+        return Vec::new();
+    }
+    let Some(def) = o.card.and_then(|c| baylee_cards::by_index(c.index)) else {
+        return Vec::new();
+    };
+    let face = o.card.map_or(0, |c| usize::from(c.face));
+    def.abilities_for_face(face)
+        .iter()
+        .filter_map(|a| match a {
+            AbilityDef::Spell { effects, .. } => Some(*effects),
+            _ => None,
+        })
+        .collect()
+}
+
+/// What an instant or sorcery on the stack means ([`printed_effects`]), X
+/// read as `x`: the view does not say what X a spell was cast with.
+pub(crate) fn stack_meaning(o: &PublicObject, x: u32) -> Meaning {
+    let mut m = Meaning::default();
+    for effects in printed_effects(o) {
+        m.absorb(meaning(effects, x));
+    }
+    m
 }
 
 /// A deliberately partial evaluation vocabulary. Unsupported effects are not
@@ -490,12 +514,11 @@ impl HeuristicAgent {
         }
     }
 
-    #[allow(clippy::too_many_arguments)] // the engine's target offer, plus its explanation
     /// What of this seat's a stack object is aimed at, as a counter's worth
     /// beside the object's own (#226): Path to Exile on my creature is worth
     /// that creature, and not only its own mana value. An opponent's
     /// permanent, or an opponent, adds nothing.
-    fn aimed_at_this_seat(&self, view: &PlayerView, o: &PublicObject) -> i64 {
+    pub(crate) fn aimed_at_this_seat(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         o.targets
             .iter()
             .map(|t| match t {
@@ -514,6 +537,7 @@ impl HeuristicAgent {
             .sum()
     }
 
+    #[allow(clippy::too_many_arguments)] // the engine's target offer, plus its explanation
     pub(crate) fn targets(
         &self,
         view: &PlayerView,
@@ -533,7 +557,44 @@ impl HeuristicAgent {
         if let Some(action) = self.fight_targets(view, objects, min, max, context) {
             return Some(action);
         }
-        let m = meaning(context.effects, context.x);
+        let offer = Offer {
+            objects,
+            players,
+            min,
+            max,
+        };
+        // A redirect's and a copy's questions are answered by the spell they
+        // turn or copy, and never by their own effect — see `redirect`.
+        if let Some(action) = self.stack_targets(view, offer, context) {
+            return Some(action);
+        }
+        self.rank(
+            view,
+            offer,
+            context,
+            meaning(context.effects, context.x),
+            &[],
+        )
+    }
+
+    /// Names the best of `offer` for an effect that means `m`, or `None`
+    /// when `m` has no side to prefer. A candidate in `spent` is already on
+    /// its way out and scores nothing, unless `m` is a gift: two Paths at one
+    /// creature exile it once.
+    pub(crate) fn rank(
+        &self,
+        view: &PlayerView,
+        offer: Offer<'_>,
+        context: &DecisionContext<'_>,
+        m: Meaning,
+        spent: &[ObjectId],
+    ) -> Option<PlayerAction> {
+        let Offer {
+            objects,
+            players,
+            min,
+            max,
+        } = offer;
         if m.benefit == 0 && m.damage == 0 && m.clock.is_none() {
             return None;
         }
@@ -582,6 +643,9 @@ impl HeuristicAgent {
                     }
                     if friendly != beneficial {
                         return -score - 10_000;
+                    }
+                    if !beneficial && spent.contains(id) {
+                        return 0;
                     }
                     if friendly {
                         // Ward is an opponent's toll (CR 702.21) and never
@@ -670,7 +734,11 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn effect_value(&self, view: &PlayerView, effects: &[Effect]) -> i64 {
-        let m = meaning(effects, 1);
+        self.meaning_value(view, meaning(effects, 1))
+    }
+
+    /// What an effect that means `m` is worth to this seat on this board.
+    pub(crate) fn meaning_value(&self, view: &PlayerView, m: Meaning) -> i64 {
         if m.draw > 0
             && view
                 .seat(view.seat)

@@ -672,6 +672,13 @@ impl HeuristicAgent {
             if removal(effect) && !enemy_board {
                 return -10_000;
             }
+            // A redirect is worth what it saves, and this seat's own spell is
+            // nothing it needs saving from: Misdirection was cast on the
+            // agent's own Path to Exile (#226). The question is the one the
+            // redirect's own target asks, so the two cannot disagree.
+            if redirect(effect) && !view.stack.iter().any(|o| self.redirect_worth(view, o) > 0) {
+                return -10_000;
+            }
             if counter(effect) {
                 value += 1500 + self.strategy.interaction_bonus;
             }
@@ -713,6 +720,12 @@ fn counter(effect: &Effect) -> bool {
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
+    )
+}
+fn redirect(effect: &Effect) -> bool {
+    matches!(
+        effect,
+        Effect::ChangeTarget { .. } | Effect::ChooseNewTargets
     )
 }
 fn removal(effect: &Effect) -> bool {

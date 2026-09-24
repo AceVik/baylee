@@ -16,6 +16,7 @@ mod fight;
 mod filter;
 pub mod intelligence;
 mod policy;
+mod redirect;
 mod restricted;
 pub mod search;
 mod tactics;
@@ -2629,6 +2630,191 @@ mod tests {
                 "Reach Through Mists",
                 "Serum Visions",
             ]
+        );
+    }
+
+    /// An instant on the stack, as the seat sees it, aimed at `at`.
+    fn stack_spell(id: u32, name: &str, controller: PlayerId, at: ObjectId) -> PublicObject {
+        let mut o = permanent(obj(id), controller, 0);
+        o.card = Some(hand_card(id, name).card);
+        o.types = TypeSet::INSTANT;
+        o.power = None;
+        o.toughness = None;
+        o.stack_item = Some(baylee_view::StackItem::Spell);
+        o.targets = vec![baylee_view::TargetRef::Object(at)];
+        o
+    }
+
+    /// One object named, as a target answer.
+    fn named(id: ObjectId) -> PlayerAction {
+        PlayerAction::ChooseTargets {
+            objects: vec![id],
+            players: vec![],
+        }
+    }
+
+    /// A redirect's two questions (#226). Which spell, as it is cast: an
+    /// opponent's removal aimed at this seat's creature, over this seat's own
+    /// aimed at the same creature and over an opponent's aimed elsewhere,
+    /// however they are listed; the gate that casts it asks the same, and
+    /// finds nothing in an opponent's gift to this seat. What it becomes, as
+    /// it resolves: a turned Path is removal and goes to the bigger of two
+    /// creatures across the table, the one listed second, unless another
+    /// Path is already on its way there; a pump is not. The questions are
+    /// told apart by the stack, which holds the resolving redirect.
+    /// Hydroelectric Specimen's trigger prints its redirect behind a "you
+    /// may", and is read through it.
+    #[test]
+    fn a_redirect_turns_the_spell_aimed_at_this_seat_onto_the_best_target() {
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let effects = [baylee_cards_dsl::Effect::ChangeTarget {
+            to: &baylee_cards_dsl::Filter::Any,
+        }];
+        let misdirection = DecisionContext {
+            source: Some(obj(4)),
+            effects: &effects,
+            ..Default::default()
+        };
+        // Hydroelectric Specimen's trigger says it behind a "you may".
+        let may = [baylee_cards_dsl::Effect::MayDo {
+            effects: &[baylee_cards_dsl::Effect::ChangeTarget {
+                to: &baylee_cards_dsl::Filter::This,
+            }],
+        }];
+        let specimen = DecisionContext {
+            source: Some(obj(20)),
+            effects: &may,
+            ..Default::default()
+        };
+        let ask = |options: Vec<ObjectId>| Pending::ChooseTargets {
+            player: me,
+            options,
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(9), me, 1),
+                permanent(obj(8), them, 1),
+                permanent(obj(7), them, 5),
+            ],
+        );
+        let paths = [
+            stack_spell(1, "Path to Exile", me, obj(9)),
+            stack_spell(2, "Path to Exile", them, obj(8)),
+            stack_spell(3, "Path to Exile", them, obj(9)),
+        ];
+        let mut gift = stack_spell(5, "Ancestral Recall", them, obj(5));
+        gift.targets = vec![baylee_view::TargetRef::Player(me)];
+        let card = hand_card(4, "Misdirection").card;
+        v.stack = vec![paths[0].clone(), paths[1].clone(), gift];
+        assert!(
+            agent().spell_score(&v, card) < 0,
+            "nothing of this seat's is under attack from an opponent"
+        );
+        for order in [[1, 2, 3], [3, 2, 1], [2, 3, 1]] {
+            v.stack = order
+                .iter()
+                .filter_map(|&i| paths.iter().find(|p| p.id == obj(i)).cloned())
+                .collect();
+            assert!(agent().spell_score(&v, card) > 0, "listed {order:?}");
+            for (context, card) in [(&misdirection, "Misdirection"), (&specimen, "the Specimen")] {
+                assert_eq!(
+                    agent().act_with_context(&v, &ask(order.map(obj).to_vec()), context),
+                    named(obj(3)),
+                    "{card}: the Path at this seat's creature, listed {order:?}"
+                );
+            }
+        }
+        v.stack = vec![paths[2].clone(), stack_spell(4, "Misdirection", me, obj(3))];
+        assert_eq!(
+            agent().act_with_context(&v, &ask(vec![obj(8), obj(7)]), &misdirection),
+            named(obj(7)),
+            "the turned Path goes to the bigger creature"
+        );
+        // A pump on the bigger one does not save it from the Path.
+        v.stack
+            .insert(1, stack_spell(6, "Giant Growth", them, obj(7)));
+        assert_eq!(
+            agent().act_with_context(&v, &ask(vec![obj(8), obj(7)]), &misdirection),
+            named(obj(7)),
+            "a gift on the stack is not a creature already on its way out"
+        );
+        // A Path already on its way to the bigger one, this seat's or an
+        // opponent's, has it covered.
+        for caster in [me, them] {
+            v.stack[1] = stack_spell(6, "Path to Exile", caster, obj(7));
+            assert_eq!(
+                agent().act_with_context(&v, &ask(vec![obj(8), obj(7)]), &misdirection),
+                named(obj(8)),
+                "the turned Path goes where {caster:?}'s is not"
+            );
+        }
+    }
+
+    /// A copy's two questions (#226). Which spell, as the trigger is put on
+    /// the stack: the one whose copy is worth most to this seat, which is
+    /// its own Path over an opponent's Brainstorm, though the Brainstorm has
+    /// the lower id, which a tie would name. Where the copy goes, as the trigger resolves: the copy
+    /// is the top of the stack and starts with the original's target (CR
+    /// 707.10), which the original already exiles, so it goes to the other
+    /// creature across the table, though the spent one is listed first.
+    #[test]
+    fn a_copy_is_not_aimed_where_the_original_is() {
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let effects = [baylee_cards_dsl::Effect::CopyTargetSpell { mods: &[] }];
+        let dualcaster = DecisionContext {
+            source: Some(obj(20)),
+            effects: &effects,
+            ..Default::default()
+        };
+        let ask = |options: Vec<ObjectId>| Pending::ChooseTargets {
+            player: me,
+            options,
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(9), me, 1),
+                permanent(obj(8), them, 1),
+                permanent(obj(7), them, 5),
+            ],
+        );
+        let mut brainstorm = stack_spell(1, "Brainstorm", them, obj(1));
+        brainstorm.targets.clear();
+        let path = stack_spell(6, "Path to Exile", me, obj(7));
+        v.stack = vec![brainstorm.clone(), path.clone()];
+        assert_eq!(
+            agent().act_with_context(&v, &ask(vec![obj(1), obj(6)]), &dualcaster),
+            named(obj(6)),
+            "the copy of this seat's own Path is worth more"
+        );
+        let mut trigger = permanent(obj(2), me, 0);
+        trigger.types = TypeSet::EMPTY;
+        trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            source: obj(20),
+            ability: None,
+            text: None,
+            rules: None,
+        });
+        trigger.targets = vec![baylee_view::TargetRef::Object(obj(6))];
+        let copy = stack_spell(3, "Path to Exile", me, obj(7));
+        v.stack = vec![brainstorm, path, trigger, copy];
+        assert_eq!(
+            agent().act_with_context(&v, &ask(vec![obj(9), obj(7), obj(8)]), &dualcaster),
+            named(obj(8)),
+            "the copy goes where the original is not"
         );
     }
 
