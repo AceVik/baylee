@@ -1510,6 +1510,26 @@ impl ZoneWatch {
     }
 }
 
+/// The text a card's face is showing on the table, and what it was made
+/// from ([`SceneIndex::faces`]).
+struct ShownFace {
+    /// The snapshot it was built from.
+    seq: u64,
+    /// Whether its lines were fitted by the font's widths and not the
+    /// average's ([`face::Widths`]).
+    measured: bool,
+    /// The `Text2d` children.
+    texts: Vec<Entity>,
+}
+
+impl ShownFace {
+    /// Whether it is still the face to show: built from this snapshot, and
+    /// measured the way the table can measure now.
+    fn is(&self, seq: u64, measured: bool) -> bool {
+        self.seq == seq && self.measured == measured
+    }
+}
+
 /// Entities currently drawn, keyed by the object they represent.
 #[derive(Resource, Default)]
 pub struct SceneIndex {
@@ -1531,7 +1551,7 @@ pub struct SceneIndex {
     /// line of text glued to it. The sequence number is what rebuilds a face
     /// whose card changed (an anthem, a counter, a clone) without rebuilding
     /// every face every frame.
-    faces: HashMap<ObjectId, (u64, Vec<Entity>)>,
+    faces: HashMap<ObjectId, ShownFace>,
     /// The keyword strip lying on each card that wears marks (#274): the
     /// word and the row step it was put on for, and the strip itself.
     ///
@@ -2882,7 +2902,7 @@ fn card_transform(slot: &SeatSlot, position: Vec2, tapped: bool, lift: f32) -> T
 /// place. Anything placed on the card in the shaders' units goes down it by
 /// this, so the strip's bottom edge lands on the seam the card shader draws
 /// and not a ten-thousandth beside it.
-const DOWN_THE_CARD: f32 = CARD_HEIGHT * cardrail::CARD_ASPECT;
+pub(crate) const DOWN_THE_CARD: f32 = CARD_HEIGHT * cardrail::CARD_ASPECT;
 
 /// The keyword strip lying on a card (#274): a marker, so a strip can be
 /// found and counted without being taken for the card or its shadow.
@@ -3506,7 +3526,8 @@ pub fn sync_scene(
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
     sheen: Res<crate::sheen::Sheen>,
-    fonts: Option<Res<crate::hud::UiFonts>>,
+    // The fonts, and what has arrived of them: a face is measured in one.
+    (fonts, font_assets): (Option<Res<crate::hud::UiFonts>>, Option<Res<Assets<Font>>>),
     mut cards: Query<DrawnCard>,
 ) {
     let (Some(statics), Some(textures)) = (duel.statics.as_ref(), textures.as_mut()) else {
@@ -3595,6 +3616,14 @@ pub fn sync_scene(
     // The snapshot the faces below were built from: rules text is projected,
     // so a face is only stale when the game state that produced it moved on.
     let seq = duel.view.as_ref().map_or(0, |v| v.seq);
+    // What the faces below are measured with: the font they are set in, once
+    // it has arrived.
+    let widths = face::Widths::of(
+        fonts
+            .as_deref()
+            .zip(font_assets.as_deref())
+            .and_then(|(fonts, assets)| assets.get(&fonts.text)),
+    );
 
     for placement in &wanted {
         live.insert(placement.object);
@@ -3825,12 +3854,15 @@ pub fn sync_scene(
         // The text children follow the same decision as the material, and are
         // rebuilt when the snapshot they were made from is no longer current:
         // an anthem, a counter or a clone all change what the face should say.
-        let current = index.faces.get(&placement.object).map(|(seq, _)| *seq);
-        if show_face && current == Some(seq) {
+        // A face fitted before the font arrived is fitted again when it
+        // does: the average's widths are a stand-in, and the font's may put
+        // the same name on the other number of lines (#259).
+        let current = index.faces.get(&placement.object);
+        if show_face && current.is_some_and(|shown| shown.is(seq, widths.measured())) {
             continue;
         }
-        if let Some((_, previous)) = index.faces.remove(&placement.object) {
-            for text in previous {
+        if let Some(previous) = index.faces.remove(&placement.object) {
+            for text in previous.texts {
                 commands.entity(text).despawn();
             }
         }
@@ -3841,9 +3873,23 @@ pub fn sync_scene(
             continue;
         };
         let built = face::of_object(object, None, &texts);
-        let spawned =
-            face::spawn_world(&mut commands, entity, &built, placement.corner.plate, fonts);
-        index.faces.insert(placement.object, (seq, spawned));
+        let fit = face::WorldFit::of(&built, &widths);
+        let spawned = face::spawn_world(
+            &mut commands,
+            entity,
+            &built,
+            &fit,
+            placement.corner.plate,
+            fonts,
+        );
+        index.faces.insert(
+            placement.object,
+            ShownFace {
+                seq,
+                measured: fit.measured,
+                texts: spawned,
+            },
+        );
     }
 
     // Anything no longer on the board leaves the scene.
@@ -4010,6 +4056,8 @@ mod framing_tests;
 
 #[cfg(test)]
 mod badge_tests;
+#[cfg(test)]
+mod face_tests;
 /// What flying does to a card on the table, and to the shadow under it.
 ///
 /// The height itself is [`baylee_client_core::airborne`]'s and is tested

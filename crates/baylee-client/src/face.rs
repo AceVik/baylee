@@ -601,72 +601,175 @@ fn text_font(fonts: &UiFonts, size: f32) -> TextFont {
 #[derive(Component)]
 pub struct WorldFace;
 
-/// How far under the seam the world face's type line is centred, in card
-/// widths: half its line and a gap, so its ascenders clear the keyword strip.
-const TYPE_LINE_DROP: f32 = 0.07;
+/// `Text2d` is laid out in pixels and scaled into the card's units: a
+/// hundred to a card width, so an em in card widths is a hundredth of its
+/// font size. A small font scaled up stays sharp, because the glyphs are
+/// rasterised at the size the camera actually needs.
+const PX_PER_UNIT: f32 = 100.0;
+
+/// The body's numbers on the table's face, as an em in card widths, when the
+/// plate does not already say them ([`world_stats`]).
+const STATS_EM: f32 = 0.14;
+
+/// The cost's ink on the table's face.
+const COST_INK: Color = Color::srgb(0.85, 0.82, 0.72);
+
+/// How wide a line of text is before anything has laid it out (#259).
+///
+/// The table's face fits a name and a type line to its bars
+/// ([`baylee_client_core::textface`]), and a two-line name bar is a different
+/// face, so the width has to be known when the face is chosen — not a frame
+/// later, when bevy has laid the text out. So it is read off the font the
+/// face is set in: the shipped Alegreya Sans Regular's own advances, summed.
+/// Kerning is left out, which makes a width a hair long and never short: a
+/// name the sum says fits, fits. A character the font does not have is taken
+/// as a full em, which is what the fallback face bevy borrows for it will
+/// roughly spend.
+///
+/// Until the font has arrived — on the web it is an HTTP fetch — there is
+/// nothing to read, and the width is
+/// [`baylee_client_core::textface::average_width`]'s. Nothing is drawn in
+/// the font until it arrives either, and a face fitted by the average is
+/// fitted again then ([`Self::measured`]).
+pub struct Widths<'a> {
+    font: Option<swash::FontRef<'a>>,
+}
+
+impl<'a> Widths<'a> {
+    /// Widths read off `font`, or the average without one.
+    #[must_use]
+    pub fn of(font: Option<&'a Font>) -> Self {
+        Self {
+            font: font.and_then(|font| swash::FontRef::from_index(font.data.data(), 0)),
+        }
+    }
+
+    /// Whether these are the font's widths and not the average's.
+    #[must_use]
+    pub fn measured(&self) -> bool {
+        self.font.is_some()
+    }
+
+    /// How wide `text` is at an em of one.
+    #[must_use]
+    pub fn width(&self, text: &str) -> f32 {
+        let Some(font) = self.font else {
+            return baylee_client_core::textface::average_width(text);
+        };
+        let charmap = font.charmap();
+        let metrics = font.glyph_metrics(&[]).scale(1.0);
+        text.chars()
+            .map(|ch| match charmap.map(ch) {
+                0 => 1.0,
+                glyph => metrics.advance_width(glyph),
+            })
+            .sum()
+    }
+}
+
+/// The table's face set to fit its bars: the name and the type line, each
+/// at its size and on its lines.
+///
+/// Fitted apart from being spawned, because the name's lines are the name
+/// bar's height, which the card's material draws: the two have to come from
+/// one fitting.
+#[derive(Clone, PartialEq, Debug)]
+pub struct WorldFit {
+    /// The name: one line or two.
+    pub name: baylee_client_core::textface::Fitted,
+    /// The type line: always one.
+    pub kind: baylee_client_core::textface::Fitted,
+    /// Whether the widths were the font's ([`Widths::measured`]).
+    pub measured: bool,
+}
+
+impl WorldFit {
+    /// `face`'s name and type line, fitted by `widths`.
+    #[must_use]
+    pub fn of(face: &CardFace, widths: &Widths<'_>) -> Self {
+        use baylee_client_core::textface::{fit_name, fit_type};
+        Self {
+            name: fit_name(&face.name, |s| widths.width(s)),
+            kind: fit_type(&face.type_line, |s| widths.width(s)),
+            measured: widths.measured(),
+        }
+    }
+
+    /// How many lines the name takes, which is what the name bar is.
+    #[must_use]
+    pub fn lines(&self) -> usize {
+        self.name.lines.len()
+    }
+}
+
+/// Where a point on the card, in card widths from its top-left corner with
+/// `y` down the card, is in the card's own space: centred, `y` up.
+fn on_the_card(x: f32, y: f32) -> Vec2 {
+    use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
+    Vec2::new(
+        (x - 0.5) * CARD_WIDTH,
+        CARD_HEIGHT * 0.5 - y * crate::table::DOWN_THE_CARD,
+    )
+}
 
 /// Attaches the compact face to a card quad on the table.
 ///
-/// Positions are in the quad's local space, where the card is
-/// [`baylee_client_core::layout::CARD_WIDTH`] by `CARD_HEIGHT` units centred on
-/// the origin. Children inherit the parent's rotation, so a tapped card's face
-/// turns with it and needs no special case. `plate` is what the card's ledge
-/// already says, so the face does not say it twice ([`world_stats`]).
+/// Laid out by [`baylee_client_core::textface`], in the parts of a card the
+/// shader draws in the print's window (#259): the name in the name bar, the
+/// cost on the art box's first line, the type line in the type bar, each as
+/// `fit` set it. Children inherit the parent's rotation, so a tapped card's
+/// face turns with it and needs no special case. `plate` is what the card's
+/// ledge already says, so the face does not say it twice ([`world_stats`]).
 pub fn spawn_world(
     commands: &mut Commands,
     card: Entity,
     face: &CardFace,
+    fit: &WorldFit,
     plate: Plate,
     fonts: &UiFonts,
 ) -> Vec<Entity> {
-    use baylee_client_core::cardframe;
-    use baylee_client_core::layout::CARD_WIDTH;
+    use baylee_client_core::textface::{self, BAR_PAD, LINE_BOX, Regions, TEXT_INSET};
+    use bevy::sprite::Anchor;
+    use bevy::text::LineBreak;
 
-    // Text2d is laid out in pixels and then scaled into world units; a small
-    // font scaled up stays sharp because the glyphs are rasterised at the
-    // size the camera actually needs.
-    const PX_PER_UNIT: f32 = 100.0;
-    let scale = 1.0 / PX_PER_UNIT;
-    // Laid out against the print's window and not the whole card (#274): the
-    // frame round it is where the shader draws the plate, the crests and the
-    // offers, and a line of text on the frame would be under all three. A
-    // card width is a table unit, so the frame's card widths are world units.
-    let half_h = cardframe::PRINT_TALL * CARD_WIDTH / 2.0;
-    let lift = cardframe::window_lift() * CARD_WIDTH;
-    // The type line stands under the seam, where a printed card has it: the
-    // keyword strip stands on the seam and reaches up from it, and a type
-    // line at the window's middle ran under the strip on any creature with
-    // two marks.
-    let type_line = (cardframe::FRAME_TOP + cardframe::PRINT_TALL * 0.5
-        - (baylee_client_core::cardrail::strip_bottom() + TYPE_LINE_DROP))
-        * CARD_WIDTH;
-    let width_px = cardframe::PRINT_SCALE * CARD_WIDTH * PX_PER_UNIT * 0.88;
+    let WorldFit { name, kind, .. } = fit;
+    let regions = Regions::table(fit.lines());
 
-    let mut spawned = Vec::with_capacity(4);
+    let mut texts = Vec::with_capacity(4);
     {
-        let mut line = |text: String, size: f32, color: Color, y: f32, z: f32| {
+        let mut line = |text: String, em: f32, color: Color, at: Vec2, anchor: Anchor| {
             let entity = commands
                 .spawn((
                     WorldFace,
                     Text2d::new(text),
                     TextFont {
                         font: bevy::text::FontSource::Handle(fonts.text.clone()),
-                        font_size: bevy::text::FontSize::Px(size),
+                        font_size: bevy::text::FontSize::Px(em * PX_PER_UNIT),
                         ..default()
                     },
                     TextColor(color),
-                    TextLayout::default().with_justify(Justify::Center),
-                    TextBounds::new(width_px, f32::INFINITY),
-                    Transform::from_xyz(0.0, lift + y, z).with_scale(Vec3::splat(scale)),
+                    // The lines are already broken: a fitted name is one line
+                    // or two, and bevy breaking it again would undo the fit.
+                    TextLayout::new(Justify::Left, LineBreak::NoWrap),
+                    anchor,
+                    // z lifts the text off the quad so it is never z-fought
+                    // by the card.
+                    Transform::from_translation(at.extend(0.002))
+                        .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
                     ChildOf(card),
                 ))
                 .id();
-            spawned.push(entity);
+            texts.push(entity);
         };
 
-        // z lifts the text off the quad so it is never z-fought by the card.
-        let z = 0.002;
-        line(face.name.clone(), 13.0, INK, half_h * 0.72, z);
+        let [x0, y0, x1, _] = regions.name_bar;
+        line(
+            name.lines.join("\n"),
+            name.em,
+            INK,
+            on_the_card(x0 + TEXT_INSET, y0 + BAR_PAD),
+            Anchor::TOP_LEFT,
+        );
         if !face.cost.is_empty() {
             let cost: String = face
                 .cost
@@ -674,23 +777,43 @@ pub fn spawn_world(
                 .map(|s| pip_label(*s))
                 .collect::<Vec<_>>()
                 .join(" ");
-            line(cost, 11.0, Color::srgb(0.85, 0.82, 0.72), half_h * 0.44, z);
+            let [_, top, _, _] = regions.art_box;
+            line(
+                cost,
+                textface::SMALL_EM,
+                COST_INK,
+                on_the_card(x1 - TEXT_INSET, top + BAR_PAD),
+                Anchor::TOP_RIGHT,
+            );
         }
-        line(face.type_line.clone(), 10.0, MUTED, type_line, z);
+        // Centred down the bar, which is sized for the type line's own size:
+        // one that had to shrink stands in the middle of it.
+        let [_, top, _, bottom] = regions.type_bar;
+        line(
+            kind.lines.concat(),
+            kind.em,
+            MUTED,
+            on_the_card(
+                x0 + TEXT_INSET,
+                top + (bottom - top - LINE_BOX * kind.em) * 0.5,
+            ),
+            Anchor::TOP_LEFT,
+        );
+        // Where a print has its power and toughness: the text box's foot,
+        // right. Only for the one shape the plate cannot say.
         if let Some(stats) = world_stats(face.stats, plate) {
+            let [_, _, right, bottom] = regions.text_box;
             line(
                 stats_label(stats),
-                14.0,
+                STATS_EM,
                 stats_color(stats),
-                -half_h * 0.66,
-                z,
+                on_the_card(right - TEXT_INSET, bottom - BAR_PAD),
+                Anchor::BOTTOM_RIGHT,
             );
         }
     }
-    spawned
+    texts
 }
-
-use bevy::text::TextBounds;
 
 /// The body line a table card's text face still has to write: none when the
 /// plate on its ledge already says the same number (#274).
@@ -712,6 +835,178 @@ fn world_stats(stats: Option<Stats>, plate: Plate) -> Option<Stats> {
 mod tests {
     use super::*;
     use baylee_core::mana::ManaCost;
+
+    /// The shipped Regular cut, read the way the client reads it.
+    fn regular() -> Font {
+        let path = format!(
+            "{}/assets/fonts/AlegreyaSans-Regular.ttf",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        Font::from_bytes(std::fs::read(path).expect("the bundled Regular"))
+    }
+
+    fn test_fonts() -> UiFonts {
+        UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        }
+    }
+
+    /// A creature face with this name and type line, costing {1}{G}.
+    fn creature(name: &str, type_line: &str) -> CardFace {
+        CardFace {
+            name: name.to_owned(),
+            cost: vec![ManaSymbol::Generic(1), ManaSymbol::Green],
+            type_line: type_line.to_owned(),
+            body: Vec::new(),
+            stats: Some(Stats::PowerToughness {
+                power: 2,
+                toughness: 2,
+                damage: 0,
+            }),
+            colors: ColorSet::EMPTY,
+            text_pending: false,
+        }
+    }
+
+    /// The widths are the shipped font's own advances, summed: read off the
+    /// file's `hmtx` for these strings, "Llanowar Elves" is 5.739 em, the
+    /// German "Llanowarelfen" 5.579, and the ellipsis a cut line ends on
+    /// 0.581. A character the font lacks is a full em; before the font, the
+    /// average answers.
+    #[test]
+    fn the_widths_are_the_shipped_font_s_own() {
+        let font = regular();
+        let widths = Widths::of(Some(&font));
+        assert!(widths.measured());
+        for (text, em) in [
+            ("Llanowar Elves", 5.739),
+            ("Llanowarelfen", 5.579),
+            ("…", 0.581),
+            ("\u{6f22}", 1.0),
+        ] {
+            let got = widths.width(text);
+            assert!((got - em).abs() < 1e-3, "{text:?} measures {got}, not {em}");
+        }
+        let average = Widths::of(None);
+        assert!(!average.measured());
+        assert!(
+            (average.width("Llanowar Elves")
+                - baylee_client_core::textface::average_width("Llanowar Elves"))
+            .abs()
+                < 1e-6
+        );
+    }
+
+    /// The average is a stand-in, and on a real name it answers the
+    /// one-line-or-two question differently from the font — which is why a
+    /// face fitted by it is fitted again when the font arrives.
+    #[test]
+    fn the_average_and_the_font_can_disagree_about_a_name_s_lines() {
+        use baylee_client_core::textface::fit_name;
+        let font = regular();
+        let widths = Widths::of(Some(&font));
+        let name = "Abandoned Outpost";
+        let guessed = fit_name(name, baylee_client_core::textface::average_width);
+        let measured = fit_name(name, |s| widths.width(s));
+        assert_eq!(guessed.lines.len(), 1);
+        assert_eq!(measured.lines.len(), 2, "{measured:?}");
+    }
+
+    /// Each line of the table's face stands inside its part of the card:
+    /// the name in the name bar, the cost on the art box's first line, the
+    /// type line in the type bar. A long name takes two lines and the name
+    /// bar its two-line height.
+    #[test]
+    fn the_table_face_stands_in_its_bars() {
+        use baylee_client_core::textface::{LINE_BOX, Regions};
+        use bevy::ecs::world::CommandQueue;
+        use bevy::sprite::Anchor;
+
+        let font = regular();
+        let widths = Widths::of(Some(&font));
+        for (name, lines) in [
+            ("Llanowar Elves", 1),
+            ("Okina, Temple to the Grandfathers", 2),
+        ] {
+            let mut world = World::new();
+            let card = world.spawn_empty().id();
+            let face = creature(name, "Legendary Creature — Elf Druid Warrior");
+            let mut queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut queue, &world);
+            let fit = WorldFit::of(&face, &widths);
+            let texts = spawn_world(
+                &mut commands,
+                card,
+                &face,
+                &fit,
+                // What the ledge shows for this 2/2.
+                Plate::Fight {
+                    power: 2,
+                    toughness: 2,
+                    damage: 0,
+                },
+                &test_fonts(),
+            );
+            queue.apply(&mut world);
+            assert_eq!(fit.lines(), lines, "{name}");
+            let regions = Regions::table(lines);
+
+            // Each text's box on the card, in card widths with y down.
+            let boxes: Vec<(String, [f32; 4])> = texts
+                .iter()
+                .map(|&text| {
+                    let entity = world.entity(text);
+                    let words = entity.get::<Text2d>().expect("a Text2d").0.clone();
+                    let em = match entity.get::<TextFont>().expect("a font").font_size {
+                        bevy::text::FontSize::Px(px) => px / PX_PER_UNIT,
+                        other => panic!("{other:?}"),
+                    };
+                    let at = entity.get::<Transform>().expect("a place").translation;
+                    let anchor = entity.get::<Anchor>().expect("an anchor").as_vec();
+                    let rows: Vec<&str> = words.split('\n').collect();
+                    let w = rows.iter().map(|r| widths.width(r)).fold(0.0, f32::max) * em;
+                    #[allow(clippy::cast_precision_loss)]
+                    let h = rows.len() as f32 * LINE_BOX * em;
+                    // Back from the card's space to card widths from its
+                    // top-left, then from the anchor to the box's corner.
+                    let x = at.x / baylee_client_core::layout::CARD_WIDTH + 0.5;
+                    let y = (baylee_client_core::layout::CARD_HEIGHT * 0.5 - at.y)
+                        / crate::table::DOWN_THE_CARD;
+                    let x0 = x - (anchor.x + 0.5) * w;
+                    let y0 = y - (0.5 - anchor.y) * h;
+                    (words, [x0, y0, x0 + w, y0 + h])
+                })
+                .collect();
+
+            let within = |label: &str, part: [f32; 4]| {
+                let (words, b) = boxes
+                    .iter()
+                    .find(|(words, _)| words.contains(label))
+                    .unwrap_or_else(|| panic!("{name}: no text holding {label:?}"));
+                assert!(
+                    b[0] >= part[0] - 1e-4
+                        && b[1] >= part[1] - 1e-4
+                        && b[2] <= part[2] + 1e-4
+                        && b[3] <= part[3] + 1e-4,
+                    "{name}: {words:?} at {b:?} leaves {part:?}"
+                );
+            };
+            within(name.split(' ').next().expect("a word"), regions.name_bar);
+            within("1 G", regions.art_box);
+            // Whatever the type line was fitted to — here its subtypes alone.
+            within(&fit.kind.lines[0], regions.type_bar);
+            // The plate says the body, so the face does not.
+            assert_eq!(boxes.len(), 3, "{name}: {boxes:?}");
+        }
+    }
 
     /// A number the ledge already shows is not written on the face again,
     /// and a number it does not show is.

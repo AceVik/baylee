@@ -95,16 +95,6 @@ pub const fn window() -> [f32; 4] {
     ]
 }
 
-/// How far above the card's centre the print's centre sits, in card widths.
-///
-/// The ledge is deeper than the top, so the print sits high on the card;
-/// anything centred on the print — the table's text face — is lifted by
-/// this much.
-#[must_use]
-pub const fn window_lift() -> f32 {
-    (FRAME_FOOT - FRAME_TOP) * 0.5
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

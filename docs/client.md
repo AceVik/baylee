@@ -1820,9 +1820,77 @@ off a merged card's top-left corner ("Grouping and the token summary").
   where the artist and © lines are — and with its keywords on and then off
   must differ inside the strip's rectangle (`cardrail::quad_rect`) and
   nowhere else.
-- A world-text face (a card drawn from our own text on the table) is laid
-  out against the window too (`face::spawn_world`, `cardframe::window_lift`),
-  so its lines never run under the rim or the ledge.
+- A text face (a card drawn from our own text) fills the window the way a
+  print would, and is laid out against it: see "The text face" below.
+
+### The text face
+
+A token has no print, a printing's art can still be on its way, and a player
+can ask for text over art (`face::wants_face`). The shader then draws the
+window as a flat dark tint under the card's metal light — the owner's "dunkle
+Metall-Platte" — and a lane of text tokens reads as a row of holes. #259 lays
+the window out as a card is: `baylee_client_core::textface` is the geometry,
+and the table's `Text2d` lines are placed by it.
+
+- A dark border (`BORDER`, 0.040 card widths) inside the window, then a name
+  bar, a pinline, an art box, a type bar and a text box, in a card's order.
+  The foot under the text box stays empty: a print has its collector line
+  there, and there is none to write.
+- A bar is one line of its text plus `BAR_PAD` above and below (`bar`):
+  Alegreya Sans has no line gap and its ascender and descender add up to
+  1.2 em, which is also the height bevy sets a line at. The type bar's top is
+  pinned on the keyword strip's seam (`cardrail::strip_bottom`), so the strip
+  lies on the art box and never on the type line
+  (`the_strip_lies_on_the_art_box_and_never_on_the_type_line`); the art box
+  takes what the name bar leaves.
+- No power and toughness in the window: the ledge's plate is the P/T box. The
+  one exception is `face::world_stats`'s — an animated planeswalker's body,
+  which the plate (showing loyalty) cannot say — at the text box's foot,
+  right, where a print has its P/T.
+
+**The table sets its text large, so its bars are deep.** A table card is
+about 94 pixels wide, where a print's own name is five pixels tall and
+unread. The table's name is `NAME_EM` (0.11 card widths, `Text2d`'s 11 px at
+`PX_PER_UNIT` 100) and its type line and cost `SMALL_EM` (0.10), so its name
+bar is 0.152 deep where a print's is about 0.08. Over the pool's 2715 names
+at 11 px only 71% fit the 0.770 of a line, so a name steps down once and then
+breaks (`textface::fit_name`): 11 px on one line; else 10 px on one line
+(83%); else 10 px on two lines broken after the last word that fits, and the
+name bar takes its two-line depth (0.260). Never a third line and never
+smaller: a second line that still runs over is cut with an ellipsis. The cost
+is not beside the name — there is no room — but on the art box's first line,
+right, where it lies on the dark art as a print's cost lies on its field.
+
+The type line is one line always, so the text box never moves (`fit_type`):
+10 px, else 9 px, and past that it gives up words from the **front**. On the
+table the subtypes are the half that says something — a Soldier matters to a
+tribe, and "Creature" is already said by the plate and the frame — so first
+the supertypes go ("Legendary Creature — Elf Druid" → "Creature — Elf
+Druid"), then the card types and the dash ("Elf Druid"), and only then are
+subtypes dropped from the end, whole, with an ellipsis. A line with no
+subtypes keeps its card types. Over the pool's 2745 type lines: 71.1% fit at
+10 px, 5.8% at 9 px, 1.9% give up only their supertypes, 20.1% are their
+subtypes alone, and 1.1% (29, "Land — Mountain Plains Swamp" → "Mountain
+Plains…") lose a subtype; cutting subtypes from the end first had cost 23%
+of them one, "Creature — Human Soldier" the commonest. The preview says the
+whole line. A supertype is known by the English word the engine prints
+(`SupertypeSet::from_word`); a translated line has none the table can tell
+apart and goes from the whole line straight to its subtypes.
+
+**The widths are read off the font, before anything is laid out.** A
+two-line name bar is a different face, so the fitting has to be decided when
+the card's material is — not a frame later, when bevy has laid the text out
+and the card would change under the player's eyes. `face::Widths` sums the
+shipped Alegreya Sans Regular's own advances out of `Assets<Font>` (with
+`swash`, which the mark atlas already links): exact for German names as for
+English ones, and a hair long rather than short since kerning is left out. A
+character the font lacks counts a full em. Until the font has arrived — an
+HTTP fetch on the web — the width is `textface::average_width`, 0.420 em a
+character, the Regular's mean over the pool's names, which answers the
+one-line-or-two question as the font does for all but 179 of them. A face
+fitted by the average is fitted again when the font arrives
+(`table::ShownFace::is`,
+`a_face_fitted_by_the_average_is_fitted_again_when_the_font_arrives`).
 
 Foil and etched finishes share `print_finish` in `card_common.wgsl` (#198).
 The existing artwork sample supplies luminance, pigment and screen-space

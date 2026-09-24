@@ -75,6 +75,7 @@ pub mod sky;
 pub mod strike;
 pub mod tabletop;
 pub mod textbuf;
+pub mod textface;
 pub mod timing;
 pub mod touch;
 pub mod zones;
