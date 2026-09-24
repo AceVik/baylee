@@ -688,7 +688,9 @@ impl Session {
     #[must_use]
     pub fn timeout_action(&self) -> Option<(PlayerId, PlayerAction)> {
         let player = self.awaiting_seat()?;
-        let agent = HeuristicAgent::new(AIProfile::default());
+        // Teams included, as `stand_in` builds it: without them every other
+        // chair reads as an enemy, the seat's own partner among them.
+        let agent = HeuristicAgent::new(AIProfile::default()).with_teams(self.teams.clone());
         let pending = self.engine.pending();
         let view = crate::view::player_view(
             self.engine.state(),
@@ -1899,6 +1901,61 @@ mod tests {
             .act(player, action)
             .expect("the timeout answer is legal");
         assert!(session.seq() > seq_before, "the game moved on");
+    }
+
+    /// The house that answers for a timed-out seat plays for that seat's
+    /// team. It used to be built with no teams, so every other chair looked
+    /// like an opponent. The engine never offers a teammate as a defender,
+    /// but the agent's own reading of the table still counted one as a
+    /// threat. Here the seat is on 5 life beside a teammate with eight hasty
+    /// goblins, and the opponents have nothing: a house that fears the swing
+    /// back from its own partner keeps its attackers home. `stand_in` built
+    /// its agent with the table's teams all along; the clock's did not.
+    #[test]
+    fn a_clock_answer_does_not_fear_a_teammate() {
+        use baylee_core::ids::Defender;
+        let goblin = DeckEntry {
+            card: baylee_cards::decks::by_name("Raging Goblin").expect("a hasty 1/1"),
+            print: PrintRef::new(0),
+        };
+        let mut preset = teamed_preset([Some(1), Some(2), Some(1), Some(2)]);
+        preset.seats[0].starting_battlefield = vec![goblin; 4];
+        preset.seats[0].starting_life = Some(5);
+        preset.seats[2].starting_battlefield = vec![goblin; 8];
+        let mut session = Session::new(&preset).expect("session builds");
+        let _ = session.pump();
+        let me = PlayerId::new(0);
+        for _ in 0..200 {
+            let seat = session.awaiting_seat().expect("somebody is asked");
+            let action = match session.engine.pending() {
+                Pending::ChooseAttackers { .. } if seat == me => break,
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                other => panic!("an unexpected question before the first attack: {other:?}"),
+            };
+            session.act(seat, action).expect("a legal answer");
+        }
+        assert!(
+            matches!(session.engine.pending(), Pending::ChooseAttackers { .. }),
+            "the table never reached the first seat's attack"
+        );
+
+        let (player, action) = session.timeout_action().expect("the attack is asked");
+        assert_eq!(player, me);
+        let PlayerAction::DeclareAttackers { attackers } = action else {
+            panic!("the clock answered an attack with {action:?}")
+        };
+        assert_eq!(
+            attackers.len(),
+            4,
+            "the house kept goblins home against its own teammate: {attackers:?}"
+        );
+        assert!(
+            attackers
+                .iter()
+                .all(|(_, defender)| *defender != Defender::Player(PlayerId::new(2))),
+            "{attackers:?}"
+        );
     }
 
     /// Answering by timeout over and over drives the game forward rather than
