@@ -971,7 +971,10 @@ fn every_written_row_has_words_with_no_text_filed() {
             else {
                 continue;
             };
-            let card = object.card.expect("found by its card");
+            let card = object
+                .rules
+                .expect("a card on the battlefield names what it prints")
+                .card;
             for option in abilities::options(Lang::En, &view, &interaction, object.id) {
                 let Some(printed) = option.printed else {
                     continue;
@@ -1004,8 +1007,8 @@ fn every_written_row_has_words_with_no_text_filed() {
 
 /// The sweep's question, taken out so that its failing branch can be seen to
 /// fail.
-fn has_words(card: baylee_view::CardIdentity, at: baylee_view::StackText) -> bool {
-    baylee_client::cardtext::sentence(None, card, at)
+fn has_words(card: baylee_core::ids::CardIndex, at: baylee_view::StackText) -> bool {
+    baylee_client::cardtext::sentence(None, card, None, at)
         .is_some_and(|blocks| blocks.iter().any(|b| !b.text().is_empty()))
 }
 
@@ -1014,11 +1017,7 @@ fn has_words(card: baylee_view::CardIdentity, at: baylee_view::StackText) -> boo
 /// question that can be answered no.
 #[test]
 fn a_row_pointing_past_its_card_s_text_has_no_words() {
-    let card = baylee_view::CardIdentity {
-        index: by_name("Mind Stone"),
-        print: baylee_core::ids::PrintRef::new(0),
-        face: 0,
-    };
+    let card = by_name("Mind Stone");
     let draw = baylee_view::StackText {
         face: 0,
         line: 1,

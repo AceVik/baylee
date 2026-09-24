@@ -1142,6 +1142,10 @@ pub(crate) mod tests {
                 print: baylee_core::ids::PrintRef::new(0),
                 face: 0,
             }),
+            rules: Some(baylee_view::RulesFace {
+                card: baylee_core::ids::CardIndex::new(0),
+                face: 0,
+            }),
             name: "Test".to_string(),
             controller: PlayerId::new(0),
             owner: PlayerId::new(0),

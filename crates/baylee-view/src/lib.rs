@@ -82,7 +82,10 @@ use serde::{Deserialize, Serialize};
 /// append-only in the same commit rather than trusting this number to carry
 /// it.
 /// 27 adds cosmetic holographic, glitter and galaxy print finishes.
-pub const VIEW_VERSION: u32 = 27;
+/// 28 adds [`PublicObject::rules`] and `StackItem::Ability::rules`, the card
+/// an object's abilities are printed on — the copied card's for a copy — and
+/// makes `StackItem::Ability::text` an index into *that* card's sentences.
+pub const VIEW_VERSION: u32 = 28;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -491,6 +494,38 @@ pub struct CardIdentity {
     pub face: u8,
 }
 
+/// The card and face whose printed ability list an object's abilities are.
+///
+/// For an ordinary card it is the card and the face it shows. It differs from
+/// [`PublicObject::card`] exactly where a player would be misled by reading
+/// that instead: a copy's abilities are the copied card's (CR 707.2), so a
+/// Spark Double that became a Solemn Simulacrum offers Solemn's abilities and
+/// its rows are Solemn's sentences — and an index into the Spark Double's own
+/// text names nothing, or the wrong thing. A token copy has no card at all
+/// and still has a face here.
+///
+/// A client draws every ability row and every stack entry out of this card's
+/// text, and reads the ability an offered index names out of this card's
+/// list, which is what makes a copy need no special treatment anywhere.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct RulesFace {
+    /// The card the abilities are printed on.
+    pub card: CardIndex,
+    /// Which of its faces.
+    pub face: u8,
+}
+
+impl From<CardIdentity> for RulesFace {
+    /// The card itself and the face it shows — which is what a card that is
+    /// not a copy has its abilities printed on.
+    fn from(card: CardIdentity) -> Self {
+        Self {
+            card: card.index,
+            face: card.face,
+        }
+    }
+}
+
 /// What a stack entry is, beyond the object carrying it.
 ///
 /// A permanent's ability on the stack has no card of its own — it is a
@@ -527,7 +562,17 @@ pub enum StackItem {
         /// that handle is also what a player's standing answer is filed
         /// under: it names an ability across games and printings, and a
         /// sentence index is about one printing's text.
+        ///
+        /// An index into [`Self::Ability::rules`]'s card, which is not
+        /// always the source's: a copy's ability is printed on the card it
+        /// copied.
         text: Option<StackText>,
+        /// The card this ability is printed on, when a card prints it —
+        /// captured with the ability as it was put on the stack, like the
+        /// ability itself (CR 113.7a), so it outlives the source and
+        /// anything the source becomes. `None` for a token's ability and an
+        /// emblem's.
+        rules: Option<RulesFace>,
     },
 }
 
@@ -583,6 +628,13 @@ pub struct PublicObject {
     /// Backing card, when the viewing seat is entitled to know it. `None` for
     /// tokens, emblems, and face-down permanents the seat may not look at.
     pub card: Option<CardIdentity>,
+    /// The card this object's abilities are printed on ([`RulesFace`]).
+    ///
+    /// Equal to [`Self::card`]'s index and face for every object that is not
+    /// a copy, and gated on the same entitlement: a face-down permanent the
+    /// seat may not look at names no card here either. `None` for a registry
+    /// token (which [`Self::token`] names) and an emblem.
+    pub rules: Option<RulesFace>,
     /// Projected name. Present even when `card` is `None`, so tokens and
     /// face-down permanents still render a label ("Soldier", "Face-down").
     pub name: String,
@@ -1406,6 +1458,7 @@ mod tests {
             mana_value: 0,
             id: ObjectId::new(id, 0),
             card: None,
+            rules: None,
             name: "Soldier".to_string(),
             controller: PlayerId::new(controller),
             owner: PlayerId::new(controller),
@@ -2081,7 +2134,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (27, 0xd974_2f5d_7c86_f276);
+        const RECORDED: (u32, u64) = (28, 0xf237_33ce_fb69_cc7f);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

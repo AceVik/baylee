@@ -19,6 +19,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         mana_value: 0,
         id: ObjectId::new(slot, 0),
         card: None,
+        rules: None,
         name: name.to_string(),
         controller: PlayerId::new(controller),
         owner: PlayerId::new(controller),
@@ -55,6 +56,7 @@ pub fn printed(slot: u32, controller: u8, name: &str, print: u16) -> PublicObjec
         print: PrintRef::new(print),
         face: 0,
     });
+    obj.rules = obj.card.map(baylee_view::RulesFace::from);
     obj
 }
 

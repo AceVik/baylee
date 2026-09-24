@@ -45,8 +45,8 @@
 use baylee_client_core::card_face::{
     CardText, CardTextEntry, TextBlock, sentence_blocks, split_blocks,
 };
-use baylee_core::ids::PrintRef;
-use baylee_view::{CardIdentity, GameStatic, StackText};
+use baylee_core::ids::{CardIndex, PrintRef};
+use baylee_view::{GameStatic, StackText};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
@@ -113,19 +113,39 @@ pub struct CardTexts {
 /// One door for the three places a sentence is drawn — the ability sheet, the
 /// stack and the cast chooser — so no two of them can disagree about what an
 /// ability says.
+///
+/// `card` is the card the sentence is printed on — [`PublicObject::rules`],
+/// which for a copy is the copied card — and `print` is the printing this
+/// seat holds text for, which exists only where the object *is* that card
+/// ([`print_of`]). A copy's rows are therefore the copied card's English
+/// Oracle until text can be asked for by card rather than by printing.
+///
+/// [`PublicObject::rules`]: baylee_view::PublicObject::rules
 #[must_use]
 pub fn sentence(
     texts: Option<&CardTexts>,
-    card: CardIdentity,
+    card: CardIndex,
+    print: Option<PrintRef>,
     at: StackText,
 ) -> Option<Vec<TextBlock>> {
     texts
-        .and_then(|texts| texts.get(card.print, at.face))
+        .zip(print)
+        .and_then(|(texts, print)| texts.get(print, at.face))
         .and_then(|text| sentence_blocks(&text.oracle_text, at.line, at.of))
         .or_else(|| {
-            baylee_cards::oracle::sentence(card.index, usize::from(at.face), at.line)
-                .map(split_blocks)
+            baylee_cards::oracle::sentence(card, usize::from(at.face), at.line).map(split_blocks)
         })
+}
+
+/// The printing `object` shows, when it is `card` — the only printing whose
+/// text this seat holds for it. `None` for a copy, whose abilities are
+/// printed on a card it is not.
+#[must_use]
+pub fn print_of(object: &baylee_view::PublicObject, card: CardIndex) -> Option<PrintRef> {
+    object
+        .card
+        .filter(|shown| shown.index == card)
+        .map(|shown| shown.print)
 }
 
 /// State of the one in-flight request.
@@ -968,13 +988,8 @@ mod tests {
     }
 
     /// Mind Stone, with one German printing's text filed for it.
-    fn mind_stone(printed: &str) -> (CardIdentity, CardTexts) {
-        let index = baylee_cards::decks::by_name("Mind Stone").expect("in the pool");
-        let card = CardIdentity {
-            index,
-            print: PrintRef::new(0),
-            face: 0,
-        };
+    fn mind_stone(printed: &str) -> (CardIndex, CardTexts) {
+        let card = baylee_cards::decks::by_name("Mind Stone").expect("in the pool");
         let entry = CardTextEntry {
             scryfall_id: "b50fd971-3dd1-4878-889f-81e38970408c".to_string(),
             lang: "de".to_string(),
@@ -1020,7 +1035,7 @@ mod tests {
     fn a_sentence_is_the_player_s_language_when_it_pairs() {
         let (card, texts) = mind_stone(FIC);
         assert_eq!(
-            words(sentence(Some(&texts), card, DRAW)).as_deref(),
+            words(sentence(Some(&texts), card, Some(PrintRef::new(0)), DRAW)).as_deref(),
             Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.")
         );
     }
@@ -1032,15 +1047,30 @@ mod tests {
     fn a_sentence_falls_to_the_english_oracle() {
         let (card, glued) = mind_stone(C15);
         assert_eq!(
-            words(sentence(Some(&glued), card, DRAW)).as_deref(),
+            words(sentence(Some(&glued), card, Some(PrintRef::new(0)), DRAW)).as_deref(),
             Some(ENGLISH)
         );
         let empty = CardTexts::default();
         assert_eq!(
-            words(sentence(Some(&empty), card, DRAW)).as_deref(),
+            words(sentence(Some(&empty), card, Some(PrintRef::new(0)), DRAW)).as_deref(),
             Some(ENGLISH)
         );
-        assert_eq!(words(sentence(None, card, DRAW)).as_deref(), Some(ENGLISH));
+        assert_eq!(
+            words(sentence(None, card, Some(PrintRef::new(0)), DRAW)).as_deref(),
+            Some(ENGLISH)
+        );
+    }
+
+    /// A copy holds no printing of the card its abilities are printed on,
+    /// so its row is that card's English even where the seat holds a German
+    /// text — for the copy's *own* printing, which is another card's.
+    #[test]
+    fn a_sentence_with_no_printing_of_its_card_is_english() {
+        let (card, texts) = mind_stone(FIC);
+        assert_eq!(
+            words(sentence(Some(&texts), card, None, DRAW)).as_deref(),
+            Some(ENGLISH)
+        );
     }
 
     /// No card prints a sentence past its last one, in any language, and the
@@ -1049,7 +1079,13 @@ mod tests {
     fn a_line_nobody_prints_has_no_words() {
         let (card, texts) = mind_stone(FIC);
         let past = StackText { line: 2, ..DRAW };
-        assert_eq!(sentence(Some(&texts), card, past), None);
-        assert_eq!(sentence(None, card, StackText { face: 1, ..DRAW }), None);
+        assert_eq!(
+            sentence(Some(&texts), card, Some(PrintRef::new(0)), past),
+            None
+        );
+        assert_eq!(
+            sentence(None, card, None, StackText { face: 1, ..DRAW }),
+            None
+        );
     }
 }

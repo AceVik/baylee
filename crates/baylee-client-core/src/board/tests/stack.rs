@@ -53,6 +53,7 @@ fn an_ability_on_the_stack_borrows_its_sources_picture() {
         source: ObjectId::new(1, 0),
         ability: Some(AbilityRef::new(CardIndex::new(33), 0)),
         text: None,
+        rules: None,
     });
     let view = ViewBuilder::new(2)
         .with_battlefield(0, [source])
@@ -65,6 +66,7 @@ fn an_ability_on_the_stack_borrows_its_sources_picture() {
         StackKind::Ability {
             source: ObjectId::new(1, 0),
             text: None,
+            rules: None,
         }
     );
     assert_eq!(
@@ -99,6 +101,10 @@ fn an_abilitys_picture_is_taken_from_the_face_its_text_came_from() {
             line: 2,
             of: 3,
         }),
+        rules: Some(baylee_view::RulesFace {
+            card: CardIndex::new(33),
+            face: 1,
+        }),
     });
     let view = ViewBuilder::new(2)
         .with_battlefield(0, [source])
@@ -126,6 +132,7 @@ fn an_ability_whose_source_is_gone_still_draws() {
         source: ObjectId::new(99, 0),
         ability: Some(AbilityRef::new(CardIndex::new(1), 0)),
         text: None,
+        rules: None,
     });
     let view = ViewBuilder::new(2).with_stack(vec![ability]).build();
     let m = model(&view);

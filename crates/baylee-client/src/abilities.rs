@@ -712,11 +712,11 @@ fn owns_a_mana_ability(view: &PlayerView, object: ObjectId) -> bool {
     {
         return true;
     }
-    let Some(card) = o.card else {
+    let Some(rules) = o.rules else {
         return false;
     };
-    baylee_cards::by_index(card.index).is_some_and(|def| {
-        def.abilities_for_face(card.face as usize).iter().any(|a| {
+    baylee_cards::by_index(rules.card).is_some_and(|def| {
+        def.abilities_for_face(rules.face as usize).iter().any(|a| {
             matches!(
                 a,
                 AbilityDef::Activated {
@@ -880,10 +880,10 @@ fn printed_sentence(
     object: ObjectId,
     index: u32,
 ) -> Option<baylee_view::StackText> {
-    let card = view.object(object)?.card?;
-    let line = baylee_cards::lines::ability_line(card.index, card.face as usize, index)?;
+    let rules = view.object(object)?.rules?;
+    let line = baylee_cards::lines::ability_line(rules.card, rules.face as usize, index)?;
     Some(baylee_view::StackText {
-        face: card.face,
+        face: rules.face,
         line: line.line,
         of: line.of,
     })
@@ -1073,6 +1073,59 @@ mod tests {
             },
             PlayerId::new(0),
         )
+    }
+
+    /// A copy's row is the copied card's: its cost, its sentence, read off
+    /// the card `rules` names and not the card the permanent is.
+    ///
+    /// A Glasspool Mimic that became a Werefox Bodyguard is offered the
+    /// Fox's index 1, "{1}{W}, Sacrifice this creature: You gain 2 life."
+    /// Read against the Mimic's own one-entry list, index 1 is nothing: the
+    /// row said "Ability 2" and had no sentence, which is the sheet the owner
+    /// reported as needing special treatment for every card.
+    #[test]
+    fn a_copy_offers_the_row_of_the_card_it_copied() {
+        let id = ObjectId::new(1, 0);
+        let mimic = baylee_cards::decks::by_name("Glasspool Mimic").expect("in the pool");
+        let fox = baylee_cards::decks::by_name("Werefox Bodyguard").expect("in the pool");
+        let mut copy = token(1, 0, "Werefox Bodyguard", 2, 2);
+        copy.card = Some(baylee_view::CardIdentity {
+            index: mimic,
+            print: baylee_core::ids::PrintRef::new(7),
+            face: 0,
+        });
+        copy.rules = Some(baylee_view::RulesFace { card: fox, face: 0 });
+        let view = ViewBuilder::new(2).with_battlefield(0, [copy]).build();
+
+        let rows = options(Lang::En, &view, &offering(vec![(id, 1)], vec![]), id);
+        let row = rows.first().expect("the offered ability is a row");
+        assert_eq!(
+            row.cost.as_deref(),
+            Some("{1}{W}, Sacrifice this"),
+            "the Fox's cost"
+        );
+        let printed = row.printed.expect("the Fox prints this ability");
+        let line = baylee_cards::lines::ability_line(fox, 0, 1).expect("a line for it");
+        assert_eq!(
+            (printed.face, printed.line, printed.of),
+            (0, line.line, line.of)
+        );
+
+        let object = view.object(id).expect("on the battlefield");
+        assert_eq!(
+            crate::cardtext::print_of(object, fox),
+            None,
+            "the Mimic's printing is not the Fox's, so no text filed for it applies"
+        );
+        let words: Vec<String> = crate::cardtext::sentence(None, fox, None, printed)
+            .expect("the Fox's English Oracle")
+            .iter()
+            .map(|b| b.text().to_string())
+            .collect();
+        assert_eq!(
+            words.join(" "),
+            "{1}{W}, Sacrifice this creature: You gain 2 life."
+        );
     }
 
     /// The two synthetic indices are offered like any other ability and have

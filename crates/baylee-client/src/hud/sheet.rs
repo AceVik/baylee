@@ -2055,8 +2055,10 @@ fn row_text(
     option: &crate::abilities::AbilityOption,
 ) -> Option<Vec<TextBlock>> {
     let text = option.printed?;
-    let card = duel.view.as_ref()?.object(object)?.card?;
-    let blocks = crate::cardtext::sentence(Some(faces), card, text)?;
+    let object = duel.view.as_ref()?.object(object)?;
+    let card = object.rules?.card;
+    let print = crate::cardtext::print_of(object, card);
+    let blocks = crate::cardtext::sentence(Some(faces), card, print, text)?;
     let blocks = abilitysheet::effect(blocks, option.cost.as_deref());
     (!blocks.is_empty()).then_some(blocks)
 }

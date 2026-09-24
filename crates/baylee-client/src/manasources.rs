@@ -158,7 +158,11 @@ fn priced(view: &PlayerView, source: &Source) -> bool {
 
 /// Ability `index` of `object`, out of the registry.
 ///
-/// The face matters: an MDFC's back has its own abilities, and reading the
+/// Out of the list of the card the object's abilities are *printed on*
+/// ([`baylee_view::PublicObject::rules`]), which is the list the engine's
+/// index points into: a copy's is the copied card's, and reading the copy's
+/// own card for it named the wrong ability, or none. The face matters for
+/// the same reason — an MDFC's back has its own abilities, and reading the
 /// front's list for it would name the wrong one.
 #[must_use]
 pub fn ability_at(
@@ -166,9 +170,9 @@ pub fn ability_at(
     object: baylee_core::ids::ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    let card = view.object(object)?.card?;
-    let def = baylee_cards::by_index(card.index)?;
-    let abilities = def.abilities_for_face(card.face as usize);
+    let rules = view.object(object)?.rules?;
+    let def = baylee_cards::by_index(rules.card)?;
+    let abilities = def.abilities_for_face(rules.face as usize);
     abilities.get(usize::try_from(index).ok()?)
 }
 
@@ -544,13 +548,13 @@ pub fn granted_source(
 /// eventually has one, and it would miss it in silence.
 #[must_use]
 pub fn ability_count(view: &PlayerView, object: baylee_core::ids::ObjectId) -> usize {
-    let Some(card) = view.object(object).and_then(|o| o.card) else {
+    let Some(rules) = view.object(object).and_then(|o| o.rules) else {
         return 0;
     };
-    let Some(def) = baylee_cards::by_index(card.index) else {
+    let Some(def) = baylee_cards::by_index(rules.card) else {
         return 0;
     };
-    def.abilities_for_face(card.face as usize).len()
+    def.abilities_for_face(rules.face as usize).len()
 }
 
 /// The five basic land types and the mana CR 305.6 gives them.
@@ -713,6 +717,7 @@ mod tests {
             print: baylee_core::ids::PrintRef::new(0),
             face: 0,
         });
+        obj.rules = obj.card.map(baylee_view::RulesFace::from);
         obj.subtypes = baylee_core::types::SubtypeSet::from_slice(def.faces[0].subtypes);
         obj.types = def.faces[0].types;
         obj

@@ -1671,6 +1671,7 @@ mod tests {
             source: obj(99),
             ability: None,
             text: None,
+            rules: None,
         });
         v.stack = vec![friendly, enemy];
         let pending = Pending::Priority {
@@ -2804,6 +2805,7 @@ mod tests {
         PublicObject {
             id,
             card: None,
+            rules: None,
             name: "Creature".into(),
             controller,
             owner: controller,

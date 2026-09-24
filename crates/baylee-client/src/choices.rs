@@ -112,7 +112,7 @@ fn printed_sentence(
         line: found.line,
         of: found.of,
     };
-    let blocks = crate::cardtext::sentence(names.texts, card, printed)?;
+    let blocks = crate::cardtext::sentence(names.texts, card.index, Some(card.print), printed)?;
     let said: Vec<&str> = blocks
         .iter()
         .filter_map(|block| match block {

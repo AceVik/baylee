@@ -15,14 +15,14 @@ use baylee_cards::dsl::AbilityDef;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 use baylee_engine::choice::Pending;
-use baylee_engine::object::{GameObject, ObjectKind};
+use baylee_engine::object::{GameObject, ObjectKind, PrintedFace};
 use baylee_engine::state::GameState;
 use baylee_engine::turn::{DayNight as EngineDayNight, Phase as EnginePhase, Step as EngineStep};
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, CommanderDamage, CommanderView,
     CounterEntry, CounterKind, DayNight, GameStatic, HandObject, ObjectStatus, Phase, PlayerView,
-    PublicObject, SeatView, Step, TargetRef,
+    PublicObject, RulesFace, SeatView, Step, TargetRef,
 };
 
 pub use baylee_view as wire;
@@ -170,6 +170,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
             print: c.print,
             face: obj.face_index,
         }),
+        rules: obj.printed_face().filter(|_| known).map(rules_face),
         name: public_name(state, obj, seat),
         controller: obj.controller,
         owner: obj.owner,
@@ -391,62 +392,45 @@ fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
             ability: loc
                 .card
                 .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index)),
-            text: loc
-                .card
-                .and_then(|card| stack_text(card, loc.index, obj.own_abilities)),
+            text: obj
+                .printed_face()
+                .and_then(|printed| stack_text(printed, loc.index)),
+            rules: obj.printed_face().map(rules_face),
         }),
         _ => None,
     }
 }
 
-/// Which face of its card an ability on the stack came from.
-///
-/// The source's *current* face is the wrong answer and is the trap this
-/// exists to avoid. An ability on the stack is independent of its source
-/// (CR 113.7a), which may have transformed back or died since — and a
-/// wrong face here is caught by nothing downstream, because both faces'
-/// sentence counts are English, so the `of` guard agrees and the player is
-/// shown the other side's sentence as precise text.
-///
-/// `own_abilities` is the right answer for free: it is the very `&'static`
-/// slice `abilities_for_face` returned, captured at the moment the ability
-/// was put on the stack (CR 608.2), so identity settles it. That is also
-/// why a copy answers `None` — a Spark Double's ability carries the
-/// *copied* card's list while the object's card is the physical one, no
-/// face matches, and refusing is right: the alternative prints the wrong
-/// card's sentence. An empty list is skipped rather than matched, because
-/// it cannot be the source of an ability on the stack and two empty slices
-/// may share an address.
-fn ability_face(def: &baylee_cards::dsl::CardDef, captured: &'static [AbilityDef]) -> Option<u8> {
-    if captured.is_empty() {
-        return None;
+/// The view's spelling of the engine's [`PrintedFace`].
+fn rules_face(face: PrintedFace) -> RulesFace {
+    RulesFace {
+        card: face.card(),
+        face: face.face(),
     }
-    (0..def.faces.len())
-        .find(|&face| {
-            let printed = def.abilities_for_face(face);
-            std::ptr::eq(printed.as_ptr(), captured.as_ptr()) && printed.len() == captured.len()
-        })
-        .and_then(|face| u8::try_from(face).ok())
 }
 
 /// Where an ability's printed sentence is, for a client holding the card's
 /// text in the player's own language.
+///
+/// Read against the card the ability is *printed on*, which the engine
+/// carried beside the list the ability took with it (`GameObject::own_face`)
+/// — not the source's card, which for a copy is the wrong card, and not the
+/// source's current face, which a transform may have turned since
+/// (CR 113.7a). It used to be recovered from the list's address, and a copy
+/// answered nothing because no face of the physical card matched; the
+/// address was also never an identity, since two cards with byte-identical
+/// lists share one.
 ///
 /// Answers `None` for everything the generated table has no row for — a
 /// reserved index (`AbilityRef::SPELL`, `SYNTHETIC`, …), a static ability,
 /// a printed one no sentence fits — which is the whole point of it being
 /// an `Option` on the wire. `docs/client.md` §"Which ability is on the
 /// stack" is normative.
-fn stack_text(
-    card: baylee_core::ids::CardIndex,
-    index: u32,
-    captured: Option<&'static [AbilityDef]>,
-) -> Option<baylee_view::StackText> {
-    let def = baylee_cards::by_index(card)?;
-    let face = ability_face(def, captured?)?;
-    let line = baylee_cards::lines::ability_line(card, face as usize, index)?;
+fn stack_text(printed: PrintedFace, index: u32) -> Option<baylee_view::StackText> {
+    let line =
+        baylee_cards::lines::ability_line(printed.card(), usize::from(printed.face()), index)?;
     Some(baylee_view::StackText {
-        face,
+        face: printed.face(),
         line: line.line,
         of: line.of,
     })
@@ -2134,46 +2118,219 @@ mod tests {
         }
     }
 
-    /// The face a stack entry's text is read against is recovered by
-    /// *identity*, and every answer this can give is one a player sees.
-    ///
-    /// Sheoldred is the whole reason the face is resolved at all rather
-    /// than assumed to be zero: her back face is the only one in the pool
-    /// that puts an ability on the stack
-    /// (`baylee_cards::lines` counts them). The copy case is the one that
-    /// has to answer *nothing* — a Spark Double's ability carries the
-    /// copied card's list while the object's card is the physical one, and
-    /// "no face matches" is the only honest answer there. Printing the
-    /// physical card's sentence instead would put a stranger's text on the
-    /// stack, which is worse than the bare label it replaces.
+    /// An ability on the stack, as `push_ability_to_stack` leaves one:
+    /// taken from `source`'s card, carrying `list` printed on `printed`.
+    fn stacked(
+        state: &mut GameState,
+        source_card: CardIndex,
+        index: u32,
+        list: baylee_engine::object::AbilityList,
+    ) -> GameObject {
+        let name = state.names.intern("ability");
+        let base = state.bare_base(name);
+        let mut obj = GameObject::new_ability_on_stack(
+            ObjectId::new(900, 0),
+            PlayerId::new(0),
+            baylee_engine::object::AbilityLoc {
+                card: Some(source_card),
+                index,
+                source: ObjectId::new(901, 0),
+            },
+            std::iter::empty().collect(),
+            base,
+        );
+        obj.take_abilities(list);
+        obj
+    }
+
+    /// A stack entry indexes the sentences of the face its ability was taken
+    /// from. Sheoldred's back face is the only one in the pool that puts an
+    /// ability on the stack; read against the face the source shows *now*,
+    /// it would print the other side's sentence as precise text.
     #[test]
-    fn a_stack_entrys_face_is_recovered_from_the_list_it_took_with_it() {
+    fn a_stack_entry_names_the_face_its_ability_was_taken_from() {
+        let engine = Engine::new(&commander_preset(), Registry).expect("game starts");
+        let mut state = engine.state().clone();
         let sheoldred = baylee_cards::all()
             .find(|d| d.name() == "Sheoldred")
             .expect("the pool has Sheoldred");
-        let other = baylee_cards::all()
-            .find(|d| d.name() != "Sheoldred" && !d.abilities_for_face(0).is_empty())
-            .expect("the pool has some other card with abilities");
 
+        let back = PrintedFace::new(sheoldred.index, 1).expect("fits");
+        let (index, line) = (0..sheoldred.abilities_for_face(1).len())
+            .filter_map(|i| u32::try_from(i).ok())
+            .find_map(|i| baylee_cards::lines::ability_line(sheoldred.index, 1, i).map(|l| (i, l)))
+            .expect("the back face puts an ability on the stack");
+        let own = stacked(
+            &mut state,
+            sheoldred.index,
+            index,
+            baylee_engine::object::AbilityList {
+                abilities: sheoldred.abilities_for_face(1),
+                printed: Some(back),
+            },
+        );
+        let Some(baylee_view::StackItem::Ability { text, rules, .. }) = stack_item(&own) else {
+            panic!("an ability on the stack is an ability");
+        };
         assert_eq!(
-            ability_face(sheoldred, sheoldred.abilities_for_face(1)),
-            Some(1),
-            "the back face's own list names the back face"
+            rules,
+            Some(RulesFace {
+                card: sheoldred.index,
+                face: 1
+            })
         );
         assert_eq!(
-            ability_face(sheoldred, sheoldred.abilities_for_face(0)),
-            Some(0)
+            text,
+            Some(baylee_view::StackText {
+                face: 1,
+                line: line.line,
+                of: line.of
+            }),
+            "the back face's sentence, whatever the source shows now"
+        );
+    }
+
+    /// A copy's ability on the stack names the card it copied, and indexes
+    /// that card's sentences — while the handle a standing answer is filed
+    /// under stays the card on the table. A list no card prints (a token's)
+    /// names nothing.
+    #[test]
+    fn a_copys_stack_entry_names_the_card_it_copied() {
+        let engine = Engine::new(&commander_preset(), Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let solemn = baylee_cards::all()
+            .find(|d| d.name() == "Solemn Simulacrum")
+            .expect("the pool has Solemn Simulacrum");
+        let spark_double = baylee_cards::all()
+            .find(|d| d.name() == "Spark Double")
+            .expect("the pool has Spark Double");
+
+        let (index, line) = (0..solemn.abilities_for_face(0).len())
+            .filter_map(|i| u32::try_from(i).ok())
+            .find_map(|i| baylee_cards::lines::ability_line(solemn.index, 0, i).map(|l| (i, l)))
+            .expect("Solemn's triggers have sentences");
+        let copied = stacked(
+            &mut state,
+            spark_double.index,
+            index,
+            baylee_engine::object::AbilityList {
+                abilities: solemn.abilities_for_face(0),
+                printed: PrintedFace::new(solemn.index, 0),
+            },
+        );
+        let Some(baylee_view::StackItem::Ability {
+            ability,
+            text,
+            rules,
+            ..
+        }) = stack_item(&copied)
+        else {
+            panic!("an ability on the stack is an ability");
+        };
+        assert_eq!(
+            ability.map(|a| a.card),
+            Some(spark_double.index),
+            "the handle stays the card on the table, which a standing answer is filed under"
         );
         assert_eq!(
-            ability_face(sheoldred, other.abilities_for_face(0)),
-            None,
-            "a copy carries the copied card's list; no face of the physical card is it"
+            rules,
+            Some(RulesFace {
+                card: solemn.index,
+                face: 0
+            }),
+            "but the ability is printed on the card it copied"
         );
         assert_eq!(
-            ability_face(sheoldred, &[]),
-            None,
-            "an empty list cannot be the source of an ability, and shares an address"
+            text,
+            Some(baylee_view::StackText {
+                face: 0,
+                line: line.line,
+                of: line.of
+            })
         );
+
+        let token = stacked(
+            &mut state,
+            spark_double.index,
+            0,
+            baylee_engine::object::AbilityList {
+                abilities: solemn.abilities_for_face(0),
+                printed: None,
+            },
+        );
+        let Some(baylee_view::StackItem::Ability { text, rules, .. }) = stack_item(&token) else {
+            panic!("an ability on the stack is an ability");
+        };
+        assert_eq!(
+            (text, rules),
+            (None, None),
+            "a list no card prints has no sentence to point at"
+        );
+    }
+
+    /// `rules` is the card itself for everything that is not a copy, and is
+    /// withheld exactly where `card` is: a face-down permanent's controller
+    /// sees it, and nobody else does.
+    #[test]
+    fn an_object_names_its_own_card_unless_it_may_not_be_known() {
+        let engine = Engine::new(&commander_preset(), Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let mut seen = 0;
+        for seat in [0u8, 1] {
+            let view = player_view(
+                &state,
+                PlayerId::new(seat),
+                0,
+                None,
+                &SeatContext::default(),
+            );
+            for object in view.battlefield.iter().chain(view.command.iter().flatten()) {
+                let Some(card) = object.card else { continue };
+                assert_eq!(
+                    object.rules,
+                    Some(RulesFace {
+                        card: card.index,
+                        face: card.face
+                    }),
+                    "{}",
+                    object.name
+                );
+                seen += 1;
+            }
+        }
+        assert!(seen > 0, "the preset puts cards where a view shows them");
+
+        let hidden = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .first()
+            .copied()
+            .or_else(|| state.commanders[0].first().map(|c| c.object))
+            .expect("some object to turn face down");
+        let owner = state.object(hidden).expect("it exists").controller;
+        state
+            .object_mut(hidden)
+            .expect("it exists")
+            .status
+            .insert(baylee_engine::object::Status::FACE_DOWN);
+        let other = PlayerId::new(1 - owner.get());
+        for (seat, entitled) in [(owner, true), (other, false)] {
+            let view = player_view(&state, seat, 0, None, &SeatContext::default());
+            let Some(object) = view
+                .battlefield
+                .iter()
+                .chain(view.command.iter().flatten())
+                .find(|o| o.id == hidden)
+            else {
+                continue;
+            };
+            assert_eq!(object.card.is_some(), entitled);
+            assert_eq!(
+                object.rules.is_some(),
+                entitled,
+                "the card a face-down permanent's abilities are printed on is the card"
+            );
+        }
     }
 
     use baylee_core::mana::ManaColor;

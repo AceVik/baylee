@@ -1879,12 +1879,19 @@ pub(super) fn stack_sentence(
     view: &PlayerView,
     faces: &FaceCtx<'_>,
 ) -> Option<Vec<TextBlock>> {
-    let baylee_client_core::board::StackKind::Ability { source, text } = item.kind else {
+    let baylee_client_core::board::StackKind::Ability {
+        source,
+        text,
+        rules,
+    } = item.kind
+    else {
         return None;
     };
-    let text = text?;
-    let card = view.object(source)?.card?;
-    crate::cardtext::sentence(Some(faces.texts), card, text)
+    let (text, card) = (text?, rules?.card);
+    let print = view
+        .object(source)
+        .and_then(|source| crate::cardtext::print_of(source, card));
+    crate::cardtext::sentence(Some(faces.texts), card, print, text)
 }
 
 /// What a **queued** ability row is headed, which is not its source's name.
@@ -2299,6 +2306,10 @@ mod tests {
                 ability.stack_item = Some(baylee_view::StackItem::Ability {
                     source: ObjectId::new(7, 0),
                     ability: None,
+                    rules: Some(baylee_view::RulesFace {
+                        card: baylee_core::ids::CardIndex::new(7),
+                        face: 0,
+                    }),
                     text: line.map(|line| baylee_view::StackText {
                         face: 0,
                         line,

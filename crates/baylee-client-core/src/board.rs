@@ -668,6 +668,9 @@ pub enum StackKind {
         /// layer owes the renderer is the *handle*, which it had been
         /// dropping on the floor.
         text: Option<baylee_view::StackText>,
+        /// The card `text` indexes, which for a copy's ability is the card it
+        /// copied and not the source's.
+        rules: Option<baylee_view::RulesFace>,
     },
 }
 
@@ -884,9 +887,16 @@ impl BoardModel {
             .enumerate()
             .map(|(i, o)| {
                 let kind = match o.stack_item {
-                    Some(baylee_view::StackItem::Ability { source, text, .. }) => {
-                        StackKind::Ability { source, text }
-                    }
+                    Some(baylee_view::StackItem::Ability {
+                        source,
+                        text,
+                        rules,
+                        ..
+                    }) => StackKind::Ability {
+                        source,
+                        text,
+                        rules,
+                    },
                     _ => StackKind::Spell,
                 };
                 // An ability is its own object with no card, so it borrows
@@ -909,18 +919,27 @@ impl BoardModel {
                 // has to be the picture that sentence is printed on. It is an
                 // override of the key rather than a branch above `art_of`
                 // because a `text` at all means a real printed card — the
-                // host answers nothing for a token, an emblem or a copy — so
-                // there is no token key here to put a second face on.
+                // host answers nothing for a token or an emblem — so there is
+                // no token key here to put a second face on.
+                //
+                // Only where the source *is* the card the text is printed on.
+                // A copy's ability names the copied card's face, and the
+                // picture borrowed here is the copy's own printing: a Spark
+                // Double carrying a back face's trigger would otherwise ask
+                // for a back face its printing does not have.
                 let art = match kind {
-                    StackKind::Ability { source, text } => view
-                        .object(source)
-                        .and_then(|s| art_of(s, ArtSize::Small, reg))
-                        .map(|key| {
-                            text.map_or(key, |t| ImageKey {
-                                face: Face::from_index(t.face),
-                                ..key
-                            })
-                        }),
+                    StackKind::Ability {
+                        source,
+                        text,
+                        rules,
+                    } => view.object(source).and_then(|s| {
+                        let key = art_of(s, ArtSize::Small, reg)?;
+                        let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
+                        Some(text.filter(|_| own).map_or(key, |t| ImageKey {
+                            face: Face::from_index(t.face),
+                            ..key
+                        }))
+                    }),
                     StackKind::Spell => art_of(o, ArtSize::Small, reg),
                 };
                 StackItem {

@@ -3740,6 +3740,10 @@ mod tests {
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(7, 0),
             ability: None,
+            rules: Some(baylee_view::RulesFace {
+                card: baylee_core::ids::CardIndex::new(7),
+                face: 0,
+            }),
             text: Some(baylee_view::StackText {
                 face: 0,
                 line: 0,

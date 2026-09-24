@@ -2442,6 +2442,7 @@ pub(crate) fn registry_printed(slot: u32, controller: u8, name: &str) -> baylee_
     if let Some(card) = object.card.as_mut() {
         card.index = index;
     }
+    object.rules = object.card.map(baylee_view::RulesFace::from);
     object
 }
 
