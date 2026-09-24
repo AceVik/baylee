@@ -56,3 +56,18 @@
   may read as an automated lookup from a local checkout. No file of it is
   ever copied into this repository or distributed with it. `NOTICE` names it
   exactly and is the one place that does; everywhere else it is "the corpus".
+- Every change to cards, icons, symbols, card images, fonts, audio or
+  anything else shown to a player is checked against the rules we depend on:
+  the Wizards Fan Content Policy and its FAQ, Scryfall's API and image
+  terms, and the licences of what we ship (`docs/legal.md`, #270). Quote the
+  rule from its page, never from memory.
+- A grey area (the rule's wording is met loosely or not at all, but the
+  practice is tolerated) is allowed only with the owner's explicit okay,
+  recorded in `docs/legal.md` with the rule quoted beside it. The accepted
+  ones so far: the Mana font's mana and tap symbols (§2a), and foil over a
+  card image.
+- Anything **clearly forbidden** is never built, merged or shipped quietly.
+  Stop and tell the owner in plain words, with the rule quoted verbatim and
+  the file and line that break it. A session tells the PM, and the PM tells
+  the owner. This applies even when the change was requested and even when
+  it looks small.
