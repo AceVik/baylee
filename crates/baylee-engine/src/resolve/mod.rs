@@ -28,6 +28,7 @@ mod control;
 mod counters;
 mod life;
 mod mana;
+mod reflexive;
 mod tokens;
 mod zones;
 
@@ -1498,6 +1499,15 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),
         Effect::MayDo { effects } => {
+            // CR 608.2d: "The player can't choose an option that's illegal
+            // or impossible." "You may sacrifice this land" after the land
+            // has gone is exactly that, so it is not asked, and the clause
+            // does not happen. Only this one body is read, and the
+            // predicate is the one the sacrifice itself checks. Any other
+            // "may" is still asked as before.
+            if effects == [Effect::SacrificeSelf] && !zones::can_sacrifice_self(state, res) {
+                return None;
+            }
             res.awaiting = Some(AwaitingOp::MayDo { effects });
             Some(Pending::YesNo {
                 player: you,
@@ -1890,6 +1900,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::BecomeMonarch => {
             state.set_monarch(you);
+            None
+        }
+        Effect::Reflexive {
+            when,
+            effects,
+            target,
+        } => {
+            reflexive::arm(state, res, when, effects, target);
             None
         }
         Effect::BecomePrepared => {

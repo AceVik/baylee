@@ -1138,6 +1138,31 @@ player lose life" is a `TargetReq` with a minimum of zero, "you may pay 2
 life" as a land enters is an `EnterModifier`, and "you may play those cards"
 is a permission with nothing to ask. `xtask validate` holds every card
 printing "you may" against that list and says which construct it accepted.
+Reflexive: `Reflexive { when, effects, target }` — "When you do, …"
+(CR 603.12). It is written as the **last** op of the list, directly after
+the action it waits for:
+`&[Effect::SacrificeSelf, Effect::Reflexive { when: ReflexiveEvent::SacrificedThis, effects: &[…], target: None }]`
+for a New Capenna fetch land, and `&[Mill, MayDo { effects: &[SacrificeSelf] }, Reflexive { … }]`
+for Eden. It creates a triggered ability of its own, and only if the action
+happened: a land bounced in response to its own enter trigger fetches
+nothing. The ability goes on the stack after the resolution that created it,
+so players can respond to it, and `target` is chosen at that point. That is
+why Eden's return may take a card its own mill has just put into the
+graveyard. It is not a `Trigger`, because a trigger fires on the event
+whoever caused it (Brokers Hideout was once `LeavesBattlefield(&This)`, and
+it fetched on a bounce), and it is not the rest of the same list, because
+that list resolves with no stack object and no priority window.
+`lints::every_reflexive_sits_where_it_can_trigger` holds the placement:
+- the list is not a mana ability;
+- the reflexive is last, and nested in nothing;
+- the op before it is the action;
+- nothing before the action is off a short allow-list, which today is
+  `Mill` alone.
+
+The engine counts any departure of the source by effect as the sacrifice,
+and that count is exact only in this shape. `ReflexiveEvent` has one
+variant, `SacrificedThis`. Grist's −2 and Agatha's Soul Cauldron need
+`Sacrificed(&Filter)` and `Exiled(&Filter)`.
 Utility: `UntapTarget`, `UntapSelf` (the source, with no target and no
 question — CR 115.1c makes an activated ability targeted only when it says
 the word, so "untap this creature" is the second variant and not the first

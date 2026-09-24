@@ -37844,8 +37844,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Brokers Hideout
     &[FaceLines {
         sentences: 1,
-        stackable: 2,
-        lines: &[Some(0), None],
+        stackable: 1,
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -47423,8 +47423,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Eden, Seat of the Sanctum
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

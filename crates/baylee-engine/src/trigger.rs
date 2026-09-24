@@ -31,10 +31,15 @@ pub struct PendingTrigger {
     pub timestamp: u64,
     /// The object the triggering event was about (if any).
     pub event_object: Option<ObjectId>,
-    /// Synthetic effects for engine-level keyword triggers (prowess).
+    /// The effects of a trigger no card prints. Three things produce one:
+    /// an engine-level keyword (prowess, ward), a granted triggered ability,
+    /// and a reflexive triggered ability an effect created (CR 603.12,
+    /// `resolve::reflexive`).
     pub synthetic_effects: Option<&'static [baylee_cards_dsl::Effect]>,
     /// Target spec for synthetic triggers that need a target choice
-    /// (granted triggered abilities, class levels).
+    /// (granted triggered abilities, class levels, a reflexive "target").
+    /// It is written onto the stack object as its `target_req`, which is
+    /// what CR 608.2b re-checks at resolution.
     pub synthetic_target: Option<baylee_cards_dsl::TargetSpec>,
     /// Fires at most once each turn (marked by the engine after stacking).
     pub once_per_turn: bool,

@@ -904,6 +904,8 @@ mod printed_tests;
 #[cfg(test)]
 mod priority_tests;
 #[cfg(test)]
+mod reflexive_tests;
+#[cfg(test)]
 mod regenerate_tests;
 #[cfg(test)]
 mod resolution_tests;

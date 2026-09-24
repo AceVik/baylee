@@ -515,6 +515,20 @@ pub struct GameState {
     /// never survives a priority grant, so hashing it would make a game state
     /// depend on when it was asked.
     pub ceased: Vec<GameObject>,
+    /// Reflexive triggered abilities (CR 603.12) created by the resolution
+    /// in progress, waiting for the next time a player would receive
+    /// priority (CR 603.3).
+    ///
+    /// Only `Effect::Reflexive` fills it, during a stack resolution, and
+    /// `Engine::finish_resolution` empties it into the trigger queue as that
+    /// resolution ends. `lints::every_reflexive_sits_where_it_can_trigger`
+    /// makes the reflexive the last op of its list, and the op itself never
+    /// asks anything. So no question can be published between the push and
+    /// the drain, and the list is empty whenever one is out and whenever
+    /// `run_machine` samples a `loop_signature`. That is why neither
+    /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
+    /// build enforces, not on which cards happen to exist.
+    pub reflexive: Vec<crate::trigger::PendingTrigger>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -700,6 +714,7 @@ impl GameState {
             ltb_counters: Vec::new(),
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
+            reflexive: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,

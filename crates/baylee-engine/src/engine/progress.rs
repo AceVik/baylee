@@ -2161,8 +2161,14 @@ impl<L: CardLookup> Engine<L> {
         }
         let loc = obj.ability?;
         if loc.index == AbilityRef::SYNTHETIC {
-            // A synthetic keyword trigger (prowess, ward) prints no target.
-            return None;
+            // A synthetic trigger prints nothing to read a requirement off,
+            // so it carries one on its object when it has one: a granted
+            // triggered ability's target, or a reflexive one's. Prowess and
+            // ward carry none and answer `None`, as before. Answering `None`
+            // for all of them meant CR 608.2b never re-checked a synthetic
+            // target. Eden's reflexive ability returned a card that had been
+            // exiled in response, from exile to hand.
+            return obj.target_req;
         }
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
@@ -2556,8 +2562,9 @@ impl<L: CardLookup> Engine<L> {
                     chosen_player: obj.chosen_player,
                     target_players: obj.target_players,
                     event_object: obj.event_object,
-                    // A synthetic keyword trigger has no printed target.
-                    targeted: false,
+                    // Whether it said "target", which a synthetic trigger
+                    // with a requirement did: see `stack_target_req`.
+                    targeted,
                     awaiting: None,
                     mana_ability: false,
                     countered_source: None,
@@ -2823,6 +2830,16 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
+        // The reflexive triggers this resolution created (CR 603.12) join
+        // the queue as it ends, and from there take the ordinary path.
+        // `queue_new_triggers` sorts them with that pass's other triggers
+        // (CR 603.3b), and `collect_triggers` stacks them, asking for a
+        // target or dropping one with none (CR 603.3d). It happens here,
+        // the first thing every completed stack resolution passes, and
+        // not in `queue_new_triggers`. Step 0b of `run_machine` can publish
+        // a question (an as-enters choice) before that runs, and the list
+        // must be empty whenever a question is out.
+        self.trigger_queue.extend(self.state.reflexive.drain(..));
         // A mana ability never went on the stack (CR 605.3b), and its
         // `on_stack` is the source permanent itself. Falling through here
         // treated that permanent as a resolving spell: `finalize_spell`
@@ -3195,6 +3212,9 @@ impl<L: CardLookup> Engine<L> {
             // Same as the sibling site: the chosen targets are one handle and
             // the event object is another.
             obj.event_object = t.event_object;
+            // What the targets were chosen against. CR 608.2b re-checks
+            // them against it at resolution, as it does a spell's.
+            obj.target_req = t.synthetic_target.map(TargetReq::one);
             obj
         });
         self.synthetic_fx.insert(id, synthetic);

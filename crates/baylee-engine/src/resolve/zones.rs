@@ -5,6 +5,32 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 
+/// Whether "sacrifice this" can still happen (CR 701.21a): "To sacrifice
+/// a permanent, its controller moves it from the battlefield directly to
+/// its owner's graveyard. A player can't sacrifice something that isn't a
+/// permanent, or something that's a permanent they don't control."
+///
+/// Both halves are read, against the ability's controller. Before this
+/// guard, `SacrificeSelf` moved its source from wherever it was. A land
+/// bounced in response to its own enter trigger went from hand to
+/// graveyard. A destroyed one went from graveyard to graveyard as a new
+/// object (CR 400.7). A permanent whose control changed in response was
+/// sacrificed by the player who no longer controlled it. Phased out is
+/// read as well, because a phased-out permanent is treated as though it
+/// does not exist (CR 702.26b). `battlefield_view` leaves it out for the
+/// same reason.
+///
+/// It is the sibling of the battlefield check in `Engine::demand_echo`.
+/// `resolve::exec_choice` reads it too, so "you may sacrifice this" is not
+/// offered when the answer "yes" is impossible (CR 608.2d).
+pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
+    state.object(res.source).is_some_and(|o| {
+        o.zone == crate::zone::Zone::Battlefield
+            && o.controller == res.controller
+            && !o.status.contains(crate::object::Status::PHASED_OUT)
+    })
+}
+
 /// The object an effect's own [`TargetSpec`] names at resolution.
 ///
 /// Every spec but one is chosen at CR 601.2c and read back out of
@@ -443,6 +469,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::SacrificeSelf => {
+            if !can_sacrifice_self(state, res) {
+                return None;
+            }
             let owner = state.object(res.source).map_or(you, |o| o.owner);
             if let Some(obj) = state.object_mut(res.source) {
                 obj.kind = ObjectKind::Card;

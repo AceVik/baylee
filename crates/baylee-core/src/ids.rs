@@ -119,7 +119,8 @@ impl AbilityRef {
     /// A recurring upkeep payment the card imposes (echo, pacts).
     pub const UPKEEP_COST: u32 = u32::MAX - 4;
     /// An ability the card does not print: one a continuous effect granted
-    /// it, or a keyword the engine synthesises a trigger for (prowess, ward).
+    /// it, a keyword the engine synthesises a trigger for (prowess, ward), or
+    /// a reflexive triggered ability an effect created (CR 603.12).
     ///
     /// Its own index because it used to have [`Self::SPELL`]'s. The engine
     /// puts such an ability on the stack under a raw `u32::MAX`, and

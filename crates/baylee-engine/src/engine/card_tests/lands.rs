@@ -16553,11 +16553,12 @@ fn daily_bugle_building_grants_menace_to_target_legendary_creature() {
 
 /// Eden, Seat of the Sanctum prints `{T}: Add {C}` and `{5}, {T}: Mill two cards. Then you may sacrifice
 /// this land. When you do, return another target permanent card from your graveyard to your hand.`
-/// The card is marked `Coverage::Partial` because reflexive triggers on sacrifice are not supported.
-/// With five mana floating, Eden offers only its ability at index 0 for `{C}` and never the mill/recursion
-/// ability, cleanly tapping to add one colorless mana.
+/// With five mana floating both abilities are offered, and the first still adds exactly one `{C}`.
+/// The second, whose return is a reflexive trigger (CR 603.12), is played end to end in
+/// `reflexive_tests`: its target is chosen after the mill, declining creates nothing, and a target
+/// exiled in response is not returned.
 #[test]
-fn eden_seat_of_the_sanctum_taps_for_colorless_and_omits_mill_ability() {
+fn eden_seat_of_the_sanctum_taps_for_colorless_and_offers_its_mill_ability_at_five() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
@@ -16586,7 +16587,7 @@ fn eden_seat_of_the_sanctum_taps_for_colorless_and_omits_mill_ability() {
         .copied()
         .filter(|(source, _)| *source == land)
         .collect();
-    assert_eq!(offered, vec![(land, 0)]);
+    assert_eq!(offered, vec![(land, 0), (land, 1)]);
 
     activate(&mut engine, p0, eden_seat_of_the_sanctum(), 0);
     let pool = &engine.state().players[0].mana_pool;
@@ -23054,8 +23055,8 @@ fn axgard_armory_enters_tapped_and_sacrifices_to_search_equipment() {
 }
 
 /// Cabaretti Courtyard prints `When this land enters, sacrifice it. When you do, search your library for a basic Mountain, Forest, or Plains card, put it onto the battlefield tapped, then shuffle and you gain 1 life.`
-/// The card is marked `Coverage::Partial` because the reflexive trigger condition is not expressible in the engine.
-/// When played, its entering trigger sacrifices the land, searches the library for a basic forest onto the battlefield tapped, and gains 1 life.
+/// The enter trigger sacrifices the land. The "When you do" is a reflexive triggered ability (CR 603.12), a stack object of its own, which is on the stack
+/// before anything is searched. It then fetches a basic Forest onto the battlefield tapped and gains 1 life.
 #[test]
 fn cabaretti_courtyard_sacrifices_on_etb_to_fetch_basic_land_tapped_and_gain_life() {
     let p0 = PlayerId::new(0);
@@ -23066,7 +23067,42 @@ fn cabaretti_courtyard_sacrifices_on_etb_to_fetch_basic_land_tapped_and_gain_lif
     reach_main_phase(&mut engine, p0);
 
     let initial_life = engine.state().players[0].life;
-    play_land(&mut engine, p0, cabaretti_courtyard());
+    let land = play_land(&mut engine, p0, cabaretti_courtyard());
+
+    // The enter trigger resolves first. What it leaves behind is the
+    // reflexive ability, on the stack and from the land, with nothing yet
+    // searched.
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(land)
+            .is_some_and(|o| o.zone == Zone::Graveyard)
+    });
+    let waiting: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.ability)
+                .is_some_and(|loc| {
+                    loc.index == baylee_core::ids::AbilityRef::SYNTHETIC && loc.source == land
+                })
+        })
+        .collect();
+    assert_eq!(
+        waiting.len(),
+        1,
+        "one reflexive ability from the land is on the stack"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        initial_life,
+        "nothing has resolved from it yet"
+    );
 
     pass_until(&mut engine, |e| {
         matches!(
@@ -24360,9 +24396,11 @@ fn lotus_vale_adds_three_mana_of_one_chosen_colour() {
     assert!(is_tapped(&engine, vale), "the {{T}} tapped the Vale");
 }
 
-/// Maestros Theater is `Coverage::Implemented`: when it enters it sacrifices
-/// itself and then searches for a basic Island, Swamp, or Mountain, puts it
-/// onto the battlefield tapped, and gains its controller 1 life.
+/// Maestros Theater sacrifices itself when it enters. Its "When you do" is a
+/// reflexive triggered ability (CR 603.12), which searches for a basic
+/// Island, Swamp or Mountain, puts it onto the battlefield tapped, and gains
+/// its controller 1 life. It used to search inside the enter trigger's own
+/// resolution, so a Theater bounced in response still fetched.
 ///
 /// Playing the land, letting its trigger resolve, and answering the search
 /// proves all three clauses: the Theater leaves, the chosen land arrives, and
@@ -24468,17 +24506,14 @@ fn maestros_theater_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
     );
 }
 
-/// Riveteers Overlook is `Coverage::Partial`: the ETB trigger sacrifices the
-/// land and then (in the same resolution, not as a reflexive trigger) searches
-/// for a basic Swamp, Mountain, or Forest, puts it onto the battlefield tapped,
-/// and gains 1 life.  The `Coverage::Partial` gap is that the search and life
-/// gain run unconditionally in the trigger's effect list rather than inside a
-/// true reflexive trigger — so they still happen, which is what this test
-/// confirms.
+/// Riveteers Overlook's enter trigger sacrifices the land. Its "When you do"
+/// is a reflexive triggered ability (CR 603.12), which searches for a basic
+/// Swamp, Mountain or Forest, puts it onto the battlefield tapped, and gains
+/// 1 life.
 ///
-/// Playing the land and answering the search proves the three implemented
-/// effects: the Overlook leaves, the chosen land arrives tapped, and life
-/// goes up by one.
+/// Playing the land and answering the search proves all three clauses: the
+/// Overlook leaves, the chosen land arrives tapped, and life goes up by one.
+/// `reflexive_tests` plays the bounce in response that stops the search.
 #[test]
 fn riveteers_overlook_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
     let p0 = PlayerId::new(0);
@@ -25024,14 +25059,13 @@ fn midgar_city_of_mako_enters_tapped_and_makes_the_one_colour_it_prints() {
     assert!(is_tapped(&engine, land), "its own tap symbol was the cost");
 }
 
-/// Brokers Hideout is two triggers reading as one sentence: "When this land
-/// enters, sacrifice it. When you do, search your library for a basic
-/// Forest, Plains, or Island card, put it onto the battlefield tapped, then
-/// shuffle and you gain 1 life." The first half is written as
-/// `Trigger::ETB`, the second as this land's own
-/// `Trigger::LeavesBattlefield` — which is the reading worth playing, since
-/// a land that sacrificed itself and then searched nothing looks exactly
-/// like a land that never entered.
+/// Brokers Hideout: "When this land enters, sacrifice it. When you do,
+/// search your library for a basic Forest, Plains, or Island card, put it
+/// onto the battlefield tapped, then shuffle and you gain 1 life." The
+/// second sentence is a reflexive triggered ability (CR 603.12), created by
+/// the sacrifice. It used to be the land's own `Trigger::LeavesBattlefield`,
+/// which also fired on a bounce in response. CR 603.12's Manticore example
+/// rules that reading out, and `reflexive_tests` plays it.
 ///
 /// The filter is checked by the branch that finds **nothing**: with a deck
 /// of Mountains the search has no legal card, and Mountain is a basic land
@@ -25714,10 +25748,9 @@ fn vesuva_enters_as_a_copy_of_a_land_on_the_battlefield() {
 /// **nothing** is what separates the three types it prints from "a basic
 /// land". A Forest is a basic land and is none of the three.
 ///
-/// The file is `Coverage::Partial` for a reason this scenario cannot see and
-/// says so rather than leaving it: the printed "When you do" is a reflexive
-/// trigger (CR 603.12), and here the search sits in the same ability as the
-/// sacrifice. Nothing below responds to anything, so the two readings agree.
+/// The search is a reflexive triggered ability (CR 603.12). It goes on the
+/// stack after the sacrifice, and only if the sacrifice happened.
+/// `reflexive_tests` plays the responses this scenario does not make.
 #[test]
 fn obscura_storefront_searches_for_one_of_the_three_basics_it_names() {
     let p0 = PlayerId::new(0);

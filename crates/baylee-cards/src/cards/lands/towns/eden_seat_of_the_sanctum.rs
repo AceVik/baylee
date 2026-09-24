@@ -2,11 +2,31 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {5}, {T}: Mill two cards. Then you may sacrifice this land. When you do, return another target permanent card from your graveyard to your hand.
 //! Set: FIN #277 — Final Fantasy | Scryfall ID: e28eac1e-adc7-4f8d-b206-bef09ba07d38 | Oracle ID: 84856b92-5ce8-47f3-9a1c-78d6a3e26aca
-// PARTIAL — the mana ability is built; the {5}, {T} ability is not, see the
-// NOT SUPPORTED line below.
+// IMPLEMENTED — `{T}: Add {C}`, and a `{5}, {T}` ability that mills two and
+// may sacrifice the land. The return is a reflexive triggered ability
+// (CR 603.12): it exists only if the land was sacrificed, and it chooses its
+// target as it goes on the stack, after the mill, so a card the mill just put
+// into the graveyard can be the one returned.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+// "another target permanent card from your graveyard": a permanent card is
+// an artifact, battle, creature, enchantment, land or planeswalker card
+// (CR 110.4a), and "another" leaves Eden itself out, which is in the
+// graveyard by then.
+static ANOTHER_PERMANENT_CARD: Filter = Filter::And(&[
+    Filter::HasType(
+        TypeSet::ARTIFACT
+            .union(TypeSet::BATTLE)
+            .union(TypeSet::CREATURE)
+            .union(TypeSet::ENCHANTMENT)
+            .union(TypeSet::LAND)
+            .union(TypeSet::PLANESWALKER),
+    ),
+    Filter::Another,
+]);
+static RETURNED: TargetSpec = TargetSpec::CardInGraveyard(&ANOTHER_PERMANENT_CARD, PlayerRel::You);
 
 card!(
     index = index::EDEN_SEAT_OF_THE_SANCTUM,
@@ -17,23 +37,25 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::TOWN],
     ),],
-    coverage = Coverage::Partial(
-        "{5}, {T} ability: needs a reflexive when-you-do trigger, which the DSL does not have"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // NOT SUPPORTED: "{5}, {T}: Mill two cards. Then you may sacrifice
-        // this land. When you do, return another target permanent card from
-        // your graveyard to your hand." — the return sits on a reflexive
-        // triggered ability (CR 603.12), and `Trigger` has no variant for
-        // "you sacrificed this" (its events are Enter/Leave/Die/Cast/Target/
-        // Exile/CombatDamage/BecomesTapped/NthSpell/Draw/Attack/Step). The
-        // nearest shape, one `MayDo` wrapping `SacrificeSelf` beside
-        // `GraveyardToHand`, is a different card rather than a shorter
-        // spelling of this one: the target would be chosen as the ability is
-        // activated — before the mill, and with no way to return a card the
-        // mill just put there — and an activation carrying a required
-        // graveyard target cannot happen at all on an empty graveyard, so a
-        // player could not even pay {5}, {T} to mill two.
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(
+            cost!("{5}", TapSelf),
+            &[
+                Effect::Mill {
+                    amount: Amount::Fixed(2),
+                    target: PlayerRel::You,
+                },
+                Effect::MayDo {
+                    effects: &[Effect::SacrificeSelf],
+                },
+                Effect::Reflexive {
+                    when: ReflexiveEvent::SacrificedThis,
+                    effects: &[Effect::GraveyardToHand { target: RETURNED }],
+                    target: Some(RETURNED),
+                },
+            ]
+        ),
     ],
 );

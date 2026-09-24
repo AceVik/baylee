@@ -47,7 +47,7 @@
 
 use crate::dsl::ability::{AbilityDef, SpellMode};
 use crate::dsl::cost::{Cost, CostPart};
-use crate::dsl::effect::{Effect, ManaSource, TargetSpec};
+use crate::dsl::effect::{Effect, ManaSource, ReflexiveEvent, TargetSpec};
 use crate::dsl::filter::Filter;
 use crate::dsl::static_ability::{Layer, Modifier};
 use crate::dsl::{CardDef, Color, ColorSet, FaceDef, ManaColor, ManaCost, TypeSet};
@@ -66,11 +66,55 @@ struct Branch {
 
 /// Every `(target, effects)` pair an ability resolves through.
 ///
+/// A trailing [`Effect::Reflexive`] is cut off the list it ends and becomes
+/// a branch of its own, with its own target. That is what it is at
+/// resolution: a triggered ability of its own (CR 603.12), whose target is
+/// chosen as it goes on the stack, and which the outer ability's target
+/// never reaches. Read as one branch, Eden's "another target permanent
+/// card" sat in a list that targets nothing, and every lint here that asks
+/// what a list is pointed at could not see it.
+/// `every_reflexive_sits_where_it_can_trigger` makes the last op the only
+/// place a reflexive can stand, so only that place is read here.
+fn branches(ability: &AbilityDef) -> Vec<Branch> {
+    printed_branches(ability)
+        .into_iter()
+        .flat_map(split_reflexive)
+        .collect()
+}
+
+/// A branch, and its trailing reflexive trigger's body as a branch of its
+/// own, recursively.
+fn split_reflexive(branch: Branch) -> Vec<Branch> {
+    let Some((
+        Effect::Reflexive {
+            when: _,
+            effects,
+            target,
+        },
+        outer,
+    )) = branch.effects.split_last()
+    else {
+        return vec![branch];
+    };
+    let mut out = vec![Branch {
+        target: branch.target,
+        effects: outer,
+    }];
+    out.extend(split_reflexive(Branch {
+        target: *target,
+        effects,
+    }));
+    out
+}
+
+/// Every `(target, effects)` pair an ability prints, before a reflexive
+/// trigger is cut out of one. See [`branches`].
+///
 /// The `match` is deliberately **exhaustive with no wildcard arm**: a new
 /// [`AbilityDef`] variant must be classified here before the crate compiles,
 /// because a variant silently falling into a `_ => vec![]` would leave every
 /// lint in this module quietly passing over it.
-fn branches(ability: &AbilityDef) -> Vec<Branch> {
+fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
     let modal = |modes: &'static [SpellMode]| {
         modes
             .iter()
@@ -349,6 +393,183 @@ fn layer_fault(ability: &AbilityDef) -> Option<(Layer, Layer, Modifier)> {
         )
         .find(|(declared, modifier)| *declared != modifier.layer())
         .map(|(declared, modifier)| (declared, modifier.layer(), modifier))
+}
+
+/// Where an effect list an ability resolves through came from.
+///
+/// A reflexive trigger can arrive through any door an effect list can, and a
+/// sweep that knows one of them reports a clean pool having read part of
+/// it. That is how the CR 605.1 sweeps were found blind to grants. The
+/// discriminant indexes the per-door counts a sweep holds its floor
+/// against.
+#[derive(Clone, Copy, Debug)]
+enum Door {
+    /// Printed on the card or token.
+    Printed = 0,
+    /// Granted by an [`AbilityDef::Static`].
+    Static = 1,
+    /// Granted by an [`Effect::CreateContinuousEffect`] as a list resolves.
+    Effect = 2,
+    /// Granted by a [`CopyMod::Grant`](crate::dsl::ability::CopyMod::Grant)
+    /// inside a copy clause.
+    Copy = 3,
+}
+
+/// The `(effects, goes on the stack)` of an ability a modifier grants.
+fn granted_list(modifier: &Modifier) -> Option<(&'static [Effect], bool)> {
+    match modifier {
+        Modifier::GrantActivated {
+            effects,
+            mana_ability,
+            ..
+        } => Some((effects, !*mana_ability)),
+        Modifier::GrantTriggered { effects, .. } => Some((effects, true)),
+        _ => None,
+    }
+}
+
+/// Every effect list an ability can resolve through, whether it resolves
+/// off the stack, and the door it came through.
+///
+/// A list is on the stack unless it is a mana ability, printed or granted
+/// (CR 605.3b). That is the one question [`reflexive_fault_in`] needs
+/// answered about where a list came from. The `match` is exhaustive with no
+/// wildcard for the reason [`branches`] gives.
+fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)> {
+    use crate::dsl::ability::CopyMod;
+    let mut lists: Vec<(&'static [Effect], bool, Door)> = Vec::new();
+    match ability {
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Loyalty { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. } => lists.push((effects, true, Door::Printed)),
+        AbilityDef::Activated {
+            effects,
+            mana_ability,
+            ..
+        }
+        | AbilityDef::ActivatedConditional {
+            effects,
+            mana_ability,
+            ..
+        } => lists.push((effects, !*mana_ability, Door::Printed)),
+        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+            lists.extend(modes.iter().map(|m| (m.effects, true, Door::Printed)));
+        }
+        AbilityDef::Static(rule) => {
+            if let Some((effects, stack)) = granted_list(&rule.modifier) {
+                lists.push((effects, stack, Door::Static));
+            }
+        }
+        AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
+            for m in *mods {
+                if let CopyMod::Grant(modifier) = m
+                    && let Some((effects, stack)) = granted_list(modifier)
+                {
+                    lists.push((effects, stack, Door::Copy));
+                }
+            }
+        }
+        AbilityDef::Unimplemented
+        | AbilityDef::Ward { .. }
+        | AbilityDef::Prepared { .. }
+        | AbilityDef::Echo { .. }
+        | AbilityDef::Replacement(_)
+        | AbilityDef::Suspend { .. } => {}
+    }
+    // The effect door, read off every list already found, including the
+    // ones this loop adds: a granted ability may itself grant one.
+    let mut i = 0;
+    while i < lists.len() {
+        let (effects, ..) = lists[i];
+        let mut seen = 0_usize;
+        Effect::walk(effects, &mut seen, &mut |effect| {
+            if let Effect::CreateContinuousEffect { modifier, .. } = effect
+                && let Some((granted, stack)) = granted_list(modifier)
+            {
+                lists.push((granted, stack, Door::Effect));
+            }
+        });
+        i += 1;
+    }
+    lists
+}
+
+/// How many reflexive triggers an effect list writes, at any depth.
+fn reflexives_in(effects: &'static [Effect]) -> usize {
+    let (mut found, mut seen) = (0_usize, 0_usize);
+    Effect::walk(effects, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::Reflexive { .. }) {
+            found += 1;
+        }
+    });
+    found
+}
+
+/// Whether an op before the action could move the reflexive ability's
+/// source.
+///
+/// The engine counts **any** departure of the source by effect after the
+/// resolution's marker as the action (`resolve::reflexive`). That count is
+/// exact only while nothing else in the list can move the source, so this
+/// list is fail-closed: an op is allowed only after someone has read it and
+/// named it. A card that needs another op here extends the list on purpose.
+const fn cannot_move_the_source(effect: &Effect) -> bool {
+    matches!(effect, Effect::Mill { .. })
+}
+
+/// Why an effect list's reflexive trigger could not fire the way its card
+/// prints it, or [`None`] when the list writes none or writes it correctly.
+///
+/// "When you do" names the action printed directly before it, and the
+/// engine reads that action back out of what the resolution has done. The
+/// shape is therefore one shape: an allowed prefix, the action, and the
+/// reflexive trigger as the last op of a list that resolves off the stack.
+/// Every other placement is an ability the engine would read wrongly.
+/// - Anything after the reflexive would run while the reflexive is still
+///   held in the state, which is supposed to be empty whenever a question
+///   is out.
+/// - An op between the action and the reflexive could move the source a
+///   second way.
+/// - A reflexive nested in a carrier or in another reflexive is
+///   one the placement rule no longer describes.
+/// - A mana ability has no resolution to read back through (CR 605.3b).
+fn reflexive_fault_in(effects: &'static [Effect], on_the_stack: bool) -> Option<&'static str> {
+    let found = reflexives_in(effects);
+    if found == 0 {
+        return None;
+    }
+    if !on_the_stack {
+        return Some(
+            "writes a reflexive trigger in a mana ability, which never resolves off the stack",
+        );
+    }
+    let Some((Effect::Reflexive { when, .. }, before)) = effects.split_last() else {
+        return Some("writes a reflexive trigger that is not the last op of its ability");
+    };
+    if found > 1 {
+        return Some("writes a reflexive trigger inside another one or inside a carrier");
+    }
+    let Some((action, prefix)) = before.split_last() else {
+        return Some("writes a reflexive trigger with no action before it");
+    };
+    match when {
+        ReflexiveEvent::SacrificedThis => {
+            if !matches!(
+                action,
+                Effect::SacrificeSelf
+                    | Effect::MayDo {
+                        effects: [Effect::SacrificeSelf]
+                    }
+            ) {
+                return Some("waits for a sacrifice that is not the op directly before it");
+            }
+        }
+    }
+    if !prefix.iter().all(cannot_move_the_source) {
+        return Some("lets an op that could move the source stand before the action");
+    }
+    None
 }
 
 /// The `(flag, effects)` of an activated ability a modifier **grants**.
@@ -1260,6 +1481,188 @@ mod tests {
             seen > 300,
             "only {seen} activated abilities were looked at; the sweep is not reaching the pool"
         );
+    }
+
+    /// Every reflexive trigger in the pool sits where the engine can read its
+    /// action back (CR 603.12). That place is the last op of a list that
+    /// resolves off the stack, directly after the sacrifice it names, with
+    /// nothing before it that could move the source.
+    ///
+    /// Every door is read, for the reason
+    /// `no_granted_ability_breaks_the_rule_a_printed_one_is_held_to` gives:
+    /// printed, granted by a static, granted by a resolving effect, granted
+    /// by a copy clause, and printed on a token. The floor counts the lists
+    /// read through each door rather than the reflexives found, because a
+    /// count of found reflexives clears itself as soon as the pool holds
+    /// enough of one shape. The reflexive floor sits beside it. The six cards
+    /// that print "when you do" are why the sweep exists, and a walk that
+    /// found none of them has stopped reaching them.
+    #[test]
+    fn every_reflexive_sits_where_it_can_trigger() {
+        let mut wrong = Vec::new();
+        let mut doors = [0_usize; 4];
+        let (mut token_lists, mut reflexives) = (0_usize, 0_usize);
+        let mut read = |name: &str, ability: &AbilityDef, counts: &mut dyn FnMut(Door)| {
+            for (effects, on_the_stack, door) in resolving_lists(ability) {
+                counts(door);
+                reflexives += reflexives_in(effects);
+                if let Some(fault) = reflexive_fault_in(effects, on_the_stack) {
+                    wrong.push(format!("{name} {fault}"));
+                }
+            }
+        };
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                read(def.name(), ability, &mut |door| doors[door as usize] += 1);
+            }
+        }
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                read(token.name, ability, &mut |_| token_lists += 1);
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "{} reflexive trigger(s) the engine would read wrongly:\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+        assert!(
+            reflexives >= 6,
+            "only {reflexives} reflexive trigger(s) found, and six cards print one"
+        );
+        assert!(
+            doors.iter().all(|n| *n >= 1) && token_lists >= 1,
+            "lists read per door: printed {}, static grant {}, effect grant {}, \
+             copy grant {}, token {token_lists}. A nought is a door the sweep \
+             stopped reaching",
+            doors[Door::Printed as usize],
+            doors[Door::Static as usize],
+            doors[Door::Effect as usize],
+            doors[Door::Copy as usize],
+        );
+    }
+
+    /// The sweep above passes, and this test shows that passing means
+    /// something. Every misplacement the rule forbids is written once and
+    /// has to be reported. Both correct shapes, the fetch land's and Eden's,
+    /// have to pass.
+    #[test]
+    fn a_reflexive_fault_fires_on_each_bad_shape() {
+        use crate::dsl::effect::{Amount, PlayerRel};
+        const BODY: &[Effect] = &[Effect::GainLife {
+            amount: Amount::Fixed(1),
+        }];
+        const REFLEX: Effect = Effect::Reflexive {
+            when: ReflexiveEvent::SacrificedThis,
+            effects: BODY,
+            target: None,
+        };
+        const SACRIFICE: &[Effect] = &[Effect::SacrificeSelf];
+        const DRAW: Effect = Effect::DrawCards {
+            amount: Amount::Fixed(1),
+        };
+        const MILL: Effect = Effect::Mill {
+            amount: Amount::Fixed(2),
+            target: PlayerRel::You,
+        };
+        static FETCH: [Effect; 2] = [Effect::SacrificeSelf, REFLEX];
+        static EDEN: [Effect; 3] = [MILL, Effect::MayDo { effects: SACRIFICE }, REFLEX];
+        static NOT_LAST: [Effect; 3] = [Effect::SacrificeSelf, REFLEX, DRAW];
+        static BETWEEN: [Effect; 3] = [Effect::SacrificeSelf, DRAW, REFLEX];
+        static IN_A_MAY: [Effect; 1] = [Effect::MayDo { effects: &FETCH }];
+        static IN_A_REFLEX: [Effect; 2] = [
+            Effect::SacrificeSelf,
+            Effect::Reflexive {
+                when: ReflexiveEvent::SacrificedThis,
+                effects: &FETCH,
+                target: None,
+            },
+        ];
+        static PREFIX: [Effect; 3] = [DRAW, Effect::SacrificeSelf, REFLEX];
+        static ALONE: [Effect; 1] = [REFLEX];
+        static GRANT: [Effect; 1] = [Effect::CreateContinuousEffect {
+            layer: Layer::Ability,
+            filter: &Filter::This,
+            modifier: Modifier::GrantActivated {
+                cost: Cost::TAP,
+                effects: &FETCH,
+                mana_ability: true,
+            },
+            duration: Duration::UntilEndOfTurn,
+        }];
+
+        assert_eq!(reflexive_fault_in(&FETCH, true), None);
+        assert_eq!(reflexive_fault_in(&EDEN, true), None);
+
+        for (shape, list) in [
+            ("not last", &NOT_LAST[..]),
+            ("an op between the action and it", &BETWEEN[..]),
+            ("inside a may", &IN_A_MAY[..]),
+            ("inside another reflexive", &IN_A_REFLEX[..]),
+            ("an unlisted op before the action", &PREFIX[..]),
+            ("no action at all", &ALONE[..]),
+        ] {
+            assert!(
+                reflexive_fault_in(list, true).is_some(),
+                "a reflexive trigger {shape} was not reported"
+            );
+        }
+        assert!(
+            reflexive_fault_in(&FETCH, false).is_some(),
+            "a reflexive trigger in a mana ability was not reported"
+        );
+
+        // Through a door: a granted mana ability, written inside the effect
+        // list of an ordinary trigger.
+        let granting = AbilityDef::Triggered {
+            trigger: crate::dsl::ability::Trigger::ETB,
+            effects: &GRANT,
+            targets: None,
+            once_per_turn: false,
+            condition: None,
+        };
+        let faults: Vec<_> = resolving_lists(&granting)
+            .into_iter()
+            .filter_map(|(effects, on_the_stack, _)| reflexive_fault_in(effects, on_the_stack))
+            .collect();
+        assert_eq!(
+            faults.len(),
+            1,
+            "the granted mana ability is read: {faults:?}"
+        );
+    }
+
+    /// A reflexive trigger's target belongs to the reflexive trigger.
+    ///
+    /// [`branches`] cuts a trailing reflexive off the list it ends and makes
+    /// its body a branch with its own target. Without that cut the body sat
+    /// in a branch that targets nothing, so "destroy all creatures" behind
+    /// "target creature" was invisible to [`target_reuse`], which is Karn's
+    /// fault in another place.
+    #[test]
+    fn a_reflexive_target_is_read_as_its_own_branch() {
+        const SWEEP_ALL: &[Effect] = &[Effect::DestroyAll {
+            filter: &Filter::CREATURE,
+            no_regen: false,
+        }];
+        static LIST: [Effect; 2] = [
+            Effect::SacrificeSelf,
+            Effect::Reflexive {
+                when: ReflexiveEvent::SacrificedThis,
+                effects: SWEEP_ALL,
+                target: Some(TargetSpec::Object(&Filter::CREATURE)),
+            },
+        ];
+        let ability = AbilityDef::Triggered {
+            trigger: crate::dsl::ability::Trigger::ETB,
+            effects: &LIST,
+            targets: None,
+            once_per_turn: false,
+            condition: None,
+        };
+        assert_eq!(target_reuse(&ability), Some(&Filter::CREATURE));
     }
 
     /// CR 605.1 over the activated abilities no card *prints*: the ones a

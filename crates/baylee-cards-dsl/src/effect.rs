@@ -342,6 +342,23 @@ pub struct ManaRestriction {
     pub rider: SpendRider,
 }
 
+/// What a reflexive triggered ability waits for (CR 603.12): an event
+/// that the resolution creating it has already caused.
+///
+/// "When you do" names the action printed directly before it, and the
+/// event is what makes the sentence a trigger rather than an `if`. The
+/// enum has one variant because this pool needs one. Grist's −2 ("you may
+/// sacrifice a creature. When you do, …") needs `Sacrificed(&Filter)`, and
+/// Agatha's Soul Cauldron ("when a creature card is exiled this way")
+/// needs `Exiled(&Filter)`. Both come with their cards, and each brings its
+/// own action clause to the placement lint.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ReflexiveEvent {
+    /// "Sacrifice it. When you do, …" / "Then you may sacrifice this land.
+    /// When you do, …": this resolution sacrificed its own source.
+    SacrificedThis,
+}
+
 /// Relative player references.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum PlayerRel {
@@ -876,6 +893,39 @@ pub enum Effect {
     MayDo {
         /// What happens on a yes.
         effects: &'static [Effect],
+    },
+    /// "When you do, …": creates a reflexive triggered ability
+    /// (CR 603.12). It is written as the **last** op of a list that
+    /// resolves off the stack, directly after the action it waits for. It
+    /// checks that action against what this resolution has already done,
+    /// and creates nothing when the action did not happen.
+    ///
+    /// Two nearby shapes looked like this one and are not.
+    /// - It is not a [`crate::ability::Trigger`]. CR 603.7a says the
+    ///   ability "won't trigger until it has actually been created". Brokers
+    ///   Hideout's half, written as a leaves-the-battlefield trigger, fired
+    ///   on a bounce in response. CR 603.12's Manticore example rules that
+    ///   reading out.
+    /// - It is not the rest of the action's own list, or an `If…` beside
+    ///   it. Those run inside the same resolution. They put nothing on the
+    ///   stack, give nobody priority, and cannot choose a target after the
+    ///   action. Eden's "another target permanent card" may take a card its
+    ///   own mill has just put into the graveyard.
+    ///
+    /// `lints::every_reflexive_sits_where_it_can_trigger` holds the
+    /// placement. The engine counts any departure of the source by effect
+    /// as the sacrifice, and that is exact only in that shape.
+    Reflexive {
+        /// The event, checked against this resolution's earlier events.
+        when: ReflexiveEvent,
+        /// What the triggered ability does when it resolves.
+        effects: &'static [Effect],
+        /// Its target. It is chosen as the ability is put on the stack
+        /// (CR 603.3d, which applies CR 601.2c), not while the resolution
+        /// that created it runs. It is `Option<TargetSpec>` and not a
+        /// [`TargetReq`] because that is what a synthetic trigger carries,
+        /// and every reflexive target in the pool is exactly one object.
+        target: Option<TargetSpec>,
     },
     /// Branch on whether the spell was kicked (paid its additional cost).
     IfKicked {
@@ -1816,7 +1866,16 @@ impl Effect {
             // rather than stumbles into — where a *twelfth* branch on a
             // variant that already nests is exactly what somebody stumbles
             // into, because the arm already looks handled.
-            Effect::Sequence(effects) | Effect::MayDo { effects } => (effects, NONE),
+            // A reflexive ability's body is its own stack object later, but
+            // it is still what this list can come to do, and every walker
+            // has to read it.
+            Effect::Sequence(effects)
+            | Effect::MayDo { effects }
+            | Effect::Reflexive {
+                when: _,
+                effects,
+                target: _,
+            } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }

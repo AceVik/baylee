@@ -395,6 +395,53 @@ Three more things the rule needs, each of which was wrong first:
   nothing, so nothing else would stop it pulling a card out of *exile* if
   somebody exiled it in response.
 
+### "When you do": a trigger the resolution creates (CR 603.12)
+
+A reflexive triggered ability is not in any card's ability list. The
+resolution that caused its event creates it, and CR 603.12 has it check that
+event "earlier during the resolution", never later. `Effect::Reflexive` is
+written as the last op of the list, directly after the action it waits for,
+and `resolve::reflexive::arm` does three things.
+
+- **It reads what this resolution did from the journal.** `resolve_stack_top`
+  records `StackObjectResolved` after the CR 603.4 and 608.2b checks and
+  before any effect runs, and resolutions never interleave. So the entries
+  after the latest marker for `res.on_stack` are this resolution's own.
+  Nothing is carried on `Resolution`, and a question inside the action
+  (Eden's "you may sacrifice", which splices its tail and resumes) changes
+  nothing. A resolution whose `on_stack` is not on the stack, which is a mana
+  ability's (CR 605.3b), reads nothing. Its `on_stack` is the permanent, and
+  the permanent keeps the id of the spell it resolved from.
+- **It counts the event, once per occurrence (CR 603.12a).** `SacrificedThis`
+  is a departure of the source from the battlefield with `Cause::Effect`. A
+  cost records `Cause::Cost`, so a payment window is never the action.
+  `lints::every_reflexive_sits_where_it_can_trigger` is what makes "any
+  departure by effect" mean "the sacrifice": it requires the sacrifice
+  directly before the reflexive, and allows nothing before the sacrifice
+  that could move the source.
+- **It queues a synthetic trigger in `GameState::reflexive`.** The trigger
+  has the source and controller of the ability that created it (CR 603.7e)
+  and no event object. `finish_resolution` moves it into the trigger queue
+  as its first act. Every completed stack resolution passes through there,
+  and it runs before step 0b of `run_machine` can publish an as-enters
+  question. From then on it is an ordinary synthetic trigger. It is stacked
+  the next time a player would receive priority (CR 603.3), it asks for its
+  target then (CR 603.3d, applying 601.2c), and it is removed when it has
+  none.
+
+Two older rules had to be right first, and each was wrong.
+
+- **`SacrificeSelf` moved its source from anywhere.** A land bounced in
+  response went from hand to graveyard, and a land whose control had changed
+  was sacrificed by a player who no longer controlled it. CR 701.21a allows
+  neither. `resolve::zones::can_sacrifice_self` checks zone, controller and
+  phasing. `MayDo` reads the same predicate so that it does not offer an
+  impossible "yes" (CR 608.2d).
+- **A synthetic stack object answered `None` for its target requirement.**
+  That meant CR 608.2b never re-checked a granted or reflexive target. The
+  requirement is now written on the object when the trigger is stacked, and
+  `stack_target_req` reads it back.
+
 ## Two instances of "target", and a board that moves mid-resolution
 
 CR 115.3 counts targets per **instance of the word**: Khalni Ambush's "target
