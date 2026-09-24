@@ -54,7 +54,7 @@ pool-dump --out <path>            # refactor diffs
 dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2]
 ```
 
-- `dev-table` skips only sign-in and deck-pick (`dev@baylee.local`, gateway HTTP, sends `ready`/`start`, real sockets). `--teams`: sides in seat order (`0` = alone), three chairs minimum.
+- `dev-table` skips only sign-in and deck-pick (username `dev`, gateway HTTP, sends `ready`/`start`, real sockets). `--teams`: sides in seat order (`0` = alone), three chairs minimum.
 - `codegen`/`explain`/`card-batch` read the external GPL card-script reference (`NOTICE`): `--scripts`, `BAYLEE_CARD_SCRIPTS`, or a `cardsfolder` within four levels of the repo's parent. Never copy it in.
 - `cr-check` finds the Comprehensive Rules the same three ways (`--rules`, `BAYLEE_COMP_RULES`, `MagicCompRules*.txt`); none = no check. Never vendor it (`docs/legal.md`). A line using a heading word must cite under it (keyword action `701.N`, keyword ability `702.N`). Sections renumber: look numbers up, never recall them. Record an old wrong citation without `CR`.
 - Scryfall: `fetch_named` answers cached payloads from disk, else fetches one card. Fill a cold cache in bulk (`scryfall::fill_from_bulk`, `oracle_cards`), matched on ledger `oracle_id`, never name. Bulk never fails; gaps fetch singly.
@@ -91,7 +91,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 ```
 
 - `compose.yaml` pins `name: baylee` so worktrees share one container; keep it (`COMPOSE_PROJECT_NAME`/`-p` still override).
-- `baylee-db` is the gateway's store (accounts, sessions, decks, confirmations, preferences; entities + migrator); no `DATABASE_URL`, no gateway. A leftover `gateway-store.json` is imported into an empty DB (its `automation` map is dropped), then moved aside.
+- `baylee-db` is the gateway's store (accounts: login by username, email optional, guests; sessions, decks, confirmations, preferences; entities + migrator); no `DATABASE_URL`, no gateway. A leftover `gateway-store.json` is imported into an empty DB (its `automation` map is dropped), then moved aside.
 - The card catalog is optional (same Postgres, hand-written SQL); without an ingest games still run without card text: the client draws faces from the engine's projection. Ingest every language: the client asks `/catalog/text` in its own, English fallback per printing. Plain `RUST_LOG=info` logs every INSERT.
 - Search reads `card_search` (per oracle face; bigram and `tsvector` GINs), not `cards`. `Catalog::project()` rebuilds it after ingest, `migrate()` when it is empty or the stamped `SCHEMA_VERSION` (`crates/baylee-catalog/src/lib.rs`) differs; bump that on a shape change.
 - Never put name and rules-text matches in one predicate: union the tiers, resolve the printing after `LIMIT`. Names use bigrams, not `pg_trgm`.
@@ -101,7 +101,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 
 ### Environment
 
-- Gateway: `PORT`, `DATABASE_URL` (required), `BAYLEE_DB_POOL` (8), `STORE_PATH` (import-only, not gitignored), `BAYLEE_ART_PATH`/`BAYLEE_DECK_IMAGE_PATH` (`off` disables; empty also refuses uploads; `/art` answers signed-in players only and the wasm client takes art straight from Scryfall, `docs/protocol.md` §"Card art"), `BAYLEE_REGISTRATION=off`, `BAYLEE_TRUSTED_PROXIES`, `BAYLEE_AGENT_TOKEN` (none = no agent), `BAYLEE_SMTP_URL`/`BAYLEE_MAIL_FROM`/`BAYLEE_PUBLIC_URL` (no SMTP = no mail or confirmation), `BAYLEE_ENGINE_URL` (set for a remote agent), `BAYLEE_GATEWAY_NAME` (what `GET /info` names the gateway; unset = the client shows the address; over 64 characters or a control/bidi character refuses startup).
+- Gateway: `PORT`, `DATABASE_URL` (required), `BAYLEE_DB_POOL` (8), `STORE_PATH` (import-only, not gitignored), `BAYLEE_ART_PATH`/`BAYLEE_DECK_IMAGE_PATH` (`off` disables; empty also refuses uploads; `/art` answers signed-in players only and the wasm client takes art straight from Scryfall, `docs/protocol.md` §"Card art"), `BAYLEE_REGISTRATION=off`, `BAYLEE_GUESTS=off` (no guest accounts), `BAYLEE_GUEST_CAP` (live guests, default 1000, `0` = no cap; guests sign in with a display name only, are purged when their last session lapses, 30-day sliding, and may not upload images), `BAYLEE_TRUSTED_PROXIES`, `BAYLEE_AGENT_TOKEN` (none = no agent), `BAYLEE_SMTP_URL`/`BAYLEE_MAIL_FROM`/`BAYLEE_PUBLIC_URL` (no SMTP = no mail or confirmation), `BAYLEE_ENGINE_URL` (set for a remote agent), `BAYLEE_GATEWAY_NAME` (what `GET /info` names the gateway; unset = the client shows the address; over 64 characters or a control/bidi character refuses startup).
 - A `dev-table` gateway reads `BAYLEE_DEV_SEAT_BOARD` (`0:Card;1:Card`, `baylee_cards::decks::deal_named`); a bad spec refuses startup. Keep board seeding behind the feature.
 - Gateway CORS is `Access-Control-Allow-Origin: *` without `Allow-Credentials`; keep bearer-header auth, never set cookies.
 - Agent: `BAYLEE_GATEWAY`, `BAYLEE_AGENT_TOKEN`, `BAYLEE_AGENT_NAME`, `BAYLEE_AGENT_CAPACITY` (0 = unlimited), `BAYLEE_ENGINE_BIN` (default beside the agent).
@@ -112,7 +112,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 
 ### Crates
 
-- Graph: core → engine → gamehost → engine-server; gamehost builds view and links `baylee-ai`; engine's choice taxonomy feeds client-core and `baylee-ai` (plays from the view; uses client-core's payment matching); core, view → client-core → client (Bevy). protocol → gateway (axum), agent (`tokio::process`, no rules). Each arrow drops a capability; test at the lowest layer possible.
+- Graph: core → engine → gamehost → engine-server; gamehost builds view and links `baylee-ai`; engine's choice taxonomy feeds client-core and `baylee-ai` (plays from the view; uses client-core's payment matching); core, view, protocol → client-core → client (Bevy); client-core links protocol only for shared rules such as `names::username`. protocol → gateway (axum), agent (`tokio::process`, no rules). Each arrow drops a capability; test at the lowest layer possible.
 - `baylee-view` depends only on `baylee-core` ids, serde.
 - `baylee-client-core` is the client brain, knows no renderer, holds most client tests. Only `baylee-client` needs a GPU.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
