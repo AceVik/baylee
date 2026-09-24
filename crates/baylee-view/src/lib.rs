@@ -93,7 +93,9 @@ use serde::{Deserialize, Serialize};
 /// a card from its graveyard: the engine lists that cast only once its price
 /// is floating, so a planner that could not see it never tapped for it
 /// (#242).
-pub const VIEW_VERSION: u32 = 30;
+/// 31 adds [`PublicObject::grants`], who granted each granted ability and in
+/// which sentence, so a client draws the grantor's text on that row (#212).
+pub const VIEW_VERSION: u32 = 31;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -797,6 +799,47 @@ pub struct PublicObject {
     /// Graveyard only, and per viewer: `None` unless this seat may cast the
     /// card, which is only ever from its own graveyard.
     pub flashback: Option<ManaCost>,
+    /// Who granted each of this permanent's granted activated abilities, in
+    /// slot order: entry `n` is the ability offered as `granted_ability(n)`
+    /// (#212).
+    ///
+    /// One entry per grant the engine offers, the same walk and the same
+    /// cap (`GRANTED_SLOTS`), so a slot and its entry cannot drift apart.
+    /// Empty for anything that is not a permanent, and for a permanent
+    /// granted nothing.
+    ///
+    /// Per viewer: a grantor this seat may not see — gone to a hand or a
+    /// library since, or face down — is an entry with every field `None`.
+    /// A nontoken card keeps its handle across zones (#240), so naming it
+    /// would say which card in a hidden zone it is.
+    pub grants: Vec<GrantSource>,
+}
+
+/// Where a granted ability comes from, as far as the viewing seat may know.
+///
+/// The ability is printed on no card the permanent has: a land under a
+/// Chromatic Lantern prints nothing about the `{T}` it was given. The
+/// grantor prints it, in a sentence saying the permanent "has" it
+/// (CR 113.10), and this says which grantor and which sentence.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GrantSource {
+    /// The object that granted it, when this seat may see that object.
+    pub source: Option<ObjectId>,
+    /// The card and face the grant's sentence is printed on.
+    ///
+    /// Its own field and not the grantor's [`PublicObject::rules`], because
+    /// the two differ for a copy: a Machine God's Effigy copying an
+    /// artifact has the copied card's abilities, and still prints the
+    /// clause that grants it `{T}: Add {U}`.
+    pub rules: Option<RulesFace>,
+    /// Which sentence of [`Self::rules`] granted it, for a client drawing it
+    /// in the player's own language.
+    ///
+    /// `None` when the grantor is hidden, when no ability of its card wrote
+    /// this grant (found by value; there is no nearest match), and when the
+    /// card prints no line for the ability that did. A client then draws
+    /// its own label, as it did before this field existed.
+    pub text: Option<StackText>,
 }
 
 /// Mana a granted ability makes, as much of it as a planner can use.
@@ -1497,11 +1540,12 @@ impl PlayerView {
     /// What card text is asked for by. The walk is [`Self::prints`]' own —
     /// one walk, so a seat is never asked about text it could not see the
     /// art of — plus the card each object's abilities are printed on
-    /// ([`PublicObject::rules`], and a stack ability's `rules`). Those differ
-    /// only for a copy, which names two cards: the one it is and the one
-    /// whose text it has. The `rules` fields carry the entitlement of the
-    /// objects they sit on, so adding them hands the seat nothing it was not
-    /// already shown.
+    /// ([`PublicObject::rules`], and a stack ability's `rules`), plus the
+    /// card each grant's sentence is on ([`GrantSource::rules`]). Those
+    /// differ only for a copy, which names two cards: the one it is and the
+    /// one whose text it has. The `rules` fields carry the entitlement of the
+    /// objects they sit on, a grant's that of its grantor, so adding them
+    /// hands the seat nothing it was not already shown.
     ///
     /// A card may come up more than once; a caller collects into a set.
     pub fn cards(&self) -> impl Iterator<Item = CardIndex> + '_ {
@@ -1510,7 +1554,13 @@ impl PlayerView {
                 Some(StackItem::Ability { rules, .. }) => rules,
                 _ => None,
             };
-            object.rules.into_iter().chain(ability).map(|r| r.card)
+            let granted = object.grants.iter().filter_map(|g| g.rules);
+            object
+                .rules
+                .into_iter()
+                .chain(ability)
+                .chain(granted)
+                .map(|r| r.card)
         });
         self.identities().map(|card| card.index).chain(printed_on)
     }
@@ -1628,6 +1678,7 @@ mod tests {
             granted_mana: None,
             board_mana: None,
             flashback: None,
+            grants: Vec::new(),
         }
     }
 
@@ -2335,7 +2386,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (30, 0xc137_c7d7_8b50_61a4);
+        const RECORDED: (u32, u64) = (31, 0x1365_1ed5_0817_fdb1);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

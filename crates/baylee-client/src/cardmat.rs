@@ -1232,6 +1232,7 @@ pub(crate) mod tests {
             granted_mana: None,
             board_mana: None,
             flashback: None,
+            grants: Vec::new(),
         }
     }
 

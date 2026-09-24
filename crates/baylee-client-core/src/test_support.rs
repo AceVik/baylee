@@ -45,6 +45,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         granted_mana: None,
         board_mana: None,
         flashback: None,
+        grants: Vec::new(),
     }
 }
 

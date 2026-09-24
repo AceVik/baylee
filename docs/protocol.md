@@ -432,6 +432,39 @@ asserts the two answers against each other. Both walks stop at
 ninth grant projected as slot 8 would come back as `PREPARED_CAST`, an index
 in the same space that means something else entirely.
 
+## Who granted it (view version 31)
+
+A granted ability is printed on no card the permanent has, so a client drew a
+label of its own on its row ("granted ability") where every printed ability
+drew its card's sentence. The grantor prints it, in a sentence saying the
+permanent "has" it (CR 113.10). `PublicObject::grants` says which grantor and which sentence
+(#212): one `GrantSource { source, rules, text }` per granted activated
+ability, **in slot order**, from the same `effects::granted_activated` walk and
+the same `GRANTED_SLOTS` cap as the offer. Entry `n` is `granted_ability(n)`,
+and neither can be renumbered without the other.
+
+- `source` is the grantor's `ObjectId`, taken from the effect's source
+  (`effects::GrantedAbility::source`).
+- `rules` is the card and face the sentence is printed on. It is its own field
+  and not the grantor's `rules`, because a copy has the copied card's
+  abilities and still prints its own copy clause: Machine God's Effigy's
+  "except it has `{T}: Add {U}`" is on the Effigy.
+- `text` is the line of that face, found **by value**
+  (`baylee_cards::lines::grant_home`: the first ability whose grants include an
+  equal `Modifier::GrantActivated`). The copy clause is found by trying the
+  grantor's own abilities first, then every face of the card it physically is.
+  A source that wrote nothing equal to the grant (an Opt named as the source
+  of one) gets `rules` and `text` both `None`. There is never a nearest match.
+
+**Hidden information.** A nontoken card keeps its handle across zones (#240),
+so a grantor's id or sentence would say which card in a hidden zone it is. A
+grantor is named only if the seat is sent that object (battlefield, stack,
+graveyard, exile, command, or its own hand) and it is not face down; otherwise
+the entry is all `None`, the same as a grant with no source at all.
+`PlayerView::cards` asks text for `GrantSource::rules` too, and that field is
+`None` whenever the grantor is hidden. The gamehost tests hold both
+(`a_grantor_this_seat_cannot_see_is_not_named`).
+
 ## What a seat owes (view version 24)
 
 A player who agrees to pay ward's tax is handed a mana window (CR 605.3a) so

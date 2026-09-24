@@ -279,6 +279,7 @@ pub fn granted_activated(
             cost: *cost,
             effects,
             mana_ability: *mana_ability,
+            source: fx.source,
         })
     })
 }
@@ -335,6 +336,14 @@ pub struct GrantedAbility {
     pub effects: &'static [baylee_cards_dsl::effect::Effect],
     /// Whether it is a mana ability (CR 605.1) and so uses no stack.
     pub mana_ability: bool,
+    /// What granted it: the effect's [`ContinuousEffect::source`].
+    ///
+    /// For a view to say whose sentence the ability is (#212), and for
+    /// nothing the rules read. It is the grantor's handle, which a nontoken
+    /// card keeps across zones (#240), so the grantor may since have gone
+    /// somewhere the viewer cannot see; the view decides that, not this.
+    /// `None` for an effect with no source (an emblem's, a rule's).
+    pub source: Option<ObjectId>,
 }
 
 #[cfg(test)]

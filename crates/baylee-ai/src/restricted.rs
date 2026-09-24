@@ -105,5 +105,6 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         granted_mana: None,
         board_mana: None,
         flashback: None,
+        grants: Vec::new(),
     }))
 }
