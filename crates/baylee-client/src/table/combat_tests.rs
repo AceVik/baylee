@@ -1,5 +1,5 @@
 use super::*;
-use baylee_client_core::board::{BoardModel, Lane, Provenance, SeatPod};
+use baylee_client_core::board::{BoardModel, CardGroup, Lane, Provenance, SeatPod};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::LaneKind;
 use baylee_core::ids::Defender;
@@ -141,6 +141,43 @@ fn a_stack_of_identical_creatures_is_chosen_by_any_of_its_members() {
         "the card drawn for the stack ignores a declaration by a member \
          that is not its representative"
     );
+}
+
+/// A merged card says how many it stands for, and a pile — whose size is
+/// the deck drawn under its top card — says nothing: #210 measured 54
+/// Goblins drawing as one Goblin, and a graveyard wearing `×10` would be a
+/// second, wrong answer to a question its seat bar already answers.
+#[test]
+fn a_card_standing_for_several_wears_their_count_and_a_pile_does_not() {
+    let mut goblins = creature(1);
+    goblins.members = (1..=54).map(obj).collect();
+    let mut model = board(vec![goblins, creature(60)]);
+    let pile = model.pods[0]
+        .piles
+        .iter_mut()
+        .find(|p| p.kind == baylee_client_core::PileKind::Graveyard)
+        .expect("every seat has a graveyard");
+    pile.count = 10;
+    pile.top = Some(obj(100));
+
+    let placed = placements(&duel(model, None));
+    let at = |id: ObjectId| {
+        placed
+            .iter()
+            .find(|p| p.object == id)
+            .unwrap_or_else(|| panic!("{id:?} is on the table"))
+    };
+    assert_eq!(at(obj(1)).stands_for, 54, "the Goblins do not say 54");
+    assert_eq!(at(obj(60)).stands_for, 1);
+    assert_eq!(at(obj(100)).count, 10, "the pile lost its deck");
+    assert_eq!(at(obj(100)).stands_for, 1, "the pile wears a count");
+
+    // And the look is what the shader is given: a count on the merged card,
+    // none on the lone one or the pile.
+    let look = |p: &Placement| CardLook::back(FinishTreatment::Plain, 0).with_count(p.stands_for);
+    assert_eq!(look(at(obj(1))).count, 54);
+    assert_eq!(look(at(obj(60))).count, 0);
+    assert_eq!(look(at(obj(100))).count, 0);
 }
 
 /// The same rule outside combat, where `selected()` *is* the answer being

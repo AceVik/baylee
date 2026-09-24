@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, count_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
@@ -47,6 +47,9 @@ struct CardParams {
     /// Which of the five zone-change doors this sweep draws, or `DOOR_NONE`
     /// for the plain arrival. `cardmat::door` numbers them.
     sweep_door: u32,
+    /// How many permanents this card stands for; below two, no count is
+    /// drawn. `cardplate::count_word`.
+    count: u32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -793,6 +796,16 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
             marks,
             marks_sampler,
         ),
+        color.a,
+    );
+
+    // ---- how many permanents this card stands for
+    //
+    // Opposite the plate, over the printed cost; after the slips and the
+    // plate for the same reason they come after the art — it is our number
+    // lying on the card.
+    color = vec4<f32>(
+        count_layer(uv, params.count, color.rgb, marks, marks_sampler),
         color.a,
     );
 

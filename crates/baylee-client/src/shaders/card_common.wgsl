@@ -440,7 +440,7 @@ const MARK_RANGE: f32 = 0.25;
 /// between the two halves, and both of those are settled before a texel is
 /// written — so a second texture would be two more bindings in two
 /// materials for nothing.
-const ATLAS_CELLS: u32 = 30u;
+const ATLAS_CELLS: u32 = 31u;
 
 /// The envelope every impulse on the rail shares: up over `a`, held until
 /// `h`, down over `r`, and flat zero through the rest of the period — which
@@ -843,7 +843,7 @@ const SLIP_INK: vec3<f32> = vec3<f32>(0.035, 0.030, 0.025);
 const SLIP_MAX: u32 = 2u;
 
 /// Where the slips' glyphs sit in the atlas, and which is which.
-const CREST_BASE: u32 = 27u;
+const CREST_BASE: u32 = 28u;
 const CREST_TOKEN: u32 = 0u;
 const CREST_COPY: u32 = 1u;
 const CREST_COMMANDER: u32 = 2u;
@@ -1040,19 +1040,20 @@ const PLATE_LORE: u32 = 3u;
 /// its interface in; `baylee_client_core::cardplate::TEXT_CHARS` is the
 /// order and `markatlas` bakes them into the same row as the rail's marks.
 const TEXT_BASE: u32 = 12u;
-const TEXT_COUNT: u32 = 15u;
+const TEXT_COUNT: u32 = 16u;
 const GLYPH_MINUS: u32 = 10u;
 const GLYPH_SLASH: u32 = 11u;
 const GLYPH_PLUS: u32 = 12u;
 const GLYPH_I: u32 = 13u;
 const GLYPH_V: u32 = 14u;
+const GLYPH_TIMES: u32 = 15u;
 
 /// How far either side of an outline a text cell's field reaches, and how
 /// tall a lining figure is — both in cell units, both mirrored.
 const TEXT_RANGE: f32 = 0.10;
 const TEXT_CAP: f32 = 0.57665;
 
-/// The advances, in cell units. Six numbers and not fifteen: the digits are
+/// The advances, in cell units. Seven numbers and not sixteen: the digits are
 /// **tabular**, which is the difference between a creature growing from
 /// `9/9` to `10/10` and one that also shunts its own slash sideways.
 const TEXT_ADV_DIGIT: f32 = 0.45125;
@@ -1061,6 +1062,7 @@ const TEXT_ADV_SLASH: f32 = 0.26980;
 const TEXT_ADV_PLUS: f32 = 0.45600;
 const TEXT_ADV_I: f32 = 0.28025;
 const TEXT_ADV_V: f32 = 0.55765;
+const TEXT_ADV_TIMES: f32 = 0.45600;
 
 /// The longest line the corner writes.
 ///
@@ -1210,7 +1212,8 @@ fn text_adv(which: u32) -> f32 {
         case 11u: { return TEXT_ADV_SLASH; }
         case 12u: { return TEXT_ADV_PLUS; }
         case 13u: { return TEXT_ADV_I; }
-        default: { return TEXT_ADV_V; }
+        case 14u: { return TEXT_ADV_V; }
+        default: { return TEXT_ADV_TIMES; }
     }
 }
 
@@ -1238,7 +1241,8 @@ fn text_sdf(which: u32, p: vec2<f32>, marks: texture_2d<f32>, marks_s: sampler) 
 /// `x` holds up to [`TEXT_MAX`] indices into the atlas's text half, least
 /// significant first; `y` is how many. Two numbers rather than a string
 /// because WGSL has neither, and four bits rather than five because the
-/// alphabet is fifteen characters long and eight of them have to fit in a
+/// alphabet is sixteen characters long — exactly what four bits hold, so a
+/// seventeenth needs a wider packing — and eight of them have to fit in a
 /// word.
 fn text_push(line: vec2<u32>, which: u32) -> vec2<u32> {
     if line.y >= TEXT_MAX {
@@ -1559,4 +1563,57 @@ fn plate_layer(
         ink = DEADLY;
     }
     return mix(out, mix(ink, body, clamp(band, 0.0, 1.0)), hit.x);
+}
+
+/// The fewest permanents a card has to stand for before it says how many,
+/// and the most it writes out — `cardplate::COUNT_MIN` and `COUNT_MAX`.
+const COUNT_MIN: u32 = 2u;
+const COUNT_MAX: u32 = 999u;
+
+/// Draws how many permanents a merged card stands for: `×54` on a pill in
+/// the top-right corner, over the printed cost.
+///
+/// The plate's register exactly — its body, its ink, its rim, its figure
+/// height — because it is one of this client's numbers and not something
+/// printed; and the corner the plate does not use, because a creature token
+/// is exactly the card that merges most and its plate is full. It grows
+/// leftwards with its digits (`cardplate::count_width` is the same
+/// arithmetic) and rotates with the face, so a tapped pile reads it from the
+/// near edge. `count` is a uniform, so the early return keeps the derivative
+/// below in uniform control flow.
+fn count_layer(
+    uv: vec2<f32>,
+    count: u32,
+    color: vec3<f32>,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec3<f32> {
+    if count < COUNT_MIN {
+        return color;
+    }
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let aa = max(fwidth(p.x), 0.0015);
+
+    var line = text_push(vec2<u32>(0u, 0u), GLYPH_TIMES);
+    line = text_number(line, min(count, COUNT_MAX));
+    let cap = PLATE_H - 2.0 * PLATE_PAD;
+    let w = text_width(line) * cap / TEXT_CAP + 2.0 * PLATE_PAD;
+
+    let x1 = 1.0 - PLATE_INSET;
+    let x0 = x1 - w;
+    let y0 = PLATE_INSET;
+    let y1 = y0 + PLATE_H;
+    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+    let half = vec2<f32>(w * 0.5, PLATE_H * 0.5);
+
+    let d = sd_round_box(p - mid, half, PLATE_H * 0.28);
+    let inside = 1.0 - smoothstep(-aa, aa, d);
+    if inside <= 0.0 {
+        return color;
+    }
+    var out = mix(color, PLATE, inside * 0.88);
+    let rim = 1.0 - smoothstep(-aa, aa, abs(d) - 0.0045);
+    out = mix(out, INK, rim * 0.55);
+    let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
+    return mix(out, INK, hit.x);
 }

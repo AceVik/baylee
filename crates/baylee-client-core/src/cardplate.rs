@@ -561,8 +561,8 @@ const _: () = assert!(PLATE_H > 2.0 * PLATE_PAD + 0.02);
 /// face is `AlegreyaSans-Bold.ttf`, which this client already ships and sets
 /// its interface in, under the SIL OFL; nothing new is downloaded and
 /// `docs/legal.md` §2 is untouched, because a digit is nobody's trademark.
-pub const TEXT_CHARS: [char; 15] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '/', '+', 'I', 'V',
+pub const TEXT_CHARS: [char; 16] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '/', '+', 'I', 'V', '×',
 ];
 
 /// The index of `-` in [`TEXT_CHARS`].
@@ -578,6 +578,12 @@ pub const GLYPH_I: usize = 13;
 /// A saga's chapter is a roman numeral on every card that prints one, and
 /// `III` written in arabic ones would read as one hundred and eleven.
 pub const GLYPH_V: usize = 14;
+/// The index of the multiplication sign in [`TEXT_CHARS`], which a merged
+/// card's count opens with ([`count_word`]).
+///
+/// Load-bearing rather than decoration: the count sits over the printed
+/// cost, and a bare `12` there reads as twelve generic mana.
+pub const GLYPH_TIMES: usize = 15;
 
 /// The em size one text cell is baked at, in cell units.
 ///
@@ -646,7 +652,51 @@ pub const TEXT_ADV: [f32; TEXT_CHARS.len()] = [
     0.480 * TEXT_EM, // +
     0.295 * TEXT_EM, // I
     0.587 * TEXT_EM, // V
+    0.480 * TEXT_EM, // ×
 ];
+
+/// The fewest permanents a drawn card has to stand for before it says how
+/// many: one card standing for one permanent is what every other card is.
+pub const COUNT_MIN: u32 = 2;
+
+/// The largest count written out. Three digits is all the shader's
+/// `digits_of` writes, and a pile past it says `×999`, which is still more
+/// than anybody counts.
+pub const COUNT_MAX: u32 = 999;
+
+/// What the count pill says for a card standing for `members` permanents:
+/// `0` for none, else the count, clamped to [`COUNT_MAX`].
+///
+/// The #210 measurement is why this exists: 54 Goblins drew as one Goblin
+/// and 16 Plains as one Plains, because a merged card's only cue was the
+/// thickness of the slab under it. The pill sits in the top-right corner,
+/// over the printed cost — the one corner that is dead on the battlefield,
+/// and empty on the tokens and lands that merge most — written in the
+/// plate's own numerals on the plate's own dark body, so it reads as one of
+/// this client's numbers rather than as something printed.
+#[must_use]
+pub fn count_word(members: usize) -> u32 {
+    let n = u32::try_from(members).unwrap_or(u32::MAX);
+    if n < COUNT_MIN { 0 } else { n.min(COUNT_MAX) }
+}
+
+/// How wide the count pill is for `count`, in card widths — the shader's own
+/// arithmetic, mirrored so the widest one can be held clear of the slips.
+///
+/// The figures are the plate's height, so the pill is as tall as the plate
+/// and grows sideways with its digits: `×` and up to three tabular digits,
+/// padded by the plate's padding on either side.
+#[must_use]
+pub fn count_width(count: u32) -> f32 {
+    let digits = match count {
+        0..=9 => 1.0,
+        10..=99 => 2.0,
+        _ => 3.0,
+    };
+    let cells = TEXT_ADV[GLYPH_TIMES] + digits * TEXT_ADV[0];
+    let cap = PLATE_H - 2.0 * PLATE_PAD;
+    cells * cap / TEXT_CAP + 2.0 * PLATE_PAD
+}
 
 #[cfg(test)]
 mod tests {
@@ -984,5 +1034,40 @@ mod tests {
         // A corner with nothing to say packs to nothing, which is what lets
         // every card in a hand share one material.
         assert_eq!(Corner::of(&group(None, None, None)).packed(), [0, 0, 0]);
+    }
+
+    /// One permanent is a card like every other and says nothing; two and
+    /// up say how many, and a pile past three digits says the most three
+    /// digits can.
+    #[test]
+    fn a_card_standing_for_several_says_how_many() {
+        assert_eq!(count_word(0), 0);
+        assert_eq!(count_word(1), 0, "a lone card wears no count");
+        assert_eq!(count_word(2), 2);
+        assert_eq!(count_word(54), 54);
+        assert_eq!(count_word(999), 999);
+        assert_eq!(count_word(4000), COUNT_MAX, "clamped, not wrapped");
+    }
+
+    /// The pill grows leftwards from the right edge and must never reach the
+    /// slips hanging from the left margin, however many digits it writes —
+    /// nor leave the printed name less than half the title bar.
+    #[test]
+    fn the_widest_count_stays_clear_of_the_slips_and_the_name() {
+        use crate::cardcrest::{SLIP_INSET, SLIP_W};
+        let widest = count_width(COUNT_MAX);
+        let left = 1.0 - PLATE_INSET - widest;
+        assert!(
+            left > SLIP_INSET + SLIP_W,
+            "a ×999 pill starts at {left}, inside the slips ending at {}",
+            SLIP_INSET + SLIP_W
+        );
+        assert!(
+            widest < 0.5 * (1.0 - 2.0 * PLATE_INSET),
+            "a ×999 pill takes {widest} of the title bar"
+        );
+        // And it is wider with every digit, so a count that grows past ten
+        // is not drawn in the same box as one below it.
+        assert!(count_width(9) < count_width(10) && count_width(99) < count_width(100));
     }
 }

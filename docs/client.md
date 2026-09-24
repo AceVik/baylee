@@ -720,17 +720,33 @@ accident, and arithmetic borrows nothing.
 
 ## Grouping and the token summary
 
-Identical permanents draw as one card with a `×N` badge. Two independent
-guards keep that honest:
+Identical permanents draw as one card saying `×N` on a pill in its top-right
+corner, over the printed cost (`cardplate::count_word`, `count_layer` in
+`card_common.wgsl`). It is the plate's register — same body, ink, rim and
+figure height — in the one corner nothing else uses, and it rotates with a
+tapped card. The `×` is load-bearing: a bare `12` over a cost slot reads as
+twelve generic mana. It grows sideways with its digits (`count_width`): at
+`×999` its left edge sits 0.67 card widths across, right of the centred name
+a token frame prints (measured on a Treasure at `×28`, whose pill starts at
+0.73), and `the_widest_count_stays_clear_of_the_slips_and_the_name` holds it
+to the right half of the title bar. Until #210 the sentence above was true of a function
+(`table::stack_badge`) that nothing called: 54 Goblins drew as one Goblin,
+the slab under the card was the only cue, and a pile's depth is capped. A
+pile never wears a count (`Placement::stands_for`); its size is the deck
+under it and the seat bar's number.
+
+Two independent guards keep the merge honest:
 
 - objects merge only when every visible property matches (name, P/T, damage,
   counters, tap state, controller);
 - objects with individual identity never merge, however identical they look —
   attacking, blocking, enchanted, equipped, or targeted by the stack.
 
-Each seat also gets a text chip row (`12× 1/1 Soldier · 3× Treasure`) and a
-one-line threat read (power ready, blockers, open mana, cards in hand), which
-is what makes an unfocused pod useful at eight seats.
+The board model also builds a text chip row per seat (`board::TokenChip`,
+`12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
+(`ThreatSummary`: power ready, blockers, open mana, cards in hand), meant for
+an unfocused pod at eight seats. **Neither is drawn** — measured for #210,
+nothing in `baylee-client` reads either.
 
 ## Which ability is on the stack (and how a client names it)
 

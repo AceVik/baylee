@@ -787,7 +787,11 @@ mod tests {
         let font = FontRef::from_index(&bytes, 0).expect("a font");
         let mut shape = ShapeContext::new();
         for (i, ch) in TEXT_CHARS.iter().enumerate() {
-            let (_, advance) = shaped(&mut shape, font, 1000.0, *ch).expect("a shaped glyph");
+            let (id, advance) = shaped(&mut shape, font, 1000.0, *ch).expect("a shaped glyph");
+            // Glyph 0 is `.notdef`, the box a face draws for a character it
+            // does not have — inked and with an advance, so nothing below
+            // would notice a character missing from the face.
+            assert_ne!(id, 0, "{ch:?} is not in the face");
             let want = advance / 1000.0 * TEXT_EM;
             assert!(
                 (TEXT_ADV[i] - want).abs() < 1e-4,

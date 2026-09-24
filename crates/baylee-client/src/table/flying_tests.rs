@@ -1,5 +1,5 @@
 use super::*;
-use baylee_client_core::board::Provenance;
+use baylee_client_core::board::{CardGroup, Provenance};
 
 fn obj(slot: u32) -> ObjectId {
     ObjectId::new(slot, 0)
@@ -19,6 +19,7 @@ fn card(slot: u32, flying: bool) -> Placement {
         tapped: false,
         flying,
         count: 1,
+        stands_for: 1,
         art: None,
         offer: crate::cardmat::Offer::default(),
         corner: baylee_client_core::cardplate::Corner::default(),

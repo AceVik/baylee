@@ -420,6 +420,10 @@ pub struct CardParams {
     /// through Rust to be looked at once. The two halves are paired by a test
     /// that reads the WGSL, the way the rail's are.
     pub sweep_door: u32,
+    /// How many permanents this card stands for, from
+    /// [`baylee_client_core::cardplate::count_word`]: `0` draws no count, and
+    /// from two up the top-right corner says `×N`.
+    pub count: u32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
 }
@@ -769,6 +773,7 @@ impl UiCardMaterials {
                 sweep_at: 0.0,
                 sweep_rate: 0.0,
                 sweep_door: door::NONE,
+                count: 0,
                 tint: Vec4::ONE,
             },
             marks: crate::markatlas::MARKS,
@@ -844,6 +849,10 @@ pub struct CardLook {
     pub plate: u32,
     /// Its counter chips, packed, for the same reason and with the same cost.
     pub chips: [u32; 2],
+    /// How many permanents it stands for
+    /// ([`baylee_client_core::cardplate::count_word`]), in the key for the
+    /// plate's reason: a `×4` and a `×12` of one token are two materials.
+    pub count: u32,
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
@@ -867,6 +876,7 @@ impl CardLook {
             glow,
             plate: 0,
             chips: [0; 2],
+            count: 0,
             tint: 0,
             sweep: None,
         }
@@ -881,6 +891,7 @@ impl CardLook {
             glow,
             plate: 0,
             chips: [0; 2],
+            count: 0,
             tint: quantise(color),
             sweep: None,
         }
@@ -896,6 +907,14 @@ impl CardLook {
         let [plate, a, b] = corner.packed();
         self.plate = plate;
         self.chips = [a, b];
+        self
+    }
+
+    /// The same look standing for `members` permanents, which only a merged
+    /// card on the table ever does.
+    #[must_use]
+    pub fn with_count(mut self, members: usize) -> Self {
+        self.count = baylee_client_core::cardplate::count_word(members);
         self
     }
 
@@ -929,6 +948,7 @@ impl CardLook {
             glow,
             plate: 0,
             chips: [0; 2],
+            count: 0,
             tint: 0,
             sweep: None,
         }
@@ -1002,6 +1022,7 @@ pub fn material(
             sweep_at: 0.0,
             sweep_rate: 0.0,
             sweep_door: door::NONE,
+            count: look.count,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
         marks: crate::markatlas::MARKS,
@@ -1593,6 +1614,7 @@ pub(crate) mod tests {
             "sweep_at",
             "sweep_rate",
             "sweep_door",
+            "count",
             "tint",
         ];
         for (which, src) in [
@@ -2653,6 +2675,9 @@ struct Globals { time: f32 };
             ("GLYPH_PLUS", plate::GLYPH_PLUS as u32),
             ("GLYPH_I", plate::GLYPH_I as u32),
             ("GLYPH_V", plate::GLYPH_V as u32),
+            ("GLYPH_TIMES", plate::GLYPH_TIMES as u32),
+            ("COUNT_MIN", plate::COUNT_MIN),
+            ("COUNT_MAX", plate::COUNT_MAX),
             ("SWING_SET", plate::SWING_SET),
             ("BASE_SET", plate::BASE_SET),
             ("TONE_SHIFT", plate::TONE_SHIFT),
@@ -2684,6 +2709,7 @@ struct Globals { time: f32 };
             ("TEXT_ADV_PLUS", plate::TEXT_ADV[plate::GLYPH_PLUS]),
             ("TEXT_ADV_I", plate::TEXT_ADV[plate::GLYPH_I]),
             ("TEXT_ADV_V", plate::TEXT_ADV[plate::GLYPH_V]),
+            ("TEXT_ADV_TIMES", plate::TEXT_ADV[plate::GLYPH_TIMES]),
             ("SWING_GAP", plate::SWING_GAP),
             ("SWING_H", plate::SWING_H),
             ("BASE_GAP", plate::BASE_GAP),
