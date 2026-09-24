@@ -622,6 +622,30 @@ Seeded ChaCha8; no HashMap iteration; journal = replay/resume/crash-
 recovery source of truth. Budgets: legal_actions < 50 µs, engine clone
 < 5 µs, full AI game < 2 ms.
 
+### The replay contract
+
+A game is its preset (seed included) plus every `(seat, action)` handed to
+`Engine::apply`, in the order they were handed in. The seat is part of the
+record and is never read back out of `pending()`: before turn 1 every seat is
+asked its mulligan at once (`engine::mulligan`, house rule 4) and answers in
+whatever order its answers arrive, so the record's order is the order of
+arrival.
+
+Randomness comes from one seed and two kinds of stream:
+
+- **The table's stream** (ChaCha stream 0) shuffles the opening libraries and
+  draws everything random from turn 1 on.
+- **A seat's mulligan stream** (`GameRng::for_seat`: the same seed on stream
+  `seat + 1`) shuffles that seat's library for each mulligan it takes, and is
+  used for nothing else.
+
+So a seat's hands depend only on its own answers, never on whether the seat
+beside it answered first, and the table's stream leaves the mulligans at the
+position it entered them however many were taken. `snapshot_hash` covers
+the open mulligans: who is still deciding, and where each seat's stream
+stands. `house_rules_tests` pins all three, and pins the opening deal of a
+table that only keeps against the engine that asked in seat order.
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to

@@ -122,10 +122,10 @@ pub struct Engine<L: CardLookup> {
     /// over every other priority — after the machine has done the work the
     /// action made for it.
     regrant_priority: Option<PlayerId>,
-    /// Mulligan progress per seat.
-    mulligans: Vec<u8>,
-    /// Seat currently mulliganing.
-    mulligan_player: usize,
+    /// The opening mulligans, one entry per seat, while they are open; `None`
+    /// from turn 1 on. While it is `Some` the machine does not run and only
+    /// a mulligan answer or a concession is legal (`mulligan`).
+    mulligans: Option<Vec<mulligan::SeatMulligan>>,
     /// Combat declaration progress.
     combat_declared: CombatDeclared,
     /// Planeswalkers that already used a loyalty ability this turn.
@@ -498,8 +498,8 @@ enum PlanKind {
 }
 
 impl<L: CardLookup> Engine<L> {
-    /// Creates a game from a preset. The first pending request is the
-    /// first seat's mulligan decision.
+    /// Creates a game from a preset. Every seat is asked its mulligan at
+    /// once; [`Engine::pending`] shows the first seat's.
     ///
     /// # Errors
     /// [`EngineError::Setup`] for invalid presets or unknown cards.
@@ -509,12 +509,15 @@ impl<L: CardLookup> Engine<L> {
         let mut engine = Self {
             lookup,
             capabilities: preset.seats.iter().map(|s| s.capabilities).collect(),
-            mulligans: vec![0; state.players.len()],
+            mulligans: Some(mulligan::open(
+                &state.rng,
+                state.players.len(),
+                preset.house_rules.mulligan_free_first,
+            )),
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
             breaking_loop: false,
             action_loops: crate::loops::LoopWatch::default(),
             loops_broken: 0,
-            mulligan_player: 0,
             house_rules: preset.house_rules.clone(),
             state,
             pending: Pending::Mulligan {
@@ -677,6 +680,13 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(u64::from(r.controller.get()));
         }
         extra = extra.wrapping_mul(31).wrapping_add(u64::from(self.passes));
+        // The opening mulligans: who is still deciding, and where each
+        // seat's own shuffle stream stands. A keep moves nothing on the
+        // board, so without this two engines either side of one compared
+        // equal while one of them still owed an answer.
+        for seat in self.mulligans.iter().flatten() {
+            extra = extra.wrapping_mul(31).wrapping_add(seat.fingerprint());
+        }
         // An upkeep payment still owed turns the close of the upkeep's round
         // into a question instead of the next step, and it survives answers
         // (a second pact is still waiting while the first is asked), so two
@@ -797,6 +807,10 @@ impl<L: CardLookup> Engine<L> {
             self.run_until_choice();
             return Ok(());
         }
+        // Before turn 1 every seat answers its own mulligan, in any order.
+        if self.mulligans.is_some() {
+            return self.apply_in_mulligans(player, action);
+        }
         // Concession is always legal for any seated player (CR 104.3a).
         if let PlayerAction::Concede = action {
             sba::eliminate_player(&mut self.state, player, LossReason::Conceded);
@@ -836,6 +850,7 @@ pub use decision::DecisionContext;
 mod actions;
 mod cast_wizard;
 pub(crate) mod cost_wizard;
+mod mulligan;
 mod progress;
 
 #[cfg(test)]

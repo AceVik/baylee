@@ -4,6 +4,10 @@
 //! modes) goes through [`GameRng`] — a `ChaCha8` stream seeded from the
 //! preset. Same seed + same action sequence ⇒ identical stream, which is
 //! what makes replays and determinism tests possible.
+//!
+//! One exception: a mulligan's shuffle runs on the seat's own stream
+//! ([`GameRng::for_seat`]), because the mulligans are answered in whatever
+//! order they arrive; see `docs/engine-internals.md` §"The replay contract".
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{Rng, SeedableRng};
@@ -23,6 +27,22 @@ impl GameRng {
             rng: ChaCha8Rng::seed_from_u64(seed),
             calls: 0,
         }
+    }
+
+    /// The stream `seat` shuffles its opening mulligans with: the same seed
+    /// on `ChaCha8` stream `seat + 1`, the table's being stream 0.
+    ///
+    /// The mulligans are taken all at once (`engine::mulligan`), so on the
+    /// table's stream a seat's new hand would depend on how many shuffles
+    /// the other seats had asked for before it, which is to say on who
+    /// clicked first. On its own stream it depends only on its own answers,
+    /// and the table's stream leaves the window where it entered it however
+    /// many mulligans were taken.
+    #[must_use]
+    pub fn for_seat(&self, seat: u8) -> Self {
+        let mut rng = ChaCha8Rng::from_seed(self.rng.get_seed());
+        rng.set_stream(u64::from(seat) + 1);
+        Self { rng, calls: 0 }
     }
 
     /// Raw 64-bit draw.
@@ -100,6 +120,29 @@ mod tests {
         }
         // Different seeds produce different streams with overwhelming odds.
         assert_ne!(rng_a.next_u64(), rng_c.next_u64());
+    }
+
+    /// A seat's stream is made of the seed and the seat, not of where the
+    /// table's stream stands: drawing from the table first changes nothing
+    /// about it, and no two streams at the table are the same.
+    #[test]
+    fn a_seats_stream_depends_on_the_seed_and_the_seat_only() {
+        let draws = |mut rng: GameRng| -> Vec<u64> { (0..5).map(|_| rng.next_u64()).collect() };
+        let table = GameRng::new(9);
+        let mut drawn = GameRng::new(9);
+        for _ in 0..17 {
+            drawn.next_u64();
+        }
+        let seat = draws(table.for_seat(1));
+        assert_eq!(seat, draws(drawn.for_seat(1)));
+        for other in [
+            table.clone(),
+            table.for_seat(0),
+            table.for_seat(2),
+            GameRng::new(10).for_seat(1),
+        ] {
+            assert_ne!(seat, draws(other));
+        }
     }
 
     #[test]

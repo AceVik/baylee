@@ -90,75 +90,6 @@ impl<L: CardLookup> Engine<L> {
             other => other,
         };
         match (&self.pending, action) {
-            (Pending::Mulligan { player: p, .. }, PlayerAction::MulliganKeep) if *p == player => {
-                let taken = self.mulligans[player.get() as usize];
-                let bottom = self.mulligan_bottom_count(taken);
-                if bottom > 0 {
-                    self.pending = Pending::MulliganBottom {
-                        player,
-                        count: bottom,
-                    };
-                    self.awaiting_answer = true;
-                } else {
-                    self.advance_mulligan();
-                }
-                Ok(())
-            }
-            (
-                Pending::Mulligan {
-                    player: p, taken, ..
-                },
-                PlayerAction::MulliganTake,
-            ) if *p == player => {
-                // Hand goes back, reshuffle, draw 7 (CR 103.5).
-                let hand: Vec<_> = self.state.zones.list(ZoneLocation::Hand(player)).clone();
-                for card in hand {
-                    self.state.move_object(
-                        card,
-                        ZoneLocation::Library(player),
-                        ZonePosition::Bottom,
-                        Cause::Effect,
-                    )?;
-                }
-                self.state.shuffle_library(player);
-                self.state.draw_cards(player, 7);
-                let taken = *taken + 1;
-                self.mulligans[player.get() as usize] = taken;
-                self.pending = Pending::Mulligan {
-                    player,
-                    taken,
-                    next_is_free: false,
-                };
-                self.awaiting_answer = true;
-                Ok(())
-            }
-            (
-                Pending::MulliganBottom { player: p, count },
-                PlayerAction::ChooseObjects { objects },
-            ) if *p == player => {
-                // `[c, c]` has the right length and both halves are in hand;
-                // it bottomed one card for two and kept an eighth (CR 103.5).
-                if objects.len() != *count as usize || names_one_twice(&objects) {
-                    return Err(EngineError::IllegalAction(
-                        "must bottom exactly the required number of cards",
-                    ));
-                }
-                for card in &objects {
-                    if !self.in_hand(player, *card) {
-                        return Err(EngineError::IllegalAction("card not in hand"));
-                    }
-                }
-                for card in objects {
-                    self.state.move_object(
-                        card,
-                        ZoneLocation::Library(player),
-                        ZonePosition::Bottom,
-                        Cause::Effect,
-                    )?;
-                }
-                self.advance_mulligan();
-                Ok(())
-            }
             // Passing inside a CR 605.3a payment window says "I have made
             // what mana I am going to make", and must not reach the arm
             // below: a pass counted toward the priority round would, once
@@ -1391,21 +1322,6 @@ impl<L: CardLookup> Engine<L> {
         taken.saturating_sub(u8::from(self.house_rules.mulligan_free_first))
     }
 
-    pub(crate) fn advance_mulligan(&mut self) {
-        self.mulligan_player += 1;
-        if self.mulligan_player >= self.state.players.len() {
-            self.begin_turn(true);
-        } else {
-            let player = PlayerId::new(self.mulligan_player as u8);
-            self.pending = Pending::Mulligan {
-                player,
-                taken: 0,
-                next_is_free: self.house_rules.mulligan_free_first,
-            };
-            self.awaiting_answer = true;
-        }
-    }
-
     /// The automatic progression machine: SBAs, stack resolution, and
     /// step/turn transitions until a decision is required.
     pub(crate) fn declare_attackers(
@@ -1538,6 +1454,6 @@ impl<L: CardLookup> Engine<L> {
 /// Every door that takes a list asks it before anything moves, so a refused
 /// answer leaves the state untouched. Quadratic, because an answer is a
 /// handful of ids.
-fn names_one_twice<T: PartialEq>(xs: &[T]) -> bool {
+pub(super) fn names_one_twice<T: PartialEq>(xs: &[T]) -> bool {
     xs.iter().enumerate().any(|(at, x)| xs[..at].contains(x))
 }

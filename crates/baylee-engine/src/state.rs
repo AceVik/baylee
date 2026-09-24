@@ -1792,6 +1792,20 @@ impl GameState {
         });
     }
 
+    /// Shuffles a player's library with a stream other than the table's: a
+    /// mulligan's, which is the seat's own ([`GameRng::for_seat`]).
+    pub fn shuffle_library_with(&mut self, player: PlayerId, rng: &mut GameRng) {
+        rng.shuffle(
+            self.zones
+                .list_mut(ZoneLocation::Library(player))
+                .as_mut_slice(),
+        );
+        self.journal.record(GameEvent::Shuffled {
+            player,
+            zone: Zone::Library,
+        });
+    }
+
     /// Moves the top `n` cards of a player's library to their hand.
     /// Drawing from an empty library flags [`Player::tried_empty_draw`] —
     /// the loss is a state-based action (CR 704.5b).

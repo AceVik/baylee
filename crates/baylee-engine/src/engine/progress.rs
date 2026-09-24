@@ -197,7 +197,10 @@ impl<L: CardLookup> Engine<L> {
     }
 
     fn run_machine(&mut self) {
-        if self.awaiting_answer {
+        // Nothing happens before turn 1, whatever the flag says: a
+        // concession during the mulligans once cleared it and ran the game
+        // on past every seat still deciding (#267).
+        if self.awaiting_answer || self.mulligans.is_some() {
             return;
         }
         // One watch per decision-free segment: this is the exact stretch in
@@ -239,11 +242,7 @@ impl<L: CardLookup> Engine<L> {
             }
             // 1. Game over?
             if let Some(result) = self.game_result() {
-                self.pending = Pending::GameOver(result);
-                self.awaiting_answer = true;
-                self.state.journal.record(GameEvent::GameWon {
-                    winner: result.winner,
-                });
+                self.end_game(result);
                 return;
             }
             // Detect triggers while their sources still exist. CR 603.2 /
@@ -1652,6 +1651,15 @@ impl<L: CardLookup> Engine<L> {
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect()
+    }
+
+    /// Ends the game with `result`: the last question anybody is asked.
+    pub(crate) fn end_game(&mut self, result: GameResult) {
+        self.pending = Pending::GameOver(result);
+        self.awaiting_answer = true;
+        self.state.journal.record(GameEvent::GameWon {
+            winner: result.winner,
+        });
     }
 
     pub(crate) fn next_alive_after(&self, player: PlayerId) -> PlayerId {

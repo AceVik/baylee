@@ -102,19 +102,29 @@ counters, choose-a-type, join-forces-free casts, suspend.
 
 ## A2. House rules (deliberate departures from CR)
 
-Three, all implemented and tested in `engine::house_rules_tests` and
-`engine::loop_tests`. They look like rules bugs to anyone reading the engine
+Four entries, all implemented and tested in `engine::house_rules_tests` and
+`engine::loop_tests`; three are departures, and rule 2 is listed because it
+reads like one. They look like rules bugs to anyone reading the engine
 against the Comprehensive Rules, so they are listed here rather than buried:
 
-1. **The first mulligan is free** (`HouseRules::mulligan_free_first`,
-   default on) — CR 103.5 charges for every one.
-2. **With three or more players nobody skips their first draw step** — CR
-   103.8a skips it for the starting player in every game; the skip exists to
-   blunt a duel's first-turn advantage, which does not apply at a table.
+1. **The first mulligan is free in a duel too**
+   (`HouseRules::mulligan_free_first`, default on) — CR 103.5c makes the first
+   one free only in a multiplayer or Brawl game; in a duel CR 103.5 charges for
+   every one.
+2. **With three or more players nobody skips their first draw step** — not a
+   departure: this is CR 103.8c. The two-player skip (CR 103.8a) is the one a
+   reader remembers, and checked against it this looks like a bug.
 3. **A real endless loop resolves once and is then broken**
    (`LoopPolicy::RunOnceThenBreak`, default) — CR 104.4b makes it a draw.
    A large-but-finite pile of work is never mistaken for one; see
    `crate::loops` and `docs/engine-internals.md`.
+4. **Every seat answers its mulligans at once, in any order**
+   (`engine::mulligan`) — CR 103.5 has the starting player declare first and
+   each other player in turn order, and only then are the mulligans taken
+   together. Nobody waits on anybody before turn 1, which begins once every
+   seat has kept or left. Each seat shuffles on its own stream, so its hands
+   depend only on its own answers (`docs/engine-internals.md` §"The replay
+   contract").
 
 ## A3. Seat automation (delegating priority)
 

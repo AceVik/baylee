@@ -211,6 +211,35 @@ pub enum Pending {
     /// The game is over.
     GameOver(GameResult),
 }
+impl Pending {
+    /// The seat this question is asked of; `None` once the game is over.
+    ///
+    /// During the opening mulligans several seats are asked at once, and
+    /// this names only the one [`crate::engine::Engine::pending`] shows; ask
+    /// [`crate::engine::Engine::awaited`] for all of them.
+    #[must_use]
+    pub const fn asked(&self) -> Option<PlayerId> {
+        match self {
+            Self::Mulligan { player, .. }
+            | Self::MulliganBottom { player, .. }
+            | Self::Priority { player, .. }
+            | Self::ChooseAttackers { player, .. }
+            | Self::ChooseBlockers { player, .. }
+            | Self::DiscardChoice { player, .. }
+            | Self::LegendChoice { player, .. }
+            | Self::ChooseCards { player, .. }
+            | Self::ChooseTargets { player, .. }
+            | Self::ChooseSubtype { player, .. }
+            | Self::ChooseColor { player, .. }
+            | Self::YesNo { player, .. }
+            | Self::ChooseCastMode { player, .. }
+            | Self::ChooseNumber { player, .. }
+            | Self::ChoosePlayer { player, .. }
+            | Self::Arrange { player, .. } => Some(*player),
+            Self::GameOver(_) => None,
+        }
+    }
+}
 
 /// One legal way to cast a spell (CR 601.2b).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
