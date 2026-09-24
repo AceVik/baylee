@@ -8544,7 +8544,7 @@ fn vengeance_destroys_a_tapped_creature_and_declines_an_untapped_one() {
 
     assert!(
         in_graveyard(&engine, p0, llanowar_elves()).is_some(),
-        "the targeted creature was destroyed (CR 701.7a)"
+        "the targeted creature was destroyed (CR 701.8a)"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_none(),
@@ -9754,7 +9754,7 @@ fn lay_waste_destroys_any_land_and_cycles_the_other_copy_for_a_card() {
 /// twice off the pool three Swamps actually filled, because `castable` and
 /// `abilities` are filtered through `can_afford` and that reads the pool
 /// rather than the untapped lands; and the destroyed land is followed into
-/// its *owner's* graveyard, because "destroy" (CR 701.7) is neither an exile
+/// its *owner's* graveyard, because "destroy" (CR 701.8) is neither an exile
 /// nor a card that changes hands.
 #[test]
 #[allow(clippy::too_many_lines)] // one printed spell, played end to end: the length is the card's

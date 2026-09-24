@@ -9291,7 +9291,7 @@ fn library_of_alexandria_draws_at_exactly_seven_cards_and_never_again() {
     assert_eq!(
         six.state().zones.list(ZoneLocation::Hand(p0)).len(),
         6,
-        "seat zero takes no turn-one draw (CR 103.7a), so the hand is the one dealt"
+        "seat zero takes no turn-one draw (CR 103.8a), so the hand is the one dealt"
     );
     let Pending::Priority { legal, .. } = six.pending().clone() else {
         panic!("expected priority, got {:?}", six.pending());
@@ -65392,7 +65392,7 @@ fn keldon_megaliths_burns_only_on_an_empty_hand() {
     );
     assert!(
         empty.state().zones.list(ZoneLocation::Hand(p0)).is_empty(),
-        "turn one, and seat zero takes no draw (CR 103.7a) — crossing a turn \
+        "turn one, and seat zero takes no draw (CR 103.8a) — crossing a turn \
          to untap would have put a card in this hand and answered the \
          condition for the wrong reason"
     );

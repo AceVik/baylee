@@ -554,7 +554,7 @@ mod tests {
         };
         assert_eq!(unique.len(), before, "a layer is listed twice");
 
-        // CR 613.1a–613.1i, and 613.4 for the sublayers of 7.
+        // CR 613.1a–613.1g, and 613.4 for the sublayers of 7.
         assert_eq!(
             LAYERS.to_vec(),
             vec![

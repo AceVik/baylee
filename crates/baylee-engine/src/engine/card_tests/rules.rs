@@ -857,7 +857,7 @@ fn an_ability_asking_one_question_five_times_needs_five_answers() {
     };
 
     // Four artifacts beside the Sieve is five artifacts in total — one of
-    // which is the Sieve, and CR 701.16a lets it sacrifice itself — so the
+    // which is the Sieve, and CR 701.21a lets it sacrifice itself — so the
     // line sits between three and four.
     assert!(
         !offered(3),

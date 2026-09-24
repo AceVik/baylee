@@ -4495,7 +4495,7 @@ fn eternal_warrior_grants_vigilance_to_the_creature_it_enchants() {
 
     assert!(
         !is_tapped(&engine, host),
-        "CR 702.20b: attacking does not tap the enchanted creature"
+        "CR 702.20b: vigilance, so attacking does not tap the enchanted creature"
     );
     assert!(
         is_tapped(&engine, bystander),
@@ -8932,7 +8932,7 @@ fn arenson_s_aura_sacrifices_an_enchantment_to_destroy_one_and_counters_an_encha
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
         theirs_grave + 1,
-        "CR 701.5: a countered spell is the one extra card in its owner's \
+        "CR 701.6: a countered spell is the one extra card in its owner's \
          graveyard"
     );
     assert_eq!(

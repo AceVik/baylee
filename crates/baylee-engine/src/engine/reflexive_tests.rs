@@ -14,7 +14,7 @@
 //!   Eden's "return another target permanent card" may therefore take a card
 //!   that its own mill has just put into the graveyard.
 //!
-//! The two supporting rules are CR 701.21a, which only lets its controller
+//! The two rules underneath are CR 701.21a, which only lets its controller
 //! sacrifice a permanent it controls on the battlefield, and CR 608.2b,
 //! which re-checks a target when the ability resolves. A synthetic stack
 //! object used to skip that re-check.
