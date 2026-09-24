@@ -248,7 +248,13 @@ impl HeuristicAgent {
                 }
                 let victim = self.pick_defender(view, &opponents);
                 let report = search::attackers(view, &squad, victim, self.profile);
-                let going = report.attackers;
+                let going = combat::hold_back_for_the_crack_back(
+                    view,
+                    report.attackers,
+                    victim,
+                    report.lethal,
+                    |seat| self.hostile(seat, view.seat),
+                );
                 if going.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
@@ -2054,14 +2060,26 @@ mod tests {
             answer(AIProfile::STEADY, &v, &pending),
             answer(AIProfile::SHARP, &v, &pending)
         );
+        // SHARP and EXPERT used to part on a 6/6 at four life beside their
+        // 5/5, which SHARP sent and died to the swing back of. Since #123 no
+        // profile attacks into a swing back that kills it, so they now part
+        // on one that does not: two 4/4s at six life against two 3/3s, where
+        // SHARP sends a 4/4 and EXPERT keeps both home (measured 24.09.2026).
         let v = view(
             0,
-            &[4, 20],
+            &[6, 20],
             vec![
-                permanent(obj(1), PlayerId::new(0), 6),
-                permanent(obj(2), PlayerId::new(1), 5),
+                permanent(obj(1), PlayerId::new(0), 4),
+                permanent(obj(3), PlayerId::new(0), 4),
+                permanent(obj(2), PlayerId::new(1), 3),
+                permanent(obj(4), PlayerId::new(1), 3),
             ],
         );
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: vec![obj(1), obj(3)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
         assert_ne!(
             answer(AIProfile::SHARP, &v, &pending),
             answer(AIProfile::EXPERT, &v, &pending)
@@ -2400,6 +2418,183 @@ mod tests {
         match HeuristicAgent::new(profile).act(v, pending) {
             PlayerAction::DeclareBlockers { blockers } => blockers.len(),
             other => panic!("not a block answer: {other:?}"),
+        }
+    }
+
+    /// Our eight 2/2s against their one creature of `power` with
+    /// `keywords`, which is `tapped` when it attacked the turn before.
+    fn swing_back_board(
+        lives: [i32; 2],
+        power: i16,
+        keywords: baylee_cards_dsl::KeywordSet,
+        tapped: bool,
+    ) -> (PlayerView, Pending) {
+        let mut giant = keyworded(
+            obj(20),
+            PlayerId::new(1),
+            power,
+            "Macetail Hystrodon",
+            keywords,
+        );
+        if tapped {
+            giant.status = ObjectStatus::TAPPED;
+        }
+        let mut board: Vec<PublicObject> = (1..=8)
+            .map(|i| permanent(obj(i), PlayerId::new(0), 2))
+            .collect();
+        board.push(giant);
+        let v = view(0, &lives, board);
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: (1..=8).map(obj).collect(),
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+        (v, pending)
+    }
+
+    /// Which of the eight a profile keeps home.
+    fn kept_home(profile: AIProfile, v: &PlayerView, pending: &Pending) -> Vec<ObjectId> {
+        let PlayerAction::DeclareAttackers { attackers } =
+            HeuristicAgent::new(profile).act(v, pending)
+        else {
+            panic!("not an attack answer")
+        };
+        (1..=8)
+            .map(obj)
+            .filter(|id| !attackers.iter().any(|(a, _)| a == id))
+            .collect()
+    }
+
+    const EVERY_PROFILE: [(&str, AIProfile); 5] = [
+        ("NOVICE", AIProfile::NOVICE),
+        ("CASUAL", AIProfile::CASUAL),
+        ("STEADY", AIProfile::STEADY),
+        ("SHARP", AIProfile::SHARP),
+        ("EXPERT", AIProfile::EXPERT),
+    ];
+
+    /// #123, the game the owner lost. A 75/75 first striker attacked, and on
+    /// the house AI's turn it is still tapped, so nothing can block and
+    /// every attack rule says swing: NOVICE, CASUAL, STEADY and SHARP sent
+    /// all eight for sixteen into twenty, and the next turn the 75/75 met a
+    /// table of tapped creatures and no block to offer. Only EXPERT, which
+    /// prices retaliation, kept one home.
+    ///
+    /// With it untapped the three shallow profiles stay home anyway, since
+    /// it kills whatever attacks, but SHARP still sent all eight into it.
+    #[test]
+    fn a_table_that_would_die_to_the_swing_back_keeps_a_blocker_home() {
+        use baylee_cards_dsl::KeywordSet;
+        let (v, pending) = swing_back_board([20, 20], 75, KeywordSet::FIRST_STRIKE, true);
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                kept_home(profile, &v, &pending).len(),
+                1,
+                "{name} left nothing home to block a 75/75 that untaps next turn"
+            );
+        }
+        let (v, pending) = swing_back_board([20, 20], 75, KeywordSet::FIRST_STRIKE, false);
+        for (name, profile) in EVERY_PROFILE {
+            assert!(
+                !kept_home(profile, &v, &pending).is_empty(),
+                "{name} sent all eight past an untapped 75/75"
+            );
+        }
+    }
+
+    /// The negatives that keep the pass from being "always keep one home".
+    /// A swing back of ten into twenty is survived with nothing home, so the
+    /// profiles that attacked with all eight still do (EXPERT's own pricing
+    /// of that retaliation is its search's business and is not pinned
+    /// here); and an attack that ends the game has nothing to survive, so
+    /// every profile sends all eight into sixteen life.
+    #[test]
+    fn a_swing_back_that_does_not_kill_keeps_nothing_home() {
+        use baylee_cards_dsl::KeywordSet;
+        let (v, pending) = swing_back_board([20, 20], 10, KeywordSet::FIRST_STRIKE, true);
+        for (name, profile) in &EVERY_PROFILE[..4] {
+            assert_eq!(
+                kept_home(*profile, &v, &pending),
+                vec![],
+                "{name} held back against a swing back of ten at twenty life"
+            );
+        }
+        let (v, pending) = swing_back_board([20, 16], 75, KeywordSet::FIRST_STRIKE, true);
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                kept_home(profile, &v, &pending),
+                vec![],
+                "{name} held back from an attack that ends the game"
+            );
+        }
+    }
+
+    /// What stays home is what can stop what comes back, read through the
+    /// same keywords the rest of combat reads. A vigilant attacker defends
+    /// from where it is, so nobody else has to stay. Against a flyer the one
+    /// creature with reach stays, not the cheapest; with no reach at all
+    /// nothing held back blocks it, so the table attacks as it meant to.
+    /// Menace takes two blockers. Trample pushes the excess through: one 2/2
+    /// in front of a 21-power trampler lets 19 into 20 life, while a 22-power
+    /// one needs a second.
+    #[test]
+    fn what_stays_home_is_what_can_block_what_comes_back() {
+        use baylee_cards_dsl::KeywordSet;
+        let (mut v, pending) = swing_back_board([20, 20], 75, KeywordSet::FIRST_STRIKE, true);
+        v.battlefield[0].keywords = KeywordSet::VIGILANCE.bits();
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                kept_home(profile, &v, &pending),
+                vec![],
+                "{name}: the vigilant 2/2 blocks from the attack"
+            );
+        }
+        let (mut v, pending) = swing_back_board([20, 20], 75, KeywordSet::FLYING, true);
+        v.battlefield[7].keywords = KeywordSet::REACH.bits();
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                kept_home(profile, &v, &pending),
+                vec![obj(8)],
+                "{name}: only the reach creature can block a flyer"
+            );
+        }
+        let (v, pending) = swing_back_board([20, 20], 75, KeywordSet::FLYING, true);
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                kept_home(profile, &v, &pending),
+                vec![],
+                "{name}: nothing home stops a flyer, so holding back buys nothing"
+            );
+        }
+        // Phased out today is phased in on their untap step (CR 502.1). It
+        // is tapped too, so that every attack rule says swing and the pass
+        // is the only thing that can see it.
+        let (mut v, pending) = swing_back_board([20, 20], 75, KeywordSet::FIRST_STRIKE, true);
+        v.battlefield[8].status =
+            ObjectStatus::from_bits(ObjectStatus::TAPPED.bits() | ObjectStatus::PHASED_OUT.bits());
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                kept_home(profile, &v, &pending).len(),
+                1,
+                "{name}: a phased-out 75/75 comes back all the same"
+            );
+        }
+        // Double strike with trample: the second step meets no blocker
+        // (CR 702.19d), so one 2/2 lets 22 - 2 = 20 through and two let 18.
+        for (keywords, power, home) in [
+            (KeywordSet::MENACE, 75, 2),
+            (KeywordSet::TRAMPLE, 21, 1),
+            (KeywordSet::TRAMPLE, 22, 2),
+            (KeywordSet::TRAMPLE.union(KeywordSet::DOUBLE_STRIKE), 11, 2),
+        ] {
+            let (v, pending) = swing_back_board([20, 20], power, keywords, true);
+            for (name, profile) in EVERY_PROFILE {
+                assert_eq!(
+                    kept_home(profile, &v, &pending).len(),
+                    home,
+                    "{name} against a {power}-power {keywords:?}"
+                );
+            }
         }
     }
 

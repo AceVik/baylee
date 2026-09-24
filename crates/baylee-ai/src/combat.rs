@@ -15,9 +15,10 @@
 //! [`BlockOption::attackers`].
 
 use baylee_cards_dsl::KeywordSet;
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::types::TypeSet;
 use baylee_engine::choice::BlockOption;
-use baylee_view::{PlayerView, PublicObject};
+use baylee_view::{ObjectStatus, PlayerView, PublicObject};
 
 /// A creature, reduced to what a combat exchange depends on.
 #[derive(Clone, Copy, Debug)]
@@ -379,6 +380,10 @@ pub(crate) fn could_block(attacker: Fighter, blocker: Fighter) -> bool {
 /// The defender is assumed to make their *best* block against each
 /// attacker independently, which over-estimates them — one blocker cannot
 /// answer two attackers — and that is the safe direction to be wrong in.
+///
+/// None of these rules looks at the turn after. What this returns, and what
+/// the search returns, passes `hold_back_for_the_crack_back` before it is
+/// sent.
 #[must_use]
 pub fn choose_attackers(
     view: &PlayerView,
@@ -425,6 +430,216 @@ pub fn choose_attackers(
                     })
         })
         .collect()
+}
+
+/// Never leave the table unable to survive the swing back.
+///
+/// The owner's #123 game: a 75/75 first striker attacked, and on the house
+/// AI's turn it was still tapped, so nothing on the other side could block
+/// and every rule above said "swing". Eight creatures went, dealt sixteen
+/// into twenty, and stayed tapped through the next turn (CR 502.3 untaps
+/// only the active player's permanents), when the 75/75 untapped and walked
+/// into a table the engine could offer no block on. Only EXPERT prices that
+/// retaliation (`search`, `lookahead >= 2`); the other four profiles did
+/// exactly this, the default among them.
+///
+/// So like `enforce_menace` this is a pass over the **finished** answer and
+/// runs for every profile: "do not die" is block rule 1 seen from the other
+/// side, not a skill level. If the attack does not end the game, and what
+/// some hostile seat could swing back with would get through what stays
+/// home, creatures are held back one at a time — the one that stops the most,
+/// the cheapest on a tie — until it would not. A table that dies next turn
+/// whatever it keeps home attacks as it meant to, since holding back buys it
+/// nothing.
+///
+/// What comes back is every creature a hostile seat controls, tapped or
+/// phased out or not: it phases in and untaps first (CR 502.1, 502.3), and
+/// none of it is summoning sick by then (CR 302.6).
+/// Defender stays home. What blocks is what is untapped now and not
+/// attacking, plus a vigilant attacker (CR 702.20b), paired through the same
+/// [`Fighter`] model the rest of this file uses — flying needs flying or
+/// reach, menace needs two, trample pushes the excess through a chump.
+///
+/// Each hostile seat is asked on its own, because each attacks in its own
+/// turn and a creature that blocks is not tapped by it; damage that several
+/// opponents add up to over one round is not modelled, and neither is
+/// commander damage or poison. Double strike is twice the power, and with
+/// trample its second step meets no blocker at all (CR 702.19d). Deathtouch
+/// makes one point lethal damage (CR 702.2c), which is not read into a
+/// trampler's excess here, so a deathtouch trampler is undercounted.
+pub(crate) fn hold_back_for_the_crack_back(
+    view: &PlayerView,
+    going: Vec<ObjectId>,
+    victim: PlayerId,
+    attack_is_lethal: bool,
+    hostile: impl Fn(PlayerId) -> bool,
+) -> Vec<ObjectId> {
+    let Some(life) = view.seat(view.seat).map(|s| s.life) else {
+        return going;
+    };
+    let attackers: Vec<Fighter> = going
+        .iter()
+        .filter_map(|&id| Fighter::of(view, id))
+        .collect();
+    let lethal = attack_is_lethal
+        || view
+            .seat(victim)
+            .is_some_and(|s| through(&attackers, &creatures(view, victim, ready)) >= s.life);
+    // What each seat still in the game could swing back with. The victim's
+    // is nothing when this attack ends them.
+    let threats: Vec<Vec<Fighter>> = view
+        .seats
+        .iter()
+        .filter(|s| !s.has_lost && hostile(s.player))
+        .filter(|s| !(lethal && s.player == victim))
+        .map(|s| {
+            creatures(view, s.player, |_| true)
+                .into_iter()
+                .filter(|f| !f.has(KeywordSet::DEFENDER) && f.power > 0)
+                .collect()
+        })
+        .collect();
+    let dies = |going: &[ObjectId]| -> i32 {
+        let home = creatures(view, view.seat, |o| {
+            ready(o) && (!going.contains(&o.id) || o.keywords & KeywordSet::VIGILANCE.bits() != 0)
+        });
+        threats.iter().map(|t| through(t, &home)).max().unwrap_or(0)
+    };
+    if dies(&going) < life {
+        return going;
+    }
+    let mut kept = going.clone();
+    loop {
+        // A vigilant attacker defends from where it is; keeping it home
+        // would cost its damage and stop nothing more.
+        let pick = kept
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| {
+                Fighter::of(view, **id).is_some_and(|f| !f.has(KeywordSet::VIGILANCE))
+            })
+            .min_by_key(|(i, id)| {
+                let mut rest = kept.clone();
+                rest.remove(*i);
+                let f = Fighter::of(view, **id);
+                (
+                    dies(&rest),
+                    f.map_or(0, |f| f.worth),
+                    f.map_or(0, |f| f.power),
+                    id.slot(),
+                )
+            })
+            .map(|(i, _)| i);
+        let Some(i) = pick else {
+            return going;
+        };
+        kept.remove(i);
+        if dies(&kept) < life {
+            return kept;
+        }
+    }
+}
+
+/// `seat`'s creatures on the battlefield that pass `keep`, phased out or
+/// not, as they will be at the next combat: damage marked now is gone by
+/// then (CR 514.2).
+fn creatures(
+    view: &PlayerView,
+    seat: PlayerId,
+    keep: impl Fn(&PublicObject) -> bool,
+) -> Vec<Fighter> {
+    view.battlefield_of(seat)
+        .filter(|o| o.types.contains(TypeSet::CREATURE) && keep(o))
+        .filter_map(|o| {
+            Fighter::from_object(o).map(|mut f| {
+                f.toughness += i32::from(o.damage);
+                f
+            })
+        })
+        .collect()
+}
+
+/// Able to block now and through the next turn: untapped, and phased in —
+/// ours phase back in only on our own untap step (CR 502.1).
+fn ready(o: &PublicObject) -> bool {
+    !o.status.contains(ObjectStatus::TAPPED) && !o.status.contains(ObjectStatus::PHASED_OUT)
+}
+
+/// How much of `attackers` gets past `blockers`, each blocker used once.
+///
+/// Greedy, and on purpose: the attacker with the fewest possible blockers is
+/// answered first, so a lone reach creature is not spent on a ground beater
+/// while a flyer walks in, and the biggest goes first among equals. Each
+/// takes the blocker that lets the least through, the cheapest on a tie; a
+/// menace attacker takes two or nothing. Whatever is left over then stands
+/// in front of a trampler as well, since every extra blocker's toughness is
+/// damage kept off the player (CR 702.19b).
+fn through(attackers: &[Fighter], blockers: &[Fighter]) -> i32 {
+    let mut free: Vec<Fighter> = blockers.to_vec();
+    // Double strike is twice the damage, and with trample the second step
+    // meets no blocker (CR 702.19d), so a wall of toughness T lets 2P - T
+    // through: the arithmetic of one attacker with twice the power.
+    let mut order: Vec<Fighter> = attackers
+        .iter()
+        .map(|a| {
+            if a.has(KeywordSet::DOUBLE_STRIKE) {
+                Fighter {
+                    power: a.power * 2,
+                    ..*a
+                }
+            } else {
+                *a
+            }
+        })
+        .collect();
+    order.sort_by_key(|a| {
+        (
+            free.iter().filter(|b| could_block(*a, **b)).count(),
+            std::cmp::Reverse(a.power),
+        )
+    });
+    let mut total = 0;
+    // Tramplers that were blocked and still push damage through, with the
+    // damage left, for the leftover blockers below.
+    let mut spilling: Vec<(Fighter, i32)> = Vec::new();
+    for a in order {
+        let need = if a.has(KeywordSet::MENACE) { 2 } else { 1 };
+        let mut able: Vec<usize> = (0..free.len())
+            .filter(|&i| could_block(a, free[i]))
+            .collect();
+        if able.len() < need {
+            total += a.power.max(0);
+            continue;
+        }
+        able.sort_by_key(|&i| (spillover(a, free[i]), free[i].worth));
+        let mut chosen: Vec<usize> = able.into_iter().take(need).collect();
+        let wall = Fighter {
+            toughness: chosen.iter().map(|&i| free[i].toughness.max(0)).sum(),
+            ..free[chosen[0]]
+        };
+        let spill = spillover(a, wall);
+        total += spill;
+        if spill > 0 {
+            spilling.push((a, spill));
+        }
+        chosen.sort_unstable_by(|x, y| y.cmp(x));
+        for i in chosen {
+            free.remove(i);
+        }
+    }
+    free.sort_by_key(|b| b.worth);
+    for b in free {
+        let biggest = spilling
+            .iter_mut()
+            .filter(|(a, left)| *left > 0 && could_block(*a, b))
+            .max_by_key(|(_, left)| *left);
+        if let Some((_, left)) = biggest {
+            let soaked = (*left).min(b.toughness.max(0));
+            *left -= soaked;
+            total -= soaked;
+        }
+    }
+    total
 }
 
 #[cfg(test)]

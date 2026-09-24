@@ -781,6 +781,100 @@ fn combat_first_strike_must_be_blocked_before_lifelink_can_happen() {
     assert!(!matches!(engine.pending(), Pending::GameOver(_)));
 }
 
+/// #123, the owner's game played through the engine: eight 2/2s at twenty
+/// life against one 75/75 first striker that attacks every turn it can. Its
+/// controller is at forty, so that no attack of ours ends the game before
+/// the question is asked — at twenty SHARP wins on turn 3, which is a
+/// different game.
+///
+/// Turn 2 it attacks and is chumped. Turn 3 is the house AI's, the 75/75 is
+/// still tapped, and every attack rule says swing; turn 4 it untaps and
+/// comes back. Four of five profiles used to send everything on turn 3 (or,
+/// SHARP, on turn 1 already) and meet turn 4 with every creature tapped, so
+/// the engine had no block to offer and the game ended there. The seat must
+/// still be alive after turn 4, must have attacked on turn 3 — a table that
+/// never attacks would pass this too — and must have been offered a block
+/// against the 75/75 on turn 4.
+#[test]
+fn the_swing_back_finds_a_creature_home_to_block_it() {
+    use baylee_cards_dsl::KeywordSet;
+    use baylee_core::ids::{CardIndex, Defender, PrintRef};
+    let cards = vec![
+        combat_card(90_000, 2, 2, KeywordSet::EMPTY),
+        combat_card(90_001, 75, 75, KeywordSet::FIRST_STRIKE),
+    ];
+    let object = |index| DeckEntry {
+        card: CardIndex::new(index),
+        print: PrintRef::new(0),
+    };
+    for (name, profile) in [
+        ("NOVICE", AIProfile::NOVICE),
+        ("CASUAL", AIProfile::CASUAL),
+        ("STEADY", AIProfile::STEADY),
+        ("SHARP", AIProfile::SHARP),
+        ("EXPERT", AIProfile::EXPERT),
+    ] {
+        let mut preset = position(&[], &[]);
+        preset.seats[0].starting_battlefield = vec![object(90_000); 8];
+        preset.seats[1].starting_battlefield = vec![object(90_001)];
+        preset.seats[1].starting_life = Some(40);
+        let mut engine = Engine::new(&preset, CombatCards(cards.clone())).unwrap();
+        let agent = HeuristicAgent::new(profile);
+        let me = PlayerId::new(0);
+        let mut attacked_on_turn_3 = 0;
+        let mut offered_on_turn_4 = 0;
+        for seq in 0..1_000 {
+            let Some(seat) = pending_player(engine.pending()) else {
+                break;
+            };
+            let view = asked_view(engine.state(), seat, seq, engine.pending());
+            if view.turn > 4 {
+                break;
+            }
+            let action = match engine.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                _ if seat == me => agent.act(&view, engine.pending()),
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                Pending::ChooseAttackers { attackers, .. } => PlayerAction::DeclareAttackers {
+                    attackers: attackers
+                        .iter()
+                        .map(|id| (*id, Defender::Player(me)))
+                        .collect(),
+                },
+                Pending::ChooseBlockers { .. } => {
+                    PlayerAction::DeclareBlockers { blockers: vec![] }
+                }
+                other => panic!("{name}: unexpected question for their seat: {other:?}"),
+            };
+            match (engine.pending(), &action) {
+                (Pending::ChooseAttackers { .. }, PlayerAction::DeclareAttackers { attackers })
+                    if seat == me && view.turn == 3 =>
+                {
+                    attacked_on_turn_3 = attackers.len();
+                }
+                (Pending::ChooseBlockers { blockers, .. }, _) if view.turn == 4 => {
+                    offered_on_turn_4 = blockers.len();
+                }
+                _ => {}
+            }
+            engine.apply(seat, action).expect("a legal answer");
+        }
+        assert!(
+            engine.state().players[0].life > 0 && !matches!(engine.pending(), Pending::GameOver(_)),
+            "{name} did not survive the 75/75's swing back"
+        );
+        assert!(
+            attacked_on_turn_3 > 0,
+            "{name} did not attack on turn 3, so surviving says nothing about \
+             what it kept home"
+        );
+        assert!(
+            offered_on_turn_4 > 0,
+            "{name}: the engine offered no block against the 75/75 on turn 4"
+        );
+    }
+}
+
 #[test]
 fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine() {
     use baylee_cards_dsl::{

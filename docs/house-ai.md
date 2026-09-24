@@ -153,6 +153,30 @@ the same reader is not a second path. The guard now also requires the view to
 say what each attacker is aiming at, because the search reads that and
 `choose_blocks` does not need it.
 
+**No profile attacks into a swing back that kills it.** Neither blind spot
+above was ever shown reachable in a real game; the owner's #123 game is
+reproduced from the other side of the table. A 75/75 first striker attacks,
+and on the house AI's turn it is still tapped, so nothing can block and every
+attack rule says swing: NOVICE, CASUAL, STEADY and SHARP sent all eight 2/2s
+for sixteen into twenty, and the creatures stayed tapped through the next turn
+(CR 502.3), when the 75/75 came back into a table the engine could offer no
+block on. SHARP did the same with the 75/75 untapped. Only EXPERT prices that
+retaliation, and injected out of its search it sends all eight too.
+`combat::hold_back_for_the_crack_back` is therefore a pass over the finished
+attack for **every** profile, the way the menace pass below is a pass over the
+finished block: block rule 1 seen from the other side, not a skill level. If
+the attack does not end the game and some hostile seat's whole board, which
+untaps first and is not summoning sick by then (CR 302.6), would get through
+what stays home, creatures are kept home one at a time, the one that stops the
+most first, until it would not. Vigilant attackers count as home (CR
+702.20b); flying, reach, menace and trample are read through the same
+`Fighter` model, and leftover blockers soak a trampler's excess. A table that
+dies whatever it keeps home attacks as it meant to. Each hostile seat is asked
+on its own, so damage that several opponents add up to over one round, and
+commander damage and poison, are not modelled here. SHARP and EXPERT still
+part on a swing back that does not kill, which EXPERT prices and SHARP does
+not look at.
+
 **One illegal pair costs the whole declaration, so legality is checked
 against the finished answer.** Menace is two blockers or none (CR 702.111b),
 and the shallow path pairs one blocker with one attacker by construction — so
