@@ -15,7 +15,7 @@ use baylee_core::mana::ManaCost;
 use baylee_engine::choice::LegalActions;
 use baylee_view::PlayerView;
 
-use baylee_cards_dsl::{AbilityDef, CostPart};
+use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
 
 /// Every mana source the seat may tap right now.
 ///
@@ -85,19 +85,18 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // Below it the old order stands unchanged: more mana, then more colours,
     // and the intrinsic shortcut wins a tie because it costs one fewer round
     // trip and is never asked for a colour.
-    let mut ranked: Vec<(bool, Source)> = sources
-        .into_iter()
-        .map(|source| (priced(view, &source), source))
-        .collect();
-    ranked.sort_by(|(a_priced, a), (b_priced, b)| {
+    //
+    // This ranks the modes of one permanent. Which *permanent* pays a pip is
+    // the matcher's, and it reads the same `priced` off the surviving entry.
+    sources.sort_by(|a, b| {
         a.id.cmp(&b.id)
-            .then_with(|| a_priced.cmp(b_priced))
+            .then_with(|| a.priced.cmp(&b.priced))
             .then_with(|| b.amount.cmp(&a.amount))
             .then_with(|| b.colors.len().cmp(&a.colors.len()))
             .then_with(|| matches!(a.tap, Tap::Ability(_)).cmp(&matches!(b.tap, Tap::Ability(_))))
     });
-    ranked.dedup_by(|(_, a), (_, b)| a.id == b.id);
-    ranked.into_iter().map(|(_, source)| source).collect()
+    sources.dedup_by(|a, b| a.id == b.id);
+    sources
 }
 
 /// Whether tapping this source costs anything **beyond** the tap.
@@ -113,33 +112,11 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
 /// [`CostPart::TapSelf`] is a price, so a `CostPart` added tomorrow is priced
 /// without anyone remembering this function. Listing what counts as expensive
 /// instead would go silent on the next variant, and silent here means free.
-fn priced(view: &PlayerView, source: &Source) -> bool {
-    let Tap::Ability(index) = source.tap else {
-        // The CR 305.6 shortcut. Tapping is the whole of it.
-        return false;
-    };
-    if baylee_engine::choice::granted_slot(index).is_some() {
-        // An ability a continuous effect granted is printed on no card, and
-        // `GrantedMana` carries colours and an amount and **no cost** — so
-        // free is the only thing this can say, and it is right for the card
-        // that grants them: a Chromatic Lantern's is `{T}` and nothing more.
-        // Saying otherwise would be worse than imprecise. A Lantern'd
-        // Mountain offers the intrinsic tap *and* the grant, and calling the
-        // grant priced would hand the dedup to the intrinsic and leave the
-        // land making red only, which is the Lantern's whole point undone.
-        return false;
-    }
-    let Some(
-        AbilityDef::Activated { cost, effects, .. }
-        | AbilityDef::ActivatedConditional { cost, effects, .. },
-    ) = ability_at(view, source.id, index)
-    else {
-        // Unreadable, so assume it costs something. That sorts it behind any
-        // tap this client can read, and where it is the only offer the dedup
-        // keeps it regardless — so the guess is never the reason a source
-        // disappears.
-        return true;
-    };
+///
+/// Asked only of a printed ability, where the cost is on the card. The CR
+/// 305.6 shortcut is the tap and nothing else ([`Source::fixed`]), and a
+/// granted ability is free by construction — see [`granted_source`].
+fn priced(cost: &Cost, effects: &[Effect]) -> bool {
     // The two halves of a price, and they sit in different places on the
     // card. One is written in the cost — a land sacrificed, a counter
     // removed, a life paid. The other is written in the effects, beside the
@@ -150,9 +127,13 @@ fn priced(view: &PlayerView, source: &Source) -> bool {
         .parts
         .iter()
         .any(|part| !matches!(part, CostPart::TapSelf));
-    // `mana_with_riders` accepted this source, so exactly one of its effects
-    // is the `AddMana` and anything else is a rider.
-    let does_more_than_add = effects.len() > 1;
+    // A rider is an effect that is not mana. Counting effects instead read a
+    // Karoo's second `AddMana` as a rider, which the dedup never noticed —
+    // a Karoo has one mode — and the matcher would have: a free land ranked
+    // behind every other free land.
+    let does_more_than_add = effects
+        .iter()
+        .any(|effect| !matches!(effect, Effect::AddMana { .. }));
     costs_more_than_a_tap || does_more_than_add
 }
 
@@ -337,6 +318,7 @@ fn mana_ability(
             colors,
             amount,
             bundle: true,
+            priced: priced(cost, effects),
         });
     }
     // The planner's door rather than the strict one: an ability that also
@@ -363,6 +345,7 @@ fn mana_ability(
         colors,
         amount,
         bundle: false,
+        priced: priced(cost, effects),
     })
 }
 
@@ -565,6 +548,14 @@ pub fn granted_source(
         // `AddMana` outright. A grant that could bundle would have to come
         // through a different door than this one.
         bundle: false,
+        // Free, and for the same reason: `GrantedMana` carries colours and an
+        // amount and **no cost**, so free is the only thing this can say, and
+        // it is right for the card that grants them — a Chromatic Lantern's
+        // is `{T}` and nothing more. Saying otherwise would be worse than
+        // imprecise: a Lantern'd Mountain offers the intrinsic tap *and* the
+        // grant, and a priced grant would lose the dedup to the intrinsic and
+        // leave the land making red only, the Lantern's whole point undone.
+        priced: false,
     })
 }
 
@@ -1198,6 +1189,23 @@ mod tests {
         );
     }
 
+    /// A Karoo's second `AddMana` is its mana, not a rider. `priced` counted
+    /// effects, so Azorius Chancery read as priced — which nothing noticed
+    /// while price only chose between one permanent's modes, a Karoo having
+    /// one, and which would have ranked a free land behind every other free
+    /// land the day the matcher began reading the same flag. Ancient Tomb is
+    /// the counter-proof that a real rider still prices.
+    #[test]
+    fn a_karoo_taps_for_free_and_a_rider_still_costs() {
+        let (view, legal) = offering("Azorius Chancery", &[0]);
+        let karoo = &sources(&view, &legal)[0];
+        assert!(karoo.bundle, "not read as a bundle, so this proves nothing");
+        assert!(!karoo.priced, "a Karoo's second mana was read as a rider");
+
+        let (view, legal) = offering("Ancient Tomb", &[0]);
+        assert!(sources(&view, &legal)[0].priced, "two damage is a price");
+    }
+
     /// **The reader family's relation, made a build failure.**
     ///
     /// `mana_shape` is documented as `mana_with_riders` with one clause put
@@ -1440,7 +1448,7 @@ mod tests {
             "one mana of any colour"
         );
         assert!(
-            priced(&view, &sources[0]),
+            sources[0].priced,
             "sacrificing it is a price beyond the tap"
         );
     }

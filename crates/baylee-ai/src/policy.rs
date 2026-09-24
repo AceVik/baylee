@@ -722,21 +722,21 @@ fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
 /// priced is unaffected: the dedup keeps one entry per permanent whatever the
 /// key says, so this changes which mode survives and never how many.
 fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
-    // Paired with its price until the dedup has run, rather than carried on
-    // `manaplan::Source`: the price is what goes *in*, and the solver only
-    // ever asks what comes out. `baylee-client-7e` reached the same split
-    // from the client's side in #165.
+    // The price rides on `manaplan::Source` itself. It used to be paired
+    // with the source only until the dedup had run, because the solver asked
+    // nothing but what comes out; since #165's second half the solver ranks
+    // whole permanents by it too, and reaches for a priced tap only where no
+    // clean one fits the pip.
     //
-    // **`bundle` on `Source` is not this flag** and the two will sit three
-    // lines apart once #150 lands. `priced` is what the tap *costs*; `bundle`
-    // is how `colors` is *read* — one of each, or a choice of one. Folding
-    // them, or moving `bundle` into this tuple, compiles and passes every
-    // test on either side, because the client's tests build a `Source`
-    // directly and never come through here. Three readers currently agree
-    // about the same family of lands from three directions — `mana_bundle`,
-    // `duplicates_intrinsic` and this column — and one flag doing two jobs
-    // would silently make that one reader wearing three names.
-    let mut result: Vec<(Source, bool)> = Vec::new();
+    // **`bundle` on `Source` is not this flag.** `priced` is what the tap
+    // *costs*; `bundle` is how `colors` is *read* — one of each, or a choice
+    // of one. Folding them compiles and passes every test on either side,
+    // because the client's tests build a `Source` directly and never come
+    // through here. Three readers currently agree about the same family of
+    // lands from three directions — `mana_bundle`, `duplicates_intrinsic`
+    // and this field — and one flag doing two jobs would silently make that
+    // one reader wearing three names.
+    let mut result: Vec<Source> = Vec::new();
     for &id in &legal.mana_abilities {
         if let Some(color) = view
             .object(id)
@@ -744,7 +744,7 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
             // and nothing else.
-            result.push((Source::fixed(id, Tap::Intrinsic, color), false));
+            result.push(Source::fixed(id, Tap::Intrinsic, color));
         }
     }
     for &(id, index) in &legal.abilities {
@@ -796,34 +796,32 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
             })
         };
         if let Some((colors, amount, priced)) = source {
-            result.push((
-                Source {
-                    id,
-                    tap: Tap::Ability(index),
-                    colors,
-                    amount,
-                    // Correct only while `mana_shape`'s one-effect match hides
-                    // every multi-`AddMana` ability from this reader, so nothing
-                    // that reaches here is a bundle. #170 is where that stops
-                    // being true, and it has to decide this per ability rather
-                    // than restate the constant.
-                    bundle: false,
-                },
+            result.push(Source {
+                id,
+                tap: Tap::Ability(index),
+                colors,
+                amount,
+                // Correct only while `mana_shape`'s one-effect match hides
+                // every multi-`AddMana` ability from this reader, so nothing
+                // that reaches here is a bundle. #170 is where that stops
+                // being true, and it has to decide this per ability rather
+                // than restate the constant.
+                bundle: false,
                 priced,
-            ));
+            });
         }
     }
-    result.sort_by_key(|(s, priced)| {
+    result.sort_by_key(|s| {
         (
             s.id,
-            *priced,
+            s.priced,
             std::cmp::Reverse(s.amount),
             std::cmp::Reverse(s.colors.len()),
             matches!(s.tap, Tap::Ability(_)),
         )
     });
-    result.dedup_by_key(|(s, _)| s.id);
-    result.into_iter().map(|(source, _)| source).collect()
+    result.dedup_by_key(|s| s.id);
+    result
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.

@@ -1043,6 +1043,7 @@ mod tests {
             amount: u8::try_from(colors.len()).unwrap_or(u8::MAX),
             colors,
             bundle: true,
+            priced: false,
         };
 
         let karoo = bundle(vec![ManaColor::White, ManaColor::Blue]);

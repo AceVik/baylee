@@ -3085,9 +3085,23 @@ available mana, not a greedy sweep, because greedy produces the classic
 misplay: it pays the generic pip with the only land that makes black and then
 cannot pay `{B}`. Two orderings turn "a matching" into the matching a player
 would make — demands are taken most-constrained first, and each one reaches
-for floating mana before any tap, then for the *least* flexible source that
-fits, so the Forest pays the green pip and the Command Tower is still untapped
-afterwards.
+for floating mana before any tap, then for a **clean** tap before a priced
+one, then for the *least* flexible source that fits. So the Forest pays the
+green pip, the Command Tower is still untapped afterwards, and Ancient Tomb's
+two damage are taken only where no free land fits.
+
+Price comes before breadth, and one case decides it: Ancient Tomb beside a
+Command Tower paying `{1}`. By breadth alone the Tomb goes first (one colour
+against five), and the player takes two damage with a free land untapped.
+Payability does not move, since Kuhn finds a matching whenever one exists
+whatever the order; only which taps it picks moves. But an order is per pip
+and a plan is per permanent, so price first on its own would tap the Tower
+*and* the Tomb for `{2}`, where the Tomb alone pays it for the same two
+damage. So the matching is followed by `consolidate`, which gives back any
+tapped source whose pips fit on mana the plan already has: floating, or the
+unused half of a permanent it taps anyway. A priced source is tried first,
+then the roomiest. The same pass stopped a Forest listed before a Sol Ring
+from paying half of `{2}` beside it, which predates any price.
 
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
@@ -3124,20 +3138,23 @@ token has no card and so no `rules`, and until #210 nothing on the client read
 a token's abilities: a Treasure was never a source, and seventeen of them left
 a four-mana spell unreachable with the lands tapped. A Treasure now plans and
 clicks like Lotus Petal — a mana ability, so one tap and a colour, never armed.
-It makes any colour, so the matcher reaches for it after every source making
-fewer; a tie with a *free* five-colour source (a Command Tower, a land under
-Chromatic Lantern) still falls to object order, because `priced` ranks the
-modes of one permanent and nothing across permanents.
+It makes any colour and costs the token, so the matcher reaches for it after
+every clean source that fits. A free five-colour source (a Command Tower, a
+land under Chromatic Lantern) used to tie with it and fell to object order,
+because `priced` ranked only the modes of one permanent. It is a field on
+`manaplan::Source` now, and the matcher reads it across permanents.
 
 An ability that does something *besides* make mana it accepts, and **ranks**
 — which is the same policy reached a different way. A tap with a price beyond
-the tap sorts behind every clean tap the permanent has, and a permanent is one
-source, so the priced mode is reached only where nothing else can pay: the
-case in which the player would have tapped it by hand anyway. A price is two
-things written in two places and `manasources::priced` weighs both — in the
-cost (Havenwood Battleground's sacrifice, a Vivid land's charge counter, Spire
-of Industry's life) and in the effects (Adarkar Wastes deals you a damage and
-charges nothing to tap). Before that ranking existed the planner read amount
+the tap sorts behind every clean tap the permanent has, and the surviving
+entry carries `Source::priced` into the matcher, which puts it behind every
+clean tap on the board. So the priced mode is reached only where nothing else
+can pay: the case in which the player would have tapped it by hand anyway. A
+price is two things written in two places and `manasources::priced` weighs
+both — in the cost (Havenwood Battleground's sacrifice, a Vivid land's charge
+counter, Spire of Industry's life) and in the effects (Adarkar Wastes deals
+you a damage and charges nothing to tap). An effect counts as a rider only if
+it is not mana: counting effects made a Karoo's second `AddMana` a price. Before that ranking existed the planner read amount
 and colours alone and so *always* took the expensive mode on the 25 faces that
 print both: it sacrificed Havenwood every time it tapped it.
 

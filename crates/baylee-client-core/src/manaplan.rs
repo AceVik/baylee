@@ -75,6 +75,17 @@ pub struct Source {
     /// because the mana is already floating and the permanents are already
     /// tapped.
     pub bundle: bool,
+    /// Whether tapping this costs anything **beyond** the tap: a land or a
+    /// Treasure sacrificed, a life paid, a damage dealt beside the mana.
+    ///
+    /// The planner reaches for a priced source only where no clean one fits
+    /// the pip, ahead of how many colours either makes — see [`assign`]. It
+    /// is a field and not the caller's sort order because the order it
+    /// decides is the matcher's, over every permanent at once; a caller can
+    /// rank one permanent's modes, and did, but not which of two permanents
+    /// pays a pip. Who sets it: `manasources::priced` for the client, and
+    /// `policy::sources` for the house AI.
+    pub priced: bool,
 }
 
 impl Source {
@@ -87,6 +98,7 @@ impl Source {
             colors: vec![color],
             amount: 1,
             bundle: false,
+            priced: false,
         }
     }
 
@@ -423,9 +435,22 @@ fn units(pool: &ManaPoolView, sources: &[Source]) -> Vec<Unit> {
 ///
 /// Two orderings turn "a matching" into "the matching a player would make":
 /// demands are taken most-constrained first, and each demand tries floating
-/// mana before any tap, then the *least* flexible source that fits — so the
-/// land that only makes green pays the green pip and the one that makes
-/// anything is still untapped afterwards.
+/// mana before any tap, then a **clean** tap before a priced one, then the
+/// *least* flexible source that fits — so the land that only makes green pays
+/// the green pip and the one that makes anything is still untapped
+/// afterwards, and Ancient Tomb's two damage are taken only where no free
+/// land fits.
+///
+/// Price comes before breadth, and the case that decides it is Ancient Tomb
+/// beside a Command Tower paying `{1}`: by breadth alone the Tomb goes first
+/// (one colour against five) and the player takes two damage with a free
+/// land untapped. Payability does not move — Kuhn finds a matching whenever
+/// one exists, whatever the order — only which taps it picks.
+///
+/// An order is per pip, though, and a plan is per permanent, so the matching
+/// is followed by [`consolidate`]: price first would otherwise tap the Tower
+/// *and* the Tomb for `{2}`, where the Tomb alone pays it and costs the same
+/// two damage.
 fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
     let units = units(pool, sources);
     if needs.len() > units.len() {
@@ -438,6 +463,7 @@ fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Optio
         (
             // Floating first: it is free and it empties at end of step.
             usize::from(unit.from.is_some()),
+            unit.from.is_some_and(|source| sources[source].priced),
             unit.colors.count(),
             unit.from.unwrap_or(0),
         )
@@ -455,7 +481,95 @@ fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Optio
         }
     }
 
+    consolidate(needs, &units, &mut taken, sources);
     Some(steps(needs, &units, &taken, sources))
+}
+
+/// Gives back every tap whose mana the rest of the plan already makes.
+///
+/// A permanent that makes two mana is tapped whole, so once it is in the plan
+/// its second mana is free — and the matching cannot know that, because its
+/// order is fixed before anything is tapped. Two places that shows: price
+/// first taps a Command Tower and then an Ancient Tomb for `{2}`, where the
+/// Tomb alone pays it for the same two damage; and a Forest listed before a
+/// Sol Ring pays half of `{2}` beside it.
+///
+/// So each round drops one tapped source whose pips all fit on spare mana
+/// the plan already has — floating, or the unused half of a permanent it
+/// taps anyway — and stops when none does. A priced source is tried first,
+/// then the roomiest clean one, which is the one most worth keeping untapped.
+/// Every round removes a source, so it ends; and every move is onto a unit
+/// whose colours cover the pip, so the plan stays a plan.
+fn consolidate(
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &mut [Option<usize>],
+    sources: &[Source],
+) {
+    loop {
+        let tapped: BTreeSet<usize> = units
+            .iter()
+            .zip(taken.iter())
+            .filter_map(|(unit, holder)| holder.and(unit.from))
+            .collect();
+        let mut candidates: Vec<usize> = tapped.iter().copied().collect();
+        candidates.sort_by_key(|&source| {
+            (
+                !sources[source].priced,
+                std::cmp::Reverse(mask_of(&sources[source].colors).count()),
+                source,
+            )
+        });
+        let Some(moves) = candidates
+            .into_iter()
+            .find_map(|candidate| rehome(candidate, needs, units, taken, &tapped))
+        else {
+            return;
+        };
+        for (from, to, demand) in moves {
+            taken[from] = None;
+            taken[to] = Some(demand);
+        }
+    }
+}
+
+/// Where each pip `candidate` pays could go instead, or `None` if one of
+/// them has nowhere: `(unit it leaves, unit it takes, the pip)`.
+///
+/// Greedy, most-constrained pip first, over what is spare. A pip it fails to
+/// place only means the plan keeps that tap, which is where it started.
+fn rehome(
+    candidate: usize,
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &[Option<usize>],
+    tapped: &BTreeSet<usize>,
+) -> Option<Vec<(usize, usize, usize)>> {
+    let mut held: Vec<(usize, usize)> = units
+        .iter()
+        .zip(taken)
+        .enumerate()
+        .filter_map(|(unit, (u, holder))| (u.from == Some(candidate)).then_some((unit, (*holder)?)))
+        .collect();
+    held.sort_by_key(|&(_, demand)| needs[demand].count());
+    let mut spare: Vec<usize> = units
+        .iter()
+        .enumerate()
+        .filter(|(unit, u)| {
+            taken[*unit].is_none()
+                && u.from
+                    .is_none_or(|source| source != candidate && tapped.contains(&source))
+        })
+        .map(|(unit, _)| unit)
+        .collect();
+    let mut moves = Vec::with_capacity(held.len());
+    for (from, demand) in held {
+        let at = spare
+            .iter()
+            .position(|&unit| needs[demand].overlaps(units[unit].colors))?;
+        moves.push((from, spare.remove(at), demand));
+    }
+    Some(moves)
 }
 
 /// One augmenting step of Kuhn's algorithm.
@@ -590,6 +704,7 @@ mod tests {
             colors: ManaColor::ALL.to_vec(),
             amount: 1,
             bundle: false,
+            priced: false,
         }
     }
 
@@ -780,6 +895,7 @@ mod tests {
             colors: vec![ManaColor::White, ManaColor::Blue],
             amount: 2,
             bundle: false,
+            priced: false,
         }];
         assert!(plan(&cost("{2}"), &empty(), &coupled).is_none());
 
@@ -789,6 +905,7 @@ mod tests {
             colors: vec![ManaColor::Colorless],
             amount: 2,
             bundle: false,
+            priced: false,
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
@@ -813,6 +930,7 @@ mod tests {
             colors: vec![ManaColor::White, ManaColor::Blue],
             amount: 2,
             bundle: true,
+            priced: false,
         }];
         let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
         assert_eq!(found.taps(), 1, "one permanent is one tap");
@@ -824,6 +942,112 @@ mod tests {
             plan(&cost("{W}{W}"), &empty(), &chancery).is_none(),
             "it makes one of each, not two of either"
         );
+    }
+
+    /// Every colour but colourless, which is what "any color" makes.
+    fn five() -> Vec<ManaColor> {
+        Color::ALL.iter().copied().map(mana_color).collect()
+    }
+
+    /// A Command Tower in a five-colour deck: any colour, for the tap.
+    fn tower(id: u32) -> Source {
+        Source {
+            id: ObjectId::new(id, 0),
+            tap: Tap::Ability(0),
+            colors: five(),
+            amount: 1,
+            bundle: false,
+            priced: false,
+        }
+    }
+
+    /// A Treasure: any colour, and the token goes with it.
+    fn treasure(id: u32) -> Source {
+        Source {
+            priced: true,
+            ..tower(id)
+        }
+    }
+
+    /// Ancient Tomb: `{C}{C}`, and two damage to its controller.
+    fn tomb(id: u32) -> Source {
+        Source {
+            colors: vec![ManaColor::Colorless],
+            amount: 2,
+            priced: true,
+            ..tower(id)
+        }
+    }
+
+    fn sol_ring(id: u32) -> Source {
+        Source {
+            colors: vec![ManaColor::Colorless],
+            amount: 2,
+            ..tower(id)
+        }
+    }
+
+    /// #165 promised that a tap with a price is reached only where nothing
+    /// else can pay, and kept it only between the modes of one permanent.
+    /// Across permanents the order was breadth alone, so Ancient Tomb — one
+    /// colour against the Tower's five — paid `{1}` and dealt two damage with
+    /// a free land standing untapped beside it.
+    #[test]
+    fn a_priced_tap_waits_behind_every_clean_one_that_fits() {
+        let found = plan(&cost("{1}"), &empty(), &[tomb(1), tower(2)]).expect("either pays {1}");
+        assert_eq!(tapped(&found), [2], "two damage, with the Tower untapped");
+
+        let sources = [tomb(1), tower(2), land(3, ManaColor::Green)];
+        let found = plan(&cost("{2}"), &empty(), &sources).expect("Tower and Forest pay {2}");
+        assert_eq!(
+            tapped(&found),
+            [2, 3],
+            "the Tomb paid what two free lands could"
+        );
+    }
+
+    /// The case that asked for it (#210). A Treasure makes any colour, so it
+    /// ties a Command Tower on breadth, and a tie fell to whichever was listed
+    /// first — here, on purpose, the Treasure.
+    ///
+    /// The second half is the counter-proof that price orders and never
+    /// refuses: where the Tower alone cannot pay, the Treasure is spent.
+    #[test]
+    fn a_treasure_is_kept_while_a_free_land_makes_the_colour() {
+        let sources = [treasure(1), tower(2)];
+        let found = plan(&cost("{G}"), &empty(), &sources).expect("either makes green");
+        assert_eq!(
+            tapped(&found),
+            [2],
+            "sacrificed a Treasure for a free land's mana"
+        );
+
+        let found = plan(&cost("{G}{G}"), &empty(), &sources).expect("both make green");
+        assert_eq!(tapped(&found), [1, 2]);
+    }
+
+    /// A permanent that makes two mana is tapped whole, so once it is in a
+    /// plan its second mana costs nothing. Price first on its own would tap
+    /// the Tower for one pip and then the Tomb for the other, taking the same
+    /// two damage and spending the Tower as well; a Forest listed before a
+    /// Sol Ring did the same without any price in it at all.
+    ///
+    /// The last case is the counter-proof: a tap the plan needs stays in it.
+    #[test]
+    fn a_plan_taps_no_permanent_whose_mana_another_tap_already_makes() {
+        let found = plan(&cost("{2}"), &empty(), &[tomb(1), tower(2)]).expect("the Tomb pays {2}");
+        assert_eq!(
+            tapped(&found),
+            [1],
+            "tapped the Tower for mana the Tomb made anyway"
+        );
+
+        let sources = [land(1, ManaColor::Green), sol_ring(2)];
+        let found = plan(&cost("{2}"), &empty(), &sources).expect("Sol Ring pays {2}");
+        assert_eq!(tapped(&found), [2], "tapped the Forest beside a Sol Ring");
+
+        let found = plan(&cost("{2}{G}"), &empty(), &sources).expect("both pay {2}{G}");
+        assert_eq!(tapped(&found), [1, 2], "dropped a tap the plan needed");
     }
 
     #[test]
@@ -843,6 +1067,7 @@ mod tests {
             colors: Color::ALL.iter().copied().map(mana_color).collect(),
             amount: 1,
             bundle: false,
+            priced: false,
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());

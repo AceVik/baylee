@@ -49,10 +49,11 @@
 //! half-tapped board mid-cast, where under-counting only makes the client
 //! shy.
 //!
-//! Where the ranking happens is `manasources::priced`, and it stays there.
-//! A cost part and a rider are both reasons to reach for something else
-//! first, and weighing them is a planner's judgement; this module reports a
-//! shape and never a price.
+//! Where the ranking happens is the planner's, and it stays there:
+//! `manasources::priced` weighs a cost part and a rider into
+//! `manaplan::Source::priced`, and the matcher reaches for a priced tap only
+//! where no clean one fits the pip. Weighing them is a planner's judgement;
+//! this module reports a shape and never a price.
 
 use crate::cost::{Cost, CostPart};
 use crate::effect::{Amount, Effect, ManaSource};
