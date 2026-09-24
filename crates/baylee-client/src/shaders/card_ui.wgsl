@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, count_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
@@ -674,6 +674,15 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             marks,
             marks_sampler,
         ),
+        color.a,
+    );
+
+    // ---- how many permanents this card stands for
+    //
+    // The hover preview is the table card held up larger, so it says the
+    // same `×N`; the hand and the picker never set a count.
+    color = vec4<f32>(
+        count_layer(uv, params.count, color.rgb, marks, marks_sampler),
         color.a,
     );
 

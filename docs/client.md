@@ -733,7 +733,10 @@ to the right half of the title bar. Until #210 the sentence above was true
 of a function (`table::stack_badge`) that nothing called: 54 Goblins drew as
 one Goblin, the slab under the card was the only cue, and a pile's depth is
 capped. A pile never wears a count (`Placement::stands_for`); its size is
-the deck under it and the seat bar's number.
+the deck under it and the seat bar's number. The hover preview wears the
+same pill (`card_ui.wgsl`), because it is the table card held up larger and
+the count is the one thing its art cannot say; `BoardModel::group` is how
+it and `/state` find the card a pointer is on.
 
 When they merge depends on what they are (`board::group_objects`). Tokens
 merge from two, on any row: a token is made to be one of many, and a fan of

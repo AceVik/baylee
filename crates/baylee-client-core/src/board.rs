@@ -1000,6 +1000,21 @@ impl BoardModel {
         self.pods.iter().find(|p| p.player == player)
     }
 
+    /// The battlefield card drawn as `representative`, with everything it
+    /// stands for.
+    ///
+    /// Asked by the object a pointer or the card cursor is on, which is
+    /// always a representative: the other members have no card of their
+    /// own. `None` for a hand card, a pile's top and a stack entry.
+    #[must_use]
+    pub fn group(&self, representative: ObjectId) -> Option<&CardGroup> {
+        self.pods
+            .iter()
+            .flat_map(|pod| pod.lanes.iter())
+            .flat_map(|lane| lane.groups.iter())
+            .find(|group| group.representative == representative)
+    }
+
     /// Which pile a hover has spread open, if any.
     ///
     /// Asked of the **fan** rather than of the pile's top card, and once the

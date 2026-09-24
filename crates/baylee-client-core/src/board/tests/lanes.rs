@@ -61,6 +61,34 @@ fn tokens_merge_on_a_roomy_row_and_split_by_state() {
     );
 }
 
+/// A card is found by the object it is drawn as, and only by that one: the
+/// other members have no card, so a pointer is never on them.
+#[test]
+fn a_group_is_found_by_its_representative_and_by_nothing_else() {
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, (0..3).map(|i| token(i, 0, "Soldier", 1, 1)))
+        .build();
+    let m = model(&view);
+    let drawn = m
+        .pod(PlayerId::new(0))
+        .and_then(|p| p.lane(LaneKind::Creatures))
+        .expect("lane")
+        .groups[0]
+        .clone();
+
+    let found = m.group(drawn.representative).expect("the drawn card");
+    assert_eq!(found.count(), 3);
+    let other = drawn
+        .members
+        .iter()
+        .find(|m| **m != drawn.representative)
+        .expect("a second member");
+    assert!(
+        m.group(*other).is_none(),
+        "a member without a card was found"
+    );
+}
+
 #[test]
 fn a_tapped_token_does_not_hide_inside_the_untapped_stack() {
     let mut objs: Vec<PublicObject> = (0..5).map(|i| token(i, 0, "Soldier", 1, 1)).collect();

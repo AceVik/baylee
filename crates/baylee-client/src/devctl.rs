@@ -1746,11 +1746,7 @@ fn name_of(duel: &Duel, object: baylee_core::ids::ObjectId) -> String {
         return "null".to_string();
     };
     board
-        .pods
-        .iter()
-        .flat_map(|pod| pod.lanes.iter())
-        .flat_map(|lane| lane.groups.iter())
-        .find(|group| group.representative == object)
+        .group(object)
         .map(|group| group.name.clone())
         .or_else(|| {
             board

@@ -607,6 +607,11 @@ pub fn sync_overlay(
                     // player looking at it.
                     let sweep =
                         hovered.and_then(|id| motion.sheen.of(id, crate::sheen::Surface::Preview));
+                    // And the same count: the ×12 on the table is the one
+                    // thing the art under it cannot say.
+                    let stands_for = hovered
+                        .and_then(|id| board.group(id))
+                        .map_or(1, baylee_client_core::board::CardGroup::count);
                     match shown {
                         Some(shown) => CardLook::art(
                             shown,
@@ -614,10 +619,12 @@ pub fn sync_overlay(
                             crate::cardmat::glow_of(object, crate::cardmat::Offer::NONE),
                         )
                         .with_corner(corner)
-                        .with_sweep(sweep),
+                        .with_sweep(sweep)
+                        .with_count(stands_for),
                         None => CardLook::back(FinishTreatment::Plain, 0)
                             .with_corner(corner)
-                            .with_sweep(sweep),
+                            .with_sweep(sweep)
+                            .with_count(stands_for),
                     }
                 },
                 cards.as_mut(),
