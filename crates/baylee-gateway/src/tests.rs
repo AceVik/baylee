@@ -224,6 +224,49 @@ fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
     }
 }
 
+/// **A gateway's name is shown to strangers, so the operator is refused
+/// rather than trimmed.**
+///
+/// Unset and blank are both "no name", and the client shows the address.
+/// The length is counted in characters, so a name in umlauts has the same
+/// room as one in ASCII. The two refusals are the lengths past the cap and
+/// the characters a player would not see: a line break, and a
+/// right-to-left override that makes "Baylee" display as something else.
+#[test]
+fn a_gateway_name_is_trimmed_counted_in_characters_and_refused_when_it_hides_anything() {
+    assert_eq!(display_name(None), Ok(None));
+    assert_eq!(display_name(Some("")), Ok(None));
+    assert_eq!(display_name(Some("   ")), Ok(None), "blank is no name");
+    assert_eq!(
+        display_name(Some("  Baylee EU  ")),
+        Ok(Some("Baylee EU".into())),
+        "the ends are trimmed, the middle is kept"
+    );
+
+    let longest = "ü".repeat(MAX_NAME_CHARS);
+    assert_eq!(
+        display_name(Some(&longest)),
+        Ok(Some(longest.clone())),
+        "{MAX_NAME_CHARS} characters fit, at twice as many bytes"
+    );
+    assert!(
+        display_name(Some(&format!("{longest}x"))).is_err(),
+        "one more does not"
+    );
+
+    for hidden in [
+        "Bay\nlee",
+        "Bay\u{7}lee",
+        "\u{202E}eelyaB",
+        "Bay\u{2066}lee",
+    ] {
+        assert!(
+            display_name(Some(hidden)).is_err(),
+            "{hidden:?} displays as something other than what it says"
+        );
+    }
+}
+
 /// What a deck list of these lines parses to, or what the player is told.
 ///
 /// Every refusal here is a 400 and that is folded in rather than asserted

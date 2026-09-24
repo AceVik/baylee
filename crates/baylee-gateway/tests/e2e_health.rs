@@ -17,7 +17,7 @@
 
 mod common;
 
-use common::{attach_agent, http, json_field, json_number, spawn_gateway};
+use common::{attach_agent, http, json_field, json_number, spawn_gateway, spawn_gateway_with};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn health_answers_what_a_monitor_cannot_learn_from_an_open_port() {
@@ -75,4 +75,57 @@ async fn health_answers_what_a_monitor_cannot_learn_from_an_open_port() {
     );
 
     agent.abort();
+}
+
+/// `GET /info` is what a client asks before it saves a gateway: the name to
+/// show, and the two versions it decides compatibility on.
+///
+/// Both halves of the name are played, set and unset, because a field that
+/// is always there passes a presence check and a client that falls back to
+/// the address would never be exercised. The versions are compared with the
+/// constants a client compares them with, and the build fields with
+/// `/source`, which is the same function answering.
+#[tokio::test(flavor = "multi_thread")]
+async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
+    let named = spawn_gateway_with(
+        "info-named",
+        &[("BAYLEE_GATEWAY_NAME", "  Baylee Test Hall  ".into())],
+    );
+    let (status, body) = http(named.port, "GET", "/info", None, "");
+    assert_eq!(status, 200, "info: {body}");
+    assert_eq!(
+        json_field(&body, "name"),
+        "Baylee Test Hall",
+        "trimmed: {body}"
+    );
+    assert_eq!(
+        json_number(&body, "protocol_version"),
+        i64::from(baylee_protocol::PROTOCOL_VERSION),
+        "protocol: {body}"
+    );
+    assert_eq!(
+        json_number(&body, "view_version"),
+        i64::from(baylee_view::VIEW_VERSION),
+        "view: {body}"
+    );
+    let (_, source) = http(named.port, "GET", "/source", None, "");
+    for field in ["version", "commit", "build"] {
+        assert_eq!(
+            json_field(&body, field),
+            json_field(&source, field),
+            "{field}: info {body}\nsource {source}"
+        );
+    }
+    assert!(
+        !body.contains(&named.agent_token),
+        "a secret in info: {body}"
+    );
+
+    let unnamed = spawn_gateway("info-unnamed");
+    let (status, body) = http(unnamed.port, "GET", "/info", None, "");
+    assert_eq!(status, 200, "info: {body}");
+    assert!(
+        !body.contains("\"name\""),
+        "no name set, so none is sent and the client shows the address: {body}"
+    );
 }

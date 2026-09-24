@@ -61,6 +61,10 @@ struct AppState {
     lobby: Mutex<Lobby>,
     /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
     registration_enabled: bool,
+    /// What this gateway calls itself to a client (`BAYLEE_GATEWAY_NAME`),
+    /// already checked by [`display_name`]. `None` when unset, and the client
+    /// names it by its address instead.
+    display_name: Option<String>,
     /// Where confirmation mail goes, and — because it is the same
     /// question — whether an address has to be confirmed at all.
     mail: mail::Mailer,
@@ -150,6 +154,8 @@ async fn main() {
         .and_then(|p| p.parse().ok())
         .unwrap_or(28766);
     validate_the_dev_board();
+    let display_name = display_name(std::env::var("BAYLEE_GATEWAY_NAME").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_GATEWAY_NAME: {why}"));
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -176,6 +182,7 @@ async fn main() {
         registration_enabled: registration_enabled(
             std::env::var("BAYLEE_REGISTRATION").ok().as_deref(),
         ),
+        display_name,
         mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
@@ -190,6 +197,7 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health))
         .route("/source", get(source))
+        .route("/info", get(info))
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
@@ -511,8 +519,6 @@ fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> Strin
     peer.to_string()
 }
 
-/// Public auth configuration (clients check this before offering
-/// registration).
 /// What this gateway is, and where the source for exactly this build lives.
 ///
 /// The AGPL's §13 obliges a program modified and offered to users over a
@@ -524,19 +530,91 @@ fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> Strin
 /// running a patch nobody published would answer that sentence truthfully
 /// and still be hiding what it runs.
 async fn source() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "name": "baylee",
-        "license": "AGPL-3.0-only",
-        "version": baylee_build::short(),
-        "commit": baylee_build::COMMIT,
-        "build": baylee_build::BUILD_NUMBER,
-        "built_at": baylee_build::BUILT_AT,
-        "source": baylee_build::REPOSITORY,
-        // Stated rather than implied: a reader who finds `dirty` true knows
-        // the commit above does not fully describe what is running, which is
-        // the one case where the offer would otherwise mislead.
-        "dirty": baylee_build::DIRTY,
-    }))
+    let mut body = build_fields();
+    body.insert("name".into(), "baylee".into());
+    body.insert("license".into(), "AGPL-3.0-only".into());
+    body.insert("source".into(), baylee_build::REPOSITORY.into());
+    Json(body.into())
+}
+
+/// Which binary this is, spelled once for every route that says so.
+///
+/// `/source`, `/health` and `/info` all answer it, and all three build it
+/// here from the same `baylee_build` constants, so "I rebuilt it" is
+/// checkable against any of them and no two can drift into disagreeing about
+/// one binary.
+fn build_fields() -> serde_json::Map<String, serde_json::Value> {
+    let mut fields = serde_json::Map::new();
+    fields.insert("version".into(), baylee_build::short().into());
+    fields.insert("commit".into(), baylee_build::COMMIT.into());
+    fields.insert("build".into(), baylee_build::BUILD_NUMBER.into());
+    fields.insert("built_at".into(), baylee_build::BUILT_AT.into());
+    // Stated rather than implied: a reader who finds `dirty` true knows the
+    // commit above does not fully describe what is running, which is the one
+    // case where the §13 offer would otherwise mislead.
+    fields.insert("dirty".into(), baylee_build::DIRTY.into());
+    fields
+}
+
+/// What a client asks before it saves this gateway: the name to show, the
+/// build, and the two versions that decide whether the two can talk.
+///
+/// Unauthenticated, because it is asked before there is an account, and it
+/// carries nothing a stranger may not read. `protocol_version` is the
+/// envelope a seat socket speaks. `view_version` is the view shape *this
+/// gateway's build* was compiled with, and it is a promise about nothing
+/// else: the gateway never decodes a view, and an agent's engine says no
+/// version when it attaches. A deployment runs one build on both sides, so
+/// the number is the right early warning; the check that decides is still
+/// the client's own, on the first `GameStatic` of a game.
+async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
+    let mut body = build_fields();
+    if let Some(name) = &state.display_name {
+        body.insert("name".into(), name.clone().into());
+    }
+    body.insert(
+        "protocol_version".into(),
+        baylee_protocol::PROTOCOL_VERSION.into(),
+    );
+    body.insert("view_version".into(), baylee_view::VIEW_VERSION.into());
+    Json(body.into())
+}
+
+/// The longest name `BAYLEE_GATEWAY_NAME` may set, in characters.
+///
+/// The client caps what it shows at the same length on its own
+/// (`client_core::lobby::gateway_info::MAX_NAME_CHARS`), because a gateway
+/// is a stranger to it and this check only binds gateways built from here.
+const MAX_NAME_CHARS: usize = 64;
+
+/// The name a gateway shows a client, out of `BAYLEE_GATEWAY_NAME`.
+///
+/// Unset or blank is no name, and the client shows the address. A name that
+/// is too long, or that carries a control character or a bidirectional
+/// override, is refused rather than trimmed. The override can make a line
+/// display differently from what it says, and the two were written as one
+/// string by somebody, so the operator is told at startup rather than every
+/// player seeing a quietly altered one.
+fn display_name(raw: Option<&str>) -> Result<Option<String>, String> {
+    let Some(name) = raw.map(str::trim).filter(|name| !name.is_empty()) else {
+        return Ok(None);
+    };
+    let length = name.chars().count();
+    if length > MAX_NAME_CHARS {
+        return Err(format!(
+            "{length} characters, and a name has {MAX_NAME_CHARS} at most"
+        ));
+    }
+    if let Some(bad) = name.chars().find(|&c| c.is_control() || is_bidi_control(c)) {
+        return Err(format!("it contains U+{:04X}", u32::from(bad)));
+    }
+    Ok(Some(name.to_owned()))
+}
+
+/// The characters that reorder how a line of text is displayed (Unicode's
+/// embeddings, overrides and isolates) without being shown themselves.
+fn is_bidi_control(c: char) -> bool {
+    matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
 
 /// How long any one probe in `/health` may take.
@@ -648,32 +726,30 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     };
-    (
-        code,
-        Json(serde_json::json!({
-            "ok": database,
-            "database": database,
-            "catalog": catalog,
-            "agents": {
-                "connected": agents_connected,
-                "games": agent_games,
-            },
-            "games": {
-                "running": games_running,
-                "waiting": games_waiting,
-                "seats_awaiting_engine": seats_awaiting_engine,
-            },
-            // The same spelling `/source` uses, from the same constants, so
-            // that "I rebuilt it" is checkable against either route and the
-            // two can never drift into disagreeing about one binary.
-            "version": baylee_build::short(),
-            "commit": baylee_build::COMMIT,
-            "built_at": baylee_build::BUILT_AT,
-            "dirty": baylee_build::DIRTY,
-        })),
-    )
+    let mut body = build_fields();
+    body.insert("ok".into(), database.into());
+    body.insert("database".into(), database.into());
+    body.insert("catalog".into(), catalog);
+    body.insert(
+        "agents".into(),
+        serde_json::json!({
+            "connected": agents_connected,
+            "games": agent_games,
+        }),
+    );
+    body.insert(
+        "games".into(),
+        serde_json::json!({
+            "running": games_running,
+            "waiting": games_waiting,
+            "seats_awaiting_engine": seats_awaiting_engine,
+        }),
+    );
+    (code, Json(body.into()))
 }
 
+/// Public auth configuration (clients check this before offering
+/// registration).
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,

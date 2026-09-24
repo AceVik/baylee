@@ -31,6 +31,11 @@ baylee-catalog.workspace = true
 baylee-core.workspace = true
 baylee-db.workspace = true
 baylee-protocol.workspace = true
+# For one number: the view shape this build speaks, which `GET /info` tells a
+# client before it saves the gateway. Core ids and serde, nothing that runs a
+# rule, and the end-to-end tests check the opening payload against the same
+# constant a client refuses on.
+baylee-view.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 getrandom.workspace = true
@@ -61,6 +66,3 @@ uuid.workspace = true
 baylee-engine.workspace = true
 baylee-engine-server.workspace = true
 tokio-tungstenite.workspace = true
-# The end-to-end tests read the opening payload a client is sent, so they
-# check it against the very version constant a client would refuse on.
-baylee-view.workspace = true

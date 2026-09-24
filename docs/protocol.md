@@ -55,9 +55,10 @@ nothing, and nothing is indistinguishable from not-yet-scraped. The catalog
 half is two `EXISTS` rather than `count(*)` — 0.61 ms against 7.47 ms on an
 118 609-printing catalog, and only the count grows with the table.
 
-`version`, `commit`, `built_at` and `dirty` are the same `baylee_build`
-constants `GET /source` serves, and a test pins the two routes equal so a
-second spelling cannot be introduced and drift.
+`version`, `commit`, `build`, `built_at` and `dirty` are the same
+`baylee_build` constants `GET /source` and `GET /info` serve, written by one
+function for all three, and a test pins the routes equal so a second spelling
+cannot be introduced and drift.
 
 **Wait on this route, not on the port.** An open port only says that `bind`
 succeeded. It happens to be a sound readiness signal for this process — `main`
@@ -66,6 +67,30 @@ ordering, and it stops being true the day somebody binds earlier to shorten
 startup. Note also what it is *not*: a slow start is a slow start, and the
 e2e harness waits 30 s rather than 5 s because five worktrees share one CPU
 here and a gateway starting beside a compile needs longer than five seconds.
+
+## Which gateway is this? (`GET /info`)
+
+What a client asks before it saves a gateway, unauthenticated because there
+is no account yet:
+
+```json
+{"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
+ "protocol_version":…,"view_version":…}
+```
+
+- `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
+  the client names the gateway by its address. It is at most 64 characters,
+  and a name with a control character or a bidirectional override refuses
+  startup. The client still treats it as untrusted text: it caps and strips
+  it again before showing it, because a gateway built elsewhere made no such
+  promise.
+- The build fields are `/source`'s and `/health`'s.
+- `protocol_version` is the envelope a seat socket speaks (`baylee_protocol`).
+- `view_version` is the view shape **this gateway's build** was compiled
+  with. The gateway never decodes a view, and an engine says no version when
+  it attaches, so the number describes the engines only because one
+  deployment runs one build. It is the early warning; the check that decides
+  is still the client's own, on a game's first `GameStatic`.
 
 ## Printings (which art the client draws)
 
@@ -1032,6 +1057,7 @@ from a curl recipe into a contract:
 
 | step | call | answer |
 | --- | --- | --- |
+| which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version}` |
 | sign up | `POST /auth/register` `{email, display_name, password, lang}` | `{"ok":true, "confirmation_required":bool}` |
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
 | send it again | `POST /auth/confirm/resend` `{email}` | `{"ok":true}`, always |
@@ -1061,8 +1087,8 @@ from a curl recipe into a contract:
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
 
-Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
-takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
+Everything but `/info`, the two auth calls, `/auth/config`, `/pool` and
+`/printings` takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
 
