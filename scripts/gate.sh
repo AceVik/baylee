@@ -34,6 +34,9 @@ step fmt cargo fmt --all --check
 step clippy cargo clippy --workspace --all-targets -- -D warnings
 step test cargo nextest run --workspace --all-targets --no-fail-fast
 if [ -d data/scryfall-cache ]; then
+    # A header naming a printing id that does not exist is fatal here and
+    # only uncountable in `validate` (gate-rules.sh says the same).
+    step scryfall-cache cargo run -q -p xtask -- scryfall-cache
     step validate cargo run -q -p xtask -- validate
 else
     echo "STEP validate SKIPPED - no data/scryfall-cache"

@@ -733,11 +733,10 @@ impl Catalog {
         if oracle_ids.is_empty() {
             return Ok(Vec::new());
         }
-        // `to_char` and deliberately not `::text`: a `date` renders itself
-        // through the server's `DateStyle`, so a self-hoster running
-        // `SQL, MDY` would put `02/18/2022` on a wire this crate pins to ISO.
-        // `to_char` names the format and answers the same string on every
-        // server. The empty string for a printing with no date is what the
+        // `to_char` and not `::text`: a `date` renders through the session's
+        // `DateStyle`. sqlx pins that to ISO at connect (checked 2026-09-24:
+        // a `-c DateStyle` option loses to it), but the wire format should
+        // not rest on the driver. The empty string for a printing with no date is what the
         // column said before it was a date, and `Printing` is a wire shape.
         let sql = "\
             SELECT c.scryfall_id::text AS scryfall_id, c.oracle_id::text AS oracle_id, \
@@ -1270,7 +1269,7 @@ const CORPUS_SQL: &str = "\
       ORDER BY c.oracle_id, c.released_at, (c.lang = 'en') DESC, \
                c.set_code, c.collector_number \
     ) \
-    SELECT p.oracle_id::text AS oracle_id, p.released_at::text AS released_at, \
+    SELECT p.oracle_id::text AS oracle_id, to_char(p.released_at, 'YYYY-MM-DD') AS released_at, \
            p.set_code AS set_code, \
            string_agg(f.name, ' // ' ORDER BY f.face_index) AS name \
     FROM first_printing p JOIN card_faces f USING (scryfall_id) \
