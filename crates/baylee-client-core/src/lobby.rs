@@ -12,6 +12,7 @@
 //! request is not it.
 
 pub mod gateway_info;
+pub mod gateway_use;
 pub mod library;
 
 use crate::deckbuilder::DeckBuilder;
@@ -57,6 +58,10 @@ pub enum Field {
     DisplayName,
     /// The password. A shell is expected to draw this masked.
     Password,
+    /// The password again, when an account is being created: a typo in a
+    /// masked field is otherwise a password nobody knows. Only asked for
+    /// when registering, and masked like the first.
+    PasswordAgain,
     /// A room's password, on the table screen. Not part of the sign-in form
     /// at all — it shares the caret machinery because a client has one caret,
     /// not because the two fields are related.
@@ -667,6 +672,7 @@ pub struct Lobby {
     gateway_selection: GatewaySelection,
     display_name: TextBuffer,
     password: TextBuffer,
+    password_again: TextBuffer,
     room_password: TextBuffer,
     search: TextBuffer,
     performer: Performer,
@@ -814,8 +820,8 @@ impl Lobby {
             Field::Email => FieldKind::Email,
             Field::Gateway => FieldKind::Url,
             Field::DisplayName | Field::Search => FieldKind::Name,
-            Field::Password if self.registering() => FieldKind::NewPassword,
-            Field::Password => FieldKind::Password,
+            Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
+            Field::Password | Field::PasswordAgain => FieldKind::Password,
             Field::RoomPassword => FieldKind::Secret,
         }
     }
@@ -835,6 +841,7 @@ impl Lobby {
             Field::Email => &self.email,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
+            Field::PasswordAgain => &self.password_again,
             Field::RoomPassword => &self.room_password,
             Field::Search => &self.search,
         }
@@ -984,7 +991,7 @@ impl Lobby {
 
     /// Puts the caret in a field.
     pub fn focus_on(&mut self, field: Field) {
-        if field == Field::DisplayName && !self.registering() {
+        if matches!(field, Field::DisplayName | Field::PasswordAgain) && !self.registering() {
             return;
         }
         if self.revealed != Some(field) {
@@ -1018,8 +1025,8 @@ impl Lobby {
     }
 
     /// Moves the caret to the next or previous field — Tab and ⇧Tab. The
-    /// display name is not in the ring when the form is logging in, because it
-    /// is not shown.
+    /// display name and the repeated password are not in the ring when the
+    /// form is logging in, because they are not shown.
     ///
     /// The table screen is its own ring of two — the search box and the room
     /// password — because those two are the fields on it, and Tab between
@@ -1041,25 +1048,35 @@ impl Lobby {
             // The gateway form has one field, and a ring of one is that field.
             self.focus = Field::Gateway;
         } else {
-            self.focus = match (self.focus, self.registering(), dir) {
-                // Logging in: two fields, and a ring of two reverses to
-                // itself. The display name is not drawn, so it is not in it.
-                (Field::Email | Field::DisplayName, false, _) => Field::Password,
-                (Field::Password, false, _) | (Field::Gateway, _, _) => Field::Email,
-                // Signing up: three, and the direction finally reads.
-                (Field::Email, true, Tab::Next) | (Field::Password, true, Tab::Back) => {
-                    Field::DisplayName
-                }
-                (Field::DisplayName, true, Tab::Next) | (Field::Email, true, Tab::Back) => {
-                    Field::Password
-                }
-                (Field::Password, true, Tab::Next) | (Field::DisplayName, true, Tab::Back) => {
-                    Field::Email
+            // Logging in: two fields, and a ring of two reverses to itself.
+            // Signing up: four, in the order they are drawn, and the direction
+            // finally reads. The display name and the repeated password are
+            // drawn only for signing up, so only that ring has them.
+            let ring: &[Field] = if self.registering() {
+                &[
+                    Field::Email,
+                    Field::DisplayName,
+                    Field::Password,
+                    Field::PasswordAgain,
+                ]
+            } else {
+                &[Field::Email, Field::Password]
+            };
+            self.focus = match ring.iter().position(|field| *field == self.focus) {
+                Some(at) => {
+                    let next = match dir {
+                        Tab::Next => at + 1,
+                        Tab::Back => at + ring.len() - 1,
+                    };
+                    ring[next % ring.len()]
                 }
                 // Neither of the table screen's two fields is on this one, but
                 // the caret survives a change of screen, so Tab has to answer.
-                (Field::RoomPassword, _, _) => Field::Search,
-                (Field::Search, _, _) => Field::RoomPassword,
+                None => match self.focus {
+                    Field::RoomPassword => Field::Search,
+                    Field::Search => Field::RoomPassword,
+                    _ => Field::Email,
+                },
             };
         }
         // Tab always leaves the field it was in, and a reveal belongs to the
@@ -1083,7 +1100,7 @@ impl Lobby {
             Screen::SignIn { registering } => match self.focus {
                 Field::Gateway => !self.gateway_chosen(),
                 Field::Email | Field::Password => self.gateway_chosen(),
-                Field::DisplayName => registering && self.gateway_chosen(),
+                Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
                 Field::RoomPassword | Field::Search => false,
             },
             Screen::Table => matches!(self.focus, Field::RoomPassword | Field::Search),
@@ -1156,7 +1173,7 @@ impl Lobby {
                 registering: !registering,
             };
             self.clear_status();
-            if registering && self.focus == Field::DisplayName {
+            if registering && matches!(self.focus, Field::DisplayName | Field::PasswordAgain) {
                 self.focus = Field::Password;
                 self.focus_epoch += 1;
             } else if self.focus == Field::Password {
@@ -1219,6 +1236,14 @@ impl Lobby {
         }
         if registering && self.display_name.text().trim().is_empty() {
             self.refuse(Phrase::NeedDisplayName);
+            return None;
+        }
+        // Compared exactly, spaces and all: the gateway takes the password
+        // as typed, so two that differ only in a space are two passwords.
+        if registering && self.password_again.text() != self.password.text() {
+            self.refuse(Phrase::PasswordsDiffer);
+            self.focus_on(Field::PasswordAgain);
+            self.password_again.select_all();
             return None;
         }
         self.busy = true;
@@ -1806,6 +1831,7 @@ impl Lobby {
         self.asked_for = None;
         self.rematch_wanted = None;
         self.password.clear();
+        self.password_again.clear();
         self.revealed = None;
         self.focus = Field::Email;
         self.screen = Screen::SignIn { registering: false };
@@ -1832,6 +1858,7 @@ impl Lobby {
                 if confirmation_required {
                     self.note(Phrase::ConfirmYourEmail);
                     self.password.clear();
+                    self.password_again.clear();
                     // Back to the log-in form: the account exists, and what
                     // is left to do is click a link in a mailbox and come
                     // back.
@@ -1848,6 +1875,7 @@ impl Lobby {
             LobbyEvent::LoggedIn { token } => {
                 self.performer = Performer::Gateway(token);
                 self.password.clear();
+                self.password_again.clear();
                 self.screen = Screen::Table;
                 self.note(Phrase::SignedIn);
                 self.busy = true;
@@ -2039,6 +2067,7 @@ impl Lobby {
             Field::Email => &mut self.email,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,
+            Field::PasswordAgain => &mut self.password_again,
             Field::RoomPassword => &mut self.room_password,
             Field::Search => &mut self.search,
         }

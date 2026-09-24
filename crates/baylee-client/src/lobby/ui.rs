@@ -222,7 +222,7 @@ pub(super) fn ui(
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Res<crate::prefs::Prefs>,
-    face: Res<super::front::FrontFace>,
+    cast: Res<super::front::FrontCast>,
     mut drawn: Local<Option<Frame>>,
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
 ) {
@@ -233,7 +233,7 @@ pub(super) fn ui(
     let metrics = Metrics::of(width);
     if !state.is_changed()
         && !prefs.is_changed()
-        && !face.is_changed()
+        && !cast.is_changed()
         && !root.is_empty()
         && *drawn == Some(metrics.frame)
     {
@@ -343,7 +343,7 @@ pub(super) fn ui(
         return;
     }
     match state.lobby.screen() {
-        Screen::SignIn { registering } => {
+        Screen::SignIn { .. } => {
             commands.entity(root).insert((
                 Scrollable(List::Table),
                 ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
@@ -352,10 +352,9 @@ pub(super) fn ui(
                 &mut commands,
                 root,
                 &state,
-                face.0,
+                &cast,
                 &fonts,
                 metrics,
-                *registering,
                 &scrolled_to,
             );
         }
@@ -2088,15 +2087,13 @@ pub(super) fn surface(commands: &mut Commands, metrics: Metrics) -> Entity {
         .id()
 }
 
-#[allow(clippy::too_many_arguments)] // the face and its scroll come from two resources
 fn front_door(
     commands: &mut Commands,
     root: Entity,
     state: &LobbyState,
-    face: super::front::Face,
+    cast: &super::front::FrontCast,
     fonts: &UiFonts,
     metrics: Metrics,
-    registering: bool,
     scrolled_to: &Scrolled,
 ) {
     let page = commands
@@ -2134,15 +2131,9 @@ fn front_door(
         metrics,
         Phrase::WelcomeNote.text(state.lobby.lang()),
     );
-    commands.entity(page).add_children(&[brand, tagline]);
-    let card = super::front::card(
-        commands,
-        state,
-        face,
-        fonts,
-        metrics,
-        registering,
-        scrolled_to,
-    );
-    commands.entity(page).add_child(card);
+    let stage = super::front::stage(commands, state, cast, fonts, metrics, scrolled_to);
+    let colophon = super::front::colophon(commands, fonts, metrics);
+    commands
+        .entity(page)
+        .add_children(&[brand, tagline, stage, colophon]);
 }

@@ -94,6 +94,12 @@ pub struct ClientSettings {
     pub last_email: String,
     /// Locally saved gateway addresses; selection is explicit on every launch.
     pub gateways: Vec<String>,
+    /// How often each saved gateway was signed in to here, which orders the
+    /// list. This device's and nobody else's, like the address above: it is
+    /// never sent anywhere. A file from before it counts every gateway as
+    /// unused.
+    #[serde(default)]
+    pub gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses,
 }
 
 impl Default for ClientSettings {
@@ -106,6 +112,7 @@ impl Default for ClientSettings {
             zone_view: baylee_client_core::browser::ViewMode::default(),
             last_email: String::new(),
             gateways: Vec::new(),
+            gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
         }
     }
 }
@@ -473,6 +480,11 @@ mod tests {
             }),
             zone_view: baylee_client_core::browser::ViewMode::Grid,
             last_email: "mail@acevik.de".to_string(),
+            gateway_uses: {
+                let mut uses = baylee_client_core::lobby::gateway_use::GatewayUses::default();
+                uses.record("https://example.test");
+                uses
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -490,6 +502,8 @@ mod tests {
              resets every launch"
         );
         assert_eq!(read.last_email, "mail@acevik.de");
+        assert_eq!(read.gateway_uses, written.gateway_uses);
+        assert_eq!(read.gateway_uses.of("https://example.test").count, 1);
     }
 
     /// A settings file naming a view mode this build has never heard of loads

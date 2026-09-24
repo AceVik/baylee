@@ -61,7 +61,7 @@ pub(super) fn remember(
     mut memory: ResMut<Scrolled>,
 ) {
     for (position, which) in &rows {
-        if matches!(which.0, List::Deck | List::Pool)
+        if matches!(which.0, List::Deck | List::Pool | List::Gateways)
             && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);

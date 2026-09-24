@@ -100,13 +100,13 @@ fn to_gateway_face(app: &mut App) {
     settle(app);
 }
 
-/// Lands the front door's card on the face the lobby asks for, as if its
-/// turn had run its course, and draws that face.
+/// Lands the front door on the panel the lobby asks for, as if its motion
+/// had run its course, and draws that panel.
 fn settle(app: &mut App) {
-    let account = app.world().resource::<LobbyState>().lobby.gateway_chosen();
     app.world_mut()
-        .resource_mut::<super::front::FrontTurn>()
-        .settle(account);
+        .resource_scope(|world, mut motion: Mut<super::front::FrontMotion>| {
+            motion.settle(world.resource::<LobbyState>());
+        });
     app.update();
 }
 

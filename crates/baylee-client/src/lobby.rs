@@ -82,8 +82,9 @@ impl Plugin for LobbyPlugin {
             .init_resource::<Scrolled>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
-            .init_resource::<front::FrontTurn>()
-            .init_resource::<front::FrontFace>()
+            .init_resource::<front::FrontMotion>()
+            .init_resource::<front::FrontCast>()
+            .init_resource::<front::RowPlaces>()
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             .add_systems(
                 Update,
@@ -98,9 +99,9 @@ impl Plugin for LobbyPlugin {
                     scrolls,
                     scrollbars::remember,
                     (hovers, hint::hint_hovers),
-                    // The turn decides which face is drawn, and the pose
-                    // lands on the card the rebuild just stood up.
-                    (front::turn_front, ui, front::pose_front).chain(),
+                    // The motion decides which panels are drawn, and the
+                    // pose lands on the panels the rebuild just stood up.
+                    (front::move_front, ui, front::pose_front).chain(),
                     ui::blink,
                     dock::materialize,
                     button_style::materialize,
@@ -113,6 +114,12 @@ impl Plugin for LobbyPlugin {
                 )
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
+            )
+            // After `Update`, so that whatever else wrote a colour this frame
+            // (a button warming under the pointer) has written it first.
+            .add_systems(
+                PostUpdate,
+                front::fade_front.run_if(in_state(DuelPhase::Closed)),
             )
             .add_systems(
                 Update,
@@ -155,6 +162,13 @@ pub struct LobbyState {
     pub(crate) probes: std::collections::HashMap<String, Probe>,
     /// The typed address being asked before it is saved.
     pub(crate) adding: Option<String>,
+    /// How often each saved address was signed in to, which orders
+    /// [`Self::gateways`]. Written back to the settings file on every use.
+    pub(crate) uses: baylee_client_core::lobby::gateway_use::GatewayUses,
+    /// The saved gateway the arrow keys are on, if they have been used.
+    pub(crate) gateway_cursor: Option<usize>,
+    /// Whether the front door's gear menu is open.
+    pub(crate) front_menu: bool,
     /// The language the card pool is asked for, from the same setting the
     /// duel reads card text in — a builder in English over a table in German
     /// would be the same card under two names.
@@ -280,13 +294,19 @@ impl LobbyState {
         lobby.set_gateway_ready(false);
         lobby.set_registration_enabled(false);
         lobby.set_field(Field::Gateway, &crate::settings::gateway_url());
-        let gateways = stored
+        let mut gateways: Vec<String> = stored
             .gateways
             .into_iter()
             .filter_map(|g| gateway::normalize(&g))
             .collect();
+        // Ordered once, here, and not while the list is on screen: a row
+        // that moved under the pointer would be a row chosen by mistake.
+        stored.gateway_uses.order(&mut gateways);
         Self {
             gateways,
+            uses: stored.gateway_uses,
+            gateway_cursor: None,
+            front_menu: false,
             gateway_selected: false,
             gateway_epoch: 0,
             probes: std::collections::HashMap::new(),

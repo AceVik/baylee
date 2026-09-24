@@ -6,6 +6,8 @@ use super::*;
 pub(crate) enum Destructive {
     Delete(String),
     Clear(Option<String>),
+    /// A saved gateway leaving this device's list, by address.
+    ForgetGateway(String),
 }
 
 pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
@@ -18,6 +20,10 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             if state.lobby.builder().editing() == id.as_deref() {
                 state.lobby.builder_mut().clear_deck();
             }
+            None
+        }
+        Destructive::ForgetGateway(url) => {
+            state.forget_gateway(&url);
             None
         }
     }
@@ -34,7 +40,8 @@ pub(super) fn draw(
         return;
     };
     let lang = state.lobby.lang();
-    let (phrase, name) = match action {
+    let chosen;
+    let (phrase, name, said) = match action {
         Destructive::Delete(id) => (
             Phrase::DeleteDeckQuestion,
             state
@@ -43,8 +50,21 @@ pub(super) fn draw(
                 .iter()
                 .find(|d| &d.id == id)
                 .map_or("", |d| d.name.as_str()),
+            Phrase::DestructiveHint,
         ),
-        Destructive::Clear(_) => (Phrase::ClearDeckQuestion, state.lobby.builder().name()),
+        Destructive::Clear(_) => (
+            Phrase::ClearDeckQuestion,
+            state.lobby.builder().name(),
+            Phrase::DestructiveHint,
+        ),
+        Destructive::ForgetGateway(url) => {
+            chosen = super::gateway::title_of(state, url);
+            (
+                Phrase::ForgetGatewayQuestion,
+                chosen.as_str(),
+                Phrase::ForgetGatewayHint,
+            )
+        }
     };
     let shade = commands
         .spawn((
@@ -72,7 +92,7 @@ pub(super) fn draw(
         BackgroundColor(palette::PANEL.with_alpha(0.98)),
     ));
     let title = heading(commands, fonts, metrics, &phrase.fill(lang, &[name]));
-    let hint = note(commands, fonts, metrics, Phrase::DestructiveHint.text(lang));
+    let hint = note(commands, fonts, metrics, said.text(lang));
     let actions = row(commands, metrics, true);
     let cancel = button(
         commands,

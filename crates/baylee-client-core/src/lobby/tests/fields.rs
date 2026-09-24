@@ -129,13 +129,50 @@ fn shift_tab_walks_the_sign_up_form_backwards() {
     lobby.cycle_focus(Tab::Back);
     assert_eq!(
         lobby.focus(),
-        Field::Password,
+        Field::PasswordAgain,
         "back from the first is last"
     );
+    lobby.cycle_focus(Tab::Back);
+    assert_eq!(lobby.focus(), Field::Password);
     lobby.cycle_focus(Tab::Back);
     assert_eq!(lobby.focus(), Field::DisplayName);
     lobby.cycle_focus(Tab::Back);
     assert_eq!(lobby.focus(), Field::Email);
+}
+
+#[test]
+fn tab_walks_the_sign_up_form_in_the_order_it_is_drawn() {
+    let mut lobby = Lobby::new();
+    lobby.toggle_registering();
+    let mut walked = vec![lobby.focus()];
+    for _ in 0..4 {
+        lobby.cycle_focus(Tab::Next);
+        walked.push(lobby.focus());
+    }
+    assert_eq!(
+        walked,
+        [
+            Field::Email,
+            Field::DisplayName,
+            Field::Password,
+            Field::PasswordAgain,
+            Field::Email
+        ]
+    );
+    assert!(lobby.typing_here());
+    lobby.focus_on(Field::PasswordAgain);
+    assert!(lobby.typing_here());
+    assert_eq!(
+        lobby.field_kind(Field::PasswordAgain),
+        FieldKind::NewPassword,
+        "a manager offers the password it just made, not the saved one"
+    );
+    lobby.toggle_registering();
+    assert_eq!(
+        lobby.focus(),
+        Field::Password,
+        "leaving sign-up takes the caret out of the box that goes away"
+    );
 }
 
 /// A ring of two reverses to itself, so the log-in form answers Tab and

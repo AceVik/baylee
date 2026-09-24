@@ -23,6 +23,8 @@ fn registering_also_needs_a_display_name() {
     lobby.type_char('a');
     lobby.focus_on(Field::Password);
     lobby.type_char('x');
+    lobby.focus_on(Field::PasswordAgain);
+    lobby.type_char('x');
     assert_eq!(lobby.submit(), None);
     lobby.focus_on(Field::DisplayName);
     lobby.type_char('V');
@@ -33,6 +35,54 @@ fn registering_also_needs_a_display_name() {
 }
 
 #[test]
+fn registering_needs_the_password_typed_the_same_twice() {
+    let mut lobby = Lobby::new();
+    lobby.toggle_registering();
+    lobby.type_char('a');
+    lobby.focus_on(Field::DisplayName);
+    lobby.type_char('V');
+    lobby.focus_on(Field::Password);
+    lobby.insert("hunter22");
+    lobby.focus_on(Field::PasswordAgain);
+    lobby.insert("hunter2 ");
+    assert_eq!(lobby.submit(), None, "a space is a different password");
+    assert_eq!(lobby.status(), "the two passwords differ");
+    assert_eq!(lobby.tone(), Tone::Refusal);
+    assert!(!lobby.busy());
+    assert_eq!(
+        lobby.focus(),
+        Field::PasswordAgain,
+        "the caret goes to the box to retype"
+    );
+    // The whole repeat is selected, so typing replaces it.
+    lobby.insert("hunter22");
+    assert_eq!(lobby.field(Field::PasswordAgain), "hunter22");
+    assert_eq!(
+        lobby.submit(),
+        Some(LobbyRequest::Register {
+            email: "a".to_string(),
+            display_name: "V".to_string(),
+            password: "hunter22".to_string(),
+        })
+    );
+}
+
+#[test]
+fn signing_in_asks_for_the_password_once() {
+    let mut lobby = Lobby::new();
+    lobby.type_char('a');
+    lobby.focus_on(Field::PasswordAgain);
+    assert_eq!(
+        lobby.focus(),
+        Field::Email,
+        "the repeat is not drawn on the sign-in form, so the caret cannot go there"
+    );
+    lobby.focus_on(Field::Password);
+    lobby.type_char('x');
+    assert!(matches!(lobby.submit(), Some(LobbyRequest::LogIn { .. })));
+}
+
+#[test]
 fn a_sign_up_chains_into_a_log_in() {
     let mut lobby = Lobby::new();
     lobby.toggle_registering();
@@ -40,6 +90,8 @@ fn a_sign_up_chains_into_a_log_in() {
     lobby.focus_on(Field::DisplayName);
     lobby.type_char('V');
     lobby.focus_on(Field::Password);
+    lobby.type_char('x');
+    lobby.focus_on(Field::PasswordAgain);
     lobby.type_char('x');
     lobby.submit();
     assert_eq!(
@@ -53,6 +105,17 @@ fn a_sign_up_chains_into_a_log_in() {
         "the gateway hands out no token on sign-up"
     );
     assert!(lobby.busy(), "the chained log-in is in flight");
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+    });
+    assert_eq!(
+        (
+            lobby.field(Field::Password),
+            lobby.field(Field::PasswordAgain)
+        ),
+        ("", ""),
+        "both copies of the password are dropped once it is spent"
+    );
 }
 
 #[test]

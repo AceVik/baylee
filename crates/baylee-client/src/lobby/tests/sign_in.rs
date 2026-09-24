@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+use super::super::front::{FrontCard, FrontShade, Panel};
+
 #[test]
 fn the_sign_in_screen_builds_with_its_controls() {
     let mut app = headless();
@@ -17,16 +19,54 @@ fn the_sign_in_screen_builds_with_its_controls() {
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
-    assert!(
-        !found.contains(&Press::Focus(Field::DisplayName)),
-        "the display name is only asked for when registering"
-    );
+    for registering in [Field::DisplayName, Field::PasswordAgain] {
+        assert!(
+            !found.contains(&Press::Focus(registering)),
+            "{registering:?} is only asked for when registering"
+        );
+    }
     for elsewhere in [Press::PlayOffline, Press::AddGateway] {
         assert!(
             !found.contains(&elsewhere),
             "{elsewhere:?} is on the other face of the card"
         );
     }
+    let drawn = labels(&mut app);
+    let said = |phrase: Phrase| {
+        drawn
+            .iter()
+            .filter(|l| l.as_str() == phrase.text(Lang::En))
+            .count()
+    };
+    assert_eq!(said(Phrase::Continue), 1, "the submit says where it goes");
+    assert_eq!(said(Phrase::SignIn), 1, "and the tab alone names the mode");
+    assert!(
+        drawn
+            .iter()
+            .any(|l| l == super::super::front::FAN_CONTENT_NOTICE),
+        "the policy's notice stands under the form"
+    );
+}
+
+#[test]
+fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
+    let mut app = headless();
+    press(&mut app, Press::ToggleRegistering);
+    settle(&mut app);
+    let found = presses(&mut app);
+    for wanted in [
+        Field::Email,
+        Field::DisplayName,
+        Field::Password,
+        Field::PasswordAgain,
+    ] {
+        assert!(found.contains(&Press::Focus(wanted)), "{wanted:?} missing");
+    }
+    let drawn = labels(&mut app);
+    let said = |text: &str| drawn.iter().filter(|l| l.as_str() == text).count();
+    assert_eq!(said(Phrase::CreateAccount.text(Lang::En)), 1);
+    assert_eq!(said(Phrase::Continue.text(Lang::En)), 1);
+    assert_eq!(said(Phrase::PasswordAgain.text(Lang::En)), 1);
 }
 
 #[test]
@@ -58,7 +98,7 @@ fn the_open_tab_is_the_lit_one_and_the_other_opens_its_form() {
         )]
     );
     press(&mut app, Press::ToggleRegistering);
-    app.update();
+    settle(&mut app);
     assert_eq!(
         lit(&mut app),
         [(
@@ -80,7 +120,7 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
         Press::Focus(Field::Gateway),
         Press::AddGateway,
         Press::PlayOffline,
-        Press::OpenSettings,
+        Press::FrontMenu,
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
@@ -88,15 +128,82 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
         Press::Submit,
         Press::Focus(Field::Email),
         Press::LeaveGateway,
+        // Behind the gear, until it is pressed.
+        Press::OpenSettings,
     ] {
         assert!(
             !found.contains(&elsewhere),
             "{elsewhere:?} is on the other face of the card"
         );
     }
+    let drawn = labels(&mut app);
     assert!(
-        labels(&mut app).iter().any(|l| l == baylee_build::short()),
+        drawn.iter().any(|l| l == baylee_build::short()),
         "the build is on this face too"
+    );
+    assert!(
+        drawn
+            .iter()
+            .any(|l| l == super::super::front::FAN_CONTENT_NOTICE)
+    );
+}
+
+#[test]
+fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
+    fn open(app: &mut App) -> bool {
+        presses(app).contains(&Press::OpenSettings)
+    }
+    let mut app = headless();
+    assert!(!open(&mut app));
+    press(&mut app, Press::FrontMenu);
+    assert!(open(&mut app), "the gear opens its menu");
+    let found = presses(&mut app);
+    let drawn = labels(&mut app);
+    for offered in Lang::ALL {
+        assert!(found.contains(&Press::PickLang(offered)));
+        assert!(
+            drawn.iter().any(|l| l == offered.name()),
+            "each language by its own name: {offered:?}"
+        );
+    }
+
+    // Picking a language keeps the menu open, to see what was picked.
+    press(&mut app, Press::PickLang(Lang::De));
+    assert_eq!(app.world().resource::<LobbyState>().lobby.lang(), Lang::De);
+    assert!(open(&mut app));
+
+    // A press anywhere outside it closes it: the veil takes that press.
+    let veil = {
+        let mut veils = app
+            .world_mut()
+            .query_filtered::<(Entity, &Press), With<GlobalZIndex>>();
+        veils
+            .iter(app.world())
+            .find(|(_, press)| **press == Press::FrontMenu)
+            .map(|(entity, _)| entity)
+            .expect("a veil behind the menu")
+    };
+    tap(&mut app, veil);
+    app.update();
+    assert!(!open(&mut app));
+
+    // Escape closes the menu and only the menu.
+    press(&mut app, Press::FrontMenu);
+    assert!(open(&mut app));
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Escape, Key::Escape));
+    app.update();
+    assert!(!open(&mut app));
+    assert!(
+        app.world().resource::<LobbyState>().lobby.gateway_chosen(),
+        "still at the gateway it was at"
+    );
+
+    to_gateway_face(&mut app);
+    assert!(
+        presses(&mut app).contains(&Press::FrontMenu),
+        "on both faces"
     );
 }
 
@@ -458,12 +565,15 @@ fn only_a_sign_in_that_worked_is_worth_remembering() {
             "invalid credentials".to_string(),
         )));
     app.update();
+    let settings = app.world().resource::<crate::settings::ClientSettings>();
     assert_eq!(
-        app.world()
-            .resource::<crate::settings::ClientSettings>()
-            .last_email,
-        "",
+        settings.last_email, "",
         "a refused attempt says nothing about the address"
+    );
+    assert_eq!(
+        settings.gateway_uses,
+        baylee_client_core::lobby::gateway_use::GatewayUses::default(),
+        "and is no use of the gateway"
     );
 
     app.world()
@@ -475,11 +585,13 @@ fn only_a_sign_in_that_worked_is_worth_remembering() {
             token: "tok".to_string(),
         }));
     app.update();
+    let gateway = app.world().resource::<LobbyState>().gateway.clone();
+    let settings = app.world().resource::<crate::settings::ClientSettings>();
+    assert_eq!(settings.last_email, "mail@acevik.de");
     assert_eq!(
-        app.world()
-            .resource::<crate::settings::ClientSettings>()
-            .last_email,
-        "mail@acevik.de"
+        settings.gateway_uses.of(&gateway).count,
+        1,
+        "the sign-in that worked is a use of its gateway, kept with the address"
     );
 }
 
@@ -737,14 +849,18 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
             "https://newer.example".into(),
             "https://same.example".into(),
             "https://older.example".into(),
+            "https://silent.example".into(),
         ];
-        let newer = gateway_info(None, "9.9.9", baylee_view::VIEW_VERSION + 1);
+        let newer = gateway_info(None, "9.9.9+build.7", baylee_view::VIEW_VERSION + 1);
         let same = gateway_info(None, "0.1.0", baylee_view::VIEW_VERSION);
         state.probes.insert("https://newer.example".into(), newer);
         state.probes.insert("https://same.example".into(), same);
         state
             .probes
             .insert("https://older.example".into(), Probe::Older);
+        state
+            .probes
+            .insert("https://silent.example".into(), Probe::Silent);
     }
     app.update();
     let mut query = app.world_mut().query::<(&Text, &TextColor)>();
@@ -753,23 +869,51 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
         .map(|(text, colour)| (text.0.clone(), colour.0))
         .collect();
     let ink = |label: &str| inks.iter().find(|(text, _)| text == label).map(|i| i.1);
-    assert_eq!(ink("9.9.9"), Some(palette::DANGER));
-    assert_eq!(ink("0.1.0"), Some(palette::HEAL));
-    assert_eq!(
-        ink(Phrase::GatewayVersionUnknown.text(Lang::En)),
-        Some(palette::ACTIVE)
-    );
+    // The row says the release alone; the build is in its hint.
+    assert_eq!(ink("v9.9.9"), Some(palette::DANGER));
+    assert_eq!(ink("v0.1.0"), Some(palette::HEAL));
+    assert_eq!(ink("v?"), Some(palette::ACTIVE));
 
     let mut hints = app
         .world_mut()
         .query::<(Entity, &super::super::hint::HoverHint)>();
-    let offline = Phrase::OfflineBenefit.text(Lang::En);
-    let marks: Vec<(Entity, String)> = hints
+    let said: Vec<(Entity, String)> = hints
         .iter(app.world())
         .map(|(entity, hint)| (entity, hint.0.clone()))
-        .filter(|(_, said)| said != offline)
         .collect();
-    assert_eq!(marks.len(), 2, "the compatible gateway carries no mark");
+    assert!(
+        said.iter().any(|(_, s)| s == "9.9.9+build.7"),
+        "the version in full is one point away: {said:?}"
+    );
+    let dots = |phrase: Phrase| {
+        said.iter()
+            .filter(|(_, s)| s == phrase.text(Lang::En))
+            .count()
+    };
+    assert_eq!(dots(Phrase::GatewayAnswering), 3, "newer, same and older");
+    assert!(
+        dots(Phrase::GatewayNotAnswering) >= 1,
+        "the silent one's dot"
+    );
+
+    // The marks are the cells the warning glyph stands in.
+    let mut glyphs = app.world_mut().query::<(&Text, &ChildOf)>();
+    let cells: Vec<Entity> = glyphs
+        .iter(app.world())
+        .filter(|(text, _)| text.0 == super::super::gateway::WARNING_GLYPH.to_string())
+        .map(|(_, parent)| parent.parent())
+        .collect();
+    let marks: Vec<(Entity, String)> = said
+        .iter()
+        .filter(|(entity, _)| cells.contains(entity))
+        .cloned()
+        .collect();
+    assert_eq!(
+        marks.len(),
+        2,
+        "the newer and the older are marked; the compatible one is not, and the silent one \
+         says so with its dot alone: {marks:?}"
+    );
     let newer = (baylee_view::VIEW_VERSION + 1).to_string();
     let (mark, _) = marks
         .iter()
@@ -787,21 +931,64 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
     assert!(!labels(&mut app).iter().any(|l| l.contains(&newer)));
 }
 
-/// The front door card's scale across and its drift sideways, as posed.
-fn card_pose(app: &mut App) -> (f32, f32) {
+/// Each front door panel standing, with its scale across and whether it is
+/// drawn in front, in the order the panels are named.
+fn card_poses(app: &mut App) -> Vec<(Panel, f32, i32)> {
     let mut cards = app
         .world_mut()
-        .query_filtered::<&bevy::ui::UiTransform, With<super::super::front::FrontCard>>();
-    let pose = cards.single(app.world()).expect("one card");
-    let drift = match pose.translation.x {
-        Val::Px(px) => px,
-        _ => 0.0,
+        .query::<(&FrontCard, &bevy::ui::UiTransform, &ZIndex)>();
+    let mut found: Vec<(Panel, f32, i32)> = cards
+        .iter(app.world())
+        .map(|(card, pose, z)| (card.0, pose.scale.x, z.0))
+        .collect();
+    found.sort_by_key(|(panel, ..)| *panel as u8);
+    found
+}
+
+/// How opaque the first text reading `label` is drawn on `panel`.
+fn ink_on(app: &mut App, panel: Panel, label: &str) -> Option<f32> {
+    let card = {
+        let mut cards = app.world_mut().query::<(Entity, &FrontCard)>();
+        cards
+            .iter(app.world())
+            .find(|(_, card)| card.0 == panel)
+            .map(|(entity, _)| entity)?
     };
-    (pose.scale.x, drift)
+    let world = app.world();
+    let mut waiting = vec![card];
+    while let Some(node) = waiting.pop() {
+        if let (Some(text), Some(ink)) = (world.get::<Text>(node), world.get::<TextColor>(node))
+            && text.0 == label
+        {
+            return Some(ink.0.alpha());
+        }
+        if let Some(children) = world.get::<Children>(node) {
+            waiting.extend(children.iter());
+        }
+    }
+    None
+}
+
+/// A fifth of a motion per frame.
+fn frames_of_a_fifth(app: &mut App) {
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_millis(100),
+    ));
+}
+
+/// Runs frames until the front door stands still, and says how many it took.
+fn frames_to_land(app: &mut App) -> usize {
+    for frame in 1..=10 {
+        app.update();
+        if card_poses(app).len() == 1 {
+            return frame;
+        }
+    }
+    panic!("still moving after ten frames: {:?}", card_poses(app));
 }
 
 #[test]
-fn choosing_a_gateway_turns_the_card_over_and_back_turns_it_home() {
+fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     let mut app = headless();
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
@@ -811,57 +998,143 @@ fn choosing_a_gateway_turns_the_card_over_and_back_turns_it_home() {
     }
     to_gateway_face(&mut app);
     assert_eq!(
-        card_pose(&mut app),
-        (1.0, 0.0),
-        "a card at rest carries no pose"
+        card_poses(&mut app),
+        [(Panel::Gateway, 1.0, 1)],
+        "a panel at rest carries no pose"
     );
 
-    // A little over a quarter of the turn per frame.
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_millis(100),
-    ));
+    frames_of_a_fifth(&mut app);
     assert!(
         app.world_mut()
             .resource_mut::<LobbyState>()
             .select_gateway(0)
     );
     app.update();
-    let (scale, drift) = card_pose(&mut app);
-    assert!(scale > 0.0 && scale < 0.95, "part way round: {scale}");
-    assert!(drift < 0.0, "going forward it leans left: {drift}");
+    let poses = card_poses(&mut app);
+    let [
+        (Panel::Gateway, list, list_z),
+        (Panel::SignIn, form, form_z),
+    ] = poses[..]
+    else {
+        panic!("both panels stand while it moves: {poses:?}");
+    };
+    assert!(list > 1.0, "the list grows towards the viewer: {list}");
     assert!(
-        presses(&mut app).contains(&Press::AddGateway),
-        "the gateway face stays up until the card is edge-on"
+        (0.9..1.0).contains(&form),
+        "the form comes up out of the distance: {form}"
     );
-    // Pressed while it turns, the half-gone face answers nothing.
-    tap_control(&mut app, "save gateway", |p| *p == Press::AddGateway);
-    assert_eq!(app.world().resource::<LobbyState>().adding, None);
+    assert!(list_z > form_z, "the list passes in front of the form");
+    let continuing = Phrase::Continue.text(Lang::En);
+    assert_eq!(
+        ink_on(&mut app, Panel::SignIn, continuing),
+        Some(0.0),
+        "the form is not in sight yet"
+    );
+    let choosing = Phrase::ChooseGateway.text(Lang::En);
+    let fading = ink_on(&mut app, Panel::Gateway, choosing).expect("the list's title");
+    assert!(
+        fading > 0.0 && fading < 1.0,
+        "the list is on its way out: {fading}"
+    );
 
-    app.update();
-    app.update();
-    assert_eq!(card_pose(&mut app), (1.0, 0.0), "landed, and at rest again");
+    // Pressed while it moves, neither panel answers.
+    press(&mut app, Press::FrontMenu);
+    assert!(!app.world().resource::<LobbyState>().front_menu);
+
+    let landed = frames_to_land(&mut app);
+    assert!(landed <= 4, "landed in {landed} more frames");
+    assert_eq!(card_poses(&mut app), [(Panel::SignIn, 1.0, 1)]);
     let found = presses(&mut app);
     assert!(found.contains(&Press::Submit) && found.contains(&Press::LeaveGateway));
-    let drawn = labels(&mut app);
-    assert!(
-        drawn.iter().any(|l| l == "Hall"),
-        "the account face names its gateway"
+    assert!(!found.contains(&Press::AddGateway));
+    assert_eq!(
+        ink_on(&mut app, Panel::SignIn, continuing),
+        Some(1.0),
+        "and whole once it stands"
     );
-    assert!(drawn.iter().any(|l| l == baylee_build::short()));
+    assert!(
+        labels(&mut app).iter().any(|l| l == "Hall"),
+        "the account form is titled with its gateway"
+    );
 
+    // Back is the same film the other way: the list comes back from past
+    // the viewer, in front, and the form sinks away behind it.
     app.world_mut().resource_mut::<LobbyState>().leave_gateway();
     app.update();
-    let (_, drift) = card_pose(&mut app);
-    assert!(drift > 0.0, "coming back it leans the other way: {drift}");
-    for _ in 0..3 {
-        app.update();
-    }
+    let poses = card_poses(&mut app);
+    let [
+        (Panel::Gateway, list, list_z),
+        (Panel::SignIn, form, form_z),
+    ] = poses[..]
+    else {
+        panic!("both panels stand on the way back: {poses:?}");
+    };
+    assert!(list > 1.4, "the list starts where going in left it: {list}");
+    assert!(form < 1.0 && list_z > form_z);
+    app.update();
+    let (_, before, _) = card_poses(&mut app)[0];
+
+    // Asked in again half-way back, it turns round from where it is rather
+    // than starting over.
+    assert!(
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .select_gateway(0)
+    );
+    app.update();
+    let (_, after, _) = card_poses(&mut app)[0];
+    assert!(
+        after > before,
+        "the list goes on growing from {before} and not from 1: {after}"
+    );
+    let landed = frames_to_land(&mut app);
+    assert!(
+        landed <= 2,
+        "and has only what it came back to go: {landed}"
+    );
+    assert_eq!(card_poses(&mut app), [(Panel::SignIn, 1.0, 1)]);
+
+    app.world_mut().resource_mut::<LobbyState>().leave_gateway();
+    frames_to_land(&mut app);
+    assert_eq!(card_poses(&mut app), [(Panel::Gateway, 1.0, 1)]);
     assert!(presses(&mut app).contains(&Press::AddGateway));
-    assert_eq!(card_pose(&mut app), (1.0, 0.0));
 }
 
 #[test]
-fn under_reduce_motion_the_card_changes_face_at_once() {
+fn the_tabs_turn_the_form_round_with_both_sides_in_sight() {
+    let mut app = headless();
+    frames_of_a_fifth(&mut app);
+    press(&mut app, Press::ToggleRegistering);
+    app.update();
+    let poses = card_poses(&mut app);
+    let [(Panel::SignIn, leaving, _), (Panel::Create, coming, _)] = poses[..] else {
+        panic!("both sides stand while it turns: {poses:?}");
+    };
+    assert!(
+        leaving > 0.0 && leaving < 1.0 && coming > 0.0 && coming < 1.0,
+        "each foreshortened as it turns: {poses:?}"
+    );
+    // Nothing fades on a carousel: the side turning away is darkened, not
+    // thinned.
+    let continuing = Phrase::Continue.text(Lang::En);
+    assert_eq!(ink_on(&mut app, Panel::SignIn, continuing), Some(1.0));
+    assert_eq!(ink_on(&mut app, Panel::Create, continuing), Some(1.0));
+    let mut shades = app
+        .world_mut()
+        .query_filtered::<&BackgroundColor, With<FrontShade>>();
+    let dark: Vec<f32> = shades.iter(app.world()).map(|s| s.0.alpha()).collect();
+    assert!(
+        dark.iter().filter(|a| **a > 0.0).count() == 2,
+        "both sides are turned away from the light by some amount: {dark:?}"
+    );
+
+    frames_to_land(&mut app);
+    assert_eq!(card_poses(&mut app), [(Panel::Create, 1.0, 1)]);
+    assert!(presses(&mut app).contains(&Press::Focus(Field::PasswordAgain)));
+}
+
+#[test]
+fn under_reduce_motion_the_front_door_changes_panel_at_once() {
     let mut app = headless();
     app.world_mut().resource_mut::<LobbyState>().gateways = vec!["https://hall.example".into()];
     to_gateway_face(&mut app);
@@ -878,8 +1151,181 @@ fn under_reduce_motion_the_card_changes_face_at_once() {
     app.update();
     assert!(presses(&mut app).contains(&Press::Submit));
     assert_eq!(
-        card_pose(&mut app),
-        (1.0, 0.0),
+        card_poses(&mut app),
+        [(Panel::SignIn, 1.0, 1)],
         "and nothing moved on the way"
     );
+    // As the gateway's answer would.
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_registration_enabled(true);
+    app.update();
+    press(&mut app, Press::ToggleRegistering);
+    app.update();
+    assert_eq!(card_poses(&mut app), [(Panel::Create, 1.0, 1)]);
+}
+
+#[test]
+fn a_saved_gateway_leaves_the_list_only_once_the_player_says_so() {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateways = vec!["https://a.example".into(), "https://b.example".into()];
+        state.uses.record("https://b.example");
+    }
+    to_gateway_face(&mut app);
+    assert_eq!(
+        app.world().resource::<LobbyState>().gateways,
+        ["https://b.example", "https://a.example"],
+        "the used one is drawn first"
+    );
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::ForgetGateway(0)) && found.contains(&Press::ForgetGateway(1)));
+
+    press(&mut app, Press::ForgetGateway(0));
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|l| l.contains("https://b.example")),
+        "the question names the gateway"
+    );
+    press(&mut app, Press::CancelDestructive);
+    assert_eq!(app.world().resource::<LobbyState>().gateways.len(), 2);
+
+    press(&mut app, Press::ForgetGateway(0));
+    press(&mut app, Press::ConfirmDestructive);
+    assert_eq!(
+        app.world().resource::<LobbyState>().gateways,
+        ["https://a.example"]
+    );
+    let settings = app.world().resource::<crate::settings::ClientSettings>();
+    assert_eq!(
+        settings.gateways,
+        ["https://a.example"],
+        "and it stays gone"
+    );
+    assert_eq!(
+        settings.gateway_uses.of("https://b.example").count,
+        0,
+        "with what this device knew about it"
+    );
+}
+
+/// Presses one key that has no text of its own, and lets it land.
+fn key(app: &mut App, code: KeyCode, key: Key) {
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(code, key));
+    app.update();
+}
+
+#[test]
+fn the_arrows_walk_the_saved_gateways_and_enter_goes_into_one() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().gateways = vec![
+        "https://a.example".into(),
+        "https://b.example".into(),
+        "https://c.example".into(),
+    ];
+    to_gateway_face(&mut app);
+    let cursor = |app: &App| app.world().resource::<LobbyState>().gateway_cursor;
+    key(&mut app, KeyCode::ArrowDown, Key::ArrowDown);
+    assert_eq!(cursor(&app), Some(0), "down from nowhere is the first row");
+    for _ in 0..3 {
+        key(&mut app, KeyCode::ArrowDown, Key::ArrowDown);
+    }
+    assert_eq!(
+        cursor(&app),
+        Some(2),
+        "and the last row is as far as it goes"
+    );
+    key(&mut app, KeyCode::ArrowUp, Key::ArrowUp);
+    assert_eq!(cursor(&app), Some(1));
+
+    let lit = {
+        let mut rows = app.world_mut().query::<(&Press, &BorderColor)>();
+        rows.iter(app.world())
+            .filter(|(press, border)| {
+                matches!(press, Press::SelectGateway(_)) && border.top == palette::ACCENT
+            })
+            .map(|(press, _)| *press)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(lit, [Press::SelectGateway(1)], "the row the arrows are on");
+
+    key(&mut app, KeyCode::Enter, Key::Enter);
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.lobby.gateway_chosen());
+    assert_eq!(state.gateway, "https://b.example");
+
+    settle(&mut app);
+    key(&mut app, KeyCode::Escape, Key::Escape);
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.gateway_chosen(),
+        "Escape is the way back out"
+    );
+}
+
+#[test]
+fn a_long_list_of_gateways_scrolls_in_a_frame_that_keeps_its_height() {
+    /// The scrollbars on screen, and the height of the frame the list
+    /// stands in.
+    fn framed(app: &mut App, count: usize) -> (usize, Option<Val>) {
+        app.world_mut().resource_mut::<LobbyState>().gateways = (0..count)
+            .map(|n| format!("https://gw{n}.example"))
+            .collect();
+        to_gateway_face(app);
+        let bars = app
+            .world_mut()
+            .query::<&bevy::ui_widgets::Scrollbar>()
+            .iter(app.world())
+            .count();
+        let list = app
+            .world_mut()
+            .query::<(Entity, &Scrollable)>()
+            .iter(app.world())
+            .find(|(_, s)| s.0 == List::Gateways)
+            .map(|(entity, _)| entity)
+            .expect("the gateway list");
+        let world = app.world();
+        let frame = world
+            .get::<ChildOf>(list)
+            .and_then(|host| world.get::<ChildOf>(host.parent()))
+            .and_then(|frame| world.get::<Node>(frame.parent()))
+            .map(|node| node.height);
+        (bars, frame)
+    }
+    let mut app = headless();
+    let (bars, _) = framed(&mut app, super::super::gateway::ROWS_IN_SIGHT);
+    assert_eq!(bars, 0, "a list that fits does not scroll");
+    let (bars, eight) = framed(&mut app, 8);
+    assert_eq!(bars, 1);
+    let (_, twelve) = framed(&mut app, 12);
+    assert!(matches!(eight, Some(Val::Px(h)) if h > 0.0), "{eight:?}");
+    assert_eq!(eight, twelve, "more gateways do not make the panel taller");
+
+    // The row the arrows reach is scrolled into sight.
+    let offset = |app: &mut App| {
+        app.world_mut()
+            .query::<(&Scrollable, &ScrollPosition)>()
+            .iter(app.world())
+            .find(|(s, _)| s.0 == List::Gateways)
+            .map(|(_, at)| at.y)
+            .expect("the gateway list")
+    };
+    assert!(offset(&mut app) <= 0.0);
+    key(&mut app, KeyCode::ArrowUp, Key::ArrowUp);
+    assert_eq!(
+        app.world().resource::<LobbyState>().gateway_cursor,
+        Some(11)
+    );
+    let bottom = offset(&mut app);
+    assert!(bottom > 0.0, "the last row is brought into sight: {bottom}");
+    for _ in 0..11 {
+        key(&mut app, KeyCode::ArrowUp, Key::ArrowUp);
+    }
+    let top = offset(&mut app);
+    assert!(top.abs() < 0.5, "and the first: {top}");
 }

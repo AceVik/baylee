@@ -71,7 +71,34 @@ impl GatewayInfo {
             view_version: wire.view_version,
         })
     }
+
+    /// The version as a row has room for: the release alone, `v0.1.0`, with
+    /// the build, the commit and whether it was dirty left to the hint.
+    ///
+    /// The release is what a player compares and the rest is what a bug
+    /// report needs, so the short form cuts at the first `+` or space, which
+    /// is where `baylee_build::short()` starts saying the rest. A version
+    /// that is nothing but the rest, or nothing, is `v?`.
+    #[must_use]
+    pub fn short_version(&self) -> String {
+        let release = self
+            .version
+            .split(|c: char| c == '+' || c.is_whitespace())
+            .next()
+            .unwrap_or("");
+        let release = release
+            .strip_prefix('v')
+            .or_else(|| release.strip_prefix('V'))
+            .unwrap_or(release);
+        if release.is_empty() {
+            return "v?".to_string();
+        }
+        shown(&format!("v{release}"), SHORT_VERSION_CHARS)
+    }
 }
+
+/// The most characters of a short version a row draws.
+pub const SHORT_VERSION_CHARS: usize = 12;
 
 /// A string a gateway sent, as this client draws it.
 ///
@@ -257,6 +284,26 @@ mod tests {
         assert_eq!(long.chars().count(), MAX_NAME_CHARS);
         assert!(long.ends_with('…'));
         assert_eq!(shown("ab cd", 4), "ab…", "no space before the ellipsis");
+    }
+
+    #[test]
+    fn a_short_version_is_the_release_alone() {
+        let short = |version: &str| {
+            GatewayInfo {
+                version: version.to_string(),
+                ..GatewayInfo::default()
+            }
+            .short_version()
+        };
+        assert_eq!(short("0.1.0+build.1492 (a6e3cd527c-dirty)"), "v0.1.0");
+        assert_eq!(short("0.2.0 (abc)"), "v0.2.0");
+        assert_eq!(short("v1.4.2"), "v1.4.2", "no second v");
+        assert_eq!(short("V1.4.2+x"), "v1.4.2");
+        assert_eq!(short(""), "v?");
+        assert_eq!(short("+build.7"), "v?");
+        let long = short("123456789012345678");
+        assert_eq!(long.chars().count(), SHORT_VERSION_CHARS);
+        assert!(long.ends_with('…'));
     }
 
     #[test]

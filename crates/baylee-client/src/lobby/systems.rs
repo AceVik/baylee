@@ -87,11 +87,14 @@ pub(super) fn poll(
                 // request is gone by now.
                 let worked = matches!(event, LobbyEvent::LoggedIn { .. });
                 let next = state.lobby.apply(event);
-                if worked && let Some(settings) = settings.as_mut() {
-                    let typed = state.lobby.field(Field::Email).to_string();
-                    if settings.last_email != typed {
-                        settings.last_email = typed;
-                        settings.save();
+                if worked {
+                    // The use is counted before anything is written, so
+                    // that the address and the use go out in one save.
+                    let gateway = state.gateway.clone();
+                    state.uses.record(&gateway);
+                    if let Some(settings) = settings.as_mut() {
+                        settings.last_email = state.lobby.field(Field::Email).to_string();
+                        keep_gateways(&state, settings);
                     }
                 }
                 dispatch(&mut state, &mailbox, next);
@@ -112,8 +115,7 @@ pub(super) fn poll(
                 if state.gateway_answered(url, probe)
                     && let Some(settings) = settings.as_mut()
                 {
-                    settings.gateways.clone_from(&state.gateways);
-                    settings.save();
+                    keep_gateways(&state, settings);
                 }
             }
         }
@@ -530,7 +532,43 @@ pub(super) fn keyboard(
     if keys.is_empty() {
         return;
     }
-    text_field_keys(&mut keys, &codes, state.as_mut(), &mailbox, table);
+    text_field_keys(
+        &mut keys,
+        &codes,
+        state.as_mut(),
+        &mut prefs,
+        &mailbox,
+        table,
+    );
+}
+
+/// Chooses a saved gateway, which turns the front door to the account form.
+///
+/// One door for the pointer and the keyboard, so that choosing by Enter on a
+/// row does everything a tap on it does.
+fn choose_gateway(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    mailbox: &Mailbox,
+    index: usize,
+) {
+    if state.select_gateway(index) {
+        prefs.detach();
+        http::probe_registration(state, mailbox);
+        // Asked again: the answer in the list may be from before the gateway
+        // was upgraded, and choosing it is the moment that answer is about to
+        // matter.
+        let url = state.gateway.clone();
+        state.probes.insert(url.clone(), Probe::Asking);
+        http::probe_gateway(url, mailbox);
+    }
+}
+
+/// Writes the saved gateways and their uses back to the settings file.
+fn keep_gateways(state: &LobbyState, settings: &mut crate::settings::ClientSettings) {
+    settings.gateways.clone_from(&state.gateways);
+    settings.gateway_uses.clone_from(&state.uses);
+    settings.save();
 }
 
 /// The sign-in and table screens' own text fields.
@@ -543,6 +581,7 @@ fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
     state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
     mailbox: &Mailbox,
     table: bool,
 ) {
@@ -588,10 +627,23 @@ fn text_field_keys(
             Key::Tab => state
                 .lobby
                 .cycle_focus(if shift { Tab::Back } else { Tab::Next }),
-            // In the gateway address, Enter is the Save button beside it:
-            // that face has no sign-in form to submit.
-            Key::Enter if !table && state.lobby.focus() == Field::Gateway => {
-                if let Some(url) = state.check_gateway() {
+            // Escape shuts the gear menu, and otherwise goes back from the
+            // account form: the same as the Back button beside its title.
+            Key::Escape if !table && state.front_menu => state.front_menu = false,
+            Key::Escape if !table && state.lobby.gateway_chosen() => state.leave_gateway(),
+            Key::Escape if !table && state.gateway_cursor.is_some() => state.gateway_cursor = None,
+            // Up and down walk the saved gateways, which the one-line address
+            // field has no use for.
+            Key::ArrowUp | Key::ArrowDown if !table && !state.lobby.gateway_chosen() => {
+                state.move_gateway_cursor(matches!(key.logical_key, Key::ArrowDown));
+            }
+            // In the gateway form Enter chooses the row the arrows are on,
+            // and otherwise is the Save button beside the address: that face
+            // has no sign-in form to submit.
+            Key::Enter if !table && !state.lobby.gateway_chosen() => {
+                if let Some(index) = state.gateway_cursor {
+                    choose_gateway(state, prefs, mailbox, index);
+                } else if let Some(url) = state.check_gateway() {
                     http::probe_gateway(url, mailbox);
                 }
             }
@@ -612,6 +664,10 @@ fn text_field_keys(
             // control characters Tab and Enter also produce.
             _ => {
                 if let Some(text) = key.text.as_ref() {
+                    // Typing is about the address, not the rows.
+                    if state.gateway_cursor.is_some() {
+                        state.gateway_cursor = None;
+                    }
                     for ch in text.chars() {
                         state.lobby.type_char(ch);
                     }
@@ -643,11 +699,11 @@ pub(super) fn clicks(
     mailbox: Res<Mailbox>,
     // Absent in a headless test, which has no settings file to write to.
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
-    turn: Res<super::front::FrontTurn>,
+    motion: Res<super::front::FrontMotion>,
 ) {
-    // A card part way round answers nothing: what is under the pointer is
-    // half of a face that is on its way out, or in.
-    if turn.turning() {
+    // A panel on its way out or in answers nothing: what is under the
+    // pointer is half of a form that is going, or not yet there.
+    if motion.moving() {
         pointer.clear();
         ends.clear();
         return;
@@ -694,6 +750,16 @@ pub(super) fn clicks(
         {
             continue;
         }
+        // Anything pressed but the menu's own controls closes the gear menu,
+        // the veil around it included.
+        if state.front_menu
+            && !matches!(
+                *press,
+                Press::FrontMenu | Press::PickLang(_) | Press::PickerNothing
+            )
+        {
+            state.front_menu = false;
+        }
         // Any other control answers the question the back button asked.
         if *press != Press::CloseBuilder {
             state.confirm_leave = false;
@@ -735,19 +801,14 @@ pub(super) fn clicks(
                     http::probe_gateway(url, &mailbox);
                 }
             }
-            Press::SelectGateway(index) => {
-                if state.select_gateway(index) {
-                    prefs.detach();
-                    http::probe_registration(&state, &mailbox);
-                    // Asked again: the answer in the list may be from before
-                    // the gateway was upgraded, and choosing it is the moment
-                    // that answer is about to matter.
-                    let url = state.gateway.clone();
-                    state.probes.insert(url.clone(), Probe::Asking);
-                    http::probe_gateway(url, &mailbox);
+            Press::SelectGateway(index) => choose_gateway(&mut state, &mut prefs, &mailbox, index),
+            Press::ForgetGateway(index) => {
+                if let Some(url) = state.gateways.get(index) {
+                    state.confirmation = Some(confirm::Destructive::ForgetGateway(url.clone()));
                 }
             }
             Press::LeaveGateway => state.leave_gateway(),
+            Press::FrontMenu => state.front_menu = !state.front_menu,
             Press::BrowseHouse | Press::BrowseHistory | Press::RetryLibrary => {
                 scrolled.set(List::Library, 0.0);
                 let history = *press == Press::BrowseHistory
@@ -1015,7 +1076,14 @@ pub(super) fn clicks(
                 }
             }
             Press::ConfirmDestructive => {
+                let forgetting = matches!(
+                    state.confirmation,
+                    Some(confirm::Destructive::ForgetGateway(_))
+                );
                 let request = confirm::accept(&mut state);
+                if forgetting && let Some(settings) = settings.as_mut() {
+                    keep_gateways(&state, settings);
+                }
                 dispatch(&mut state, &mailbox, request);
             }
             Press::CancelDestructive => state.confirmation = None,
@@ -1508,8 +1576,12 @@ pub(crate) enum Press {
     RoomSize(bool),
     AddGateway,
     SelectGateway(usize),
+    /// Asks, in the confirm dialog, whether a saved gateway leaves the list.
+    ForgetGateway(usize),
     /// Back from the account form to the gateway form.
     LeaveGateway,
+    /// Opens or closes the front door's gear menu.
+    FrontMenu,
     BrowseHouse,
     BrowseHistory,
     DeckHistory(usize),

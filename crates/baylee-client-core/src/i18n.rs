@@ -180,10 +180,6 @@ messages! {
     /// Hub navigation.
     CollectionHint { en: "Your decks, your ideas. Every saved change stays in your history.", de: "Deine Decks, deine Ideen. Jede gespeicherte Änderung bleibt in deiner Historie." },
     /// Gateway selection.
-    GatewayStep { en: "01 / CONNECT", de: "01 / VERBINDEN" },
-    /// Gateway selection.
-    AccountStep { en: "02 / YOUR ACCOUNT", de: "02 / DEIN KONTO" },
-    /// Gateway selection.
     ChooseGateway { en: "Choose your gateway", de: "Wähle deinen Gateway" },
     /// Gateway selection.
     GatewayHint { en: "Where your account, decks and tables live.", de: "Wo dein Konto, deine Decks und Tische zu Hause sind." },
@@ -195,6 +191,18 @@ messages! {
     SaveGateway { en: "Save gateway", de: "Gateway speichern" },
     /// Gateway selection.
     GatewayUrlInvalid { en: "Enter an http:// or https:// address without credentials, query parameters or a fragment.", de: "Gib eine http://- oder https://-Adresse ohne Zugangsdaten, Abfrageparameter oder Fragment ein." },
+    /// The front door's gear, pointed at: what is behind it.
+    LanguageAndSettings { en: "Language and settings", de: "Sprache und Einstellungen" },
+    /// The front door's gear menu: the way to the whole settings screen.
+    AllSettings { en: "All settings", de: "Alle Einstellungen" },
+    /// A saved gateway's bin, pointed at.
+    ForgetGateway { en: "Remove from this list", de: "Aus dieser Liste entfernen" },
+    /// Asked before a saved gateway leaves the list.
+    ForgetGatewayQuestion { en: "Remove “{0}” from this list?", de: "„{0}“ aus dieser Liste entfernen?" },
+    /// Under that question: what removing it does, and what it does not.
+    ForgetGatewayHint { en: "Only this device forgets it. Your account and decks stay on the gateway.", de: "Nur dieses Gerät vergisst ihn. Dein Konto und deine Decks bleiben auf dem Gateway." },
+    /// A saved gateway's dot, pointed at, when it answered.
+    GatewayAnswering { en: "answering", de: "antwortet" },
     /// Gateway selection: an address is asked about itself before it is saved.
     GatewayChecking { en: "Checking {0}…", de: "Prüfe {0} …" },
     /// Gateway selection: the address answered and is saved.
@@ -307,6 +315,11 @@ messages! {
     DisplayName { en: "DISPLAY NAME", de: "ANZEIGENAME" },
     /// Caption over the password field.
     Password { en: "PASSWORD", de: "PASSWORT" },
+    /// Caption of the second password box, when an account is created.
+    PasswordAgain { en: "REPEAT PASSWORD", de: "PASSWORT WIEDERHOLEN" },
+    /// The account form's submit, in both of its modes: the tab above it
+    /// already says which.
+    Continue { en: "Continue", de: "Weiter" },
     /// The button that signs in.
     SignIn { en: "Sign in", de: "Anmelden" },
     /// The button that registers.
@@ -494,6 +507,11 @@ messages! {
     },
     /// The same, registering.
     NeedDisplayName { en: "a display name, please", de: "bitte einen Anzeigenamen" },
+    /// Registering, and the password was typed differently the second time.
+    PasswordsDiffer {
+        en: "the two passwords differ",
+        de: "die beiden Passwörter sind verschieden",
+    },
     /// This gateway does not take sign-ups.
     NoSignUps {
         en: "this gateway is not taking new accounts",
