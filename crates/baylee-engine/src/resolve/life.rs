@@ -40,16 +40,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if cant {
                     continue;
                 }
-                let p = &mut state.players[player.get() as usize];
-                let old = p.life;
-                p.life -= n;
-                let new = p.life;
-                state.journal.record(GameEvent::LifeChanged {
-                    player,
-                    old,
-                    new,
-                    cause: Cause::Effect,
-                });
+                state.change_life(player, -n, Cause::Effect);
             }
             None
         }
@@ -250,16 +241,7 @@ pub(super) fn gain_life(state: &mut GameState, player: PlayerId, n: i32) {
     if n <= 0 {
         return;
     }
-    let p = &mut state.players[player.get() as usize];
-    let old = p.life;
-    p.life += n;
-    let new = p.life;
-    state.journal.record(GameEvent::LifeChanged {
-        player,
-        old,
-        new,
-        cause: Cause::Effect,
-    });
+    state.change_life(player, n, Cause::Effect);
 }
 
 pub(super) fn deal_to_object_with_loyalty(
@@ -321,16 +303,7 @@ pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: Pl
     if n <= 0 {
         return;
     }
-    let p = &mut state.players[player.get() as usize];
-    let old = p.life;
-    p.life -= i32::from(n);
-    let new = p.life;
-    state.journal.record(GameEvent::LifeChanged {
-        player,
-        old,
-        new,
-        cause: Cause::Effect,
-    });
+    state.change_life(player, -i32::from(n), Cause::Effect);
     state.journal.record(GameEvent::DamageDealt {
         source: Some(source),
         target: DamageTarget::Player(player),
@@ -484,6 +457,41 @@ mod tests {
         deal_to_player(&mut state, source, me(), -2);
         assert_eq!(life(&state, me()), start - 3, "no damage moves no life");
         assert_eq!(state.journal.len(), entries, "and records no event");
+    }
+
+    /// A point of damage and a point of life gained back leave the total
+    /// where it was and the turn different: "if you didn't lose life this
+    /// turn" (Luminarch Ascension) is now false, because damage is life lost
+    /// (CR 119.2) and gaining it back does not unlose it.
+    ///
+    /// The two states have the same total on purpose. A pair whose totals
+    /// differed would hash apart through `life` alone and prove nothing
+    /// about the history. With the totals equal, the fact has to be held
+    /// somewhere `snapshot_hash` reads (#241). It used to be only in the
+    /// journal, which the hash does not read.
+    #[test]
+    fn a_life_lost_and_gained_back_is_still_a_life_lost_this_turn() {
+        let mut untouched = state();
+        let mut touched = state();
+        permanent(&mut untouched, "Shock");
+        let source = permanent(&mut touched, "Shock");
+
+        deal_to_player(&mut touched, source, me(), 1);
+        gain_life(&mut touched, me(), 1);
+
+        assert_eq!(life(&touched, me()), life(&untouched, me()));
+        let seat = me().get() as usize;
+        assert!(
+            touched.per_turn.life_lost[seat],
+            "the damage is a loss of life"
+        );
+        assert!(!untouched.per_turn.life_lost[seat]);
+        assert_ne!(
+            touched.snapshot_hash(),
+            untouched.snapshot_hash(),
+            "the two states answer the Ascension differently, so they are \
+             not the same state"
+        );
     }
 
     /// CR 306.8: damage to a planeswalker removes that many loyalty

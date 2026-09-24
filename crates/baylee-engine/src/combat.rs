@@ -499,16 +499,7 @@ fn deal_damage_to_player(
     if prevent_from(state, source) {
         return 0;
     }
-    let p = &mut state.players[player.get() as usize];
-    let old = p.life;
-    p.life -= i32::from(amount);
-    let new = p.life;
-    state.journal.record(GameEvent::LifeChanged {
-        player,
-        old,
-        new,
-        cause: crate::event::Cause::Spell,
-    });
+    state.change_life(player, -i32::from(amount), crate::event::Cause::Spell);
     state.journal.record(GameEvent::DamageDealt {
         source: Some(source),
         target: DamageTarget::Player(player),
@@ -620,16 +611,7 @@ fn gain_life(state: &mut GameState, player: PlayerId, amount: i16) {
     if amount <= 0 {
         return;
     }
-    let p = &mut state.players[player.get() as usize];
-    let old = p.life;
-    p.life += i32::from(amount);
-    let new = p.life;
-    state.journal.record(GameEvent::LifeChanged {
-        player,
-        old,
-        new,
-        cause: crate::event::Cause::Spell,
-    });
+    state.change_life(player, i32::from(amount), crate::event::Cause::Spell);
 }
 
 #[cfg(test)]

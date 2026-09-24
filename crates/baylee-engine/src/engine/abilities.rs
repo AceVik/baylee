@@ -1829,16 +1829,7 @@ impl<L: CardLookup> Engine<L> {
                     )?;
                 }
                 CostPart::PayLife(n) => {
-                    let p = &mut self.state.players[player.get() as usize];
-                    let old = p.life;
-                    p.life -= i32::from(*n);
-                    let new = p.life;
-                    self.state.journal.record(GameEvent::LifeChanged {
-                        player,
-                        old,
-                        new,
-                        cause: Cause::Cost,
-                    });
+                    self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
                 CostPart::ExileSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

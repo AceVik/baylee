@@ -3,8 +3,6 @@
 //! Oracle: {1}{W}: Create a 4/4 white Angel creature token with flying. Activate only if this enchantment has four or more quest counters on it.
 //! Set: A25 #23 — Masters 25 | Scryfall ID: b3770d86-4496-4c06-aab1-2917cfec100e | Oracle ID: 90076bf5-aa9a-4a6e-9035-9aa97fd5561e
 // IMPLEMENTED — quest counters via end-step trigger + counter-gated angel activation (CountersOnSelf).
-// condition evaluated from the journal). The angel-token ability needs
-// activation gating by counters (M2+); currently always activatable.
 
 use baylee_cards_dsl::prelude::*;
 

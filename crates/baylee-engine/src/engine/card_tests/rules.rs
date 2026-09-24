@@ -1003,6 +1003,96 @@ fn nothing_writes_the_tapped_bit_except_the_one_door() {
     );
 }
 
+/// `GameState::change_life` is the only code that writes a life total or
+/// journals a change to one.
+///
+/// This is the same kind of rule as the tapped bit above. "If you didn't
+/// lose life this turn" reads a flag that only the door sets, so a site that
+/// writes `.life` itself loses life without anyone reading it (#241). Eleven
+/// sites used to do exactly that.
+///
+/// It counts plain assignment as well as `+=` and `-=`. The first rule that
+/// sets a life total (CR 119.5) is the likeliest site to spell it that way.
+/// Test code is left out: tests set a total up directly, and that is not a
+/// loss in any game. That covers the `_tests.rs` files, the card and combo
+/// test directories, the harness files, and the inline `#[cfg(test)] mod`
+/// that closes a file.
+#[test]
+fn nothing_changes_a_life_total_except_the_one_door() {
+    fn is_test_source(rel: &str) -> bool {
+        rel.ends_with("_tests.rs")
+            || rel.starts_with("engine/card_tests/")
+            || rel.starts_with("engine/combo_tests/")
+            || matches!(
+                rel,
+                "engine/testkit.rs" | "engine/synthetic.rs" | "engine/tests.rs"
+            )
+    }
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut writers: Vec<String> = Vec::new();
+    let mut files = 0usize;
+    let mut stack = vec![root.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).expect("the crate's own source is readable") {
+            let path = entry.expect("a directory entry").path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            let rel = path
+                .strip_prefix(&root)
+                .expect("under src")
+                .to_string_lossy()
+                .replace('\\', "/");
+            if is_test_source(&rel) {
+                continue;
+            }
+            files += 1;
+            let text = std::fs::read_to_string(&path).expect("a source file is readable");
+            let lines: Vec<&str> = text.lines().collect();
+            let end = lines
+                .windows(2)
+                .position(|w| {
+                    w[0].trim() == "#[cfg(test)]"
+                        && w[1].starts_with("mod ")
+                        && w[1].trim_end().ends_with('{')
+                })
+                .unwrap_or(lines.len());
+            for line in &lines[..end] {
+                if line.trim_start().starts_with("//") {
+                    continue;
+                }
+                let writes = [".life = ", ".life += ", ".life -= "]
+                    .iter()
+                    .any(|w| line.contains(w));
+                let records = line.contains("record(") && line.contains("LifeChanged {");
+                if writes || records {
+                    writers.push(rel.clone());
+                }
+            }
+        }
+    }
+    // 37 non-test files on 2026-09-24, 20 of them at the top level: a walk
+    // that did not recurse would miss every former site under `engine/` and
+    // `resolve/` and still find the door.
+    assert!(
+        (30..60).contains(&files),
+        "the walk read {files} non-test files, which is not this crate"
+    );
+    writers.sort();
+    assert_eq!(
+        writers,
+        // The two lines of `GameState::change_life`: its write and its record.
+        ["state.rs", "state.rs"],
+        "a new entry is a site that changes a life total without telling \
+         `per_turn.life_lost`. Route it through `change_life` instead of \
+         widening this list."
+    );
+}
+
 fn orcish_oriflamme() -> CardIndex {
     card_index("0b16a650-68b0-44dc-a9e1-15b7966e0b18")
 }

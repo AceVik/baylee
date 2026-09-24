@@ -959,16 +959,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 match part {
                     CostPart::PayLife(n) => {
-                        let p = &mut self.state.players[player.get() as usize];
-                        let old = p.life;
-                        p.life -= i32::from(*n);
-                        let new = p.life;
-                        self.state.journal.record(GameEvent::LifeChanged {
-                            player,
-                            old,
-                            new,
-                            cause: Cause::Cost,
-                        });
+                        self.state.change_life(player, -i32::from(*n), Cause::Cost);
                     }
                     CostPart::ExileFromHand(_) => {
                         for card in &wizard.pitch {
@@ -1011,28 +1002,11 @@ impl<L: CardLookup> Engine<L> {
             }
             match part {
                 CostPart::PayLifeX => {
-                    let p = &mut self.state.players[player.get() as usize];
-                    let old = p.life;
-                    p.life -= wizard.x as i32;
-                    let new = p.life;
-                    self.state.journal.record(GameEvent::LifeChanged {
-                        player,
-                        old,
-                        new,
-                        cause: Cause::Cost,
-                    });
+                    self.state
+                        .change_life(player, -(wizard.x as i32), Cause::Cost);
                 }
                 CostPart::PayLife(n) => {
-                    let p = &mut self.state.players[player.get() as usize];
-                    let old = p.life;
-                    p.life -= i32::from(*n);
-                    let new = p.life;
-                    self.state.journal.record(GameEvent::LifeChanged {
-                        player,
-                        old,
-                        new,
-                        cause: Cause::Cost,
-                    });
+                    self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
                 // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
                 // above, and named for the reason the alternative-cost match

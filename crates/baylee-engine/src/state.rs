@@ -227,6 +227,7 @@ pub struct PerTurn {
     /// All spells cast this turn, per player (second-spell triggers).
     pub spells_cast: Vec<u32>,
     /// Whether each player lost life this turn (Luminarch Ascension).
+    /// Written by [`GameState::change_life`] and nothing else.
     pub life_lost: Vec<bool>,
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
@@ -1096,6 +1097,42 @@ impl GameState {
         self.characteristics_generation = u64::MAX;
     }
 
+    /// Changes a player's life total by `by`. This is **the** door, for the
+    /// same reason [`Self::set_tapped`] is one.
+    ///
+    /// "If you didn't lose life this turn" (Luminarch Ascension) reads
+    /// [`PerTurn::life_lost`], and the flag is only true if every loss sets
+    /// it. A loss can be damage (CR 119.2), an effect (CR 119.3) or a
+    /// payment (CR 119.4: "in other words, the player loses that much
+    /// life"). Eleven sites used to adjust the total and journal the change
+    /// themselves, and none of them set the flag (#241). The journal entry
+    /// comes through here too, because every one of those sites recorded it
+    /// and every life trigger reads it.
+    /// `card_tests::rules::nothing_changes_a_life_total_except_the_one_door`
+    /// counts the writers.
+    ///
+    /// Three decisions stay with the caller:
+    /// - Whether the change may happen at all. Everybody Lives' "can't lose
+    ///   life" is checked by `Effect::LoseLife` and by nothing else.
+    /// - Whether a change of nothing is worth recording.
+    /// - The `Cause`.
+    pub fn change_life(&mut self, player: PlayerId, by: i32, cause: Cause) {
+        let seat = player.get() as usize;
+        let p = &mut self.players[seat];
+        let old = p.life;
+        p.life += by;
+        let new = p.life;
+        if new < old {
+            self.per_turn.life_lost[seat] = true;
+        }
+        self.journal.record(GameEvent::LifeChanged {
+            player,
+            old,
+            new,
+            cause,
+        });
+    }
+
     /// Taps or untaps a permanent — **the** door, and the reason it is one.
     ///
     /// A tap is an input to the layer projection wherever an effect's filter
@@ -1849,10 +1886,9 @@ impl GameState {
             rng,
             // A record of what happened, not an input to what happens next,
             // with one exception that is a known gap: `Filter::EnteredThisTurn`
-            // and `Effect::IfNotLostLifeThisTurn` read its entries since
-            // `turn_start_seq` (hashed below), and that window is not hashed.
-            // It belongs in `per_turn`, whose `life_lost` was meant to carry
-            // half of it and is never written (#241).
+            // reads its entries since `turn_start_seq` (hashed below), and
+            // that window is not hashed. It belongs in `per_turn`, where
+            // "lost life this turn" already went (#241).
             journal: _,
             names,
             // Printed faces shared between objects. Each object's face is
@@ -3343,6 +3379,7 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("turn_start_seq", |s, _| s.turn_start_seq += 1),
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
+            ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
             ("delayed", |s, _| {
                 s.delayed.push(DelayedTrigger {
                     controller: PlayerId::new(0),

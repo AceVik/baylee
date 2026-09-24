@@ -184,6 +184,81 @@ fn an_optional_clause_inside_a_condition_is_offered_once_and_taken_once() {
     );
 }
 
+/// Luminarch Ascension's other branch: "if you didn't lose life this turn"
+/// on a turn its controller did. The test above is the turn with no loss.
+///
+/// The opponent casts a Lightning Bolt in their own main phase, and the two
+/// games differ only in who it hits. Aimed at the opponent, the end step
+/// still offers the counter. That is the control, and it is what keeps the
+/// other half from passing on a trigger that never fired. Aimed at the
+/// Ascension's controller, the condition is false on resolution, so nothing
+/// is asked and no counter is placed (CR 603.4).
+#[test]
+fn luminarch_ascension_asks_nothing_on_a_turn_its_controller_lost_life() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let end_step = |bolted: PlayerId| {
+        let mut engine = Duel::new(42, plains())
+            .battlefield(0, &[luminarch_ascension()])
+            .battlefield(1, &[mountain()])
+            .hand(1, &[lightning_bolt()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p1), "p1 reaches its own main");
+        tap_all_mana(&mut engine, p1);
+        cast_with_floating(&mut engine, p1, lightning_bolt());
+        engine
+            .apply(
+                p1,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![bolted],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state().players[bolted.get() as usize].life,
+            17,
+            "the Bolt hit"
+        );
+        pass_until(&mut engine, |e| {
+            matches!(
+                e.pending(),
+                Pending::YesNo {
+                    prompt: YesNoPrompt::MayDo,
+                    ..
+                }
+            ) || e.state().turn.active == p0
+        });
+        let asked = matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        );
+        let ascension =
+            on_battlefield(&engine, p0, luminarch_ascension()).expect("the enchantment is out");
+        let quest = engine
+            .state()
+            .object(ascension)
+            .expect("still on the battlefield")
+            .counters
+            .get(baylee_cards_dsl::counters::QUEST);
+        (asked, quest)
+    };
+    assert_eq!(
+        end_step(p1),
+        (true, 0),
+        "the opponent's loss is not the controller's: the counter is offered"
+    );
+    assert_eq!(
+        end_step(p0),
+        (false, 0),
+        "three damage to the controller is three life lost this turn"
+    );
+}
+
 // oracle_id = "119d719d-e965-45b4-9bc9-ac03211b10c2"
 fn survival_of_the_fittest() -> baylee_core::ids::CardIndex {
     card_index("119d719d-e965-45b4-9bc9-ac03211b10c2")

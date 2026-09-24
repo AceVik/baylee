@@ -706,16 +706,7 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
         panic!("resume_yes_no on non-yes/no choice");
     };
     if answer {
-        let p = &mut state.players[res.controller.get() as usize];
-        let old = p.life;
-        p.life -= i32::from(amount);
-        let new = p.life;
-        state.journal.record(GameEvent::LifeChanged {
-            player: res.controller,
-            old,
-            new,
-            cause: Cause::Effect,
-        });
+        state.change_life(res.controller, -i32::from(amount), Cause::Effect);
     } else {
         state.set_tapped(res.source, true);
     }
@@ -1801,17 +1792,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::IfNotLostLifeThisTurn { then } => {
-            // Journal scan since turn start: any LifeChanged for `you`
-            // with new < old is a life loss (CR 119.3 note).
-            let lost = state.journal.entries()[state.turn_start_seq as usize..]
-                .iter()
-                .any(|e| match &e.event {
-                    GameEvent::LifeChanged {
-                        player, old, new, ..
-                    } => *player == you && new < old,
-                    _ => false,
-                });
-            if !lost {
+            // Set by `GameState::change_life` for every loss, whether it
+            // came from damage, an effect or a payment, and cleared at every
+            // turn start.
+            if !state.per_turn.life_lost[you.get() as usize] {
                 return run_nested(state, res, then);
             }
             None

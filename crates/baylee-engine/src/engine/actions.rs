@@ -1055,16 +1055,8 @@ impl<L: CardLookup> Engine<L> {
                         unreachable!()
                     };
                     if answer {
-                        let p_ref = &mut self.state.players[player.get() as usize];
-                        let old = p_ref.life;
-                        p_ref.life -= i32::from(amount);
-                        let new = p_ref.life;
-                        self.state.journal.record(GameEvent::LifeChanged {
-                            player,
-                            old,
-                            new,
-                            cause: Cause::Cost,
-                        });
+                        self.state
+                            .change_life(player, -i32::from(amount), Cause::Cost);
                     } else {
                         self.state.set_tapped(object, true);
                     }

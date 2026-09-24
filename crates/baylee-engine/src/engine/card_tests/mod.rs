@@ -1166,6 +1166,10 @@ fn luminarch_ascension() -> CardIndex {
     card_index("90076bf5-aa9a-4a6e-9035-9aa97fd5561e")
 }
 
+fn lightning_bolt() -> CardIndex {
+    card_index("4457ed35-7c10-48c8-9776-456485fdf070")
+}
+
 /// An Ondu Cleric cast, with its rally trigger asking whether to take the
 /// life it offers.
 ///
