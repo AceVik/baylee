@@ -1700,67 +1700,6 @@ messages! {
     /// and it is a cast rather than an ability — so it is neither numbered
     /// nor ever a mana ability.
     PreparedCast { en: "Cast the prepared spell", de: "Vorbereiteten Zauber wirken" },
-    /// Sacrifice this
-    CostSacrificeThis { en: "Sacrifice this", de: "Opfere dies" },
-    /// Sacrifice
-    CostSacrifice { en: "Sacrifice", de: "Opfern" },
-    /// Pay {0} life
-    CostPayLife { en: "Pay {0} life", de: "Zahle {0} Leben" },
-    /// Pay X life
-    CostPayXLife { en: "Pay X life", de: "Zahle X Leben" },
-    /// Discard
-    CostDiscard { en: "Discard", de: "Abwerfen" },
-    /// Discard this
-    CostDiscardThis { en: "Discard this", de: "Wirf dies ab" },
-    /// Exile this
-    CostExileThis { en: "Exile this", de: "Schicke dies ins Exil" },
-    /// Return this
-    CostReturnThis { en: "Return this", de: "Nimm dies zurück" },
-    /// Return another
-    ///
-    /// Not [`Self::CostReturnThis`], for [`Self::CostTapAnother`]'s reason
-    /// one phrase down: Quirion Ranger returns a Forest and Recurring
-    /// Nightmare returns itself, and a player told "Return this" over the
-    /// Ranger would read its own death into a cost that only bounces a land.
-    CostReturnAnother { en: "Return another", de: "Nimm eine andere zurück" },
-    /// Exile a card
-    CostExileACard { en: "Exile a card", de: "Schicke eine Karte ins Exil" },
-    /// Exile from your graveyard
-    ///
-    /// Not [`Self::CostExileACard`], which is the pitch cost out of the
-    /// hand: the label has to say which pile the card comes from, because a
-    /// player about to pay Moorland Haunt looks in the wrong one otherwise.
-    CostExileFromGraveyard {
-        en: "Exile from your graveyard",
-        de: "Schicke aus deinem Friedhof ins Exil",
-    },
-    /// Tap another
-    ///
-    /// Not "{T}", which is the source tapping itself and is the symbol the
-    /// card prints beside this one — Earthcraft's neighbours all read
-    /// "{T}, Tap an untapped creature you control".
-    CostTapAnother { en: "Tap another", de: "Tappe eine andere" },
-    /// Remove a counter
-    ///
-    /// Which counter is deliberately not named. Nothing on this side of the
-    /// wire knows a counter's *name* — the plate draws kinds as coloured
-    /// chips and has no word for any of them — so spelling one here would
-    /// mean inventing a second naming table for eleven kinds to serve the
-    /// one land that needs it. The card's own printed line says "a charge
-    /// counter" a few millimetres away, and no permanent in this pool pays
-    /// with one kind while carrying another.
-    CostRemoveCounter { en: "Remove a counter", de: "Entferne eine Marke" },
-    /// Remove {0} counters
-    CostRemoveCounters { en: "Remove {0} counters", de: "Entferne {0} Marken" },
-    /// The storage lands' cost, whose number the player picks on activation
-    /// — so the button says what is about to be asked rather than a count
-    /// nobody has chosen yet. "Any number" is one of the two printed
-    /// spellings and the friendlier one; the other is "Remove X".
-    CostRemoveCountersX { en: "Remove any number of counters", de: "Entferne beliebig viele Marken" },
-    /// Put a counter on this
-    CostPutCounter { en: "Put a counter on this", de: "Lege eine Marke darauf" },
-    /// Put {0} counters on this
-    CostPutCounters { en: "Put {0} counters on this", de: "Lege {0} Marken darauf" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 

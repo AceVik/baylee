@@ -53,14 +53,21 @@ pub struct AbilityOption {
     /// there would fire something unarmed, and an extra tap is the cheaper
     /// way to be wrong.
     pub tap_only: bool,
-    /// What it costs, written so [`crate::manaui::spawn_rich`] can draw it:
-    /// `{2}, {T}` becomes two discs and a comma.
+    /// What it costs, as the engine has it: its mana and its tap or untap
+    /// symbol in Scryfall's spelling (`{2}, {T}`), or a walker's badge
+    /// (`{L+2}`). Symbols only, and in no language.
     ///
-    /// The sheet puts this on the right of the row and the ability's own
-    /// sentence on the left, which is why it is a field and no longer merely
-    /// the [`Self::label`] a button had room for. `None` where there is no
-    /// cost to read — a grant is printed on no card, a prepared cast is not
-    /// an ability, and a free ability's cost is nothing rather than "0".
+    /// Not the words a row draws. The sheet's cost column is the head of the
+    /// ability's **printed** sentence, and this is what licenses cutting it
+    /// there ([`baylee_client_core::abilitysheet::cut`]): the owner's rule is
+    /// the card's own text, *„nicht custom texte für abilities verwenden,
+    /// sondern die echten texte von skryfall"*, and a cost column composed
+    /// from the ability was the last custom text on the row. It is drawn
+    /// only where no printed sentence exists at all — the CR 305.6 mana of a
+    /// basic land type is `{T}` — and then as symbols alone.
+    ///
+    /// `None` where the ability costs no symbol, or has no cost to read: a
+    /// grant is printed on no card, a prepared cast is not an ability.
     pub cost: Option<String>,
     /// Where this ability's printed sentence is, for a client holding the
     /// card's text in the player's own language.
@@ -352,7 +359,7 @@ pub fn options_for(
                     Tap::Intrinsic => true,
                 },
                 cost: match source.tap {
-                    Tap::Ability(index) => printed_cost(lang, view, object, index),
+                    Tap::Ability(index) => cost_key(view, object, index),
                     // The CR 305.6 shortcut is printed on no card and there
                     // is nothing to read it off; tapping is the whole of it.
                     Tap::Intrinsic => Some("{T}".to_string()),
@@ -450,7 +457,7 @@ pub fn options_for(
             tap_only: baylee_engine::choice::granted_slot(index).is_none()
                 && index != baylee_engine::choice::PREPARED_CAST
                 && tap_only(view, object, index),
-            cost: printed_cost(lang, view, object, index),
+            cost: cost_key(view, object, index),
             printed: printed_sentence(view, object, index),
             pour: None,
         });
@@ -781,15 +788,15 @@ fn mana_label(lang: Lang, source: &baylee_client_core::manaplan::Source) -> Stri
     Phrase::TapFor.fill(lang, &[&made])
 }
 
-/// A printed ability's label: a planeswalker's loyalty cost, otherwise what
-/// the ability costs to activate.
+/// A printed ability's label: a planeswalker's loyalty cost, what a mana
+/// ability makes, otherwise the symbols the ability costs.
 ///
-/// Deliberately short — this is a button on a bar that already carries the
-/// prompt, and a player who needs the full wording has the card's own text a
-/// hover away. But short is not the same as opaque: "Ability 2" is a label a
-/// player has to count out on the card, and it was the only one this could
-/// produce. `{2}, {T}` is read at a glance and is the half of an ability a
-/// player is actually deciding about.
+/// Deliberately short, and no longer what a player reads: the sheet and the
+/// armed shelf draw the ability's printed sentence and its printed cost
+/// ([`printed_words`]). This is what they fall back to where a card prints
+/// no sentence for the ability at all, and the sheet's redraw fingerprint.
+/// Symbols only, because the rest of a cost is words and the only words
+/// allowed on a row are the card's.
 fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> String {
     let unnamed = || Phrase::AbilityNumbered.fill(lang, &[&(index + 1).to_string()]);
     let Some(def) = crate::manasources::ability_at(view, object, index) else {
@@ -843,29 +850,59 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
                 }
                 .fill(lang, &[&colors]);
             }
-            cost_label(lang, cost).unwrap_or_else(unnamed)
+            cost_key_of(cost).unwrap_or_else(unnamed)
         }
         _ => unnamed(),
     }
 }
 
-/// What a printed ability costs, as one short rich string.
+/// What a printed ability costs, as the key its printed head is licensed by.
 ///
-/// The other half of [`printed_label`], split out because the sheet draws the
-/// two in different columns: a planeswalker's loyalty change *is* its cost,
+/// See [`AbilityOption::cost`]. A planeswalker's loyalty change *is* its cost,
 /// an activated ability's is what it pays, and a trigger has none at all.
 ///
 /// The reserved indices answer `None` here rather than being checked by the
 /// caller, because `ability_at` already has to look the ability up and a
 /// reserved index simply finds nothing.
-fn printed_cost(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
+fn cost_key(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
     match crate::manasources::ability_at(view, object, index)? {
         AbilityDef::Loyalty { cost, .. } => Some(manapip::loyalty_token(*cost)),
         AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            cost_label(lang, cost)
+            cost_key_of(cost)
         }
         _ => None,
     }
+}
+
+/// What a printed ability's row says: the cost its column draws, and the
+/// words beside it.
+///
+/// The sentence is [`crate::cardtext::sentence`]'s — the player's language
+/// where their text pairs with the line table, the compiled English Oracle
+/// otherwise — and the cut is [`abilitysheet::cut`]'s, licensed by
+/// [`AbilityOption::cost`]. One reading for the sheet and the armed shelf, so
+/// the two cannot draw a different cost for one ability.
+///
+/// `None` where the card prints no sentence for the row: the CR 305.6 tap, a
+/// grant, a prepared cast, and a permanent whose card the view does not name.
+///
+/// [`abilitysheet::cut`]: baylee_client_core::abilitysheet::cut
+#[must_use]
+pub fn printed_words(
+    texts: Option<&crate::cardtext::CardTexts>,
+    view: &PlayerView,
+    object: ObjectId,
+    option: &AbilityOption,
+) -> Option<baylee_client_core::abilitysheet::Cut> {
+    let at = option.printed?;
+    let object = view.object(object)?;
+    let card = object.rules?.card;
+    let print = crate::cardtext::print_of(object, card);
+    let blocks = crate::cardtext::sentence(texts, card, print, at)?;
+    Some(baylee_client_core::abilitysheet::cut(
+        blocks,
+        option.cost.as_deref().unwrap_or_default(),
+    ))
 }
 
 /// Which printed sentence a permanent's ability came from.
@@ -889,48 +926,25 @@ fn printed_sentence(
     })
 }
 
-/// What an activated ability costs, as one short string.
+/// The symbols an activated ability's cost prints: its mana, then its tap or
+/// untap, apart as the card writes them (`{2}{B}, {T}`).
 ///
-/// `None` for a free ability: "" is not a button and "Free" would be a claim
-/// about the *effect* rather than the cost, so the caller falls back to the
-/// ability's position instead.
-fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
+/// Everything else a cost asks — a sacrifice, life, a discard, counters — is
+/// printed in words, and only the printed head can say those in the card's
+/// own ones; seventeen wordings of them lived here once. `None` when nothing
+/// is left, which is every cost printed in words alone.
+fn cost_key_of(cost: &Cost) -> Option<String> {
     let mut parts: Vec<String> = Vec::new();
     if cost.mana != ManaCost::ZERO {
         parts.push(cost.mana.to_string());
     }
     for part in cost.parts {
-        parts.push(match part {
-            CostPart::TapSelf => "{T}".to_string(),
-            CostPart::UntapSelf => "{Q}".to_string(),
-            CostPart::SacrificeSelf => Phrase::CostSacrificeThis.text(lang).to_string(),
-            CostPart::Sacrifice(_) => Phrase::CostSacrifice.text(lang).to_string(),
-            CostPart::PayLife(n) => Phrase::CostPayLife.fill(lang, &[&n.to_string()]),
-            CostPart::PayLifeX => Phrase::CostPayXLife.text(lang).to_string(),
-            CostPart::Discard(_) => Phrase::CostDiscard.text(lang).to_string(),
-            CostPart::DiscardSelf => Phrase::CostDiscardThis.text(lang).to_string(),
-            CostPart::ExileSelf => Phrase::CostExileThis.text(lang).to_string(),
-            CostPart::ReturnSelfToHand => Phrase::CostReturnThis.text(lang).to_string(),
-            CostPart::ExileFromHand(_) => Phrase::CostExileACard.text(lang).to_string(),
-            CostPart::TapOther(_) => Phrase::CostTapAnother.text(lang).to_string(),
-            CostPart::ReturnToHand(_) => Phrase::CostReturnAnother.text(lang).to_string(),
-            CostPart::ExileFromGraveyard(_) => {
-                Phrase::CostExileFromGraveyard.text(lang).to_string()
-            }
-            CostPart::RemoveCounterSelf { n: 1, .. } => {
-                Phrase::CostRemoveCounter.text(lang).to_string()
-            }
-            CostPart::RemoveCounterSelf { n, .. } => {
-                Phrase::CostRemoveCounters.fill(lang, &[&n.to_string()])
-            }
-            CostPart::RemoveCounterSelfX { .. } => {
-                Phrase::CostRemoveCountersX.text(lang).to_string()
-            }
-            CostPart::PutCounterSelf { n: 1, .. } => Phrase::CostPutCounter.text(lang).to_string(),
-            CostPart::PutCounterSelf { n, .. } => {
-                Phrase::CostPutCounters.fill(lang, &[&n.to_string()])
-            }
-        });
+        match part {
+            CostPart::TapSelf => parts.push("{T}".to_string()),
+            CostPart::UntapSelf => parts.push("{Q}".to_string()),
+            // Printed in words, which only the printed head can say.
+            _ => {}
+        }
     }
     (!parts.is_empty()).then(|| parts.join(COST_JOIN))
 }
@@ -945,14 +959,17 @@ const COST_JOIN: &str = ", ";
 /// A cost, back into the payments it was written from.
 ///
 /// A cost is a *list* — mana, then a tap, then whatever else the card asks
-/// for — and [`cost_label`] writes it as one line because that is how a card
-/// prints it. Drawn as a narrow column beside a sentence it wants to be a
-/// list again: a comma that wrapped onto a line of its own is the shape that
-/// made this necessary, and `{2}{U}{U}` over `{T}` over `Sacrifice this` is
-/// how a player reads what an ability charges anyway.
+/// for — and a card prints it as one line. Drawn as a narrow column beside a
+/// sentence it wants to be a list again: a comma that wrapped onto a line of
+/// its own is the shape that made this necessary, and `{2}{U}{U}` over `{T}`
+/// over `Sacrifice this artifact` is how a player reads what an ability
+/// charges anyway.
 ///
-/// The inverse of one `join`, which is why the two are written together here
-/// rather than each where it is used.
+/// The printed head is split at the card's own punctuation, which is this
+/// separator in English and German and the inverse of [`cost_key_of`]'s
+/// `join`. A printing that separates its payments otherwise (a full-width
+/// comma) comes back as one payment, which the sheet draws as a title over
+/// the sentence rather than a column beside it.
 pub fn payments(cost: &str) -> impl Iterator<Item = &str> {
     cost.split(COST_JOIN)
         .map(str::trim)
@@ -1099,11 +1116,7 @@ mod tests {
 
         let rows = options(Lang::En, &view, &offering(vec![(id, 1)], vec![]), id);
         let row = rows.first().expect("the offered ability is a row");
-        assert_eq!(
-            row.cost.as_deref(),
-            Some("{1}{W}, Sacrifice this"),
-            "the Fox's cost"
-        );
+        assert_eq!(row.cost.as_deref(), Some("{1}{W}"), "the Fox's cost");
         let printed = row.printed.expect("the Fox prints this ability");
         let line = baylee_cards::lines::ability_line(fox, 0, 1).expect("a line for it");
         assert_eq!(
@@ -1125,6 +1138,12 @@ mod tests {
         assert_eq!(
             words.join(" "),
             "{1}{W}, Sacrifice this creature: You gain 2 life."
+        );
+        let cut = printed_words(None, &view, id, row).expect("the Fox's row");
+        assert_eq!(
+            cut.head.as_deref(),
+            Some("{1}{W}, Sacrifice this creature"),
+            "the column is the copied card's printed cost"
         );
     }
 

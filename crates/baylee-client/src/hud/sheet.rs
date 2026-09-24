@@ -581,7 +581,9 @@ struct SheetRow {
     /// `choices::cast_label`, which *is* the printed sentence where the card
     /// has one and the face's own name where the row is a face.
     line: Option<String>,
-    /// What it costs, written so [`crate::manaui::spawn_rich`] can draw it.
+    /// What it costs, written so [`crate::manaui::spawn_rich`] can draw it:
+    /// the printed head of [`Self::blocks`]' sentence, or the ability's own
+    /// symbols where it has none.
     cost: Option<String>,
 }
 
@@ -645,20 +647,34 @@ fn ability_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) 
     if options.len() < 2 {
         return None;
     }
+    let view = duel.view.as_ref()?;
     let rows = options
         .iter()
         .enumerate()
-        .map(|(at, option)| SheetRow {
-            answer: at,
-            blocks: row_text(faces, duel, object, option),
-            // Only where the card prints nothing for this row at all.
-            // `printed_index` is `None` for exactly three things a permanent
-            // can offer — the CR 305.6 mana of a basic land type, an ability a
-            // continuous effect granted, a prepared cast — and for those this
-            // client's one-line name is the only wording there has ever been.
-            line: (option.printed_index().is_none() && !option.label.is_empty())
-                .then(|| option.label.clone()),
-            cost: option.cost.clone(),
+        .map(|(at, option)| {
+            let words = crate::abilities::printed_words(Some(faces), view, object, option);
+            SheetRow {
+                answer: at,
+                // The printed head when the sentence gave one up; nothing
+                // when it is drawn whole, since then it already says what it
+                // costs; and the ability's symbols only where the card prints
+                // no sentence at all.
+                cost: match &words {
+                    Some(cut) => cut.head.clone(),
+                    None => option.cost.clone(),
+                },
+                blocks: words
+                    .map(|cut| cut.blocks)
+                    .filter(|blocks| !blocks.is_empty()),
+                // Only where the card prints nothing for this row at all.
+                // `printed_index` is `None` for exactly three things a
+                // permanent can offer — the CR 305.6 mana of a basic land
+                // type, an ability a continuous effect granted, a prepared
+                // cast — and for those this client's one-line name is the only
+                // wording there has ever been.
+                line: (option.printed_index().is_none() && !option.label.is_empty())
+                    .then(|| option.label.clone()),
+            }
         })
         .collect();
     Some(Opening {
@@ -1891,13 +1907,11 @@ fn spawn_row(
     // to Scryfall itself when the gateway has nothing, so the missing case
     // is missing for a moment rather than for a game.
     //
-    // What is left when even that has not arrived is the **cost**, which is
-    // drawn whatever happens: a row with neither is a bare keycap, and a
-    // sheet of bare keycaps is the "Ability 2" this whole panel replaced.
-    // There used to be a guard here dropping a cost that repeated the row's
-    // own words — it was needed while `option.label` was drawn as the
-    // sentence, since for an activated ability the label *is* the cost, and
-    // with the label gone it only took the cost away too.
+    // The cost is the same sentence's own head, cut off it by
+    // `abilitysheet::cut` and in the same words: the card's, in the player's
+    // language when their text pairs. A sentence drawn whole says its cost
+    // itself and has an empty column, and only a row the card prints no
+    // sentence for draws the ability's symbols there instead.
     let printed = option.blocks.as_deref();
     let cost = option.cost.as_deref();
     // **Cost, sentence, key**, in that order across the row. The cost is what
@@ -1942,10 +1956,10 @@ fn spawn_row(
         commands.entity(says).add_child(title);
     }
     // No printed text and nothing invented to stand in for it: the row is
-    // its cost and its key until the words arrive. `option.label` is not a
-    // third source — for every activated ability it *is* the cost, already
-    // drawn a few pixels to the left, and drawing it again was a row saying
-    // one badge twice and nothing else, 126 times over the pool. Which
+    // its cost and its key. `option.label` is not a third source — for an
+    // activated ability it is the cost's symbols, already drawn a few pixels
+    // to the left, and drawing it again was a row saying one badge twice and
+    // nothing else, 126 times over the pool. Which
     // sentence a row *is* is swept over the whole pool by
     // `every_written_row_knows_which_printed_sentence_it_is`.
     match printed {
@@ -2028,39 +2042,6 @@ fn spawn_pager(
         .id();
     commands.entity(row).add_child(says);
     row
-}
-
-/// What a row says: the ability's own printed sentence, or nothing.
-///
-/// Two things have to line up before the sentence can be drawn — the
-/// generated table has to know which sentence it is, and the permanent has to
-/// still carry a card. The words are then [`crate::cardtext::sentence`]'s: the
-/// player's language when its text pairs with the line table, the card's
-/// English Oracle when it does not or has not arrived, which is the ordinary
-/// case offline.
-///
-/// `None` rather than the fallback itself, because the *caller* has to know
-/// which of the two it got: the fallback label is what the ability costs, and
-/// the row draws that again on the right as pips.
-///
-/// The cost is cut off the front of a real sentence for the same reason, and
-/// the row's **own** cost is what licenses the cut: a row with an empty cost
-/// column keeps every word it was given, because a sentence granting an
-/// ability quotes a cost and reads as `prefix: effect` to anything that only
-/// looks. See [`abilitysheet::effect`](baylee_client_core::abilitysheet::effect).
-fn row_text(
-    faces: &crate::cardtext::CardTexts,
-    duel: &Duel,
-    object: ObjectId,
-    option: &crate::abilities::AbilityOption,
-) -> Option<Vec<TextBlock>> {
-    let text = option.printed?;
-    let object = duel.view.as_ref()?.object(object)?;
-    let card = object.rules?.card;
-    let print = crate::cardtext::print_of(object, card);
-    let blocks = crate::cardtext::sentence(Some(faces), card, print, text)?;
-    let blocks = abilitysheet::effect(blocks, option.cost.as_deref());
-    (!blocks.is_empty()).then_some(blocks)
 }
 
 /// Follows the card with the sheet that is already built, and puts the nub

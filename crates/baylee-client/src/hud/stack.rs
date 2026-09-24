@@ -1424,10 +1424,9 @@ fn spawn_stack_entry(
 /// card…` — and that badge is the mark a player recognises a walker's ability
 /// by. Set as letters it is three characters of prose at the front of a
 /// sentence; set as the shape the card draws, it is an **initial**, and what
-/// is left beside it is what the ability does. The two halves come from one
-/// reading in [`baylee_client_core::abilitysheet`] — the badge and the span it
-/// was read from — and the second is handed straight back as what to cut, so
-/// the cost cannot be both drawn and printed, nor dropped without being drawn.
+/// is left beside it is what the ability does. Both halves come from one cut
+/// ([`baylee_client_core::abilitysheet::loyalty_cut`]), so the cost cannot be
+/// both drawn and printed, nor dropped without being drawn.
 ///
 /// Everything else on the stack keeps its whole line. A cost paid in mana is
 /// already a row of marks inside the sentence and has no second shape to
@@ -1441,9 +1440,7 @@ fn spawn_stack_sentence(
 ) -> Entity {
     use baylee_client_core::abilitysheet;
 
-    let initial = abilitysheet::loyalty_initial(&blocks);
-    let drawn = abilitysheet::loyalty_prefix(&blocks).map(str::to_owned);
-    let blocks = abilitysheet::effect(blocks, drawn.as_deref());
+    let (initial, blocks) = abilitysheet::loyalty_cut(blocks);
     let sentence = commands
         .spawn((
             Text::default(),

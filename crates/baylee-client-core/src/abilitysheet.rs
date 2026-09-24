@@ -188,122 +188,112 @@ pub const fn press(one_tap: bool, armed: bool) -> Press {
     }
 }
 
-/// How far into a sentence a cost prefix may begin and still be one.
-///
-/// A printed activation cost is short — `{2}{B}, {T}, Sacrifice this` is
-/// already at the long end of the pool — and a colon further in than this
-/// belongs to the effect rather than to a cost: a sentence that grants an
-/// ability quotes one, and cutting there would leave the row saying what the
-/// *granted* ability does instead of what this one does.
-const COST_PREFIX: usize = 48;
-
-/// A printed line split where a cost *would* end: `(prefix, rest)`.
-///
-/// A guess, and named as one. It is the only reading available to a caller
-/// holding a sentence and nothing else, and it is wrong wherever a sentence
-/// quotes an ability: `Lands you control have "{T}: Add one mana of any
-/// color."` splits at the colon **inside** the quotation, and neither half is
-/// a thing to draw. So nothing acts on it alone — [`effect`] cuts only where
-/// the caller says a cost was drawn, and [`loyalty_split`] only where the
-/// prefix parses as a loyalty cost, which that sentence's does not.
-fn prefix_of(line: &str) -> Option<(&str, &str)> {
-    let at = line.find(": ")?;
-    if at >= COST_PREFIX {
-        return None;
-    }
-    let rest = line[at + 2..].trim();
-    if rest.is_empty() {
-        return None;
-    }
-    Some((&line[..at], rest))
+/// A row's printed sentence, cut into the cost its column draws and the words
+/// it draws beside it.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Cut {
+    /// The cost as the card prints it, in the player's language when the
+    /// sentence is theirs: `{1}, {T}, opfere dieses Artefakt`. A walker's is
+    /// its badge as a `{L…}` token. `None` when the sentence is drawn whole
+    /// and the row has no column.
+    pub head: Option<String>,
+    /// What the ability does: the sentence after its cost, then any reminder.
+    pub blocks: Vec<TextBlock>,
 }
 
-/// The loyalty badge a printed line **begins** with, if it begins with one.
+/// Where a printed sentence gives up its cost, if the ability costs it.
 ///
-/// A planeswalker's ability is printed `+2: Look at the top card…`, and that
-/// cost is a shape rather than a word: a line that sets it as letters loses
-/// the one mark a player recognises a walker's ability by. So it comes off
-/// the front of the sentence and is drawn as the initial the card draws it
-/// as, and [`effect`] takes the rest.
+/// The owner's rule for the sheet is the card's own words — *„nicht custom
+/// texte für abilities verwenden, sondern die echten texte von skryfall"* —
+/// and it holds for the cost as well: the column is the head of the printed
+/// sentence ([`baylee_cardtext::split_cost`]) and never a wording of the
+/// ability's [`Cost`] this client composes.
 ///
-/// `None` for everything else, which is nearly everything. The narrowness is
-/// [`manapip::printed_loyalty`]'s, and the prefix asked about is exactly the
-/// one [`effect`] is then handed, so the two answers cannot disagree.
+/// `key` is what the ability costs, as the engine has it: its mana and its
+/// tap or untap symbol in Scryfall's spelling (`{2}, {T}`), or a walker's
+/// badge (`{L+2}`). It **licenses** the cut and is not drawn. A head printing
+/// a symbol the ability does not cost is some other sentence's, and the
+/// sentence is drawn whole rather than put a wrong cost in the column
+/// ([`baylee_cardtext::licensed`]). A head in words alone is licensed only
+/// by a key with no symbols, which is every `Sacrifice a Forest`: an ability
+/// that costs mana or a tap prints it as a symbol, so a head with none beside
+/// a key with some is a colon inside the effect.
 ///
-/// [`manapip::printed_loyalty`]: crate::manapip::printed_loyalty
-#[must_use]
-pub fn loyalty_initial(blocks: &[TextBlock]) -> Option<crate::manapip::Loyalty> {
-    loyalty_split(blocks).map(|(_, badge)| badge)
-}
-
-/// The same reading, as the text the badge was drawn *from*.
+/// Drawn whole, with no column:
 ///
-/// [`effect`] cuts only what its caller drew, and on the stack the thing
-/// drawn is this badge — so the caller has to be able to name the prefix it
-/// took, rather than assert that it took one. The two come out of one split
-/// for that reason: a reader that found the badge here and the prefix
-/// somewhere else could drop a different span than it drew.
-#[must_use]
-pub fn loyalty_prefix(blocks: &[TextBlock]) -> Option<&str> {
-    loyalty_split(blocks).map(|(prefix, _)| prefix)
-}
-
-/// The one reading behind [`loyalty_initial`] and [`loyalty_prefix`].
-fn loyalty_split(blocks: &[TextBlock]) -> Option<(&str, crate::manapip::Loyalty)> {
-    let TextBlock::Rules(first) = blocks.first()? else {
-        return None;
-    };
-    let (prefix, _) = prefix_of(first)?;
-    Some((prefix, crate::manapip::printed_loyalty(prefix)?))
-}
-
-/// The half of a printed ability that says what it *does*.
+/// - a sentence with no cost colon ahead of its reminder or quotation, which
+///   is every keyword line (`Equip {1}`) and every sentence that grants an
+///   ability in quotes (`Lands you control have "{T}: Add one mana…"`);
+/// - a colon with nothing after it, because a row with no words is worse than
+///   a row that says its cost twice;
+/// - a walker's badge that is not the one the ability costs, and a mana head
+///   on a walker's line.
 ///
-/// A row of the sheet draws the cost on the right as pips, so the sentence on
-/// the left must not repeat it: the printed text of `{2}, {T}: Draw a card.`
-/// is the whole ability, and a row reading "{2}, {T}: Draw a card" beside a
-/// `{2}, {T}` column says the same thing twice in one line.
-///
-/// **A row cuts only what it drew.** `drawn` is the cost the caller put in a
-/// column of its own — the sheet's pips, the stack's loyalty badge — and with
-/// `None` the sentence is returned whole, because a row that dropped a prefix
-/// it drew no badge for would lose it outright. That is the rule and not a
-/// precaution: a sentence granting an ability quotes a cost, so
-/// `Lands you control have "{T}: Add one mana of any color."` reads as a
-/// prefix and an effect to any reader that only looks, and cutting it leaves
-/// a row saying `Add one mana of any color."` about a permanent that does
-/// nothing of the kind. The Chromatic Lantern's own row drew exactly that,
-/// in every language, until this argument existed.
-///
-/// The string is evidence and is deliberately **not compared** to what the
-/// line prints. The sheet's column is built from the ability's [`Cost`] and
-/// is translated — `{T}, Sacrifice this` where the card prints
-/// `{T}, Sacrifice this artifact` — so equality would refuse nearly every
-/// row it was meant to allow. What the caller is asserting by passing it is
-/// that the cost is already drawn *somewhere else on this row*, which is the
-/// whole of what licenses the cut.
-///
-/// Only the first block is ever cut, and only at a colon near its start — the
-/// reminder text after it is a different block and never carries the cost.
-/// Everything else is returned untouched, which is what a triggered ability,
-/// a keyword and a granted ability all want.
+/// Only the first block is ever cut. The reminder after it is a block of its
+/// own and never carries the cost.
 ///
 /// [`Cost`]: baylee_cards_dsl::Cost
 #[must_use]
-pub fn effect(blocks: Vec<TextBlock>, drawn: Option<&str>) -> Vec<TextBlock> {
+pub fn cut(blocks: Vec<TextBlock>, key: &str) -> Cut {
     let mut blocks = blocks;
-    if drawn.is_none() {
-        return blocks;
-    }
     let Some(TextBlock::Rules(first)) = blocks.first_mut() else {
-        return blocks;
+        return Cut { head: None, blocks };
     };
-    let Some((_, rest)) = prefix_of(first) else {
-        return blocks;
+    let Some(split) = baylee_cardtext::split_cost(first) else {
+        return Cut { head: None, blocks };
     };
-    let rest = rest.to_string();
-    *first = rest;
-    blocks
+    if split.body.is_empty() {
+        return Cut { head: None, blocks };
+    }
+    let badge = key_badge(key);
+    let head = match crate::manapip::printed_loyalty(split.head) {
+        Some(printed) => (badge == Some(printed)).then(|| key.to_string()),
+        None => (badge.is_none() && licensed(split.head, key)).then(|| split.head.to_string()),
+    };
+    if head.is_some() {
+        *first = split.body.to_string();
+    }
+    Cut { head, blocks }
+}
+
+/// [`baylee_cardtext::licensed`], and a head in words only for a key in words.
+fn licensed(head: &str, key: &str) -> bool {
+    let spelled = baylee_cardtext::symbols(head).is_empty();
+    baylee_cardtext::licensed(head, key) && (!spelled || baylee_cardtext::symbols(key).is_empty())
+}
+
+/// The badge a `{L…}` key names, or `None` for a key that is a cost in mana.
+fn key_badge(key: &str) -> Option<crate::manapip::Loyalty> {
+    let body = key.strip_prefix('{')?.strip_suffix('}')?;
+    match crate::manapip::symbol(body)? {
+        crate::manapip::Pip::Loyalty(badge) => Some(badge),
+        _ => None,
+    }
+}
+
+/// A walker's line on the stack, as its badge and the words after it.
+///
+/// The stack has no key to license a cut with — it draws what resolves, not
+/// what was offered — so it takes only the one head that licenses itself: a
+/// badge ([`crate::manapip::printed_loyalty`]), whose strictness refuses
+/// `{2}{B}, {T}` and `Sacrifice a land` alike. Everything else keeps its
+/// whole line: a cost paid in mana is already a row of marks inside the
+/// sentence, and a trigger has no cost at all.
+#[must_use]
+pub fn loyalty_cut(blocks: Vec<TextBlock>) -> (Option<crate::manapip::Loyalty>, Vec<TextBlock>) {
+    let mut blocks = blocks;
+    let Some(TextBlock::Rules(first)) = blocks.first_mut() else {
+        return (None, blocks);
+    };
+    let Some(split) = baylee_cardtext::split_cost(first).filter(|split| !split.body.is_empty())
+    else {
+        return (None, blocks);
+    };
+    let Some(badge) = crate::manapip::printed_loyalty(split.head) else {
+        return (None, blocks);
+    };
+    *first = split.body.to_string();
+    (Some(badge), blocks)
 }
 
 #[cfg(test)]
@@ -314,110 +304,180 @@ mod tests {
         TextBlock::Rules(text.to_string())
     }
 
+    fn head(text: &str, key: &str) -> Option<String> {
+        cut(vec![rules(text)], key).head
+    }
+
     #[test]
     fn a_row_says_what_an_ability_does_and_not_what_it_costs_twice() {
-        // The cost column carries `{2}, {T}`; the sentence must not.
+        // The column carries the printed `{2}, {T}`; the sentence does not.
         assert_eq!(
-            effect(vec![rules("{2}, {T}: Draw a card.")], Some("{2}, {T}")),
-            vec![rules("Draw a card.")]
+            cut(vec![rules("{2}, {T}: Draw a card.")], "{2}, {T}"),
+            Cut {
+                head: Some("{2}, {T}".into()),
+                blocks: vec![rules("Draw a card.")],
+            }
         );
-        // A trigger has no cost, so there is no column and nothing to cut —
-        // and the row keeps every word of itself for that reason rather than
-        // because the sentence happens to have no colon in it.
-        let trigger = "Whenever this creature attacks, draw a card.";
-        assert_eq!(effect(vec![rules(trigger)], None), vec![rules(trigger)]);
-        // The reminder is its own block and is never the one cut.
+        // In the card's own words, whichever language they are in: the head
+        // is the printing's, not a wording of the cost.
         assert_eq!(
-            effect(
-                vec![
-                    rules("Cycling {2}"),
-                    TextBlock::Reminder("{2}, Discard this card: Draw a card.".into()),
-                ],
-                Some("{2}")
+            head(
+                "{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.",
+                "{1}, {T}"
             ),
-            vec![
-                rules("Cycling {2}"),
-                TextBlock::Reminder("{2}, Discard this card: Draw a card.".into()),
-            ]
+            Some("{1}, {T}, opfere dieses Artefakt".into())
+        );
+        assert_eq!(
+            head("Sacrifice a Forest: Add {G}{G}.", ""),
+            Some("Sacrifice a Forest".into()),
+            "a cost printed in words is licensed by a key with no symbols"
+        );
+        // A keyword line has no cost colon ahead of its reminder, so it keeps
+        // every word and the row draws no column.
+        let cycling = vec![
+            rules("Cycling {2}"),
+            TextBlock::Reminder("({2}, Discard this card: Draw a card.)".into()),
+        ];
+        assert_eq!(
+            cut(cycling.clone(), "{2}"),
+            Cut {
+                head: None,
+                blocks: cycling
+            }
         );
     }
 
-    /// The defect this argument exists for, in the two languages it was
-    /// measured in.
-    ///
-    /// A sentence that grants an ability quotes a cost, so it reads as
-    /// `prefix: effect` to anything that only looks — and the prefix is half
-    /// a clause about *other* permanents while the effect keeps the quotation
-    /// mark that closed it. Every row whose cost column is empty is safe from
-    /// it by construction, which is every granted row, every trigger and
-    /// every static.
+    /// Both branches of the licence: a head the ability's own cost accounts
+    /// for, and one it does not.
+    #[test]
+    fn a_head_printing_a_symbol_the_ability_does_not_cost_is_not_its_column() {
+        let line = "{R}, {T}: This deals 1 damage to any target.";
+        assert_eq!(head(line, "{R}, {T}"), Some("{R}, {T}".into()));
+        let refused = cut(vec![rules(line)], "{W}, {T}");
+        assert_eq!(refused.head, None, "a {{R}} head is some other line's");
+        assert_eq!(refused.blocks, vec![rules(line)], "drawn whole");
+        // Old printings brace part of a cost and spell the rest (`6, {T}`).
+        assert_eq!(
+            head("6, {T}: Return target permanent.", "{6}, {T}"),
+            Some("6, {T}".into())
+        );
+        // A tap the ability does not cost.
+        assert_eq!(head("{T}: Add {C}.", ""), None);
+        // Words before a colon, for an ability that costs symbols: the colon
+        // is inside the effect.
+        assert_eq!(head("Choose one: Draw a card.", "{2}"), None);
+        assert_eq!(
+            head("Choose one: Draw a card.", ""),
+            Some("Choose one".into())
+        );
+    }
+
+    /// The defect the licence replaced a guard for, in the two languages it
+    /// was measured in. A sentence that grants an ability quotes a cost, and
+    /// the colon inside the quotation is not this sentence's.
     #[test]
     fn a_sentence_that_grants_an_ability_is_never_cut_at_the_quoted_cost() {
         for granting in [
             "Lands you control have \"{T}: Add one mana of any color.\"",
             "L\u{e4}nder, die du kontrollierst, haben \u{201e}{T}: \
              Erzeuge ein Mana einer beliebigen Farbe.\"",
+            "Target creature gains an ability until end of turn: \"{T}: Add {G}.\"",
         ] {
-            // What the row would have drawn, had it cut: the tail of the
-            // quotation, with the closing mark still on it.
-            let cut = effect(vec![rules(granting)], Some("{T}"));
-            assert_ne!(cut, vec![rules(granting)], "the guess does split it");
-            // And what it draws, because a static ability has no cost column.
-            assert_eq!(effect(vec![rules(granting)], None), vec![rules(granting)]);
+            assert_eq!(
+                cut(vec![rules(granting)], "{T}"),
+                Cut {
+                    head: None,
+                    blocks: vec![rules(granting)]
+                },
+                "{granting}"
+            );
         }
     }
 
+    /// No cap on how long a cost may be. Gemstone Mine's German head is fifty
+    /// bytes, and the 48-byte cap this replaced drew it as an effect.
     #[test]
-    fn a_colon_deep_in_a_sentence_is_not_a_cost() {
-        let quoted = "Target creature gains an ability until end of turn: \
-                      \"{T}: Add {G}.\"";
+    fn a_long_printed_cost_is_still_a_cost() {
+        let mine = "{T}, entferne eine Minenmarke von der Edelsteinmine: \
+                    Erzeuge ein Mana einer beliebigen Farbe.";
         assert_eq!(
-            effect(vec![rules(quoted)], Some("{2}")),
-            vec![rules(quoted)]
+            head(mine, "{T}"),
+            Some("{T}, entferne eine Minenmarke von der Edelsteinmine".into())
         );
         // Nothing after the colon is nothing to say, so the row keeps the
         // whole line rather than going blank.
         assert_eq!(
-            effect(vec![rules("{T}: ")], Some("{T}")),
-            vec![rules("{T}: ")]
+            cut(vec![rules("{T}: ")], "{T}"),
+            Cut {
+                head: None,
+                blocks: vec![rules("{T}: ")]
+            }
         );
-        assert!(effect(Vec::new(), Some("{T}")).is_empty());
+        assert_eq!(cut(Vec::new(), "{T}").blocks, Vec::new());
     }
 
-    /// A walker's line comes apart in two, with nothing said twice and
-    /// nothing lost: the badge off the front, the sentence out of [`effect`].
+    /// A walker's head is its badge, licensed only by the same badge, in `:`
+    /// and in the full-width `：` a Japanese printing uses.
+    #[test]
+    fn a_walkers_head_is_its_badge_and_only_its_own() {
+        let line = "+2: Look at the top card of target player's library.";
+        assert_eq!(
+            cut(vec![rules(line)], "{L+2}"),
+            Cut {
+                head: Some("{L+2}".into()),
+                blocks: vec![rules("Look at the top card of target player's library.")],
+            }
+        );
+        assert_eq!(
+            head("\u{2212}1: Draw a card.", "{L-1}"),
+            Some("{L-1}".into())
+        );
+        assert_eq!(
+            head("+2：プレイヤー１人を対象とする。", "{L+2}"),
+            Some("{L+2}".into())
+        );
+        assert_eq!(head(line, "{L-1}"), None, "a different badge");
+        assert_eq!(head(line, ""), None, "a badge on a line that costs mana");
+        assert_eq!(
+            head("{2}, {T}: Draw a card.", "{L+2}"),
+            None,
+            "mana on a walker"
+        );
+    }
+
+    /// The stack's reading: a badge off the front, the sentence after it, and
+    /// nothing else ever cut.
     #[test]
     fn a_walkers_line_gives_up_its_badge_before_it_is_printed() {
-        let line = vec![rules(
+        let (badge, blocks) = loyalty_cut(vec![rules(
             "+2: Look at the top card of target player's library.",
-        )];
-        let badge = loyalty_initial(&line).expect("a badge");
+        )]);
+        let badge = badge.expect("a badge");
         assert_eq!(badge.tick, crate::manapip::Tick::Up);
         assert_eq!(badge.caption(), "2");
-        // The prefix the badge was read from is the span the sentence gives
-        // up, which is what lets the stack cut exactly what it drew.
-        let drawn = loyalty_prefix(&line).expect("a prefix").to_string();
-        assert_eq!(drawn, "+2");
         assert_eq!(
-            effect(line, Some(&drawn)),
+            blocks,
             vec![rules("Look at the top card of target player's library.")]
         );
-        // The printed minus, which is what an oracle line actually carries.
-        let down = loyalty_initial(&[rules("\u{2212}1: Draw a card.")]).expect("a badge");
-        assert_eq!(down.tick, crate::manapip::Tick::Down);
-        assert_eq!(down.caption(), "1");
-        // Everything that is not a walker's cost keeps its whole prefix, and
-        // a reminder block is never the one read.
+        let (down, _) = loyalty_cut(vec![rules("\u{2212}1: Draw a card.")]);
+        assert_eq!(down.expect("a badge").tick, crate::manapip::Tick::Down);
+        let (wide, _) = loyalty_cut(vec![rules("+2：プレイヤー１人を対象とする。")]);
+        assert!(wide.is_some(), "the full-width colon");
         for other in [
             "{2}, {T}: Draw a card.",
             "Whenever this creature attacks, draw a card.",
             "Cycling {2}",
             "Target creature gains an ability until end of turn: \"{T}: Add {G}.\"",
         ] {
-            assert!(loyalty_initial(&[rules(other)]).is_none(), "{other}");
+            assert_eq!(
+                loyalty_cut(vec![rules(other)]),
+                (None, vec![rules(other)]),
+                "{other}"
+            );
         }
-        assert!(loyalty_initial(&[TextBlock::Reminder("+2: Draw a card.".into())]).is_none());
-        assert!(loyalty_initial(&[]).is_none());
+        let reminder = vec![TextBlock::Reminder("+2: Draw a card.".into())];
+        assert_eq!(loyalty_cut(reminder.clone()), (None, reminder));
+        assert_eq!(loyalty_cut(Vec::new()), (None, Vec::new()));
     }
 
     #[test]

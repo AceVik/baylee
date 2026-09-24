@@ -960,7 +960,12 @@ pub(super) struct ArmedWords {
 /// offering something that has since been withdrawn. The row simply
 /// disappears; the state itself is cleared by the next key or tap, both of
 /// which run the same resolution.
-pub(super) fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWords> {
+pub(super) fn armed_label(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    armed: &crate::Armed,
+) -> Option<ArmedWords> {
     match &armed.deed {
         crate::Deed::Play => duel
             .interaction
@@ -973,17 +978,24 @@ pub(super) fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Opti
                 // price left to quote.
                 cost: None,
             }),
-        // An ability's label already carries its whole cost as prose —
-        // "{T}, Sacrifice this, Pay 1 life" — because most of that cost is
-        // not mana and there are no discs for a sacrifice. Drawing pips
-        // beside it would say the mana half twice.
-        crate::Deed::Ability(action) => super::ability_options(duel, lang, armed.object)?
-            .into_iter()
-            .find(|o| o.action == *action)
-            .map(|o| ArmedWords {
-                text: o.label,
-                cost: None,
-            }),
+        // What the armed ability costs, as the card prints it — the head the
+        // sheet's column draws, in the same words: `{T}, Sacrifice this
+        // artifact`. Most of a cost is not mana and there are no discs for a
+        // sacrifice, so it is the text, and pips beside it would say the mana
+        // half twice. The label, the ability's symbols, only where the card
+        // prints no head for it.
+        crate::Deed::Ability(action) => {
+            let view = duel.view.as_ref()?;
+            super::ability_options(duel, lang, armed.object)?
+                .into_iter()
+                .find(|o| o.action == *action)
+                .map(|o| ArmedWords {
+                    text: crate::abilities::printed_words(Some(texts), view, armed.object, &o)
+                        .and_then(|cut| cut.head)
+                        .unwrap_or(o.label),
+                    cost: None,
+                })
+        }
         // The owner's report: this said "Tap 3, then cast", which is a fact
         // about the client's plan and not about the spell. What a player
         // needs to read before spending a turn's lands is the *price* —

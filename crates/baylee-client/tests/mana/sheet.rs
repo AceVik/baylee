@@ -1026,3 +1026,178 @@ fn a_row_pointing_past_its_card_s_text_has_no_words() {
     assert!(has_words(card, draw));
     assert!(!has_words(card, baylee_view::StackText { line: 2, ..draw }));
 }
+
+/// How a row's printed sentence came apart in the sheet: see
+/// [`every_written_row_draws_its_printed_cost_or_its_whole_sentence`].
+#[derive(Debug, PartialEq, Eq)]
+enum Column {
+    /// The head is the column, licensed by what the ability costs.
+    Head,
+    /// No cost colon ahead of the reminder or quotation: drawn whole.
+    Whole,
+    /// A cost colon whose head the ability's cost does not license.
+    Refused,
+}
+
+/// The sweep's question, taken out so that its failing branch can be seen.
+fn column(sentence: &[baylee_client_core::card_face::TextBlock], key: &str) -> Column {
+    use baylee_client_core::card_face::TextBlock;
+    let colon = match sentence.first() {
+        Some(TextBlock::Rules(first)) => {
+            baylee_cardtext::split_cost(first).is_some_and(|split| !split.body.is_empty())
+        }
+        _ => false,
+    };
+    match (abilitysheet::cut(sentence.to_vec(), key).head, colon) {
+        (Some(_), _) => Column::Head,
+        (None, false) => Column::Whole,
+        (None, true) => Column::Refused,
+    }
+}
+
+/// Every written row draws the printed head of its own sentence as its cost,
+/// or its whole sentence and no column — and **never** a sentence whose cost
+/// colon the ability's own cost does not license.
+///
+/// The column used to be the ability's `Cost` in seventeen composed wordings,
+/// which the owner struck: *„nicht custom texte für abilities verwenden,
+/// sondern die echten texte von skryfall"*. It is now the head of the printed
+/// sentence, cut where the ability's symbols license it
+/// (`abilitysheet::cut`). A refused row still draws — whole, with an empty
+/// column — so a refusal is not a blank; it is either the line table pointing
+/// at the wrong sentence, or the key spelling a symbol differently from
+/// Scryfall (`ManaCost`'s `Display` against `cardtext::symbols`), and either
+/// would drop the column from every row of its kind in silence. Asked offline,
+/// of the compiled English Oracle.
+///
+/// The rows drawn whole are the ones with no cost colon at all, which is what
+/// a keyword line is (`Equip {1}`, whose only colon is in its reminder):
+/// listed by name in [`DRAWN_WHOLE`], equality both ways, so a row that lost
+/// its column shows up as a new name and a row that gained one as a stale
+/// entry.
+#[test]
+fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
+    let cards = candidates();
+    let mut heads = 0usize;
+    let mut whole: Vec<String> = Vec::new();
+    let mut refused: Vec<String> = Vec::new();
+
+    for batch in cards.chunks(BATCH) {
+        let Some(Seated {
+            view, interaction, ..
+        }) = seated(batch)
+        else {
+            continue;
+        };
+        for def in batch {
+            let Some(object) = view
+                .battlefield
+                .iter()
+                .find(|o| o.card.as_ref().is_some_and(|c| c.index == def.index))
+            else {
+                continue;
+            };
+            let card = object
+                .rules
+                .expect("a card on the battlefield names what it prints")
+                .card;
+            for option in abilities::options(Lang::En, &view, &interaction, object.id) {
+                if option.pour.is_some() {
+                    continue;
+                }
+                let Some(printed) = option.printed else {
+                    continue;
+                };
+                let sentence = baylee_client::cardtext::sentence(None, card, None, printed)
+                    .expect("every written row has words offline");
+                let key = option.cost.as_deref().unwrap_or_default();
+                let first = sentence.first().map(|b| b.text().to_string());
+                match column(&sentence, key) {
+                    Column::Head => heads += 1,
+                    Column::Whole => whole.push(def.name().to_string()),
+                    Column::Refused => refused.push(format!(
+                        "{}: key `{key}` against `{}`",
+                        def.name(),
+                        first.unwrap_or_default()
+                    )),
+                }
+            }
+        }
+    }
+    whole.sort();
+    whole.dedup();
+
+    println!(
+        "cost column: {heads} printed heads, {} cards drawn whole, {} refused",
+        whole.len(),
+        refused.len()
+    );
+    println!("drawn whole: {whole:?}");
+    assert!(
+        heads >= SHEET_FLOOR,
+        "only {heads} rows drew a printed head, under the floor of {SHEET_FLOOR}"
+    );
+    assert!(
+        refused.is_empty(),
+        "{} rows print a cost their ability does not cost:\n{}",
+        refused.len(),
+        refused.join("\n")
+    );
+    let named: Vec<&str> = DRAWN_WHOLE.to_vec();
+    assert_eq!(
+        whole, named,
+        "the rows drawn whole, with no cost column, are the keyword lines named here"
+    );
+}
+
+/// Cards whose written row has no cost colon in its sentence, and is drawn
+/// whole with no column. Held equal by the sweep above.
+///
+/// Every one a keyword line whose cost stands after the keyword and whose
+/// only colon is in its reminder: Equip on sixteen of them, Level up
+/// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D).
+/// Measured 24.09.2026 over the compiled English Oracle: 1302 rows drew a
+/// printed head, these 19 cards drew whole, none was refused.
+const DRAWN_WHOLE: &[&str] = &[
+    "Basilisk Collar",
+    "Bonesplitter",
+    "Fireshrieker",
+    "Hexdrinker",
+    "Leonin Scimitar",
+    "Lightning Greaves",
+    "Loxodon Warhammer",
+    "Nettlecyst",
+    "Neurok Hoversail",
+    "No-Dachi",
+    "Rabbit Battery",
+    "Shuko",
+    "Skullclamp",
+    "Slagwurm Armor",
+    "Swiftfoot Boots",
+    "Sword of Hearth and Home",
+    "U.S.S. Enterprise-D, Galaxy-Class",
+    "Vulshok Battlegear",
+    "Vulshok Morningstar",
+];
+
+/// The injection for the sweep above: a key that does not license the head
+/// is refused, a sentence with no cost colon is drawn whole, and a head that
+/// is licensed comes off — so a sweep that found nothing refused was asking a
+/// question that can be answered each way.
+#[test]
+fn a_row_whose_key_does_not_license_its_head_is_refused() {
+    let card = by_name("Mind Stone");
+    let at = baylee_view::StackText {
+        face: 0,
+        line: 1,
+        of: 2,
+    };
+    let sentence =
+        baylee_client::cardtext::sentence(None, card, None, at).expect("Mind Stone's draw line");
+    assert_eq!(column(&sentence, "{1}, {T}"), Column::Head);
+    assert_eq!(column(&sentence, "{W}, {T}"), Column::Refused);
+    let equip = vec![baylee_client_core::card_face::TextBlock::Rules(
+        "Equip {1}".into(),
+    )];
+    assert_eq!(column(&equip, "{1}"), Column::Whole);
+}

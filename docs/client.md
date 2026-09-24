@@ -816,9 +816,35 @@ the denominator — a mana ability does not use the stack (CR 605.1), and
 `LineShape::stackable` is the one place that says so. Two lines with the same cost are separated by what they
 *make* (`lines::mana_fits`, the same job `loyalty_head` does for a walker);
 Yavimaya Coast's `{T}: Add {C}` and `{T}: Add {G} or {U}` are why. The two
-taps that are printed nowhere keep the composed label and always will: the
-CR 305.6 shortcut, which a Bayou's text does not mention, and a granted
-ability, which the Chromatic Lantern prints and the land under it does not.
+taps that are printed nowhere keep a composed label: the CR 305.6 shortcut,
+which a Bayou's text does not mention, and a granted ability, which the
+Chromatic Lantern prints and the land under it does not.
+
+**The cost column is the sentence's own head** (#212). A row draws its cost on
+the left and what the ability does beside it, and both halves come out of the
+one printed sentence: `abilitysheet::cut` splits it at its cost colon
+(`baylee_cardtext::split_cost`: the first `:` or `：` ahead of any reminder or
+quotation, with no length cap), and the head is the column, in the card's
+words and the player's language: `{1}, {T}, opfere dieses Artefakt`. The
+ability's own cost licenses the cut and is never drawn beside a sentence.
+`AbilityOption::cost` holds only its symbols (`{2}, {T}`, or a walker's
+`{L+2}`). A head that prints a symbol the ability does not cost belongs to some
+other sentence, and a head in words alone is licensed only by a cost with no
+symbols, so a colon inside an effect never passes for a cost. A sentence with
+no cost colon, which is every keyword line (`Equip {1}`, `Level up {1}`,
+`Reconfigure {R}`, `Station`), is drawn whole with an empty column. Only a row
+the card prints no sentence for draws the ability's symbols there.
+
+This replaced seventeen `Phrase::Cost*` wordings of `CostPart` (`Sacrifice
+this`, where the card prints `Sacrifice this artifact`) and a cut at the first
+`: ` under 48 bytes, which drew Gemstone Mine's fifty-byte German cost as an
+effect. `every_written_row_draws_its_printed_cost_or_its_whole_sentence`
+sweeps the pool offline against the compiled English Oracle: 1302 rows draw a
+printed head, 19 cards draw whole (named in the test and held equal both
+ways), and none is refused. The armed shelf draws the same head
+(`abilities::printed_words`). The stack cuts only a walker's badge
+(`abilitysheet::loyalty_cut`), because it has no cost to license any other
+cut with.
 
 **The text itself has two doors, and the gateway is the first.**
 `crates/baylee-client/src/cardtext.rs` asks `GET /catalog/text?lang=…&ids=…`

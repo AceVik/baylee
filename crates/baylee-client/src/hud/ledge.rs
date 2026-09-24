@@ -801,6 +801,7 @@ pub fn sync_ledge(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
+    texts: Res<crate::cardtext::CardTexts>,
     windows: Query<&Window>,
 ) {
     let Ok((shelf, standing)) = shelf.single() else {
@@ -952,7 +953,7 @@ pub fn sync_ledge(
         .armed
         .as_ref()
         .filter(|_| !over)
-        .and_then(|a| super::overlay::armed_label(&duel, lang, a));
+        .and_then(|a| super::overlay::armed_label(&duel, lang, &texts, a));
     let sentence = revision
         .link_note
         .map(|note| (note.text(lang).to_string(), true))

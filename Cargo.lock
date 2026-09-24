@@ -828,6 +828,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cardtext",
  "baylee-client-core",
  "baylee-core",
  "baylee-engine",

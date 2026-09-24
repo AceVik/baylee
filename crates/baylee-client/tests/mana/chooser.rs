@@ -64,10 +64,10 @@ fn a_permanent_offers_exactly_what_it_can_do_and_never_the_same_tap_twice() {
 
 /// A permanent whose ability is not a mana ability at all.
 ///
-/// The label is the part worth pinning. `abilities::options` could only ever
-/// say "Ability 1" for one of these, which is a label a player has to count
-/// out on the card — and the chooser it is drawn into exists precisely so
-/// they do not have to.
+/// Named by what it costs, which `abilities::options` once could not do: it
+/// said "Ability 1", a label a player has to count out on the card. The cost
+/// a player reads is the card's own printed head; the label keeps only the
+/// symbols, for a row the card prints no sentence for.
 #[test]
 fn a_non_mana_ability_is_named_by_what_it_costs() {
     use baylee_client::abilities;
@@ -92,7 +92,14 @@ fn a_non_mana_ability_is_named_by_what_it_costs() {
         mire,
     );
     assert_eq!(options.len(), 1, "{options:?}");
-    assert_eq!(options[0].label, "{T}, Sacrifice this, Pay 1 life");
+    assert_eq!(options[0].label, "{T}");
+    let words = abilities::printed_words(None, table.view(), mire, &options[0])
+        .expect("the fetchland prints this ability");
+    assert_eq!(
+        words.head.as_deref(),
+        Some("{T}, Pay 1 life, Sacrifice this land"),
+        "the card's own cost, in its own order and words"
+    );
     assert_eq!(
         options[0].action,
         PlayerAction::ActivateAbility {
