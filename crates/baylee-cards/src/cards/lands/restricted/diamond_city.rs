@@ -18,8 +18,11 @@ use baylee_cards_dsl::prelude::*;
 // creature. Activate only if two or more creatures entered the battlefield
 // under your control this turn." — no effect takes a counter off the source
 // and puts it on a target (`AddCounter` only adds, `DrainAllCountersIntoSelf`
-// is the only counter-removing effect), and no `Condition` counts permanents
-// that entered the battlefield this turn.
+// is the only counter-removing effect). The gate is nearly sayable and not
+// quite: `Condition::ControlCount` over `Filter::EnteredThisTurn` counts the
+// creatures that entered this turn *and are still here*, where the card
+// counts arrivals — two creatures that entered, one of which has since died,
+// are "two or more" on the card and one on that filter.
 
 card!(
     index = index::DIAMOND_CITY,
@@ -27,7 +30,7 @@ card!(
     scryfall_id = "3e9bd49a-e9f1-4543-b04a-777a9e5a55ec",
     faces = &[face!(name = "Diamond City", types = TypeSet::LAND,),],
     coverage = Coverage::Partial(
-        "no CounterKind variant for a shield counter (CR 122.1c), no effect that moves a counter from the source onto a target, and no Condition counting permanents that entered this turn — the land enters with no counter and its third ability is not written"
+        "no CounterKind variant for a shield counter (CR 122.1c) and no effect that moves a counter from the source onto a target, so the land enters with no counter and its third ability is not written; its gate would also need a count of the creatures that entered this turn, where Condition::ControlCount over Filter::EnteredThisTurn counts only those still on the battlefield"
     ),
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)])],
 );

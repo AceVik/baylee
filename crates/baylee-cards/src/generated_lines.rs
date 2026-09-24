@@ -23249,8 +23249,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Cathedral of War
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
