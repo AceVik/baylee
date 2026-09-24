@@ -844,7 +844,12 @@ did not count: the client's compiled Oracle, which `refresh-oracle` can move
 without a view bump. `cardtext::sentence` refuses a face whose count differs
 (`a_line_counted_against_other_text_draws_nothing`) — an index merely out of
 range is caught by anyone, but one that is in range and off by one is shown to
-the player as precise text, which is worse than `+1`. A translation that
+the player as precise text, which is worse than `+1`. Only the stack can meet
+the refusal, because only its coordinate is the host's; the ability sheet and
+the cast chooser read this build's own line table. On a refusal the stack
+places the ability by its `AbilityRef` in that same table (`stack_sentence`),
+so the row still reads the ability's own sentence; an entry with no
+`AbilityRef` keeps its source's name. A translation that
 joins two lines is no longer this guard's case: `baylee_cardtext::align`
 places the printed lines against the Oracle, and one that does not pair
 draws the Oracle's line.

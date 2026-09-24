@@ -67,6 +67,7 @@ fn an_ability_on_the_stack_borrows_its_sources_picture() {
             source: ObjectId::new(1, 0),
             text: None,
             rules: None,
+            ability: Some(AbilityRef::new(CardIndex::new(33), 0)),
         }
     );
     assert_eq!(

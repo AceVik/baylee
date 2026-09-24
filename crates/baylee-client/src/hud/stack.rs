@@ -1871,14 +1871,37 @@ fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
 ///
 /// The face is the host's answer and not the source's current one, for
 /// the reason `baylee_view::StackText::face` gives.
+///
+/// The line is the host's too, counted in the host's build of the card
+/// text, and `sentence` refuses it where this build counts the face
+/// differently. The entry's [`AbilityRef`](baylee_core::ids::AbilityRef)
+/// then places the ability in this build's own line table, as the ability
+/// sheet always does — the right sentence and not a neighbour of it, which
+/// is what a line counted in other text would point at. Only an entry with
+/// no such handle is left to its source's name.
 pub(super) fn stack_sentence(
     item: &baylee_client_core::board::StackItem,
     faces: &FaceCtx<'_>,
 ) -> Option<Vec<TextBlock>> {
-    let baylee_client_core::board::StackKind::Ability { text, rules, .. } = item.kind else {
+    let baylee_client_core::board::StackKind::Ability {
+        text,
+        rules,
+        ability,
+        ..
+    } = item.kind
+    else {
         return None;
     };
-    crate::cardtext::sentence(Some(faces.texts), rules?.card, text?)
+    let (card, text) = (rules?.card, text?);
+    crate::cardtext::sentence(Some(faces.texts), card, text).or_else(|| {
+        let own = baylee_cards::lines::ability_line(card, usize::from(text.face), ability?.index)?;
+        let at = baylee_view::StackText {
+            face: text.face,
+            line: own.line,
+            of: own.of,
+        };
+        crate::cardtext::sentence(Some(faces.texts), card, at)
+    })
 }
 
 /// What a **queued** ability row is headed, which is not its source's name.
@@ -2394,6 +2417,88 @@ mod tests {
             mode: &mode,
             settings: &settings,
             view: Some(&view),
+        };
+        assert!(queued_ability_line(&board.stack[0], &faces).is_none());
+        assert_eq!(
+            heading(&board.stack[0], false, "Sheoldred".to_string(), &faces),
+            "Sheoldred"
+        );
+    }
+
+    /// One Sheoldred trigger on the stack whose line the host counted in
+    /// other card text: line 0 of four, where this build prints her face in
+    /// three.
+    fn a_skewed_trigger(
+        ability: Option<baylee_core::ids::AbilityRef>,
+    ) -> (baylee_client_core::BoardModel, PlayerView) {
+        use baylee_client_core::board::Openings;
+        use baylee_client_core::test_support::{ViewBuilder, printed, token};
+
+        let card = crate::cardtext::fixture::card("Sheoldred, the Apocalypse");
+        let mut trigger = token(30, 0, "Sheoldred", 0, 0);
+        trigger.card = None;
+        trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(7, 0),
+            ability,
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
+            text: Some(baylee_view::StackText {
+                face: 0,
+                line: 0,
+                of: 4,
+            }),
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![crate::cardtext::fixture::showing(
+                    printed(7, 0, "Sheoldred", 7),
+                    card,
+                )],
+            )
+            .with_stack(vec![trigger])
+            .build();
+        let board = baylee_client_core::BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| 800.0,
+            &[],
+            crate::cardart::registry(),
+        );
+        (board, view)
+    }
+
+    /// A host built against other card text sends a line this build would
+    /// read as the neighbouring sentence. The entry's `AbilityRef` places the
+    /// trigger in this build's own line table instead, so the row reads the
+    /// sentence the ability is — in German here, since that pairs — and not
+    /// its source's name, nor Deathtouch, which is what line 0 is here.
+    #[test]
+    fn a_line_counted_in_other_text_is_placed_by_the_ability_instead() {
+        let card = crate::cardtext::fixture::card("Sheoldred, the Apocalypse");
+        let index = (0..16)
+            .find(|&i| baylee_cards::lines::ability_line(card, 0, i).is_some_and(|l| l.line == 2))
+            .expect("the opponent-draw trigger has a line");
+        let texts = sheoldred_in_german();
+        let (board, view) = a_skewed_trigger(Some(baylee_core::ids::AbilityRef::new(card, index)));
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let faces = FaceCtx {
+            texts: &texts,
+            mode: &mode,
+            settings: &settings,
+            view: Some(&view),
+        };
+        assert_eq!(
+            queued_ability_line(&board.stack[0], &faces).as_deref(),
+            Some("Immer wenn ein Gegner eine Karte zieht, verliert er 2 Lebenspunkte.")
+        );
+
+        // The counter-test: without the handle there is nothing to place it
+        // by, and the row keeps its source's name rather than a guess.
+        let (board, view) = a_skewed_trigger(None);
+        let faces = FaceCtx {
+            view: Some(&view),
+            ..faces
         };
         assert!(queued_ability_line(&board.stack[0], &faces).is_none());
         assert_eq!(

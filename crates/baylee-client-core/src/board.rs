@@ -692,6 +692,12 @@ pub enum StackKind {
         /// The card `text` indexes, which for a copy's ability is the card it
         /// copied and not the source's.
         rules: Option<baylee_view::RulesFace>,
+        /// Which ability of `rules`' card it is, when the source has a card.
+        ///
+        /// `text` is the host's coordinate, counted in the host's build of the
+        /// card text; this is the handle the client's own line table places
+        /// the ability by when the two builds disagree.
+        ability: Option<baylee_core::ids::AbilityRef>,
     },
 }
 
@@ -921,11 +927,12 @@ impl BoardModel {
                         source,
                         text,
                         rules,
-                        ..
+                        ability,
                     }) => StackKind::Ability {
                         source,
                         text,
                         rules,
+                        ability,
                     },
                     _ => StackKind::Spell,
                 };
@@ -962,6 +969,7 @@ impl BoardModel {
                         source,
                         text,
                         rules,
+                        ..
                     } => view.object(source).and_then(|s| {
                         let key = art_of(s, ArtSize::Small, reg)?;
                         let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
