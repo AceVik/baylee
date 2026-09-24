@@ -1170,6 +1170,10 @@ fn lightning_bolt() -> CardIndex {
     card_index("4457ed35-7c10-48c8-9776-456485fdf070")
 }
 
+fn mana_confluence() -> CardIndex {
+    card_index("d0ee5bdc-2b69-4b73-9a20-ffcc18783b29")
+}
+
 /// An Ondu Cleric cast, with its rally trigger asking whether to take the
 /// life it offers.
 ///

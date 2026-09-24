@@ -130,7 +130,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::OpponentsCantCast(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
-        | Modifier::CantLoseLife
+        | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
         | Modifier::OpponentsCantSearch
@@ -612,7 +612,9 @@ mod tests {
                 limit: 1,
             },
             Modifier::PlayersCantLose,
-            Modifier::CantLoseLife,
+            Modifier::CantLoseLife {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+            },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::OpponentsCantSearch,

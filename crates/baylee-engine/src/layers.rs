@@ -571,7 +571,7 @@ fn apply(
         | Modifier::OpponentsCantCast(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
-        | Modifier::CantLoseLife
+        | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
         | Modifier::OpponentsCantSearch

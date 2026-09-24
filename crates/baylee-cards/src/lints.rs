@@ -1436,6 +1436,68 @@ mod tests {
         );
     }
 
+    /// A player relation a continuous effect carries is one the game state
+    /// can answer on its own.
+    ///
+    /// `DrawLimitPerTurn` and `CantLoseLife` say whose draws or whose life,
+    /// relative to the effect's controller, and the engine reads them with
+    /// no resolution in hand (`GameState::draw_limit`,
+    /// `GameState::cant_lose_life`). `Chosen` and `ControllerOfTarget` are
+    /// answered only by a resolution, so there they name nobody: the effect
+    /// would be registered and limit no one. The match on the relation is
+    /// exhaustive so that a new relation has to be sorted into one side.
+    #[test]
+    fn a_continuous_player_relation_is_one_the_state_can_answer() {
+        use crate::dsl::effect::PlayerRel;
+        let mut wrong = Vec::new();
+        let mut seen = 0_usize;
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                let printed = match ability {
+                    AbilityDef::Static(sa) => vec![sa.modifier],
+                    _ => Vec::new(),
+                };
+                let granted = branches(ability)
+                    .into_iter()
+                    .flat_map(|b| b.effects.iter().flat_map(declared_layers))
+                    .map(|(_, modifier)| modifier);
+                for modifier in printed.into_iter().chain(granted) {
+                    let (Modifier::DrawLimitPerTurn { who, .. } | Modifier::CantLoseLife { who }) =
+                        modifier
+                    else {
+                        continue;
+                    };
+                    seen += 1;
+                    let answerable = match who {
+                        PlayerRel::You
+                        | PlayerRel::Opponent
+                        | PlayerRel::EachOpponent
+                        | PlayerRel::EachPlayer => true,
+                        PlayerRel::Chosen | PlayerRel::ControllerOfTarget => false,
+                    };
+                    if !answerable {
+                        wrong.push(format!("{}: {modifier:?}", def.name()));
+                    }
+                }
+            }
+        }
+        // Spirit of the Labyrinth and Everybody Lives!, 2026-09-24: one
+        // through each door, a printed static and a spell's grant.
+        assert!(
+            seen >= 2,
+            "only {seen} player relations found on continuous effects — the \
+             walker has gone blind"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} continuous effect(s) name a player only a resolution can \
+             answer, so they would apply to nobody:\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+    }
+
     /// A mana ability is an activated ability that **could** add mana and
     /// does not target (CR 605.1a).
     ///

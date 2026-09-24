@@ -16648,6 +16648,184 @@ fn everybody_lives_hides_and_arms_every_creature_through_the_opponents_turn() {
     );
 }
 
+/// Everybody Lives!' "Players can't lose life this turn", with the loss
+/// coming from the other seat: the opponent casts both spells after the
+/// instant has resolved, and both hit the opponent.
+///
+/// Vampiric Tutor's "You lose 2 life" is an effect whose `you` is not the
+/// instant's controller. The check used to be keyed on whoever resolved
+/// the loss rather than on who would lose it, so that loss went through
+/// (#244). "Players" is the whole table. The Lightning Bolt is damage, and
+/// damage makes a player lose life (CR 120.3a). The damage is still dealt,
+/// but the loss is what the player can't have; damage was never checked at
+/// all. The Bolt is aimed at its own caster because the instant also gave
+/// every player hexproof, and that shuts out the other target.
+#[test]
+fn everybody_lives_keeps_every_life_total_whoever_resolves_the_loss() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[everybody_lives()])
+        .battlefield(1, &[swamp(), mountain()])
+        .hand(1, &[vampiric_tutor(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, everybody_lives());
+    pass_until(&mut engine, stack_is_empty);
+
+    // Priority passes across an empty stack in p0's main, to the seat
+    // holding both instants.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, vampiric_tutor());
+    cast_with_floating(&mut engine, p1, lightning_bolt());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("just checked")
+    };
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, lightning_bolt()).is_some()
+            && in_graveyard(&engine, p1, vampiric_tutor()).is_some(),
+        "both spells resolved"
+    );
+    assert!(
+        engine.state().journal.entries().iter().any(|e| matches!(
+            e.event,
+            crate::event::GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Player(hit),
+                amount: 3,
+                ..
+            } if hit == p1
+        )),
+        "the Bolt's damage was dealt: only the loss is refused"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "three damage and the Tutor's two life, and not a point of either lost"
+    );
+    assert_eq!(
+        engine.state().per_turn.life_lost,
+        [false, false],
+        "and nobody lost life this turn"
+    );
+}
+
+/// The other half of "Players can't lose life": a player who can't lose
+/// life can't pay it either (CR 119.8, "a cost that involves having that
+/// player pay life can't be paid"). Three pay-life doors, one board, all
+/// after the instant resolves:
+///
+/// - Mana Confluence's "{T}, Pay 1 life" is no longer offered. It is
+///   offered before the instant, which is the control.
+/// - The Black Gate's "pay 3 life or enter tapped" does not ask, because
+///   the payment is not possible. It enters tapped.
+/// - Toxic Deluge's "pay X life" offers X = 0 and nothing above it,
+///   because paying 0 life is always possible (CR 119.4b).
+#[test]
+#[allow(clippy::too_many_lines)] // three payment doors on one board
+fn everybody_lives_leaves_no_life_to_pay() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                mana_confluence(),
+            ],
+        )
+        .hand(0, &[everybody_lives(), the_black_gate(), toxic_deluge()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let confluence = on_battlefield(&engine, p0, mana_confluence()).expect("the Confluence is out");
+    let offered = |engine: &Engine<RegistryLookup>| {
+        let Pending::Priority { legal, .. } = engine.pending() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        legal
+            .abilities
+            .iter()
+            .any(|(source, _)| *source == confluence)
+    };
+    assert!(offered(&engine), "twenty life pays for the Confluence");
+
+    tap_mana_except(&mut engine, p0, confluence);
+    cast_with_floating(&mut engine, p0, everybody_lives());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !offered(&engine),
+        "a player who can't lose life can't pay it, so the ability can't be activated"
+    );
+
+    let gate = in_hand(&engine, p0, the_black_gate()).expect("the Gate is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: gate })
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no pay-or-tap question: there is nothing to pay with, got {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine
+            .state()
+            .object(gate)
+            .expect("the Gate is on the battlefield")
+            .status
+            .contains(Status::TAPPED),
+        "so it enters tapped"
+    );
+
+    cast_with_floating(&mut engine, p0, toxic_deluge());
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the X choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        (min, max),
+        (0, 0),
+        "no life to pay, and paying none is legal"
+    );
+    engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, toxic_deluge()).is_some(),
+        "the Deluge was cast for X = 0 and resolved"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and no life was paid anywhere"
+    );
+}
+
 // oracle_id = "d09c9cba-fdd2-479b-ad5d-d05181c3e3f9"
 
 /// Fierce Guardianship prints "{2}{U} — Instant: If you control a commander, you

@@ -31,15 +31,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::LoseLife { amount, target } => {
             let n = amount2(&amount, state, you, res) as i32;
+            // "Can't lose life" is the door's to answer, for this loss as
+            // for damage.
             for player in super::players_of(target, state, you, res) {
-                // Everybody Lives: the controller can't lose life this turn.
-                let cant = state.effects.iter().any(|fx| {
-                    matches!(fx.modifier, baylee_cards_dsl::Modifier::CantLoseLife)
-                        && fx.controller == you
-                });
-                if cant {
-                    continue;
-                }
                 state.change_life(player, -n, Cause::Effect);
             }
             None
@@ -457,6 +451,51 @@ mod tests {
         deal_to_player(&mut state, source, me(), -2);
         assert_eq!(life(&state, me()), start - 3, "no damage moves no life");
         assert_eq!(state.journal.len(), entries, "and records no event");
+    }
+
+    /// Damage to a player who can't lose life (Everybody Lives!) is still
+    /// damage dealt, so "whenever a source deals damage" and lifelink both
+    /// have something to read. The loss is what doesn't happen: no life
+    /// moves, no `LifeChanged` is recorded, and the turn has no loss in it
+    /// (#244).
+    ///
+    /// The effect belongs to the other seat, because "players" is the whole
+    /// table and the check used to be keyed on the wrong player.
+    #[test]
+    fn damage_to_a_player_who_cant_lose_life_is_dealt_and_costs_nothing() {
+        let mut state = state();
+        let source = permanent(&mut state, "Shock");
+        let modifier = Modifier::CantLoseLife {
+            who: baylee_cards_dsl::PlayerRel::EachPlayer,
+        };
+        state.effects.register(ContinuousEffect {
+            // `register` assigns the real one.
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: PlayerId::new(1),
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: Duration::UntilEndOfTurn,
+            filter: EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
+        let start = life(&state, me());
+        let entries = state.journal.len();
+
+        deal_to_player(&mut state, source, me(), 3);
+
+        assert_eq!(life(&state, me()), start, "no life moved");
+        let recorded = &state.journal.entries()[entries..];
+        assert_eq!(recorded.len(), 1, "one event: {recorded:?}");
+        assert!(matches!(
+            recorded[0].event,
+            GameEvent::DamageDealt { amount: 3, .. }
+        ));
+        assert!(!state.per_turn.life_lost[me().get() as usize]);
+        assert!(
+            !state.can_pay_life(me(), 1) && state.can_pay_life(me(), 0),
+            "nor can life be paid, except none at all (CR 119.8, CR 119.4b)"
+        );
     }
 
     /// A point of damage and a point of life gained back leave the total

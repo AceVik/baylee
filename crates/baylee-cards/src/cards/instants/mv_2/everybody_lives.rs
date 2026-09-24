@@ -28,7 +28,9 @@ card!(
         ),
         Effect::continuous(
             &Filter::Any,
-            Modifier::CantLoseLife,
+            Modifier::CantLoseLife {
+                who: PlayerRel::EachPlayer
+            },
             Duration::UntilEndOfTurn
         ),
         Effect::continuous(

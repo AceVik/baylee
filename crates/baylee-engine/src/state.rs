@@ -670,13 +670,45 @@ impl GameState {
     /// Two-Headed Giant pays out of the team's life total (CR 119.4a), which
     /// this does not model: teams exist here ([`Player::team`]) but life
     /// does not pool — every seat carries its own — so this asks the seat.
+    ///
+    /// A player who can't lose life can't pay any (CR 119.8), which
+    /// [`Self::life_payable`] answers for this and for the pay-X-life cap.
     #[must_use]
     pub fn can_pay_life(&self, player: PlayerId, amount: i32) -> bool {
-        amount <= 0
-            || self
-                .players
-                .get(player.get() as usize)
-                .is_some_and(|p| p.life >= amount)
+        amount <= 0 || self.life_payable(player) >= amount
+    }
+
+    /// How much life `player` has to pay with: their total, or none while
+    /// they can't lose life (CR 119.8: "a cost that involves having that
+    /// player pay life can't be paid").
+    ///
+    /// [`Self::can_pay_life`] and Toxic Deluge's cap on X both read this, so
+    /// the two can't disagree about what a player may pay.
+    #[must_use]
+    pub fn life_payable(&self, player: PlayerId) -> i32 {
+        if self.cant_lose_life(player) {
+            return 0;
+        }
+        self.players
+            .get(player.get() as usize)
+            .map_or(0, |p| p.life)
+    }
+
+    /// Whether an effect says `player` can't lose life (Everybody Lives!).
+    ///
+    /// Each effect's `who` is read from that effect's own controller, the
+    /// way [`Self::draw_limit`] reads its own. A relation only a resolution
+    /// can answer (`Chosen`, `ControllerOfTarget`) names nobody here, and
+    /// `lints::a_continuous_player_relation_is_one_the_state_can_answer` keeps
+    /// the pool from printing one.
+    #[must_use]
+    pub fn cant_lose_life(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::CantLoseLife { who } = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+        })
     }
 
     /// Builds a game from a preset: seats, decks, shuffles, opening hands,
@@ -1114,12 +1146,19 @@ impl GameState {
     /// `card_tests::rules::nothing_changes_a_life_total_except_the_one_door`
     /// counts the writers.
     ///
-    /// Three decisions stay with the caller:
-    /// - Whether the change may happen at all. Everybody Lives' "can't lose
-    ///   life" is checked by `Effect::LoseLife` and by nothing else.
-    /// - Whether a change of nothing is worth recording.
-    /// - The `Cause`.
+    /// A loss for a player who can't lose life (Everybody Lives!) doesn't
+    /// happen: no change, no record, no flag. That holds whatever caused
+    /// it, which is why the check is here and not at each cause (#244).
+    /// Damage is still dealt, because the damage sites record `DamageDealt`
+    /// themselves. A payment never gets this far: [`Self::can_pay_life`]
+    /// refuses it first (CR 119.8).
+    ///
+    /// Two decisions stay with the caller: whether a change of nothing is
+    /// worth recording, and the `Cause`.
     pub fn change_life(&mut self, player: PlayerId, by: i32, cause: Cause) {
+        if by < 0 && self.cant_lose_life(player) {
+            return;
+        }
         let seat = player.get() as usize;
         let p = &mut self.players[seat];
         let old = p.life;

@@ -1202,6 +1202,17 @@ controller, so `EachPlayer` includes whoever played the card and
 `EachOpponent` does not — a card written from the wrong sentence stops its
 own draws or fails to stop them.
 
+`CantLoseLife { who }` is "players can't lose life this turn" (Everybody
+Lives!, `EachPlayer`), and its `who` is read the same way. The engine checks
+it at the two doors every life total goes through. `GameState::change_life`
+refuses the loss whatever caused it: damage, an effect, anything else. The
+damage itself is still dealt. `GameState::can_pay_life` refuses a payment
+before it is made (CR 119.8), which also caps a pay-X-life cost at X = 0.
+Either `who` may only name a relation the game state can answer on its own
+(`lints::a_continuous_player_relation_is_one_the_state_can_answer`):
+`Chosen` and `ControllerOfTarget` need a resolution, and a continuous
+effect has none.
+
 What makes it a variant rather than a replacement effect is the second
 sentence of CR 121.2b: the limit "applies to individual card draws", so an
 instruction to draw three under a limit of one is **partially carried out** —

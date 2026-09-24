@@ -553,10 +553,13 @@ impl<L: CardLookup> Engine<L> {
                     // which is where this engine puts every other legality:
                     // Toxic Deluge for X = 25 at twenty life used to be
                     // accepted, take the caster to -5, and lose them the game
-                    // to a state-based action on the way to resolving.
+                    // to a state-based action on the way to resolving. The
+                    // bound is `life_payable`, the one `can_pay_life` reads,
+                    // so a player who can't lose life is offered X = 0 only
+                    // (CR 119.8, CR 119.4b).
                     let mut max = X_CEILING;
                     if pays_life_x {
-                        let life = self.state.players[wizard.player.get() as usize].life;
+                        let life = self.state.life_payable(wizard.player);
                         max = max.min(u32::try_from(life).unwrap_or(0));
                     }
                     self.pending = Pending::ChooseNumber {

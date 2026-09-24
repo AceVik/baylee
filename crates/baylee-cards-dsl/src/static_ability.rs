@@ -155,8 +155,13 @@ pub enum Modifier {
     },
     /// Players can't lose the game this turn (Everybody Lives!).
     PlayersCantLose,
-    /// The controller can't lose life this turn (Everybody Lives!).
-    CantLoseLife,
+    /// These players can't lose life (Everybody Lives!: `EachPlayer`). That
+    /// covers damage, effects and payments alike (CR 119.8): the loss
+    /// doesn't happen, and a cost of life can't be paid.
+    CantLoseLife {
+        /// Who can't lose life, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+    },
     /// Prevent all damage that would be dealt TO the affected object
     /// (Maze of Ith).
     PreventDamageToIt,
@@ -408,7 +413,7 @@ impl Modifier {
             | Self::OpponentsCantCast(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
-            | Self::CantLoseLife
+            | Self::CantLoseLife { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
             | Self::OpponentsCantSearch
@@ -676,7 +681,9 @@ mod tests {
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
             Modifier::PlayersCantLose,
-            Modifier::CantLoseLife,
+            Modifier::CantLoseLife {
+                who: crate::effect::PlayerRel::EachPlayer,
+            },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::OpponentsCantSearch,

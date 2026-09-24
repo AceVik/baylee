@@ -154,8 +154,12 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   pact; #237) consult. A new "you lose the game" effect goes through
   `lose_by_effect`, never straight to `eliminate_player`, which does not
   check (its other callers are concession, which "can't lose" does not
-  stop, and the SBA loop, which checks first). `CantLoseLife` is checked in
-  the `LoseLife` resolve op.
+  stop, and the SBA loop, which checks first). `CantLoseLife { who }` is
+  checked by the life door `GameState::change_life` for every loss and by
+  `GameState::can_pay_life` for every payment (CR 119.8). It used to be
+  checked only in the `LoseLife` resolve op, keyed on the wrong player, so
+  damage and payments went past it (#244). Never add the check at one loss
+  site.
 
 Error classes hit (orchestrator-side, relevant for prompt design):
 
