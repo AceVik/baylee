@@ -447,6 +447,10 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         // every kind. It summed to 362 against a stated 361 — and a
         // breakdown that does not sum to its own total is how it was
         // caught, for the second time in one day.
+        //
+        // Refused, #223: `a_card_is_not_given_up_for_a_small_gain`. Another
+        // card as the price of a whitelisted gain is not paid; the source
+        // paying for itself still is.
         (
             "Alternate resource engines (a sacrifice or discard cost)",
             count(|def| {

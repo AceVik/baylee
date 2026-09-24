@@ -178,6 +178,40 @@ fn consumes(cost: &Cost) -> bool {
         })
 }
 
+/// Whether the cost gives up a card other than the source: a permanent
+/// sacrificed, a card discarded or exiled from hand.
+///
+/// Every gain [`gains`] recognises is small — a card, a scry, a few life, a
+/// counter, a token — and what such a cost takes is at least as much, so it
+/// is a trade this whitelist cannot weigh. Measured through the engine: a
+/// Zuran Orb beside four Forests was fed all four on turn 1 for 8 life, and
+/// a Viscera Seer sacrificed itself to scry 1. The source paying for itself
+/// (a fetchland, cycling) is not this: it is what that ability is for.
+///
+/// Exhaustive with no wildcard, for the reason [`consumes`] gives.
+fn gives_up_a_card(cost: &Cost) -> bool {
+    cost.parts.iter().any(|part| match part {
+        CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::ExileFromHand(_) => true,
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::SacrificeSelf
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::PayLife(_)
+        | CostPart::PayLifeX
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::PutCounterSelf { .. }
+        // A tapped creature stays where it is.
+        | CostPart::TapOther(_)
+        // A returned permanent comes back to hand, not to the graveyard.
+        | CostPart::ReturnToHand(_)
+        // A card already in the graveyard is the cheapest there is.
+        | CostPart::ExileFromGraveyard(_) => false,
+    })
+}
+
 /// Whether this effect is one the agent recognises as a gain.
 ///
 /// An optional clause is a gain the seat can still decline, so what it *may*
@@ -402,6 +436,7 @@ fn useful(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
         };
         !targeted
             && consumes(cost)
+            && !gives_up_a_card(cost)
             && life_ok(view, cost)
             && draw_is_safe(view, effects)
             && effects.iter().any(gains)
@@ -429,6 +464,69 @@ fn tap_costs_an_attack(view: &PlayerView, source: ObjectId, cost: &Cost) -> bool
 mod tests {
     use super::*;
     use baylee_cards_dsl::Amount;
+
+    /// Every printed ability [`useful`] would take but for
+    /// [`gives_up_a_card`]: `(what prints it, the ability's index)`.
+    ///
+    /// The half of `useful` a card can answer on its own — untargeted, a
+    /// cost that consumes, a whitelisted gain, nothing harmful. Life, a safe
+    /// draw and a lost attack are the board's, so a card they would stop on
+    /// some board is counted here all the same. Per face, over the cards and
+    /// the tokens both, because `printed_list` reads both.
+    fn refused_for_the_card_they_cost() -> Vec<(String, usize)> {
+        let lists = baylee_cards::all()
+            .flat_map(|def| {
+                (0..def.faces.len()).map(move |face| {
+                    (
+                        def.faces[face].name.to_owned(),
+                        def.abilities_for_face(face),
+                    )
+                })
+            })
+            .chain(
+                baylee_cards::tokens::ALL
+                    .iter()
+                    .map(|token| (token.name.to_owned(), token.abilities)),
+            );
+        let mut refused = Vec::new();
+        for (name, abilities) in lists {
+            for (index, ability) in abilities.iter().enumerate() {
+                let Some((cost, effects, targeted)) = activated(ability) else {
+                    continue;
+                };
+                if !targeted
+                    && consumes(cost)
+                    && effects.iter().any(gains)
+                    && effects.iter().all(harmless)
+                    && gives_up_a_card(cost)
+                {
+                    refused.push((name.clone(), index));
+                }
+            }
+        }
+        refused
+    }
+
+    /// How many abilities the card-for-a-small-gain rule turns down: 38 on
+    /// 24.09.2026, printed by 36 cards and the Blood token (Wand of the
+    /// Elements prints two) — Zuran Orb and Viscera Seer among them,
+    /// Survival of the Fittest and Carrion Feeder too.
+    ///
+    /// Bounds and not the number, so a card batch does not turn this red by
+    /// itself. Each bound refuses a wrong [`gives_up_a_card`], measured by
+    /// injection: one that forgets `Discard(_)` counts 28, under the floor;
+    /// one that also counts the source paying for itself (a fetchland, a
+    /// cycler) counts 223, over the ceiling.
+    #[test]
+    fn the_abilities_refused_for_the_card_they_cost_are_counted() {
+        let refused = refused_for_the_card_they_cost();
+        assert!(
+            (30..=60).contains(&refused.len()),
+            "{} abilities are refused for the card they cost, measured 38 on \
+             24.09.2026: {refused:?}",
+            refused.len()
+        );
+    }
 
     static TOP: [Effect; 2] = [
         Effect::DrawCards {

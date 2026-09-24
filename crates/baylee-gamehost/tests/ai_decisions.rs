@@ -849,6 +849,60 @@ fn restricted_mana_pays_for_the_spells_it_names_and_no_others() {
     }
 }
 
+/// Seat 0's permanents after its first turn with `board` and nothing in
+/// hand, by name.
+fn board_after_turn_one(board: &[&str]) -> Vec<String> {
+    let mut engine = Engine::new(&position(&[], board), RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::STEADY);
+    for seq in 0..200 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("nobody has lost on turn 1");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.turn > 1 {
+            return view
+                .battlefield_of(PlayerId::new(0))
+                .map(|o| o.name.clone())
+                .collect();
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            // The opponent holds nothing and passes; a creature on this
+            // board may attack, and the opponent is asked to block it.
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("every planned action is legal");
+    }
+    panic!("turn 1 never ended");
+}
+
+/// #223. A card is not given up for a small gain.
+///
+/// `activate::useful` took any ability whose cost changes the board and
+/// whose effect it recognises as a gain, and a sacrifice is a cost that
+/// changes the board. Measured through the engine before the fix, with
+/// nothing to cast on turn 1: Zuran Orb was fed all four Forests for 8 life,
+/// and Viscera Seer sacrificed itself to scry 1. Every gain the whitelist
+/// knows — a card, a scry, a few life, a counter, a token — is worth no more
+/// than the permanent or the card it would cost.
+#[test]
+fn a_card_is_not_given_up_for_a_small_gain() {
+    let forests = ["Zuran Orb", "Forest", "Forest", "Forest", "Forest"];
+    assert_eq!(
+        board_after_turn_one(&forests),
+        forests.map(String::from),
+        "the Orb ate the lands"
+    );
+    let elves = ["Viscera Seer", "Llanowar Elves", "Llanowar Elves", "Forest"];
+    assert_eq!(
+        board_after_turn_one(&elves),
+        elves.map(String::from),
+        "the Seer ate a creature"
+    );
+}
+
 #[test]
 fn x_cannot_demand_more_graveyard_targets_than_exist() {
     let preset = position(

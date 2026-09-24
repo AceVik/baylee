@@ -156,7 +156,19 @@ stays where the question is the card itself: a spell cast from hand, a
 commander's colours, `IsToken`. A token copy has `rules` and no `card`, so
 the agent now reads its abilities too. That is not a leak: the view gates
 `rules` on the same entitlement as `card`, and a face-down permanent the seat
-may not look at names neither.
+may not look at names neither. A registry token has neither, and its
+abilities are its definition's (CR 111.3), which `token` names, so a Treasure
+is a mana source (#223). A face-down one has no text (CR 708.2).
+
+**A card is not given up for a small gain.** `activate::useful` takes an
+ability whose cost changes the board and whose effect it knows as a gain. A
+sacrifice changes the board, and every gain on that list (a card, a scry, a
+few life, a counter, a token) is worth no more than the permanent or card it
+costs. Before this rule, with nothing to cast, Zuran Orb was fed four Forests
+on turn 1 for 8 life, and Viscera Seer sacrificed itself to scry 1. So
+`gives_up_a_card` refuses any cost that sacrifices, discards or exiles from
+hand a card other than the source. A source that pays for itself (a
+fetchland, cycling) is doing what that ability is for.
 
 **An attacker the view cannot describe is unknown, not absent.** `Fighter::of`
 is three `?` in a row — the object, its power, its toughness — and every
