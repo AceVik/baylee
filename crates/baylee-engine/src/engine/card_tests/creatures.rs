@@ -14433,27 +14433,25 @@ fn murderous_rider() -> CardIndex {
 
 /// `Murderous Rider` prints `Lifelink`, `When this creature dies, put it on the bottom of its owner's library.`, and `Destroy target creature or planeswalker. You lose 2 life. (Then exile this card. You may cast the creature later from exile.)`
 ///
-/// Marked `Coverage::Partial`, the front face carries `KeywordSet::LIFELINK`, while its adventure face `Swift End` is cast via `Pending::ChooseCastMode` with `CastModeKind::Face(1)`.
-/// Targeting an opponent's `llanowar_elves()` destroys the creature and subtracts 2 life, placing the card into the graveyard without the adventure frame.
+/// Marked `Coverage::Partial` for the dies trigger (#240). Swift End is cast via
+/// `Pending::ChooseCastMode` with `CastModeKind::Face(1)`: it destroys the opponent's
+/// `llanowar_elves()`, its caster loses 2 life, and the card goes on its adventure — exiled
+/// with the rider that lets the creature be cast from there (CR 715.3d), not into the
+/// graveyard. The Rider is then cast out of that exile and lands as a 2/3 with lifelink.
 #[test]
-fn murderous_rider_lifelink_and_swift_end_destroys_target_and_loses_life() {
+fn murderous_rider_swift_end_goes_on_an_adventure_and_the_rider_follows_from_exile() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[murderous_rider(), swamp(), swamp(), swamp()])
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()])
         .hand(0, &[murderous_rider()])
         .battlefield(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let rider = on_battlefield(&engine, p0, murderous_rider()).expect("rider deployed");
-    assert_eq!(pt(&engine, rider), (2, 3));
-    assert!(
-        keywords(&engine, rider).contains(KeywordSet::LIFELINK),
-        "front face has lifelink"
-    );
-
+    // Six Swamps floating: three for Swift End, three for the Rider after it,
+    // all inside one main phase so the pool is not emptied in between.
     tap_all_mana(&mut engine, p0);
     let card = in_hand(&engine, p0, murderous_rider()).expect("rider in hand");
     engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
@@ -14499,8 +14497,47 @@ fn murderous_rider_lifelink_and_swift_end_destroys_target_and_loses_life() {
     );
     assert_eq!(engine.state().players[0].life, 18, "caster lost 2 life");
     assert!(
-        in_graveyard(&engine, p0, murderous_rider()).is_some(),
-        "under `Coverage::Partial` Swift End lands in graveyard"
+        in_graveyard(&engine, p0, murderous_rider()).is_none(),
+        "an adventure does not resolve to the graveyard"
+    );
+    let exiled = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Exile(p0))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == murderous_rider()))
+        })
+        .expect("the card went on its adventure (CR 715.3d)");
+    assert!(
+        engine
+            .state()
+            .object(exiled)
+            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Adventure)),
+        "wearing the rider that says it may be cast from there"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&exiled),
+        "the creature is on offer out of the exile its adventure made"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: exiled })
+        .expect("the offer is honoured");
+    pass_until(&mut engine, stack_is_empty);
+
+    let rider = on_battlefield(&engine, p0, murderous_rider()).expect("the Rider landed");
+    assert_eq!(pt(&engine, rider), (2, 3));
+    assert!(
+        keywords(&engine, rider).contains(KeywordSet::LIFELINK),
+        "front face has lifelink"
     );
 }
 
