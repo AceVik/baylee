@@ -760,6 +760,60 @@ fn a_kicker_and_a_waterbend_are_paid_when_the_mana_is_there() {
     );
 }
 
+/// #224 through the real engine: Chord of Calling for X = 1 off four floating
+/// Forests leaves nothing for a convoke tap to pay, so both Clerics stay
+/// untapped. The engine asks the tap question (its `max` is the `{1}`,
+/// #229), and the agent used to answer it with as many as it allowed.
+#[test]
+fn a_convoke_cast_the_pool_already_pays_taps_no_creature() {
+    let mut board = vec!["Forest"; 4];
+    board.extend(["Ondu Cleric"; 2]);
+    let mut engine = Engine::new(&position(&["Chord of Calling"], &board), RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    let mut answered = None;
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).unwrap();
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if seat == PlayerId::new(0) && view.hand.is_empty() && view.stack.is_empty() {
+            let (max, objects) = answered.expect("Chord was cast without a tap question");
+            assert_eq!(max, 1, "the question is bounded by Chord's {{1}}");
+            assert_eq!(
+                objects,
+                Vec::<ObjectId>::new(),
+                "a Cleric was tapped for mana already floating"
+            );
+            let tapped = view
+                .battlefield_of(view.seat)
+                .filter(|o| o.name == "Ondu Cleric")
+                .filter(|o| o.status.contains(baylee_view::ObjectStatus::TAPPED))
+                .count();
+            assert_eq!(tapped, 0, "a Cleric was left tapped");
+            return;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        if let (
+            Pending::ChooseTargets {
+                max,
+                reason: baylee_engine::choice::TargetPrompt::Convoke,
+                ..
+            },
+            PlayerAction::ChooseTargets { objects, .. },
+        ) = (pending, &action)
+        {
+            answered = Some((*max, objects.clone()));
+        }
+        engine
+            .apply(seat, action)
+            .expect("the agent's answer is legal");
+    }
+    panic!("Chord of Calling never resolved");
+}
+
 /// Seat 0's first turn with `hand` and `board`: whether `spell` reached the
 /// battlefield, and whether `land` was ever tapped.
 fn first_turn(

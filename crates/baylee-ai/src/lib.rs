@@ -331,17 +331,16 @@ impl HeuristicAgent {
                 }
             }
             // This prompt pays for a cast, despite sharing the target-choice
-            // shape. Selecting one friendly permanent can underpay and roll
-            // the whole cast back forever (paired match seed 41). Use the
-            // offered reduction, as with delve, until the view carries the
-            // outstanding cost needed to reserve any of these permanents.
+            // shape. Selecting one friendly permanent too few can underpay
+            // and roll the whole cast back forever (paired match seed 41), so
+            // the count is measured against the cast's price and the pool.
             Pending::ChooseTargets {
                 options,
                 max,
                 reason: baylee_engine::choice::TargetPrompt::Convoke,
                 ..
             } => PlayerAction::ChooseTargets {
-                objects: options.into_iter().take(usize::from(max)).collect(),
+                objects: policy::convoke_taps(view, context, options, max),
                 players: vec![],
             },
             Pending::ChooseTargets {
@@ -2382,6 +2381,125 @@ mod tests {
                 },
             );
         }
+    }
+
+    /// #224: the tap question was answered with every permanent offered,
+    /// so a convoke cast tapped the whole team with its price already
+    /// floating. It taps only what the pool leaves unpaid, and the ones the
+    /// seat misses least.
+    #[test]
+    fn a_convoke_answer_taps_only_what_the_pool_leaves_unpaid() {
+        use baylee_engine::engine::DecisionContext;
+        let seat = PlayerId::new(0);
+        let asked_x = |v: &PlayerView, cost: &str, x: u32, max: u8| {
+            let context = DecisionContext {
+                source: Some(obj(1)),
+                cost: Some(cost.parse().unwrap()),
+                x,
+                ..Default::default()
+            };
+            let pending = Pending::ChooseTargets {
+                player: seat,
+                options: v.battlefield.iter().map(|o| o.id).collect(),
+                player_options: vec![],
+                min: 0,
+                max,
+                reason: baylee_engine::choice::TargetPrompt::Convoke,
+            };
+            match agent().act_with_context(v, &pending, &context) {
+                PlayerAction::ChooseTargets { objects, .. } => objects,
+                other => panic!("the tap question was answered with {other:?}"),
+            }
+        };
+        let asked = |v: &PlayerView, cost: &str, max: u8| asked_x(v, cost, 0, max);
+
+        // Clever Concealment, `{2}{W}{W}`: a 3/3 and, listed second, a 1/1.
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![permanent(obj(10), seat, 3), permanent(obj(11), seat, 1)],
+        );
+        v.hand = vec![hand_card(1, "Clever Concealment")];
+        v.seats[0].mana_pool.white = 4;
+        assert_eq!(asked(&v, "{2}{W}{W}", 2), vec![], "the pool pays it all");
+        v.seats[0].mana_pool.white = 3;
+        assert_eq!(
+            asked(&v, "{2}{W}{W}", 2),
+            vec![obj(11)],
+            "one short: one tap, and the smaller body"
+        );
+        v.seats[0].mana_pool.white = 2;
+        assert_eq!(
+            asked(&v, "{2}{W}{W}", 2),
+            vec![obj(11), obj(10)],
+            "two short: both"
+        );
+
+        // Which one goes first: an artifact, which neither attacks nor
+        // blocks, even an uncrewed Vehicle's 4/4; then, on this seat's turn,
+        // a creature that cannot attack yet; the 1/1 that could is last
+        // despite its size.
+        let mut vehicle = permanent(obj(12), seat, 4);
+        vehicle.types = TypeSet::ARTIFACT;
+        let mut sick = permanent(obj(13), seat, 3);
+        sick.summoning_sick = true;
+        v.battlefield = vec![permanent(obj(11), seat, 1), sick, vehicle];
+        v.seats[0].mana_pool.white = 2;
+        assert_eq!(
+            asked(&v, "{2}{W}{W}", 2),
+            vec![obj(12), obj(13)],
+            "the artifact, then the creature that cannot attack this turn"
+        );
+        v.active = PlayerId::new(1);
+        v.seats[0].mana_pool.white = 3;
+        assert_eq!(
+            asked(&v, "{2}{W}{W}", 2),
+            vec![obj(12)],
+            "on the opponent's turn the artifact still goes first"
+        );
+        v.seats[0].mana_pool.white = 1;
+        assert_eq!(
+            asked(&v, "{3}{W}", 3),
+            vec![obj(12), obj(11), obj(13)],
+            "and every creature is a blocker, so the smaller one goes next"
+        );
+
+        // X is part of the price the pool is measured against: Chord of
+        // Calling for X = 2 is `{2}{G}{G}{G}`, one more than four Forests.
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![permanent(obj(10), seat, 1), permanent(obj(11), seat, 1)],
+        );
+        v.hand = vec![hand_card(1, "Chord of Calling")];
+        v.seats[0].mana_pool.green = 4;
+        assert_eq!(
+            asked_x(&v, "{X}{G}{G}{G}", 2, 2).len(),
+            1,
+            "X = 2 is one short"
+        );
+
+        // A waterbend's question comes once its `{6}` was paid, so the `{6}`
+        // is part of what the pool is measured against: Spirit Water Revival
+        // with nine floating taps nothing, with three it taps six.
+        let mut v = view(
+            0,
+            &[20, 20],
+            (10..17).map(|i| permanent(obj(i), seat, 1)).collect(),
+        );
+        v.hand = vec![hand_card(1, "Spirit Water Revival")];
+        v.seats[0].mana_pool.blue = 9;
+        assert_eq!(
+            asked(&v, "{1}{U}{U}", 6),
+            vec![],
+            "nine pay {{7}}{{U}}{{U}}"
+        );
+        v.seats[0].mana_pool.blue = 3;
+        assert_eq!(
+            asked(&v, "{1}{U}{U}", 6).len(),
+            6,
+            "three pay only {{1}}{{U}}{{U}}"
+        );
     }
 
     #[test]

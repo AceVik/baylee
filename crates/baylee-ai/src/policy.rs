@@ -1103,6 +1103,69 @@ pub(crate) fn kicks(
         .is_some_and(|net| manaplan::plan(&net, &seat.mana_pool, &[]).is_some())
 }
 
+/// The permanents to tap for a convoke or waterbend question: as few as the
+/// floating pool leaves the cost short by, and the ones this seat misses
+/// least. CR 702.51a and 701.67a both say "you *may* tap".
+///
+/// #224: the answer was every permanent offered, whatever was floating, so a
+/// convoke cast tapped the whole team and nothing was left to attack or
+/// block. The engine takes each tap off the cost's generic mana, so the count
+/// is the smallest one for which the pool pays the rest, asked of the planner
+/// [`kicks`] trusts. Without a price to measure against (no context, or a
+/// pool no count can cover), it taps as many as it may: an underpaid cast is
+/// rolled back whole (CR 601.2h), and an overpaid one costs only the taps.
+///
+/// Which ones: an artifact before a creature, since it neither attacks nor
+/// blocks; on this seat's own turn, a creature that cannot attack yet before
+/// one that can; then the smaller body.
+pub(crate) fn convoke_taps(
+    view: &PlayerView,
+    context: &DecisionContext<'_>,
+    mut options: Vec<ObjectId>,
+    max: u8,
+) -> Vec<ObjectId> {
+    let max = usize::from(max).min(options.len());
+    let needed = taps_needed(view, context, max).unwrap_or(max);
+    options.sort_by_key(|id| {
+        view.object(*id)
+            .map_or((true, true, i16::MAX, i16::MAX), |o| {
+                let creature = o.types.contains(TypeSet::CREATURE);
+                (
+                    creature,
+                    creature && view.active == view.seat && !o.summoning_sick,
+                    o.power.unwrap_or(0),
+                    o.toughness.unwrap_or(0),
+                )
+            })
+    });
+    options.truncate(needed);
+    options
+}
+
+/// The fewest taps that leave the floating pool able to pay the rest.
+///
+/// A waterbend face's question comes only once the waterbend was paid
+/// (#229), so its cost is part of the total here.
+fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> Option<usize> {
+    let pool = &view.seat(view.seat)?.mana_pool;
+    let mut total = context.cost?.with_x(context.x);
+    if let Some(face) = context
+        .source
+        .and_then(|id| identity(view, id))
+        .and_then(face)
+        .filter(|f| f.waterbend)
+    {
+        total = face
+            .additional_costs
+            .iter()
+            .fold(total, |total, c| total.combine(&c.mana));
+    }
+    (0..=max).find(|&n| {
+        let taps = u32::try_from(n).unwrap_or(u32::MAX);
+        manaplan::plan(&total.with_less_generic(taps), pool, &[]).is_some()
+    })
+}
+
 /// Whether a tax is worth paying, asked of what refusing it would do.
 ///
 /// `YesNoPrompt::PayTax` carries a price and not a consequence, and the two

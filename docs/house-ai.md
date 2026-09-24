@@ -85,10 +85,22 @@ the kicked total from the floating pool alone and refuses the whole cast when
 it is short (CR 601.2h), so the planner floats the kicked price before it casts
 whenever it fits beside the reserve, and `policy::kicks` says yes only when the
 pool covers it. Waterbend counts every untapped creature and artifact that is
-not a planned mana source, up to the waterbend's own generic mana: the tap
-question is answered with as many as it allows, and CR 701.67b lets them pay
-nothing past that. Kicked is the better half by design, so it is paid whenever it can
-be, except when the kicked half would draw the library out.
+not a planned mana source, up to the waterbend's own generic mana, which is all
+CR 701.67b lets them pay. Kicked is the better half by design, so it is paid
+whenever it can be, except when the kicked half would draw the library out.
+
+**A tap question is answered with what the pool leaves unpaid.** Convoke and a
+paid waterbend ask which permanents to tap (`TargetPrompt::Convoke`).
+`policy::convoke_taps` measures the cast's price (the context's cost with X,
+plus the waterbend once paid) against the floating pool and taps the fewest
+that leave it payable. With no price to measure it taps as many as it may,
+because an underpaid cast is rolled back whole. It taps an artifact first, then
+on its own turn a creature that cannot attack yet, then the smaller body
+(#224). `policy::spell_cost` subtracts no convoke help (it does for delve), so
+the planner aims only at a convoke spell its lands could pay whole (#246). It
+still casts one the moment the engine offers it, and the engine counts the
+creatures: over four Plains and two Clerics, Clever Concealment is cast off two
+Plains, and both Clerics pay the `{2}`.
 
 **Restricted mana pays for the spells it names.** Mana that may be spent only
 on some spells (CR 106.6), such as Ancient Ziggurat's creature mana, is read off
