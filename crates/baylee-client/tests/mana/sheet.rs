@@ -22,7 +22,6 @@ use baylee_cards_dsl::{AbilityDef, ActivationZone, CardDef, Coverage};
 use baylee_client::abilities::{self, Split};
 use baylee_client_core::Lang;
 use baylee_client_core::abilitysheet;
-use baylee_client_core::i18n::Phrase;
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::manaplan::Tap;
 use baylee_core::ids::ObjectId;
@@ -485,9 +484,9 @@ fn audit_what_the_rows_say(
     // 7. A row a player cannot read. Two halves, and they are the two ways a
     // row can end up wordless.
     //
-    // A row the card *does* print a sentence for draws that sentence and
-    // nothing else, so `Ability 4` — the label this whole sheet was built to
-    // stop drawing — must never be what it settles for.
+    // A row the card *does* print a sentence for draws that sentence, or
+    // failing it its cost. It used to settle for `Ability 4`, which is gone;
+    // a row with neither sentence nor cost draws only its key.
     //
     // A row the card prints **nothing** for has only this client's own name
     // for it, which `AbilityOption::printed_index` is the one door to, and
@@ -499,14 +498,9 @@ fn audit_what_the_rows_say(
             continue;
         }
         match option.printed_index() {
-            Some(index)
-                if option.printed.is_none()
-                    && option.label
-                        == Phrase::AbilityNumbered.fill(Lang::En, &[&(index + 1).to_string()]) =>
-            {
+            Some(index) if option.printed.is_none() && option.cost.is_none() => {
                 found.push(format!(
-                    "{name}: row {at} is \"{}\" and carries no printed sentence",
-                    option.label
+                    "{name}: row {at} (ability {index}) has no printed sentence and no cost"
                 ));
             }
             None if option.label.trim().is_empty() => {

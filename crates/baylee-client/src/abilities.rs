@@ -11,6 +11,7 @@
 //! `baylee-client-core`. "Ability 2" is a label a player has to guess at;
 //! "Tap for {G}" and "+1" are not.
 
+use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::manapip;
@@ -66,8 +67,11 @@ pub struct AbilityOption {
     /// only where no printed sentence exists at all — the CR 305.6 mana of a
     /// basic land type is `{T}` — and then as symbols alone.
     ///
+    /// A prepared cast's is the spell's printed mana cost (`{1}{B}`), which is
+    /// what casting the copy pays.
+    ///
     /// `None` where the ability costs no symbol, or has no cost to read: a
-    /// grant is printed on no card, a prepared cast is not an ability.
+    /// grant is printed on no card.
     pub cost: Option<String>,
     /// Where this ability's printed sentence is, for a client holding the
     /// card's text in the player's own language.
@@ -406,11 +410,8 @@ pub fn options_for(
         };
         // The synthetic indices are not positions on the card, so neither the
         // registry nor the card's ability list has anything to say about
-        // them — and the fallback label counts them out as "Ability N", which
-        // on `GRANTED_ABILITY` overflows: in a debug build the client dies the
-        // moment a Chromatic Lantern's land is under the pointer, and in a
-        // release build the button reads "Ability 0". A prepared cast is a
-        // cast and never a mana ability; a granted one is whichever the view
+        // them. A prepared cast is a cast and never a mana ability, and it is
+        // named by the spell it casts; a granted one is whichever the view
         // said, per slot.
         let (label, mana) = if let Some(slot) = baylee_engine::choice::granted_slot(index) {
             (Phrase::GrantedAbility.text(lang).to_string(), {
@@ -441,7 +442,7 @@ pub fn options_for(
                 }
             })
         } else if index == baylee_engine::choice::PREPARED_CAST {
-            (Phrase::PreparedCast.text(lang).to_string(), false)
+            (prepared_label(view, object), false)
         } else {
             (
                 printed_label(lang, view, object, index),
@@ -457,7 +458,7 @@ pub fn options_for(
             tap_only: baylee_engine::choice::granted_slot(index).is_none()
                 && index != baylee_engine::choice::PREPARED_CAST
                 && tap_only(view, object, index),
-            cost: cost_key(view, object, index),
+            cost: offered_cost(view, object, index),
             printed: printed_sentence(view, object, index),
             pour: None,
         });
@@ -797,8 +798,13 @@ fn mana_label(lang: Lang, source: &baylee_client_core::manaplan::Source) -> Stri
 /// no sentence for the ability at all, and the sheet's redraw fingerprint.
 /// Symbols only, because the rest of a cost is words and the only words
 /// allowed on a row are the card's.
+///
+/// Empty where there are no symbols either. It used to say "Ability 4",
+/// which is a number and not the card; the row then draws its cost column
+/// and its key, and the words are the sentence's, swept pool-wide by
+/// `every_written_row_knows_which_printed_sentence_it_is`.
 fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> String {
-    let unnamed = || Phrase::AbilityNumbered.fill(lang, &[&(index + 1).to_string()]);
+    let unnamed = String::new;
     let Some(def) = crate::manasources::ability_at(view, object, index) else {
         return unnamed();
     };
@@ -853,6 +859,91 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
             cost_key_of(cost).unwrap_or_else(unnamed)
         }
         _ => unnamed(),
+    }
+}
+
+/// The spell a prepared permanent casts a copy of (`AbilityDef::Prepared`),
+/// read off the card its abilities are printed on.
+#[must_use]
+pub fn prepared_of(view: &PlayerView, object: ObjectId) -> Option<baylee_core::ids::CardIndex> {
+    prepared_spell(view.object(object)?.rules?.card)
+}
+
+/// The spell `card` is linked to by `AbilityDef::Prepared`, if it has one.
+///
+/// Off the card's own list, as the suspend cost is read: the prepared cards
+/// are single-faced and keep the link there.
+#[must_use]
+pub fn prepared_spell(card: baylee_core::ids::CardIndex) -> Option<baylee_core::ids::CardIndex> {
+    baylee_cards::by_index(card)?
+        .abilities
+        .iter()
+        .find_map(|ability| match ability {
+            AbilityDef::Prepared { card } => Some(*card),
+            _ => None,
+        })
+}
+
+/// A prepared cast's label: the spell's English name, which is what a row
+/// falls back to and what the sheet's redraw fingerprint reads. The sheet
+/// itself draws the spell's name and text in the player's language
+/// ([`prepared_words`]). Empty where no spell is linked.
+fn prepared_label(view: &PlayerView, object: ObjectId) -> String {
+    prepared_of(view, object)
+        .and_then(baylee_cards::by_index)
+        .map(|def| def.name().to_string())
+        .unwrap_or_default()
+}
+
+/// What casting a copy of `spell` costs: its front face's printed mana cost,
+/// as symbols. `None` for a spell with no mana cost.
+fn spell_cost(spell: baylee_core::ids::CardIndex) -> Option<String> {
+    let cost = baylee_cards::by_index(spell)?.faces.first()?.mana_cost;
+    (!cost.is_empty()).then(|| cost.to_string())
+}
+
+/// What a prepared cast's row says: the spell's name over its whole text,
+/// in the player's language where it has arrived, else in English
+/// ([`crate::cardtext::CardTexts::face`]), and which of the two it is.
+///
+/// The spell's text and not the permanent's: a prepared card prints its
+/// spell, and the German printing of Emeritus of Woe prints that face
+/// empty, where Demonic Tutor's own German printing does not. The linked
+/// card is asked for with the cards the view names (`cardtext::wanted`).
+#[must_use]
+pub fn prepared_words(
+    texts: &crate::cardtext::CardTexts,
+    view: &PlayerView,
+    object: ObjectId,
+    option: &AbilityOption,
+) -> Option<(Vec<TextBlock>, crate::cardtext::Said)> {
+    let PlayerAction::ActivateAbility { ability_index, .. } = option.action else {
+        return None;
+    };
+    if ability_index != baylee_engine::choice::PREPARED_CAST {
+        return None;
+    }
+    let spell = prepared_of(view, object)?;
+    let said = if texts.get(spell, 0).is_some_and(|text| text.lang != "en") {
+        crate::cardtext::Said::Localized
+    } else {
+        crate::cardtext::Said::Oracle
+    };
+    let text = texts.face(spell, 0)?;
+    let mut blocks = vec![TextBlock::Rules(text.name)];
+    blocks.extend(baylee_client_core::card_face::split_blocks(
+        &text.oracle_text,
+    ));
+    Some((blocks, said))
+}
+
+/// [`AbilityOption::cost`] for an offered index: a prepared cast's is the
+/// spell's mana cost, anything else's its [`cost_key`].
+fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
+    if index == baylee_engine::choice::PREPARED_CAST {
+        prepared_of(view, object).and_then(spell_cost)
+    } else {
+        cost_key(view, object, index)
     }
 }
 
@@ -1211,11 +1302,85 @@ mod tests {
         );
 
         // A prepared cast is a cast: never a mana ability, and never
-        // "Ability 4294967295".
+        // "Ability 4294967295". A token links no spell, so it is not named.
         let i = offering(vec![(id, PREPARED_CAST)], vec![]);
         let out = options(Lang::En, &view, &i, id);
-        assert_eq!(out[0].label, "Cast the prepared spell");
+        assert_eq!(out[0].label, "");
         assert!(!out[0].mana);
+    }
+
+    /// Demonic Tutor, cmm #150, read from the catalog 2026-09-24.
+    const TUTOR_DE: &str =
+        "Durchsuche deine Bibliothek nach einer Karte, nimm sie auf deine Hand und mische danach.";
+
+    /// A prepared cast is named by the spell it casts, in the player's
+    /// language where its text has arrived and in English before, and costs
+    /// what that spell prints. It said "Cast the prepared spell", which is
+    /// this client's sentence and not the card's.
+    #[test]
+    fn a_prepared_cast_is_the_spell_it_casts() {
+        let id = ObjectId::new(1, 0);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [crate::registry_printed(1, 0, "Emeritus of Woe")])
+            .build();
+        let tutor = baylee_cards::decks::by_name("Demonic Tutor").expect("in the pool");
+        assert_eq!(prepared_of(&view, id), Some(tutor));
+
+        let i = offering(vec![(id, PREPARED_CAST)], vec![]);
+        let out = options(Lang::En, &view, &i, id);
+        assert_eq!(out[0].label, "Demonic Tutor");
+        assert_eq!(out[0].cost.as_deref(), Some("{1}{B}"));
+        assert_eq!(out[0].printed_index(), None, "a cast prints no ability");
+
+        let english = crate::cardtext::CardTexts::default();
+        let (blocks, said) = prepared_words(&english, &view, id, &out[0]).expect("words");
+        assert_eq!(said, crate::cardtext::Said::Oracle);
+        assert_eq!(
+            blocks,
+            vec![
+                TextBlock::Rules("Demonic Tutor".to_string()),
+                TextBlock::Rules(
+                    "Search your library for a card, put that card into your hand, then shuffle."
+                        .to_string()
+                ),
+            ]
+        );
+
+        let german = crate::cardtext::CardTexts::filed(CardTextEntry {
+            scryfall_id: String::new(),
+            oracle_id: baylee_cards::by_index(tutor)
+                .expect("in the pool")
+                .oracle_id
+                .to_string(),
+            lang: "de".to_string(),
+            layout: "normal".to_string(),
+            faces: vec![FaceText {
+                name: "Dämonischer Lehrmeister".to_string(),
+                english_name: "Demonic Tutor".to_string(),
+                printed: Some(TUTOR_DE.to_string()),
+                oracle_text: TUTOR_DE.to_string(),
+                ..FaceText::default()
+            }],
+        });
+        let (blocks, said) = prepared_words(&german, &view, id, &out[0]).expect("words");
+        assert_eq!(said, crate::cardtext::Said::Localized);
+        assert_eq!(
+            blocks,
+            vec![
+                TextBlock::Rules("Dämonischer Lehrmeister".to_string()),
+                TextBlock::Rules(TUTOR_DE.to_string()),
+            ]
+        );
+
+        // The words are the prepared row's alone.
+        let other = AbilityOption {
+            action: PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: 0,
+            },
+            ..out[0].clone()
+        };
+        assert_eq!(prepared_words(&german, &view, id, &other), None);
     }
     /// A Chromatic Lantern's land, as it actually arrives: the engine offers
     /// the grant *and* the view says what it makes. Both halves of the

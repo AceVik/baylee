@@ -1238,11 +1238,10 @@ messages! {
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
     /// Choose how to cast
     ChooseHowToCast { en: "Choose how to cast", de: "Wähle, wie gewirkt wird" },
-    /// Printed cost
-    CastNormal { en: "Printed cost", de: "Gedruckte Kosten" },
-    /// Alternative cost
-    CastAlternative { en: "Alternative cost", de: "Alternative Kosten" },
     /// Mode {0}
+    ///
+    /// Only where a mode has no printed sentence: a modal trigger that states
+    /// its choice inside one sentence, or a mode that declines.
     CastModeNumber { en: "Mode {0}", de: "Modus {0}" },
     /// Back face
     CastBackFace { en: "Back face", de: "Rückseite" },
@@ -1688,20 +1687,12 @@ messages! {
     /// three symbols read at a glance where five do not, which is why this
     /// exists beside [`Phrase::AnyColor`] rather than instead of it.
     OrLast { en: "{0} or {1}", de: "{0} oder {1}" },
-    /// Ability {0}
-    AbilityNumbered { en: "Ability {0}", de: "Fähigkeit {0}" },
     /// Granted ability
     ///
     /// An ability another permanent handed this one. It has no position on
     /// the card to be numbered by, so "Ability 1" would be a lie about a
     /// printed ability that is also there.
     GrantedAbility { en: "Granted ability", de: "Verliehene Fähigkeit" },
-    /// Cast the prepared spell
-    ///
-    /// Prepared (Emeritus of Woe) is offered under the other synthetic index,
-    /// and it is a cast rather than an ability — so it is neither numbered
-    /// nor ever a mana ability.
-    PreparedCast { en: "Cast the prepared spell", de: "Vorbereiteten Zauber wirken" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 

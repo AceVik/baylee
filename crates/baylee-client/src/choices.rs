@@ -81,8 +81,8 @@ const CAST_FACE: usize = 0;
 /// sentence a mode or an alternative cost is
 /// ([`baylee_cards::lines::mode_line`] and its twin), and the card has to be
 /// findable — it is in **hand**, which is the one zone `PlayerView::object`
-/// does not answer for. A caller falls back to the phrase the row said
-/// before when either does. The words themselves never come up empty: they
+/// does not answer for. A caller then draws the row's cost and no words.
+/// The words themselves never come up empty: they
 /// are [`crate::cardtext::sentence`]'s, the player's language when its text
 /// pairs and the card's English Oracle when it does not or has not arrived.
 ///
@@ -271,7 +271,17 @@ pub fn options(
                     // fails for a pathway, whose two options cost nothing and
                     // differ only in the name they print — which is why the
                     // label names the face rather than the kind.
-                    cost: (!desc.cost.is_empty()).then_some(desc.cost),
+                    //
+                    // The normal way has no words at all, so its cost is the
+                    // whole row, and a spell cast for nothing says `{0}`
+                    // rather than drawing an empty row.
+                    cost: if desc.cost.is_empty() {
+                        matches!(desc.kind, baylee_engine::choice::CastModeKind::Normal)
+                            .then(|| ManaCost::try_parse("{0}").ok())
+                            .flatten()
+                    } else {
+                        Some(desc.cost)
+                    },
                 })
                 .collect(),
         ),
@@ -298,9 +308,22 @@ pub fn options(
 /// sentence a mode is, the catalog says what that sentence is in the player's
 /// own language, and the two together make a row that reads like the card.
 ///
-/// Every one of them keeps its phrase as the fallback, which is what every row
-/// said before — an unknown printing, a card the table could not read whole,
-/// or a gateway serving no text all end up there.
+/// The **normal** way is no sentence at all: the card's printed mana cost,
+/// which the row draws as pips beside an empty label. It said "Printed
+/// cost", which is this client's sentence and not the card's.
+///
+/// An alternative cost's sentence is missing only where the card itself
+/// cannot be named (the generated table knows every one,
+/// `lines::every_mode_and_alternative_cost_knows_its_printed_sentence`), and
+/// the row then draws its cost and nothing invented beside it: it said
+/// "Alternative cost" before.
+///
+/// A **mode** keeps its number where it has no sentence, because there the
+/// number is the only thing that tells two rows apart. Three modal triggers
+/// in the pool state their choice inside one sentence (Derevi, Inspirit,
+/// Tireless Provisioner, `lines::MODES_PRINTED_INLINE`) and a mode that
+/// declines prints nothing; a trigger's mode costs nothing, so without the
+/// number those rows would be blank and identical.
 fn cast_label(
     kind: baylee_engine::choice::CastModeKind,
     lang: Lang,
@@ -309,10 +332,10 @@ fn cast_label(
 ) -> String {
     use baylee_engine::choice::CastModeKind as K;
     match kind {
-        K::Normal => Phrase::CastNormal.text(lang).to_string(),
+        K::Normal => String::new(),
         K::Alternative(i) => {
             printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
-                .unwrap_or_else(|| Phrase::CastAlternative.text(lang).to_string())
+                .unwrap_or_default()
         }
         // One-based in the fallback, because the printed card numbers its
         // modes from one and a player reads the card, not the index.
@@ -388,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    fn a_cast_option_names_its_kind_and_carries_its_cost() {
+    fn a_cast_option_of_an_unnamed_card_is_its_cost() {
         let desc = |kind, cost: &str| CastModeDesc {
             index: 0,
             kind,
@@ -408,9 +431,48 @@ mod tests {
             FaceNames::default(),
         )
         .expect("a cast choice has rows");
-        assert_eq!(rows[0].label, "Printed cost");
-        assert_eq!(rows[1].label, "Mode 2", "modes are numbered as printed");
-        assert!(rows.iter().all(|r| r.cost.is_some()));
+        // No view names the card, so there is no sentence to draw: each
+        // row is its cost, and nothing this client composed stands in.
+        assert_eq!(rows[0].label, "", "the normal way is its cost");
+        assert_eq!(
+            rows[1].label, "Mode 2",
+            "a mode with no sentence keeps its number, one-based as printed"
+        );
+        assert_eq!(rows[0].cost, ManaCost::try_parse("{2}{U}").ok());
+        assert_eq!(rows[1].cost, ManaCost::try_parse("{U}").ok());
+    }
+
+    /// A normal cast for nothing is a `{0}`, not an empty row: the cost is
+    /// all the normal way draws. An alternative cost for no mana keeps no
+    /// pips, because its sentence says what it charges.
+    #[test]
+    fn a_free_normal_cast_says_zero() {
+        let rows = options(
+            &Prompt::CastMode {
+                object: ObjectId::new(1, 0),
+                options: vec![
+                    CastModeDesc {
+                        index: 0,
+                        kind: CastModeKind::Normal,
+                        cost: ManaCost::ZERO,
+                    },
+                    CastModeDesc {
+                        index: 1,
+                        kind: CastModeKind::Alternative(0),
+                        cost: ManaCost::ZERO,
+                    },
+                ],
+            },
+            Lang::En,
+            None,
+            "",
+            FaceNames::default(),
+        )
+        .expect("a cast choice has rows");
+        let zero = rows[0].cost.expect("a free normal cast still draws a cost");
+        assert!(!zero.is_empty());
+        assert_eq!(zero.to_string(), "{0}");
+        assert_eq!(rows[1].cost, None);
     }
 
     /// Brightclimb Pathway, in the hand, as one object with two land faces.
@@ -812,7 +874,7 @@ mod tests {
             },
             Lang::En,
         );
-        assert_eq!(rows[0].label, "Printed cost", "the normal way has no line");
+        assert_eq!(rows[0].label, "", "the normal way has no line");
         assert_eq!(rows[1].label, "Evoke—Exile a white card from your hand.");
     }
 
@@ -837,15 +899,16 @@ mod tests {
         assert_eq!(rows[0].label, "Evoke—Exile a white card from your hand.");
     }
 
-    /// Where the card prints no sentence for the row at all, or the card
-    /// cannot be found, the row keeps the phrase it had: there is nothing
-    /// printed to say, and the phrase is the only wording there has been.
+    /// Where the card cannot be found, an alternative cost has no words:
+    /// there is nothing printed to say, and "Alternative cost" was this
+    /// client's wording. A mode with no sentence keeps its number, the one
+    /// thing that tells it from its neighbour.
     ///
     /// Solitude has no modes, so its `Mode(1)` has no line in the table; and
     /// with no view the card in hand cannot be named, so even its evoke cost
     /// has no sentence to draw.
     #[test]
-    fn a_row_with_no_printed_sentence_keeps_the_phrase_it_had() {
+    fn a_row_with_no_printed_sentence_has_no_words_but_a_mode_its_number() {
         let (view, texts, object) = asking_about(
             "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
             "en",
@@ -873,6 +936,6 @@ mod tests {
             },
             Lang::En,
         );
-        assert_eq!(unfound[0].label, "Alternative cost");
+        assert_eq!(unfound[0].label, "");
     }
 }

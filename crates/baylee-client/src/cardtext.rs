@@ -256,7 +256,7 @@ impl CardTexts {
         {
             return None;
         }
-        view.cards()
+        wanted(view)
             .filter(|card| !self.by_card.contains_key(card) && !door.tried.contains(card))
             .min()
     }
@@ -470,8 +470,20 @@ pub fn request(
 /// same view.
 fn unasked(view: &PlayerView, asked: &HashSet<CardIndex>) -> Vec<CardIndex> {
     let named: std::collections::BTreeSet<CardIndex> =
-        view.cards().filter(|card| !asked.contains(card)).collect();
+        wanted(view).filter(|card| !asked.contains(card)).collect();
     named.into_iter().take(BATCH).collect()
+}
+
+/// The cards whose text this seat may draw: the ones its view names
+/// ([`PlayerView::cards`]), and the spell each of those links as prepared
+/// (`AbilityDef::Prepared`), whose name and text a prepared cast's row
+/// draws ([`crate::abilities::prepared_words`]).
+///
+/// The link is printed on the card that names it, so asking for it tells the
+/// gateway nothing the view did not already say.
+fn wanted(view: &PlayerView) -> impl Iterator<Item = CardIndex> + '_ {
+    view.cards()
+        .flat_map(|card| std::iter::once(card).chain(crate::abilities::prepared_spell(card)))
 }
 
 /// Files the answer when it arrives.
@@ -1251,6 +1263,22 @@ mod tests {
             )
             .build();
         assert_eq!(unasked(&crowd, &HashSet::default()).len(), BATCH);
+    }
+
+    /// A prepared permanent's spell is asked about with it: its row draws
+    /// the spell's name and text, and no view ever names that card.
+    #[test]
+    fn a_prepared_card_s_spell_is_asked_about_too() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [crate::registry_printed(1, 0, "Emeritus of Woe")])
+            .build();
+        let emeritus = baylee_cards::decks::by_name("Emeritus of Woe").expect("in the pool");
+        let tutor = baylee_cards::decks::by_name("Demonic Tutor").expect("in the pool");
+        let mut asked = unasked(&view, &HashSet::default());
+        asked.sort_unstable();
+        let mut both = vec![emeritus, tutor];
+        both.sort_unstable();
+        assert_eq!(asked, both);
     }
 
     /// The deck builder's door: the printed sentence comes back under the

@@ -911,7 +911,9 @@ effect. `every_written_row_draws_its_printed_cost_or_its_whole_sentence`
 sweeps the pool offline against the compiled English Oracle: 1302 rows draw a
 printed head, 19 cards draw whole (named in the test and held equal both
 ways), and none is refused. The armed shelf draws the same head
-(`abilities::printed_words`). The stack cuts only a walker's badge
+(`abilities::printed_words`), and where a sentence has none, which is a
+keyword line that is its own cost (`Equip {2}`, `Ausrüsten {2}`), the whole
+line. The stack cuts only a walker's badge
 (`abilitysheet::loyalty_cut`), because it has no cost to license any other
 cut with.
 
@@ -3384,9 +3386,32 @@ is affected; the index is computed against Scryfall's English and every one
 of those printings splits into the same number of lines.
 The cost stays drawn beside the words even where the sentence prints it too,
 because that is what the ability sheet does with "Cycling {B}" and the two
-choosers are meant to be indistinguishable. Everything that cannot be read
-keeps the phrase it had: an unknown printing, a text whose own split came out
-a different length (`AbilityLine::of`), or a gateway serving no catalog.
+choosers are meant to be indistinguishable. A printing that does not pair,
+or no text at all, reads the compiled English Oracle (`cardtext::sentence`).
+
+**The normal way is its cost and no words** (#212). It said "Printed cost",
+which is the client describing a button rather than the card saying
+anything; the row now draws the face's mana cost as pips beside an empty
+label, and a spell cast for nothing draws `{0}` rather than an empty row. An
+alternative cost whose card the view cannot name has no words either (it
+said "Alternative cost"). A **mode** with no sentence keeps its number,
+"Mode 2", because there the number is the only thing that tells two rows
+apart: Derevi, Inspirit and Tireless Provisioner state their choice inside
+one sentence (`lines::MODES_PRINTED_INLINE`), a mode that declines prints
+nothing, and a trigger's mode costs nothing to draw instead.
+
+**A prepared cast is the spell it casts** (#212). Emeritus of Woe offers a
+copy of Demonic Tutor under the reserved `PREPARED_CAST`, which is no
+ability on the card, and the row said "Cast the prepared spell". It now
+draws the linked card (`AbilityDef::Prepared { card }`,
+`abilities::prepared_of`) the way a card is drawn: its name over its whole
+text, in the player's language where it has arrived and in English before
+(`abilities::prepared_words` over `CardTexts::face`), with the spell's
+printed mana cost in the cost column. The linked card is asked for with the
+cards the view names (`cardtext::wanted`), since no view ever names it; the
+link is printed on the permanent, so asking tells the gateway nothing new. A
+permanent's printed row with neither sentence nor cost symbols has no label
+either: it said "Ability 4".
 
 Drawing a sentence where two words used to go is what found the slip's other
 half. A row was a button with no width of its own, and Force of Will's
@@ -6432,12 +6457,13 @@ An ability row also says what it reads: `words` (the whole sentence the row
 draws, cost and all, or the one-line name of a row the card prints nothing
 for; `null` for neither), `head` (the cost column as drawn) and `source`,
 where the words came from: `localized` (the player's printing), `oracle` (the
-compiled English), `token` or `none` (the CR 305.6 tap, a grant, a prepared
-cast, a sentence the count guard refused; also a pour pip, which draws a
-colour and no words). All three go through the sheet's own doors,
-`cardtext::said` and `abilities::printed_words`, so the field cannot say
-German while the row draws English. Before them, "is this row localised" was a
-screenshot and a reader of German (#212).
+compiled English), `token` or `none` (the CR 305.6 tap, a grant, a sentence
+the count guard refused; also a pour pip, which draws a colour and no words).
+A prepared cast reports the spell's name and text and where they came from.
+All three go through the sheet's own doors, `cardtext::said`,
+`abilities::printed_words` and `abilities::prepared_words`, so the field
+cannot say German while the row draws English. Before them, "is this row
+localised" was a screenshot and a reader of German (#212).
 
 It was built, though, on a claim that turned out to be false — that a yes/no
 question has no keyboard answer at all, `docs/observed-faults.md` 36, since

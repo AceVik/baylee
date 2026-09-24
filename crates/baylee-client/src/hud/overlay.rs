@@ -989,8 +989,10 @@ pub(super) fn armed_label(
         // sheet's column draws, in the same words: `{T}, Sacrifice this
         // artifact`. Most of a cost is not mana and there are no discs for a
         // sacrifice, so it is the text, and pips beside it would say the mana
-        // half twice. The label, the ability's symbols, only where the card
-        // prints no head for it.
+        // half twice. A sentence with no head is a keyword line that is its
+        // own cost (`Equip {2}`), and is drawn whole. The ability's symbols
+        // only where the card prints no sentence for it, and the label (a
+        // grant's, the CR 305.6 tap's) where there are none.
         crate::Deed::Ability(action) => {
             let view = duel.view.as_ref()?;
             super::ability_options(duel, lang, armed.object)?
@@ -998,7 +1000,8 @@ pub(super) fn armed_label(
                 .find(|o| o.action == *action)
                 .map(|o| ArmedWords {
                     text: crate::abilities::printed_words(Some(texts), view, armed.object, &o)
-                        .and_then(|cut| cut.head)
+                        .and_then(|cut| cut.head.or_else(|| rules_line(&cut.blocks)))
+                        .or(o.cost)
                         .unwrap_or(o.label),
                     cost: None,
                 })
@@ -1038,6 +1041,21 @@ pub(super) fn armed_label(
                 cost: None,
             }),
     }
+}
+
+/// A sentence's rules text as one line, its reminder left out: what the
+/// armed shelf says of a keyword ability that is its own cost.
+fn rules_line(blocks: &[baylee_client_core::card_face::TextBlock]) -> Option<String> {
+    use baylee_client_core::card_face::TextBlock;
+    let line = blocks
+        .iter()
+        .filter_map(|block| match block {
+            TextBlock::Rules(text) => Some(text.as_str()),
+            TextBlock::Reminder(_) => None,
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    (!line.trim().is_empty()).then_some(line)
 }
 
 /// One arm of the number stepper.
