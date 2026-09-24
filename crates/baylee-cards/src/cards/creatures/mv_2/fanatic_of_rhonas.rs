@@ -33,7 +33,7 @@ card!(
             Cost::TAP,
             &[Effect::mana(ManaColor::Green, 4)],
             condition = Some(Condition::ControlCount(
-                &Filter::And(&[Filter::YOUR_CREATURE, Filter::PowerAtLeast(4)]),
+                &Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
                 1
             )),
         ),

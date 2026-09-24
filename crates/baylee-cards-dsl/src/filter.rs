@@ -283,6 +283,22 @@ impl Filter {
     /// is that fact as a build failure.
     pub const ANOTHER_CREATURE_YOU_CONTROL: Self =
         Self::And(&[Self::CREATURE, Self::ControlledByYou, Self::Another]);
+    /// "A creature you control with power 4 or greater" — the sentence the
+    /// *ferocious* cards test, and the one Bonders' Enclave, Garruk's
+    /// Uprising, Temur Ascendancy and Fanatic of Rhonas had each written out
+    /// for themselves.
+    ///
+    /// Named for the sentence and not for the word: ferocious is an ability
+    /// word (CR 207.2c) and means nothing to the rules, and one card of the
+    /// four prints it. The power is the one read after the layers (CR 613),
+    /// so a 1/1 under an anthem that makes it 4/4 counts, which is what a
+    /// player at the table sees.
+    ///
+    /// It nests [`Self::YOUR_CREATURE`] rather than flattening it, because
+    /// that is the order all four cards already wrote, so the swap is the
+    /// same data and not merely the same meaning.
+    pub const YOUR_CREATURE_WITH_POWER_4_OR_GREATER: Self =
+        Self::And(&[Self::YOUR_CREATURE, Self::PowerAtLeast(4)]);
 }
 
 #[cfg(test)]
@@ -327,6 +343,10 @@ mod tests {
         (
             "ANOTHER_CREATURE_YOU_CONTROL",
             Filter::ANOTHER_CREATURE_YOU_CONTROL,
+        ),
+        (
+            "YOUR_CREATURE_WITH_POWER_4_OR_GREATER",
+            Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
         ),
     ];
 
@@ -436,6 +456,11 @@ mod tests {
             Filter::ANOTHER_CREATURE_YOU_CONTROL,
             Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Another]),
             "your before another — the one order `f!` can spell two ways"
+        );
+        assert_eq!(
+            Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
+            Filter::And(&[Filter::YOUR_CREATURE, Filter::PowerAtLeast(4)]),
+            "the noun nested, as the four cards that wrote it had it"
         );
         assert_eq!(
             Filter::NONBASIC_LAND,

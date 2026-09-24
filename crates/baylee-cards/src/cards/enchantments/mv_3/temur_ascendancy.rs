@@ -8,14 +8,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-/// The restriction belongs to the **trigger's subject**, not to its effect:
-/// written as "any creature you control enters, then check the power", the
-/// ability would go on the stack for every creature and be visible to every
-/// opponent as a thing that happened. CR 603.2 is what makes the difference
-/// — a trigger whose event does not match simply does not trigger.
-static BIG_CREATURE_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::YOUR_CREATURE, Filter::PowerAtLeast(4)]);
-
 card!(
     index = index::TEMUR_ASCENDANCY,
     oracle_id = "e68dc47c-692f-4420-9799-eee104017273",
@@ -32,8 +24,14 @@ card!(
             Filter::YOUR_CREATURE,
             Modifier::AddKeyword(KeywordSet::HASTE)
         ),
+        // The restriction belongs to the **trigger's subject**, not to its
+        // effect: written as "any creature you control enters, then check
+        // the power", the ability would go on the stack for every creature
+        // and be visible to every opponent as a thing that happened. CR 603.2
+        // is what makes the difference — a trigger whose event does not match
+        // simply does not trigger.
         triggered!(
-            Trigger::EntersBattlefield(&BIG_CREATURE_YOU_CONTROL),
+            Trigger::EntersBattlefield(&Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER),
             &[Effect::MayDo {
                 effects: &[Effect::draw(1)],
             }]

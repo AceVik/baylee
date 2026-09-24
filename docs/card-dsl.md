@@ -939,7 +939,8 @@ predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
 `CREATURE_OR_PLANESWALKER`, `NONBASIC_LAND`, `NONTOKEN_CREATURE`,
 `ANOTHER_CREATURE`, `LEGENDARY_CREATURE`, `ATTACKING_CREATURE`,
 `YOUR_CREATURE`, `OPPONENT_CREATURE`, `YOUR_LAND`, `YOUR_BASIC_LAND`,
-`YOUR_ARTIFACT`, `ANOTHER_CREATURE_YOU_CONTROL`. "A creature" had been
+`YOUR_ARTIFACT`, `ANOTHER_CREATURE_YOU_CONTROL`,
+`YOUR_CREATURE_WITH_POWER_4_OR_GREATER`. "A creature" had been
 written out as `HasType(TypeSet::CREATURE)` in a differently-named `static`
 in twenty-six card files, which is twenty-six chances to type `LacksType` by
 accident and no way to grep for the one that did.

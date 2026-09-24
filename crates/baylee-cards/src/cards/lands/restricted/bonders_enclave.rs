@@ -7,13 +7,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-/// The gate, as the card prints it: a creature **you control**, and the
-/// power read after the layers — a 1/1 under an anthem that makes it 4/4 is
-/// a creature with power 4 or greater (CR 613), which is what a player sees
-/// and so what the land must accept.
-static BIG_CREATURE_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::YOUR_CREATURE, Filter::PowerAtLeast(4)]);
-
 card!(
     index = index::BONDERS_ENCLAVE,
     oracle_id = "f33ce38a-34ec-4b65-a0fc-160484a02007",
@@ -25,7 +18,12 @@ card!(
         activated!(
             cost!("{3}", TapSelf),
             &[Effect::draw(1)],
-            condition = Some(Condition::ControlCount(&BIG_CREATURE_YOU_CONTROL, 1)),
+            // The gate, as the card prints it: a creature **you control**,
+            // its power read after the layers.
+            condition = Some(Condition::ControlCount(
+                &Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
+                1
+            )),
         ),
     ],
 );

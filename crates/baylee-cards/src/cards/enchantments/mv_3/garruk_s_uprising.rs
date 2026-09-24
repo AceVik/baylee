@@ -9,16 +9,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-/// Read twice by this card, and that is the point of naming it: the enter
-/// trigger asks it as an intervening `if` (CR 603.4 — checked when the
-/// ability would trigger *and* again on resolution), and the second trigger
-/// asks it of the creature that entered (CR 603.2 — an event that does not
-/// match causes no trigger at all). Two rules, one sentence; a card that
-/// spelled them differently would be a card whose two halves disagree about
-/// what "power 4 or greater" means.
-static BIG_CREATURE_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::YOUR_CREATURE, Filter::PowerAtLeast(4)]);
-
 card!(
     index = index::GARRUK_S_UPRISING,
     oracle_id = "3127ae9b-a7a7-43ec-89d7-688f8445b33d",
@@ -30,18 +20,27 @@ card!(
         mana_cost = mana!("{2}{G}"),
         types = TypeSet::ENCHANTMENT,
     ),],
+    // One filter read twice: the enter trigger asks it as an intervening `if`
+    // (CR 603.4 — checked when the ability would trigger *and* again on
+    // resolution), and the second trigger asks it of the creature that
+    // entered (CR 603.2 — an event that does not match causes no trigger at
+    // all). Two rules, one sentence; spelled differently, the card's two
+    // halves could disagree about what "power 4 or greater" means.
     abilities = &[
         triggered!(
             Trigger::ETB,
             &[Effect::draw(1)],
-            condition = Some(Condition::ControlCount(&BIG_CREATURE_YOU_CONTROL, 1)),
+            condition = Some(Condition::ControlCount(
+                &Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
+                1
+            )),
         ),
         static_ability!(
             Filter::YOUR_CREATURE,
             Modifier::AddKeyword(KeywordSet::TRAMPLE)
         ),
         triggered!(
-            Trigger::EntersBattlefield(&BIG_CREATURE_YOU_CONTROL),
+            Trigger::EntersBattlefield(&Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER),
             &[Effect::draw(1)]
         ),
     ],
