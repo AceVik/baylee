@@ -63,22 +63,26 @@
 //! `baylee-client-core` deliberately links neither.
 
 use baylee_cards_dsl::{AbilityDef, Filter, PlayerRel, TargetSpec};
-use baylee_view::{HandObject, PlayerView, PublicObject, StackItem};
+use baylee_view::{CardIdentity, PlayerView, PublicObject, StackItem};
 
 /// Whether this client can **prove** the card has no legal target.
 ///
 /// `false` is the answer for everything it cannot read, which includes every
 /// card that needs no target at all — so a caller may ask it about any card
 /// in hand without first deciding whether the question applies.
+///
+/// It takes the card and not the hand object because the card is all it
+/// reads, and the hand is not the only place a spell is cast from: a
+/// graveyard card with flashback is asked the same question (#242).
 #[must_use]
-pub fn provably_targetless(view: &PlayerView, hand: &HandObject) -> bool {
-    let Some(def) = baylee_cards::by_index(hand.card.index) else {
+pub fn provably_targetless(view: &PlayerView, card: CardIdentity) -> bool {
+    let Some(def) = baylee_cards::by_index(card.index) else {
         return false;
     };
     // The face that is up, the same one `manasources::hand_cost` prices: an
     // adventure or an MDFC in hand is cast as what it is showing, and the
     // other face's targets are a different card's.
-    let abilities = def.abilities_for_face(hand.card.face as usize);
+    let abilities = def.abilities_for_face(card.face as usize);
     let mut asked = false;
     for ability in abilities {
         // `ModalSpell` is deliberately not here. A modal spell is castable if
@@ -333,31 +337,22 @@ mod tests {
     use super::*;
     use baylee_cards_dsl::KeywordSet;
     use baylee_client_core::test_support::{ViewBuilder, printed};
-    use baylee_core::ids::{ObjectId, PrintRef};
+    use baylee_core::ids::PrintRef;
     use baylee_core::types::TypeSet;
-    use baylee_view::CardIdentity;
 
-    /// A card in hand, named the way a player names it.
+    /// A card as a hand holds it, named the way a player names it.
     ///
     /// Built from the registry rather than from `ViewBuilder::with_hand`,
     /// which numbers a card's `CardIndex` from its object slot — fine for a
     /// layout test and useless here, where the whole question is what the
     /// printed card says it targets.
-    fn in_hand(slot: u32, name: &str) -> baylee_view::HandObject {
+    fn in_hand(name: &str) -> CardIdentity {
         let index =
             baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("`{name}` is in the pool"));
-        baylee_view::HandObject {
-            id: ObjectId::new(slot, 0),
-            card: CardIdentity {
-                index,
-                print: PrintRef::new(0),
-                face: 0,
-            },
-            name: name.to_string(),
-            mana_value: 1,
-            colors: baylee_core::color::ColorSet::default(),
-            types: TypeSet::INSTANT,
-            commander: false,
+        CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
         }
     }
 
@@ -366,10 +361,7 @@ mod tests {
     #[test]
     fn a_removal_spell_with_nothing_to_remove_is_proved_targetless() {
         let view = ViewBuilder::new(2).build();
-        assert!(provably_targetless(
-            &view,
-            &in_hand(7, "Swords to Plowshares")
-        ));
+        assert!(provably_targetless(&view, in_hand("Swords to Plowshares")));
     }
 
     /// And one creature is enough to end the proof, whoever controls it —
@@ -381,7 +373,7 @@ mod tests {
                 .with_battlefield(seat, vec![printed(3, seat, "Grizzly Bears", 3)])
                 .build();
             assert!(
-                !provably_targetless(&view, &in_hand(7, "Swords to Plowshares")),
+                !provably_targetless(&view, in_hand("Swords to Plowshares")),
                 "seat {seat}'s creature is a legal target"
             );
         }
@@ -396,7 +388,7 @@ mod tests {
             .with_battlefield(0, vec![printed(3, 0, "Grizzly Bears", 3)])
             .build();
         assert!(
-            provably_targetless(&view, &in_hand(7, "Counterspell")),
+            provably_targetless(&view, in_hand("Counterspell")),
             "a creature on the table is not a spell on the stack"
         );
     }
@@ -406,7 +398,7 @@ mod tests {
     #[test]
     fn a_card_that_needs_no_target_is_never_proved() {
         let view = ViewBuilder::new(2).build();
-        assert!(!provably_targetless(&view, &in_hand(7, "Llanowar Elves")));
+        assert!(!provably_targetless(&view, in_hand("Llanowar Elves")));
     }
 
     /// A permanent nobody may look at abandons the proof.
@@ -430,10 +422,7 @@ mod tests {
         let view = ViewBuilder::new(2)
             .with_battlefield(1, vec![hidden])
             .build();
-        assert!(!provably_targetless(
-            &view,
-            &in_hand(7, "Swords to Plowshares")
-        ));
+        assert!(!provably_targetless(&view, in_hand("Swords to Plowshares")));
     }
 
     /// #154, and the case that proves the sweep earns its keep: it found
@@ -447,7 +436,7 @@ mod tests {
     #[test]
     fn a_reanimation_spell_over_empty_graveyards_is_proved_targetless() {
         let view = ViewBuilder::new(2).build();
-        assert!(provably_targetless(&view, &in_hand(9, "Reanimate")));
+        assert!(provably_targetless(&view, in_hand("Reanimate")));
     }
 
     /// The counter-proof, and it has to be here: an arm that returned
@@ -458,7 +447,7 @@ mod tests {
         let view = ViewBuilder::new(2)
             .with_graveyard(1, vec![printed(4, 1, "Grizzly Bears", 4)])
             .build();
-        assert!(!provably_targetless(&view, &in_hand(9, "Reanimate")));
+        assert!(!provably_targetless(&view, in_hand("Reanimate")));
     }
 
     /// The first leaf of a filter tree that [`matches`] cannot read, if any.

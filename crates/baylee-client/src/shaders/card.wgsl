@@ -75,6 +75,7 @@ const GLOW_COMMANDER: u32 = 128u;
 const GLOW_TOKEN: u32 = 1048576u;
 const GLOW_COPY: u32 = 2097152u;
 const GLOW_DEFENDER: u32 = 4194304u;
+const GLOW_REACHABLE: u32 = 8388608u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -709,6 +710,18 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
                 // ∫₀¹ pow(1 - 2·min(h, 1-h), 5) dh is 1/6, so 0.22 + 0.60/6.
                 let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
                 color = vec4<f32>(color.rgb + amber * band * amount, color.a);
+            }
+            // Reachable: the same invitation, made by this client and not by
+            // the engine — a card in a pile it would tap lands for and then
+            // cast. The chase above in the hand's indigo, so "you could" is
+            // still one motion and the hue says who is offering; `glow_of`
+            // never sets both.
+            if (params.glow & GLOW_REACHABLE) != 0u {
+                let head = fract(perimeter(uv) - t * 0.22);
+                let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
+                let indigo = vec3<f32>(0.62, 0.56, 1.00);
+                let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
+                color = vec4<f32>(color.rgb + indigo * band * amount, color.a);
             }
             // Armed: the tap has been made, and one more sends it. The same
             // register as the offer above and deliberately the opposite

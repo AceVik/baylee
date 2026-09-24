@@ -573,6 +573,15 @@ pub struct TrayRevision {
     /// others are — it is compared, not bumped.
     arrangement: Option<baylee_client_core::arrange::Arrangement>,
 
+    /// Which pile cards this seat is offered, and by whom
+    /// ([`crate::Duel::reach_of`]): the rows' two lights, in zone order.
+    ///
+    /// A value of its own and not left to `seq`, because the two sets it
+    /// reads are rebuilt from the interaction as well as the view, and a row
+    /// drawn lit for a card the engine has stopped offering is a click that
+    /// answers with a refusal.
+    lit: Vec<(ObjectId, crate::Reach)>,
+
     /// The text-face latch, which turns every thumbnail over at once.
     faces: bool,
     /// Which filing of the card-text table this was drawn at
@@ -673,6 +682,7 @@ pub fn sync_tray(
         .interaction
         .as_ref()
         .and_then(baylee_client_core::Interaction::arrangement);
+    let lit = pile_reach(&duel);
     // Rounded to whole pixels for `HudRevision`'s reason: a window being
     // dragged reports fractional sizes, and a gate keyed on an `f32` would
     // rebuild on a sub-pixel wobble.
@@ -705,6 +715,7 @@ pub fn sync_tray(
         && revision.selected == selected
         && revision.aim == aim
         && revision.arrangement.as_ref() == arrangement
+        && revision.lit == lit
         && revision.faces == faces_always
         && revision.texts == texts.generation()
         && revision.window == canvas
@@ -732,6 +743,7 @@ pub fn sync_tray(
     revision.selected.clone_from(&selected);
     revision.aim = aim;
     revision.arrangement = arrangement.cloned();
+    revision.lit.clone_from(&lit);
     revision.faces = faces_always;
     revision.texts = texts.generation();
     revision.window = canvas;
@@ -801,8 +813,48 @@ pub fn sync_tray(
         place.is_maximised(band),
         settings.zone_view,
         scroll_y,
+        &lit,
     );
     commands.entity(root).add_child(tray);
+}
+
+/// Every card in a graveyard, an exile pile or a command zone that this seat
+/// is offered, and by whom — [`crate::Duel::reach_of`], the predicate the
+/// table lights the same cards by, so a card cannot be lit on the felt and
+/// dark in the sheet.
+fn pile_reach(duel: &crate::Duel) -> Vec<(ObjectId, crate::Reach)> {
+    let Some(view) = duel.view.as_ref() else {
+        return Vec::new();
+    };
+    view.graveyards
+        .iter()
+        .chain(&view.exile)
+        .chain(&view.command)
+        .flatten()
+        .filter_map(|o| duel.reach_of(o.id).map(|reach| (o.id, reach)))
+        .collect()
+}
+
+/// Lights a row's picture the way the hand lights a card
+/// (`hud::hand`'s halo): gold for the engine's yes, indigo for this
+/// client's offer to tap lands first (#242).
+///
+/// On the picture and not the row, because the row's own ground already
+/// carries the answer being built, and a card's edge is where the hand
+/// taught a player to read these two lights.
+fn light_thumb(commands: &mut Commands, thumb: Entity, reach: Option<crate::Reach>) {
+    let halo = match reach {
+        Some(crate::Reach::Offered) => super::hand::halo(palette::ACTIVE, 1.0),
+        Some(crate::Reach::Taps) => super::hand::halo(palette::REACHABLE, 0.88),
+        None => return,
+    };
+    commands.entity(thumb).insert(halo);
+}
+
+/// What [`pile_reach`] says about one row.
+fn reach_in(lit: &[(ObjectId, crate::Reach)], object: ObjectId) -> Option<crate::Reach> {
+    lit.iter()
+        .find_map(|(id, reach)| (*id == object).then_some(*reach))
 }
 
 /// The strip of screen the sheet is allowed into: below the seat tabs and the
@@ -1188,6 +1240,7 @@ pub(super) fn spawn_tray(
     maximised: bool,
     mode: ViewMode,
     scroll_y: f32,
+    lit: &[(ObjectId, crate::Reach)],
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
     // `Browser` cannot do for itself: it decides in `baylee-client-core`,
@@ -1738,6 +1791,7 @@ pub(super) fn spawn_tray(
         // subtracted a second time.
         measure: place.width - 2.0 * TRAY_SIDE,
         headed: false,
+        lit,
     };
     match answering.and_then(baylee_client_core::Interaction::arrangement) {
         // An arrangement is drawn pile by pile, whatever the view: the piles
@@ -1878,6 +1932,7 @@ fn spawn_rows(
                         grid.fonts,
                         faces,
                         cards,
+                        reach_in(grid.lit, row.id),
                     )
                 } else {
                     spawn_row(
@@ -1891,6 +1946,7 @@ fn spawn_rows(
                         grid.fonts,
                         faces,
                         cards,
+                        reach_in(grid.lit, row.id),
                     )
                 };
                 commands.entity(list).add_child(node);
@@ -2249,6 +2305,7 @@ fn spawn_row(
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
     cards: &mut Option<&mut UiCards<'_>>,
+    reach: Option<crate::Reach>,
 ) -> Entity {
     let slot = row_slot(commands, row, TRAY_ROW_H, TRAY_ROW_PAD);
 
@@ -2266,6 +2323,7 @@ fn spawn_row(
         cards,
         TRAY_THUMB_W,
     );
+    light_thumb(commands, thumb, reach);
     commands.entity(slot).add_child(thumb);
 
     // ---- the name ----
@@ -2344,6 +2402,8 @@ struct GridCtx<'a> {
     measure: f32,
     /// Whether to head each pile's run with its name.
     headed: bool,
+    /// Which rows' cards this seat is offered, and by whom ([`pile_reach`]).
+    lit: &'a [(ObjectId, crate::Reach)],
 }
 
 /// Every card in the ticked zones, as tiles.
@@ -2551,6 +2611,7 @@ fn spawn_tile(
         cards,
         width,
     );
+    light_thumb(commands, art, reach_in(ctx.lit, row.id));
     // Chosen is the art's own edge, which is why it is inserted here rather
     // than being a property of the tile: a second frame around the picture
     // would read as a card in a holder.
@@ -2699,6 +2760,7 @@ fn spawn_big_row(
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
     cards: &mut Option<&mut UiCards<'_>>,
+    reach: Option<crate::Reach>,
 ) -> Entity {
     let slot = row_slot(commands, row, TRAY_BIG_ROW_H, TRAY_BIG_ROW_PAD);
 
@@ -2716,6 +2778,7 @@ fn spawn_big_row(
         cards,
         TRAY_BIG_THUMB_W,
     );
+    light_thumb(commands, thumb, reach);
     commands.entity(slot).add_child(thumb);
 
     // The two lines beside the picture. The column grows and its children are
