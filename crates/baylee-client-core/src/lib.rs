@@ -44,6 +44,7 @@ pub mod browser;
 pub mod bugreport;
 pub mod card_face;
 pub mod cardcrest;
+pub mod cardframe;
 pub mod cardplate;
 pub mod cardquery;
 pub mod cardrail;

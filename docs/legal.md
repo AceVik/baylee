@@ -117,6 +117,20 @@ Urheber- und Medienrecht.
    as an asset. It is the same rule and it is worth spelling out, because the
    back is the one card image a client would be tempted to bundle: it never
    changes and every game needs it.
+
+   **Nothing we draw lies on a card image** (#274). Scryfall asks that an
+   image is not covered, cropped, tinted or stamped, and the artist's name
+   and the © line run along its bottom edge. So the client draws a print
+   whole, scaled into a window of a frame that is ours, and everything it
+   says about the card — identity, keywords' state, offers, numbers — is on
+   that frame or on an object of its own lying above the card. What reaches
+   the image: its own **finish** (a foil is what that printing is, the one
+   exception the owner accepted) and light that passes over the whole card
+   and leaves nothing behind — the table's lamp pool, the one-second arrival
+   sweep and the zone-change doors. The brushed coating every card used to
+   wear lifted the image's blacks, the artist's line included, and was taken
+   off. `cardmat::nothing_but_the_finish_is_drawn_on_the_print` holds both
+   card shaders to that; `docs/client.md` §"The card surface" has the frame.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint; no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).

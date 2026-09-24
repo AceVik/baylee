@@ -1505,23 +1505,20 @@ the same reason a token's is and is not the same fact at all, and `is_token`,
 which was that field, called every opponent's morph a token for as long as
 nothing read it.
 
-The mark is drawn on an **identity slip**: the Mana font's `ms-token` (a
-squirrel) for a token on verdigris paper, `ms-ability-copy` (two cards) for a
-copy on violet, sampled out of the same atlas the rail's marks come from. A
-commander's `ms-commander` on gilt is the third, and the three pack left to
-right with provenance first.
+The mark is the **frame's paper** (#274): verdigris for a token, violet for a
+copy, oxblood for a commander — see "The card surface". It was an **identity
+slip** under the printed name before that: the Mana font's `ms-token` (a
+squirrel), `ms-ability-copy` (two cards) and `ms-commander` on those papers,
+sampled out of the same atlas the rail's marks come from. Before the slips it
+was two **fixed rows** in a column in the right margin, and before those a
+filled disc in the card's **top-left corner**. All three homes were on the
+print. The paper is what carried the distinction even then, and it is the
+whole of it at table size now; `client-core/src/cardcrest.rs` holds the
+papers and the glyphs.
 
-The paper is what carries the distinction now, and that is what let the marks
-pack at all: they were two **fixed rows** in a column in the right margin,
-and a filled disc in the card's **top-left corner** before that. Both of
-those homes were sent back by the owner — the first because it sat on the
-printed name, the second because the position was wrong for something that is
-not a number. `client-core/src/cardcrest.rs` is where the slips are measured
-and the section below carries the whole argument.
-
-Proved on a running table rather than argued: Llanowar Elves, a Spark Double
-that entered as a copy of it and a Rite of Replication token of it, drawn side
-by side — no mark, two cards, a squirrel.
+Proved on a running table rather than argued, in the slips' day: Llanowar
+Elves, a Spark Double that entered as a copy of it and a Rite of Replication
+token of it, drawn side by side — no mark, two cards, a squirrel.
 
 The bits are `cardmat::glow::TOKEN` and `::COPY`, the first two in that word
 above the rail's twelve-bit field. `glow_of` reaches the registry itself here
@@ -1727,6 +1724,43 @@ Art is the texture; the *finish* and the keywords are the shader. One material
 is one card and not three draws, and a board of three hundred permanents can
 afford one pipeline.
 
+**The print and its frame (#274).** Nothing this client draws lies on the
+print. It is the owner's rule and Scryfall's: their image terms ask that a
+card image is not covered, cropped, blurred, tinted or stamped, and the
+artist's name, the collector line and the © line run along the print's bottom
+edge — exactly where the keyword rail and the power/toughness plate used to
+lie, with the ward bands tinting the rest of that strip (8.2:1 contrast down
+to 2.6:1 under shroud, measured in #270). So a card is now a print in a
+window, and the paper around the window is ours:
+
+- The quad keeps its size, 1 × 1.397 card widths, so no lane, pile, hit test
+  or shadow moved. The print is scaled into it at `cardframe::PRINT_SCALE`
+  (0.878 of the card's width, 63:88 kept, nothing cropped), with the frame
+  0.061 wide beside it, 0.045 over it and a ledge of 0.125 under it — 5.7,
+  4.2 and 11.8 pixels on a card 94 pixels wide on the felt.
+  `client-core/src/cardframe.rs` holds the numbers and `card_common.wgsl`
+  mirrors them; `the_frame_is_the_same_frame_in_both_languages` holds the
+  two together. The window is the print's own rounded rectangle, so the
+  scan's white corners fall on the frame and never show.
+- Drawn on the print: its own **finish** (`print_finish`), because a foil is
+  what that printing *is* — the one exception the owner accepted — and
+  light that passes over the whole card and leaves nothing behind: the
+  table's lamp pool, the arrival sweep and the zone-change doors. The
+  brushed **coating** every card used to wear is gone, not moved: its floor
+  lifted the print's blacks from 18 to 23–26 of 255 everywhere, the artist's
+  line included, and the owner took it off entirely.
+- Everything else is `frame_layer`, one function in `card_common.wgsl` that
+  both card shaders call and then hide inside the window with
+  `print_cover`. `nothing_but_the_finish_is_drawn_on_the_print` reads both
+  fragments as text and fails if anything but the finish writes the print,
+  or anything but light and the corner touches the colour after the merge.
+  The live half is a window diff: the same card rendered with every state
+  on and then off, clock paused, must be identical inside the window —
+  including the bottom 7% of the window, where the artist and © lines are.
+- A world-text face (a card drawn from our own text on the table) is laid
+  out against the window too (`face::spawn_world`, `cardframe::window_lift`),
+  so its lines never run under the rim or the ledge.
+
 Foil and etched finishes share `print_finish` in `card_common.wgsl` (#198).
 The existing artwork sample supplies luminance, pigment and screen-space
 contours, with no extra texture fetches. Foil uses a restrained, pigment-shifted
@@ -1762,184 +1796,39 @@ card in a hand — the keyword sheaths say what is protected *on the
 battlefield*, and a hand that glowed with them would be claiming something
 that is not yet so.
 
-What a card *is* and what it can *do* are drawn in different places, and that
-separation is the whole grammar:
+What a card *is*, what can be *done* with it and its *numbers* are drawn in
+three registers of the frame, and that separation is the whole grammar:
 
-- **The border says what the card is.** Indestructible is the *base*:
-  darksteel, a hard blue-grey with a specular line, the card made of something
-  rather than lit by something. Hexproof and shroud are *films* over that base
-  — a green fog holding things off, or the same idea taken further, colder and
-  denser, since not even its controller may target it. Base × film composes, so
-  an indestructible hexproof creature is steel under green and neither claim is
-  lost. Two films would not compose, and never have to: `glow_bits` drops
-  hexproof whenever shroud is present, because shroud already forbids every
-  target hexproof forbids (CR 702.18a against 702.11b) and the green film
-  would be advertising a permission the card does not grant. That
-  normalisation lives in Rust rather than in WGSL so that it is unit-tested
-  once and both shaders inherit it.
-- **Depth is a register of its own: a fact about the card may reach in, an
-  offer or a deed stays on the rim.** The films used to sit in the same
-  `BORDER` band as everything else, and the owner read the result as what it
-  was: a border. A permanent on the felt is about 94 physical pixels wide, so
-  that band is five of them — a five-pixel green line that blinks on and off,
-  which is not what hexproof is. It is something *held around* the card. So
-  the films now fall off as `exp(-d · WARD_REACH)` rather than stepping to a
-  width: any `smoothstep` to a width still has a hem, and the hem is the part
-  that reads as a stroke. The fog is at full density at the edge, still better
-  than half of it where the old band ended, a fifth at the art's own edge, and
-  nothing worth drawing a third of the way in. The steel keeps the thin band,
-  because metal has an edge — and so do the travelling invitation, the armed
-  ring and the indigo price, which are all things a player could *do* rather
-  than things the card *is*.
+- **The paper says what the card is.** Its colour is the card's identity: the
+  plain frame is a warm slate (linear 0.30/0.29/0.27, about 150 of 255), a
+  token is verdigris, a copy violet, a commander oxblood — gilt is this
+  client's word for "yours", and gilt paper under an amber offer and a gold
+  armed ring would be one colour. A card that is two of those (a token copy
+  of a commander) wears the stronger on the sides and the top and the other
+  on the ledge. Indestructible makes the paper **steel**; hexproof and
+  shroud lie over it as a **wash** — green wisps, or a colder, denser haze,
+  since not even its controller may target it. `glow_bits` still drops
+  hexproof whenever shroud is present (CR 702.18a against 702.11b), in Rust
+  so it is tested once. A creature with summoning sickness is drawn as
+  **night falling on the paper** (0.30 → 0.14 linear, 45 display levels,
+  with the moon's slight cool cast), where it used to dim and desaturate
+  the print — which is the very thing Scryfall's terms name. The bit is set
+  only for creatures, because summoning sickness is visible on nothing else.
+  `cardframe`'s tests hold the night and every identity at least 20 display
+  levels from the plain paper.
 
-  Hexproof and shroud are told apart on four axes and hue was never one of
-  them on its own. Hexproof is two coarse noise octaves whose time term
-  advances along `d`; `d` is zero at every edge and grows inward, so the plus
-  sign carries the wisps *outward*, which is the direction the claim is about,
-  and the minus sign would draw a card soaking it up. Shroud keeps its fine
-  grain drifting across the whole card as a sheet. Coarse roll out of the edge
-  against fine sheet drift, 6 cells against 14, green against cold blue,
-  0.55 against 0.65. Nothing about it is a lamp: there is no light in this
-  scene and there cannot be one, so the fog is arithmetic on the card's own
-  colour. The obvious alternative — a bigger quad behind the card with the
-  silhouette punched out — was refused for three reasons, and the decisive one
-  is that the felt is green (`FELT_CLOTH` is `(0.071, 0.223, 0.150)`), so a
-  halo outside the card would land on the one surface hexproof's hue has no
-  contrast against. It also buys no width at this card size and could only
-  ever be built for the table, leaving a card in the hand looking like a
-  different card. Measured live with a board of eight warded lands: 76/50/30
-  peak per channel over 1.6 s inside a warded card, **0/0/0** on an
-  opponent's plain land in the same pair of frames, and the green excess over
-  the red channel falling from about +30 at the edge to +1 in the middle.
-- **The face says what the card can do.** A creature with summoning sickness
-  (`glow::SUMMONING_SICK`) is drawn asleep, over the art and never on the
-  border. It is not a keyword — it is a fact about *this turn* — and putting
-  it on the border would make it read as one. The bit is set only for
-  creatures, because summoning sickness is visible on nothing else.
-
-  **Two kinds of thing live in this register, and they are not the same kind.**
-  Summoning sickness is true until end of turn; defender is true for the
-  creature's whole life. Until September 2026 only a temporary one sat here,
-  so nothing in the drawing had to say which kind it was — and that is exactly
-  the distinction the wall below had to be designed around, because a
-  summoning-sick defender wears one of each at the same time.
-
-  What "asleep" is drawn as is a **white balance and a blanket** (`SLEEP_*`,
-  written out in both card shaders and compared by a test). The face goes
-  slightly cool under a moon, and a soft veil lies heavier at the foot of the card than
-  at the head, its upper hem rising and falling on a five-second breath. It
-  used to be a uniform four-percent luminance dip, and that is nothing on art
-  whose own luminance varies by forty points: the two channels a face has
-  spare are *colour cast* and *shape*, and the old drawing used neither.
-  Asleep is not disabled, so desaturation — which is what reads as "greyed
-  out" — stays a minority of the effect at 8%, and the body (power,
-  toughness, marked damage, counters) is composited after this block and stays
-  crisp, which draws "still blocks perfectly well" for free. The cast is
-  bounded: red stays red, green stays green, white takes a slight cool cast, and pushing it
-  further would start deciding a card's colour identity for it, which is the
-  one thing an unlit stage exists to protect.
-
-  A cast alone was still ambiguous with the art under it — a blue creature
-  drawn cold looks like a blue creature — so the night has a second half:
-  **slow rings spreading from the middle of the card** (`SLEEP_RING_*`), the
-  splash a thing that has only just landed is still settling out of. They are
-  the one part of the drawing that moves *across* the face rather than along
-  one axis of it, which is what no art can be mistaken for. Water rather than
-  roots or frost of the three shapes it could have taken: roots would have to
-  be organic shape, and shape on the face is how a creature *type* reads,
-  while frost would be crystalline and the border already spends hard
-  blue-grey on indestructible. A ring is neither — a luminance swell tinted
-  with the same moon, so colour identity survives it. Five crests to the
-  corner, chosen against the smallest card the table draws (previewed at
-  60, 106 and 220 pixels wide), one leaving the middle every 3.4 s, which is
-  clear of every other clock a card can wear. Measured on the running client:
-  over two seconds the sick card moves 38 levels per channel while an
-  untapped-neighbour control moves 0, and the change varies by 36 levels
-  *within a single row* — which is the ring rather than the blanket, since a
-  blanket is constant along x.
-- **And the face says what the creature *is*, when what it is, is a wall.**
-  Defender (`glow::DEFENDER`, CR 702.3) is drawn as a translucent yellowish
-  brick wall travelling across the card — courses of running bond under a
-  warm band that arrives as an edge and leaves as a wash, with the card still
-  readable through it. It is the first permanent occupant of this register,
-  and the ticket that chose it (#23) asked a narrower question: the request
-  was "animate every keyword symbol", and the obvious animation for the one
-  keyword that means *does not attack* is none at all. The answer was neither
-  option — not a still mark among breathing ones, but a different drawing
-  entirely.
-
-  Two numbers decided the shape, and both are in `card.wgsl` beside the
-  constants they argue for. **The term is added in display space, not in
-  linear**: measured on four constructed cards, one constant linear add is
-  worth 72 display levels over dark art and 1.5 over a white card's title bar
-  — fifty to one within one card — so a mark that has to be worth the same
-  amount wherever it lands cannot be light, and is applied after the transfer.
-  It costs one transfer pair per fragment and no second sample, which keeps it
-  inside the uniforms-only budget the WebGL2 fallback depends on. And **the
-  wall is drawn by its joints rather than by a wash over its faces**: five
-  candidates that lit the brick faces produced a warm diagonal haze and no
-  wall at all, which the eye and the measurement agreed about — a rarer thing
-  than it sounds, since usually one of the two catches what the other misses.
-  A joint is worth 20.9 to 48.5 display levels beside the brick next to it,
-  measured over twelve phases and both regions of four cards, against a
-  control with the joint term at zero that reads −0.3 to 0.6.
-
-  Two further constraints are not about how it looks but about what it could
-  be confused with. **The bond is 5×13 and not 7×18**, although 7×18 measured
-  better: at the size the table draws a card, 7×18's joints are 0.51 px and a
-  point-sampled render reports 36.9 where an antialiased one reports 25.7, so
-  a third of that number is where the sample happened to land. 5×13's joints
-  are 1.8 px and the two readings agree to 3%. **And the band never travels
-  vertically**, because the sickness blanket's hem already owns that axis; a
-  summoning-sick defender is the composite case, and a wall moving with the
-  hem would make one gesture out of two facts that expire at very different
-  times. The wall is composited *before* the night for the same reason: the
-  blanket is this turn's weather and has to lie over the masonry, not under
-  it.
-
-  **A register may be the sole carrier of a claim only with margin, and this
-  is the first register where that needed measuring.** Hexproof and
-  indestructible could be left off the rail without anyone measuring anything,
-  because a border sheath is drawn on the card's own frame and is as strong on
-  one card as on another. A face register is not: it is composited over
-  whatever the art and the layout put under it, so its strength is a property
-  of the card as much as of the drawing. Measured over twelve phases of a full
-  sweep on four constructed cards, the wall is worth 27 to 48 display levels
-  over an art box and 21 to 24 over a text box — and the weakest of those, a
-  basic Plains' cream text box, clears the floor of 20 by **0.9**. That is not
-  margin, it is the floor with a rounding error on top, and it is why the rail
-  still carries a defender mark.
-
-  The margin was buyable and was **not** bought. At a joint of 0.42 the same
-  drawing reaches 27.2 over that text box, and the price is the colour rather
-  than the wall: pale joints cost 18.7 degrees of art hue there, yellow ones
-  66.7. `WALL_JOINT` stays at 0.30 and the joints stay yellow, which is a
-  decision taken with 20.9 against a floor of 20 in front of it rather than in
-  ignorance of it — the weakest case named above is the one the choice was put
-  on.
-
-  So defender is carried in **two** registers, a wall and a rail mark, which
-  is what the face rule otherwise forbids. Hexproof and indestructible were
-  dropped from the rail when the border became a material for them, on the
-  rule that a mark repeating a sheath is the same claim twice in two
-  languages; defender keeps both, because 0.9 display levels is not margin —
-  it is the floor with a rounding error on top, and a sole carrier that weak
-  is a claim the weakest card does not make. The alternative stays on record
-  rather than being argued again: `cardrail::MARK_ORDER` appends a slot and
-  never moves one, so dropping defender from the middle would move prowess on
-  every card in every screenshot, and leaving a hole instead is a change to
-  the array's type.
-  `a_defender_wears_a_wall_and_a_sick_one_wears_the_night_as_well` asserts
-  both bits, so whichever register is ever dropped, it cannot be dropped
-  quietly.
-
+  Defender used to be drawn a second time as a brick wall crossing the face;
+  the face is the print, so the wall went, and defender is its rail mark
+  alone (`a_defender_is_a_mark_on_the_rail_and_nothing_more`).
 - **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
   same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
   `LegalActions` rather than from the card, and is drawn as a warm light
-  travelling round the border rather than as a material for exactly that
-  reason (see "Tapping lands for a spell"). It is added on top of any sheath
-  instead of averaged into it, because the two are answering different
-  questions and both have to stay legible. `glow::REACHABLE` is its twin for
+  travelling round the rim — lit from the card's edge inwards and faded out
+  by `cardframe::OFFER_REACH`, the frame's thinnest side, before it reaches
+  the print — rather than as a material, for exactly that reason (see
+  "Tapping lands for a spell"). It is added on top of the paper instead of
+  averaged into it, because the two are answering different questions and
+  both have to stay legible. `glow::REACHABLE` is its twin for
   a card lying in a pile: the same chase in the hand's indigo, because it is
   this client's offer to tap lands first rather than the engine's yes (see
   "A card in a pile is reached for too"). `glow_of` draws one or the other,
@@ -1950,11 +1839,11 @@ separation is the whole grammar:
   `docs/keyboard-map.md` §Arming): a bright ring pulled in tight against the
   printed edge, breathing in place and **not** travelling, because the offer
   has already been accepted and a light that still moved would say it was
-  still a suggestion. `glow::WILL_TAP` is what that deed would spend — the
-  sources of an armed mana `Run` — cool where the other two are warm, and a
-  beat behind the armed card, because the price follows the verb. `glow_of`
-  drops `ACTIVATABLE` on an armed card rather than drawing both: one border
-  carrying a chase *and* a ring would be saying the same thing twice with
+  still a suggestion. It sits on the rim with the rest of this register.
+  `glow::WILL_TAP` is what that deed would spend — the sources of an armed
+  mana `Run` — cool where the other two are warm, and a beat behind the armed
+  card, because the price follows the verb. `glow_of` drops `ACTIVATABLE` on
+  an armed card rather than drawing both: one rim carrying a chase *and* a ring would be saying the same thing twice with
   nothing left to read the difference from. `Offer::on` answers both from a
   `CardGroup`'s **members** rather than its representative — a plan taps one
   particular Forest and the card drawn for it may stand for four — and both
@@ -1963,11 +1852,14 @@ separation is the whole grammar:
   nothing.
 - **The rail says what the card does in combat.** Eleven keywords — flying,
   first and double strike, deathtouch, haste, lifelink, menace, reach,
-  trample, vigilance, defender — are marks along the bottom edge, one slot
+  trample, vigilance, defender — are marks in a row, one slot
   each, always in the same order (`client-core/src/cardrail.rs`). They are
   marks and not more paint because paint cannot *count*: a creature can carry
   six of these at once, and six colours mixed into one border is one colour
-  that says nothing. **The mark is the Mana font's own ability glyph**, baked
+  that says nothing. The row used to run along the card's bottom edge, over
+  the artist's line; for now it is drawn where it was but on the frame, so
+  the window hides what of it falls on the print, until it becomes an object
+  of its own above the card (#274). **The mark is the Mana font's own ability glyph**, baked
   to a distance field at startup by `markatlas.rs` and sampled out of one
   atlas row — twelve procedural pictograms drawn in WGSL until September
   2026, and replaced not because they were bad but because a player arriving
@@ -1980,90 +1872,12 @@ separation is the whole grammar:
   keywords are eleven coloured pips where six are six pictograms; that
   degradation is the honest one, since a rail that ran off the card or hid its
   tail would both be lying about the creature.
-- **A slip under the name says what the card *is*.** Two facts that are not
-  combat keywords and would not sort among eleven that are: a commander
-  (CR 903.3), and whether the card a permanent looks like is its own. Both
-  are identities — true in every zone, for the whole game, before an attack
-  is ever declared — so they get their own region rather than a rail slot.
-  They are the Mana font's `ms-commander`, `ms-token` and
-  `ms-ability-copy`, out of the rail's atlas. `cardcrest::GLYPHS` is
-  the third door of `docs/legal.md` §2a and carries the date the three were
-  held against the Fan Content Policy's table.
-
-  **Two homes were tried and sent back before this one.** The card's **top
-  edge** first — a crown centred on it, a provenance mark hard against the
-  top-left corner — on the argument that nothing else claimed that edge, so
-  a silhouette alone answered "is that a commander" at table distance. What
-  that never priced is that the top edge is the **title bar**: the two marks
-  together covered the printed name, which is the one thing this client
-  repeats in the hover preview, on the stack and in both seat bars, and the
-  owner read it off a live table. Then a **column in the right margin**, on
-  the plate's own centre line — which put the numbers, what counters did to
-  them and what the permanent is all in one corner, and drew the answer
-  *„Die Position gefällt mir noch nicht"*. That is a fair reading: none of
-  this is a number, and a corner that had collected three kinds of number
-  was the wrong company for it.
-
-  So: **slips**, along the card's left margin, clipped under the printed
-  name and hanging into the top corner of the art. `cardcrest::SLIP_TOP`
-  places the tab's *top* edge and is a **constant** — an old border, a full
-  art card and a saga each put something different at that height, and a
-  slip that chased the frame would move when a player swapped one printing
-  for another. It hangs *across* the picture rather than sitting in the air
-  above it because there is no such air: a modern frame opens its art where
-  it closes its title bar, and a tab that fitted between them would be too
-  small to read at the seven physical pixels a table card gives it. The rail
-  and the plate already lie across the bottom of the same picture.
-
-  **The move changed three things, and each withdrew an argument the column
-  had made.** They **pack**: the column reserved a row per question so that
-  position alone told a shield from a squirrel at seven pixels, and a lone
-  commander now takes the first slip where a lone token would. They are
-  **coloured**, which the column refused on the grounds that every hue in
-  this client is spoken for — the rail tints by keyword, the swing by which
-  way it went, the felt by seat — and what makes a fourth reading
-  affordable is that the colour is the *stock* rather than ink added to the
-  mark: verdigris for a token, violet for a copy, gilt for a commander,
-  three papers in one place and therefore an alphabet of three. And they
-  **move**, which the column refused because a permanent stops being a
-  commander only by ceasing to be that permanent (CR 400.7), so a mark that
-  breathed would promise a change that cannot come. The owner asked for an
-  animation; what ships is the rarest motion on the card — a band of light
-  crossing one tab about every thirty seconds, against the rail's slowest
-  keyword at 24.1 s — and it is light on paper rather than the mark itself
-  changing.
-
-  **The papers are linear constants and the framebuffer converts**, which is
-  the trap the rail's plate records from the other side and which the first
-  draft walked into. Papers at 0.72–0.92 display at 221 to 246 of 255, and a
-  sheen mixed 45% toward white moves a sheet that pale by **16** levels —
-  under the 20 a mark that does not move at all already swings from the ink
-  pulse. At 55% of those values the same sheen moves 44 to 70. A slip too
-  pale cannot catch the light, and no amount of sheen fixes it.
-
-  Measured on a running table rather than argued. Ragavan as a commander and
-  a Rite of Replication token of it, side by side: the gilt paper reads
-  (187, 173, 129) against the (185, 172, 128) its linear triple predicts and
-  the verdigris (168, 176, 172) against (167, 176, 172). With the clock
-  stopped, two frames of the same moment are **byte-identical**; at the
-  sheen's peak the slip's own box swings 34/42/70 per channel while three
-  control boxes on the same card — the art below it, the border under it,
-  the middle of the card — are byte-identical, so the light is the slip's
-  and nothing else's. The violet is held by `cardcrest`'s own hue test (the
-  closest surviving pair is 106.8° apart) and by the mirror test against the
-  shader, not by a photograph.
-
-  Three procedural drawings went with the *first* move — a crown of a
-  circlet under three points, a filled disc, two offset cards — and with
-  them `sd_tri`, `sd_circle` and the test that held every triangle in
-  `card_common.wgsl` to the winding the helper needs. That test existed
-  because the crown shipped its first frame as a **plain white bar**: the
-  circlet drew, all three points were wound backwards, and the test that
-  checks where the crest *is* stayed green, placement tests being unable to
-  see shape. It is written down in the shader now instead of asserted,
-  because a floor of nought over a population of nought is the vacuous
-  assertion the test itself warned about — whoever writes the next triangle
-  there writes the test back with it.
+- **Identity used to be slips under the name**, paper tabs with the Mana
+  font's `ms-commander`, `ms-token` and `ms-ability-copy` — after a crown on
+  the top edge and a column in the right margin were both sent back. All
+  three homes were on the print. Since #274 the tab's stock is the frame's
+  paper; the glyphs stay in the atlas (`cardcrest::GLYPHS`, the third door
+  of `docs/legal.md` §2a) for the frame to caption the paper with.
 - **The corner says what the card *is* in numbers.** The fifth of the bottom
   edge the rail has been reserving since it was written now carries a plate:
   a creature's power and toughness, or a planeswalker's loyalty behind a gilt
@@ -2145,19 +1959,17 @@ one-word swap for a browser that has no WebGPU. The rule is therefore about
 past the older budget until a commit says it is spending the fallback to get
 something.
 
-The bottom-right fifth of the card is left empty on purpose —
-power/toughness and the counter dice are going there, and a rail that had to
-move once they arrived would move on every card in every screenshot ever taken
-of this client.
-
-The border is drawn *inside* the card, over its printed frame. The mesh is
-exactly the card, and a glow that needed room around it would need every
-layout in the client to leave room for it.
+The frame is drawn *inside* the card's quad, round the window. The mesh is
+exactly the card, and a frame that needed room around it would need every
+layout in the client to leave room for it — so the print gave up the room
+instead.
 
 **The corners are cut twice, at the printed radius, in two different ways.** A
 Scryfall scan is a rectangle: the card's rounded corner is in the file as
 white paper, and drawn untouched it is the single most obvious way for a card
-to look like a photograph of a card. On the table the mesh is already rounded
+to look like a photograph of a card. Since #274 the scan's corners fall
+outside the window and the frame's paper is drawn there; what is cut below is
+the card's own corner. On the table the mesh is already rounded
 (`table::CARD_CORNER`), so the shader only inks the sliver the mesh edge
 antialiases through; in the overlay a UI node has no mesh, so `card_ui.wgsl`
 cuts the corner in alpha — and that is the one the player was actually looking
@@ -2179,9 +1991,10 @@ the foil that will land on the table. The one difference it cannot avoid is
 that a UI node has no world position and no normal, so there is no view angle
 to drive the sheen with; time does it instead, and the sweep runs on its own
 rather than answering the camera. A card in hand carries the finish but no
-keyword glow: the border tells a player what is protected *on the
+keyword glow: the frame tells a player what is protected *on the
 battlefield*, and a hand that glowed would be saying something that is not yet
-true.
+true. It wears the same frame, from the same `frame_layer`, so a card picked up
+off the table is the same card.
 
 Both material stores reach their systems as `Option`. A headless test has no
 render plugins and therefore no `Assets<CardUiMaterial>`, so every drawing
@@ -2372,10 +2185,9 @@ drawings of the same card drift apart the first time either is edited. The
 discipline that makes one number enough is that **zero has to leave each term
 somewhere it could have been**: a still card is the moving card held still,
 not a different picture. A pure `a + b·sin(t·ω)` gives the strongest version
-of that for free — phase zero *is* the mean — which is the breath of summoning
-sickness, the hexproof sheath and the armed ring. Where the term also carries
+of that for free — phase zero *is* the mean — which is the armed ring. Where the term also carries
 a *spatial* phase the freeze is a real frame rather than the average, and that
-is still what is wanted: an indestructible border rests with its catch-light
+is still what is wanted: indestructible steel rests with its catch-light
 at a fixed height (`sin(t·0.8 + uv.y·3.0)`), and a rail mark rests at whatever
 its own slot offset gives it (`t·BEAT + k·0.22`). Both are the moving picture
 stopped, which is the whole claim. The three that need more are the

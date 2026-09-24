@@ -612,15 +612,21 @@ pub fn spawn_world(
     face: &CardFace,
     fonts: &UiFonts,
 ) -> Vec<Entity> {
-    use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
+    use baylee_client_core::cardframe;
+    use baylee_client_core::layout::CARD_WIDTH;
 
     // Text2d is laid out in pixels and then scaled into world units; a small
     // font scaled up stays sharp because the glyphs are rasterised at the
     // size the camera actually needs.
     const PX_PER_UNIT: f32 = 100.0;
     let scale = 1.0 / PX_PER_UNIT;
-    let half_h = CARD_HEIGHT / 2.0;
-    let width_px = CARD_WIDTH * PX_PER_UNIT * 0.88;
+    // Laid out against the print's window and not the whole card (#274): the
+    // frame round it is where the shader draws the rail, the plate and the
+    // offers, and a line of text on the frame would be under all three. A
+    // card width is a table unit, so the frame's card widths are world units.
+    let half_h = cardframe::PRINT_TALL * CARD_WIDTH / 2.0;
+    let lift = cardframe::window_lift() * CARD_WIDTH;
+    let width_px = cardframe::PRINT_SCALE * CARD_WIDTH * PX_PER_UNIT * 0.88;
 
     let mut spawned = Vec::with_capacity(4);
     {
@@ -637,7 +643,7 @@ pub fn spawn_world(
                     TextColor(color),
                     TextLayout::default().with_justify(Justify::Center),
                     TextBounds::new(width_px, f32::INFINITY),
-                    Transform::from_xyz(0.0, y, z).with_scale(Vec3::splat(scale)),
+                    Transform::from_xyz(0.0, lift + y, z).with_scale(Vec3::splat(scale)),
                     ChildOf(card),
                 ))
                 .id();

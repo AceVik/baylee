@@ -1,5 +1,6 @@
 // What the table's card shader and its UI twin have to agree about: the shape
-// of the printed card, and the keyword rail it wears along its bottom edge.
+// of the printed card, the frame its print sits in, and everything this client
+// draws on that frame.
 //
 // # Why this file exists
 //
@@ -13,18 +14,17 @@
 //
 // # Why a rail and not more paint
 //
-// The border band is a *material* — indestructible is what the card is made
-// of, hexproof and shroud are what lies over it — and a material composes
-// with at most one other material before it stops saying either thing. The
-// keywords on the rail are not like that. There are twelve of them —
-// eleven combat words and prowess, which earns its slot by being the one
-// a player most wants to watch fire — they are equal, a creature can carry
-// six at once, and what a player needs is to
-// *count* them and name them. Paint cannot count. Marks can: one slot each,
-// always in the same order, so the row is read the way a row of icons is read
-// and not the way a colour is guessed at.
+// The paper is a *material* — indestructible is what the card is made of,
+// hexproof and shroud are what lies over it — and a material composes with at
+// most one other material before it stops saying either thing. The keywords
+// on the rail are not like that. There are twelve of them — eleven combat
+// words and prowess, which earns its slot by being the one a player most
+// wants to watch fire — they are equal, a creature can carry six at once, and
+// what a player needs is to *count* them and name them. Paint cannot count.
+// Marks can: one slot each, always in the same order, so the row is read the
+// way a row of icons is read and not the way a colour is guessed at.
 //
-// The three band keywords are deliberately absent from the rail. The border
+// The three paper keywords are deliberately absent from the rail. The paper
 // already says them, and a mark that repeated it would be the same claim
 // twice in two languages.
 
@@ -50,6 +50,280 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
     let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT) - half;
     let q = abs(p) - (half - vec2<f32>(PRINTED_CORNER));
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
+}
+
+// ---- the frame: a print in a frame of our own
+//
+// Nothing this client draws lies on the print (#274, `docs/legal.md` §3).
+// Scryfall's terms ask that a card image is not covered, cropped, tinted or
+// stamped, and the artist's name and the copyright line run along the
+// print's bottom edge, which is exactly where a rail and a plate used to be.
+// So the quad is still the whole card, 1 × 1/`CARD_ASPECT` card widths, and
+// the print is scaled into a window inside it: everything the rules and this
+// client say about the card is drawn on the paper around that window. The one
+// thing drawn on the print is its own finish (`print_finish`), because a foil
+// is what that printing *is*; and light that passes over the whole card and
+// leaves nothing behind — the lamp, the arrival sweep, a door.
+//
+// The quad does not grow, so no lane, pile, hit test or shadow moves. What
+// the frame costs is the print's size: 87.8% of the card's width.
+// `cardframe` in client-core is the Rust half of every number here.
+
+/// How wide the frame is beside the print, left and right, in card widths.
+///
+/// Wider than the black border printed on a modern card (about 0.045), so
+/// the frame reads as the card's own paper and not as a second printed
+/// border.
+const FRAME_SIDE: f32 = 0.061;
+/// How deep the frame is above the print.
+const FRAME_TOP: f32 = 0.045;
+/// The print's width as a share of the card's: what the two sides leave.
+///
+/// The print keeps 63:88, so its height follows, and what is left of the
+/// card's height below it is the ledge (`cardframe::FRAME_FOOT`).
+const PRINT_SCALE: f32 = 0.878;
+
+/// Where `uv` falls on the print: 0..1 on both axes inside the window, and
+/// running on outside it, so a derivative taken of it is the same everywhere.
+fn print_uv(uv: vec2<f32>) -> vec2<f32> {
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    return vec2<f32>((p.x - FRAME_SIDE) / PRINT_SCALE, (p.y - FRAME_TOP) * CARD_ASPECT / PRINT_SCALE);
+}
+
+/// Signed distance to the print's window, in card widths: negative on the
+/// print, positive on the frame. The window is the print's own rounded
+/// rectangle, so the scan's corners fall on the frame and never show.
+fn window_sdf(uv: vec2<f32>) -> f32 {
+    return corner_sdf(print_uv(uv)) * PRINT_SCALE;
+}
+
+/// How much of this fragment is print: 1 inside the window, 0 on the frame,
+/// antialiased across the window's edge.
+fn print_cover(uv: vec2<f32>) -> f32 {
+    let aa = max(fwidth(uv.x), 0.0015);
+    return 1.0 - smoothstep(-aa, aa, window_sdf(uv));
+}
+
+// ---- what the frame says
+//
+// Three registers, all on paper that is ours:
+//
+// - **The paper** says what the card *is*: its colour is the card's identity
+//   (plain, a token, a copy, a commander), indestructible makes it steel, and
+//   hexproof or shroud lie over it as a wash. The night a summoning-sick
+//   creature lies under is the paper going dark, because the print is not
+//   ours to dim.
+// - **The rim**, lit from the card's edge inwards, says what this client
+//   offers to do with the card or has just been told to: the travelling
+//   invitation, the aim, the armed ring, the tap a payment plan will make.
+// - **The ledge** under the print carries the numbers.
+//
+// The sentence the border used to live by still holds, one place over: a
+// fact about the card colours the paper, an offer or a deed is light on it.
+
+/// The `cardmat::glow` bits this file reads. `cardmat` is the other half, and
+/// a test compares the two.
+const GLOW_INDESTRUCTIBLE: u32 = 1u;
+const GLOW_HEXPROOF: u32 = 2u;
+const GLOW_SHROUD: u32 = 4u;
+const GLOW_ACTIVATABLE: u32 = 8u;
+const GLOW_SUMMONING_SICK: u32 = 16u;
+const GLOW_ARMED: u32 = 32u;
+const GLOW_WILL_TAP: u32 = 64u;
+const GLOW_COMMANDER: u32 = 128u;
+const GLOW_TOKEN: u32 = 1048576u;
+const GLOW_COPY: u32 = 2097152u;
+const GLOW_REACHABLE: u32 = 8388608u;
+
+/// The frame's own paper: a warm slate, in linear light.
+///
+/// Mid-tone on purpose. A near-black frame on this felt could show neither a
+/// night nor a wash nor an edge, and a light one would out-shout the print it
+/// holds.
+const FRAME_PAPER: vec3<f32> = vec3<f32>(0.30, 0.29, 0.27);
+/// A commander's paper: oxblood.
+///
+/// Not gilt, which is this client's word for "yours" and is also the armed
+/// ring and, near enough, the amber of an offer: a commander with an ability
+/// to activate is the common case, and gilt paper under an amber chase would
+/// be one colour. One constant, so the owner's answer is one line.
+const FRAME_COMMANDER: vec3<f32> = vec3<f32>(0.44, 0.17, 0.15);
+/// How dark the paper goes under a summoning-sick creature: 0.30 → 0.14 in
+/// linear, about 45 display levels on the plain paper.
+const FRAME_NIGHT: f32 = 0.47;
+/// The night's white balance. Multiplicative and close to white, so a token's
+/// verdigris is still verdigris at night.
+const SLEEP_MOON: vec3<f32> = vec3<f32>(0.94, 0.96, 1.0);
+
+/// How far in from the card's edge an offer or a deed is lit, in card widths.
+///
+/// The frame's thinnest side, so the light has faded out before the window
+/// on every side and never reaches the print.
+const OFFER_REACH: f32 = 0.045;
+
+/// What the travelling activatable light averages to over its own circuit.
+///
+/// The chase is a band `pow(1 - 2·dist, 5)` wide riding on a floor of 0.22,
+/// scaled by 0.60: its mean over a circuit is 0.22 + 0.60 / 6 = 0.32. A still
+/// card (`motion == 0`) is lit at that mean rather than at a frozen crest, so
+/// the offer is as strong held still as it is on average when moving.
+const CHASE_STILL: f32 = 0.32;
+
+/// The hexproof wash's density, and the thinnest a wisp of it gets.
+const WARD_HEX: f32 = 0.55;
+const WARD_THIN: f32 = 0.35;
+/// The shroud's, which is strictly the stronger of the two and has to look
+/// it: a thin shroud beside a deep hexproof wash would say the opposite of
+/// what the rules do.
+const WARD_SHROUD: f32 = 0.65;
+
+fn hash21(p: vec2<f32>) -> f32 {
+    var q = fract(p * vec2<f32>(123.34, 456.21));
+    q += dot(q, q + 45.32);
+    return fract(q.x * q.y);
+}
+
+fn noise(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+    let a = hash21(i);
+    let b = hash21(i + vec2<f32>(1.0, 0.0));
+    let c = hash21(i + vec2<f32>(0.0, 1.0));
+    let d = hash21(i + vec2<f32>(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// Position around the card's edge, 0..1, clockwise from the top-left corner.
+// Continuous across all four corners, so a light travelling on it runs round
+// the card instead of jumping at the edges.
+fn perimeter(uv: vec2<f32>) -> f32 {
+    let d = vec2<f32>(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+    if d.x < d.y {
+        if uv.x < 0.5 {
+            return 0.75 + (1.0 - uv.y) * 0.25;
+        }
+        return 0.25 + uv.y * 0.25;
+    }
+    if uv.y < 0.5 {
+        return uv.x * 0.25;
+    }
+    return 0.5 + (1.0 - uv.x) * 0.25;
+}
+
+/// The paper a card is made of, from what it is.
+///
+/// A token or a copy is its own paper, a commander is oxblood, and a card that
+/// is two of those — a token copy of a commander — wears the stronger on the
+/// sides and the top and the other on the ledge (`ledge` 1). Commander is the
+/// strongest, then a copy, then a token; token and copy are exclusive already
+/// (`board::provenance_of`), and token wins if both ever arrive, because "no
+/// cardboard at all" is the stronger claim.
+fn frame_paper(glow: u32, ledge: f32) -> vec3<f32> {
+    var made = FRAME_PAPER;
+    if (glow & GLOW_TOKEN) != 0u {
+        made = SLIP_PAPER_TOKEN;
+    } else if (glow & GLOW_COPY) != 0u {
+        made = SLIP_PAPER_COPY;
+    }
+    if (glow & GLOW_COMMANDER) != 0u {
+        return mix(FRAME_COMMANDER, made, ledge * f32((glow & (GLOW_TOKEN | GLOW_COPY)) != 0u));
+    }
+    return made;
+}
+
+/// The whole frame of one card: paper, rim and ledge, everything this client
+/// draws on the card and nothing it draws on the print.
+///
+/// Both card shaders call it and mix it with the print by `print_cover`, so
+/// what it returns inside the window is never seen; it is written for the
+/// frame alone. `t` is the card's clock (`globals.time * motion`), `m` the
+/// motion itself and `now` the unscaled clock, for the one term that has to
+/// keep running on a still card.
+fn frame_layer(
+    uv: vec2<f32>,
+    glow: u32,
+    plate: u32,
+    chips_a: u32,
+    chips_b: u32,
+    count: u32,
+    t: f32,
+    m: f32,
+    now: f32,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec3<f32> {
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let aa = max(fwidth(p.x), 0.0015);
+
+    // ---- the paper
+    let foot = FRAME_TOP + PRINT_SCALE / CARD_ASPECT;
+    let ledge = smoothstep(foot - aa, foot + aa, p.y);
+    var out = frame_paper(glow, ledge);
+    if (glow & GLOW_SUMMONING_SICK) != 0u {
+        out = out * FRAME_NIGHT * SLEEP_MOON;
+    }
+
+    // Indestructible is what the card is made of, so the paper is steel:
+    // brushed along the card's long axis and turning slowly under the light.
+    if (glow & GLOW_INDESTRUCTIBLE) != 0u {
+        let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
+        let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
+        let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
+        let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
+        out = mix(out, steel * turn, 0.85);
+    }
+
+    // Hexproof and shroud are what lies over the card: a wash across the whole
+    // frame, wisps for hexproof and a denser haze for shroud, which swallows
+    // it (`cardmat::glow_of` never sets both).
+    var film = vec3<f32>(0.0);
+    var film_cov = 0.0;
+    if (glow & GLOW_HEXPROOF) != 0u {
+        let n1 = noise(vec2<f32>(uv.x * 6.0 + uv.y * 3.0, p.y * 18.0 + t * 0.50));
+        let n2 = noise(vec2<f32>(uv.x * 10.0 - uv.y * 4.0, p.y * 30.0 + t * 0.35));
+        let wisp = WARD_THIN + (1.0 - WARD_THIN) * (0.6 * n1 + 0.4 * n2);
+        film = vec3<f32>(0.28, 0.86, 0.48);
+        film_cov = wisp * WARD_HEX;
+    }
+    if (glow & GLOW_SHROUD) != 0u {
+        let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
+        film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
+        film_cov = WARD_SHROUD;
+    }
+    out = mix(out, film, film_cov);
+
+    // ---- the rim: offers and deeds, lit from the card's edge inwards
+    let band = 1.0 - smoothstep(0.0, OFFER_REACH, -corner_sdf(uv));
+    if (glow & GLOW_ACTIVATABLE) != 0u {
+        let head = fract(perimeter(uv) - t * 0.22);
+        let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
+        let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
+        out = out + vec3<f32>(0.99, 0.78, 0.34) * band * amount;
+    }
+    if (glow & GLOW_REACHABLE) != 0u {
+        let head = fract(perimeter(uv) - t * 0.22);
+        let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
+        let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
+        out = out + vec3<f32>(0.62, 0.56, 1.00) * band * amount;
+    }
+    if (glow & GLOW_ARMED) != 0u {
+        let hold = 0.86 + 0.14 * sin(t * 2.2);
+        out = out + vec3<f32>(1.00, 0.87, 0.54) * pow(band, 0.45) * 0.52 * hold;
+    }
+    // On the unscaled clock, damped by the motion rather than stopped by it:
+    // a plan's taps have to read as *pending* on a still table too, and a
+    // pulse frozen at a trough would not say anything.
+    if (glow & GLOW_WILL_TAP) != 0u {
+        let pulse = 0.70 + 0.30 * sin(now * 2.2 - 0.9) * m;
+        out = out + vec3<f32>(0.56, 0.60, 0.98) * band * 0.40 * pulse;
+    }
+
+    // ---- the numbers
+    out = mark_layer(uv, (glow >> MARK_SHIFT) & MARK_FIELD, t, out, marks, marks_s);
+    out = plate_layer(uv, plate, chips_a, chips_b, out, marks, marks_s);
+    out = count_layer(uv, count, out, marks, marks_s);
+    return out;
 }
 
 /// A restrained coating shaped by the printed image. Screen blending keeps
@@ -157,9 +431,9 @@ const SWEEP_MARGIN: f32 = 0.5;
 /// once, when there is something to notice — a card drawn, a card played, a
 /// preview opened — and then the card is one of the ones you already know.
 ///
-/// The metal itself is untouched: `METAL_FLOOR` is added on every frame in
-/// both shaders, which is what makes card stock read as coated rather than
-/// as paper. This is only the light travelling across it.
+/// There is no metal under it any more: the coating every card used to wear
+/// lifted the print's blacks and went with #274. This is light travelling
+/// across the card once, and it leaves nothing behind.
 ///
 /// `phase` runs 0 → 1 over the sweep and is outside that range at every other
 /// moment, so a card with no sweep passes any value below zero and gets
@@ -743,264 +1017,32 @@ fn mark_layer(
     return out;
 }
 
-// --------------------------------------------------------- the identity slips
+// ------------------------------------------------------------ the identities
 //
-// Two questions about what a permanent *is*, drawn as paper tabs along the
-// card's left margin under the printed name: is it a commander (CR 903.3),
-// and is the card it looks like its own (CR 111.1, CR 707.2)?
-//
-// This is their third home and the second one the owner sent back. They were
-// on the **top edge** — a procedural crown centred on it, a disc or a pair of
-// cards in the corner — and that edge is the title bar, so the marks sat on
-// the printed name. They moved to a **column in the right margin**, on the
-// plate's centre line, so the whole right corner read as one column; the
-// answer to that was *„Die Position gefällt mir noch nicht"*, and it is a
-// fair one, because that corner had collected the numbers and what counters
-// did to them, and none of this is a number.
-//
-// So: slips, in the one band of a card that carries neither the name nor the
-// numbers. `baylee_client_core::cardcrest` is the Rust half and the mirror
-// test in `cardmat.rs` is what keeps the two saying the same thing.
-//
-// # Three things the move changed, each of which withdrew an argument
-//
-// **They pack.** The column reserved a row per question so that position
-// alone told a shield from a squirrel at the seven physical pixels a slot
-// gets on a table card; a lone commander now takes the first slip, where a
-// lone token would. What took position's job is `slip_paper` — a colour per
-// kind — and the colour is the whole reason the packing is safe.
-//
-// **They are coloured at all**, which the column refused on the grounds that
-// every hue in this client is spoken for and a fourth reading of the palette
-// is a claim nobody can look up. What makes it affordable is that the colour
-// is the *stock*, not ink added to the mark: three papers in one place are
-// an alphabet of three.
-//
-// **And they move.** The column deliberately did not — a permanent stops
-// being a commander only by ceasing to be that permanent (CR 400.7), so a
-// mark that breathed would be promising a change that cannot come. The owner
-// asked for an animation. What ships is the rarest motion on the card, a
-// half-minute apart against the rail's slowest keyword at 24.1 s, and it is
-// light crossing paper rather than the mark itself changing.
-//
-// # Why the paper is card stock and not writing paper
-//
-// These constants are **linear** and the framebuffer converts, which is the
-// same trap the rail's plate comment records from the other side. The first
-// draft's papers were 0.72–0.92, which display at 221 to 246 of 255, and a
-// sheen mixed 45% toward white moves a sheet that pale by **16 levels** —
-// under the 20 a mark that does not move at all already swings from the ink
-// pulse. At 55% of those values the paper displays around 175 and the same
-// sheen moves 44 to 70. A slip too pale cannot catch the light, and no
-// amount of sheen fixes it.
+// Two questions about what a permanent *is*: is it a commander (CR 903.3),
+// and is the card it looks like its own (CR 111.1, CR 707.2)? They were paper
+// tabs under the printed name, which is on the print, so since #274 the
+// answer is the frame's own paper (`frame_paper`): the tab's stock became the
+// card's. `baylee_client_core::cardcrest` is the Rust half.
 
-/// A mark's square inside its slip, and the paper around it, in card widths.
-///
-/// `SLIP_PAD_X` is the wider of the two on purpose: a tab is longer than it
-/// is deep, and at this size the shape of the paper reads long before what is
-/// printed on it.
-const SLIP_SLOT: f32 = 0.092;
-const SLIP_PAD_X: f32 = 0.034;
-const SLIP_PAD_Y: f32 = 0.016;
-const SLIP_GAP: f32 = 0.010;
-
-/// Where the first slip's left edge and every slip's top edge sit, in card
-/// widths from the card's own corner.
-///
-/// `SLIP_INSET` is the rail's, because the rail runs from the same margin
-/// along the bottom edge. `SLIP_TOP` places the slip's **top** edge just
-/// below a modern frame's title bar; the tab hangs down from there into the
-/// top corner of the art, which is what a tab clipped to a document does and
-/// what the rail and the plate already do at the other end. It is a
-/// constant: an old border and a full art card put something different
-/// there, and a slip that chased the frame would move when a player swapped
-/// one printing for another.
-const SLIP_INSET: f32 = 0.052;
-const SLIP_TOP: f32 = 0.151;
-
-/// How often a slip catches the light, over the rail's own beat, and how far
-/// the band mixes its paper toward white.
-///
-/// `fract(ph * K)` has period `1 / (BEAT * K)` seconds — 0.8696 / K, and not
-/// the 5.464 / K it would be if the term were a `sin`. At this rate that is
-/// thirty seconds.
-const SLIP_SHEEN_RATE: f32 = 0.0290;
-const SLIP_SHEEN: f32 = 0.45;
-
-/// The ink every mark is printed in, on all three papers.
-///
-/// Darker than `SEPIA`, this file's other ink on paper, because these papers
-/// are darker than the saga's parchment: `SEPIA` on this stock measures
-/// 2.0:1 and this pair is 5.6:1 at worst. `cardcrest::SLIP_INK`.
-const SLIP_INK: vec3<f32> = vec3<f32>(0.035, 0.030, 0.025);
-
-/// How many slips a card can wear. `cardcrest::MAX_SLIPS`.
-///
-/// Two, because there are two questions — is it a commander, and is the card
-/// it looks like its own — and provenance is one value of three rather than
-/// three flags. It is a constant and not a count of what is set, so the loop
-/// below is bounded at compile time whatever the packing says.
-const SLIP_MAX: u32 = 2u;
-
-/// Where the slips' glyphs sit in the atlas, and which is which.
+/// Where the identity glyphs sit in the atlas, and which is which.
 const CREST_BASE: u32 = 28u;
 const CREST_TOKEN: u32 = 0u;
 const CREST_COPY: u32 = 1u;
 const CREST_COMMANDER: u32 = 2u;
 
-/// Nothing to draw in this slip.
+/// Nothing to draw.
 const CREST_NONE: u32 = 3u;
 
-/// The stock each mark is printed on. `cardcrest::SLIP_PAPER`.
+/// The paper a token and a copy are made of. `cardcrest::SLIP_PAPER`.
 ///
-/// Gilt is already this client's word for *this one of yours* and rims the
-/// viewing seat's own mat; verdigris is a thing conjured rather than printed;
-/// violet is what the swing uses for a permanent that is not what it was. The
-/// three stand at least 106 degrees of hue apart, which is what the packing
-/// spends and what a test on the Rust side holds them to.
-///
-/// Three constants and a switch rather than three literals in the switch,
-/// because a `vec3` inside a function body is not a thing the mirror test
-/// can read — and a colour nobody mirrors is a colour that drifts.
+/// Linear, and card stock rather than writing paper: displayed around 175 of
+/// 255, dark enough to hold ink and to show a night or a wash. Verdigris is a
+/// thing conjured rather than printed; violet is what the swing uses for a
+/// permanent that is not what it was. A commander's paper is the frame's own
+/// constant, `FRAME_COMMANDER`.
 const SLIP_PAPER_TOKEN: vec3<f32> = vec3<f32>(0.396, 0.440, 0.418);
 const SLIP_PAPER_COPY: vec3<f32> = vec3<f32>(0.429, 0.385, 0.506);
-const SLIP_PAPER_COMMANDER: vec3<f32> = vec3<f32>(0.495, 0.418, 0.220);
-
-fn slip_paper(which: u32) -> vec3<f32> {
-    switch which {
-        case 0u: { return SLIP_PAPER_TOKEN; }
-        case 1u: { return SLIP_PAPER_COPY; }
-        default: { return SLIP_PAPER_COMMANDER; }
-    }
-}
-
-/// The identity slips: at most two paper tabs under the card's printed name.
-///
-/// Takes the three bools rather than the glow word, the way the rail takes
-/// its bits pre-shifted: which bit of that word means what is the Rust half's
-/// business (`cardmat::glow::COMMANDER`, `::TOKEN` and `::COPY`). Token and
-/// copy are exclusive already — `board::provenance_of` returns one value of
-/// three — and `is_token` wins here regardless, because "no cardboard at all"
-/// is the stronger claim and a slip drawing both would be saying neither.
-fn identity_layer(
-    uv: vec2<f32>,
-    is_commander: bool,
-    is_token: bool,
-    is_copy: bool,
-    t: f32,
-    color: vec3<f32>,
-    marks: texture_2d<f32>,
-    marks_s: sampler,
-) -> vec3<f32> {
-    // Packed left to right, provenance first: it is the one a table actually
-    // wears, so the mark that is usually there is the one anchored to the
-    // margin it hangs from. `cardcrest::marks` is this, in Rust.
-    var first = CREST_NONE;
-    if is_token {
-        first = CREST_TOKEN;
-    } else if is_copy {
-        first = CREST_COPY;
-    }
-    var second = CREST_NONE;
-    if is_commander {
-        if first == CREST_NONE {
-            first = CREST_COMMANDER;
-        } else {
-            second = CREST_COMMANDER;
-        }
-    }
-    if first == CREST_NONE {
-        return color;
-    }
-
-    // Width-units, so a slot is square — the rail's change of variables.
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-
-    // Uniform control flow, before any branch on where the fragment landed:
-    // a derivative asked for inside one is undefined on half the backends
-    // this ships to.
-    let aa = max(fwidth(p.x), 0.0015);
-    let ph = t * BEAT;
-
-    let w = SLIP_SLOT + 2.0 * SLIP_PAD_X;
-    let h = SLIP_SLOT + 2.0 * SLIP_PAD_Y;
-
-    var out = color;
-
-    for (var n = 0u; n < SLIP_MAX; n = n + 1u) {
-        var which = first;
-        if n == 1u {
-            which = second;
-        }
-        if which == CREST_NONE {
-            continue;
-        }
-
-        let x0 = SLIP_INSET + f32(n) * (w + SLIP_GAP);
-        let y0 = SLIP_TOP;
-        let mid = vec2<f32>(x0 + w * 0.5, y0 + h * 0.5);
-
-        // The paper, opaque where it lands. The rail's plate is a partial mix
-        // because it is a disc laid over artwork the player still wants to
-        // see; a slip is a piece of paper on top of the card, and paper that
-        // the picture shows through is not paper.
-        let edge = sd_round_box(p - mid, vec2<f32>(w * 0.5, h * 0.5), SLIP_PAD_Y);
-        let on = 1.0 - smoothstep(-aa, aa, edge);
-        if on <= 0.0 {
-            continue;
-        }
-
-        // ---- the sheen
-        //
-        // A band of light crossing the tab once, on the envelope every
-        // impulse on the rail shares: up over a fiftieth of the period, held
-        // to a twentieth, gone by a thirtieth past that — about two and a
-        // half seconds of the thirty, so a slip is still for nine tenths of
-        // its life. `k` is what carries the band across; the envelope only
-        // fades it in and out, and driving the position from the envelope
-        // instead would send the band back the way it came.
-        //
-        // Phase-offset per slip, the rail's own rule: two tabs catching the
-        // light together would read as the card flashing.
-        let rise = 0.02;
-        let hold = 0.05;
-        let fall = 0.03;
-        let f = fract(ph * SLIP_SHEEN_RATE + f32(n) * 0.37);
-        let amp = mark_event(f, rise, hold, fall);
-
-        // `hold + fall` is where the envelope reaches nothing, so `k` runs
-        // 0 to 1 over exactly the life of the event and not over some
-        // number that happens to look right beside it. The band starts a
-        // quarter of a tab off the left edge and travels one and a half
-        // tabs, so it is fully off both ends rather than fading in place.
-        let k = clamp(f / (hold + fall), 0.0, 1.0);
-        let band = (p.x - x0) / w - (k * 1.5 - 0.25);
-        let lit = exp(-band * band * 30.0) * amp;
-
-        var stock = slip_paper(which);
-        stock = mix(stock, vec3<f32>(1.0), lit * SLIP_SHEEN);
-        out = mix(out, stock, on);
-
-        // ---- the mark
-        let mx = x0 + SLIP_PAD_X;
-        let my = y0 + SLIP_PAD_Y;
-        if p.x < mx || p.x > mx + SLIP_SLOT || p.y < my || p.y > my + SLIP_SLOT {
-            continue;
-        }
-
-        let cell = vec2<f32>((p.x - mx) / SLIP_SLOT, (p.y - my) / SLIP_SLOT)
-            - vec2<f32>(0.5);
-        let d = cell_sdf(CREST_BASE + which, cell, MARK_RANGE, marks, marks_s);
-
-        // Cell units, so the edge is as soft in the preview as across the
-        // table.
-        let e = max(aa / SLIP_SLOT, 0.02);
-        out = mix(out, SLIP_INK, 1.0 - smoothstep(-e, e, d));
-    }
-
-    return out;
-}
-
 
 // ------------------------------------------------------------------ the plate
 //

@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, mark_layer, identity_layer, plate_layer, count_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, print_uv, print_cover, frame_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
@@ -64,58 +64,17 @@ struct CardParams {
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var marks_sampler: sampler;
 
 
-const GLOW_INDESTRUCTIBLE: u32 = 1u;
-const GLOW_HEXPROOF: u32 = 2u;
-const GLOW_SHROUD: u32 = 4u;
-const GLOW_ACTIVATABLE: u32 = 8u;
-const GLOW_SUMMONING_SICK: u32 = 16u;
-const GLOW_ARMED: u32 = 32u;
-const GLOW_WILL_TAP: u32 = 64u;
-const GLOW_COMMANDER: u32 = 128u;
-const GLOW_TOKEN: u32 = 1048576u;
-const GLOW_COPY: u32 = 2097152u;
-const GLOW_DEFENDER: u32 = 4194304u;
-const GLOW_REACHABLE: u32 = 8388608u;
-
-/// How far in from the edge the border treatment reaches, in UV.
-const BORDER: f32 = 0.055;
-
-/// How steeply a keyword *film* falls off inward, per unit of UV.
-///
-/// Not a width: `exp(-d * WARD_REACH)`. See the border block for what the
-/// numbers come out as, and for why a falloff rather than a width.
-const WARD_REACH: f32 = 11.0;
-/// The densest the hexproof fog ever gets, right at the card's edge.
-///
-/// A cap on coverage, so the printed frame is at most this green and the art
-/// proper — which begins around `d = 0.09` — is under a fifth. Colour
-/// identity is read off the frame and the art, and the old flat band was
-/// covering the frame harder than this does.
-const WARD_HEX: f32 = 0.55;
-/// The same for shroud, which is strictly the stronger of the two and has to
-/// look it: a thin shroud beside a deep hexproof fog would say the opposite
-/// of what the rules do.
-const WARD_SHROUD: f32 = 0.65;
-/// The thinnest a wisp of hexproof fog is allowed to get.
-const WARD_THIN: f32 = 0.35;
-
-/// What the travelling activatable light averages to over its own circuit.
-///
-/// Shared with the UI twin by being written out twice — it is one line, and
-/// a fourth import for one constant costs more than it saves. The derivation
-/// is at the use site.
-const CHASE_STILL: f32 = 0.32;
-
-/// The lacquer every card is printed on.
+/// The lamp over the table.
 ///
 /// Not a finish — a *finish* is what a particular printing was made with, and
-/// three cards in four are plain. This is the coating all of them share, and
-/// the reason it exists is that nothing on this table is lit: the stage is
-/// deliberately `unlit` so scene lighting can never make a colour identity
-/// unreadable, and the price of that is a board of cards that read as printed
-/// paper lying in a vacuum. A specular term against a *virtual* lamp buys the
-/// surface back without putting a light anywhere near the art — it is
-/// arithmetic on the view vector, the same move `felt.wgsl`'s `under_lamp`
+/// three cards in four are plain — and no longer a coating either: the
+/// brushed floor every card used to be lacquered with lifted the print's
+/// blacks, the artist's line and the copyright line included, and went with
+/// #274. What is left is light passing over. Nothing on this table is lit —
+/// the stage is deliberately `unlit` so scene lighting can never make a
+/// colour identity unreadable — and a specular term against a *virtual* lamp
+/// gives the surface back without putting a light anywhere near the art: it
+/// is arithmetic on the view vector, the same move `felt.wgsl`'s `under_lamp`
 /// makes for the cloth.
 ///
 /// [`LAMP`] is a direction in world space, so the highlight is a broad pool
@@ -126,346 +85,22 @@ const CHASE_STILL: f32 = 0.32;
 /// The numbers are deliberately small. A gloss loud enough to notice is a
 /// gloss competing with the picture it is lying on, and the test for this one
 /// is that a player who is not looking for it sees a table with a light over
-/// it rather than a table of shiny cards.
+/// it rather than a table of shiny cards. `METAL_GLOSS` is the arrival
+/// sweep's weight, which is the same kind of light and passes just as fast.
 const LAMP: vec3<f32> = vec3<f32>(-0.32, 0.86, -0.40);
 const METAL_POWER: f32 = 48.0;
 const METAL_SPECULAR: f32 = 0.045;
 const METAL_GLOSS: f32 = 0.20;
-const METAL_FLOOR: f32 = 0.004;
 const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
-
-/// How much of the highlight the surface's own grain eats.
-///
-/// Brushed rather than mirrored: card stock is coated, not polished, and an
-/// unbroken specular pool reads as chrome. The grain is stretched hard along
-/// one axis so it runs *with* the card rather than sitting on it as dots.
-const METAL_GRAIN: f32 = 0.35;
-
-/// The night a summoning-sick creature lies under.
-///
-/// This block is written out twice, here and in the UI twin, and the two
-/// copies are compared by a test: a card picked up off the table has to keep
-/// the sleep it was lying in. It uses only UV and the clock, so both can run
-/// it unchanged.
-///
-/// What it replaced was a uniform four-percent luminance breath, and that is
-/// nothing on art whose own luminance already varies by forty points. The two
-/// channels a face has to spare are *colour cast* and *shape*, and it used
-/// neither. So: a white balance and a blanket. The whole face goes cold under
-/// a moon, and a soft veil lies heavier at the foot of the card than at the
-/// head, its upper hem rising and falling as the creature breathes.
-///
-/// Asleep, not disabled — the creature wakes next turn and blocks perfectly
-/// well in the meantime. Desaturation is what reads as "greyed out", so it
-/// stays a minority of the effect and the cast carries the rest; the body —
-/// power, toughness, marked damage, counters — is composited *after* this
-/// block and stays crisp, which draws the second half of that claim for free.
-///
-/// `SLEEP_MOON` is multiplicative and bounded on purpose. Red stays red,
-/// green stays green, and white takes only a slight cool cast. Pushing the
-/// mix further would start deciding a card's colour
-/// identity for it, and that is the one thing an unlit stage exists to
-/// protect. `SLEEP_LIFT` is the other half of the same observation: moonlit
-/// shadows retain contrast instead of turning into a blue wash.
-///
-/// Five seconds is a sleeping adult's twelve breaths a minute, and it is
-/// clear of every other clock a card can wear — the chase, the sheaths, the
-/// coating's own band — so no two of them ever beat together. The moving
-/// *hem* is what makes it legible at all: an edge that travels five percent
-/// of the card's height is caught where a brightness pulse of the same size
-/// is not.
-///
-/// At `motion == 0` the clock stops at phase zero, which is the mean of the
-/// breath rather than an extreme of it. The still frame is a cold card with
-/// a blanket over its lower half, and that alone is the whole message; the
-/// breath was only ever the confirmation.
-const SLEEP_SECONDS: f32 = 5.0;
-const SLEEP_HEM: f32 = 0.58;
-const SLEEP_SWAY: f32 = 0.05;
-const SLEEP_ABOVE: f32 = 0.30;
-const SLEEP_BELOW: f32 = 0.22;
-const SLEEP_FLOOR: f32 = 0.45;
-const SLEEP_DESAT: f32 = 0.08;
-const SLEEP_DIM: f32 = 0.12;
-const SLEEP_MOON: vec3<f32> = vec3<f32>(0.94, 0.96, 1.0);
-const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.008, 0.010, 0.016);
-
-/// The water a creature that has only just arrived is still settling into.
-///
-/// The blanket says *asleep*; the rings say *only just landed*, and the two
-/// are needed together because a colour cast alone is ambiguous with the art
-/// underneath it — a blue creature drawn cold looks like a blue creature. The
-/// rings are the half no art can be mistaken for: they are the one thing in
-/// the night that moves *across* the face instead of along one axis of it,
-/// which is what reads as something happening to the card rather than as
-/// something printed on it.
-///
-/// Water and not roots or frost, of the three shapes this could have taken.
-/// Roots would have to be drawn as organic shape, and shape on the face is
-/// how a *creature type* reads; frost would be crystalline, and the border's
-/// own register already spends hard blue-grey on indestructible. Rings are
-/// neither — a luminance swell tinted with the same `SLEEP_MOON` the rest of
-/// the night is lit by, so the card's colour identity survives it intact,
-/// which is the one thing an unlit stage exists to protect.
-///
-/// They spread from the middle of the card because that is where a thing
-/// dropped into still water lands. `SLEEP_RING_ASPECT` is the card's own
-/// 88:63, without which the circles would be drawn as ellipses, and
-/// `SLEEP_RING_REACH` is the distance from the middle to a corner in that
-/// corrected space, so the radius the rest of the block reads is 0 at the
-/// centre and 1 at the corner whatever size the card is drawn at.
-///
-/// `SLEEP_RING_SHARP` is what makes them rings at all. A plain sine is a
-/// corrugation — equal halves, light and dark, which is the wash the first
-/// attempt drew; raising it to a power leaves a thin crest on flat water, and
-/// `SLEEP_RING_FLOOR` takes the mean back off so the water between two crests
-/// is a shade *under* the card rather than exactly it. Five crests to the
-/// corner was chosen against the smallest card the table draws: previewed
-/// at 60, 106 and 220 pixels wide, five stays legible at the first and does
-/// not moire at the last.
-///
-/// 3.4 seconds is one crest leaving the middle at a pace nothing else on a
-/// card keeps — the breath is 5, the sheaths 3.93 and 2.86, the chase slower
-/// still — so a sick creature that is also hexproof never has two of its
-/// lights arrive together. At `motion == 0` the clock stops with the rings at
-/// fixed radii, which is an honest frame of the animation rather than an
-/// absence of it.
-const SLEEP_RING_SECONDS: f32 = 3.4;
-const SLEEP_RING_ASPECT: f32 = 1.397;
-const SLEEP_RING_REACH: f32 = 0.86;
-const SLEEP_RING_COUNT: f32 = 5.0;
-const SLEEP_RING_SHARP: f32 = 5.0;
-const SLEEP_RING_BIRTH: f32 = 0.10;
-const SLEEP_RING_FADE: f32 = 0.62;
-const SLEEP_RING_FLOOR: f32 = 0.16;
-const SLEEP_RING_LIGHT: f32 = 0.13;
-
-// ---- defender: a wall, drawn over the face
-//
-// Defender is not a thing a creature *does*, it is a thing it is: it stands
-// there. So it is drawn as a wall crossing the card, translucent enough that
-// the card is still read through it — which is the whole brief, and the
-// reason every number below is held to two measured floors: a joint has to be
-// worth twenty display levels beside the brick next to it, and the art's
-// colour must not move.
-//
-// **The term is added in display space, not in linear, and that is the one
-// line here that must not be "simplified".** The sRGB transfer compresses a
-// constant linear add in proportion to how bright the pixel already is: the
-// same term measured **72 display levels over dark art and 1.5 over a white
-// card's title bar** — fifty to one within one card. A floor stated in
-// display levels cannot be met that way, and the failure is invisible where
-// anyone would look for it, because the art box is the bright end of the
-// spread and the text box is the dark one. After the transfer the same term
-// holds 18 to 29 across a pale frame, dark art, saturated blue and warm gold.
-// It costs one transfer pair per fragment and nothing else: no second sample,
-// no storage buffer, no texture array — inside the budget that keeps the
-// WebGL2 fallback one word away.
-//
-// **The wall is drawn by its joints, not by its wash.** Five candidates put
-// the strength in the brick face, and both the eye and the instrument said
-// the same thing about all five: no wall, only a warm diagonal haze. That
-// agreement is worth recording because it is rare — usually one of the two
-// catches what the other misses — and because a haze is what a later edit
-// reaches for when it wants the effect "softer". Moving the term into the
-// mortar is what makes courses appear. Measured on the constants below,
-// over twelve phases of a full sweep and both regions of four cards: **20.9
-// to 48.5** display levels, against a control with `WALL_JOINT` at zero that
-// reads -0.3 to 0.6. The bottom of that range is the number the rail's
-// defender mark still exists because of; see
-// `the_wall_is_too_faint_to_carry_defender_on_its_own`.
-const WALL_FACE: f32 = 0.08;
-const WALL_JOINT: f32 = 0.30;
-
-/// The bond: bricks across the card, and courses down it.
-///
-/// **Chosen because the joint survives a shader, not because it measured
-/// best.** A 7x18 bond scored higher on a contact sheet and its joints are
-/// **0.51 px** wide on a card the table draws 90 px across — so a
-/// point-sampled render reported 36.9 where an antialiased one reports 25.7,
-/// and a third of the number was where the sample happened to land. At 5x13
-/// the joints are 1.8 px and the two agree to 3%. 7x18 is exactly what a
-/// later optimisation reaches for; it would shimmer as the band travelled,
-/// and the sheet it shimmered off would still look right.
-const WALL_COLS: f32 = 5.0;
-const WALL_ROWS: f32 = 13.0;
-/// How much of a brick the joint takes. 0.10 of 90/5 px is 1.8 px across.
-const WALL_MORTAR: f32 = 0.10;
-
-/// What the wash and the joints are tinted with.
-///
-/// Two colours rather than one, and the split is measured. The card this is
-/// hardest on is a pale, near-neutral frame, where the art's mean colour
-/// shifts **38.2 degrees** when the whole band is yellow and **3.8 degrees**
-/// when only the joints are. Those two numbers travel together or not at all:
-/// the mean says the wall reads warm, the per-pixel figure — restricted to
-/// pixels with real saturation — says colour identity survived. Either alone
-/// is a different claim, and a test that asserted only the second would pass
-/// a candidate that shifted every neutral pixel on the card.
-const WALL_WASH: vec3<f32> = vec3<f32>(1.00, 0.94, 0.78);
-const WALL_LIME: vec3<f32> = vec3<f32>(1.00, 0.86, 0.38);
-
-/// The travelling band: how wide, how fast, and at what angle.
-///
-/// **The angle is not decoration.** The sickness blanket's hem runs across
-/// the card and rises and falls along `uv.y`, so a wall travelling down the
-/// card would be the same gesture as the hem — and the case that has to stay
-/// two readable things is a **summoning-sick defender**, where sickness is
-/// this turn's fact and defender is the creature's whole life. Twenty-two
-/// degrees off horizontal is far enough from the hem's axis to read as its
-/// own movement and shallow enough to cross the face rather than a corner.
-const WALL_ANGLE: f32 = 0.3839724;
-const WALL_BAND: f32 = 0.55;
-/// Where in the band the head peaks, as a fraction of it. The rest is tail:
-/// the "fading" half of the brief, so the wall arrives as an edge and leaves
-/// as a wash rather than switching on and off.
-const WALL_HEAD: f32 = 0.35;
-/// Seconds for one pass. Clear of every other clock a card wears — the
-/// sleep breath at 5 s, its rings at 3.4 s, the border's travelling light.
-const WALL_SECONDS: f32 = 7.3;
 
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
 /// turning away rather than as a mark printed on it.
 const EDGE_INK: vec3<f32> = vec3<f32>(0.035, 0.038, 0.045);
 
-/// The sRGB transfer, both ways.
-///
-/// Everything else in this file works in linear, which is right for light:
-/// two lamps are twice one lamp. The wall is the exception and deliberately
-/// so — see `WALL_FACE` for the fifty-to-one measurement that forces it —
-/// because it is not light, it is a mark that has to be worth the same number
-/// of *display* levels wherever it lands.
-fn to_display(c: vec3<f32>) -> vec3<f32> {
-    let lo = c * 12.92;
-    let hi = 1.055 * pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055;
-    return select(hi, lo, c <= vec3<f32>(0.0031308));
-}
-
-fn to_linear(c: vec3<f32>) -> vec3<f32> {
-    let lo = c / 12.92;
-    let hi = pow(max((c + 0.055) / 1.055, vec3<f32>(0.0)), vec3<f32>(2.4));
-    return select(hi, lo, c <= vec3<f32>(0.04045));
-}
-
-/// How much brick a fragment is on: 1 on a brick's face, 0 in a joint.
-///
-/// Running bond — every other course offset by half a brick — and the edge is
-/// widened to a pixel with `fwidth` rather than left hard. That is not
-/// softness for its own sake: at the size this card is drawn the joint is
-/// about one pixel across, and a hard edge on a feature that narrow appears
-/// and disappears as the band travels over it, which reads as a dashed line
-/// crawling rather than as a wall standing still.
-fn wall_bond(uv: vec2<f32>) -> f32 {
-    let course = uv.y * WALL_ROWS;
-    let row = floor(course);
-    let fv = course - row;
-    // Offset every other course by half a brick. `row * 0.5` fracts to 0 or
-    // 0.5 without a branch and without an integer modulo.
-    let col = uv.x * WALL_COLS + fract(row * 0.5);
-    let fu = col - floor(col);
-
-    // The joint is `WALL_MORTAR` of a brick on both axes, which is the same
-    // fraction of different lengths: a brick is wider than it is tall, so the
-    // bed joint is scaled by the aspect to come out the same thickness as the
-    // head joint.
-    let head = WALL_MORTAR;
-    let bed = WALL_MORTAR * WALL_ROWS / WALL_COLS;
-    // One pixel, in the units each axis is measured in — and taken from the
-    // *smooth* term, never from `col`. `col` carries the bond's half-brick
-    // offset, which jumps by 0.5 at every course boundary, so `fwidth(col)`
-    // in a quad straddling one reports about half a brick instead of about a
-    // pixel. That would smear `eu` across the whole brick face on one pixel
-    // row along all thirteen courses, and it would read as strong bed joints
-    // rather than as the defect it is.
-    let au = max(fwidth(uv.x) * WALL_COLS, 1e-5);
-    let av = max(fwidth(course), 1e-5);
-    // A **floor**, not an addend. The bond was chosen so that the joints are
-    // at least a pixel wide at the smallest size this client draws a card —
-    // that is what `WALL_COLS` is for and what the joint-width test holds —
-    // so on the table the ramp is exactly the one the composites measured,
-    // and the derivative only takes over on a card too small for it. Adding
-    // the two would widen the ramp by half again at table size, spreading the
-    // joint term over more pixels and lowering the very contrast the numbers
-    // in `WALL_FACE` are about.
-    let eu = min(
-        smoothstep(0.0, max(head, au), fu),
-        smoothstep(0.0, max(head, au), 1.0 - fu),
-    );
-    let ev = min(
-        smoothstep(0.0, max(bed, av), fv),
-        smoothstep(0.0, max(bed, av), 1.0 - fv),
-    );
-    return min(eu, ev);
-}
-
-/// Where in the travelling band a fragment is: 0 outside it, peaking at
-/// `WALL_HEAD` through it.
-///
-/// A soft head and a long tail, so the wall arrives as an edge and leaves as
-/// a wash. The band runs at `WALL_ANGLE` off horizontal — never down the
-/// card, which is the sickness blanket's axis.
-fn wall_band(uv: vec2<f32>, t: f32) -> f32 {
-    let along = uv.x * cos(WALL_ANGLE) + uv.y * sin(WALL_ANGLE);
-    let s = fract(along - t / WALL_SECONDS);
-    if s >= WALL_BAND {
-        return 0.0;
-    }
-    let head = smoothstep(0.0, WALL_BAND * WALL_HEAD, s);
-    let tail = 1.0 - smoothstep(WALL_BAND * WALL_HEAD, WALL_BAND, s);
-    return head * tail;
-}
-
-/// A cheap value-noise hash. Deterministic, and the same on every backend —
-/// two clients looking at the same foil see the same foil.
-fn hash21(p: vec2<f32>) -> f32 {
-    var q = fract(p * vec2<f32>(123.34, 456.21));
-    q += dot(q, q + 45.32);
-    return fract(q.x * q.y);
-}
-
-/// Smooth noise over a UV, for the grain a real foil has under its sheen.
-fn noise(p: vec2<f32>) -> f32 {
-    let i = floor(p);
-    let f = fract(p);
-    let u = f * f * (3.0 - 2.0 * f);
-    let a = hash21(i);
-    let b = hash21(i + vec2<f32>(1.0, 0.0));
-    let c = hash21(i + vec2<f32>(0.0, 1.0));
-    let d = hash21(i + vec2<f32>(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-
-
-fn edge_distance(uv: vec2<f32>) -> f32 {
-    let d = min(uv, vec2<f32>(1.0) - uv);
-    return min(d.x, d.y);
-}
-
-// Position around the card's border, 0..1, clockwise from the top-left
-// corner. Continuous across all four corners, so a light travelling on it
-// runs round the card instead of jumping at the edges.
-fn perimeter(uv: vec2<f32>) -> f32 {
-    let d = vec2<f32>(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
-    if d.x < d.y {
-        if uv.x < 0.5 {
-            return 0.75 + (1.0 - uv.y) * 0.25;
-        }
-        return 0.25 + uv.y * 0.25;
-    }
-    if uv.y < 0.5 {
-        return uv.x * 0.25;
-    }
-    return 0.5 + (1.0 - uv.x) * 0.25;
-}
-
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let uv = mesh.uv;
-    // A card with no artwork is a flat colour, and gets the same finish and
-    // the same glow: a face-down foil is still a foil.
-    let sampled = textureSample(art, art_sampler, uv);
-    var color = mix(params.tint, sampled, params.has_art);
 
     // The direction the card is being looked at from. A foil's whole
     // character is that it changes as the table moves, so the sheen is a
@@ -477,359 +112,79 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // board of three hundred permanents cannot afford a variant, and the two
     // drawings would drift apart the first time either was edited.
     //
-    // Every animated term below runs on `t`, so a zero clock stops all of
-    // them at phase zero, and each is written so that phase zero is a place
-    // it could have been — which is what makes a still card the moving one
-    // held still rather than a different picture. For a pure
-    // `a + b*sin(t*w)` that place is the mean. For a term that also carries
-    // a *spatial* phase (indestructible's `uv.y * 3.0`, the rail's per-slot
-    // offset) it is an honest frame of the animation rather than its
-    // average, which is equally what is wanted. The two terms where phase
-    // zero is neither are marked where they appear and reach for
-    // `globals.time` instead.
+    // Every animated term runs on `t`, so a zero clock stops all of them at
+    // phase zero, and each is written so that phase zero is a place it could
+    // have been — which is what makes a still card the moving one held still
+    // rather than a different picture. The terms where phase zero is neither
+    // are marked where they appear and reach for `globals.time` instead.
     let m = params.motion;
     let t = globals.time * m;
 
-    color = print_finish(color, uv, facing, t, params.finish, params.strength);
-
-    // ---- the coating, on every card and whatever it was printed with
+    // ---- the print, and the one thing ever drawn on it
     //
-    // After the finish and before everything the rules say, because it is a
-    // property of the object: a foil catches this too, and a card the rules
-    // have put to sleep is a card whose sheen dims with it.
+    // The artwork, sampled through the window, with its own finish: a foil is
+    // what that printing is. A card with no artwork is a flat colour and gets
+    // the same finish — a face-down foil is still a foil. Nothing below this
+    // block writes to `print`.
+    let at = print_uv(uv);
+    let sampled = textureSample(art, art_sampler, at);
+    var print = mix(params.tint, sampled, params.has_art);
+    print = print_finish(print, at, facing, t, params.finish, params.strength);
+
+    // ---- the frame, where everything this client says about the card lives
+    let frame = frame_layer(
+        uv,
+        params.glow,
+        params.plate,
+        params.chips_a,
+        params.chips_b,
+        params.count,
+        t,
+        m,
+        globals.time,
+        marks,
+        marks_sampler,
+    );
+    let inside = print_cover(uv);
+    var color = vec4<f32>(mix(frame, print.rgb, inside), mix(1.0, print.a, inside));
+
+    // ---- light passing over the whole card, print and frame alike
+    //
+    // The lamp's pool, and the one-shot sheen for a card that has just
+    // arrived — a spell resolving on to the battlefield is the whole of what
+    // this shader ever sweeps. Both are light that leaves nothing behind:
+    // the pool moves with the camera and the sweep is gone in a second.
+    //
+    // The sweep runs on `globals.time` and not on `t`: its start is an
+    // absolute moment, so it has to be read against the clock it was written
+    // from, and a still card is given no sweep at all rather than one on a
+    // stopped clock.
     let lamp = normalize(LAMP);
     let half_way = normalize(to_view + lamp);
     let spec = pow(max(dot(normalize(mesh.world_normal), half_way), 0.0), METAL_POWER);
-    let brushed = 1.0 - METAL_GRAIN * noise(uv * vec2<f32>(9.0, 220.0));
-    // And the one-shot sheen on top of it, for a card that has just arrived
-    // — a spell resolving on to the battlefield is the whole of what this
-    // shader ever sweeps. It is *added* rather than substituted, because the
-    // lamp's pool is what the coating is and the band is a thing that happens
-    // to it. `sweep_amount` and `sheen::Sheen` are the two halves of why.
-    //
-    // On `globals.time` and not on `t`: the start is an absolute moment, so
-    // it has to be read against the clock it was written from, and a still
-    // card is given no sweep at all rather than one on a stopped clock.
     let phase = (globals.time - params.sweep_at) * params.sweep_rate;
     let travel = select(0.0, sweep_amount(uv, phase), params.sweep_rate > 0.0);
     // A door is the same one-shot on the same clock, drawn as a different
-    // figure in a colour of its own, so the coating takes the plain band only
-    // when the card came through no door — otherwise the two would be laid
-    // over each other and read as neither.
+    // figure in a colour of its own, so the plain band is drawn only when the
+    // card came through no door — otherwise the two would be laid over each
+    // other and read as neither.
     let door = select(DOOR_NONE, params.sweep_door, params.sweep_rate > 0.0);
     let plain = select(0.0, travel, door == DOOR_NONE);
     color = vec4<f32>(
-        color.rgb
-            + METAL_TONE * (METAL_FLOOR + METAL_SPECULAR * spec + METAL_GLOSS * plain) * brushed,
+        color.rgb + METAL_TONE * (METAL_SPECULAR * spec + METAL_GLOSS * plain),
         color.a,
     );
-    // The door itself, over the coating rather than inside it: a bounce, an
-    // exile, a death and the two ways back are things happening *to* a card,
-    // and the coating is what the card is.
     color = vec4<f32>(color.rgb + door_layer(uv, phase, door), color.a);
 
-    // ---- the face, when the card cannot do anything yet
+    // ---- the card's own corners
     //
-    // Summoning sickness is drawn *over the art* and never on the border,
-    // and that separation is the whole grammar: the border says what the card
-    // is, the face says what it can do, and a player can read both at once
-    // only while they stay in different places. `SLEEP_*` above says what the
-    // drawing is and why every number in it is the number it is.
-    // ---- defender: the wall, over the art and under the night
-    //
-    // Before the sleep block on purpose. A summoning-sick defender wears both
-    // — that is the case the angle was chosen for — and the order says which
-    // is which: the wall is a fact about the creature, so the night falls over
-    // it the way it falls over the art. Drawn after would put this turn's
-    // weather *under* the creature's own masonry, and the blanket would stop
-    // reading as something laid on top.
-    if (params.glow & GLOW_DEFENDER) != 0u {
-        // `wall_bond` takes a screen-space derivative to widen the joint to a
-        // pixel, and a derivative is only defined where neighbouring
-        // fragments took the same branch. `params.glow` is a uniform, so this
-        // `if` is uniform; `band > 0.0` would **not** be — the band's own
-        // edge is exactly where neighbours disagree, which is exactly where
-        // the widening matters. So the bond is asked for unconditionally and
-        // the band is a multiplier, not a gate.
-        let band = wall_band(uv, t);
-        let bond = wall_bond(uv);
-        let face = WALL_FACE * band;
-        let joint = WALL_JOINT * band * (1.0 - bond);
-        // In display space, and back. See `WALL_FACE`: in linear this same
-        // pair of numbers is worth 72 levels over dark art and 1.5 over a
-        // white title bar, and the floor is stated in levels.
-        let lit = to_display(color.rgb) + face * WALL_WASH + joint * WALL_LIME;
-        let walled = to_linear(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)));
-        // Where the band has not reached, the card is left exactly as it was
-        // — not merely added to by zero. The round trip has a `clamp` in it,
-        // because a display-space add can overshoot white, and the foil block
-        // above this one is allowed to put a highlight past 1.0. Running the
-        // clamp over the whole card would quietly cost every foil defender
-        // its glint on the three quarters of the face the wall is not on.
-        // `select` rather than an `if`, so the derivative above stays in
-        // uniform control flow.
-        color = vec4<f32>(select(walled, color.rgb, band <= 0.0), color.a);
-    }
-
-    if (params.glow & GLOW_SUMMONING_SICK) != 0u {
-        // `uv.y` is 0 at the head of the card and 1 at its foot, so the hem
-        // rises up the card as `breath` falls and the veil pools downwards.
-        let breath = sin(t * 6.2831855 / SLEEP_SECONDS);
-        let hem = SLEEP_HEM + SLEEP_SWAY * breath;
-        let blanket = smoothstep(hem - SLEEP_ABOVE, hem + SLEEP_BELOW, uv.y);
-        // The moon is over the whole card; the blanket is only over its foot.
-        let weight = SLEEP_FLOOR + (1.0 - SLEEP_FLOOR) * blanket;
-        let luma = dot(color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
-        var asleep = mix(color.rgb, vec3<f32>(luma), SLEEP_DESAT);
-        asleep = mix(asleep, asleep * SLEEP_MOON, weight);
-        asleep = asleep * (1.0 - SLEEP_DIM * weight) + SLEEP_LIFT * weight;
-        // The rings, spreading from the middle of the card. No crest at the
-        // very centre, where one would read as a pulsing dot, and none at the
-        // rim, where the border's own register is already speaking.
-        let ring_at = vec2<f32>(uv.x - 0.5, (uv.y - 0.5) * SLEEP_RING_ASPECT);
-        let ring_r = length(ring_at) / SLEEP_RING_REACH;
-        let ring_env = smoothstep(0.0, SLEEP_RING_BIRTH, ring_r)
-            * (1.0 - smoothstep(SLEEP_RING_FADE, 1.0, ring_r));
-        let swell = 0.5 + 0.5 * sin(
-            6.2831855 * (ring_r * SLEEP_RING_COUNT - t / SLEEP_RING_SECONDS),
-        );
-        // `max` on the base because a negative one leaves `pow` indeterminate
-        // in WGSL, and a backend compiling with fast-math is allowed to answer
-        // `sin` a hair past -1. One NaN here is a black pixel on the one card
-        // this whole block exists to draw a player towards.
-        let ring = ring_env * (pow(max(swell, 0.0), SLEEP_RING_SHARP) - SLEEP_RING_FLOOR);
-        asleep = asleep + ring * SLEEP_RING_LIGHT * SLEEP_MOON;
-        color = vec4<f32>(asleep, color.a);
-    }
-
-    // ---- the border, when the rules have made the card something
-    //
-    // Drawn inside the card's own quad rather than outside it: the mesh is
-    // exactly the card, and a halo that needed room around it would need
-    // every layout in the client to leave room for it. That is a constraint
-    // on *where* the mark is and never was one on how deep it reaches, which
-    // is what the sheath had got wrong. A card on the felt is about 94
-    // physical pixels wide, so `BORDER` is five of them: a five-pixel green
-    // line that blinks is a border, and hexproof is not a border. It is
-    // something being held around the card.
-    //
-    // So depth is a register of its own, and the sentence is worth keeping:
-    // **a fact about the card may reach in; an offer or a deed stays on the
-    // rim.** Indestructible is a metal the card is made of and metal has an
-    // edge, so it keeps the thin band, alongside the travelling invitation,
-    // the armed ring and the price. Hexproof and shroud are what lies *over*
-    // the card, and they roll inward as fog.
-    //
-    // The composition is still base × film rather than an average, for the
-    // reason it always was: averaging turned an indestructible hexproof
-    // creature into a third colour that said neither thing, and this way it
-    // is a green fog over a steel rim with both still legible.
-    if params.glow != 0u {
-        let d = edge_distance(uv);
-        let band = 1.0 - smoothstep(0.0, BORDER, d);
-
-        // Indestructible is darksteel: a hard, dark blue-grey metal with a
-        // bright specular line, not a coloured light. It is the card
-        // *itself* that is made of something.
-        if band > 0.0 && (params.glow & GLOW_INDESTRUCTIBLE) != 0u {
-            let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
-            let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
-            let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
-            // Slow, so it reads as metal catching the light rather than as
-            // something switched on.
-            let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
-            color = vec4<f32>(mix(color.rgb, steel * turn, band * 0.85), color.a);
-        }
-
-        // How far the fog reaches, as a falloff and not as a width. Any
-        // `smoothstep` to a width still has a hem, and a hem is exactly what
-        // reads as a stroke; `exp` has none. At `WARD_REACH` it is 1.00 at
-        // the edge, 0.55 where the old band ended, 0.30 a tenth of the way
-        // in, 0.09 at a fifth and nothing worth drawing past a third — dense
-        // where it gathers, thinning inward, with no far edge at all.
-        let veil = exp(-d * WARD_REACH);
-        var film = vec3<f32>(0.0);
-        var film_cov = 0.0;
-        // Hexproof: something holding bad effects off, and rolling outward
-        // while it does. Both octaves advance along `d`, which is zero at
-        // every edge and grows inward, so `+ t` carries a wisp *towards* the
-        // edge whichever edge it is near — outward, which is the direction
-        // the claim is about; `- t` would have the card soaking it up.
-        // `perimeter()` is the obvious coordinate to decorrelate along and is
-        // the wrong one: `hash21` is not periodic, so the field would seam at
-        // the top-left corner where the perimeter wraps. `WARD_THIN` is what
-        // makes it fog rather than a gradient — a fog with no thin patches is
-        // just a wash.
-        //
-        // The third case of the reduce-motion rule, and the one that needs no
-        // exception: freezing `t` leaves a still noise field with the same
-        // mean as a drifting one, so a card that does not move is a card in
-        // the same fog.
-        if (params.glow & GLOW_HEXPROOF) != 0u {
-            let n1 = noise(vec2<f32>(uv.x * 6.0 + uv.y * 3.0, d * 18.0 + t * 0.50));
-            let n2 = noise(vec2<f32>(uv.x * 10.0 - uv.y * 4.0, d * 30.0 + t * 0.35));
-            let wisp = WARD_THIN + (1.0 - WARD_THIN) * (0.6 * n1 + 0.4 * n2);
-            film = vec3<f32>(0.28, 0.86, 0.48);
-            film_cov = veil * wisp * WARD_HEX;
-        }
-        // Shroud: the same idea taken further — nothing may target it,
-        // including its controller — so it is colder, denser, and moves
-        // differently: a fine grain drifting across the whole card as a
-        // sheet, against hexproof's coarse roll out of the edge. Four axes
-        // separate the two at 47 logical pixels — hue, grain, motion,
-        // density — and hue on its own never was one. It *replaces* the
-        // hexproof film rather than mixing with it, which is what the rules
-        // do to a card carrying both; `glow_bits` already drops hexproof
-        // there, and this ordering is the second lock.
-        if (params.glow & GLOW_SHROUD) != 0u {
-            let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
-            film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
-            film_cov = veil * WARD_SHROUD;
-        }
-        if film_cov > 0.0 {
-            color = vec4<f32>(mix(color.rgb, film, film_cov), color.a);
-        }
-
-        if band > 0.0 {
-            // Activatable is not a property of the card, so it must not read
-            // like one: a warm light running round the border, which the eye
-            // finds across a whole board and which no printed ability could
-            // be mistaken for. It is added on top of any keyword sheath
-            // rather than averaged into it — the two are saying different
-            // things and both stay legible.
-            if (params.glow & GLOW_ACTIVATABLE) != 0u {
-                let head = fract(perimeter(uv) - t * 0.22);
-                let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
-                let amber = vec3<f32>(0.99, 0.78, 0.34);
-                // First exception. This one is a *position*, not a
-                // brightness: stopping the clock does not dim the light, it
-                // parks it, leaving one permanent hot spot on the border and
-                // the rest dark. So a still card gets the chase's mean
-                // instead — an even ring, which is the same invitation
-                // without the travel. 0.32 is that mean and not a taste:
-                // ∫₀¹ pow(1 - 2·min(h, 1-h), 5) dh is 1/6, so 0.22 + 0.60/6.
-                let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
-                color = vec4<f32>(color.rgb + amber * band * amount, color.a);
-            }
-            // Reachable: the same invitation, made by this client and not by
-            // the engine — a card in a pile it would tap lands for and then
-            // cast. The chase above in the hand's indigo, so "you could" is
-            // still one motion and the hue says who is offering; `glow_of`
-            // never sets both.
-            if (params.glow & GLOW_REACHABLE) != 0u {
-                let head = fract(perimeter(uv) - t * 0.22);
-                let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
-                let indigo = vec3<f32>(0.62, 0.56, 1.00);
-                let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
-                color = vec4<f32>(color.rgb + indigo * band * amount, color.a);
-            }
-            // Armed: the tap has been made, and one more sends it. The same
-            // register as the offer above and deliberately the opposite
-            // motion — no chase, a bright ring pulled in tight against the
-            // printed edge, breathing slowly in place. The card has stopped
-            // inviting anything; it is waiting, and a light that still
-            // travelled would say it was still a suggestion.
-            if (params.glow & GLOW_ARMED) != 0u {
-                let hold = 0.86 + 0.14 * sin(t * 2.2);
-                // Concentrated toward the edge rather than spread across the
-                // band, so it is a ring and not a wash — an armed card and a
-                // hovered one must not read the same.
-                let ring = pow(band, 0.45);
-                let gold = vec3<f32>(1.00, 0.87, 0.54);
-                color = vec4<f32>(color.rgb + gold * ring * 0.52 * hold, color.a);
-            }
-            // What it will cost: the sources an armed mana run would tap.
-            // Cool against the deed's warm, and a beat behind it, because the
-            // two are one sentence and the price follows the verb.
-            if (params.glow & GLOW_WILL_TAP) != 0u {
-                // Second exception, and the reason the rule is worth
-                // stating rather than assuming. The `- 0.9` is what puts
-                // this a beat behind the armed card, so phase zero is not
-                // the middle of the swing here: it is sin(-0.9) = -0.78,
-                // near the bottom. Freezing the clock would draw the price
-                // at two thirds of its proper brightness. Scaling the
-                // oscillation instead leaves the mean where it belongs.
-                let pulse = 0.70 + 0.30 * sin(globals.time * 2.2 - 0.9) * m;
-                let indigo = vec3<f32>(0.56, 0.60, 0.98);
-                color = vec4<f32>(color.rgb + indigo * band * 0.40 * pulse, color.a);
-            }
-        }
-    }
-
-    // ---- the rail, for the keywords a border cannot count
-    //
-    // Drawn after the travelling light so that an *offer* passes under the
-    // facts and never washes one out, and before the corner ink so that a
-    // mark can never survive outside the card. `card_common.wgsl` is shared
-    // with the UI twin: a creature in the own-board overlay is the same
-    // creature, and two hundred lines of pictogram kept in step by hand would
-    // not stay in step.
-    color = vec4<f32>(
-        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb, marks, marks_sampler),
-        color.a,
-    );
-
-    // ---- the identity slips, under the printed name
-    //
-    // Beside the rail rather than in it: neither of these is a combat
-    // keyword and neither would sort among eleven that are. On the same `t`
-    // the rail runs on, which is `globals.time` through the reduce-motion
-    // multiplier — so a player who asked for stillness gets paper that does
-    // not catch the light, rather than a second switch to find.
-    //
-    // Before the art's own ink and after the frame, because a slip is a
-    // piece of paper lying on the card: nothing it covers shows through it.
-    color = vec4<f32>(
-        identity_layer(
-            uv,
-            (params.glow & GLOW_COMMANDER) != 0u,
-            (params.glow & GLOW_TOKEN) != 0u,
-            (params.glow & GLOW_COPY) != 0u,
-            t,
-            color.rgb,
-            marks,
-            marks_sampler,
-        ),
-        color.a,
-    );
-
-    // ---- the plate the rail reserved a corner for
-    //
-    // After the rail, because the two share a bottom edge and the plate is
-    // what the rail stops short of; before the corner ink, for the same reason
-    // the rail is — nothing may survive outside the card.
-    // ---- the plate, and the counters standing above it
-    color = vec4<f32>(
-        plate_layer(
-            uv,
-            params.plate,
-            params.chips_a,
-            params.chips_b,
-            color.rgb,
-            marks,
-            marks_sampler,
-        ),
-        color.a,
-    );
-
-    // ---- how many permanents this card stands for
-    //
-    // Opposite the plate, over the printed cost; after the slips and the
-    // plate for the same reason they come after the art — it is our number
-    // lying on the card.
-    color = vec4<f32>(
-        count_layer(uv, params.count, color.rgb, marks, marks_sampler),
-        color.a,
-    );
-
-    // ---- the corners the scanner saw and the card does not have
-    //
-    // The mesh is rounded at exactly this radius, so the geometry has already
-    // taken the white away; what is left is the sliver of pixels the mesh
-    // edge antialiases through. Those are inked to the same colour as the
-    // card's edge wall rather than cut, because the mesh is opaque and a hole
-    // in it would show the felt through the card. The same ink lands as a
-    // hairline along the straight edges, which is what a printed card has.
+    // The mesh is rounded at the printed radius, so what is left is the
+    // sliver of pixels the mesh edge antialiases through. Those are inked to
+    // the same colour as the card's edge wall rather than cut, because the
+    // mesh is opaque and a hole in it would show the felt through the card.
+    // The same ink lands as a hairline along the straight edges, which is
+    // what a real card has. The scan's own white corners never get this far:
+    // they are outside the window, and the frame's paper is drawn there.
     let outside = smoothstep(-0.004, 0.004, corner_sdf(uv));
     color = vec4<f32>(mix(color.rgb, EDGE_INK, outside), color.a);
 
