@@ -1360,3 +1360,160 @@ fn no_mana_ability_in_the_pool_opens_a_payment_window() {
         carried.len()
     );
 }
+
+/// Seat 0 at its main phase with `card` on the battlefield, and the object.
+#[track_caller]
+fn seated(card: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(7, basic_forest()).battlefield(0, &[card]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    let object = on_battlefield(&engine, seat, card).expect("seated");
+    (engine, object)
+}
+
+/// What a CR 605.3a payment window would leave of seat 0's offer.
+fn in_a_window(engine: &Engine<RegistryLookup>) -> LegalActions {
+    let mut legal = engine.compute_legal(PlayerId::new(0));
+    engine.narrow_to_mana(&mut legal);
+    legal
+}
+
+/// **A payment window narrows by what the object can do, not by its card.**
+/// A Treasure has no card at all. Its one ability is a mana ability
+/// (CR 605.1a), and the window is exactly where a player needs it. The
+/// narrowing looked the index up on `obj.card` and found nothing, so the
+/// Treasure was taken out of the only window it is for.
+#[test]
+fn a_treasure_stays_in_a_payment_window() {
+    let (mut engine, _) = seated(basic_forest());
+    let treasure = &baylee_cards::tokens::TREASURE;
+    let base = engine
+        .state()
+        .object(on_battlefield(&engine, PlayerId::new(0), basic_forest()).unwrap())
+        .unwrap()
+        .base
+        .clone();
+    // The three writes `resolve::tokens::arrive` makes for a created token.
+    let id = engine.state.arena.insert_with(|oid| {
+        let mut obj = crate::object::GameObject::new_bare(
+            oid,
+            PlayerId::new(0),
+            crate::object::ObjectKind::Permanent,
+            base,
+        );
+        obj.token = Some(treasure);
+        obj
+    });
+    engine.state.zones.insert(
+        id,
+        crate::zone::ZoneLocation::Battlefield,
+        crate::zone::ZonePosition::Top,
+        true,
+    );
+    engine.state.object_mut(id).unwrap().zone = crate::zone::Zone::Battlefield;
+    engine.state.invalidate_projections();
+
+    assert!(
+        engine
+            .compute_legal(PlayerId::new(0))
+            .abilities
+            .contains(&(id, 0)),
+        "the Treasure's mana ability is offered at all"
+    );
+    assert!(
+        in_a_window(&engine).abilities.contains(&(id, 0)),
+        "and it is a mana ability, so a payment window keeps it"
+    );
+}
+
+/// The back face of a modal double-faced land is judged by the face it is
+/// showing (CR 712.8f). Sanguine Morass prints `{T}: Add {B} or {R}` on a
+/// face the card-level ability list does not carry, so the narrowing took
+/// the land out of the window it could pay.
+#[test]
+fn a_modal_land_s_back_face_stays_in_a_payment_window() {
+    let insight = card_index("c52fc8a1-43c6-41f8-b010-03be7c89ef1d");
+    let (mut engine, morass) = play_land_face(insight, 1).expect("Sanguine Morass is played");
+    // It enters tapped; the next untap step is what makes it a source.
+    engine
+        .state
+        .object_mut(morass)
+        .unwrap()
+        .status
+        .remove(crate::object::Status::TAPPED);
+    let offered: Vec<_> = engine
+        .compute_legal(PlayerId::new(0))
+        .abilities
+        .into_iter()
+        .filter(|(s, _)| *s == morass)
+        .collect();
+    assert!(!offered.is_empty(), "the Morass's mana ability is offered");
+    let kept = in_a_window(&engine);
+    for pair in offered {
+        assert!(
+            kept.abilities.contains(&pair),
+            "the back face's mana ability {pair:?} is what the window is for"
+        );
+    }
+}
+
+/// And the other direction, which is the dangerous one. Cursed Mirror
+/// copying Bottle Gnomes offers the Gnomes' "Sacrifice this creature: You
+/// gain 3 life" at index 0 — where the Mirror's own card prints `{T}: Add
+/// {R}`. Read off the card, a sacrifice for life was offered inside a
+/// window where nothing but mana may be made.
+#[test]
+fn a_copy_s_non_mana_ability_leaves_a_payment_window() {
+    let mirror = card_index("4d67e2a7-4aa7-44cc-853b-500d7aac046d");
+    let gnomes = card_index("54b5e429-7a44-480d-bea4-4f8eeb7449b5");
+    let (mut engine, copy) = seated(mirror);
+    // What `apply_copy_choice` writes: the copied card's list, in place of
+    // the copier's own.
+    let copied = RegistryLookup
+        .card(gnomes)
+        .expect("Bottle Gnomes")
+        .abilities_for_face(0);
+    engine.state.object_mut(copy).unwrap().own_abilities = Some(copied);
+
+    assert!(
+        engine
+            .compute_legal(PlayerId::new(0))
+            .abilities
+            .contains(&(copy, 0)),
+        "the Gnomes' sacrifice is offered outside a window"
+    );
+    assert!(
+        !in_a_window(&engine).abilities.contains(&(copy, 0)),
+        "inside one it is not mana, whatever the Mirror's own card prints"
+    );
+}
+
+/// A **granted** mana ability belongs in the window too, and it is offered
+/// under a slot rather than a printed index. Under a Chromatic Lantern a
+/// Badlands offers its own `{T}: Add {B} or {R}` and the Lantern's "any
+/// colour". Looked up by index on the card, the slot found nothing and was
+/// dropped; the one door left, `ActivateManaAbility`, takes the land's own
+/// mana first, so the colour the player needed was out of reach exactly
+/// when a payment asked for it.
+#[test]
+fn a_granted_mana_ability_stays_in_a_payment_window() {
+    let lantern = card_index("539f5396-d99a-417d-a84c-dff7930b5900");
+    let badlands = card_index("13ff3222-91cb-4796-a34e-899ed817694c");
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(7, basic_forest())
+        .battlefield(0, &[lantern, badlands])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    let land = on_battlefield(&engine, seat, badlands).expect("seated");
+    let grant = (land, crate::choice::granted_ability(0));
+    assert!(
+        engine.compute_legal(seat).abilities.contains(&grant),
+        "the Lantern's grant is offered on the land"
+    );
+    assert!(
+        in_a_window(&engine).abilities.contains(&grant),
+        "it makes mana, so the window keeps it"
+    );
+}

@@ -520,16 +520,33 @@ impl<L: CardLookup> Engine<L> {
     /// list, where `abilities` is every activation this seat could make and
     /// not the mana ones. Idempotent, so narrowing an already narrowed list
     /// on the regrant path costs a `retain` over what is left.
+    ///
+    /// **What an entry is, is asked of the object and not of its card.** The
+    /// offer is built from `GameObject::abilities` — the face that is up, a
+    /// copy's copied list, a token's definition — and the narrowing has to
+    /// read the same list, or it judges a different ability from the one it
+    /// is keeping or dropping. It used to read the card's own list, which
+    /// was wrong both ways: a Treasure (no card) and the back face of a
+    /// modal land were taken out of the window they could pay, and a Cursed
+    /// Mirror copying Bottle Gnomes kept the Gnomes' sacrifice in, because
+    /// the Mirror's card prints a mana ability at that index. A granted
+    /// ability is looked up among the grants by its slot, the same way the
+    /// offer numbers it.
     pub(crate) fn narrow_to_mana(&self, legal: &mut LegalActions) {
         legal.lands.clear();
         legal.castable.clear();
         legal.suspendable.clear();
         legal.abilities.retain(|&(source, index)| {
-            self.state
-                .object(source)
-                .and_then(|obj| obj.card)
-                .and_then(|card| self.lookup.card(card.index))
-                .and_then(|def| def.abilities.get(index as usize))
+            let Some(obj) = self.state.object(source) else {
+                return false;
+            };
+            if let Some(slot) = crate::choice::granted_slot(index) {
+                return crate::effects::granted_activated(&self.state, source)
+                    .nth(slot as usize)
+                    .is_some_and(|granted| granted.mana_ability);
+            }
+            obj.abilities(&self.lookup)
+                .get(index as usize)
                 .is_some_and(AbilityDef::is_mana_ability)
         });
     }
