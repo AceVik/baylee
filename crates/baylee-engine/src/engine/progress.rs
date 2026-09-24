@@ -3109,7 +3109,6 @@ impl<L: CardLookup> Engine<L> {
         let stamp = self.state.timestamp;
         let seat = self.state.turn.active.get() as usize;
         self.state.players[seat].turn_start_timestamp = stamp;
-        self.state.turn_start_seq = self.state.journal.last_seq();
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).
         let new_active = self.state.turn.active;

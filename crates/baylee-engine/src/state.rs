@@ -376,9 +376,6 @@ pub struct GameState {
     pub players: Vec<Player>,
     /// Turn bookkeeping.
     pub turn: TurnInfo,
-    /// Journal sequence at the start of the current turn (per-turn event
-    /// scans: "lost life this turn", …).
-    pub turn_start_seq: u64,
     /// Combat phase state.
     pub combat: crate::combat::CombatState,
     /// Per-turn counters for conditional triggers (Esper Sentinel, Orcish
@@ -722,7 +719,6 @@ impl GameState {
                 })
                 .collect(),
             turn: TurnInfo::new(PlayerId::new(0)),
-            turn_start_seq: 0,
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             delayed: Vec::new(),
@@ -1868,7 +1864,6 @@ impl GameState {
             zones,
             players,
             turn,
-            turn_start_seq,
             combat,
             per_turn,
             delayed,
@@ -1922,7 +1917,6 @@ impl GameState {
         hash_effects(&mut h, effects);
         replacement_rules.hash(&mut h);
         turn.hash(&mut h);
-        turn_start_seq.hash(&mut h);
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
         monarch.hash(&mut h);
@@ -3388,7 +3382,6 @@ mod tests {
 
         type Mutation = (&'static str, fn(&mut GameState, ObjectId));
         let mutations: &[Mutation] = &[
-            ("turn_start_seq", |s, _| s.turn_start_seq += 1),
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
             ("per_turn.entered_battlefield", |s, id| {

@@ -4,7 +4,7 @@
 //! **history** rather than a characteristic: nothing on a `GameObject` says
 //! it. It is answered from `per_turn.entered_battlefield`, the turn's record
 //! of arrivals, beside `per_turn.life_lost` for "lost life this turn". Both
-//! used to be scans of the journal from `state.turn_start_seq`, which
+//! used to be scans of the journal from the turn's start, which
 //! `snapshot_hash` does not read (#241).
 //!
 //! Asked of `eval` directly rather than through one of the nine cards that
@@ -115,10 +115,18 @@ fn a_permanent_entered_this_turn_only_on_the_turn_it_was_played() {
 
     // On to the next turn: the land is the same object and the answer has
     // to change, which is what clearing the record at every turn start is
-    // for.
+    // for. The next seat's hand is taken first, so the card its draw step
+    // brings can be told apart below.
+    let p1 = PlayerId::new(1);
+    let held = engine.state().zones.list(ZoneLocation::Hand(p1)).clone();
     pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active != p0
     });
+    assert_eq!(
+        engine.state().turn.active,
+        p1,
+        "two seats, so the next is p1"
+    );
     assert!(
         !arrived(&engine, played),
         "a new turn began, so nothing entered *this* one"
@@ -126,22 +134,18 @@ fn a_permanent_entered_this_turn_only_on_the_turn_it_was_played() {
     assert!(stack_is_empty(&engine), "and nothing is waiting to resolve");
 
     // The destination half, which no permanent can fail: to *be* on the
-    // battlefield, an object's last move was to the battlefield, so a reading
-    // that ignored `to` would agree with this one everywhere above. A hand is
-    // where the two come apart — the draw step moved a card this turn, and
-    // "entered the battlefield this turn" has to be false of it.
-    let hand = engine
+    // battlefield, an object's last move was to the battlefield, so a record
+    // written on every move, and not only on arrivals, would agree with this
+    // one everywhere above. A hand is where the two come apart — the draw
+    // step moved a card this turn, and "entered the battlefield this turn"
+    // has to be false of it.
+    let moved_this_turn: Vec<ObjectId> = engine
         .state()
         .zones
-        .list(ZoneLocation::Hand(engine.state().turn.active));
-    let moved_this_turn: Vec<ObjectId> = hand
+        .list(ZoneLocation::Hand(p1))
         .iter()
         .copied()
-        .filter(|id| {
-            engine.state().journal.entries()[engine.state().turn_start_seq as usize..]
-                .iter()
-                .any(|e| matches!(&e.event, crate::event::GameEvent::ZoneChanged { object, .. } if object == id))
-        })
+        .filter(|id| !held.contains(id))
         .collect();
     assert!(
         !moved_this_turn.is_empty(),

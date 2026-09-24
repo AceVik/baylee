@@ -69,7 +69,7 @@ pub fn matches_projected(
         // into the battlefield is journaled, and it holds the id
         // `move_object` returns, so the handle a permanent has now is the one
         // written on the way in. It used to be a scan of the journal from
-        // `turn_start_seq`, which the snapshot hash does not read (#241).
+        // the turn's start, which the snapshot hash does not read (#241).
         //
         // No `Cause` is filtered out, and `Cause::Setup` is the one worth
         // saying so about. A seeded battlefield is recorded like any other
