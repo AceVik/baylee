@@ -28,6 +28,7 @@ use baylee_client_core::deckbuilder::{BuildField, Zone};
 use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
+use baylee_client_core::lobby::gateway_info::Probe;
 use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
     MIN_CHAIRS, Screen, SeatKind, Tab, Tone,
@@ -80,7 +81,8 @@ impl Plugin for LobbyPlugin {
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
             .insert_resource(LobbyState::new())
-            .add_systems(Startup, ask_about_registration)
+            .init_resource::<hint::Hinted>()
+            .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             .add_systems(
                 Update,
                 (
@@ -93,12 +95,12 @@ impl Plugin for LobbyPlugin {
                     clicks,
                     scrolls,
                     scrollbars::remember,
-                    hovers,
+                    (hovers, hint::hint_hovers),
                     ui,
                     ui::blink,
                     dock::materialize,
                     button_style::materialize,
-                    preview,
+                    (preview, hint::hint_panel),
                     crate::buildui::virtual_rows::update,
                     crate::buildui::virtual_rows::update_pool,
                     thumbnails::load,
@@ -116,7 +118,10 @@ impl Plugin for LobbyPlugin {
             .init_resource::<Hovered>()
             .add_message::<Pointer<Over>>()
             .add_message::<Pointer<Out>>()
-            .add_systems(OnExit(DuelPhase::Closed), (teardown, despawn_preview))
+            .add_systems(
+                OnExit(DuelPhase::Closed),
+                (teardown, despawn_preview, hint::despawn_hint),
+            )
             .add_systems(
                 Update,
                 spawn_leave_button.run_if(in_state(DuelPhase::Finished)),
@@ -138,6 +143,14 @@ pub struct LobbyState {
     pub(crate) gateways: Vec<String>,
     pub(crate) gateway_selected: bool,
     gateway_epoch: u64,
+    /// What each address said when asked about itself, by address.
+    ///
+    /// Keyed by the address and not by [`Self::gateway_epoch`]: every saved
+    /// address is asked at once, and an answer belongs to its address
+    /// whichever one is selected by the time it lands.
+    pub(crate) probes: std::collections::HashMap<String, Probe>,
+    /// The typed address being asked before it is saved.
+    pub(crate) adding: Option<String>,
     /// The language the card pool is asked for, from the same setting the
     /// duel reads card text in — a builder in English over a table in German
     /// would be the same card under two names.
@@ -272,6 +285,8 @@ impl LobbyState {
             gateways,
             gateway_selected: false,
             gateway_epoch: 0,
+            probes: std::collections::HashMap::new(),
+            adding: None,
             lobby,
             gateway: crate::settings::gateway_url(),
             lang,
@@ -322,6 +337,11 @@ enum Reply {
     },
     /// The gateway no longer honours the account token we hold.
     Expired,
+    /// What an address said when asked about itself.
+    Gateway {
+        url: String,
+        probe: Probe,
+    },
 }
 
 /// What the shell should make of a successful response body.
@@ -361,6 +381,7 @@ pub(crate) mod dock;
 mod editing;
 mod feed;
 mod gateway;
+mod hint;
 mod http;
 mod library_ui;
 pub(crate) mod offline;
@@ -394,7 +415,7 @@ pub(crate) use ui::DuelExit;
 #[cfg(test)]
 mod tests;
 
-use http::{ask_about_registration, dispatch};
+use http::{ask_about_registration, ask_about_saved_gateways, dispatch};
 use preview::{Hovered, despawn_preview, hovers, preview};
 use systems::{
     came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls, softkeys, waiting, watch,

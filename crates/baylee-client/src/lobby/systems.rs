@@ -108,6 +108,14 @@ pub(super) fn poll(
                 state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
                 state.lobby.sign_out();
             }
+            Reply::Gateway { url, probe } => {
+                if state.gateway_answered(url, probe)
+                    && let Some(settings) = settings.as_mut()
+                {
+                    settings.gateways.clone_from(&state.gateways);
+                    settings.save();
+                }
+            }
         }
     }
     // Keys and standing orders belong to the account, so signing in is what
@@ -708,17 +716,20 @@ pub(super) fn clicks(
                 };
             }
             Press::AddGateway => {
-                if state.add_gateway()
-                    && let Some(settings) = settings.as_mut()
-                {
-                    settings.gateways.clone_from(&state.gateways);
-                    settings.save();
+                if let Some(url) = state.check_gateway() {
+                    http::probe_gateway(url, &mailbox);
                 }
             }
             Press::SelectGateway(index) => {
                 if state.select_gateway(index) {
                     prefs.detach();
                     http::probe_registration(&state, &mailbox);
+                    // Asked again: the answer in the list may be from before
+                    // the gateway was upgraded, and choosing it is the moment
+                    // that answer is about to matter.
+                    let url = state.gateway.clone();
+                    state.probes.insert(url.clone(), Probe::Asking);
+                    http::probe_gateway(url, &mailbox);
                 }
             }
             Press::BrowseHouse | Press::BrowseHistory | Press::RetryLibrary => {

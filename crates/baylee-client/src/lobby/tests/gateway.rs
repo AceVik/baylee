@@ -507,3 +507,58 @@ fn issue_186_library_routes_and_snapshot_payloads_match_the_gateway() {
         LobbyEvent::Library(Reply::Failed(_))
     ));
 }
+
+#[test]
+fn an_address_is_a_gateway_by_its_info_or_an_older_one_by_its_auth_config() {
+    let info = r#"{"name":"Hall","version":"v","protocol_version":1,"view_version":2}"#;
+    assert!(matches!(
+        read_info(&Ok(answer(200, info))),
+        Some(Probe::Known(read)) if read.name.as_deref() == Some("Hall")
+    ));
+    // Only a missing route is asked again: every gateway from before `/info`
+    // answers 404 there, and so does a web server at a mistyped path, which
+    // the second question tells apart.
+    assert_eq!(read_info(&Ok(answer(404, "Not Found"))), None);
+    for silent in [
+        Ok(answer(502, "")),
+        Ok(answer(200, "<html>a web page</html>")),
+        Ok(answer(401, info)),
+        Err("connection refused".to_string()),
+    ] {
+        assert_eq!(read_info(&silent), Some(Probe::Silent));
+    }
+    assert_eq!(
+        read_older(&Ok(answer(200, r#"{"registration_enabled":true}"#))),
+        Probe::Older
+    );
+    for silent in [
+        Ok(answer(404, "")),
+        Ok(answer(200, "<html>a web page</html>")),
+        Err("timed out".to_string()),
+    ] {
+        assert_eq!(read_older(&silent), Probe::Silent);
+    }
+}
+
+#[test]
+fn a_gateway_is_asked_what_it_is_at_the_routes_it_serves() {
+    for base in ["http://gw/base", "http://gw/base/"] {
+        let (info, older) = probe_requests(base);
+        assert_eq!(
+            (info.method.as_str(), info.url.as_str()),
+            ("GET", "http://gw/base/info")
+        );
+        assert_eq!(
+            (older.method.as_str(), older.url.as_str()),
+            ("GET", "http://gw/base/auth/config")
+        );
+        for request in [&info, &older] {
+            assert_eq!(request.timeout, Some(PROBE_TIMEOUT));
+            assert_eq!(
+                request.headers.get("Authorization"),
+                None,
+                "asked before there is an account, so it carries none"
+            );
+        }
+    }
+}

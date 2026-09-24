@@ -11,6 +11,7 @@
 //! the wire should know the field names, and the shell that encodes the
 //! request is not it.
 
+pub mod gateway_info;
 pub mod library;
 
 use crate::deckbuilder::DeckBuilder;

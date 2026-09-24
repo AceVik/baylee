@@ -509,21 +509,21 @@ pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbo
     }
 }
 
-pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
-    /// `GET /auth/config`.
-    #[derive(serde::Deserialize)]
-    struct Body {
-        registration_enabled: bool,
-        /// Whether `GET /art/…` serves card images.
-        ///
-        /// Defaulted rather than required: a gateway built before the mirror
-        /// existed answers without the field, and the right reading of a
-        /// missing answer is "no mirror", which is exactly what the client
-        /// already did.
-        #[serde(default)]
-        art_cache: bool,
-    }
+/// `GET /auth/config`.
+#[derive(serde::Deserialize)]
+struct AuthConfig {
+    registration_enabled: bool,
+    /// Whether `GET /art/…` serves card images.
+    ///
+    /// Defaulted rather than required: a gateway built before the mirror
+    /// existed answers without the field, and the right reading of a
+    /// missing answer is "no mirror", which is exactly what the client
+    /// already did.
+    #[serde(default)]
+    art_cache: bool,
+}
 
+pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
     let box_ = Arc::clone(&mailbox.0);
     let gateway = state.gateway.clone();
     let epoch = state.gateway_epoch;
@@ -532,7 +532,7 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
         let body = match result {
             Ok(response) if response.ok => response
                 .text()
-                .and_then(|body| serde_json::from_str::<Body>(body).ok()),
+                .and_then(|body| serde_json::from_str::<AuthConfig>(body).ok()),
             // A gateway that is not up yet says nothing about registration.
             // Leaving the offer standing is the recoverable failure.
             _ => None,
@@ -550,6 +550,88 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
             ));
         }
     });
+}
+
+/// Asks every saved address about itself, once, at startup.
+pub(super) fn ask_about_saved_gateways(mut state: ResMut<LobbyState>, mailbox: Res<Mailbox>) {
+    for url in state.unasked_gateways() {
+        probe_gateway(url, &mailbox);
+    }
+}
+
+/// How long asking an address about itself may take.
+///
+/// Shorter than a lobby request's thirty seconds, because saving waits on
+/// it with the button held down, and a gateway that has not said what it is
+/// in ten seconds is not one to play on.
+pub(super) const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Asks an address what it is (`GET /info`), and leaves the answer in the
+/// mailbox under the address.
+///
+/// A 404 is asked once more, of `GET /auth/config`: every gateway from
+/// before `/info` answers that route, and a server that answers neither is
+/// not a gateway. Without the second question a mistyped *path* on a real
+/// web server would be saved as an old gateway.
+pub(super) fn probe_gateway(url: String, mailbox: &Mailbox) {
+    let box_ = Arc::clone(&mailbox.0);
+    let (info, older) = probe_requests(&url);
+    ehttp::fetch(info, move |answer| {
+        if let Some(probe) = read_info(&answer) {
+            post_probe(&box_, url, probe);
+            return;
+        }
+        ehttp::fetch(older, move |answer| {
+            post_probe(&box_, url, read_older(&answer));
+        });
+    });
+}
+
+/// The two questions [`probe_gateway`] may ask: `GET /info`, then
+/// `GET /auth/config` when that route is missing.
+///
+/// Built here and not inline, so a test can read the paths. A typo in the
+/// first one would not fail anything a player sees at once: every real
+/// gateway would answer the second, and the whole list would quietly turn
+/// "version unknown".
+pub(super) fn probe_requests(url: &str) -> (ehttp::Request, ehttp::Request) {
+    let url = url.trim_end_matches('/');
+    (
+        ehttp::Request::get(format!("{url}/info")).with_timeout(Some(PROBE_TIMEOUT)),
+        ehttp::Request::get(format!("{url}/auth/config")).with_timeout(Some(PROBE_TIMEOUT)),
+    )
+}
+
+fn post_probe(mailbox: &Mutex<Vec<Reply>>, url: String, probe: Probe) {
+    if let Ok(mut mailbox) = mailbox.lock() {
+        mailbox.push(Reply::Gateway { url, probe });
+    }
+}
+
+/// What an answer to `GET /info` says, or `None` when the route is missing
+/// and `GET /auth/config` has to be asked instead.
+pub(super) fn read_info(answer: &Result<ehttp::Response, String>) -> Option<Probe> {
+    match answer {
+        Ok(response) if response.ok => Some(
+            client_core::lobby::gateway_info::GatewayInfo::read(&response.bytes)
+                .map_or(Probe::Silent, Probe::Known),
+        ),
+        Ok(response) if response.status == 404 => None,
+        _ => Some(Probe::Silent),
+    }
+}
+
+/// What an answer to `GET /auth/config` says about an address with no
+/// `GET /info`.
+pub(super) fn read_older(answer: &Result<ehttp::Response, String>) -> Probe {
+    match answer {
+        Ok(response)
+            if response.ok && serde_json::from_slice::<AuthConfig>(&response.bytes).is_ok() =>
+        {
+            Probe::Older
+        }
+        _ => Probe::Silent,
+    }
 }
 
 fn library_request(

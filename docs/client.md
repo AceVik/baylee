@@ -2600,6 +2600,23 @@ plugin turns that into an `ehttp` call and feeds the outcome back as a
 `LobbyEvent`. So the flow is tested without a window, and the mapping onto the
 gateway's routes is tested without a gateway.
 
+**Which gateway.** An address typed into the gateway form is not saved as
+typed. The client asks it `GET /info` first (`docs/protocol.md` §"Which gateway
+is this? (`GET /info`)"), and saves it only if a gateway answered: one that
+answers `/info`, or one from before that route that still answers
+`GET /auth/config`. If nothing answered, the address stays in the field with a
+refusal under it. Every saved address is asked again at startup and when it is
+chosen, and its row shows the operator's name over the address and the version.
+The version is green when this client's protocol and view versions match,
+red with a warning mark when either differs, and amber with a mark when the
+gateway is too old to say or not answering. Pointing at the mark shows why, in
+a hint drawn outside the retained tree like the card preview (`lobby/hint.rs`).
+The verdict is a colour and never a refusal: an incompatible gateway is still
+saved, and whether a game opens is decided by the view check on its first
+frame, as before. Everything a gateway sends here is untrusted, so
+`client_core::lobby::gateway_info` drops control and bidi characters and caps
+the name and the version before anything is drawn.
+
 **Rooms.** The table screen lists every room the gateway knows and draws each
 one seat by seat: who is sitting there, whether they are a person or the AI,
 at what difficulty, what they brought, and whether that chair is ready. A host

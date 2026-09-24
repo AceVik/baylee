@@ -439,7 +439,8 @@ fn issue_187_saved_gateways_round_trip_without_selecting_one() {
     let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
     for url in ["https://example.test/", "https://example.test"] {
         state.lobby.set_field(Field::Gateway, url);
-        assert!(state.add_gateway());
+        let asked = state.check_gateway().expect("an address");
+        state.gateway_answered(asked, Probe::Older);
     }
     assert_eq!(state.gateways, ["https://example.test"]);
     assert!(!state.gateway_selected, "saving is not selecting");
@@ -493,4 +494,150 @@ fn deeply_nested_button_contents_still_activate_their_button() {
     tap(&mut app, leaf);
     app.update();
     assert!(app.world().resource::<LobbyState>().offline.is_some());
+}
+
+/// A gateway answering `/info` as this client's own build would.
+fn gateway_info(name: Option<&str>, version: &str, view: u32) -> Probe {
+    Probe::Known(baylee_client_core::lobby::gateway_info::GatewayInfo {
+        name: name.map(str::to_string),
+        version: version.to_string(),
+        protocol_version: baylee_protocol::PROTOCOL_VERSION,
+        view_version: view,
+    })
+}
+
+#[test]
+fn an_address_is_saved_only_once_a_gateway_answers_there() {
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    state
+        .lobby
+        .set_field(Field::Gateway, "https://typo.example/");
+    let asked = state.check_gateway().expect("an address");
+    assert_eq!(asked, "https://typo.example");
+    assert!(
+        state.gateways.is_empty(),
+        "nothing is saved before the answer"
+    );
+
+    assert!(!state.gateway_answered("https://other.example".into(), Probe::Older));
+    assert_eq!(
+        state.adding.as_deref(),
+        Some("https://typo.example"),
+        "an answer about another address settles nothing"
+    );
+
+    assert!(!state.gateway_answered(asked, Probe::Silent));
+    assert!(state.gateways.is_empty());
+    assert_eq!(state.adding, None);
+    assert_eq!(state.lobby.tone(), Tone::Refusal);
+    assert!(state.lobby.status().contains("https://typo.example"));
+    assert_eq!(
+        state.lobby.field(Field::Gateway),
+        "https://typo.example/",
+        "what was typed stays, to be corrected"
+    );
+
+    // An incompatible gateway is still a gateway: saved, and drawn with its
+    // warning.
+    let asked = state.check_gateway().expect("an address");
+    let newer = gateway_info(None, "9.9.9", baylee_view::VIEW_VERSION + 1);
+    assert!(state.gateway_answered(asked, newer));
+    assert_eq!(state.gateways, ["https://typo.example"]);
+    assert!(state.lobby.field(Field::Gateway).is_empty());
+    assert_eq!(state.lobby.tone(), Tone::Note);
+}
+
+#[test]
+fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Gateway, "https://new.example");
+        state.check_gateway().expect("an address");
+    }
+    app.update();
+    assert!(
+        !presses(&mut app).contains(&Press::AddGateway),
+        "no second question while one is out"
+    );
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .unwrap()
+        .push(Reply::Gateway {
+            url: "https://new.example".into(),
+            probe: gateway_info(Some("New Hall"), "0.1.0", baylee_view::VIEW_VERSION),
+        });
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().gateways,
+        ["https://new.example"]
+    );
+    let pressable = presses(&mut app);
+    assert!(pressable.contains(&Press::AddGateway));
+    assert!(pressable.contains(&Press::SelectGateway(0)));
+    let drawn = labels(&mut app);
+    assert!(drawn.iter().any(|l| l == "New Hall"), "the name leads");
+    assert!(
+        drawn.iter().any(|l| l == "https://new.example"),
+        "and the address stays in sight under it"
+    );
+}
+
+#[test]
+fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateways = vec![
+            "https://newer.example".into(),
+            "https://same.example".into(),
+            "https://older.example".into(),
+        ];
+        let newer = gateway_info(None, "9.9.9", baylee_view::VIEW_VERSION + 1);
+        let same = gateway_info(None, "0.1.0", baylee_view::VIEW_VERSION);
+        state.probes.insert("https://newer.example".into(), newer);
+        state.probes.insert("https://same.example".into(), same);
+        state
+            .probes
+            .insert("https://older.example".into(), Probe::Older);
+    }
+    app.update();
+    let mut query = app.world_mut().query::<(&Text, &TextColor)>();
+    let inks: Vec<(String, Color)> = query
+        .iter(app.world())
+        .map(|(text, colour)| (text.0.clone(), colour.0))
+        .collect();
+    let ink = |label: &str| inks.iter().find(|(text, _)| text == label).map(|i| i.1);
+    assert_eq!(ink("9.9.9"), Some(palette::DANGER));
+    assert_eq!(ink("0.1.0"), Some(palette::HEAL));
+    assert_eq!(
+        ink(Phrase::GatewayVersionUnknown.text(Lang::En)),
+        Some(palette::ACTIVE)
+    );
+
+    let mut hints = app
+        .world_mut()
+        .query::<(Entity, &super::super::hint::HoverHint)>();
+    let marks: Vec<(Entity, String)> = hints
+        .iter(app.world())
+        .map(|(entity, hint)| (entity, hint.0.clone()))
+        .collect();
+    assert_eq!(marks.len(), 2, "the compatible gateway carries no mark");
+    let newer = (baylee_view::VIEW_VERSION + 1).to_string();
+    let (mark, _) = marks
+        .iter()
+        .find(|(_, said)| said.contains(&newer))
+        .expect("the mismatch names the gateway's view version");
+
+    // Pointing at the mark draws its sentence; leaving takes it away.
+    let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+    app.world_mut()
+        .write_message(aimed(*mark, Over { hit: hit.clone() }));
+    app.update();
+    assert!(labels(&mut app).iter().any(|l| l.contains(&newer)));
+    app.world_mut().write_message(aimed(*mark, Out { hit }));
+    app.update();
+    assert!(!labels(&mut app).iter().any(|l| l.contains(&newer)));
 }

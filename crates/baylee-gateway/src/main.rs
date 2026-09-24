@@ -583,7 +583,7 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
 /// The longest name `BAYLEE_GATEWAY_NAME` may set, in characters.
 ///
 /// The client caps what it shows at the same length on its own
-/// (`client_core::lobby::gateway_info::MAX_NAME_CHARS`), because a gateway
+/// (`baylee_client_core::lobby::gateway_info::MAX_NAME_CHARS`), because a gateway
 /// is a stranger to it and this check only binds gateways built from here.
 const MAX_NAME_CHARS: usize = 64;
 
@@ -613,6 +613,10 @@ fn display_name(raw: Option<&str>) -> Result<Option<String>, String> {
 
 /// The characters that reorder how a line of text is displayed (Unicode's
 /// embeddings, overrides and isolates) without being shown themselves.
+///
+/// The client drops the same set from whatever a gateway sends it (its own
+/// `is_bidi_control` in `baylee_client_core::lobby::gateway_info`); the two
+/// lists are one list.
 fn is_bidi_control(c: char) -> bool {
     matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }

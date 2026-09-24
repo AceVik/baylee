@@ -195,6 +195,26 @@ messages! {
     SaveGateway { en: "Save gateway", de: "Gateway speichern" },
     /// Gateway selection.
     GatewayUrlInvalid { en: "Enter an http:// or https:// address without credentials, query parameters or a fragment.", de: "Gib eine http://- oder https://-Adresse ohne Zugangsdaten, Abfrageparameter oder Fragment ein." },
+    /// Gateway selection: an address is asked about itself before it is saved.
+    GatewayChecking { en: "Checking {0}…", de: "Prüfe {0} …" },
+    /// Gateway selection: the address answered and is saved.
+    GatewaySaved { en: "Saved {0}.", de: "{0} gespeichert." },
+    /// Gateway selection: nothing at the address answered as a gateway.
+    GatewayNotFound { en: "No Baylee gateway answered at {0}. Check the address, or try again once it is up.", de: "Unter {0} hat kein Baylee-Gateway geantwortet. Prüfe die Adresse oder versuche es erneut, sobald er läuft." },
+    /// Gateway row, beside its address, while it is being asked.
+    GatewayCheckingShort { en: "checking…", de: "wird geprüft …" },
+    /// Gateway row: a gateway from before version checks.
+    GatewayVersionUnknown { en: "version unknown", de: "Version unbekannt" },
+    /// Gateway row: a saved gateway that is down.
+    GatewayNotAnswering { en: "not answering", de: "antwortet nicht" },
+    /// Gateway warning. `{0}` is the gateway's protocol version, `{1}` this client's.
+    GatewayProtocolMismatch { en: "This gateway speaks protocol {0} and this client speaks {1}, so its games will not open here.", de: "Dieser Gateway spricht Protokoll {0} und dieser Client {1}, deshalb öffnen sich seine Partien hier nicht." },
+    /// Gateway warning. `{0}` is the gateway's view version, `{1}` this client's.
+    GatewayViewMismatch { en: "This gateway's games send view version {0} and this client reads {1}, so they will not open here.", de: "Die Partien dieses Gateways senden Ansichtsversion {0} und dieser Client liest {1}, deshalb öffnen sie sich hier nicht." },
+    /// Gateway warning: a gateway from before version checks.
+    GatewayOlder { en: "This gateway is older than version checks. Whether its games open here shows only when one starts.", de: "Dieser Gateway ist älter als die Versionsprüfung. Ob sich seine Partien hier öffnen, zeigt erst eine Partie." },
+    /// Gateway warning: a saved gateway that is down.
+    GatewaySilent { en: "This gateway is not answering right now.", de: "Dieser Gateway antwortet gerade nicht." },
     /// Server account-name rules, displayed before a registration is submitted.
     AccountNameHint { en: "3–16 characters: A–Z, 0–9, _ or -. Start and end with a letter or number.", de: "3–16 Zeichen: A–Z, 0–9, _ oder -. Am Anfang und Ende ein Buchstabe oder eine Zahl." },
     /// Password registration guidance.
