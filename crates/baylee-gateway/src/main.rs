@@ -16,6 +16,7 @@ mod lobby;
 mod mail;
 mod pool;
 mod store;
+mod texts;
 
 use axum::Router;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -106,6 +107,9 @@ struct AppState {
     /// `GET /health` spells this apart from an empty one: `off` is this
     /// field, `empty` is a catalog nobody has ingested into.
     catalog: Option<baylee_catalog::Catalog>,
+    /// The pool's card text per language, until the catalog's data stamp
+    /// moves. See `texts.rs`.
+    texts: texts::TextCache,
     /// The disk mirror of card art (`BAYLEE_ART_PATH`, `off` to disable).
     ///
     /// An `Arc` of its own because the warming task outlives the request that
@@ -177,6 +181,7 @@ async fn main() {
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
         ),
         catalog,
+        texts: texts::TextCache::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
     });
@@ -1049,9 +1054,7 @@ async fn catalog_text(
     let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
 
     if let Some(list) = params.oracle_ids.as_deref() {
-        let cards = text_ids(list);
-        let found = catalog
-            .text_by_card(&cards, &lang)
+        let found = card_text(&state, catalog, &text_ids(list), &lang)
             .await
             .map_err(|e| catalog_error("looking up card text", &e))?;
         return Ok(Json(found));
@@ -1061,16 +1064,15 @@ async fn catalog_text(
     if ids.is_empty() {
         return Ok(Json(Vec::new()));
     }
-
-    let mut found = catalog
-        .text(&ids, &lang)
+    let mut asked = catalog
+        .cards_of(&ids)
         .await
         .map_err(|e| catalog_error("looking up card text", &e))?;
 
     // Anything the catalog has never seen is fetched once and kept.
     let missing: Vec<String> = ids
         .iter()
-        .filter(|id| !found.iter().any(|e| &&e.scryfall_id == id))
+        .filter(|id| !asked.iter().any(|(known, _)| known == *id))
         .take(MAX_ONDEMAND_FILL)
         .cloned()
         .collect();
@@ -1084,17 +1086,72 @@ async fn catalog_text(
         })
         .await
         .unwrap_or_default();
-        if !fetched.is_empty() {
-            if let Err(err) = catalog.upsert(&fetched).await {
-                tracing::warn!(%err, "storing on-demand cards failed");
-            }
-            found = catalog
-                .text(&ids, &lang)
+        if let Err(err) = catalog.upsert(&fetched).await {
+            tracing::warn!(%err, "storing on-demand cards failed");
+        } else if !fetched.is_empty() {
+            let filled = catalog
+                .cards_of(&missing)
                 .await
                 .map_err(|e| catalog_error("looking up card text", &e))?;
+            // Not a data stamp: see `texts` for why a fill re-reads its own
+            // cards instead.
+            let cards: Vec<String> = filled.iter().map(|(_, card)| card.clone()).collect();
+            if let Err(err) = state.texts.refresh(catalog, &cards).await {
+                tracing::warn!(%err, "re-reading filled cards failed");
+            }
+            asked.extend(filled);
         }
     }
-    Ok(Json(found))
+
+    let mut cards: Vec<String> = asked.iter().map(|(_, card)| card.clone()).collect();
+    cards.sort_unstable();
+    cards.dedup();
+    let by_card: std::collections::HashMap<String, baylee_catalog::CardTextEntry> =
+        card_text(&state, catalog, &cards, &lang)
+            .await
+            .map_err(|e| catalog_error("looking up card text", &e))?
+            .into_iter()
+            .map(|entry| (entry.oracle_id.clone(), entry))
+            .collect();
+    Ok(Json(
+        asked
+            .into_iter()
+            .filter_map(|(scryfall_id, card)| {
+                Some(baylee_catalog::CardTextEntry {
+                    scryfall_id,
+                    ..by_card.get(&card)?.clone()
+                })
+            })
+            .collect(),
+    ))
+}
+
+/// Text for `cards` in `lang`, in oracle-id order: a pool card's from the
+/// language held in memory, any other from the catalog.
+async fn card_text(
+    state: &AppState,
+    catalog: &baylee_catalog::Catalog,
+    cards: &[String],
+    lang: &str,
+) -> anyhow::Result<Vec<baylee_catalog::CardTextEntry>> {
+    if cards.is_empty() {
+        return Ok(Vec::new());
+    }
+    let language = state.texts.get(catalog, lang).await?;
+    let mut found = Vec::with_capacity(cards.len());
+    let mut rest = Vec::new();
+    for card in cards {
+        match language.entry(card) {
+            Some(entry) => found.push(entry.clone()),
+            None => rest.push(card.clone()),
+        }
+    }
+    if !rest.is_empty() {
+        found.extend(catalog.text_by_card(&rest, language.lang()).await?);
+    }
+    found.sort_by(|a, b| a.oracle_id.cmp(&b.oracle_id));
+    found.dedup_by(|a, b| a.oracle_id == b.oracle_id);
+    Ok(found)
 }
 
 /// Query for `/catalog/search`.

@@ -72,19 +72,43 @@ impl Feed {
 pub async fn bulk(catalog: &Catalog, feed: Feed) -> Result<usize> {
     let url = bulk_uri(feed)?;
     tracing::info!(%url, "downloading bulk feed");
+    from_feed(catalog, move || {
+        let response = ureq::get(&url)
+            .header("User-Agent", USER_AGENT)
+            .call()
+            .context("downloading the bulk feed")?;
+        Ok(BufReader::new(GzDecoder::new(
+            response.into_body().into_reader(),
+        )))
+    })
+    .await
+}
+
+/// Upserts every card in the JSONL feed `open` answers, then rebuilds what
+/// is derived from them: [`bulk`] once it knows where to download from.
+///
+/// `open` runs on a thread of its own, because a download blocks.
+///
+/// # Errors
+/// When `open` fails, the feed cannot be read, or the database rejects a
+/// batch.
+pub async fn from_feed<R: BufRead>(
+    catalog: &Catalog,
+    open: impl FnOnce() -> Result<R> + Send + 'static,
+) -> Result<usize> {
+    // A gateway caches card text until this moves (`Catalog::data_version`).
+    // Moved before the first write as well as after the last, so an ingest
+    // that dies halfway leaves no cache holding the text from before it.
+    catalog.bump_data_version().await?;
 
     // The download is blocking (ureq) and the database is async, so the two
     // run as producer and consumer: parsing never waits for a round trip and
     // the upserts never wait for the network.
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<Card>>(4);
     let reader = std::thread::spawn(move || -> Result<()> {
-        let response = ureq::get(&url)
-            .header("User-Agent", USER_AGENT)
-            .call()
-            .context("downloading the bulk feed")?;
-        let decoder = GzDecoder::new(response.into_body().into_reader());
+        let feed = open()?;
         let mut batch = Vec::with_capacity(BATCH);
-        for line in BufReader::new(decoder).lines() {
+        for line in feed.lines() {
             let line = line.context("reading the bulk feed")?;
             let line = line.trim().trim_end_matches(',');
             // The feed is JSONL, but the first and last lines of the older
@@ -128,6 +152,7 @@ pub async fn bulk(catalog: &Catalog, feed: Feed) -> Result<usize> {
     // printing of one card in every language, so a batch of four hundred
     // cannot say which rows it changed without reading the rest back anyway.
     catalog.project().await?;
+    catalog.bump_data_version().await?;
     tracing::info!(stored, "ingest complete");
     Ok(stored)
 }

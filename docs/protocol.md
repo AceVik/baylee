@@ -172,6 +172,48 @@ which refuses no unknown field, reads a new one. An old gateway refuses
 `oracle_ids` alone with a 400 (it requires `ids`), and a new client takes
 that as no answer.
 
+### How long an answer is held
+
+A gateway holds the pool's text in memory, one copy per language: `/pool`'s
+whole answer, serialized once, and each pool card's `/catalog/text` entry. A
+card outside the pool is read from Postgres on every request. Only the
+languages in the catalog's `languages` table are held. Any other `lang` is
+answered in English, which is also what the catalog would have picked for
+it, so a client cannot make a gateway hold a copy per code it made up.
+`/pool`'s `lang` then says `en`.
+
+The copy is keyed on the catalog's data stamp, `catalog_meta.data_version`.
+`baylee-catalog ingest` moves it when it starts and again when it finishes,
+never per batch. Every request reads the stamp, one primary-key lookup, and
+a language held at a different stamp is read again: once, however many
+requests arrive together. After the start stamp the gateway may hold a
+catalog the ingest has half rewritten, where every card has valid text but
+not yet its final pick. The end stamp replaces it.
+
+Anything else that writes `cards` or `card_faces` goes unseen until the
+stamp moves: a hand-run `UPDATE`, a restore. Move it by hand or restart
+the gateway. By hand means the statement `Catalog::bump_data_version`
+runs, because a catalog no ingest has stamped yet has no row to update:
+
+```sql
+INSERT INTO catalog_meta (key, value) VALUES ('data_version', '1')
+ON CONFLICT (key) DO UPDATE
+SET value = (catalog_meta.value::bigint + 1)::text;
+```
+
+A row added to `languages` needs the restart.
+
+**Scaling out.** The one writer that does not move the stamp is the
+gateway's own fill (`ids=` above), because a stamp would make every gateway
+rebuild every language it holds. The filling gateway re-reads just the
+cards it filled instead: their text in each language it holds, a query
+each, and their names once. So a *second* gateway on the same database sees
+another gateway's fill only at the next ingest. Until then it serves that
+card's previous pick, which is valid text without the one new printing.
+Lift this before running more than one gateway: give the fill a stamp of
+its own, or move the fill out of the gateway.
+`crates/baylee-gateway/src/texts.rs` has the mechanism.
+
 ## Card art (`GET /art/…`)
 
 The gateway mirrors printing images on disk, and the route is a **mirror of

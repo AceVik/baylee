@@ -10,7 +10,7 @@
 //! reasons its header gives; the sandbox here is that one cut to what text
 //! needs. Without `DATABASE_URL` they fail rather than skip.
 
-use baylee_catalog::{CardTextEntry, Catalog, scryfall};
+use baylee_catalog::{CardTextEntry, Catalog, ingest, scryfall};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -288,5 +288,84 @@ async fn a_printing_is_answered_as_its_card_under_its_own_id() {
             .expect("text")
             .is_empty()
     );
+    sandbox.close().await;
+}
+
+/// The stamp a gateway's cache of card text is keyed on: none until the
+/// first move, and moved by nothing but [`Catalog::bump_data_version`].
+/// Not by an upsert: an ingest writes about 1 356 of them, and a gateway
+/// would rebuild at each.
+#[tokio::test]
+async fn only_a_bump_moves_the_data_stamp() {
+    let sandbox = Sandbox::open("stamp", &[]).await;
+    let catalog = &sandbox.catalog;
+    assert_eq!(catalog.data_version().await.expect("the stamp"), 0);
+    catalog.upsert(&stones()).await.expect("upserting");
+    assert_eq!(catalog.data_version().await.expect("the stamp"), 0);
+    assert_eq!(catalog.bump_data_version().await.expect("moving"), 1);
+    assert_eq!(catalog.bump_data_version().await.expect("moving"), 2);
+    assert_eq!(catalog.data_version().await.expect("the stamp"), 2);
+    sandbox.close().await;
+}
+
+/// Which card a printing is, for the printings the catalog knows; the
+/// rest are left out rather than failing the lookup.
+#[tokio::test]
+async fn a_known_printing_names_its_card() {
+    let sandbox = Sandbox::open("cards_of", &stones()).await;
+    let known = "00000000-0000-4000-8000-000000000001".to_owned();
+    let unknown = "00000000-0000-4000-8000-00000000ffff".to_owned();
+    let cards = sandbox
+        .catalog
+        .cards_of(&[unknown, known.clone()])
+        .await
+        .expect("looking up");
+    assert_eq!(cards, [(known, STONE.to_owned())]);
+    assert!(
+        sandbox
+            .catalog
+            .cards_of(&[])
+            .await
+            .expect("nothing")
+            .is_empty()
+    );
+    sandbox.close().await;
+}
+
+/// The languages a gateway holds text in are the catalog's own list, the
+/// one `migrate` seeds.
+#[tokio::test]
+async fn the_catalog_names_its_languages() {
+    let sandbox = Sandbox::open("languages", &[]).await;
+    let languages = sandbox.catalog.languages().await.expect("listing");
+    assert_eq!(languages.len(), 19, "{languages:?}");
+    assert!(languages.iter().any(|l| l == "de"));
+    assert!(languages.iter().any(|l| l == "en"));
+    sandbox.close().await;
+}
+
+/// An ingest moves the stamp before its first write as well as after its
+/// last, so one that fails has still moved it: a gateway does not go on
+/// serving what it read before a half-written catalog.
+#[tokio::test]
+async fn an_ingest_moves_the_stamp_before_and_after() {
+    let sandbox = Sandbox::open("ingest", &[]).await;
+    let catalog = &sandbox.catalog;
+    let feed: String = stones()
+        .iter()
+        .map(|card| serde_json::to_string(card).expect("serializing") + "\n")
+        .collect();
+    let stored = ingest::from_feed(catalog, move || Ok(std::io::Cursor::new(feed)))
+        .await
+        .expect("ingesting");
+    assert_eq!(stored, stones().len());
+    assert_eq!(catalog.data_version().await.expect("the stamp"), 2);
+
+    let failed = ingest::from_feed(catalog, || -> anyhow::Result<std::io::Cursor<String>> {
+        anyhow::bail!("the download failed")
+    })
+    .await;
+    assert!(failed.is_err());
+    assert_eq!(catalog.data_version().await.expect("the stamp"), 3);
     sandbox.close().await;
 }

@@ -22,9 +22,11 @@
 use crate::{ErrorBody, Shared, err};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use axum::response::Json;
+use axum::http::header::CONTENT_TYPE;
+use axum::response::{IntoResponse, Json, Response};
 use baylee_cards::pool::{PoolCard, rows as registry_rows};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// The answer to `GET /pool`.
 #[derive(Clone, Debug, Serialize)]
@@ -55,61 +57,62 @@ pub struct PoolQuery {
 /// Deliberately unauthenticated, for the same reason `/catalog/text` is: this
 /// is what the game can play, which is public reference data, and a player
 /// looking at what the platform supports has not signed up yet.
-pub async fn pool(
-    State(state): State<Shared>,
-    Query(params): Query<PoolQuery>,
-) -> Result<Json<PoolBody>, (StatusCode, Json<ErrorBody>)> {
+///
+/// The answer is built once per language and catalog version and sent as
+/// the bytes it was serialized to ([`crate::texts`]): it is a few hundred
+/// rows that are the same for every reader until an ingest changes them.
+pub async fn pool(State(state): State<Shared>, Query(params): Query<PoolQuery>) -> Response {
     let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
-    let mut cards = registry_rows().to_vec();
-    let mut has_text = false;
     if let Some(catalog) = state.catalog.as_ref() {
-        let ids: Vec<String> = cards.iter().map(|c| c.scryfall_id.to_string()).collect();
-        match catalog.text(&ids, &lang).await {
-            Ok(entries) => {
-                has_text = true;
-                enrich(&mut cards, &entries);
+        match state.texts.get(catalog, &lang).await {
+            Ok(language) => {
+                return ([(CONTENT_TYPE, "application/json")], language.pool_json())
+                    .into_response();
             }
-            // Card text is presentation. A catalog that is down costs a player
-            // rules text and their own language, not the deck builder.
+            // Card text is presentation. A catalog that is down costs a
+            // player rules text and their own language, not the deck builder.
             Err(e) => tracing::warn!(%e, "pool text lookup failed; serving the registry alone"),
         }
-        // Names in every language the catalog has. Separate query and separate
-        // failure: a builder that cannot translate still searches, and one
-        // that cannot search in Japanese still builds decks.
-        let oracle_ids: Vec<String> = cards
-            .iter()
-            .map(|c| c.oracle_id.to_string())
-            .filter(|id| !id.is_empty())
-            .collect();
-        match catalog.names(&oracle_ids).await {
-            Ok(names) => name_cards(&mut cards, &names),
-            Err(e) => tracing::warn!(%e, "pool name lookup failed; searching English only"),
-        }
     }
-    if cards.is_empty() {
-        return Err(err(StatusCode::INTERNAL_SERVER_ERROR, "empty card pool"));
-    }
-    Ok(Json(PoolBody {
-        total: cards.len(),
+    Json(PoolBody {
+        total: registry_rows().len(),
         pool_hash: format!("{:016x}", baylee_cards::pool_hash()),
         lang,
-        has_text,
+        has_text: false,
+        cards: registry_rows().to_vec(),
+    })
+    .into_response()
+}
+
+/// The pool as `/pool` sends it in `lang`: the registry's rows with the
+/// catalog's text and every name the cards are printed under.
+pub(crate) fn body(
+    lang: &str,
+    by_card: &HashMap<String, baylee_catalog::CardTextEntry>,
+    names: &[baylee_catalog::LocalName],
+) -> PoolBody {
+    let mut cards = registry_rows().to_vec();
+    enrich(&mut cards, by_card);
+    name_cards(&mut cards, names);
+    PoolBody {
+        total: cards.len(),
+        pool_hash: format!("{:016x}", baylee_cards::pool_hash()),
+        lang: lang.to_owned(),
+        has_text: true,
         cards,
-    }))
+    }
 }
 
 /// Fills in rules text and localized names from the catalog.
 ///
-/// Matched on the printing codegen referenced, which is the one printing the
-/// registry names. A card the catalog has never heard of keeps its registry
-/// row rather than disappearing: the pool is what the *engine* can play, and
-/// the catalog does not get a vote on that.
-fn enrich(cards: &mut [PoolCard], entries: &[baylee_catalog::CardTextEntry]) {
-    for entry in entries {
-        let Some(card) = cards
-            .iter_mut()
-            .find(|c| c.scryfall_id == entry.scryfall_id)
-        else {
+/// Matched on the card, not on the printing codegen referenced: the text is
+/// the card's (`Catalog::text_by_card`), and 24 reference printings are not
+/// in the catalog at all while their cards are. A card the catalog has never
+/// heard of keeps its registry row rather than disappearing: the pool is what
+/// the *engine* can play, and the catalog does not get a vote on that.
+fn enrich(cards: &mut [PoolCard], by_card: &HashMap<String, baylee_catalog::CardTextEntry>) {
+    for card in cards {
+        let Some(entry) = by_card.get(card.oracle_id) else {
             continue;
         };
         let Some(front) = entry.faces.first() else {
@@ -138,10 +141,15 @@ fn enrich(cards: &mut [PoolCard], entries: &[baylee_catalog::CardTextEntry]) {
 /// A card the catalog knows in one language only ends up with no alternates,
 /// which is correct: there is nothing else to type.
 fn name_cards(cards: &mut [PoolCard], names: &[baylee_catalog::LocalName]) {
+    let mut at: HashMap<&str, usize> = HashMap::with_capacity(cards.len());
+    for (i, card) in cards.iter().enumerate() {
+        at.entry(card.oracle_id).or_insert(i);
+    }
     for local in names {
-        let Some(card) = cards.iter_mut().find(|c| c.oracle_id == local.oracle_id) else {
+        let Some(&i) = at.get(local.oracle_id.as_str()) else {
             continue;
         };
+        let card = &mut cards[i];
         // The card's own two names are already searchable; repeating them
         // here would only make the answer bigger.
         if local.name == card.english_name || local.name == card.name {
@@ -351,30 +359,43 @@ mod tests {
         }
     }
 
+    /// One card's entry, filed under its card as the text cache holds it.
+    fn filed(
+        oracle_id: &str,
+        face: baylee_catalog::FaceText,
+    ) -> HashMap<String, baylee_catalog::CardTextEntry> {
+        HashMap::from([(
+            oracle_id.to_string(),
+            baylee_catalog::CardTextEntry {
+                oracle_id: oracle_id.to_string(),
+                layout: "normal".to_string(),
+                scryfall_id: "00000000-0000-0000-0000-000000000001".to_string(),
+                lang: "de".to_string(),
+                faces: vec![face],
+            },
+        )])
+    }
+
     /// The catalog fills in text and translates a name; it never adds or
     /// removes a card, because it does not decide what the engine can play.
+    /// It is matched on the card and not on the printing codegen referenced,
+    /// which the entry here is not.
     #[test]
     fn the_catalog_fills_a_row_in_without_replacing_it() {
         let mut cards = vec![find("Ondu Cleric")];
-        let id = cards[0].scryfall_id.to_string();
         let before = cards.len();
-        enrich(
-            &mut cards,
-            &[baylee_catalog::CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: id,
-                lang: "de".to_string(),
-                faces: vec![baylee_catalog::FaceText {
-                    printed: None,
-                    name: "Ondu-Kleriker".to_string(),
-                    english_name: "Ondu Cleric".to_string(),
-                    type_line: "Kreatur — Mensch, Kleriker".to_string(),
-                    oracle_text: "Immer wenn …".to_string(),
-                    mana_cost: "{1}{W}".to_string(),
-                }],
-            }],
+        let by_card = filed(
+            cards[0].oracle_id,
+            baylee_catalog::FaceText {
+                printed: Some("Immer wenn …".to_string()),
+                name: "Ondu-Kleriker".to_string(),
+                english_name: "Ondu Cleric".to_string(),
+                type_line: "Kreatur — Mensch, Kleriker".to_string(),
+                oracle_text: "Immer wenn …".to_string(),
+                mana_cost: "{1}{W}".to_string(),
+            },
         );
+        enrich(&mut cards, &by_card);
         assert_eq!(cards.len(), before);
         assert_eq!(cards[0].name, "Ondu-Kleriker");
         assert_eq!(
@@ -385,24 +406,20 @@ mod tests {
         assert_eq!(cards[0].index, find("Ondu Cleric").index);
     }
 
-    /// A printing the catalog has never seen leaves the row exactly as the
+    /// A card the catalog has never seen leaves the row exactly as the
     /// registry built it.
     #[test]
-    fn an_unknown_printing_changes_nothing() {
+    fn an_unknown_card_changes_nothing() {
         let mut cards = vec![find("Forest")];
         let before = cards.clone();
-        enrich(
-            &mut cards,
-            &[baylee_catalog::CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                scryfall_id: "00000000-0000-0000-0000-000000000000".to_string(),
-                lang: "en".to_string(),
-                faces: vec![baylee_catalog::FaceText::default()],
-            }],
+        let by_card = filed(
+            "00000000-0000-0000-0000-000000000000",
+            baylee_catalog::FaceText::default(),
         );
+        enrich(&mut cards, &by_card);
         assert_eq!(cards, before);
     }
+
     /// The picker asks about a card, not about a printing, so every row has
     /// to carry the identity that question is keyed on.
     #[test]
