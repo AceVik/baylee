@@ -1848,7 +1848,7 @@ pub fn team_color(team: Option<u8>) -> Color {
 }
 
 /// The abilities the chooser should draw for `object`.
-fn ability_options(
+pub(crate) fn ability_options(
     duel: &Duel,
     lang: Lang,
     object: ObjectId,

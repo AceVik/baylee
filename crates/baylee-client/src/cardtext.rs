@@ -324,15 +324,39 @@ pub fn sentence(
     card: CardIndex,
     at: StackText,
 ) -> Option<Vec<TextBlock>> {
+    said(texts, card, at).map(|(blocks, _)| blocks)
+}
+
+/// Which of [`sentence`]'s two branches a sentence came from.
+///
+/// For the dev harness, which reports it beside a row's words so a driver
+/// can tell a German row from a row that fell to English without reading
+/// German; nothing that draws branches on it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Said {
+    /// The player's language, from the served printing.
+    Localized,
+    /// The compiled English Oracle.
+    Oracle,
+}
+
+/// [`sentence`], and which branch answered.
+#[must_use]
+pub fn said(
+    texts: Option<&CardTexts>,
+    card: CardIndex,
+    at: StackText,
+) -> Option<(Vec<TextBlock>, Said)> {
     let oracle = baylee_cards::oracle::face(card, usize::from(at.face))?;
     if baylee_core::oracle::sentence_count(oracle) != usize::from(at.of) {
         return None;
     }
     texts
         .and_then(|texts| texts.localized(card, at))
-        .map(split_blocks)
+        .map(|line| (split_blocks(line), Said::Localized))
         .or_else(|| {
-            baylee_cards::oracle::sentence(card, usize::from(at.face), at.line).map(split_blocks)
+            baylee_cards::oracle::sentence(card, usize::from(at.face), at.line)
+                .map(|line| (split_blocks(line), Said::Oracle))
         })
 }
 
@@ -1375,6 +1399,19 @@ mod tests {
             Some(ENGLISH)
         );
         assert_eq!(words(sentence(None, card, DRAW)).as_deref(), Some(ENGLISH));
+    }
+
+    /// `said` names the branch that answered, which is what the dev harness
+    /// reports as a row's `source`: German that pairs is `Localized`, German
+    /// that does not and no table at all are both `Oracle`.
+    #[test]
+    fn a_sentence_says_which_branch_it_came_from() {
+        let branch = |texts: Option<&CardTexts>, card| said(texts, card, DRAW).map(|(_, b)| b);
+        let (card, paired) = mind_stone(FIC);
+        assert_eq!(branch(Some(&paired), card), Some(Said::Localized));
+        let (card, glued) = mind_stone(C15);
+        assert_eq!(branch(Some(&glued), card), Some(Said::Oracle));
+        assert_eq!(branch(None, card), Some(Said::Oracle));
     }
 
     /// A sentence is looked up under the card it is printed on, and under no

@@ -6428,6 +6428,17 @@ pressed. A pointer harness needs a button's position the way a keyboard one
 needs its action, and reading it back beats measuring it off a screenshot for
 the same reason `cards` does.
 
+An ability row also says what it reads: `words` (the whole sentence the row
+draws, cost and all, or the one-line name of a row the card prints nothing
+for; `null` for neither), `head` (the cost column as drawn) and `source`,
+where the words came from: `localized` (the player's printing), `oracle` (the
+compiled English), `token` or `none` (the CR 305.6 tap, a grant, a prepared
+cast, a sentence the count guard refused; also a pour pip, which draws a
+colour and no words). All three go through the sheet's own doors,
+`cardtext::said` and `abilities::printed_words`, so the field cannot say
+German while the row draws English. Before them, "is this row localised" was a
+screenshot and a reader of German (#212).
+
 It was built, though, on a claim that turned out to be false — that a yes/no
 question has no keyboard answer at all, `docs/observed-faults.md` 36, since
 withdrawn. `Y` and `N` answer one. What did not answer was `POST /key

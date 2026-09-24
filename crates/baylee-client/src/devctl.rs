@@ -1066,6 +1066,9 @@ fn write_screenshot(
 struct Believed<'w, 's> {
     duel: Option<Res<'w, Duel>>,
     settings: Option<Res<'w, ClientSettings>>,
+    /// The card text the sheet draws its rows from, so an ability row can be
+    /// reported as it reads.
+    texts: Option<Res<'w, crate::cardtext::CardTexts>>,
     /// Which screen the client is on, which nothing here could say before.
     ///
     /// The sharper half of what #135 cost a reporter. *"The state was never
@@ -1636,33 +1639,47 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
 /// coordinates a driven client stops dead at the first shockland.
 fn buttons_json(believed: &Believed) -> String {
     let mut rows: Vec<String> = Vec::new();
-    let mut push = |kind: &str, label: String, node: &bevy::ui::ComputedNode, at: Vec2| {
-        let scale = node.inverse_scale_factor;
-        let size = node.size() * scale;
-        let mid = at * scale;
-        rows.push(format!(
-            "{{\"kind\":\"{kind}\",\"label\":{label},\"at_x\":{x:.1},\"at_y\":{y:.1},\
-             \"w\":{w:.1},\"h\":{h:.1}}}",
-            label = quoted(&label),
-            x = mid.x,
-            y = mid.y,
-            w = size.x,
-            h = size.y,
-        ));
-    };
+    let mut push =
+        |kind: &str, label: String, node: &bevy::ui::ComputedNode, at: Vec2, extra: String| {
+            let scale = node.inverse_scale_factor;
+            let size = node.size() * scale;
+            let mid = at * scale;
+            rows.push(format!(
+                "{{\"kind\":\"{kind}\",\"label\":{label},\"at_x\":{x:.1},\"at_y\":{y:.1},\
+             \"w\":{w:.1},\"h\":{h:.1}{extra}}}",
+                label = quoted(&label),
+                x = mid.x,
+                y = mid.y,
+                w = size.x,
+                h = size.y,
+            ));
+        };
     for (button, node, place) in &believed.prompts {
         push(
             "prompt",
             format!("{:?}", button.action),
             node,
             place.translation,
+            String::new(),
         );
     }
     for (button, node, place) in &believed.abilities {
-        push("ability", button.index.to_string(), node, place.translation);
+        push(
+            "ability",
+            button.index.to_string(),
+            node,
+            place.translation,
+            ability_row_words(believed, button.index),
+        );
     }
     for (button, node, place) in &believed.choices {
-        push("choice", button.index.to_string(), node, place.translation);
+        push(
+            "choice",
+            button.index.to_string(),
+            node,
+            place.translation,
+            String::new(),
+        );
     }
     for (button, node, place) in &believed.menus {
         push(
@@ -1670,10 +1687,97 @@ fn buttons_json(believed: &Believed) -> String {
             format!("{:?}", button.action),
             node,
             place.translation,
+            String::new(),
         );
     }
     rows.sort_unstable();
     format!("[{}]", rows.join(","))
+}
+
+/// What an ability row reads, as three more fields on its button.
+///
+/// `words` is what the row says: the whole printed sentence, cost and all,
+/// or the client's one-line name where the card prints none, `null` where it
+/// draws neither. `head` is its cost column as drawn: the sentence's own
+/// head, the ability's symbols where there is no sentence, `null` where the
+/// sentence is drawn whole. `source` is where the words came from:
+/// `localized` (the player's printing), `oracle` (the compiled English),
+/// `token` (a registry token's row, which no card prints) or `none` (no
+/// printed sentence: the CR 305.6 tap, a grant, a prepared cast, a sentence
+/// the count guard refused). A pour pip reports all three empty: it draws a
+/// colour and no words.
+///
+/// Read through the doors the sheet itself draws through
+/// ([`crate::cardtext::said`], [`crate::abilities::printed_words`]), so it
+/// cannot say one thing while the row says another. A driver checking "is
+/// this row German" could only read a screenshot before.
+fn ability_row_words(believed: &Believed, index: usize) -> String {
+    let unknown = ",\"words\":null,\"head\":null,\"source\":\"none\"".to_string();
+    let Some(duel) = believed.duel.as_deref() else {
+        return unknown;
+    };
+    let (Some(object), Some(view)) = (duel.ability_menu, duel.view.as_ref()) else {
+        return unknown;
+    };
+    let lang = believed
+        .settings
+        .as_deref()
+        .map_or(Lang::En, |s| Lang::of(&s.lang));
+    let Some(option) =
+        crate::hud::ability_options(duel, lang, object).and_then(|all| all.into_iter().nth(index))
+    else {
+        return unknown;
+    };
+    // A pour pip draws its colour and no words (`abilities::Split`).
+    if option.pour.is_some() {
+        return unknown;
+    }
+    let texts = believed.texts.as_deref();
+    let shown = view.object(object);
+    let said = option
+        .printed
+        .zip(shown.and_then(|o| o.rules))
+        .and_then(|(at, rules)| crate::cardtext::said(texts, rules.card, at));
+    let cut = crate::abilities::printed_words(texts, view, object, &option);
+    let source = match &said {
+        Some((_, crate::cardtext::Said::Localized)) => "localized",
+        Some((_, crate::cardtext::Said::Oracle)) => "oracle",
+        None if shown.is_some_and(|o| o.token.is_some()) => "token",
+        None => "none",
+    };
+    // The sheet's own rule for its `line`: the one-line name only where the
+    // card prints nothing for the row, so a printed row whose sentence is
+    // refused reports no words, as it draws none.
+    let words = said.map_or_else(
+        || {
+            (option.printed_index().is_none() && !option.label.is_empty())
+                .then(|| option.label.clone())
+        },
+        |(blocks, _)| Some(prose(&blocks)),
+    );
+    let head = match cut {
+        Some(cut) => cut.head,
+        None => option.cost.clone(),
+    };
+    let text = |value: Option<String>| value.map_or_else(|| "null".to_string(), |v| quoted(&v));
+    format!(
+        ",\"words\":{words},\"head\":{head},\"source\":\"{source}\"",
+        words = text(words),
+        head = text(head),
+    )
+}
+
+/// Blocks as one line, a reminder back in the parentheses it was printed in.
+fn prose(blocks: &[baylee_client_core::card_face::TextBlock]) -> String {
+    use baylee_client_core::card_face::TextBlock;
+    blocks
+        .iter()
+        .map(|block| match block {
+            TextBlock::Rules(text) => text.clone(),
+            TextBlock::Reminder(text) => format!("({text})"),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// One card of the answer, wherever it is drawn.

@@ -146,6 +146,12 @@ key: a shockland's "pay 2 life?" is `Y` or `N`, a mulligan is `K` or `B`,
 (`docs/observed-faults.md` 52) was withdrawn — the keys were being sent under
 names `/key` refuses.
 
+An open ability sheet's rows also say what they read: `words`, `head` and
+`source` (`localized`, `oracle`, `token`, `none`), through the sheet's own
+doors. Check "is this row German" there, not on a screenshot. A pour pip
+reports all three empty. Measured on Karn in an offline `de` duel: both rows
+`localized`, heads `{L+1}` and `{L-2}`, words identical to the drawn rows.
+
 Two fields beside those answer a "nothing happened" that is really "something
 happened quietly". `armed` is the tap that has been made and not sent — the
 first tap on anything irreversible only arms it, and the second fires it
