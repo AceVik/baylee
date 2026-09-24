@@ -1106,7 +1106,7 @@ messages! {
     /// this client does not know which it is.
     PayOrPass {
         en: "You owe mana. Tap lands to pay, or pass.",
-        de: "Du schuldest Mana. Tippe Länder zum Bezahlen, oder passe.",
+        de: "Du schuldest Mana. Tappe Länder zum Bezahlen, oder passe.",
     },
     /// Owed
     ///
@@ -1223,8 +1223,14 @@ messages! {
     NounCardToReveal { en: "card to reveal", de: "Karte, die aufgedeckt wird" },
     /// cards to reveal
     NounCardsToReveal { en: "cards to reveal", de: "Karten, die aufgedeckt werden" },
-    /// Convoke: tap creatures or artifacts to help pay
-    ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
+    /// Convoke or waterbend: tap permanents to help pay.
+    ///
+    /// Neutral, because the question does not say which keyword asked it:
+    /// both arrive as `TargetPrompt::Convoke`, and they tap different things
+    /// (CR 702.51a creatures, CR 701.67a artifacts and creatures). The
+    /// permanents it may tap are the lit ones, and naming a type here was
+    /// wrong for one of the two.
+    TapToHelpPay { en: "Tap permanents to help pay — each pays for one", de: "Tappe bleibende Karten, um mitzubezahlen — jede zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
     DelveToHelpPay { en: "Exile cards from your graveyard to help pay — each pays for one", de: "Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen — jede zahlt eine" },
     /// Choose up to {0} {1}

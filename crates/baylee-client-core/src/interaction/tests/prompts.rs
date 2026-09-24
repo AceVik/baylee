@@ -438,6 +438,36 @@ fn helping_to_pay_is_not_asked_for_as_targeting() {
     assert!(convoke.confirm().is_some(), "convoke may be declined");
 }
 
+/// The tap-to-help line names no card type, because one question asks it
+/// for two keywords that tap different things.
+///
+/// Convoke taps creatures (CR 702.51a), a waterbend artifacts and creatures
+/// (CR 701.67a), and both arrive as `TargetPrompt::Convoke` (#229). The line
+/// used to say "creatures or artifacts", which was wrong for convoke once
+/// the engine stopped offering it artifacts. And the German is "tappen",
+/// the game's word, and never "tippen", which is a finger on the glass.
+#[test]
+fn the_tap_to_help_line_names_no_card_type() {
+    let convoke = interaction(Pending::ChooseTargets {
+        player: me(),
+        options: vec![obj(1)],
+        player_options: vec![],
+        min: 0,
+        max: 1,
+        reason: TargetPrompt::Convoke,
+    });
+    for lang in [Lang::En, Lang::De] {
+        let line = convoke
+            .prompt()
+            .headline(lang, Turn::Mine, None, false)
+            .to_lowercase();
+        for kind in ["creature", "artifact", "kreatur", "artefakt"] {
+            assert!(!line.contains(kind), "{lang:?} names {kind}: {line}");
+        }
+        assert!(!line.contains("tippe"), "{lang:?} says tippen: {line}");
+    }
+}
+
 /// A payment window is a priority window and must not read as one.
 ///
 /// The shape is the whole difficulty: a CR 605.3a window is an ordinary
@@ -469,7 +499,7 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
         );
         assert_eq!(
             i.prompt().headline(Lang::De, turn, None, true),
-            "Du schuldest Mana. Tippe Länder zum Bezahlen, oder passe."
+            "Du schuldest Mana. Tappe Länder zum Bezahlen, oder passe."
         );
     }
 }

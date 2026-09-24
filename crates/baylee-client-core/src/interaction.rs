@@ -336,7 +336,7 @@ impl Prompt {
             Self::ChooseTargets {
                 reason: TargetPrompt::Convoke,
                 ..
-            } => Phrase::ConvokeToHelpPay.text(lang).to_string(),
+            } => Phrase::TapToHelpPay.text(lang).to_string(),
             Self::ChooseTargets { min, max, .. } => {
                 choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, *min, *max)
             }
