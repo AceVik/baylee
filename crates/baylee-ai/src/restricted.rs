@@ -104,5 +104,6 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         summoning_sick: false,
         granted_mana: None,
         board_mana: None,
+        flashback: None,
     }))
 }

@@ -55,6 +55,34 @@ fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
         .or_else(|| view.object(id).and_then(|o| o.card))
 }
 
+/// Everything this seat could cast before any mana floats: its hand, its
+/// commanders, and whatever the view says it has flashback for.
+///
+/// `LegalActions::castable` names a spell only once its price is already in
+/// the pool, so a card the planner does not walk here is one it never taps
+/// for. The graveyard was that card: Snapcaster Mage gave Opt flashback, and
+/// Opt stayed where it was beside an untapped Island (#242).
+fn own_casts(view: &PlayerView) -> impl Iterator<Item = ObjectId> + '_ {
+    view.hand
+        .iter()
+        .map(|c| c.id)
+        .chain(
+            view.command
+                .get(usize::from(view.seat.get()))
+                .into_iter()
+                .flatten()
+                .filter(|o| o.commander)
+                .map(|o| o.id),
+        )
+        .chain(
+            view.graveyards
+                .iter()
+                .flatten()
+                .filter(|o| o.flashback.is_some())
+                .map(|o| o.id),
+        )
+}
+
 /// `SplitMix`'s integer finalizer: fixed arithmetic, not a platform hasher or a
 /// process RNG. Noise is keyed by the offered object as well as the view.
 fn mix(mut n: u64) -> u64 {
@@ -329,23 +357,11 @@ impl HeuristicAgent {
             .iter()
             .copied()
             .max_by_key(|&color| {
-                let demand: u32 = view
-                    .hand
-                    .iter()
-                    .map(|c| (c.id, Some(c.card)))
-                    .chain(
-                        view.command
-                            .get(usize::from(view.seat.get()))
-                            .into_iter()
-                            .flatten()
-                            .filter(|o| o.commander)
-                            .map(|o| (o.id, o.card)),
-                    )
-                    .filter(|&(id, _)| may_pay(id))
-                    .filter_map(|(_, card)| card.and_then(face))
-                    .map(|f| {
-                        f.mana_cost
-                            .symbols()
+                let demand: u32 = own_casts(view)
+                    .filter(|&id| may_pay(id))
+                    .filter_map(|id| Some(spell_cost(view, id, face(identity(view, id)?)?)))
+                    .map(|cost| {
+                        cost.symbols()
                             .filter(|s| s.colors().intersects(color_set(color)))
                             .count() as u32
                     })
@@ -385,14 +401,7 @@ impl HeuristicAgent {
                 ManaColor::Green => pool.green += 1,
                 ManaColor::Colorless => pool.colorless += 1,
             }
-            for id in view.hand.iter().map(|c| c.id).chain(
-                view.command
-                    .get(usize::from(view.seat.get()))
-                    .into_iter()
-                    .flatten()
-                    .filter(|o| o.commander)
-                    .map(|o| o.id),
-            ) {
+            for id in own_casts(view) {
                 if !may_pay(id) {
                     continue;
                 }
@@ -473,7 +482,6 @@ impl HeuristicAgent {
     ) -> Option<PlayerAction> {
         let seat = view.seat(view.seat)?;
         let pool = &seat.mana_pool;
-        let command = view.command.get(usize::from(view.seat.get()));
         let (restricted, plain) = split_restricted(offers(view, legal));
         let plain = usable(plain);
         let main = view.active == view.seat
@@ -485,19 +493,7 @@ impl HeuristicAgent {
         let available = pool.total() + plain.iter().map(|s| u32::from(s.amount)).sum::<u32>();
         let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
-        for id in view
-            .hand
-            .iter()
-            .map(|c| c.id)
-            .chain(
-                command
-                    .into_iter()
-                    .flatten()
-                    .filter(|o| o.commander)
-                    .map(|o| o.id),
-            )
-            .chain(legal.castable.iter().copied())
-        {
+        for id in own_casts(view).chain(legal.castable.iter().copied()) {
             let Some(card) = identity(view, id) else {
                 continue;
             };
@@ -943,8 +939,15 @@ fn usable(offers: Vec<Offer>) -> Vec<Source> {
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.
+///
+/// A card cast from a graveyard is priced at what the view says its
+/// flashback costs, not at what the face prints: the two are the same for
+/// a granted flashback and differ for a printed one (CR 702.34a).
 fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::mana::ManaCost {
-    let mut cost = face.mana_cost;
+    let mut cost = view
+        .object(id)
+        .and_then(|o| o.flashback)
+        .unwrap_or(face.mana_cost);
     if view
         .command
         .get(usize::from(view.seat.get()))

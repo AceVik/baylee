@@ -37,7 +37,10 @@ survives and never how many. Between permanents the solver ranks the price a
 second time: `manaplan::Source` carries `priced`, and the matcher reaches for
 a priced tap only where no clean one fits the pip (#210).
 Command-zone commanders participate in these plans, including their public
-cast-count tax. Steady and harder levels choose a mana colour by the casts it
+cast-count tax, and so does a graveyard card the view says the seat may
+flash back, at the price it names (`PublicObject::flashback`, #242): the
+engine lists a graveyard spell as castable only once that price floats, so a
+card the plan does not walk is one it never taps for. Steady and harder levels choose a mana colour by the casts it
 can complete with the
 remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.

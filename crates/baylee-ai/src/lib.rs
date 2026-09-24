@@ -3286,6 +3286,7 @@ mod tests {
             summoning_sick: false,
             granted_mana: None,
             board_mana: None,
+            flashback: None,
         }
     }
 

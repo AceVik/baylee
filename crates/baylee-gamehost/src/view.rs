@@ -269,6 +269,14 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         board_mana: (obj.kind == ObjectKind::Permanent)
             .then(|| board_mana(state, id))
             .flatten(),
+        // The same two facts `casting::can_cast` asks before it lets the
+        // card off the graveyard, so the view never says "castable" of a
+        // card the engine would refuse for being somewhere else. The price
+        // is the card's own mana cost, as the cast charges it.
+        flashback: (obj.zone == Zone::Graveyard
+            && obj.zone_owner == Some(seat)
+            && baylee_engine::casting::flashback_granted(state, id))
+        .then_some(chars.mana_cost),
     })
 }
 
@@ -2712,5 +2720,199 @@ mod tests {
             Some(Some(HouseAnswer::StandIn))
         );
         assert_eq!(short.seat(them).map(|s| s.house_answered), Some(None));
+    }
+
+    fn opt() -> CardIndex {
+        by_oracle_id("713332c1-5bd8-400f-bfff-c1ca0697a043")
+            .unwrap()
+            .index
+    }
+
+    fn snapcaster_mage() -> CardIndex {
+        by_oracle_id("2bb2eda7-3b38-4c56-870f-c3218a1056f5")
+            .unwrap()
+            .index
+    }
+
+    /// Answers everything until seat 0 holds priority in its own first main
+    /// phase with the stack empty, and returns seat 0's view there. A target
+    /// question gets `aim`, a scry keeps its card on top, and nobody attacks.
+    fn settle(engine: &mut Engine<Registry>, aim: Option<ObjectId>) -> PlayerView {
+        let me = PlayerId::new(0);
+        for _ in 0..100 {
+            let (player, action) = match engine.pending().clone() {
+                Pending::Mulligan { player, .. } => (player, PlayerAction::MulliganKeep),
+                Pending::Priority { player, .. } => {
+                    let view =
+                        player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
+                    if player == me
+                        && view.stack.is_empty()
+                        && view.active == me
+                        && view.phase == Phase::FirstMain
+                    {
+                        return view;
+                    }
+                    (player, PlayerAction::PassPriority)
+                }
+                Pending::ChooseTargets { player, .. } => (
+                    player,
+                    PlayerAction::ChooseObjects {
+                        objects: aim.into_iter().collect(),
+                    },
+                ),
+                Pending::Arrange { player, cards, .. } => (
+                    player,
+                    PlayerAction::Arrange {
+                        piles: vec![cards, vec![]],
+                    },
+                ),
+                Pending::ChooseAttackers { player, .. } => {
+                    (player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                }
+                other => panic!("unexpected question: {other:?}"),
+            };
+            engine.apply(player, action).expect("a legal answer");
+        }
+        panic!("seat 0 never came back to its main phase");
+    }
+
+    /// What `seat` is told it may pay to cast `card` from the graveyard.
+    fn flashback_for(
+        engine: &Engine<Registry>,
+        seat: PlayerId,
+        card: ObjectId,
+    ) -> Option<ManaCost> {
+        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
+        view.graveyards
+            .iter()
+            .flatten()
+            .find(|o| o.id == card)
+            .unwrap_or_else(|| panic!("seat {seat:?} sees the card in a graveyard"))
+            .flashback
+    }
+
+    /// #242. A card this seat may cast from its graveyard says so, at the
+    /// price the cast will charge, and says so to that seat alone.
+    ///
+    /// The engine names a graveyard spell in `LegalActions::castable` only
+    /// once its cost is already floating, so a planner that walked its hand
+    /// never tapped for one: Snapcaster Mage gave Opt flashback, and Opt
+    /// stayed where it was beside an untapped Island. Played, not built:
+    /// Opt is cast and resolves, then the Mage enters and targets it.
+    ///
+    /// The opponent sees the same Opt in the same graveyard and is told
+    /// nothing, because it may not cast it (`casting::can_cast` asks for the
+    /// caster's own graveyard); and nobody is told anything once the grant
+    /// has ended with the turn.
+    #[test]
+    fn a_granted_flashback_is_shown_to_the_seat_that_may_cast_it() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let card = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        let printed = baylee_cards::by_index(opt()).expect("Opt").faces[0].mana_cost;
+        preset.seats[0].starting_hand = Some(vec![card(opt()), card(snapcaster_mage())]);
+        preset.seats[0].starting_battlefield = vec![card(island()); 3];
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+
+        let view = settle(&mut engine, None);
+        let in_hand = |name: &str| {
+            view.hand
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap_or_else(|| panic!("{name} in hand"))
+                .id
+        };
+        let (opt, mage) = (in_hand("Opt"), in_hand("Snapcaster Mage"));
+        let islands: Vec<ObjectId> = view.battlefield_of(me).map(|o| o.id).collect();
+        let cast = |engine: &mut Engine<Registry>, lands: &[ObjectId], card: ObjectId| {
+            for &source in lands {
+                engine
+                    .apply(me, PlayerAction::ActivateManaAbility { source })
+                    .expect("an Island taps for blue");
+            }
+            engine
+                .apply(me, PlayerAction::CastSpell { card })
+                .expect("the mana for it is floating");
+        };
+
+        cast(&mut engine, &islands[..1], opt);
+        settle(&mut engine, None);
+        assert_eq!(
+            (
+                flashback_for(&engine, me, opt),
+                flashback_for(&engine, them, opt)
+            ),
+            (None, None),
+            "Opt in the graveyard before the grant is castable by nobody"
+        );
+
+        cast(&mut engine, &islands[1..], mage);
+        settle(&mut engine, Some(opt));
+        assert_eq!(
+            flashback_for(&engine, me, opt),
+            Some(printed),
+            "the Mage's grant costs Opt's own mana cost, and the owner is told"
+        );
+        assert_eq!(
+            flashback_for(&engine, them, opt),
+            None,
+            "the opponent may not cast a card out of somebody else's graveyard"
+        );
+
+        engine.apply(me, PlayerAction::PassPriority).unwrap();
+        settle(&mut engine, None);
+        assert_eq!(
+            flashback_for(&engine, me, opt),
+            None,
+            "until end of turn: seat 0's next main phase has no grant left"
+        );
+    }
+
+    /// The other door to [`PublicObject::flashback`], pinned shut.
+    ///
+    /// A granted flashback costs the card's own mana cost, and that is the
+    /// price the field carries. A printed one costs what the card prints —
+    /// Faithless Looting is `{R}` and flashes back for `{2}{R}` — and no face
+    /// in the pool has one written yet: each card that prints the keyword
+    /// says so in its coverage. The day one is written, this goes red, and
+    /// the projection has to learn the printed price first, or the view
+    /// tells a planner the cast costs what the front of the card says.
+    #[test]
+    fn no_face_that_prints_flashback_has_it_written_yet() {
+        let printed: Vec<(&str, bool)> = baylee_cards::all()
+            .flat_map(|def| (0..def.faces.len()).map(move |face| (def, face)))
+            .filter(|&(def, face)| {
+                baylee_cards::oracle::face(def.index, face)
+                    .is_some_and(|text| text.lines().any(|line| line.starts_with("Flashback")))
+            })
+            .map(|(def, _)| {
+                (
+                    def.name(),
+                    matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented),
+                )
+            })
+            .collect();
+        // Four on 24.09.2026: Faithless Looting, Memory Deluge, Past in
+        // Flames, Sevinne's Reclamation. Floor and ceiling both, since a
+        // misread line count reads as zero and an overbroad one as many.
+        assert!(
+            (4..=12).contains(&printed.len()),
+            "{} faces print flashback: {printed:?}",
+            printed.len()
+        );
+        let written: Vec<&str> = printed
+            .iter()
+            .filter(|(_, implemented)| *implemented)
+            .map(|(name, _)| *name)
+            .collect();
+        assert!(
+            written.is_empty(),
+            "{written:?} print flashback and are implemented: the view prices a \
+             graveyard cast at the card's mana cost, which is right for a \
+             granted flashback only"
+        );
     }
 }

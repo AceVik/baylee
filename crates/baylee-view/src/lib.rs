@@ -89,7 +89,11 @@ use serde::{Deserialize, Serialize};
 /// (the bool is now the method [`SeatView::has_lost`]), and adds
 /// [`SeatView::house_answered`], so a game lost while the house was answering
 /// for a seat is not drawn as one the player played and lost (#83).
-pub const VIEW_VERSION: u32 = 29;
+/// 30 adds [`PublicObject::flashback`], what the viewing seat may pay to cast
+/// a card from its graveyard: the engine lists that cast only once its price
+/// is floating, so a planner that could not see it never tapped for it
+/// (#242).
+pub const VIEW_VERSION: u32 = 30;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -775,6 +779,24 @@ pub struct PublicObject {
     /// one that makes nothing right now. A lone Reflecting Pool contributes
     /// nothing to the union it reads, so it taps for no colour at all.
     pub board_mana: Option<BoardMana>,
+    /// What the viewing seat may pay to cast this card from its graveyard:
+    /// the cost of a flashback it has right now (CR 702.34a).
+    ///
+    /// A projected characteristic like [`Self::granted_mana`], and carried
+    /// for the same reason: the grant exists only in the effect table. The
+    /// engine offers a graveyard spell in `LegalActions::castable` only once
+    /// its cost is already floating, so a planner that could not see the
+    /// card was castable never tapped for it — Snapcaster Mage's Opt ended
+    /// the turn in the graveyard beside an untapped Island (#242).
+    ///
+    /// Granted only, so far: a grant's cost is the card's own mana cost, and
+    /// the cards in this pool that *print* flashback do not have it written
+    /// (`Coverage::Partial`). The day one does, its printed cost comes here
+    /// too, and the gamehost test that pins that goes red until it does.
+    ///
+    /// Graveyard only, and per viewer: `None` unless this seat may cast the
+    /// card, which is only ever from its own graveyard.
+    pub flashback: Option<ManaCost>,
 }
 
 /// Mana a granted ability makes, as much of it as a planner can use.
@@ -856,7 +878,8 @@ impl PublicObject {
     /// objects group only when every property a decision reads matches —
     /// drawn or not, since the merged card shows one member's — so collapsing
     /// can never hide a difference that matters to a decision. Left out:
-    /// `id`; `targets` and `stack_item`, which a permanent never has; and
+    /// `id`; `targets`, `stack_item` and `flashback`, which a permanent never
+    /// has; and
     /// `rules` and `mana_value`, which `card`, `name` and `status` already
     /// decide on the battlefield. `attached_to` is in only as a yes or no.
     #[must_use]
@@ -1604,6 +1627,7 @@ mod tests {
             summoning_sick: false,
             granted_mana: None,
             board_mana: None,
+            flashback: None,
         }
     }
 
@@ -2311,7 +2335,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (29, 0x3566_dd9a_2d2c_0a9b);
+        const RECORDED: (u32, u64) = (30, 0xc137_c7d7_8b50_61a4);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()
