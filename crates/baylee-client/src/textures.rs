@@ -858,10 +858,22 @@ mod tests {
             .add_systems(Update, (note_load_states, retry_failed_loads).chain());
         let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while std::time::Instant::now() < until {
-            // Deterministic test clock: allow the next retry sweep without wall-clock waits.
-            app.world_mut()
-                .resource_mut::<Time>()
-                .advance_by(std::time::Duration::from_secs(5));
+            // Deterministic test clock: one retry sweep, and only once the
+            // failure is recorded and nothing has been retried yet. The clock
+            // used to move past `RETRY_AFTER` on every frame, so every frame
+            // swept, and a reload the task pool had not started by the next
+            // frame still read `Failed` and was queued a second time: three
+            // attempts under a loaded machine (gate-features, 24.09.2026).
+            let untried = app
+                .world()
+                .resource::<CardTextures>()
+                .due_for_retry()
+                .contains(&(key, 1));
+            if untried {
+                app.world_mut()
+                    .resource_mut::<Time>()
+                    .advance_by(std::time::Duration::from_secs(5));
+            }
             app.update();
             if app.world().resource::<CardTextures>().has_arrived(key) {
                 break;
