@@ -3072,9 +3072,14 @@ async fn list_automation(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let answers = store::automation_of(&state.db, &account_id)
+    let mut answers = store::automation_of(&state.db, &account_id)
         .await
         .map_err(|e| db_down(&e))?;
+    // Nothing `PUT` would refuse is handed out. A client writes back what it
+    // read, and one row it never chose would get every later write refused:
+    // a row stored before the ability was checked, or for a card a later
+    // build dropped. It can never fire either way.
+    answers.retain(|answer| refusal(answer).is_none());
     Ok(Json(serde_json::json!({ "answers": answers })))
 }
 
@@ -3093,13 +3098,12 @@ async fn list_automation(
 /// player, and it would spend part of a bounded budget on nothing.
 ///
 /// It also keeps the round trip safe, which is the concrete form of "junk
-/// outlives the request": `GET /automation` hands back what is stored
-/// unfiltered, so a client that reads its settings and writes them back
-/// sends every stored index again. One index this build could not resolve
-/// would fail that write, and the player would be unable to change *any*
-/// setting. Refusing at the door is what keeps that unreachable — though
-/// not if a card is ever taken *out* of the pool, which nothing here
-/// prevents and nothing here has had to.
+/// outlives the request": a client that reads its settings and writes them
+/// back sends every index it was handed again, and one this build could not
+/// resolve would fail that write, so the player could change no setting at
+/// all. Refusing at the door keeps new junk out; for what is already stored
+/// (a card a later build dropped, an ability stored before abilities were
+/// checked), `GET /automation` leaves out whatever this would refuse.
 ///
 /// What was wrong was only the message: a real card and a number that is no
 /// card were both `unknown card`, which accuses a client of sending
@@ -3113,11 +3117,8 @@ async fn set_automation(
     if body.answers.len() > MAX_STANDING_ANSWERS {
         return Err(err(StatusCode::BAD_REQUEST, "too many remembered answers"));
     }
-    for a in &body.answers {
-        let index = baylee_core::ids::CardIndex::new(a.card);
-        if baylee_cards::by_index(index).is_none() {
-            return Err(err(StatusCode::BAD_REQUEST, no_such_card_at(index)));
-        }
+    if let Some(why) = body.answers.iter().find_map(refusal) {
+        return Err(err(StatusCode::BAD_REQUEST, why));
     }
     let mut answers = body.answers;
     // One answer per ability, in a stable order: the engine keeps its own
@@ -3130,6 +3131,34 @@ async fn set_automation(
         .await
         .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "stored": count })))
+}
+
+/// Why `PUT /automation` refuses `answer`, when it does: the whole handle
+/// has to name a question the engine can ask.
+fn refusal(answer: &store::StandingAnswer) -> Option<&'static str> {
+    let index = baylee_core::ids::CardIndex::new(answer.card);
+    let Some(card) = baylee_cards::by_index(index) else {
+        return Some(no_such_card_at(index));
+    };
+    (!names_an_ability(card, answer.ability)).then_some("no such ability on that card")
+}
+
+/// Whether the engine can ever ask about `card`'s ability `ability`: a
+/// position in one of the card's ability lists, or one of the questions
+/// [`baylee_core::ids::AbilityRef`] reserves for every card.
+///
+/// Any list, not only the card's own: a face carries a list of its own, and
+/// the engine offers an ability under its index there.
+fn names_an_ability(card: &baylee_cards_dsl::CardDef, ability: u32) -> bool {
+    if ability >= baylee_core::ids::AbilityRef::FIRST_RESERVED {
+        return true;
+    }
+    let Ok(ability) = usize::try_from(ability) else {
+        return false;
+    };
+    std::iter::once(card.abilities.len())
+        .chain(card.faces.iter().map(|face| face.abilities.len()))
+        .any(|listed| ability < listed)
 }
 
 /// Upper bound on a stored preferences blob.

@@ -317,7 +317,13 @@ when saying yes to it costs nothing but the choice.
 
 Storing a handle the registry does not know is refused rather than kept: it
 could never fire, and it would fail silently — the seat would just be asked a
-question it believed it had answered for good.
+question it believed it had answered for good. The handle is checked whole:
+the card has to be one this build plays, and the ability a position in one
+of its ability lists (the card's or a face's) or one of the reserved indices
+below. Until 2026-09-24 only the card was looked up, and an answer for Ondu
+Cleric's ability `1`, which the card does not have, was stored. `GET` leaves
+out any stored row `PUT` would refuse, so what a client reads it can always
+write back.
 
 The reserved indices are therefore **wire constants**: a stored answer is a
 number, and moving one silently re-points every account that holds it. They
