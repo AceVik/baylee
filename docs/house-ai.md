@@ -47,6 +47,18 @@ colour needed for an affordable play.
 Counterspells need an opposing stack entry they would take off, and never
 name one the view marks `UNCOUNTERABLE` while there is another: such a spell
 is a legal target, and the counter resolves and counters nothing (#243).
+Nor one that only replaces itself (`tactics::only_replaces_itself`: every
+effect draws, scries, surveils or puts back, netting one card at most). Opt
+and Brainstorm resolve, and a counter traded for one would be a card for a
+card its caster was replacing anyway (#226). Among the rest, a counter names
+the spell worth most: its own material plus the material of what of this
+seat's it is aimed at, so Path to Exile on this seat's creature outranks
+Ancestral Recall at the same cost. Everything but a cantrip is still
+countered on sight: the worth ranks what is up at once, and nothing holds a
+counter back for a threat that has not been cast. So a Counterspell is
+traded for a lone Dark Ritual whose caster has nothing left to spend the
+mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
+pins that as a limitation.
 Removal needs something opposing on the battlefield, and a deferred pay-or-lose obligation is declined: the
 current stateless policy cannot plan its future payment. An "unless" price
 paid by naming an object — a sacrifice, a discard, a card exiled from the

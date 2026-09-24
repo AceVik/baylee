@@ -85,6 +85,52 @@ pub(crate) fn counterable(o: &PublicObject) -> bool {
     o.keywords & baylee_cards_dsl::KeywordSet::UNCOUNTERABLE.bits() == 0
 }
 
+/// Whether a spell on the stack does nothing but replace itself: every
+/// effect draws, scries, surveils or puts cards back, and it nets its caster
+/// at most one card. Opt, Serum Visions and Brainstorm do. Ancestral Recall, a
+/// tutor, a Mox and a creature spell do not.
+///
+/// #226: a counter was spent on the first of these the table cast, because
+/// every hostile spell was worth the same flat bonus. A counter traded for one
+/// is a card for a card its caster was replacing anyway. A positive list on
+/// purpose: an effect it does not name makes the spell worth countering,
+/// which every spell was before, and so does a spell it cannot read.
+pub(crate) fn only_replaces_itself(o: &PublicObject) -> bool {
+    // An ability on the stack has no types (its base is blank) and names its
+    // source's card: a cycling ability of Opt is not Opt.
+    if !o.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)) {
+        return false;
+    }
+    let Some(def) = o.card.and_then(|c| baylee_cards::by_index(c.index)) else {
+        return false;
+    };
+    let face = o.card.map_or(0, |c| usize::from(c.face));
+    let mut effects = def
+        .abilities_for_face(face)
+        .iter()
+        .filter_map(|a| match a {
+            AbilityDef::Spell { effects, .. } => Some(*effects),
+            _ => None,
+        })
+        .flatten()
+        .peekable();
+    if effects.peek().is_none() {
+        return false;
+    }
+    let mut net = 0_i64;
+    for effect in effects {
+        match effect {
+            Effect::DrawCards {
+                amount: Amount::Fixed(n),
+            } => net += i64::from(*n),
+            Effect::PutFromHandOnTop { count } => net -= i64::from(*count),
+            Effect::Scry { .. } | Effect::Surveil { .. } | Effect::ReorderTopLibrary { .. } => {}
+            _ => return false,
+        }
+    }
+    net <= 1
+}
+
 /// A deliberately partial evaluation vocabulary. Unsupported effects are not
 /// mistaken for removal; the coverage ledger records what remains to model.
 #[allow(clippy::too_many_lines)] // the partial effect vocabulary stays in one auditable table
@@ -445,6 +491,29 @@ impl HeuristicAgent {
     }
 
     #[allow(clippy::too_many_arguments)] // the engine's target offer, plus its explanation
+    /// What of this seat's a stack object is aimed at, as a counter's worth
+    /// beside the object's own (#226): Path to Exile on my creature is worth
+    /// that creature, and not only its own mana value. An opponent's
+    /// permanent, or an opponent, adds nothing.
+    fn aimed_at_this_seat(&self, view: &PlayerView, o: &PublicObject) -> i64 {
+        o.targets
+            .iter()
+            .map(|t| match t {
+                baylee_view::TargetRef::Object(id) => view
+                    .object(*id)
+                    .filter(|t| !self.hostile(t.controller, view.seat))
+                    .map_or(0, material),
+                baylee_view::TargetRef::Player(p) => {
+                    if self.hostile(*p, view.seat) {
+                        0
+                    } else {
+                        300
+                    }
+                }
+            })
+            .sum()
+    }
+
     pub(crate) fn targets(
         &self,
         view: &PlayerView,
@@ -499,8 +568,11 @@ impl HeuristicAgent {
                     {
                         score = 0;
                     }
-                    if m.counter && !counterable(o) {
-                        score = 0;
+                    if m.counter {
+                        score += self.aimed_at_this_seat(view, o);
+                        if !counterable(o) || only_replaces_itself(o) {
+                            score = 0;
+                        }
                     }
                     if m.damage > 0
                         && i64::from(m.damage)

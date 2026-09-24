@@ -2502,6 +2502,136 @@ mod tests {
         );
     }
 
+    /// A counter names the spell aimed at this seat, player or permanent,
+    /// over one of the same cost aimed at nobody of this seat's (#226). The
+    /// view's `targets` is what tells them apart: both are hostile, both cost
+    /// one, and neither is a cantrip.
+    #[test]
+    fn a_counter_names_the_spell_aimed_at_this_seat() {
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let spell = |id: u32, name: &str, at: baylee_view::TargetRef| {
+            let mut o = permanent(obj(id), them, 0);
+            o.card = Some(hand_card(id, name).card);
+            o.types = TypeSet::INSTANT;
+            o.power = None;
+            o.toughness = None;
+            o.stack_item = Some(baylee_view::StackItem::Spell);
+            o.targets = vec![at];
+            o
+        };
+        let effects = [baylee_cards_dsl::Effect::CounterTargetSpell];
+        let counterspell = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        let pending = Pending::ChooseTargets {
+            player: me,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![permanent(obj(9), me, 2), permanent(obj(8), them, 2)],
+        );
+        for (aimed, named, why) in [
+            (
+                baylee_view::TargetRef::Player(me),
+                obj(2),
+                "the Bolt at this seat",
+            ),
+            (
+                baylee_view::TargetRef::Object(obj(9)),
+                obj(2),
+                "the Bolt at this seat's creature",
+            ),
+            // Saving an opponent's creature is worth nothing: a tie, and the
+            // first listed is named.
+            (
+                baylee_view::TargetRef::Object(obj(8)),
+                obj(1),
+                "not the Bolt at an opponent's creature",
+            ),
+        ] {
+            // The one aimed at nobody of mine is listed first, so a tie
+            // names it.
+            v.stack = vec![
+                spell(1, "Ancestral Recall", baylee_view::TargetRef::Player(them)),
+                spell(2, "Lightning Bolt", aimed),
+            ];
+            assert_eq!(
+                agent().act_with_context(&v, &pending, &counterspell),
+                PlayerAction::ChooseTargets {
+                    objects: vec![named],
+                    players: vec![]
+                },
+                "{why} is named"
+            );
+        }
+    }
+
+    /// Which of the pool's spells the counter gate lets resolve (#226), by
+    /// name. The predicate is a positive list over effects, so a card written
+    /// later with only those effects joins it without anybody deciding it
+    /// should, and this list moves. Ancestral Recall (it draws three), Night's
+    /// Whisper (it costs life) and every permanent spell stay out.
+    ///
+    /// Three are `Partial`, and are here because the engine does only what
+    /// is written: Borne Upon a Wind's flash, Gitaxian Probe's look at a hand
+    /// and Open Communications' Beam me up are not, so each draws one card.
+    /// Writing that half adds an effect the list does not name, and the card
+    /// leaves.
+    #[test]
+    fn the_counter_gate_lets_only_a_cantrip_resolve() {
+        let mut held: Vec<&str> = baylee_cards::all()
+            .filter(|def| {
+                let mut o = permanent(obj(1), PlayerId::new(1), 0);
+                o.card = Some(baylee_view::CardIdentity {
+                    index: def.index,
+                    print: baylee_core::ids::PrintRef::new(0),
+                    face: 0,
+                });
+                o.types = def.faces[0].types;
+                crate::tactics::only_replaces_itself(&o)
+            })
+            .map(baylee_cards_dsl::CardDef::name)
+            .collect();
+        held.sort_unstable();
+
+        // An ability on the stack arrives with no types and its source's
+        // card: Opt's card with an ability's blank base is not Opt.
+        let mut ability = permanent(obj(1), PlayerId::new(1), 0);
+        ability.card = Some(hand_card(1, "Opt").card);
+        ability.types = TypeSet::EMPTY;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: obj(2),
+            ability: None,
+            text: None,
+            rules: None,
+        });
+        assert!(
+            !crate::tactics::only_replaces_itself(&ability),
+            "an ability was read as the spell its source card prints"
+        );
+
+        assert_eq!(
+            held,
+            [
+                "Borne Upon a Wind",
+                "Brainstorm",
+                "Gitaxian Probe",
+                "Open Communications",
+                "Opt",
+                "Reach Through Mists",
+                "Serum Visions",
+            ]
+        );
+    }
+
     #[test]
     fn score_noise_changes_choices_without_changing_replays() {
         let mut v = view(0, &[20, 20], vec![]);
