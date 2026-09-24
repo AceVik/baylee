@@ -4604,7 +4604,7 @@ pub static ORACLE: &[&[&str]] = &[
     // Alert Shu Infantry
     &["Vigilance"],
     // Ambition's Cost
-    &["You draw three cards and you lose 3 life."],
+    &["You draw three cards and lose 3 life."],
     &[],
     &[],
     &[],
@@ -6515,7 +6515,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     // Phyrexian Arena
-    &["At the beginning of your upkeep, you draw a card and you lose 1 life."],
+    &["At the beginning of your upkeep, you draw a card and lose 1 life."],
     // Phyrexian Gargantua
     &["When this creature enters, you draw two cards and you lose 2 life."],
     &[],
@@ -32960,7 +32960,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Arena of Glory
     &[
-        "This land enters tapped unless you control a Mountain.\n{T}: Add {R}.\n{R}, {T}, Exert this land: Add {R}{R}. If that mana is spent on a creature spell, it gains haste until end of turn. (An exerted permanent won't untap during your next untap step.)",
+        "This land enters tapped unless you control a Mountain.\n{T}: Add {R}.\n{R}, {T}, Exert this land: Add {R}{R}. If any of that mana is spent on a creature spell, it gains haste until end of turn. (An exerted permanent won't untap during your next untap step.)",
     ],
     &[],
     &[],
@@ -38967,7 +38967,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Stingcaster Mage
     &[
-        "Haste\nWhen this creature enters, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost.",
+        "Haste\nWhen this creature enters, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for its flashback cost. Then exile it.)",
     ],
     &[],
     &[],
