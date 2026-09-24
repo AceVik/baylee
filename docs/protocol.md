@@ -1125,8 +1125,9 @@ so a guest is `Guest#1a2b` to the other players.
   an empty password, so the token is the only way in. It lives **thirty
   days** and slides, renewed at most once a day (`auth::Lifetime::GUEST`;
   an account's lives twelve hours and is renewed at its half-life), so a
-  guest lasts 29 to 30 days past the last time it played. The client keeps
-  a guest's token per gateway, which is how a guest comes back.
+  guest lasts 29 to 30 days past the last call made with its token (any
+  call, not only a game). The client keeps a guest's token per gateway,
+  which is how a guest comes back.
 - **A guest no session leads to is deleted**, with its decks, their history
   and its preferences (`baylee_db::guests::purge`): by the gateway's sweep
   once its session has lapsed, and **at once when it signs out**, since

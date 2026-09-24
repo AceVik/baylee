@@ -91,6 +91,21 @@ pub(super) fn build(
             ),
             Expect::LoggedIn,
         ),
+        LobbyRequest::PlayAsGuest { display_name } => (
+            json_post(
+                &format!("{base}/auth/guest"),
+                &serde_json::json!({ "display_name": display_name, "lang": lang }),
+            ),
+            Expect::Guest,
+        ),
+        // Signed with the token it ends, which the lobby no longer holds.
+        LobbyRequest::LogOut { token } => (
+            bearer(
+                json_post(&format!("{base}/auth/logout"), &serde_json::json!({})),
+                Some(&token),
+            ),
+            Expect::LoggedOut,
+        ),
         LobbyRequest::Library(request) => library_request(base, request),
         LobbyRequest::ListDecks => (ehttp::Request::get(format!("{base}/decks")), Expect::Decks),
         LobbyRequest::LoadPool => (
@@ -304,6 +319,14 @@ fn fetch(
     let box_ = Arc::clone(&mailbox.0);
     let library = matches!(expect, Expect::Library(_));
     let pool = matches!(expect, Expect::Pool);
+    // A sign-out's answer changes nothing here: the session is already
+    // forgotten, and a gateway that did not hear it lets it lapse — a guest
+    // with it, at the gateway's next sweep. Said to the player it would be a
+    // refusal on a form that has just been left.
+    if matches!(expect, Expect::LoggedOut) {
+        ehttp::fetch(request, |_| {});
+        return;
+    }
     ehttp::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
@@ -339,6 +362,13 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         /// Absent from a gateway older than usernames (#269).
         #[serde(default)]
         username: Option<String>,
+    }
+
+    /// `POST /auth/guest` (#269).
+    #[derive(serde::Deserialize)]
+    struct GuestBody {
+        token: String,
+        handle: String,
     }
 
     /// `POST /decks`. An edit answers `204` and parses to nothing.
@@ -380,6 +410,17 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
     match expect {
         // Nothing to read: the account exists, and signing in is next.
         Expect::Registered => LobbyEvent::Registered,
+        Expect::Guest => serde_json::from_str::<GuestBody>(body).map_or_else(
+            |_| unreadable(lang, Phrase::TheSignIn),
+            |b| {
+                LobbyEvent::GuestIn(client_core::lobby::KeptGuest {
+                    token: b.token,
+                    handle: b.handle,
+                })
+            },
+        ),
+        // Never posted (see `fetch`); an answer read anyway is the `204` it is.
+        Expect::LoggedOut => LobbyEvent::LoggedOut,
         // An edit answers `204` with no body and needs no id: the builder
         // already holds the one it is editing.
         Expect::Library(request) => decode_library(request, body, lang),
@@ -520,6 +561,10 @@ struct AuthConfig {
     /// already did.
     #[serde(default)]
     art_cache: bool,
+    /// Whether it takes guests (#269). Defaulted to no: a gateway from before
+    /// guests has no route to offer.
+    #[serde(default)]
+    guests_enabled: bool,
 }
 
 pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
@@ -545,6 +590,7 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
                 Box::new(Reply::Registration {
                     enabled: body.registration_enabled,
                     art_cache: body.art_cache,
+                    guests: body.guests_enabled,
                 }),
             ));
         }

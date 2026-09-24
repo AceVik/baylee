@@ -14,6 +14,7 @@ mod builder;
 mod end_screen;
 mod frame;
 mod gateway;
+mod guests;
 mod printings;
 mod settings;
 mod sign_in;

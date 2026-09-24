@@ -59,8 +59,9 @@ impl Lifetime {
     /// A guest's: thirty days, renewed at most once a day. At the half-life,
     /// a guest who played on day 16 would keep an account that a guest who
     /// played on day 14 lost on day 30; renewed daily, a guest lives 29 to 30
-    /// days past the last time they played, which is what the client tells
-    /// them.
+    /// days past the last call made with its token (any call renews, not
+    /// only a game), which the client tells them as about thirty days after
+    /// their last visit.
     #[allow(clippy::duration_suboptimal_units)]
     pub const GUEST: Self = Self {
         ttl: GUEST_TOKEN_TTL,

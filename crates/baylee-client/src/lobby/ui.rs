@@ -528,6 +528,33 @@ fn table(
         commands.entity(root).add_child(banner);
     }
 
+    // A guest is told what a guest is, for as long as it plays as one (#269):
+    // the account and its decks go thirty days after it last plays.
+    if lobby.guest() {
+        let banner = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    align_items: AlignItems::Center,
+                    padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL_LIT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let line = commands
+            .spawn((
+                Text::new(Phrase::GuestNotice.text(lang)),
+                tf(fonts, metrics.small),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(banner).add_child(line);
+        commands.entity(root).add_child(banner);
+    }
+
     let navigation = row(commands, metrics, true);
     commands.entity(navigation).insert(Node {
         width: percent(100),

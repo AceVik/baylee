@@ -104,6 +104,16 @@ pub struct ClientSettings {
     /// unused.
     #[serde(default)]
     pub gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses,
+    /// The guest this device holds at each gateway, by address (#269).
+    ///
+    /// A guest has no name and no password to sign in with: its session is
+    /// the whole of it, so this is the one bearer credential the file holds,
+    /// and the reason the file is written readable by its owner alone
+    /// ([`store::write_named`]). Removed when the guest signs out or the
+    /// gateway says it has ended; left when the gateway is removed from the
+    /// list, as the rest of what this device knows of an account is.
+    #[serde(default)]
+    pub guests: std::collections::BTreeMap<String, baylee_client_core::lobby::KeptGuest>,
 }
 
 impl Default for ClientSettings {
@@ -117,6 +127,7 @@ impl Default for ClientSettings {
             last_username: String::new(),
             gateways: Vec::new(),
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
+            guests: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -292,15 +303,40 @@ pub(crate) mod store {
     /// costs them decks they built by hand and cannot regenerate, and that
     /// document goes through this same function.
     pub fn write_named(name: &str, text: &str) {
-        let Some(path) = path(name) else {
-            return;
-        };
+        if let Some(path) = path(name) {
+            write_at(&path, text);
+        }
+    }
+
+    /// [`write_named`] at a path, door or no door, for the test that reads
+    /// the file's mode back.
+    ///
+    /// Readable and writable by its owner alone on unix (`0600`): the
+    /// settings hold a guest's session (#269), which is the guest, and the
+    /// decks are nobody else's either. The temporary is made so, and made so
+    /// again when one was left behind, since opening an existing file keeps
+    /// its mode; the rename carries it over whatever mode the old file had.
+    pub(super) fn write_at(path: &std::path::Path, text: &str) {
+        use std::io::Write as _;
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
         let temporary = path.with_extension("tmp");
-        if std::fs::write(&temporary, text).is_ok() {
-            let _ = std::fs::rename(&temporary, &path);
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let Ok(mut file) = options.open(&temporary) else {
+            return;
+        };
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
+        }
+        if file.write_all(text.as_bytes()).is_ok() && file.sync_all().is_ok() {
+            drop(file);
+            let _ = std::fs::rename(&temporary, path);
         }
     }
 
@@ -365,6 +401,44 @@ pub(crate) mod store {
             assert_eq!(super::read_named(PROBE), None);
             assert!(!real.exists(), "{} was written", real.display());
             assert_eq!(super::path(PROBE), None);
+        }
+
+        /// The file holds a guest's session (#269), so only its owner reads
+        /// it: a new file, one that was readable by everybody before, and one
+        /// written over a temporary a crash left behind.
+        #[cfg(unix)]
+        #[test]
+        fn the_settings_file_is_its_owners_alone() {
+            use std::os::unix::fs::PermissionsExt as _;
+            let dir = std::env::temp_dir().join(format!(
+                "baylee-settings-mode-{}-{}",
+                std::process::id(),
+                line!()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            let file = dir.join("client-settings.json");
+            let mode = |path: &std::path::Path| {
+                std::fs::metadata(path)
+                    .expect("written")
+                    .permissions()
+                    .mode()
+                    & 0o777
+            };
+
+            super::write_at(&file, "{}");
+            assert_eq!(mode(&file), 0o600, "a new file");
+
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+            std::fs::write(file.with_extension("tmp"), "left over").unwrap();
+            std::fs::set_permissions(
+                file.with_extension("tmp"),
+                std::fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+            super::write_at(&file, "{\"lang\":\"de\"}");
+            assert_eq!(mode(&file), 0o600, "over a file anybody could read");
+            assert_eq!(std::fs::read_to_string(&file).unwrap(), "{\"lang\":\"de\"}");
+            let _ = std::fs::remove_dir_all(&dir);
         }
     }
 }
@@ -489,6 +563,14 @@ mod tests {
                 uses.record("https://example.test");
                 uses
             },
+            guests: std::iter::once((
+                "https://example.test".to_string(),
+                baylee_client_core::lobby::KeptGuest {
+                    token: "guest-tok".to_string(),
+                    handle: "Casper#0007".to_string(),
+                },
+            ))
+            .collect(),
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -508,6 +590,7 @@ mod tests {
         assert_eq!(read.last_username, "mail@acevik.de");
         assert_eq!(read.gateway_uses, written.gateway_uses);
         assert_eq!(read.gateway_uses.of("https://example.test").count, 1);
+        assert_eq!(read.guests, written.guests, "the guest comes back");
     }
 
     /// A settings file written before usernames (#269) remembered an

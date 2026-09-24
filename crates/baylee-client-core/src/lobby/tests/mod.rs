@@ -1,5 +1,6 @@
 mod decks;
 mod fields;
+mod guests;
 mod offline;
 mod rooms;
 mod seating;

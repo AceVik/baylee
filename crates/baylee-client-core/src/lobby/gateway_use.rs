@@ -3,9 +3,9 @@
 //!
 //! Kept in the client's own settings file and never sent anywhere: it is a
 //! fact about this device, and nobody else's business. A use is a sign-in
-//! that worked (and, once guests can play, a guest's entry). Asking an
-//! address about itself, choosing it and pointing at it are not uses: the
-//! list is ordered by where the player actually went, not where they looked.
+//! that worked, or a guest the gateway handed out. Asking an address about
+//! itself, choosing it and pointing at it are not uses: the list is ordered
+//! by where the player actually went, not where they looked.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

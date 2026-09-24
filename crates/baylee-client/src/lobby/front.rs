@@ -88,15 +88,17 @@ fn card_width(frame: Frame) -> Val {
 /// short one is not a tall one with a hole at its foot. A phone scrolls
 /// instead.
 ///
-/// Measured on a desktop window: the account form on "Create account", four
-/// fields and two hints, is about 594 px; the gateway form with its list at
-/// the four rows in sight about 548; signing in about 393. A panel taller
-/// than this room makes the room taller, and the page moves by the excess:
-/// the guest entry (#269) will, by about 80 px, unless this grows with it.
+/// Measured on a desktop window before guests: the account form on "Create
+/// account", four fields and two hints, was about 594 px; the gateway form
+/// with its list at the four rows in sight about 548; signing in about 393.
+/// The guest entry (#269) adds a field and a rule above the tabs, about 80 px
+/// more, which is what this was grown by; it is to be measured again at the
+/// next screenshots. A panel taller than this room makes the room taller,
+/// and the page moves by the excess.
 fn stage_height(frame: Frame) -> Val {
     match frame {
         Frame::Phone => Val::Auto,
-        Frame::Tablet | Frame::Desktop => px(610),
+        Frame::Tablet | Frame::Desktop => px(690),
     }
 }
 
@@ -1160,9 +1162,13 @@ fn account_face(
     let line = super::gateway::chosen_line(commands, state, fonts, metrics);
     commands.entity(card).add_children(&[header, line]);
 
-    // Playing as a guest (#269) goes here, between the gateway and the tabs,
-    // when it comes: a full-width button and a rule reading "or". Nothing is
-    // drawn for it until then (see `stage_height`).
+    // Playing as a guest (#269), first, between the gateway and the tabs, and
+    // a rule under it: the tabs below are the other way in.
+    if lobby.guest_offered() {
+        guest_entry(commands, card, state, fonts, metrics);
+        let rule = rule(commands);
+        commands.entity(card).add_child(rule);
+    }
 
     let mut tabs = Vec::new();
     for (label, active) in [
@@ -1275,6 +1281,100 @@ fn account_face(
         });
     let status = status_slot(commands, state, fonts, metrics);
     commands.entity(card).add_children(&[submit, status]);
+}
+
+/// The guest's way in (#269): the guest this device keeps here, as one
+/// full-width button with its handle, or a name to play under and the button
+/// beside it — the gateway form's address row, in shape and in behaviour.
+/// Either way the hint says what a guest is.
+fn guest_entry(
+    commands: &mut Commands,
+    card: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) {
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let enabled = state.gateway_selected && !lobby.busy();
+    let hint = super::hint::HoverHint(Phrase::GuestNotice.text(lang).to_string());
+    if let Some(kept) = lobby.kept_guest() {
+        let back = button(
+            commands,
+            fonts,
+            metrics,
+            &Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
+            Press::PlayAsGuest,
+            palette::PANEL_LIT,
+            enabled,
+        );
+        commands
+            .entity(back)
+            .insert(hint)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.width = percent(100);
+                node.justify_content = JustifyContent::Center;
+            });
+        commands.entity(card).add_child(back);
+        return;
+    }
+    let field = text_field(
+        commands,
+        fonts,
+        metrics,
+        Phrase::GuestName.text(lang),
+        &FieldLook {
+            buffer: lobby.buffer(Field::GuestName),
+            focused: lobby.focus() == Field::GuestName,
+            mask: None,
+            press: Press::Focus(Field::GuestName),
+            lead: None,
+            hint: Some(Phrase::GuestDefaultName.text(lang)),
+            tail: None,
+        },
+    );
+    let play = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::PlayAsGuest.text(lang),
+        Press::PlayAsGuest,
+        palette::PANEL_LIT,
+        enabled,
+    );
+    commands.entity(play).insert(hint);
+    if metrics.frame == Frame::Phone {
+        commands.entity(card).add_children(&[field, play]);
+        return;
+    }
+    let row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                align_items: AlignItems::FlexEnd,
+                column_gap: px(metrics.gap * 1.5),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(field)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_grow = 1.0;
+            node.min_width = px(0);
+        });
+    commands
+        .entity(play)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.width = px(170);
+            node.justify_content = JustifyContent::Center;
+        });
+    commands.entity(row).add_children(&[field, play]);
+    commands.entity(card).add_child(row);
 }
 
 /// Font Awesome's chevron-left.

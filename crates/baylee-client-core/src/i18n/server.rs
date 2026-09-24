@@ -16,6 +16,18 @@ pub fn server_message(lang: Lang, message: &str) -> String {
 }
 
 const MESSAGES: &[(&str, &str)] = &[
+    (
+        "this gateway takes no guests",
+        "Dieses Gateway nimmt keine Gäste auf.",
+    ),
+    (
+        "no guest seats free, sign up or try later",
+        "Keine Gastplätze frei — registriere dich oder versuch es später.",
+    ),
+    (
+        "guests cannot upload images",
+        "Gäste können keine Bilder hochladen.",
+    ),
     ("game is over", "Das Spiel ist beendet."),
     (
         "action does not match the pending request",

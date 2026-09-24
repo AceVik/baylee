@@ -167,6 +167,10 @@ pub struct LobbyState {
     /// How often each saved address was signed in to, which orders
     /// [`Self::gateways`]. Written back to the settings file on every use.
     pub(crate) uses: baylee_client_core::lobby::gateway_use::GatewayUses,
+    /// The guest this device holds at each gateway, by address (#269), as
+    /// the settings file keeps it. Handed to the lobby when its gateway is
+    /// chosen.
+    pub(crate) guests: std::collections::BTreeMap<String, client_core::lobby::KeptGuest>,
     /// The saved gateway the arrow keys are on, if they have been used.
     pub(crate) gateway_cursor: Option<usize>,
     /// Whether the front door's gear menu is open.
@@ -310,6 +314,7 @@ impl LobbyState {
         Self {
             gateways,
             uses: stored.gateway_uses,
+            guests: stored.guests,
             gateway_cursor: None,
             front_menu: false,
             art_cache: false,
@@ -364,6 +369,8 @@ enum Reply {
     Registration {
         enabled: bool,
         art_cache: bool,
+        /// Whether it takes guests (#269).
+        guests: bool,
     },
     /// The gateway no longer honours the account token we hold.
     Expired,
@@ -382,6 +389,10 @@ enum Expect {
     Registered,
     /// `{"token":…}`.
     LoggedIn,
+    /// `{"token":…, "handle":…}` for a new guest (#269).
+    Guest,
+    /// A session ended; nothing is read, and nothing is answered.
+    LoggedOut,
     /// A deck list.
     Decks,
     /// `{"deck_id":…}` from a new deck, or nothing at all from an edit.

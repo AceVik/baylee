@@ -87,7 +87,21 @@ pub(super) fn poll(
                 // gateway answered, which is the name to offer next time even
                 // when an address was typed (#269).
                 let worked = matches!(event, LobbyEvent::LoggedIn { .. });
+                // A new guest is kept for this gateway, the only way back to
+                // it (#269), and is a use of the gateway like a sign-in.
+                let guest_in = match &event {
+                    LobbyEvent::GuestIn(kept) => Some(kept.clone()),
+                    _ => None,
+                };
                 let next = state.lobby.apply(event);
+                if let Some(kept) = guest_in {
+                    let gateway = state.gateway.clone();
+                    state.uses.record(&gateway);
+                    state.guests.insert(gateway, kept);
+                    if let Some(settings) = settings.as_mut() {
+                        keep_gateways(&state, settings);
+                    }
+                }
                 if worked {
                     // The use is counted before anything is written, so
                     // that the name and the use go out in one save.
@@ -100,13 +114,28 @@ pub(super) fn poll(
                 }
                 dispatch(&mut state, &mailbox, next);
             }
-            Reply::Registration { enabled, art_cache } => {
+            Reply::Registration {
+                enabled,
+                art_cache,
+                guests,
+            } => {
                 state.lobby.set_registration_enabled(enabled);
+                state.lobby.set_guests_enabled(guests);
                 state.art_cache = art_cache;
             }
             Reply::Expired => {
                 state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
-                state.lobby.sign_out();
+                // A guest the gateway no longer knows is gone for good, and
+                // so is this device's way back to it.
+                let guest = state.lobby.guest();
+                state.lobby.session_ended();
+                if guest {
+                    let gateway = state.gateway.clone();
+                    state.guests.remove(&gateway);
+                    if let Some(settings) = settings.as_mut() {
+                        keep_gateways(&state, settings);
+                    }
+                }
             }
             Reply::Gateway { url, probe } => {
                 if state.gateway_answered(url, probe)
@@ -597,11 +626,42 @@ pub(super) fn art_follows_the_session(
     *applied = Some(now);
 }
 
-/// Writes the saved gateways and their uses back to the settings file.
+/// Writes the saved gateways, their uses and the guests kept at them back
+/// to the settings file.
 fn keep_gateways(state: &LobbyState, settings: &mut crate::settings::ClientSettings) {
     settings.gateways.clone_from(&state.gateways);
     settings.gateway_uses.clone_from(&state.uses);
+    settings.guests.clone_from(&state.guests);
     settings.save();
+}
+
+/// Signs out: the session ends on the gateway as well as here, and a guest's
+/// with the guest, which this device then keeps no longer (#269).
+///
+/// Offline has no account to forget, so the same button is what leaves
+/// offline play — and the performer has to go with it, or the sign-in form's
+/// own requests would still be answered out of the local deck file.
+fn sign_out(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    scrolled: &mut Scrolled,
+    mailbox: &Mailbox,
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+) {
+    let guest = state.lobby.guest();
+    state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    prefs.detach();
+    scrolled.set(List::Table, 0.0);
+    state.offline = None;
+    let ending = state.lobby.sign_out();
+    if guest {
+        let gateway = state.gateway.clone();
+        state.guests.remove(&gateway);
+        if let Some(settings) = settings.as_mut() {
+            keep_gateways(state, settings);
+        }
+    }
+    dispatch(state, mailbox, ending);
 }
 
 /// The sign-in and table screens' own text fields.
@@ -954,16 +1014,31 @@ pub(super) fn clicks(
                 let request = state.lobby.submit();
                 dispatch(&mut state, &mailbox, request);
             }
-            // Offline has no account to forget, so the same button is what
-            // leaves offline play — and the performer has to go with it, or
-            // the sign-in form's own requests would still be answered out of
-            // the local deck file.
+            // A guest is asked first: signed out, it is gone (#269).
+            Press::SignOut if state.lobby.guest() => {
+                state.confirmation = Some(confirm::Destructive::SignOutGuest);
+            }
             Press::SignOut => {
-                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
-                prefs.detach();
-                scrolled.set(List::Table, 0.0);
-                state.offline = None;
-                state.lobby.sign_out();
+                sign_out(
+                    &mut state,
+                    &mut prefs,
+                    &mut scrolled,
+                    &mailbox,
+                    &mut settings,
+                );
+            }
+            Press::PlayAsGuest => {
+                let request = state.lobby.play_as_guest();
+                // A kept guest is back at once, with no answer to wait for:
+                // that is the use of the gateway.
+                if state.lobby.guest() {
+                    let gateway = state.gateway.clone();
+                    state.uses.record(&gateway);
+                    if let Some(settings) = settings.as_mut() {
+                        keep_gateways(&state, settings);
+                    }
+                }
+                dispatch(&mut state, &mailbox, request);
             }
             Press::Refresh => {
                 let request = state.lobby.refresh();
@@ -1107,6 +1182,18 @@ pub(super) fn clicks(
                 if let Some(deck) = state.lobby.decks().get(index) {
                     state.confirmation = Some(confirm::Destructive::Delete(deck.id.clone()));
                 }
+            }
+            Press::ConfirmDestructive
+                if matches!(state.confirmation, Some(confirm::Destructive::SignOutGuest)) =>
+            {
+                state.confirmation = None;
+                sign_out(
+                    &mut state,
+                    &mut prefs,
+                    &mut scrolled,
+                    &mailbox,
+                    &mut settings,
+                );
             }
             Press::ConfirmDestructive => {
                 let forgetting = matches!(
@@ -1636,6 +1723,8 @@ pub(crate) enum Press {
     PlayOffline,
     /// Forget the account.
     SignOut,
+    /// Play as a guest (#269): the one kept here, or a new one.
+    PlayAsGuest,
     /// Re-read decks and tables.
     Refresh,
     /// Read the table list again for whatever the search box says.

@@ -1080,9 +1080,9 @@ const GUEST_NAME: &str = "Guest";
 /// password, and its session, in one answer (#269).
 ///
 /// The session is the guest: nothing signs in as one, so it lives as long
-/// as its session does ([`auth::Lifetime::GUEST`], thirty days from the last
-/// time it played) and goes with it, decks included ([`store::purge_guests`]).
-/// Bounded twice: per address by the limiter registration uses, and in all
+/// as its session does ([`auth::Lifetime::GUEST`], 29 to 30 days from the
+/// last call made with its token) and goes with it, decks included
+/// ([`store::purge_guests`]). Bounded twice: per address by the limiter registration uses, and in all
 /// by [`AppState::guest_cap`]. The count is read before the write, so a
 /// burst of requests at the edge can pass it by as many as are in flight;
 /// the cap bounds a flood, not a queue.
@@ -1454,8 +1454,8 @@ async fn me(
         // Only ever to its owner: nothing that shows one player to another
         // carries it (#269).
         "username": account.username,
-        // A guest's client says what a guest is (#269): gone thirty days
-        // after it last played.
+        // A guest's client says what a guest is (#269): gone about thirty
+        // days after its last visit.
         "guest": account.guest,
         "display_name": account.display_name,
         // The two halves separately, because this is the one caller that

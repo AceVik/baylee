@@ -230,6 +230,7 @@ impl Offline {
     /// both sides of the table, so the chair it calls "you" is named in the
     /// words the lobby is speaking. A gateway needs none, because its rows are
     /// account names.
+    #[allow(clippy::too_many_lines)] // one arm per request, as `http::build`
     pub(crate) fn perform(&mut self, request: LobbyRequest, lang: Lang) -> LobbyEvent {
         match request {
             LobbyRequest::Library(request) => self.library(request, lang),
@@ -338,6 +339,8 @@ impl Offline {
             // from a client that has stopped working.
             LobbyRequest::Register { .. }
             | LobbyRequest::LogIn { .. }
+            | LobbyRequest::PlayAsGuest { .. }
+            | LobbyRequest::LogOut { .. }
             | LobbyRequest::JoinGame { .. }
             | LobbyRequest::HandOver { .. }
             // Nothing here can be handed back: the table lives in this

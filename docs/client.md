@@ -2673,6 +2673,37 @@ frame, as before. Everything a gateway sends here is untrusted, so
 `client_core::lobby::gateway_info` drops control and bidi characters and caps
 the name and the version before anything is drawn.
 
+**Playing as a guest** (#269; `docs/protocol.md` §"Playing as a guest").
+When the chosen gateway's `/auth/config` says `guests_enabled`, the sign-in
+face draws the guest's way in first, above the tabs and ruled off from them:
+a box for the name to play under (empty is the gateway's `Guest`) with
+"Play as guest" beside it, the gateway form's address row in shape and
+behaviour, Enter in the box pressing the button. A gateway that has said
+nothing about guests is offered none: it may have no route for them.
+
+A guest is its session, so the client keeps it: `ClientSettings::guests` holds
+the token and handle per gateway address, and the entry then reads "Continue
+as Guest#1a2b" and goes straight to the tables with that session, without
+asking the gateway first; if the session has ended, the deck list that
+follows is a `401`, the kept guest is dropped and the player told
+(`Lobby::session_ended`). That makes the settings file a credential store,
+so it is written `0600` on unix, new or over an old one
+(`settings::store::write_at`), and `KeptGuest`'s `Debug` prints no token.
+Removing a gateway from the list leaves its guest kept, as it leaves an
+account's decks on the gateway.
+
+For the whole of a guest's visit the tables screen says what a guest is:
+deleted with its decks about thirty days after its last visit (29 to 30:
+the gateway renews a guest's session at most once a day, on any call made
+with its token, `docs/protocol.md` §"Playing as a guest"). Signing a guest
+out asks first, because nothing signs in as a guest again; on yes the kept
+guest is dropped and the session ended on the gateway, which deletes the
+guest. Every sign-out now ends its session on the gateway
+(`LobbyRequest::LogOut`, fire and forget: the lobby has already forgotten
+the token, and a gateway that did not hear it lets the session lapse). The client has no sleeve or mat
+upload yet; the gateway refuses one from a guest, and a control for it has
+to be hidden from a guest (`Lobby::guest`).
+
 **Rooms.** The table screen lists every room the gateway knows and draws each
 one seat by seat: who is sitting there, whether they are a person or the AI,
 at what difficulty, what they brought, and whether that chair is ready. A host

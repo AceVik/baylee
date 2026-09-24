@@ -52,6 +52,11 @@ impl Default for Screen {
 pub enum Field {
     /// A gateway URL, edited before account sign-in.
     Gateway,
+    /// The name to play under as a guest (#269), on the sign-in form above
+    /// its tabs. Optional: the gateway calls a guest `Guest` when it is
+    /// left empty. Not drawn while a guest is kept for this gateway, whose
+    /// name is already its own.
+    GuestName,
     /// The name the account signs in with (#269). Until the end of 2026 an
     /// account from before usernames may type its address here instead.
     #[default]
@@ -128,6 +133,29 @@ pub enum FieldKind {
     /// a table hands out and everyone at it types. Offering the account's
     /// password here is offering it to the wrong door.
     Secret,
+}
+
+/// A guest this device holds for one gateway (#269): its session, which is
+/// the whole of the guest, and the handle it is seen by.
+///
+/// Kept in the settings file per gateway, because a guest has nothing else
+/// to come back with: no username and no password. `Debug` leaves the token
+/// out, so no log line can carry it.
+#[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct KeptGuest {
+    /// The guest's bearer token.
+    pub token: String,
+    /// What other players see it as, `Guest#1a2b`.
+    pub handle: String,
+}
+
+impl std::fmt::Debug for KeptGuest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeptGuest")
+            .field("token", &"<token>")
+            .field("handle", &self.handle)
+            .finish()
+    }
 }
 
 /// One of the account's saved decks, as `GET /decks` lists it.
@@ -434,6 +462,18 @@ pub enum LobbyRequest {
         /// Its password.
         password: String,
     },
+    /// `POST /auth/guest` (#269): a new guest, and its session.
+    PlayAsGuest {
+        /// The name to be seen by, or `None` for the gateway's `Guest`.
+        display_name: Option<String>,
+    },
+    /// `POST /auth/logout`: the session that was just signed out of ends on
+    /// the gateway too, and a guest's with the guest. Carries its token,
+    /// because the lobby has already forgotten it; nothing comes back.
+    LogOut {
+        /// The session to end.
+        token: String,
+    },
     /// `GET /decks`.
     ListDecks,
     /// `GET /pool` — every card a deck may be built from.
@@ -575,6 +615,11 @@ pub enum LobbyEvent {
         /// gateway older than usernames (#269).
         username: Option<String>,
     },
+    /// A new guest, and its session (#269).
+    GuestIn(KeptGuest),
+    /// A session ended on the gateway ([`LobbyRequest::LogOut`]). Nothing
+    /// follows: the lobby forgot it when it asked.
+    LoggedOut,
     /// The account's decks.
     Decks(Vec<DeckSummary>),
     /// The playable card pool.
@@ -646,8 +691,20 @@ enum Performer {
     Nobody,
     /// A gateway, holding the account's bearer token.
     Gateway(String),
+    /// A gateway, holding a guest's (#269): the session that is the whole of
+    /// the guest.
+    Guest(String),
     /// This process, with no account behind it.
     Offline,
+}
+
+/// Who a gateway lets in, from its `GET /auth/config`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Doors {
+    /// Whether it takes sign-ups.
+    registration: bool,
+    /// Whether it takes guests (#269).
+    guests: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -668,6 +725,7 @@ pub struct Lobby {
     screen: Screen,
     focus: Field,
     username: TextBuffer,
+    guest_name: TextBuffer,
     gateway_url: TextBuffer,
     gateway_selection: GatewaySelection,
     display_name: TextBuffer,
@@ -695,7 +753,10 @@ pub struct Lobby {
     /// is what [`Lobby::write`] is for.
     tone: Tone,
     busy: bool,
-    registration_enabled: bool,
+    /// Who this gateway lets in, as `GET /auth/config` said.
+    doors: Doors,
+    /// The guest this device holds for this gateway, if any.
+    kept_guest: Option<KeptGuest>,
     /// The deck builder. Kept across visits so its pool is fetched once.
     builder: DeckBuilder,
     /// Whether the pool has been asked for. See [`Lobby::needs_pool`].
@@ -749,7 +810,10 @@ impl Lobby {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            registration_enabled: true,
+            doors: Doors {
+                registration: true,
+                guests: false,
+            },
             gateway_selection: GatewaySelection::Selected,
             ..Self::default()
         }
@@ -819,7 +883,7 @@ impl Lobby {
         match field {
             Field::Username => FieldKind::Username,
             Field::Gateway => FieldKind::Url,
-            Field::DisplayName | Field::Search => FieldKind::Name,
+            Field::DisplayName | Field::GuestName | Field::Search => FieldKind::Name,
             Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
             Field::Password | Field::PasswordAgain => FieldKind::Password,
             Field::RoomPassword => FieldKind::Secret,
@@ -839,6 +903,7 @@ impl Lobby {
         match field {
             Field::Gateway => &self.gateway_url,
             Field::Username => &self.username,
+            Field::GuestName => &self.guest_name,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
             Field::PasswordAgain => &self.password_again,
@@ -851,7 +916,7 @@ impl Lobby {
     #[must_use]
     pub fn token(&self) -> Option<&str> {
         match &self.performer {
-            Performer::Gateway(token) => Some(token),
+            Performer::Gateway(token) | Performer::Guest(token) => Some(token),
             Performer::Nobody | Performer::Offline => None,
         }
     }
@@ -917,16 +982,107 @@ impl Lobby {
     /// Whether this gateway takes sign-ups.
     #[must_use]
     pub fn registration_enabled(&self) -> bool {
-        self.registration_enabled
+        self.doors.registration
     }
 
     /// Records what `GET /auth/config` said, and leaves the sign-up form if
     /// it is no longer on offer.
     pub fn set_registration_enabled(&mut self, enabled: bool) {
-        self.registration_enabled = enabled;
+        self.doors.registration = enabled;
         if !enabled && self.screen == (Screen::SignIn { registering: true }) {
             self.screen = Screen::SignIn { registering: false };
         }
+    }
+
+    /// Whether this gateway takes guests (#269).
+    #[must_use]
+    pub fn guests_enabled(&self) -> bool {
+        self.doors.guests
+    }
+
+    /// Records what `GET /auth/config` said about guests. Off until it has
+    /// said so: a gateway from before guests has no route to offer, and a
+    /// button that could only fail is worse than none.
+    pub fn set_guests_enabled(&mut self, enabled: bool) {
+        self.doors.guests = enabled;
+        if !self.guest_name_offered() && self.focus == Field::GuestName {
+            self.focus = Field::Username;
+            self.focus_epoch += 1;
+        }
+    }
+
+    /// Whether the sign-in form offers to play as a guest.
+    #[must_use]
+    pub fn guest_offered(&self) -> bool {
+        self.doors.guests && self.gateway_chosen()
+    }
+
+    /// Whether it asks for a guest's name: offered, and no guest kept here,
+    /// whose name is already its own.
+    #[must_use]
+    pub fn guest_name_offered(&self) -> bool {
+        self.guest_offered() && self.kept_guest.is_none()
+    }
+
+    /// Whether the session held is a guest's (#269).
+    #[must_use]
+    pub fn guest(&self) -> bool {
+        matches!(self.performer, Performer::Guest(_))
+    }
+
+    /// The guest this device holds for the chosen gateway.
+    #[must_use]
+    pub fn kept_guest(&self) -> Option<&KeptGuest> {
+        self.kept_guest.as_ref()
+    }
+
+    /// Hands the lobby the guest the shell keeps for the chosen gateway, or
+    /// none.
+    pub fn keep_guest(&mut self, kept: Option<KeptGuest>) {
+        self.kept_guest = kept;
+        if !self.guest_name_offered() && self.focus == Field::GuestName {
+            self.focus = Field::Username;
+            self.focus_epoch += 1;
+        }
+    }
+
+    /// Plays as a guest (#269): the one kept for this gateway, straight to
+    /// the tables with the session it has, or a new one under the name in
+    /// [`Field::GuestName`].
+    ///
+    /// A kept guest is not asked about first. Its session is either live, and
+    /// the deck list that follows answers, or it has ended and that answer is
+    /// a `401`, which the shell hands to [`Lobby::session_ended`]; asking
+    /// `/me` first would be the same question twice.
+    pub fn play_as_guest(&mut self) -> Option<LobbyRequest> {
+        if !matches!(self.screen, Screen::SignIn { .. }) || self.busy {
+            return None;
+        }
+        if !self.guest_offered() {
+            self.refuse(Phrase::NoGuests);
+            return None;
+        }
+        self.busy = true;
+        if let Some(kept) = self.kept_guest.clone() {
+            self.enter_as_guest(kept);
+            return Some(LobbyRequest::ListDecks);
+        }
+        self.note(Phrase::JoiningAsGuest);
+        let name = self.guest_name.text().trim();
+        Some(LobbyRequest::PlayAsGuest {
+            display_name: (!name.is_empty()).then(|| name.to_string()),
+        })
+    }
+
+    /// Takes up a guest's session: the tables next, the passwords typed so
+    /// far dropped, and the player told what a guest is.
+    fn enter_as_guest(&mut self, kept: KeptGuest) {
+        self.performer = Performer::Guest(kept.token.clone());
+        self.kept_guest = Some(kept);
+        self.password.clear();
+        self.password_again.clear();
+        self.screen = Screen::Table;
+        self.note(Phrase::PlayingAsGuest);
     }
 
     /// Says something to the player without touching anything else.
@@ -994,6 +1150,9 @@ impl Lobby {
         if matches!(field, Field::DisplayName | Field::PasswordAgain) && !self.registering() {
             return;
         }
+        if field == Field::GuestName && !self.guest_name_offered() {
+            return;
+        }
         if self.revealed != Some(field) {
             self.revealed = None;
         }
@@ -1052,7 +1211,9 @@ impl Lobby {
             // Signing up: four, in the order they are drawn, and the direction
             // finally reads. The display name and the repeated password are
             // drawn only for signing up, so only that ring has them.
-            let ring: &[Field] = if self.registering() {
+            // A guest's name is drawn first, above the tabs, when it is asked
+            // for at all.
+            let form: &[Field] = if self.registering() {
                 &[
                     Field::Username,
                     Field::DisplayName,
@@ -1062,6 +1223,12 @@ impl Lobby {
             } else {
                 &[Field::Username, Field::Password]
             };
+            let ring: Vec<Field> = self
+                .guest_name_offered()
+                .then_some(Field::GuestName)
+                .into_iter()
+                .chain(form.iter().copied())
+                .collect();
             self.focus = match ring.iter().position(|field| *field == self.focus) {
                 Some(at) => {
                     let next = match dir {
@@ -1099,6 +1266,7 @@ impl Lobby {
             // account's fields with one.
             Screen::SignIn { registering } => match self.focus {
                 Field::Gateway => !self.gateway_chosen(),
+                Field::GuestName => self.guest_name_offered(),
                 Field::Username | Field::Password => self.gateway_chosen(),
                 Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
                 Field::RoomPassword | Field::Search => false,
@@ -1168,7 +1336,7 @@ impl Lobby {
         let Screen::SignIn { registering } = self.screen else {
             return;
         };
-        if registering || self.registration_enabled {
+        if registering || self.doors.registration {
             self.screen = Screen::SignIn {
                 registering: !registering,
             };
@@ -1229,6 +1397,10 @@ impl Lobby {
         if self.gateway_selection == GatewaySelection::Missing {
             self.refuse(Phrase::ChooseGatewayFirst);
             return None;
+        }
+        // Enter in the guest's name is the guest's button, not the form's.
+        if self.focus == Field::GuestName {
+            return self.play_as_guest();
         }
         if self.username.text().trim().is_empty() || self.password.is_empty() {
             self.refuse(Phrase::NeedUsernameAndPassword);
@@ -1835,9 +2007,40 @@ impl Lobby {
         Some(LobbyRequest::ListDecks)
     }
 
-    /// Forgets the account. Called on a log-out button, and by the shell when
-    /// the gateway rejects the token it holds.
-    pub fn sign_out(&mut self) {
+    /// Signs out: the account is forgotten here, and the request that ends
+    /// its session on the gateway is handed back — for a guest, the end of
+    /// the guest (#269), which the shell asks the player about first. Offline
+    /// there is nothing to end.
+    pub fn sign_out(&mut self) -> Option<LobbyRequest> {
+        let ending = match &self.performer {
+            Performer::Gateway(token) | Performer::Guest(token) => Some(LobbyRequest::LogOut {
+                token: token.clone(),
+            }),
+            Performer::Nobody | Performer::Offline => None,
+        };
+        if self.guest() {
+            self.kept_guest = None;
+        }
+        self.forget_the_session();
+        ending
+    }
+
+    /// The gateway no longer knows the session held (a `401`). A guest's
+    /// ending is the guest's (#269): it is dropped here, and the player is
+    /// told, since the one they come back as next is a new one.
+    pub fn session_ended(&mut self) {
+        let guest = self.guest();
+        if guest {
+            self.kept_guest = None;
+        }
+        self.forget_the_session();
+        if guest {
+            self.refuse(Phrase::GuestEnded);
+        }
+    }
+
+    /// Forgets the account and everything it bought.
+    fn forget_the_session(&mut self) {
         self.close_library();
         self.copied_deck = None;
         self.performer = Performer::Nobody;
@@ -1902,6 +2105,12 @@ impl Lobby {
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
+            LobbyEvent::GuestIn(kept) => {
+                self.enter_as_guest(kept);
+                self.busy = true;
+                Some(LobbyRequest::ListDecks)
+            }
+            LobbyEvent::LoggedOut => None,
             LobbyEvent::Decks(decks) => {
                 self.decks = decks;
                 // Keep a selection that still points at a deck.
@@ -2086,6 +2295,7 @@ impl Lobby {
         match field {
             Field::Gateway => &mut self.gateway_url,
             Field::Username => &mut self.username,
+            Field::GuestName => &mut self.guest_name,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,
             Field::PasswordAgain => &mut self.password_again,

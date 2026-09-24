@@ -646,6 +646,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
             Box::new(Reply::Registration {
                 enabled: true,
                 art_cache: false,
+                guests: false,
             }),
         ));
     app.update();

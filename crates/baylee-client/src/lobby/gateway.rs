@@ -39,6 +39,8 @@ impl LobbyState {
         self.gateway_selected = true;
         self.gateway_cursor = None;
         self.front_menu = false;
+        self.lobby
+            .keep_guest(self.guests.get(&self.gateway).cloned());
         self.lobby.set_gateway_ready(true);
         self.lobby.set_registration_enabled(false);
         true

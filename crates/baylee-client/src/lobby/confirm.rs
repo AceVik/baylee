@@ -8,6 +8,9 @@ pub(crate) enum Destructive {
     Clear(Option<String>),
     /// A saved gateway leaving this device's list, by address.
     ForgetGateway(String),
+    /// A guest signing out, which is the end of it (#269). Carried out by
+    /// the sign-out itself, not by [`accept`].
+    SignOutGuest,
 }
 
 pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
@@ -26,6 +29,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             state.forget_gateway(&url);
             None
         }
+        Destructive::SignOutGuest => None,
     }
 }
 
@@ -65,6 +69,14 @@ pub(super) fn draw(
                 Phrase::ForgetGatewayHint,
             )
         }
+        Destructive::SignOutGuest => (
+            Phrase::GuestSignOutQuestion,
+            state
+                .lobby
+                .kept_guest()
+                .map_or("", |kept| kept.handle.as_str()),
+            Phrase::GuestSignOutHint,
+        ),
     };
     let shade = commands
         .spawn((

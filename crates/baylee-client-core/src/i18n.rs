@@ -538,6 +538,40 @@ messages! {
         en: "signed in — your username is {0}; the address works until the end of 2026",
         de: "angemeldet — dein Benutzername ist {0}; die Adresse geht noch bis Ende 2026",
     },
+    /// The button that plays as a new guest (#269).
+    PlayAsGuest { en: "Play as guest", de: "Als Gast spielen" },
+    /// The same button, for the guest this device already holds here. `{0}`
+    /// is its handle.
+    ContinueAsGuest { en: "Continue as {0}", de: "Weiter als {0}" },
+    /// Caption of the box for a guest's name.
+    GuestName { en: "GUEST NAME", de: "GASTNAME" },
+    /// What that box says while empty: the name the gateway gives a guest
+    /// that chose none. The gateway's word, in every language, because it is
+    /// the name the other players will read.
+    GuestDefaultName { en: "Guest", de: "Guest" },
+    /// While the gateway makes the guest.
+    JoiningAsGuest { en: "joining as a guest…", de: "trete als Gast bei …" },
+    /// Just in, as a guest.
+    PlayingAsGuest { en: "playing as a guest", de: "du spielst als Gast" },
+    /// On the tables screen for the whole of a guest's visit: what a guest is.
+    GuestNotice {
+        en: "You are playing as a guest. This account and its decks are deleted about 30 days after your last visit.",
+        de: "Du spielst als Gast. Dieses Konto und seine Decks werden etwa 30 Tage nach deinem letzten Besuch gelöscht.",
+    },
+    /// The guest this device held has ended on the gateway.
+    GuestEnded {
+        en: "that guest has ended — play as a new one, or sign in",
+        de: "dieses Gastkonto ist abgelaufen — spiel als neuer Gast oder melde dich an",
+    },
+    /// The gateway takes no guests (its `/auth/config` said so).
+    NoGuests { en: "this gateway takes no guests", de: "dieses Gateway nimmt keine Gäste auf" },
+    /// Asked before a guest signs out. `{0}` is its handle.
+    GuestSignOutQuestion { en: "Sign out {0}?", de: "{0} abmelden?" },
+    /// Under that question: what signing out does to a guest.
+    GuestSignOutHint {
+        en: "A guest cannot sign in again. Signing out deletes this guest and its decks now.",
+        de: "Ein Gast kann sich nicht wieder anmelden. Abmelden löscht diesen Gast und seine Decks sofort.",
+    },
     /// The same, registering.
     NeedDisplayName { en: "a display name, please", de: "bitte einen Anzeigenamen" },
     /// Registering, and the password was typed differently the second time.
