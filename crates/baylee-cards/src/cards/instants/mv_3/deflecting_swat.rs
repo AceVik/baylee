@@ -23,9 +23,7 @@ card!(
     ),],
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::RedirectTarget {
-            new_filter: &Filter::Any,
-        }],
+        &[Effect::ChooseNewTargets],
         targets = Some(TargetReq::one(TargetSpec::SpellOrAbility(&Filter::Any)))
     )],
 );

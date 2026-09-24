@@ -331,7 +331,12 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         ),
         (
             "Stack strategy (redirecting a target)",
-            count_reaching(|effect| matches!(effect, Effect::RedirectTarget { .. })),
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::ChangeTarget { .. } | Effect::ChooseNewTargets
+                )
+            }),
         ),
         // The row's sentence is "scout refresh after shuffle, reveal, wish
         // and sideboarding". A library search is what forces the shuffle, so

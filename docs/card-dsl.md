@@ -1089,7 +1089,12 @@ Removal: `Destroy`, `DestroyAll`, `Regenerate`, `Exile`, `CounterTargetSpell`,
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
 countered, so it has to follow one; `source_filter` is the printed
 restriction on which permanents it reaches), `SacrificeFilter`, `ReturnToHand`,
-`ReturnAllToHand`, `ReturnChosenToHand`, `RedirectTarget` (Misdirection).
+`ReturnAllToHand`, `ReturnChosenToHand`, `ChangeTarget { to }` ("change the
+target of target spell", CR 115.7a: Misdirection with `Filter::Any`,
+Hydroelectric Specimen's "to this creature" with `Filter::This`) and
+`ChooseNewTargets` ("you may choose new targets for target spell or ability",
+CR 115.7d: Deflecting Swat). The two are different sentences: the first must
+move every target to another legal one or none, the second may leave any.
 
 The three returns are three different sentences and picking by destination
 gets them wrong. `ReturnToHand` **targets** one permanent, so the caster

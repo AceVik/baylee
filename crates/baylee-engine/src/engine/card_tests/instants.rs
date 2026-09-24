@@ -2016,7 +2016,10 @@ fn deflecting_swat_redirects_a_spell_for_free_while_a_commander_stands() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     let Pending::ChooseTargets {
-        player, options, ..
+        player,
+        options,
+        min,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -2026,10 +2029,11 @@ fn deflecting_swat_redirects_a_spell_for_free_while_a_commander_stands() {
         "\"you may choose new targets\": the Swat's caster"
     );
     assert!(
-        options.contains(&raptor) && options.contains(&elves),
-        "both creatures on the table are legal for the spell being aimed: \
-         {options:?}"
+        options.contains(&raptor) && !options.contains(&elves),
+        "the other creature is legal for the spell being aimed, and the Elves \
+         stay by naming nothing, not by being offered again: {options:?}"
     );
+    assert_eq!(min, 0, "\"you **may** choose new targets\" (CR 115.7d)");
     engine
         .apply(
             p0,
@@ -2061,6 +2065,298 @@ fn deflecting_swat_redirects_a_spell_for_free_while_a_commander_stands() {
                 .is_some_and(|o| o.card.is_some_and(|c| c.index == umara_raptor()))),
         "\"exile target creature\": the redirected spell resolved, so the \
          redirection was a real change of target and not a fizzle"
+    );
+}
+
+/// `seat` casts Deflecting Swat for its printed `{2}{R}` at `target`, a spell
+/// or ability on the stack, and passes until it resolves. Returns its
+/// new-target question, or `None` when it asks none.
+#[track_caller]
+fn swatted(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    target: ObjectId,
+) -> Option<Pending> {
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == seat),
+    );
+    cast_from_hand(engine, seat, deflecting_swat());
+    let mut aimed = false;
+    for _ in 0..24 {
+        match engine.pending().clone() {
+            Pending::ChooseCastMode {
+                player, options, ..
+            } => {
+                let slot = options
+                    .iter()
+                    .position(|o| !matches!(o.kind, CastModeKind::Alternative(_)))
+                    .expect("the printed cost is offered");
+                engine
+                    .apply(player, PlayerAction::ChooseMode(slot))
+                    .unwrap();
+            }
+            Pending::ChooseTargets { player, .. } if !aimed => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![target],
+                        },
+                    )
+                    .expect("\"target spell or ability\": the one on the stack");
+                aimed = true;
+            }
+            question @ Pending::ChooseTargets { .. } => return Some(question),
+            Pending::Priority { player, .. } => {
+                if aimed && on_stack(engine, deflecting_swat()).is_none() {
+                    return None;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the Swat is cast: {other:?}"),
+        }
+    }
+    panic!("the Swat never resolved")
+}
+
+/// "You **may** choose new targets" (CR 115.7d): the Swat's caster may leave
+/// the target where it is, and says so by naming nothing (#247). The question
+/// used to ask for one target at least, so the only way to keep the Elves was
+/// to be offered them again.
+#[test]
+fn deflecting_swat_may_leave_the_target_where_it_is() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), llanowar_elves()])
+        .hand(0, &[deflecting_swat()])
+        .battlefield(1, &[plains(), umara_raptor()])
+        .hand(1, &[swords_to_plowshares()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let raptor = on_battlefield(&engine, p1, umara_raptor()).expect("the Raptor is out");
+
+    let swords = aimed(&mut engine, p1, swords_to_plowshares(), &[elves], &[]);
+    let Some(Pending::ChooseTargets { options, min, .. }) = swatted(&mut engine, p0, swords) else {
+        panic!("the Raptor is another legal target, so the Swat asks")
+    };
+    assert_eq!(
+        (options, min),
+        (vec![raptor], 0),
+        "the other creature is offered, and naming nothing is an answer"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .expect("\"may\": naming nothing leaves the target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none()
+            && on_battlefield(&engine, p1, umara_raptor()).is_some(),
+        "the Swords exiles the Elves it was cast at, and the Raptor stays"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        21,
+        "and the Elves' controller gains 1: the Swords resolved, unchanged"
+    );
+}
+
+/// A limitation, pinned: Deflecting Swat on an **ability** leaves its target
+/// alone (#249). A non-synthetic ability carries no `target_req`, so the
+/// resolver cannot read what it may target without a card lookup, and asks
+/// nothing. That is a legal answer under CR 115.7d, but the only one: Rod of
+/// Ruin's shot at p0 could have gone to p1 or to either creature.
+#[test]
+fn deflecting_swat_leaves_an_abilitys_target_alone_until_249() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), llanowar_elves()])
+        .hand(0, &[deflecting_swat()])
+        .battlefield(1, &[forest(), forest(), forest(), rod_of_ruin()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    tap_all_mana(&mut engine, p1);
+    activate(&mut engine, p1, rod_of_ruin(), 0);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("\"any target\": a player");
+    let shot = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .copied()
+        .expect("the Rod's ability is on the stack");
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let asked = swatted(&mut engine, p0, shot);
+    assert!(
+        asked.is_none(),
+        "#249: the Swat cannot read what the Rod's ability may target, so it \
+         asks nothing; when #249 lands this asks, and this test moves: {asked:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        (
+            engine.state().players[0].life,
+            engine.state().players[1].life
+        ),
+        (19, 20),
+        "#249: the shot still lands where it was aimed"
+    );
+}
+
+/// Deflecting Swat on an Ancestral Recall its caster aimed at themself
+/// (#247): a "target player" spell keeps its player in `chosen_player`, and
+/// the new one is written there. p0 takes the three cards.
+#[test]
+fn deflecting_swat_turns_an_ancestral_recall_onto_its_caster() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[deflecting_swat()])
+        .battlefield(1, &[island()])
+        .hand(1, &[ancestral_recall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, ancestral_recall());
+    engine
+        .apply(p1, PlayerAction::ChoosePlayer(p1))
+        .expect("\"target player\": its own caster");
+    let recall = on_stack(&engine, ancestral_recall()).expect("it is on the stack");
+    let hands = |e: &Engine<RegistryLookup>| {
+        [p0, p1].map(|p| e.state().zones.list(ZoneLocation::Hand(p)).len())
+    };
+
+    let Some(Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    }) = swatted(&mut engine, p0, recall)
+    else {
+        panic!("the other player is a legal target, so the Swat asks")
+    };
+    assert_eq!(
+        (options, player_options),
+        (vec![], vec![p0]),
+        "\"target player\": the other one, and no object"
+    );
+    let before = hands(&engine);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("the player offered");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        hands(&engine),
+        [before[0] + 3, before[1]],
+        "p0 draws the three, and p1 none"
+    );
+}
+
+/// Deflecting Swat on a Curse of the Swine holding two targets (#247): each
+/// target is asked about on its own, and either may stay (CR 115.7d). The
+/// first moves to the Raptor, and the Elves the second names do not become
+/// a choice for the first, since two instances of one target would break CR
+/// 115.3. The second stays.
+#[test]
+fn deflecting_swat_moves_one_of_two_targets_and_leaves_the_other() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let elf = llanowar_elves();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[mountain(), mountain(), mountain(), elf, elf])
+        .hand(0, &[deflecting_swat()])
+        .battlefield(1, &[island(), island(), island(), island(), umara_raptor()])
+        .hand(1, &[curse_of_the_swine()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let elves = all_on_battlefield(&engine, p0, elf);
+    let raptor = on_battlefield(&engine, p1, umara_raptor()).expect("the Raptor is out");
+    cast_from_hand(&mut engine, p1, curse_of_the_swine());
+    engine.apply(p1, PlayerAction::ChooseNumber(2)).unwrap();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: elves.clone(),
+            },
+        )
+        .expect("X = 2 names both Elves");
+    let curse = on_stack(&engine, curse_of_the_swine()).expect("it is on the stack");
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let Some(Pending::ChooseTargets { options, min, .. }) = swatted(&mut engine, p0, curse) else {
+        panic!("the Raptor is another legal target, so the Swat asks")
+    };
+    assert_eq!(
+        (options, min),
+        (vec![raptor], 0),
+        "the first target: the Raptor, and not the other Elves the second names"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![raptor],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseTargets { options, min, .. } = engine.pending().clone() else {
+        panic!(
+            "the second target is asked about, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        (options, min),
+        (vec![elves[0]], 0),
+        "the second target: the Elves the first let go, and nothing the first \
+         now names"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .expect("the second stays");
+    assert_eq!(
+        engine
+            .state()
+            .object(curse)
+            .expect("the Curse is on the stack")
+            .targets
+            .to_vec(),
+        vec![raptor, elves[1]],
+        "the first moved to the Raptor in its place, and the second stayed"
     );
 }
 
@@ -17402,8 +17698,9 @@ fn misdirection_pitches_a_blue_card_to_turn_the_swords_onto_my_own_elves() {
                      the controller of the spell"
                 );
                 assert!(
-                    options.contains(&mine) && options.contains(&theirs),
-                    "the new target may be a creature either side of the table: {options:?}"
+                    options.contains(&mine) && !options.contains(&theirs),
+                    "the new target is **another** creature (CR 115.7a): the one \
+                     it names now is not offered again: {options:?}"
                 );
                 engine
                     .apply(
@@ -17558,6 +17855,350 @@ fn misdirection_pitches_a_blue_card_to_turn_the_swords_onto_my_own_elves() {
         in_graveyard(&engine, p0, swords_to_plowshares()).is_some(),
         "and so did the spell it re-aimed"
     );
+}
+
+/// `seat` casts `card` off its whole board, aimed at `objects` and `players`,
+/// and the spell on the stack is returned.
+#[track_caller]
+fn aimed(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    objects: &[ObjectId],
+    players: &[PlayerId],
+) -> ObjectId {
+    cast_from_hand(engine, seat, card);
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: objects.to_vec(),
+                players: players.to_vec(),
+            },
+        )
+        .expect("the spell's own target question offered these");
+    on_stack(engine, card).expect("the spell is on the stack")
+}
+
+/// `seat` answers `spell` with Misdirection, pitching the Counterspell in hand
+/// for it, and passes until it resolves (#247). Returns the new-target
+/// question it asks, or `None` when it asks none.
+///
+/// Misdirection's own target question comes first and names a spell; the
+/// next target question is the one the card is for.
+#[track_caller]
+fn misdirected(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    spell: ObjectId,
+) -> Option<Pending> {
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == seat),
+    );
+    let pitch = in_hand(engine, seat, counterspell()).expect("a blue card to pitch");
+    cast_with_floating(engine, seat, misdirection());
+    let mut aimed = false;
+    for _ in 0..24 {
+        match engine.pending().clone() {
+            Pending::ChooseCastMode {
+                player, options, ..
+            } => {
+                let slot = options
+                    .iter()
+                    .position(|o| matches!(o.kind, CastModeKind::Alternative(_)))
+                    .expect("the pitch cost is offered");
+                engine
+                    .apply(player, PlayerAction::ChooseMode(slot))
+                    .unwrap();
+            }
+            Pending::ChooseCards { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![pitch],
+                        },
+                    )
+                    .expect("the Counterspell pays the pitch cost");
+            }
+            Pending::ChooseTargets { player, .. } if !aimed => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![spell],
+                        },
+                    )
+                    .expect("\"target spell\": the one on the stack");
+                aimed = true;
+            }
+            question @ Pending::ChooseTargets { .. } => return Some(question),
+            Pending::Priority { player, .. } => {
+                if aimed && on_stack(engine, misdirection()).is_none() {
+                    return None;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while Misdirection is cast: {other:?}"),
+        }
+    }
+    panic!("Misdirection never resolved")
+}
+
+/// Misdirection on Path to Exile, with a Plains on each side of the table
+/// (#247). "Change the target" means another **legal** target (CR 115.7a),
+/// and a legal target for Path is a creature: the redirect used to offer
+/// every permanent on the battlefield, so the Plains were offered, the AI
+/// took one, and Path fizzled. It also offered the Elves Path already names,
+/// which is not "another" target, and a phased-out Raptor, which does not
+/// exist (CR 702.26b): the walk read the raw battlefield.
+#[test]
+fn misdirection_offers_path_another_creature_and_never_a_plains() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), llanowar_elves()])
+        .hand(0, &[path_to_exile()])
+        .battlefield(1, &[plains(), llanowar_elves(), umara_raptor()])
+        .hand(1, &[misdirection(), counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    let raptor = on_battlefield(&engine, p1, umara_raptor()).expect("the Raptor is out");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(raptor)
+        .expect("the Raptor exists")
+        .status
+        .insert(crate::object::Status::PHASED_OUT);
+    engine.refresh_offer();
+
+    let path = aimed(&mut engine, p0, path_to_exile(), &[theirs], &[]);
+    let Some(Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    }) = misdirected(&mut engine, p1, path)
+    else {
+        panic!("another creature stands, so the new target is asked for")
+    };
+    assert_eq!(player, p1, "the seat that cast Misdirection re-aims");
+    assert_eq!(
+        options,
+        vec![mine],
+        "\"exile target creature\": the other creature, and neither Plains, \
+         nor the Elves Path already names, nor the phased-out Raptor"
+    );
+    assert!(
+        player_options.is_empty(),
+        "a creature target is never a player: {player_options:?}"
+    );
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "\"change the target\" is not a may: with another legal target, it moves"
+    );
+}
+
+/// Misdirection on a Lightning Bolt (#247). "Any target" is a player too
+/// (CR 115.4), and the redirect used to offer no player at all. Three boards,
+/// one for each way a target can move between a player and an object:
+/// - aimed at p1, turned onto p0, the other player;
+/// - aimed at p1, turned onto p0's Elves;
+/// - aimed at p0's Elves, turned onto p1.
+#[test]
+fn misdirection_turns_a_bolt_between_faces_and_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (from_elves, to_elves, lives, elves_live) in [
+        (false, false, (17, 20), true),
+        (false, true, (20, 20), false),
+        (true, false, (20, 17), true),
+    ] {
+        let board = format!("from the Elves: {from_elves}, to the Elves: {to_elves}");
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[mountain(), llanowar_elves()])
+            .hand(0, &[lightning_bolt()])
+            .hand(1, &[misdirection(), counterspell()])
+            .life(0, 20)
+            .life(1, 20)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+
+        let bolt = if from_elves {
+            aimed(&mut engine, p0, lightning_bolt(), &[elves], &[])
+        } else {
+            aimed(&mut engine, p0, lightning_bolt(), &[], &[p1])
+        };
+        let Some(Pending::ChooseTargets {
+            options,
+            player_options,
+            ..
+        }) = misdirected(&mut engine, p1, bolt)
+        else {
+            panic!("{board}: the Bolt has other legal targets, so the new one is asked for")
+        };
+        if from_elves {
+            assert!(
+                !options.contains(&elves) && player_options == vec![p0, p1],
+                "{board}: either player, and not the Elves it names: \
+                 {options:?} {player_options:?}"
+            );
+        } else {
+            assert!(
+                options.contains(&elves) && player_options == vec![p0],
+                "{board}: the Elves, and the player it is not aimed at: \
+                 {options:?} {player_options:?}"
+            );
+        }
+        let (objects, players) = if to_elves {
+            (vec![elves], vec![])
+        } else if from_elves {
+            (vec![], vec![p1])
+        } else {
+            (vec![], vec![p0])
+        };
+        engine
+            .apply(p1, PlayerAction::ChooseTargets { objects, players })
+            .expect("a target the question offered");
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            (
+                engine.state().players[0].life,
+                engine.state().players[1].life
+            ),
+            lives,
+            "{board}: the life totals"
+        );
+        assert_eq!(
+            on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+            elves_live,
+            "{board}: whether the Elves took the 3"
+        );
+    }
+}
+
+/// Misdirection on a Counterspell (#247). The Counterspell's legal targets
+/// are spells, which the redirect never walked: it looked at the battlefield
+/// only. Two spells are left out: the Swords the Counterspell names (not
+/// "another" target) and the Counterspell itself (CR 115.5). What is left is
+/// the Misdirection, still on the stack as it resolves, and turning the
+/// Counterspell onto it lets the Swords through.
+#[test]
+fn misdirection_turns_a_counterspell_onto_itself_and_the_swords_resolves() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[swords_to_plowshares(), misdirection(), counterspell()])
+        .battlefield(1, &[island(), island(), llanowar_elves()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+
+    let swords = aimed(&mut engine, p0, swords_to_plowshares(), &[theirs], &[]);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    let counter = aimed(&mut engine, p1, counterspell(), &[swords], &[]);
+    let Some(Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    }) = misdirected(&mut engine, p0, counter)
+    else {
+        panic!("the Misdirection is a spell on the stack, so there is another target")
+    };
+    let misdirection = on_stack(&engine, misdirection()).expect("it is resolving");
+    assert_eq!(
+        (options, player_options),
+        (vec![misdirection], vec![]),
+        "neither the Swords it names nor the Counterspell itself"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![misdirection],
+            },
+        )
+        .expect("the one spell offered");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "the Counterspell lost its target when the Misdirection left the \
+         stack, and the Swords exiled the Elves"
+    );
+}
+
+/// Misdirection on a Swords to Plowshares whose Elves are the only creature
+/// on the table: there is no other legal target, so the target stays (CR
+/// 115.7a), and nothing is asked. It stays **even if it is illegal by then**,
+/// which is the second board: the Elves are gone before Misdirection
+/// resolves, and the Swords, still aimed at them, fizzles (CR 608.2b).
+#[test]
+fn misdirection_leaves_the_swords_on_the_only_creature_even_once_it_is_gone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for gone in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[plains()])
+            .hand(0, &[swords_to_plowshares()])
+            .battlefield(1, &[llanowar_elves()])
+            .hand(1, &[misdirection(), counterspell()])
+            .life(0, 20)
+            .life(1, 20)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+
+        let swords = aimed(&mut engine, p0, swords_to_plowshares(), &[theirs], &[]);
+        if gone {
+            let state = engine
+                .dev_state_mut(p0)
+                .expect("the harness may set boards up");
+            state
+                .move_object(
+                    theirs,
+                    ZoneLocation::Exile(p1),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("the harness moves the Elves");
+            engine.refresh_offer();
+        }
+        let asked = misdirected(&mut engine, p1, swords);
+        assert!(
+            asked.is_none(),
+            "gone = {gone}: no other creature, so no new target is asked for: {asked:?}"
+        );
+        assert_eq!(
+            engine
+                .state()
+                .object(swords)
+                .expect("the Swords is still on the stack")
+                .targets
+                .to_vec(),
+            vec![theirs],
+            "gone = {gone}: the Swords still names the Elves"
+        );
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state().players[1].life,
+            if gone { 20 } else { 21 },
+            "gone = {gone}: the Swords exiles the Elves it names and their \
+             controller gains 1, or, with the Elves gone, it fizzles"
+        );
+    }
 }
 
 // oracle_id = "f3e213a4-ba5a-468a-93b3-c0a34e1bd725"

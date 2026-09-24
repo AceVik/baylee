@@ -2302,11 +2302,12 @@ impl<L: CardLookup> Engine<L> {
     /// still legal, or `None` when there is nothing of it to ask.
     ///
     /// The question is asked with the very enumeration that offered the
-    /// targets in the first place — `eval::target_options` and
-    /// `eval::target_player_options`, with the same `(you, this)` the cast
-    /// wizard and `ability_has_a_target` pass. One predicate read from both
-    /// ends: an offer and a re-check that disagreed would be a target the
-    /// engine let a player choose and then refused to resolve at.
+    /// targets in the first place — `eval::stack_target_options`, which is
+    /// `eval::target_options` and `eval::target_player_options` with the same
+    /// `(you, this)` the cast wizard and `ability_has_a_target` pass. One
+    /// predicate read from both ends: an offer and a re-check that disagreed
+    /// would be a target the engine let a player choose and then refused to
+    /// resolve at. A change of targets (CR 115.7) asks it too.
     ///
     /// `players` is whether this instance is the one whose players ride in
     /// `target_players` — the first, since a second instance is objects only
@@ -2326,23 +2327,13 @@ impl<L: CardLookup> Engine<L> {
         if matches!(req.spec, TargetSpec::EventObject | TargetSpec::Player(_)) {
             return None;
         }
-        // The player half exists only for the three specs that can name one,
-        // which is exactly the set `target_player_options` answers for. The
-        // bound matters: `chosen_player` is also written by choices that are
-        // not targets at all, and folding it in unconditionally would put a
-        // chosen player in front of an enumeration that never offered them.
-        let mut chosen_players = SeatSet::new();
-        if players
-            && matches!(
-                req.spec,
-                TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
-            )
-        {
-            chosen_players = obj.target_players;
-            if let Some(player) = obj.chosen_player {
-                chosen_players.insert(player);
-            }
-        }
+        // The player half exists only for the three specs that can name one;
+        // `eval::targeted_players` says why the bound matters.
+        let chosen_players = if players {
+            eval::targeted_players(obj, &req.spec)
+        } else {
+            SeatSet::new()
+        };
         // CR 608.2b is about targets that were chosen. A requirement with a
         // minimum of zero, taken with nothing pointed at, has none to lose —
         // and an empty list satisfies "all of them are illegal" vacuously,
@@ -2350,14 +2341,8 @@ impl<L: CardLookup> Engine<L> {
         if chosen.is_empty() && chosen_players.is_empty() {
             return None;
         }
-        let you = obj.controller;
-        let this = if obj.kind == ObjectKind::AbilityOnStack {
-            obj.ability.map_or(obj.id, |loc| loc.source)
-        } else {
-            obj.id
-        };
-        let legal_objects = eval::target_options(&req.spec, &self.state, you, this);
-        let legal_players = eval::target_player_options(&self.state, &req.spec, you);
+        let (legal_objects, legal_players) =
+            eval::stack_target_options(&self.state, obj, &req.spec);
         let objects: SmallVec<[ObjectId; 2]> = chosen
             .iter()
             .copied()

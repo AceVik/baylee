@@ -136,10 +136,12 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   nothing. It reads `Resolution::countered_source`, which the counter writes
   down before removing the object, so the rider has to follow the counter in
   the same effect list.
-- Resolution-time targeting: `RedirectTarget` + `AwaitingOp::RedirectNewTarget`
-  — Misdirection's new target is chosen at resolution (CR 115.7), not at
-  cast time. `Pending::ChooseTargets` has NO `prompt` field (unlike
-  ChooseCards).
+- Resolution-time targeting: `ChangeTarget` / `ChooseNewTargets` +
+  `AwaitingOp::NewTargets` — Misdirection's new target is chosen at
+  resolution (CR 115.7), not at cast time. "Change the target" (115.7a) and
+  "choose new targets" (115.7d) are different rules; the old single
+  `RedirectTarget` offered a Plains to Path to Exile (#247). The question
+  rides `TargetPrompt::Targets`, like a cast's (#249 part 2).
 - Damage prevention modifiers: `PreventDamageToIt` / `PreventDamageFromIt`
   — checked directly in `combat.rs` deal-damage fns via
   `EffectFilter::ObjectIs`, not through the layers system (they're in the

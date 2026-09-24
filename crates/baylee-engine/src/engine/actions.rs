@@ -529,7 +529,7 @@ impl<L: CardLookup> Engine<L> {
                 if self.pending_plan.is_none()
                     && let Some(mut res) = self.resolution.take()
                 {
-                    match resolve::resume(&mut self.state, &mut res, &objects) {
+                    match resolve::resume_targets(&mut self.state, &mut res, &objects, &players) {
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;

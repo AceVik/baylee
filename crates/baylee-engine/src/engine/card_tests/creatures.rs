@@ -5600,16 +5600,131 @@ fn a_flashed_in_weird_takes_the_swords_that_was_aimed_at_the_elves() {
     );
 }
 
+/// "To this creature": the Weird is the only new target, although another
+/// creature is legal for the Swords (#247). The redirect is offered what
+/// the Swords may target **and** what "this creature" names.
+#[test]
+fn the_weird_is_the_only_creature_the_aim_moves_to() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), llanowar_elves()])
+        .hand(0, &[hydroelectric_specimen()])
+        .battlefield(1, &[plains(), llanowar_elves()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .unwrap();
+    let swords = engine.state().zones.list(ZoneLocation::Stack)[0];
+    flash_the_specimen_in(&mut engine, p0, swords);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![swords],
+            },
+        )
+        .unwrap();
+    let weird = on_battlefield(&engine, p0, hydroelectric_specimen()).expect("the Weird landed");
+    // Asserts the Weird is the whole of the offer, with p1's Elves legal
+    // for the Swords beside it.
+    the_weird_takes_the_aim(&mut engine, p0, weird);
+}
+
+/// Ancestral Recall, which this file wants for "target player": a spell the
+/// Weird can never be a target for.
+///
+/// Named after the Weird for the reason [`the_specimens_two_target_spell`]
+/// gives.
+fn the_specimens_player_spell() -> CardIndex {
+    card_index("550c74d4-1fcb-406a-b02a-639a760a4380")
+}
+
+/// "Change the target … to this creature" when this creature is no legal
+/// target for the spell (#247): the target stays (CR 115.7a), and nothing is
+/// asked. Ancestral Recall names a player, and a Weird is not one. The
+/// redirect used to offer the Weird anyway, which pointed Ancestral Recall at
+/// a creature and fizzled it.
+#[test]
+fn the_weird_leaves_the_aim_of_a_spell_it_is_no_target_for() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[hydroelectric_specimen()])
+        .battlefield(1, &[island()])
+        .hand(1, &[the_specimens_player_spell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, the_specimens_player_spell());
+    engine
+        .apply(p1, PlayerAction::ChoosePlayer(p1))
+        .expect("\"target player\": its own caster");
+    let recall = engine.state().zones.list(ZoneLocation::Stack)[0];
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+
+    let offered = flash_the_specimen_in(&mut engine, p0, recall);
+    assert_eq!(offered, vec![recall], "an instant is on the stack");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![recall],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "the Weird is no legal target for \"target player\", so there is \
+         nothing to change the target to: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().object(recall).map(|o| o.chosen_player),
+        Some(Some(p1)),
+        "Ancestral Recall still names its caster"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        hand_before + 3,
+        "and its caster draws three"
+    );
+    assert!(
+        on_battlefield(&engine, p0, hydroelectric_specimen()).is_some(),
+        "the Weird stands"
+    );
+}
+
 /// The `Coverage::Partial` half: "with a single target" is a clause no
-/// `Filter` can ask about.
+/// `Filter` can ask about (CR 115.9a, #249).
 ///
 /// Curse of the Swine is cast for X = 2 and stands on the stack naming two
 /// creatures, which the printed line excludes from the trigger outright — and
 /// the engine offers it anyway, because `TargetSpec::Spell` can only narrow a
 /// spell by its *printed* characteristics and no `Filter` counts what an
-/// object points at. Taking it shows the second half of the same gap: the
-/// redirect writes one target where two stood, so a spell that named two
-/// creatures exiles exactly one and makes one Boar instead of two.
+/// object points at.
+///
+/// Taking it changes nothing, and asks nothing. The redirect used to write one
+/// target where two stood, so the Curse exiled the Weird alone and made one
+/// Boar (#247). "Change the target" is all of them or none (CR 115.7a), and a
+/// spell the card should never have been offered is left alone: both Elves
+/// are exiled, two Boars are made, and the Weird stays.
 ///
 /// This is the test that turns red when the gap closes. A trigger with no
 /// legal target is removed from the stack (CR 603.3d), so a `TargetSpec` that
@@ -5621,7 +5736,7 @@ fn a_flashed_in_weird_takes_the_swords_that_was_aimed_at_the_elves() {
 /// its own controller's turn — which is the other thing flash buys and the
 /// board above cannot show, since it never leaves p0's own main phase.
 #[test]
-fn the_weirds_trigger_offers_a_spell_holding_two_targets_and_exiles_only_one() {
+fn the_weirds_trigger_offers_a_spell_holding_two_targets_and_moves_neither() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let elf = llanowar_elves();
     let mine = [island(), island(), island(), elf, elf];
@@ -5683,39 +5798,43 @@ fn the_weirds_trigger_offers_a_spell_holding_two_targets_and_exiles_only_one() {
         )
         .unwrap();
     let weird = on_battlefield(&engine, p0, hydroelectric_specimen()).expect("the Weird landed");
-    the_weird_takes_the_aim(&mut engine, p0, weird);
-
-    let collapsed: Vec<ObjectId> = engine
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "no new target is asked for: the Curse holds two, and \"change the \
+         target\" moves all or none (CR 115.7a), got {:?}",
+        engine.pending()
+    );
+    let kept: Vec<ObjectId> = engine
         .state()
         .object(curse)
         .expect("the curse is still on the stack")
         .targets
         .to_vec();
     assert_eq!(
-        collapsed,
-        vec![weird],
-        "the other half of the gap: the redirect writes one target where two \
-         stood, so a spell aimed at two creatures now names one"
+        kept, aimed,
+        "the Curse still names the two creatures it was cast at"
     );
 
-    // And what that is worth on the board, which is the only place the gap
-    // is visible to a player.
+    // And what that is worth on the board.
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(
-        all_on_battlefield(&engine, p0, elf).len(),
-        2,
-        "\"Exile X target creatures\" named two and exiled neither of them"
+    assert!(
+        all_on_battlefield(&engine, p0, elf).is_empty(),
+        "\"Exile X target creatures\": both Elves it named are exiled"
     );
     assert_eq!(
         engine.state().object(weird).map(|o| o.zone),
-        Some(Zone::Exile),
-        "the one creature it did exile is the one that stole the aim"
+        Some(Zone::Battlefield),
+        "and the Weird, which never became a target, stays"
     );
     assert_eq!(
         tokens_of(&engine, p0).len(),
-        1,
+        2,
         "\"for each creature exiled this way, its controller creates a 2/2 \
-         green Boar\": one exile, one Boar, where X had been two"
+         green Boar\": two exiles, two Boars"
     );
 }
 

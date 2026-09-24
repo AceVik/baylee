@@ -814,12 +814,23 @@ pub enum Effect {
         /// Color of the mana.
         color: ManaColor,
     },
-    /// Change the target of the first target (a spell on the stack) to a
-    /// new target matching the given filter (Misdirection).
-    RedirectTarget {
-        /// What the new target must match.
-        new_filter: &'static Filter,
+    /// "Change the target of target spell" (CR 115.7a): each target of the
+    /// first target (a spell or ability on the stack) moves to **another**
+    /// target that is legal for that spell and matches `to`. It is all of them
+    /// or none, and with no such target the original stays, even if it is
+    /// illegal by then. Misdirection passes `Filter::Any`; Hydroelectric
+    /// Specimen passes `Filter::This` ("to this creature"). A player passes
+    /// only `Filter::Any`, since a filter reads objects. Both cards print
+    /// "with a single target", which no filter reads yet (#249), so a spell
+    /// with more than one target is left alone.
+    ChangeTarget {
+        /// What the new target must match, beside being legal for the spell.
+        to: &'static Filter,
     },
+    /// "You may choose new targets for target spell or ability" (CR 115.7d):
+    /// any number of the first target's targets may stay as they are, and a
+    /// new one must be legal for that spell (Deflecting Swat).
+    ChooseNewTargets,
     /// Exchange control of the source and the first target (Gilded
     /// Drake); if no exchange happens (no/illegal target), sacrifice the
     /// source.
@@ -1874,7 +1885,7 @@ impl Effect {
     /// compile here, in the crate that owns the enum, and the person adding
     /// it says where its branches are.
     #[must_use]
-    #[allow(clippy::too_many_lines)] // 97 variants named once; the length is the guarantee
+    #[allow(clippy::too_many_lines)] // every variant named once; the length is the guarantee
     pub fn branches(&self) -> (&'static [Effect], &'static [Effect]) {
         const NONE: &[Effect] = &[];
         match self {
@@ -1888,9 +1899,9 @@ impl Effect {
             // by name, so adding one is a build error here and a decision
             // somebody makes on purpose.
             //
-            // The 87 non-carrying variants do use `..`, and that is the one
-            // hole left: giving `GainLife` an effect field would be caught
-            // by nobody. It is left open on the measurement that such a
+            // The non-carrying variants with fields do use `..`, and that
+            // is the one hole left: giving `GainLife` an effect field would
+            // be caught by nobody. It is left open on the measurement that such a
             // field makes the variant a carrier, which is a thing one writes
             // rather than stumbles into — where a *twelfth* branch on a
             // variant that already nests is exactly what somebody stumbles
@@ -1964,7 +1975,8 @@ impl Effect {
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }
             | Effect::DelayedManaAtNextFirstMain { .. }
-            | Effect::RedirectTarget { .. }
+            | Effect::ChangeTarget { .. }
+            | Effect::ChooseNewTargets
             | Effect::ExchangeControlOrSacrifice
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }

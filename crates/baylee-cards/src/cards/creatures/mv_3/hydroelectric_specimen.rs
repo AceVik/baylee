@@ -10,10 +10,11 @@
 // target instant or sorcery on the stack at the Weird itself. The back is an
 // MDFC land reached by the face choice on a land play (CR 712.12), paying 3
 // life to avoid coming in tapped, and taps for {U}.
-// NOT SUPPORTED: "with a single target". No `Filter` asks an object how many
-// targets it has, so `TargetSpec::Spell` can only narrow the spell by its
-// printed characteristics; the trigger therefore also offers a spell with two
-// targets, which `Effect::RedirectTarget` would collapse onto one.
+// NOT SUPPORTED: "with a single target" (CR 115.9a, #249). No `Filter` asks an
+// object how many targets it has, so `TargetSpec::Spell` can only narrow the
+// spell by its printed characteristics; the trigger therefore also offers a
+// spell with two targets. `Effect::ChangeTarget` moves both or neither
+// (CR 115.7a), and with only this creature to move them to, neither moves.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -46,9 +47,7 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::MayDo {
-            effects: &[Effect::RedirectTarget {
-                new_filter: &Filter::This,
-            }],
+            effects: &[Effect::ChangeTarget { to: &Filter::This }],
         }],
         targets = Some(TargetReq::one(TargetSpec::Spell(
             &Filter::INSTANT_OR_SORCERY

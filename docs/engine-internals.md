@@ -187,10 +187,13 @@ same place: a spell or ability all of whose targets have become illegal also
 does not resolve. `Engine::target_legality` asks it, above the spell/ability
 split rather than inside either branch, because an Aura is a targeted
 *permanent* spell and a check in one branch would miss the other. It asks with
-`eval::target_options` and `eval::target_player_options`, which are the
-enumerations that offered those targets in the first place — one predicate
-read from both ends, so an offer and a re-check cannot disagree about what was
-choosable.
+`eval::stack_target_options` (`eval::target_options` and
+`eval::target_player_options`, with the object's own controller and source),
+which are the enumerations that offered those targets in the first place —
+one predicate read from both ends, so an offer and a re-check cannot disagree
+about what was choosable. A change of targets (CR 115.7, `resolve::retarget`)
+asks the same function, so a redirected spell is offered only what the
+re-check would call legal (#247).
 
 Partial legality is handled and not merely survived: the legal subset is
 written back to the object once, before any `Resolution` is built, which is

@@ -29,6 +29,7 @@ mod counters;
 mod life;
 mod mana;
 mod reflexive;
+mod retarget;
 mod tokens;
 mod zones;
 
@@ -253,11 +254,10 @@ pub enum AwaitingOp {
         /// Whose hand.
         player: PlayerId,
     },
-    /// After `RedirectTarget`: set the spell's target to the chosen one.
-    RedirectNewTarget {
-        /// The spell on the stack whose target changes.
-        spell: ObjectId,
-    },
+    /// After `ChangeTarget` or `ChooseNewTargets`: the next target of the
+    /// spell being changed is asked about (CR 115.7, `retarget`). Boxed, as
+    /// the change carries two lists.
+    NewTargets(Box<retarget::Retarget>),
     /// After `WishToHand`: the chosen card, if any, goes to its owner's hand.
     WishToHand,
     /// After `CopyTargetSpell`: the copy's controller may choose new targets
@@ -869,6 +869,32 @@ fn run_fallback(state: &mut GameState, res: &mut Resolution, effect: &'static Ef
     run(state, res)
 }
 
+/// Continues a resolution suspended on a target question: [`resume`], except
+/// that a change of targets (CR 115.7) reads the players too, since a spell
+/// aimed at a player may be turned onto another.
+///
+/// # Panics
+/// When called without a suspended operation (engine invariant).
+#[must_use]
+pub fn resume_targets(
+    state: &mut GameState,
+    res: &mut Resolution,
+    objects: &[ObjectId],
+    players: &[PlayerId],
+) -> Flow {
+    if !matches!(res.awaiting, Some(AwaitingOp::NewTargets(_))) {
+        return resume(state, res, objects);
+    }
+    let Some(AwaitingOp::NewTargets(retarget)) = res.awaiting.take() else {
+        unreachable!("matched just above")
+    };
+    if let Some(pending) = retarget::answer(state, res, *retarget, objects, players) {
+        return Flow::Wait(pending);
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
 /// Resumes a suspended resolution with the chosen cards.
 ///
 /// # Panics
@@ -1007,13 +1033,8 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 obj.targets.extend(chosen.iter().copied());
             }
         }
-        AwaitingOp::RedirectNewTarget { spell } => {
-            if let Some(&new_target) = chosen.first()
-                && let Some(obj) = state.object_mut(spell)
-            {
-                obj.targets.clear();
-                obj.targets.push(new_target);
-            }
+        AwaitingOp::NewTargets(_) => {
+            unreachable!("a change of targets resumes via resume_targets")
         }
         AwaitingOp::SearchTakeover { agent } => {
             for &card in chosen {
@@ -1971,36 +1992,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 prompt: ChoicePrompt::Wish,
             })
         }
-        Effect::RedirectTarget { new_filter } => {
-            // The new target is chosen at resolution (CR 115.7): ask the
-            // controller for any object matching the filter.
-            if let Some(&spell_id) = res.targets.first() {
-                let options: Vec<ObjectId> = state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .filter(|id| {
-                        state
-                            .object(**id)
-                            .is_some_and(|o| eval::matches(new_filter, state, o, you, res.source))
-                    })
-                    .copied()
-                    .collect();
-                if options.is_empty() {
-                    return None;
-                }
-                res.awaiting = Some(AwaitingOp::RedirectNewTarget { spell: spell_id });
-                return Some(Pending::ChooseTargets {
-                    player: you,
-                    options,
-                    player_options: Vec::new(),
-                    min: 1,
-                    max: 1,
-                    reason: TargetPrompt::Targets,
-                });
-            }
-            None
-        }
+        // The new targets are chosen at resolution (CR 115.7).
+        Effect::ChangeTarget { to } => retarget::start(state, res, Some(to)),
+        Effect::ChooseNewTargets => retarget::start(state, res, None),
         Effect::TakeExtraTurn => {
             state.extra_turns.push_back(you);
             None

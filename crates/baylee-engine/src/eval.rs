@@ -661,6 +661,60 @@ pub fn target_options(
         .collect()
 }
 
+/// The players a spell or ability on the stack chose for its first instance
+/// of "target" under `spec`.
+///
+/// They ride in two fields. `target_players` is the set "any target" named,
+/// and `chosen_player` is the one seat a player target named, but it is also
+/// written by choices that are not targets at all. So the second is read
+/// only for the three specs that can name a player, which is exactly the
+/// set [`target_player_options`] answers for: folding it in for any other
+/// spec would put a chosen player in front of an enumeration that never
+/// offered them.
+#[must_use]
+pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids::SeatSet {
+    let mut players = baylee_core::ids::SeatSet::new();
+    if matches!(
+        spec,
+        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+    ) {
+        players = obj.target_players;
+        if let Some(player) = obj.chosen_player {
+            players.insert(player);
+        }
+    }
+    players
+}
+
+/// What a spell or ability on the stack may legally target under `spec` now:
+/// the objects and the players.
+///
+/// It is the enumeration that offered the targets in the first place,
+/// [`target_options`] and [`target_player_options`], asked with the same
+/// `(you, this)` the cast wizard passes: the object's controller, and the
+/// object itself or, for an ability, its source. CR 608.2b's re-check
+/// (`Engine::instance_legality`) and a change of targets (CR 115.7,
+/// `resolve::retarget`) both ask it, so what one of them calls legal the
+/// other does too.
+///
+/// The object itself is never among them (CR 115.5).
+#[must_use]
+pub fn stack_target_options(
+    state: &GameState,
+    obj: &GameObject,
+    spec: &TargetSpec,
+) -> (Vec<ObjectId>, Vec<PlayerId>) {
+    let you = obj.controller;
+    let this = if obj.kind == crate::object::ObjectKind::AbilityOnStack {
+        obj.ability.map_or(obj.id, |loc| loc.source)
+    } else {
+        obj.id
+    };
+    let mut objects = target_options(spec, state, you, this);
+    objects.retain(|id| *id != obj.id);
+    (objects, target_player_options(state, spec, you))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
