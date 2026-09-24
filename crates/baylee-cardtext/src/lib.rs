@@ -46,10 +46,13 @@
 //!
 //! The wire shape between the catalog and a client lives here for the same
 //! reason: it was written twice, with a JSON pin on each side to keep the two
-//! copies equal.
+//! copies equal. So does [`card_entry`], which builds that shape from a
+//! card's printings: the gateway serves it from the catalog's rows, and a
+//! client without a translated gateway builds it from Scryfall's answer.
 
 mod align;
 mod cost;
+mod entry;
 mod pick;
 mod text;
 mod verify;
@@ -57,6 +60,7 @@ mod wire;
 
 pub use align::{Aligned, Stage, align, untranslated};
 pub use cost::{Split, licensed, split_cost};
+pub use entry::{TextFace, TextPrinting, card_entry};
 pub use pick::{Layer, Printing, pick};
 pub use text::{repair_braces, sentence_count, sentences, symbols};
 pub use verify::{Verdict, localized, verify};
