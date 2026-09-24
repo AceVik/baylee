@@ -53,8 +53,8 @@ card!(
         // land, then untap it." — the cost is sayable (five
         // `Sacrifice(&Filter::YOUR_CREATURE)` parts), but no effect
         // transforms a permanent in place: `Effect::ExileSelfReturnAsFace`
-        // exiles it and returns a new object (CR 400.7), which is not what
-        // CR 701.27a does — the permanent would lose its counters, its
+        // exiles it and returns a new object (CR 400.7), which is not how
+        // CR 701.27a transforms — the permanent would lose its counters, its
         // attachments and "then untap it" would read the wrong object.
     ],
 );

@@ -5628,7 +5628,7 @@ fn artifact_blast_counters_a_sol_ring_on_the_stack_and_never_touches_the_permane
 
     assert!(
         in_graveyard(&engine, p0, quiet_artifact()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)"
+        "a countered spell goes to its owner's graveyard (CR 701.6a)"
     );
     assert!(
         on_battlefield(&engine, p0, quiet_artifact()).is_none(),
@@ -6327,7 +6327,7 @@ fn envelop_counters_the_sorcery_and_declines_the_instant_beside_it() {
     );
     assert!(
         in_graveyard(&engine, p1, wheel_of_fortune()).is_some(),
-        "the countered spell is in p1's graveyard (CR 701.5a)"
+        "the countered spell is in p1's graveyard (CR 701.6a)"
     );
     assert!(
         in_graveyard(&engine, p1, dark_ritual()).is_some(),
@@ -9624,7 +9624,7 @@ fn extinguish_counters_the_sorcery_on_the_stack_and_leaves_its_target_standing()
     );
     assert!(
         in_graveyard(&engine, p0, vindicate()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)"
+        "a countered spell goes to its owner's graveyard (CR 701.6a)"
     );
     assert!(
         on_battlefield(&engine, p1, quiet_artifact()).is_some(),
@@ -11320,7 +11320,7 @@ fn preemptive_strike() -> CardIndex {
 /// The scenario is the one the card exists for: an opponent casts a creature,
 /// so the spell sits on the stack with no creature anywhere near the
 /// battlefield. The counter is read in the *zone* the card lands in — a
-/// countered spell goes to its owner's graveyard (CR 701.5a) and never enters,
+/// countered spell goes to its owner's graveyard (CR 701.6a) and never enters,
 /// so one resolution has to show both: the Elves in p1's graveyard and no Elf
 /// under p1's control. The target question is the other half: the spell on the
 /// menu is the object that was just cast, and the {1}{U} leaves the pool only
@@ -11410,7 +11410,7 @@ fn preemptive_strike_counters_a_creature_spell_that_is_still_on_the_stack() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "a countered spell is put into its owner's graveyard (CR 701.5a)"
+        "a countered spell is put into its owner's graveyard (CR 701.6a)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -11602,7 +11602,7 @@ fn remove_soul_counters_the_creature_spell_it_names() {
     );
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)"
+        "a countered spell goes to its owner's graveyard (CR 701.6a)"
     );
     assert!(
         in_graveyard(&engine, p0, remove_soul()).is_some(),
@@ -13654,7 +13654,7 @@ fn absorb_counters_the_spell_it_names_and_gains_three_life_for_its_caster() {
     );
     assert!(
         in_graveyard(&engine, p0, quiet_creature()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)"
+        "a countered spell goes to its owner's graveyard (CR 701.6a)"
     );
     assert!(
         on_battlefield(&engine, p0, quiet_creature()).is_none(),

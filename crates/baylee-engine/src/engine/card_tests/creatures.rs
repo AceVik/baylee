@@ -14568,7 +14568,7 @@ fn counsel_of_the_soratami() -> CardIndex {
 /// the first instrument tried — puts two cards back and measures its own
 /// rider instead.
 ///
-/// The player on the play skips their first draw step (CR 103.7a), so the
+/// The player on the play skips their first draw step (CR 103.8a), so the
 /// turn's allowance is untouched when the spell resolves.
 ///
 /// "Each player" includes the Spirit's own controller, which is the half a
@@ -23952,7 +23952,7 @@ fn plagued_rusalka() -> CardIndex {
 ///
 /// The price is two things at once and each needs its own reading: the {B}
 /// out of a pool the Swamp alone filled, and a *creature* the question
-/// offers — which CR 701.21a limits to what the activating seat controls, so
+/// offers — which CR 701.21a limits to what the sacrificing seat controls, so
 /// the Elf across the table is the counter-half of that menu. The target is
 /// any creature at all, and the reading that proves the pump happened is a
 /// 1/1 dying: -1/-1 on a printed 1/1 is a 0/0, which CR 704.5f puts into its
@@ -34612,9 +34612,10 @@ fn sage_of_lat_nam() -> CardIndex {
 /// one, and the menu is half the card: the Sol Ring beside it is on it, the two
 /// creatures are not (the Sage is no artifact either, so the missing "another"
 /// costs it nothing) and neither is the Sol Ring across the table, which
-/// CR 701.21a keeps off it. The price is a tap symbol and a permanent, so no
-/// mana is floating anywhere — the offer turns on nothing the pool could have
-/// supplied, which is what makes the missing entry a statement about the filter.
+/// CR 701.21a keeps off it: nobody sacrifices what they do not control. The
+/// price is a tap symbol and a permanent, so no mana is floating anywhere —
+/// the offer turns on nothing the pool could have supplied, which is what
+/// makes the missing entry a statement about the filter.
 /// The draw is read as a *move*, and only after the ability resolves: a library
 /// one shorter *and* a hand one longer, because a card that merely left the top
 /// of the library would satisfy the first count on its own.
@@ -44687,7 +44688,7 @@ fn ertai_wizard_adept_counters_a_spell_for_four_mana_and_its_own_tap() {
 
     assert!(
         in_graveyard(&engine, p1, dark_ritual()).is_some(),
-        "a countered spell is put into its owner's graveyard (CR 701.5a)"
+        "a countered spell is put into its owner's graveyard (CR 701.6a)"
     );
     assert_eq!(
         engine.state().players[1].mana_pool.total(),
@@ -56596,7 +56597,7 @@ fn stronghold_machinist_discards_a_card_to_counter_a_noncreature_spell() {
     );
     assert!(
         in_graveyard(&engine, p1, dark_ritual()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)"
+        "a countered spell goes to its owner's graveyard (CR 701.6a)"
     );
     assert_eq!(
         engine.state().players[1].mana_pool.total(),
@@ -56757,9 +56758,9 @@ fn tempest_drake() -> CardIndex {
 /// turn, beside a grounded Elf, against a board holding a grounded Elf and a
 /// flier: the defending Elf is offered as a blocker for the grounded attacker
 /// and never for the drake (CR 702.9b), and the drake alone is still untapped
-/// after the declaration that tapped its companion (CR 702.14b). Flying is
-/// read as a *pairing* and vigilance against a creature that lacks it,
-/// because either assertion on its own is satisfied by a board that never
+/// after the declaration that tapped the Elf beside it (vigilance, CR 702.20b).
+/// Flying is read as a *pairing* and vigilance against a creature that lacks
+/// it, because either assertion on its own is satisfied by a board that never
 /// asked the question.
 #[test]
 fn tempest_drake_flies_over_a_ground_creature_and_attacks_without_tapping() {
@@ -56807,7 +56808,7 @@ fn tempest_drake_flies_over_a_ground_creature_and_attacks_without_tapping() {
     // drake is tapped by the very declaration that left the drake standing.
     assert!(
         !is_tapped(&engine, drake),
-        "\"vigilance\": attacking does not tap the drake (CR 702.14b)"
+        "\"vigilance\": attacking does not tap the drake (CR 702.20b)"
     );
     assert!(
         is_tapped(&engine, elf),
