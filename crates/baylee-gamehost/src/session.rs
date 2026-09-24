@@ -605,7 +605,7 @@ impl Session {
         // a casting/payment wizard. The ordinary timeout policy covers all
         // question kinds instead of a positive list containing only Priority.
         let (seat, fallback) = self
-            .timeout_action()
+            .house_action()
             .expect("refused AI action left no decision");
         self.engine.apply(seat, fallback).expect(
             "both AI proposal and recovery were refused; refusing to silently stall the table",
@@ -698,7 +698,28 @@ impl Session {
         pending_player(self.engine.pending())
     }
 
-    /// The action to apply when a seat's decision clock runs out.
+    /// The action to apply when a seat's decision clock runs out: the
+    /// question's answer that does nothing
+    /// ([`baylee_engine::choice::timeout_answer`]), else the house's
+    /// ([`Self::house_action`]) (#258).
+    ///
+    /// A seat that ran out of time passes, attacks and blocks with nothing,
+    /// keeps its hand and declines what declining leaves alone. It used to
+    /// be played by the house in full, which cast its spells and sent its
+    /// creatures in on its behalf. The client writes the countdown into the
+    /// button this answer is, and it can only do that for an answer it can
+    /// know. A question with no answer that does nothing (a discard, a
+    /// target) is still the house's.
+    #[must_use]
+    pub fn timeout_action(&self) -> Option<(PlayerId, PlayerAction)> {
+        let player = self.awaiting_seat()?;
+        match baylee_engine::choice::timeout_answer(self.engine.pending()) {
+            Some(nothing) => Some((player, nothing)),
+            None => self.house_action(),
+        }
+    }
+
+    /// What the house answers for the awaited seat.
     ///
     /// The house agent answers rather than a hand-written table of defaults.
     /// It already produces a *legal* answer for every `Pending`, and a
@@ -706,7 +727,7 @@ impl Session {
     /// exists to unstick — the seat would be asked again, time out again,
     /// and the table would never move.
     #[must_use]
-    pub fn timeout_action(&self) -> Option<(PlayerId, PlayerAction)> {
+    pub fn house_action(&self) -> Option<(PlayerId, PlayerAction)> {
         let player = self.awaiting_seat()?;
         // Teams included, as `stand_in` builds it: without them every other
         // chair reads as an enemy, the seat's own partner among them.
@@ -811,8 +832,9 @@ impl Session {
     }
 
     /// The decision clock ran out on `seat`: the house answers this one
-    /// question for it, and the seat is marked as answered by the clock
-    /// until it answers one itself.
+    /// question for it, with the answer that does nothing where there is one
+    /// ([`Self::timeout_action`], [`by_clock`]), and the seat is marked as
+    /// answered by the clock until it answers one itself.
     ///
     /// `None` when `seat` is not the one being asked, which is how a timer
     /// that fired after the question moved on is told apart from one that
@@ -828,11 +850,16 @@ impl Session {
         &mut self,
         seat: PlayerId,
     ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
-        let (player, action) = self.timeout_action()?;
-        if player != seat {
+        if self.awaiting_seat()? != seat {
             return None;
         }
-        Some(self.answer(player, action, Some(HouseAnswer::Clock)))
+        let pending = self.engine.pending().clone();
+        by_clock(
+            self,
+            &pending,
+            |session, action| session.answer(seat, action, Some(HouseAnswer::Clock)),
+            |session| session.house_action().map(|(_, action)| action),
+        )
     }
 
     /// Applies an answer for a socket seat and records who produced it.
@@ -869,6 +896,31 @@ impl Session {
 ///
 /// A player has seen their own decklist; nothing is revealed by handing it
 /// back. Everything outside this set has to be earned by seeing a card.
+/// What the decision clock does with a question: tries the answer that does
+/// nothing ([`baylee_engine::choice::timeout_answer`]), and asks the house
+/// only where there is none or the engine refused it.
+///
+/// The refusal is not reachable with today's pool: nothing makes an empty
+/// declaration of attackers or blockers illegal. It will be once a creature
+/// that attacks each combat if able (CR 508.1d) or a lure (CR 509.1c) is
+/// read, and a clock that stopped at the refusal would ask the same seat
+/// the same question forever. So the order lives here, apart from the
+/// session, where a refusing engine can be written as a closure.
+fn by_clock<S, T>(
+    session: &mut S,
+    pending: &Pending,
+    answer: impl Fn(&mut S, PlayerAction) -> Result<T, String>,
+    house: impl FnOnce(&S) -> Option<PlayerAction>,
+) -> Option<Result<T, String>> {
+    if let Some(nothing) = baylee_engine::choice::timeout_answer(pending)
+        && let Ok(out) = answer(session, nothing)
+    {
+        return Some(Ok(out));
+    }
+    let action = house(session)?;
+    Some(answer(session, action))
+}
+
 fn own_prints(spec: &baylee_core::preset::SeatSpec, len: usize) -> Vec<bool> {
     let mut shown = vec![false; len];
     let entries = spec
@@ -1969,6 +2021,10 @@ mod tests {
     /// goblins, and the opponents have nothing: a house that fears the swing
     /// back from its own partner keeps its attackers home. `stand_in` built
     /// its agent with the table's teams all along; the clock's did not.
+    ///
+    /// Asked of [`Session::house_action`] since #258: the clock itself now
+    /// attacks with nothing, and the house answers only what has no answer
+    /// that does nothing. That house is still this one.
     #[test]
     fn a_clock_answer_does_not_fear_a_teammate() {
         use baylee_core::ids::Defender;
@@ -1998,7 +2054,7 @@ mod tests {
             "the table never reached the first seat's attack"
         );
 
-        let (player, action) = session.timeout_action().expect("the attack is asked");
+        let (player, action) = session.house_action().expect("the attack is asked");
         assert_eq!(player, me);
         let PlayerAction::DeclareAttackers { attackers } = action else {
             panic!("the clock answered an attack with {action:?}")
@@ -2014,6 +2070,165 @@ mod tests {
                 .all(|(_, defender)| *defender != Defender::Player(PlayerId::new(2))),
             "{attackers:?}"
         );
+    }
+
+    /// A seat that runs out of time at priority passes, with a spell it
+    /// could cast in hand and the land to cast it (#258). Before, the house
+    /// played the seat in full and cast the spell for it, which a player
+    /// who stepped away finds done, and which no button could say ahead of
+    /// time. The fixture is checked from the other side too: the house,
+    /// asked the same question, does act, so a pass here is the clock's
+    /// choice and not the only thing there was to do.
+    #[test]
+    fn a_seat_that_runs_out_of_time_at_priority_passes() {
+        let elves_card = baylee_cards::decks::by_name("Llanowar Elves").expect("in the pool");
+        let elves = DeckEntry {
+            card: elves_card,
+            print: PrintRef::new(0),
+        };
+        let forest = DeckEntry {
+            card: baylee_cards::decks::by_name("Forest").expect("in the pool"),
+            print: PrintRef::new(0),
+        };
+        let mut preset = test_preset();
+        preset.seats[0].starting_hand = Some(vec![elves]);
+        preset.seats[0].starting_battlefield = vec![forest];
+        let mut session = Session::new(&preset).expect("session builds");
+        let _ = session.pump();
+        let me = PlayerId::new(0);
+        let my_main = |session: &Session| {
+            let turn = &session.engine.state().turn;
+            session.awaiting_seat() == Some(me)
+                && turn.active == me
+                && turn.step == baylee_engine::turn::Step::Main
+                && matches!(session.engine.pending(), Pending::Priority { .. })
+        };
+        for _ in 0..200 {
+            if my_main(&session) {
+                break;
+            }
+            let seat = session.awaiting_seat().expect("the game goes on");
+            let action = match session.engine.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                other => panic!("an unexpected question before the first main phase: {other:?}"),
+            };
+            session.act(seat, action).expect("a legal answer");
+        }
+        assert!(
+            my_main(&session),
+            "the table never reached the seat's main phase"
+        );
+        let (_, house) = session.house_action().expect("the seat is asked");
+        assert_ne!(
+            house,
+            PlayerAction::PassPriority,
+            "the house would pass here too, so this proves nothing"
+        );
+        assert_eq!(
+            session.timeout_action(),
+            Some((me, PlayerAction::PassPriority))
+        );
+
+        session
+            .answer_by_clock(me)
+            .expect("the seat is being asked")
+            .expect("passing is legal");
+        let state = session.engine.state();
+        let hand = state
+            .zones
+            .list(baylee_engine::zone::ZoneLocation::Hand(me));
+        assert!(
+            hand.iter().any(|&id| state
+                .object(id)
+                .and_then(|o| o.card)
+                .is_some_and(|card| card.index == elves_card)),
+            "the Elves are still in hand"
+        );
+        assert!(state.zones.stack_is_empty(), "nothing was cast");
+        // The house's own first step here is tapping the Forest for the
+        // Elves, which leaves both of the above true.
+        let tapped: Vec<_> = state
+            .zones
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
+            .iter()
+            .filter_map(|&id| state.object(id))
+            .filter(|o| {
+                o.controller == me && o.status.contains(baylee_engine::object::Status::TAPPED)
+            })
+            .map(|o| o.id)
+            .collect();
+        assert!(tapped.is_empty(), "the clock tapped {tapped:?}");
+    }
+
+    /// The clock's order, against an engine that refuses doing nothing: the
+    /// empty declaration first, and the house's own answer once it is
+    /// refused. Written against a closure because no card in the pool can
+    /// make that refusal today (see [`by_clock`]).
+    #[test]
+    fn a_refused_answer_that_does_nothing_falls_back_to_the_house() {
+        use baylee_core::ids::{Defender, ObjectId};
+        let attacker = ObjectId::new(3, 0);
+        let pending = Pending::ChooseAttackers {
+            player: PlayerId::new(0),
+            attackers: vec![attacker],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+        let nothing = PlayerAction::DeclareAttackers {
+            attackers: Vec::new(),
+        };
+        let forced = PlayerAction::DeclareAttackers {
+            attackers: vec![(attacker, Defender::Player(PlayerId::new(1)))],
+        };
+        // "Attacks each combat if able": the engine takes only the attack.
+        let refusing = |tried: &mut Vec<PlayerAction>, action: PlayerAction| {
+            tried.push(action.clone());
+            if action == nothing {
+                Err("the creature attacks if able".to_string())
+            } else {
+                Ok(())
+            }
+        };
+
+        let mut tried = Vec::new();
+        let out = by_clock(&mut tried, &pending, refusing, |_| Some(forced.clone()));
+        assert_eq!(out, Some(Ok(())));
+        assert_eq!(tried, vec![nothing.clone(), forced.clone()]);
+
+        // Accepted, the house is never asked.
+        let mut tried = Vec::new();
+        let out = by_clock(
+            &mut tried,
+            &pending,
+            |tried: &mut Vec<PlayerAction>, action| {
+                tried.push(action);
+                Ok::<(), String>(())
+            },
+            |_| panic!("the house was asked although doing nothing was accepted"),
+        );
+        assert_eq!(out, Some(Ok(())));
+        assert_eq!(tried, vec![nothing]);
+
+        // A question with no answer that does nothing goes to the house at once.
+        let discard = Pending::DiscardChoice {
+            player: PlayerId::new(0),
+            count: 1,
+        };
+        let chosen = PlayerAction::ChooseObjects {
+            objects: vec![attacker],
+        };
+        let mut tried = Vec::new();
+        let out = by_clock(
+            &mut tried,
+            &discard,
+            |tried: &mut Vec<PlayerAction>, action| {
+                tried.push(action);
+                Ok::<(), String>(())
+            },
+            |_| Some(chosen.clone()),
+        );
+        assert_eq!(out, Some(Ok(())));
+        assert_eq!(tried, vec![chosen]);
     }
 
     /// Answers for every seat but `seat` until `seat` is asked, as the

@@ -439,6 +439,78 @@ impl YesNoPrompt {
     pub fn automatable(self) -> bool {
         matches!(self, Self::MayDo | Self::CommanderZone { .. })
     }
+
+    /// Whether answering "no" does nothing, which is what a seat that ran
+    /// out of time is answered with ([`timeout_answer`]).
+    ///
+    /// Everything a card offers is declined by not doing it: the life not
+    /// paid, the kicker not paid, the tax not paid, the miracle not cast,
+    /// the "you may" not done, and a draw offer not accepted. The two
+    /// commander questions are not: declining leaves the commander in a
+    /// graveyard, in exile, or tucked into a library, which is a loss and
+    /// not a pause. The house answers those.
+    #[must_use]
+    pub const fn declining_does_nothing(self) -> bool {
+        match self {
+            Self::PayLifeOrEnterTapped { .. }
+            | Self::Kicker
+            | Self::PayTax { .. }
+            | Self::Miracle { .. }
+            | Self::DrawOffer { .. }
+            | Self::MayDo
+            | Self::Generic => true,
+            Self::CommanderZone { .. } | Self::CommanderReplace { .. } => false,
+        }
+    }
+}
+
+/// The answer that does nothing, where the question has one (#258).
+///
+/// What the decision clock answers for a seat that did not answer in time
+/// (`baylee_gamehost::Session::answer_by_clock`), and the button a client
+/// writes that clock's seconds into. One function for both ends, so a
+/// countdown can never sit on a button the clock will not press.
+///
+/// Pass priority, attack with nothing, block with nothing, keep the hand,
+/// decline what declining leaves alone ([`YesNoPrompt::declining_does_nothing`]).
+/// `None` for every question with no answer that does nothing: a discard,
+/// a target, a search, an ordering, a colour. The house plays those.
+///
+/// An exhaustive match on purpose, with no wildcard arm. A new question has
+/// to be classified here before it compiles, and a wildcard would file it
+/// under "the house decides" without anyone having decided that.
+///
+/// The answer is what the question offers, not what the rules will accept:
+/// a creature that attacks each combat if able (CR 508.1d) or a lure that
+/// must be blocked (CR 509.1c) can make the empty declaration illegal, and
+/// the clock then falls back to the house.
+#[must_use]
+pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
+    match pending {
+        Pending::Priority { .. } => Some(PlayerAction::PassPriority),
+        Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
+        Pending::ChooseAttackers { .. } => Some(PlayerAction::DeclareAttackers {
+            attackers: Vec::new(),
+        }),
+        Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
+            blockers: Vec::new(),
+        }),
+        Pending::YesNo { prompt, .. } => prompt
+            .declining_does_nothing()
+            .then_some(PlayerAction::YesNo(false)),
+        Pending::MulliganBottom { .. }
+        | Pending::DiscardChoice { .. }
+        | Pending::LegendChoice { .. }
+        | Pending::ChooseCards { .. }
+        | Pending::ChooseTargets { .. }
+        | Pending::ChooseSubtype { .. }
+        | Pending::ChooseColor { .. }
+        | Pending::ChooseCastMode { .. }
+        | Pending::ChooseNumber { .. }
+        | Pending::ChoosePlayer { .. }
+        | Pending::Arrange { .. }
+        | Pending::GameOver(_) => None,
+    }
 }
 
 // ------------------------------------------------------------ automation
@@ -888,6 +960,237 @@ mod choice_tests {
 
     fn object() -> ObjectId {
         ObjectId::new(1, 0)
+    }
+
+    // ---- what the clock answers (#258) -----------------------------------
+
+    /// One question of every kind, each with the answer a seat that ran out
+    /// of time gets. `timeout_answer` has no wildcard arm, so a new kind of
+    /// question stops the build there; this table is the other half, and
+    /// says what each kind was decided to be.
+    #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one row per kind of question, and the table is the test"
+    )]
+    fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
+        let p = PlayerId::new(0);
+        let pass = Some(PlayerAction::PassPriority);
+        let no = Some(PlayerAction::YesNo(false));
+        let yes_no = |prompt| Pending::YesNo {
+            player: p,
+            prompt,
+            source: None,
+        };
+        let cases: Vec<(Pending, Option<PlayerAction>)> = vec![
+            (
+                Pending::Priority {
+                    player: p,
+                    legal: Box::default(),
+                },
+                pass,
+            ),
+            (
+                Pending::Mulligan {
+                    player: p,
+                    taken: 1,
+                    next_is_free: false,
+                },
+                Some(PlayerAction::MulliganKeep),
+            ),
+            (
+                Pending::ChooseAttackers {
+                    player: p,
+                    attackers: vec![object()],
+                    defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
+                },
+                Some(PlayerAction::DeclareAttackers {
+                    attackers: Vec::new(),
+                }),
+            ),
+            (
+                Pending::ChooseBlockers {
+                    player: p,
+                    attacker: PlayerId::new(1),
+                    blockers: vec![BlockOption {
+                        blocker: object(),
+                        attackers: vec![ObjectId::new(2, 0)],
+                    }],
+                },
+                Some(PlayerAction::DeclareBlockers {
+                    blockers: Vec::new(),
+                }),
+            ),
+            (
+                yes_no(YesNoPrompt::PayLifeOrEnterTapped { amount: 2 }),
+                no.clone(),
+            ),
+            (yes_no(YesNoPrompt::Kicker), no.clone()),
+            (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
+            (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
+            (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
+            (yes_no(YesNoPrompt::MayDo), no.clone()),
+            (yes_no(YesNoPrompt::Generic), no),
+            (yes_no(YesNoPrompt::CommanderZone { card: object() }), None),
+            (
+                yes_no(YesNoPrompt::CommanderReplace {
+                    card: object(),
+                    to_library: false,
+                }),
+                None,
+            ),
+            (
+                Pending::MulliganBottom {
+                    player: p,
+                    count: 1,
+                },
+                None,
+            ),
+            (
+                Pending::DiscardChoice {
+                    player: p,
+                    count: 1,
+                },
+                None,
+            ),
+            (
+                Pending::LegendChoice {
+                    player: p,
+                    options: vec![object()],
+                },
+                None,
+            ),
+            (
+                Pending::ChooseCards {
+                    player: p,
+                    options: vec![object()],
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::SearchLibrary,
+                },
+                None,
+            ),
+            (
+                Pending::ChooseTargets {
+                    player: p,
+                    options: vec![object()],
+                    player_options: vec![],
+                    min: 0,
+                    max: 1,
+                    reason: TargetPrompt::Targets,
+                },
+                None,
+            ),
+            (
+                Pending::ChooseSubtype {
+                    player: p,
+                    options: vec![],
+                },
+                None,
+            ),
+            (
+                Pending::ChooseColor {
+                    player: p,
+                    options: vec![],
+                },
+                None,
+            ),
+            (
+                Pending::ChooseCastMode {
+                    player: p,
+                    object: object(),
+                    options: vec![],
+                },
+                None,
+            ),
+            (
+                Pending::ChooseNumber {
+                    player: p,
+                    min: 0,
+                    max: 3,
+                },
+                None,
+            ),
+            (
+                Pending::ChoosePlayer {
+                    player: p,
+                    options: vec![p],
+                },
+                None,
+            ),
+            (
+                Pending::Arrange {
+                    player: p,
+                    cards: vec![object()],
+                    piles: vec![],
+                    prompt: ArrangePrompt::Order,
+                },
+                None,
+            ),
+            (
+                Pending::GameOver(GameResult {
+                    winner: None,
+                    reason: crate::win::EndReason::Draw,
+                }),
+                None,
+            ),
+        ];
+        for (pending, expected) in &cases {
+            assert_eq!(
+                timeout_answer(pending).as_ref(),
+                expected.as_ref(),
+                "{pending:?}"
+            );
+        }
+        // Every kind is in the table. The yes/no is one kind per prompt,
+        // because its prompts are answered differently.
+        let covered: std::collections::BTreeSet<usize> =
+            cases.iter().map(|(pending, _)| kind_of(pending)).collect();
+        assert_eq!(
+            covered,
+            (0..KINDS).collect(),
+            "a kind of question has no row in this table"
+        );
+    }
+
+    /// How many kinds [`kind_of`] tells apart.
+    const KINDS: usize = 16 + 9;
+
+    /// Which kind of question this is, numbered without gaps. No wildcard
+    /// arm: a new `Pending` variant or yes/no prompt does not compile here
+    /// until it has a number, and then the table above is missing it.
+    fn kind_of(pending: &Pending) -> usize {
+        match pending {
+            Pending::Mulligan { .. } => 0,
+            Pending::MulliganBottom { .. } => 1,
+            Pending::Priority { .. } => 2,
+            Pending::ChooseAttackers { .. } => 3,
+            Pending::ChooseBlockers { .. } => 4,
+            Pending::DiscardChoice { .. } => 5,
+            Pending::LegendChoice { .. } => 6,
+            Pending::ChooseCards { .. } => 7,
+            Pending::ChooseTargets { .. } => 8,
+            Pending::ChooseSubtype { .. } => 9,
+            Pending::ChooseColor { .. } => 10,
+            Pending::ChooseCastMode { .. } => 11,
+            Pending::ChooseNumber { .. } => 12,
+            Pending::ChoosePlayer { .. } => 13,
+            Pending::Arrange { .. } => 14,
+            Pending::GameOver(_) => 15,
+            Pending::YesNo { prompt, .. } => {
+                16 + match prompt {
+                    YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
+                    YesNoPrompt::Kicker => 1,
+                    YesNoPrompt::PayTax { .. } => 2,
+                    YesNoPrompt::Miracle { .. } => 3,
+                    YesNoPrompt::DrawOffer { .. } => 4,
+                    YesNoPrompt::CommanderZone { .. } => 5,
+                    YesNoPrompt::CommanderReplace { .. } => 6,
+                    YesNoPrompt::MayDo => 7,
+                    YesNoPrompt::Generic => 8,
+                }
+            }
+        }
     }
 
     // ---- the reserved index block -------------------------------------

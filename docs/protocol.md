@@ -668,6 +668,20 @@ question moved on cannot take another seat's decision. A stand-in is marked
 where `Session::pump` plays it. Both marks are set before the views of that
 answer are built, so the frames that carry the answer also say who gave it.
 
+**What the clock answers** (#258). The answer that does nothing, where the
+question has one (`baylee_engine::choice::timeout_answer`): pass priority,
+attack with nothing, block with nothing, keep the hand, and "no" to a yes/no
+whose decline leaves things alone (`YesNoPrompt::declining_does_nothing`).
+The house answers the rest: a discard, targets, a search, an ordering, and
+the two commander questions, where declining would cost the commander. The
+house also answers if the engine refuses the do-nothing answer
+(`Session::answer_by_clock` → `by_clock`), which a creature that must
+attack (CR 508.1d) or be blocked (CR 509.1c) could one day cause. A stand-in
+is still the house in full. Until #258 the clock was the house in full too,
+and it cast a timed-out seat's spells for it. A client needs no field to
+know the clock's answer: it calls `timeout_answer` on the `Pending` it was
+sent, and draws the countdown on the button that sends that action.
+
 Two things this does not do. **A replay does not carry it**: a replay
 re-applies actions, and who produced an action is not in the journal. That
 comes with the game log (`docs/game-log-design.md`). **Nothing escalates**: the
