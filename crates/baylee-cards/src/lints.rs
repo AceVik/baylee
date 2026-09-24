@@ -2920,4 +2920,131 @@ mod tests {
         );
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     }
+
+    /// The `CounterKind::Custom` ids a compiled definition carries, read off
+    /// its `Debug` rendering — the one `xtask pool-dump` writes.
+    ///
+    /// Read that way and not by walking the places a `CounterKind` can sit
+    /// (an entry modifier, a cost, an effect inside a branch, a condition, a
+    /// modifier, a granted ability, a token) because a walk names the doors
+    /// it knows and goes silent on the next one, where the rendering has
+    /// every field in it. `CounterKind::Custom` is the one variant named
+    /// `Custom` a definition can hold, so `Custom(` and digits is an id.
+    fn custom_counter_ids(rendered: &str) -> Vec<u16> {
+        rendered
+            .match_indices("Custom(")
+            .filter_map(|(at, open)| {
+                rendered[at + open.len()..]
+                    .split(')')
+                    .next()
+                    .and_then(|digits| digits.parse().ok())
+            })
+            .collect()
+    }
+
+    /// **Every custom counter the pool carries is an id
+    /// `counters::ASSIGNED` gives a word to.**
+    ///
+    /// Wishclaw Talisman's wish counters and Eumidian Hatchery's hatchling
+    /// counters were both `CounterKind::Custom(5)`, each behind a constant
+    /// local to its card, while the registry stopped at 4: two words, one
+    /// counter, and nothing that could see it — a proliferate or a "remove
+    /// a counter" would have treated each as the other. An id the registry
+    /// does not name is a number some other card can take next, so this
+    /// fails on one; `no_card_file_spells_a_counter_id_as_a_number` below is
+    /// the other half, and `counters`' own `no_two_counter_words_share_an_id`
+    /// keeps the registry's ids apart.
+    #[test]
+    fn every_custom_counter_in_the_pool_is_an_assigned_id() {
+        use crate::dsl::counters::ASSIGNED;
+        let assigned: Vec<u16> = ASSIGNED
+            .iter()
+            .filter_map(|(_, kind)| match kind {
+                crate::dsl::CounterKind::Custom(id) => Some(*id),
+                _ => None,
+            })
+            .collect();
+        let mut carriers = 0_usize;
+        let mut unassigned = Vec::new();
+        let rendered = crate::all()
+            .map(|def| (def.name(), format!("{def:?}")))
+            .chain(
+                crate::tokens::ALL
+                    .iter()
+                    .map(|token| (token.name, format!("{token:?}"))),
+            );
+        for (name, text) in rendered {
+            let ids = custom_counter_ids(&text);
+            carriers += usize::from(!ids.is_empty());
+            for id in ids {
+                if !assigned.contains(&id) {
+                    unassigned.push(format!("{name} carries CounterKind::Custom({id})"));
+                }
+            }
+        }
+        unassigned.sort();
+        unassigned.dedup();
+        assert!(
+            unassigned.is_empty(),
+            "a custom counter id no word in `counters::ASSIGNED` owns — assign \
+             the printed word an id there and write the constant:\n{}",
+            unassigned.join("\n")
+        );
+        // Measured 2026-09-24: 31 definitions carry one (the seventeen
+        // storage lands, ten depletion lands, Gemstone Mine, Luminarch
+        // Ascension, Wishclaw Talisman, Eumidian Hatchery). The floor is what
+        // keeps a changed `Debug` spelling from reading as a clean pool; the
+        // ceiling, twice that, is what keeps something that is not a counter
+        // from being read as one, and is the number to raise when the pool
+        // honestly outgrows it.
+        assert!(
+            (31..=62).contains(&carriers),
+            "{carriers} definitions carry a custom counter; the reader is not \
+             reading the pool's counters"
+        );
+    }
+
+    /// **No card file writes a counter id as a number.** It names the
+    /// constant `baylee_cards_dsl::counters` assigns (`counters::STORAGE`),
+    /// which the prelude carries.
+    ///
+    /// The half the compiled pool cannot see: a card that wrote
+    /// `CounterKind::Custom(5)` for a word of its own would compile to the
+    /// same value as `counters::WISH` and pass the sweep above, while being
+    /// a second word on one id — which is how Wishclaw Talisman and
+    /// Eumidian Hatchery came to share one. Comments are skipped, since the
+    /// cards that could not yet name a word say so in them.
+    #[test]
+    fn no_card_file_spells_a_counter_id_as_a_number() {
+        let mut offenders = Vec::new();
+        let mut naming = 0_usize;
+        for (name, text) in crate::tests::every_card_file() {
+            let code: String = text
+                .lines()
+                .map(|line| line.split("//").next().unwrap_or(""))
+                .collect::<Vec<_>>()
+                .join(" ");
+            if code.contains("Custom(") {
+                offenders.push(name);
+            } else if code.contains("counters::") {
+                naming += 1;
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "these card files write a `CounterKind::Custom` id by number; \
+             assign the word in `baylee_cards_dsl::counters` and name the \
+             constant: {offenders:?}"
+        );
+        // Measured 2026-09-24: 34 files say `counters::` outside a comment
+        // — the carriers above, plus the few whose coverage reason names a
+        // constant that does not exist yet. Floor and ceiling for the reason
+        // the sweep above has them: a stripper that took everything would
+        // find nothing, and one that took nothing would count the comments.
+        assert!(
+            (34..=68).contains(&naming),
+            "{naming} card files say `counters::` outside a comment; the \
+             reader is not reading the pool's cards"
+        );
+    }
 }

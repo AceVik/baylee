@@ -61,6 +61,12 @@ pub const MINING: CounterKind = CounterKind::Custom(3);
 /// (Fountain of Cho, Mage-Ring Network, Calciform Pools, …).
 pub const STORAGE: CounterKind = CounterKind::Custom(4);
 
+/// Wish counters (Wishclaw Talisman).
+pub const WISH: CounterKind = CounterKind::Custom(5);
+
+/// Hatchling counters (Eumidian Hatchery).
+pub const HATCHLING: CounterKind = CounterKind::Custom(6);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -71,6 +77,8 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("depletion", DEPLETION),
     ("mining", MINING),
     ("storage", STORAGE),
+    ("wish", WISH),
+    ("hatchling", HATCHLING),
 ];
 
 #[cfg(test)]

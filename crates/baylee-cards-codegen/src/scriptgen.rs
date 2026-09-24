@@ -6127,16 +6127,17 @@ mod tests {
             // Both doors a counter noun comes through. A word the registry
             // has not assigned an id to is refused at each of them, and
             // neither door may invent one — `counters::ASSIGNED` is where
-            // that decision is made. Hatchling counters are printed on one
-            // card in the corpus and have no id.
+            // that decision is made. Blaze counters (Obsidian Fireheart) are
+            // printed by no card in this pool and have no id. (This was
+            // hatchling until Eumidian Hatchery's word was assigned one.)
             (
                 "Name:X\nTypes:Creature\n\
-                 A:AB$ PutCounter | Cost$ T | CounterType$ HATCHLING | CounterNum$ 1",
-                "counter `HATCHLING`",
+                 A:AB$ PutCounter | Cost$ T | CounterType$ BLAZE | CounterNum$ 1",
+                "counter `BLAZE`",
             ),
             (
-                "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/HATCHLING>",
-                "counter `HATCHLING`",
+                "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/BLAZE>",
+                "counter `BLAZE`",
             ),
             // The count is read before the noun, and it is a number or
             // nothing: every one of the 434 `AddCounter<…>` costs in the

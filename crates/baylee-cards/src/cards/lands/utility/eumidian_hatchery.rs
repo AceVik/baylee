@@ -8,13 +8,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-/// Hatchling counters.
-///
-/// The id is assigned in `baylee_cards_dsl::counters`, which is the one place
-/// a card file cannot reach; it is named here so the use site is not a bare
-/// number, and it has to move there before a second card prints the word.
-const HATCHLING: CounterKind = CounterKind::Custom(5);
-
 // NOT SUPPORTED: "When this land is put into a graveyard from the battlefield, for each hatchling counter on it, create a 1/1 black Insect creature token with flying." — the trigger (`Trigger::Dies(&Filter::This)`) and the token (`INSECT_1_1_BLACK_FLYING`) are sayable, but `Amount` has no variant that counts the counters the land had as it left the battlefield: a move clears them, and the record kept of them is read only by undying and persist.
 
 card!(
@@ -34,7 +27,7 @@ card!(
         &[
             Effect::mana(ManaColor::Black, 1),
             Effect::AddCounter {
-                kind: HATCHLING,
+                kind: counters::HATCHLING,
                 amount: Amount::Fixed(1),
             },
         ],

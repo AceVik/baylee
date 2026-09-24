@@ -2865,7 +2865,7 @@ fn wishclaw_talisman_spends_a_wish_counter_and_hands_itself_to_an_opponent() {
     pass_until(&mut engine, stack_is_empty);
     let talisman = on_battlefield(&engine, p0, wishclaw_talisman()).expect("it resolved");
     assert_eq!(
-        counters_on(&engine, talisman, baylee_cards_dsl::CounterKind::Custom(5)),
+        counters_on(&engine, talisman, baylee_cards_dsl::counters::WISH),
         3,
         "\"enters with three wish counters on it\" — the number is printed"
     );
@@ -2902,7 +2902,7 @@ fn wishclaw_talisman_spends_a_wish_counter_and_hands_itself_to_an_opponent() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
-        counters_on(&engine, talisman, baylee_cards_dsl::CounterKind::Custom(5)),
+        counters_on(&engine, talisman, baylee_cards_dsl::counters::WISH),
         2,
         "one wish counter was the cost — three would mean the removal never \
          happened and the card could be activated for ever"

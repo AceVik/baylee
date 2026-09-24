@@ -428,7 +428,10 @@ express at all yet.
   `counters::DEPLETION`, never a bare `CounterKind::Custom(2)`. Adding one is
   a constant with a doc comment naming the printed word; a bare number is the
   collision the module exists to prevent, and the prelude carries `counters`
-  the way it carries `index`.
+  the way it carries `index`. Two lints hold the pool to it:
+  `every_custom_counter_in_the_pool_is_an_assigned_id` (the compiled pool
+  carries no id the registry does not name) and
+  `no_card_file_spells_a_counter_id_as_a_number` (no card writes one).
 
   `Cost::FREE` is the empty cost and `Cost::TAP` a bare `{T}` — the two the
   macro would spell with no argument and one, and between them what two

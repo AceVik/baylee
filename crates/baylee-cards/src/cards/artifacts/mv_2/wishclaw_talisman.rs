@@ -8,11 +8,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-/// Wish counters — this card's own, and not yet one of the words
-/// `baylee_cards_dsl::counters` assigns. The id below is the next free one,
-/// so moving it into that module later renumbers nothing.
-const WISH: CounterKind = CounterKind::Custom(5);
-
 card!(
     index = index::WISHCLAW_TALISMAN,
     oracle_id = "81c70ae7-3c18-4c9b-8505-e4db9e0e6518",
@@ -23,7 +18,7 @@ card!(
         mana_cost = mana!("{1}{B}"),
         types = TypeSet::ARTIFACT,
         enter_modifiers = &[EnterModifier::WithCounters {
-            kind: WISH,
+            kind: counters::WISH,
             amount: Amount::Fixed(3),
         }],
     ),],
@@ -38,7 +33,14 @@ card!(
     // turn. SorcerySpeed is a stricter, different card and is not the
     // printed sentence.
     abilities = &[activated!(
-        cost!("{1}", TapSelf, RemoveCounterSelf { kind: WISH, n: 1 }),
+        cost!(
+            "{1}",
+            TapSelf,
+            RemoveCounterSelf {
+                kind: counters::WISH,
+                n: 1
+            }
+        ),
         &[
             Effect::SearchLibrary {
                 filter: &Filter::Any,
