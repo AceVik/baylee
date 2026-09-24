@@ -31,7 +31,7 @@
 
 use crate::arrange::{Arrangement, Nudge, Row};
 use crate::i18n::{Lang, Phrase, seat_name};
-use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
     ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending,
@@ -93,6 +93,12 @@ pub enum Prompt {
     Waiting {
         /// Who the game is waiting for, when it is waiting for a player.
         on: Option<PlayerId>,
+    },
+    /// This seat has kept its opening hand and other seats have not: built
+    /// by [`Prompt::after_keeping`], never from a pending question.
+    Deciding {
+        /// The seats still deciding, never empty and never this one.
+        others: SeatSet,
     },
     /// Keep or mulligan.
     Mulligan {
@@ -245,6 +251,20 @@ fn held_by_the_house(statics: Option<&GameStatic>, player: PlayerId) -> bool {
 }
 
 impl Prompt {
+    /// What the bar says to a seat that has kept its opening hand while
+    /// others are still deciding theirs (#257), or `None`.
+    ///
+    /// Read off the view because there is no question to read it off: a host
+    /// sends each seat only its own, so from its keep until turn 1 this seat
+    /// holds none, and the shelf stood empty over a hand that could not be
+    /// played. `None` while this seat is still deciding (its own question is
+    /// the sentence then) and from turn 1 on, when `deciding` is empty.
+    #[must_use]
+    pub fn after_keeping(view: &PlayerView) -> Option<Self> {
+        let others = view.deciding;
+        (!others.is_empty() && !others.contains(view.seat)).then_some(Self::Deciding { others })
+    }
+
     /// A short line for the prompt bar.
     ///
     /// `statics` is the roster, and it is here for the two lines that are
@@ -273,6 +293,17 @@ impl Prompt {
                 }
             }
             Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
+            // One seat by name, as any other wait; several by count, because
+            // eight names do not fit the shelf and the carets already point
+            // at each of them.
+            Self::Deciding { others } => match others.len() {
+                0 => Phrase::JustWaiting.text(lang).to_string(),
+                1 => Self::Waiting {
+                    on: others.iter().next(),
+                }
+                .headline(lang, turn, statics, owing),
+                n => Phrase::WaitingForPlayers.fill(lang, &[&n.to_string()]),
+            },
             Self::Mulligan { taken, free } => {
                 if *free {
                     Phrase::MulliganFree.text(lang).to_string()

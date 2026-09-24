@@ -1109,6 +1109,13 @@ messages! {
     /// is the prompt bar speaking in its own voice, and German conjugates
     /// the two differently.
     WaitingForPlayer { en: "Waiting for {0}", de: "Warte auf {0}" },
+    /// Waiting for {0} players
+    ///
+    /// The bar's line to a seat that has kept while several others still
+    /// decide their opening hands (#257); one other is named, with
+    /// [`Phrase::WaitingForPlayer`]. `{0}` is always two or more, so there
+    /// is no singular to write (German "Spieler" is both anyway).
+    WaitingForPlayers { en: "Waiting for {0} players", de: "Warte auf {0} Spieler" },
     /// Waiting for the house — {0} is away
     ///
     /// The same fact as [`Phrase::WaitingForPlayer`] about a chair the house

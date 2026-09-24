@@ -578,14 +578,15 @@ pub struct SeatPod {
     pub is_local: bool,
     /// Whether it is this seat's turn.
     pub is_active: bool,
-    /// Whether this is the seat the engine is waiting on an answer from.
+    /// Whether this is a seat the engine is waiting on an answer from:
+    /// [`is_awaited`], which says why there can be several.
     ///
-    /// It mirrors [`baylee_view::PlayerView::awaiting`] and carries its word
-    /// deliberately. It was `has_priority` off a `priority` that the host fed
-    /// from the *priority holder*, so a seat asked to declare blockers or to
-    /// discard — neither of which is a priority pass — read as waited-for by
-    /// nobody, and every surface below went quiet on exactly the questions a
-    /// player most needs pointing at.
+    /// It carries [`baylee_view::PlayerView::awaiting`]'s word deliberately.
+    /// It was `has_priority` off a `priority` that the host fed from the
+    /// *priority holder*, so a seat asked to declare blockers or to discard —
+    /// neither of which is a priority pass — read as waited-for by nobody,
+    /// and every surface below went quiet on exactly the questions a player
+    /// most needs pointing at.
     pub is_awaited: bool,
     /// Who is answering for this chair.
     ///
@@ -1485,6 +1486,28 @@ fn individual_objects(view: &PlayerView) -> HashMap<ObjectId, Individual> {
     map
 }
 
+/// Whether the table is waiting on `player` to answer something.
+///
+/// From turn 1 on that is one seat, [`PlayerView::awaiting`], the same in
+/// every view. Before it every seat decides its opening hand at once (#257),
+/// and `awaiting` names only this view's own seat, and only until it keeps:
+/// the others still deciding are [`PlayerView::deciding`]. Reading
+/// `awaiting` alone there lit this seat's rim and caret and nobody else's,
+/// so a player who had kept saw a table waiting on no one while it waited
+/// on three.
+///
+/// One predicate for every surface that marks a waited-on seat (the mat's
+/// rim through [`SeatPod::is_awaited`], the seat bar's caret), so they cannot
+/// disagree about who that is.
+#[must_use]
+pub fn is_awaited(view: &PlayerView, player: PlayerId) -> bool {
+    if view.deciding.is_empty() {
+        view.awaiting == Some(player)
+    } else {
+        view.deciding.contains(player)
+    }
+}
+
 fn build_pod(
     view: &PlayerView,
     player: PlayerId,
@@ -1561,7 +1584,7 @@ fn build_pod(
         has_lost: seat.is_some_and(baylee_view::SeatView::has_lost),
         is_local: player == view.seat,
         is_active: player == view.active,
-        is_awaited: view.awaiting == Some(player),
+        is_awaited: is_awaited(view, player),
         role,
         lanes,
         piles: zone_piles(view, player),

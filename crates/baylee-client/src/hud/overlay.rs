@@ -175,15 +175,6 @@ pub fn sync_overlay(
     // `GameEnded`, and a red "the connection to the table was lost" under
     // "You won" would be reporting a loss that cost the player nothing.
     let over = duel.ending().is_some();
-    // Whose turn it is, for the one line that changes with it. A seat holds
-    // priority on every turn at the table, so the bar has to be told which
-    // one this is or it says "Your move" through the whole game.
-    let turn = duel
-        .view
-        .as_ref()
-        .map_or(baylee_client_core::Turn::Mine, |v| {
-            baylee_client_core::Turn::of(v.active, v.seat)
-        });
     // The client's own cast chooser speaks in the bar's own voice while it
     // stands. The engine is holding an ordinary priority window behind it —
     // which is exactly the window this client has to ask *inside*, because
@@ -194,28 +185,7 @@ pub fn sync_overlay(
         .as_ref()
         .filter(|_| !over)
         .map(|m| (m.card, m.modes.len(), m.pick));
-    let prompt = duel
-        .cast_menu
-        .as_ref()
-        .filter(|_| !over)
-        .map(|m| {
-            m.prompt().headline(
-                lang,
-                turn,
-                duel.statics.as_ref(),
-                duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
-            )
-        })
-        .or_else(|| {
-            duel.interaction.as_ref().filter(|_| !over).map(|i| {
-                i.prompt().headline(
-                    lang,
-                    turn,
-                    duel.statics.as_ref(),
-                    duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
-                )
-            })
-        });
+    let prompt = duel.headline(lang);
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an
     // answer precisely while a question is standing. The player clicked, the
@@ -2321,6 +2291,49 @@ mod tests {
         assert!(
             !lines.contains(&words),
             "nobody is holding anything and the shelf said otherwise: {lines:?}"
+        );
+    }
+
+    /// A seat that has kept its opening hand while another is still deciding
+    /// (#257) holds no question — a host sends each seat only its own — and
+    /// the shelf says who it is waiting on instead of standing empty.
+    ///
+    /// Run through the ledge and read off its tree, because the sentence is
+    /// a third source behind the cast chooser and the question
+    /// (`Duel::headline`) and the join is the part that can be left out. The
+    /// counter-half is turn 1: the same seat, holding no question, with
+    /// `deciding` empty, says nothing of the kind.
+    #[test]
+    fn a_seat_that_has_kept_is_told_who_is_still_deciding() {
+        let shelf = |deciding: &[u8]| {
+            let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+            view.awaiting = None;
+            view.deciding = deciding.iter().copied().map(PlayerId::new).collect();
+            let mut statics = baylee_client_core::test_support::statics(8);
+            statics.seats.push(baylee_view::SeatIdentity {
+                player: PlayerId::new(1),
+                display_name: "sharp 1".to_string(),
+                is_ai: false,
+                away: false,
+                team: None,
+            });
+            let mut duel = Duel {
+                view: Some(view),
+                statics: Some(statics),
+                ..Duel::default()
+            };
+            crate::rebuild_board(&mut duel);
+            said(&mut bar_of(duel))
+        };
+        let kept = shelf(&[1]);
+        assert!(
+            kept.contains(&"Waiting for sharp 1".to_string()),
+            "the shelf names the seat still deciding: {kept:?}"
+        );
+        let turn_one = shelf(&[]);
+        assert!(
+            !turn_one.iter().any(|line| line.starts_with("Waiting for")),
+            "nobody is deciding and the shelf said somebody was: {turn_one:?}"
         );
     }
 

@@ -144,6 +144,57 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
     );
 }
 
+/// A seat that has kept its opening hand while others still decide theirs
+/// (#257) holds no question, and the bar says who it is waiting on.
+///
+/// Four views of one table of four, seat 0's: still deciding itself (its
+/// own question is the sentence, so nothing here), kept with one other
+/// seat left (named, as any other wait is), kept with two left (counted),
+/// and turn 1 (nothing: `deciding` is empty and whatever is asked then
+/// arrives as a question).
+#[test]
+fn a_seat_that_has_kept_is_told_who_is_still_deciding() {
+    let mut roster = crate::test_support::statics(0);
+    roster.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(2),
+        display_name: "AceVik".to_string(),
+        is_ai: false,
+        away: false,
+        team: None,
+    });
+    let at = |deciding: &[u8]| {
+        let mut view = crate::test_support::ViewBuilder::new(4).build();
+        view.seat = me();
+        view.awaiting = deciding.contains(&me().get()).then_some(me());
+        view.deciding = deciding.iter().copied().map(PlayerId::new).collect();
+        Prompt::after_keeping(&view)
+    };
+
+    assert!(
+        at(&[0, 2]).is_none(),
+        "this seat is still deciding, and its own question says so"
+    );
+    let one = at(&[2]).expect("seat 2 is still deciding");
+    assert_eq!(
+        one.headline(Lang::En, Turn::Mine, Some(&roster), false),
+        "Waiting for AceVik"
+    );
+    assert_eq!(
+        one.headline(Lang::De, Turn::Mine, Some(&roster), false),
+        "Warte auf AceVik"
+    );
+    let two = at(&[1, 3]).expect("seats 1 and 3 are still deciding");
+    assert_eq!(
+        two.headline(Lang::En, Turn::Mine, Some(&roster), false),
+        "Waiting for 2 players"
+    );
+    assert_eq!(
+        two.headline(Lang::De, Turn::Mine, Some(&roster), false),
+        "Warte auf 2 Spieler"
+    );
+    assert!(at(&[]).is_none(), "from turn 1 on nobody is deciding");
+}
+
 /// The word for a held chair, on the one line that needed it.
 ///
 /// #81 gave a chair the house is holding a dashed rim on its mat and no

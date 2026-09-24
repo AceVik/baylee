@@ -2603,6 +2603,43 @@ returned to the lobby on every `Failed` would eject a player for a misclick.
 Nothing reads `DuelReport` yet; `Unreachable` exists so that whatever does can
 match on it rather than on prose.
 
+### Everyone decides their opening hand at once (#257)
+
+Before turn 1 every seat is asked its keep-or-mulligan, and then its bottom
+cards, at the same time, and turn 1 begins when the last seat has kept (a
+house rule over CR 103.5's turn order; the engine's mulligan says so). The
+view carries it from `VIEW_VERSION` 32: `PlayerView::deciding` is the seats
+still deciding, empty from turn 1 on, and while it is not empty `awaiting` is
+per view — this seat while it decides, nobody once it has kept — and
+`decision_remaining_ms` is this seat's own remainder or nothing
+(docs/protocol.md §"How long a seat has left"). Three readers follow.
+
+- **Who the table waits on is one predicate.** `board::is_awaited(view,
+  player)` reads `deciding` while it is not empty and `awaiting` otherwise.
+  The mat's rim (`Standing::Asked`, through `SeatPod::is_awaited`) and the
+  seat bar's caret both call it, so before turn 1 every seat still deciding
+  glows and wears the caret at once. Read off `awaiting` alone, a seat that
+  had kept saw a table waiting on nobody.
+- **A seat that has kept is told who it waits on.** A host sends each seat
+  only its own question and `flush_outbox` drops the interaction once the
+  answer is sent, so from its keep until turn 1 a seat holds no question and
+  the shelf stood empty over a hand it could not play yet.
+  `Prompt::after_keeping` reads the view instead: "Waiting for {name}" for
+  one seat, "Waiting for {n} players" for several (the carets say which).
+  `Duel::headline` is the one chain — the cast chooser, else the question,
+  else this — that the ledge draws and the overlay rebuilds on.
+- **The clock needed nothing.** `DecisionClock::sync` already counts only
+  when `awaiting` is this seat, which in the window is this seat's own
+  question; a seat that has kept is shown no other seat's clock, because with
+  several running a bare number would not say whose it is.
+
+Two readers of `awaiting` are left alone on purpose: the stack panel's
+"waiting for" line, because the panel is only drawn over a non-empty stack
+and there is none before turn 1, and `compute_owed_plan`, because no payment
+window opens before turn 1 either. Against the house offline none of this is
+visible: the house keeps for its chair before the first view is sent, so the
+wait only appears at a table of two or more players.
+
 ## The lobby
 
 Without a ticket the binary adds `LobbyPlugin` (`src/lobby.rs`) instead of

@@ -851,6 +851,9 @@ fn ink_of(seat: &SeatView) -> Color {
 /// The priority caret: its own column, always drawn, invisible when the seat
 /// is not holding priority.
 ///
+/// "Holding" is [`baylee_client_core::board::is_awaited`], the mat rim's own
+/// predicate: before turn 1 every seat still deciding its hand wears one.
+///
 /// Invisible rather than absent for the reason the seat tab's was: a caret
 /// that took its width with it moved the whole bar sideways every time
 /// priority passed, which is several times a turn.
@@ -862,7 +865,7 @@ fn caret(
     width: f32,
     height: f32,
 ) -> Entity {
-    let holding = view.awaiting == Some(seat.player);
+    let holding = baylee_client_core::board::is_awaited(view, seat.player);
     commands
         .spawn((
             SeatInk {
@@ -1756,6 +1759,62 @@ mod tests {
                 said(&mut other)
             );
         }
+    }
+
+    /// Before turn 1 every seat still deciding its opening hand wears the
+    /// caret (#257), not only the one this view's `awaiting` names — which
+    /// is this seat until it keeps and nobody after. The caret asks the mat
+    /// rim's own predicate, so this is also the proof that it does.
+    #[test]
+    fn every_seat_still_deciding_its_hand_wears_the_caret() {
+        fn draw_carets(mut commands: Commands, asked: Res<Asked>, fonts: Res<UiFonts>) {
+            for seat in &asked.view.seats {
+                caret(&mut commands, &asked.view, seat, &fonts, 12.0, 22.0);
+            }
+        }
+        // Seat 0's view, as `awaiting` and `deciding` would have it.
+        let lit = |awaiting: Option<u8>, deciding: &[u8]| -> Vec<u8> {
+            let mut view = ViewBuilder::new(2).build();
+            view.awaiting = awaiting.map(PlayerId::new);
+            view.deciding = deciding.iter().copied().map(PlayerId::new).collect();
+            let mut app = App::new();
+            app.insert_resource(Asked {
+                lang: Lang::En,
+                role: SeatRole::Present,
+                statics: baylee_client_core::test_support::statics(1),
+                view,
+            })
+            .insert_resource(fonts())
+            .add_systems(Update, draw_carets);
+            app.update();
+            let world = app.world_mut();
+            let carets: Vec<(PlayerId, Vec<Entity>)> = world
+                .query::<(&SeatInk, &Children)>()
+                .iter(world)
+                .map(|(ink, kids)| (ink.player, kids.to_vec()))
+                .collect();
+            assert_eq!(carets.len(), 2, "one caret per seat");
+            let mut lit: Vec<u8> = carets
+                .into_iter()
+                .filter(|(_, kids)| {
+                    kids.iter().any(|kid| {
+                        world
+                            .get::<TextColor>(*kid)
+                            .is_some_and(|c| c.0 != Color::NONE)
+                    })
+                })
+                .map(|(player, _)| player.get())
+                .collect();
+            lit.sort_unstable();
+            lit
+        };
+        assert_eq!(lit(Some(0), &[0, 1]), [0, 1], "nobody has kept yet");
+        assert_eq!(
+            lit(None, &[1]),
+            [1],
+            "seat 0 has kept and its view names nobody, but seat 1 is still deciding"
+        );
+        assert_eq!(lit(Some(1), &[]), [1], "turn 1: the one seat asked");
     }
 
     /// A chair the house plays is called the house in the player's language,

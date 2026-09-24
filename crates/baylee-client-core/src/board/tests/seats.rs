@@ -91,6 +91,39 @@ fn the_awaited_seat_is_the_one_reported_on_the_pod() {
     assert!(m.pods.iter().all(|p| !p.is_awaited));
 }
 
+/// Before turn 1 every seat decides its opening hand at once (#257), and a
+/// view's `awaiting` names only its own seat, and only until it keeps. Every
+/// seat in `deciding` is waited on then, whatever `awaiting` says; from
+/// turn 1 on `deciding` is empty and `awaiting` alone decides again.
+#[test]
+fn every_seat_still_deciding_its_hand_is_awaited() {
+    let awaited = |view: &PlayerView| -> Vec<u8> {
+        let mut seats: Vec<u8> = model(view)
+            .pods
+            .iter()
+            .filter(|p| p.is_awaited)
+            .map(|p| p.player.get())
+            .collect();
+        seats.sort_unstable();
+        seats
+    };
+    let mut view = ViewBuilder::new(3).with_awaiting(Some(0)).build();
+    view.deciding = [0, 1, 2].map(PlayerId::new).into_iter().collect();
+    assert_eq!(awaited(&view), [0, 1, 2], "nobody has kept yet");
+
+    view.awaiting = None;
+    view.deciding = [1, 2].map(PlayerId::new).into_iter().collect();
+    assert_eq!(
+        awaited(&view),
+        [1, 2],
+        "this seat has kept and its view names nobody, but two seats are still deciding"
+    );
+
+    view.awaiting = Some(PlayerId::new(1));
+    view.deciding = baylee_core::ids::SeatSet::new();
+    assert_eq!(awaited(&view), [1], "turn 1: the one seat asked");
+}
+
 /// Who is answering for a chair comes off the roster, not the view.
 ///
 /// The three states a chair can be in, each read from the payload that

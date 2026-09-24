@@ -714,6 +714,51 @@ impl Duel {
         }
     }
 
+    /// The sentence the shelf speaks, if any: the client's own cast chooser
+    /// while it stands, else the question being asked, else — with no
+    /// question — the opening-hand wait (`Prompt::after_keeping`). Nothing
+    /// once the game is over, which the end screen says instead.
+    ///
+    /// One method because two systems ask it: the ledge, which draws it, and
+    /// the overlay, which rebuilds on it. Two copies of the chain would be
+    /// two places for a third source to be added to one of.
+    #[must_use]
+    pub fn headline(&self, lang: baylee_client_core::i18n::Lang) -> Option<String> {
+        if self.ending().is_some() {
+            return None;
+        }
+        let prompt = self
+            .cast_menu
+            .as_ref()
+            .map(CastMenu::prompt)
+            .or_else(|| {
+                self.interaction
+                    .as_ref()
+                    .map(baylee_client_core::Interaction::prompt)
+            })
+            .or_else(|| {
+                self.view
+                    .as_ref()
+                    .and_then(baylee_client_core::interaction::Prompt::after_keeping)
+            })?;
+        // Whose turn it is, for the one line that changes with it. A seat
+        // holds priority on every turn at the table, so the bar has to be
+        // told which one this is or it says "Your move" through the whole
+        // game.
+        let turn = self
+            .view
+            .as_ref()
+            .map_or(baylee_client_core::Turn::Mine, |v| {
+                baylee_client_core::Turn::of(v.active, v.seat)
+            });
+        Some(prompt.headline(
+            lang,
+            turn,
+            self.statics.as_ref(),
+            self.view.as_ref().is_some_and(|v| v.owed.is_some()),
+        ))
+    }
+
     /// Queues an action for the host.
     ///
     /// Queuing rather than sending directly keeps every mutation of the game on

@@ -813,36 +813,9 @@ pub fn sync_ledge(
     // column simply empties — see `sync_overlay`'s own note, which this is
     // the other half of.
     let over = duel.ending().is_some();
-    let turn = duel
-        .view
-        .as_ref()
-        .map_or(baylee_client_core::Turn::Mine, |v| {
-            baylee_client_core::Turn::of(v.active, v.seat)
-        });
     let waiting = !duel.is_my_turn_to_act();
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
-    let prompt = duel
-        .cast_menu
-        .as_ref()
-        .filter(|_| !over)
-        .map(|m| {
-            m.prompt().headline(
-                lang,
-                turn,
-                duel.statics.as_ref(),
-                duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
-            )
-        })
-        .or_else(|| {
-            duel.interaction.as_ref().filter(|_| !over).map(|i| {
-                i.prompt().headline(
-                    lang,
-                    turn,
-                    duel.statics.as_ref(),
-                    duel.view.as_ref().is_some_and(|v| v.owed.is_some()),
-                )
-            })
-        });
+    let prompt = duel.headline(lang);
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
