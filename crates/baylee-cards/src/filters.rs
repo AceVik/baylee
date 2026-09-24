@@ -19,7 +19,7 @@
 //! reordered wholesale; the cards that changed are named in that commit.
 
 use baylee_cards_dsl::Filter;
-use baylee_core::generated::subtypes::creature;
+use baylee_core::generated::subtypes::{creature, land};
 
 /// "Allies you control", counting the source itself.
 ///
@@ -48,6 +48,30 @@ pub static ANOTHER_ALLY: Filter = Filter::And(&[
     Filter::HasSubtype(creature::ALLY),
     Filter::ControlledByYou,
     Filter::Another,
+]);
+
+/// "An Urza's Mine": a land with both land types, Urza's and Mine
+/// (CR 205.3i lists each), whatever its name. The Oracle text spells the
+/// other two with the type's hyphen — "Urza's Power-Plant", where the card
+/// is named Urza's Power Plant — which is how it says types and not names.
+/// Read by Urza's Power Plant and Urza's Tower.
+pub static URZA_S_MINE: Filter = Filter::And(&[
+    Filter::HasSubtype(land::URZA_S),
+    Filter::HasSubtype(land::MINE),
+]);
+
+/// "An Urza's Power-Plant", as [`URZA_S_MINE`]. Read by Urza's Mine and
+/// Urza's Tower.
+pub static URZA_S_POWER_PLANT: Filter = Filter::And(&[
+    Filter::HasSubtype(land::URZA_S),
+    Filter::HasSubtype(land::POWER_PLANT),
+]);
+
+/// "An Urza's Tower", as [`URZA_S_MINE`]. Read by Urza's Mine and Urza's
+/// Power Plant.
+pub static URZA_S_TOWER: Filter = Filter::And(&[
+    Filter::HasSubtype(land::URZA_S),
+    Filter::HasSubtype(land::TOWER),
 ]);
 
 #[cfg(test)]

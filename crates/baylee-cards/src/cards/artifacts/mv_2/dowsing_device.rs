@@ -7,8 +7,8 @@
 //! Face: Dowsing Device — {1}{R} — Artifact
 //! Face: Geode Grotto —  — Land — Cave
 // PARTIAL — the artifact-enters pump trigger and both Geode Grotto abilities
-// are built; the "Then transform …" clause is not (see the NOT SUPPORTED line
-// beside the ability).
+// are built; the "Then transform …" clause is not (see the NOT SUPPORTED
+// block at the end).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -55,8 +55,8 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "the transform clause — no Effect branches on how many permanents you \
-         control, and ExileSelfReturnAsFace is unconditional"
+        "the transform clause — no Effect transforms a permanent in place, and \
+         ExileSelfReturnAsFace returns a new object that enters the battlefield"
     ),
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&Filter::Or(&[
@@ -76,9 +76,10 @@ card!(
 );
 
 // NOT SUPPORTED: "Then transform this artifact if you control four or more
-// artifacts." No Effect runs a branch on a count of permanents a player
-// controls — IfControlGreatestCmc compares mana values, and
-// Condition::ControlCount is an activation / intervening-`if` condition that
-// would gate the whole trigger, including the pump that prints no condition.
-// ExileSelfReturnAsFace is the transform shape, but it is unconditional and
-// exiles the permanent, which the printed transform does not.
+// artifacts." The condition is sayable — `Effect::IfCondition` over
+// `Condition::ControlCount(&Filter::YOUR_ARTIFACT, 4)` gates only the
+// transform and not the pump — but the transform is not. To transform is to
+// turn the permanent over (CR 701.27a), and it does not become a new object
+// (CR 712.18). `ExileSelfReturnAsFace` exiles it and returns it, which is a
+// new object entering the battlefield: Geode Grotto would trigger landfall,
+// and anything that applied to the Device would be gone.

@@ -1709,14 +1709,9 @@ fn dispatch() -> baylee_core::ids::CardIndex {
     card_index("133c99c0-3652-410f-8100-68015a47af9f")
 }
 
-/// Dispatch, {W}: "Tap target creature." — the half of the card that is
-/// built, played against a board that leaves the other half nothing to say.
-///
-/// The card is `Coverage::Partial`: the metalcraft line that exiles the
-/// creature is not modelled. p0 controls one Plains and no artifact at all,
-/// so the unbuilt clause has nothing to fire on and this scenario stays the
-/// same scenario once it is built — nothing below asserts about it either
-/// way.
+/// Dispatch, {W}: "Tap target creature." — played against a board with no
+/// artifact at all, so the metalcraft line has nothing to fire on; the test
+/// after this one is about that line.
 ///
 /// Reading the card cannot replace this, because every assertion here is
 /// about what the *engine* offered and did. "Target creature" is a filter,
@@ -1797,6 +1792,56 @@ fn dispatch_taps_the_creature_it_names_and_leaves_the_one_beside_it_untapped() {
         in_graveyard(&engine, p0, dispatch()).is_some(),
         "a resolved instant goes to its owner's graveyard"
     );
+}
+
+/// Dispatch's second line: "Metalcraft — If you control three or more
+/// artifacts, exile that creature."
+///
+/// Read on both sides of the number, because "three or more" is the whole
+/// sentence: two Sol Rings leave the Elf tapped where it stood, and a third
+/// exiles it. The Sol Rings are tapped for mana on the way in, which is
+/// deliberate — a tapped artifact is still one you control.
+#[test]
+fn dispatch_exiles_the_creature_it_tapped_at_three_artifacts_and_not_at_two() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for artifacts in [2, 3] {
+        let mut board = vec![plains()];
+        board.extend(std::iter::repeat_n(quiet_artifact(), artifacts));
+        let mut engine = Duel::new(97, plains())
+            .battlefield(0, &board)
+            .hand(0, &[dispatch()])
+            .battlefield(1, &[llanowar_elves()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+        let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elf");
+
+        cast_from_hand(&mut engine, p0, dispatch());
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+            .expect("the Elf is a legal target");
+        pass_until(&mut engine, stack_is_empty);
+
+        let exiled = engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .iter()
+            .any(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == llanowar_elves()))
+            });
+        if artifacts == 3 {
+            assert!(exiled, "three artifacts: \"exile that creature\"");
+            assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
+        } else {
+            assert!(!exiled, "two artifacts are not metalcraft");
+            let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("the Elf stayed");
+            assert!(is_tapped(&engine, elf), "and it was still tapped");
+        }
+    }
 }
 
 // oracle_id = "ce19962d-94f9-4b2b-b668-963c0acce308"

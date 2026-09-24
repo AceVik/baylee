@@ -9232,6 +9232,69 @@ fn kenrith_the_returned_king() -> CardIndex {
     card_index("d209b948-9afb-4fd1-a961-72c87282878c")
 }
 
+/// Kenrith's black line: "{4}{B}: Put target creature card from a graveyard
+/// onto the battlefield under its owner's control."
+///
+/// Both halves are read on one board. "A graveyard" names no player, so an
+/// Elf in each graveyard is offered; the one taken is the opponent's, and
+/// "its owner's control" puts it on their side of the table, where the
+/// ordinary reanimation sentence would have put it on Kenrith's.
+#[test]
+fn kenrith_returns_a_creature_card_from_any_graveyard_to_its_owner() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(
+            0,
+            &[
+                kenrith_the_returned_king(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 1);
+    let mine = in_graveyard(&engine, p0, llanowar_elves()).expect("an Elf in p0's graveyard");
+    let theirs = in_graveyard(&engine, p1, llanowar_elves()).expect("an Elf in p1's graveyard");
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, kenrith_the_returned_king(), 4);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the graveyard target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "\"from a graveyard\": both graveyards are offered — {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .expect("a creature card in a graveyard is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "\"under its owner's control\": the Elf came back on p1's side"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "and not on Kenrith's"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "p0's own Elf was not the target and stayed where it was"
+    );
+}
+
 /// Kenrith is a 5/5 for {4}{W} whose red and green lines are both written,
 /// and this scenario plays them off one first main phase. The red one is the
 /// reason the test exists: "{R}: All creatures gain trample and haste until
@@ -13308,10 +13371,8 @@ fn ojer_pakpatiq_dies_and_comes_back_as_the_land_on_its_other_face() {
 /// creature carries an offer its face alone does not explain — a 1/2 flier
 /// with no printed activated ability, standing there with one.
 ///
-/// The file is `Coverage::Partial` for the Cadet token, which is the larger
-/// half of Peer Review and has no entry in `crate::tokens`; the surveil
-/// beside it is built. Nothing below casts the copy, so what is asserted is
-/// the marker and the offer rather than the spell's own text.
+/// Nothing below casts the copy, so what is asserted is the marker and the
+/// offer rather than the spell's own text; the next test casts Peer Review.
 #[test]
 fn fatehold_chronologist_enters_prepared_and_carries_the_offer_that_buys() {
     let p0 = PlayerId::new(0);
@@ -13357,6 +13418,83 @@ fn fatehold_chronologist_enters_prepared_and_carries_the_offer_that_buys() {
          printed front face has no activated ability of its own, so this \
          offer is the prepared marker and nothing else: {:?}",
         legal.abilities
+    );
+}
+
+/// Peer Review, Fatehold Chronologist's back face: "Create a 2/2 colorless
+/// Wizard Soldier creature token named Cadet. Surveil 1."
+///
+/// Cast from hand as the sorcery, so the Cadet is the spell's own and not
+/// the prepared copy's. The token is read for every printed word — the
+/// name, both creature types, the 2/2 and no colour — because a registry
+/// entry that differed in one of them would still be *a* token.
+#[test]
+fn peer_review_makes_a_cadet_and_then_surveils_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .hand(0, &[fatehold_chronologist()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "no tokens before the spell"
+    );
+
+    cast_from_hand(&mut engine, p0, fatehold_chronologist());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!(
+            "a card with two castable faces asks which, got {:?}",
+            engine.pending()
+        )
+    };
+    let review = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Face(1)))
+        .expect("Peer Review, the back face, is one of the offers");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(review))
+        .expect("the mode the question enumerated");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::Arrange {
+                prompt: ArrangePrompt::Surveil,
+                ..
+            }
+        )
+    });
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one token, before the surveil is answered");
+    let cadet = engine
+        .state()
+        .object(tokens[0])
+        .expect("the token")
+        .characteristics();
+    assert_eq!(engine.state().names.get(cadet.name), "Cadet");
+    assert!(cadet.types.contains(TypeSet::CREATURE));
+    assert!(
+        cadet
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::WIZARD)
+    );
+    assert!(
+        cadet
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::SOLDIER)
+    );
+    assert!(cadet.colors.is_empty(), "colorless");
+    assert_eq!(pt(&engine, tokens[0]), (2, 2));
+
+    assert!(
+        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
+        "the surveil is answered and the game comes to rest"
+    );
+    assert!(
+        in_graveyard(&engine, p0, fatehold_chronologist()).is_some(),
+        "the card went to the graveyard as a resolved sorcery"
     );
 }
 
@@ -15389,11 +15527,10 @@ fn shaleskin_bruiser_tramples_and_does_not_grow_beside_other_beasts() {
 
 /// Sphinx of the Final Word: hexproof, read as a target offer.
 ///
-/// The two "can't be countered" clauses are refused by name; hexproof and
-/// flying are what the card carries, and hexproof is the one a game can put a
-/// number on. An opponent's Swords to Plowshares is offered the Elf beside
-/// the Sphinx and not the Sphinx — a difference in one creature's keywords
-/// and in nothing else about the board.
+/// An opponent's Swords to Plowshares is offered the Elf beside the Sphinx
+/// and not the Sphinx — a difference in one creature's keywords and in
+/// nothing else about the board. The two "can't be countered" sentences are
+/// the two tests below.
 #[test]
 fn sphinx_of_the_final_word_is_no_target_for_an_opponents_spell() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -15427,6 +15564,109 @@ fn sphinx_of_the_final_word_is_no_target_for_an_opponents_spell() {
         !options.contains(&sphinx),
         "and the Sphinx is not, which is hexproof (CR 702.11b): {options:?}"
     );
+}
+
+/// The opponent's answer to a spell on the stack: pass to them, tap two of
+/// their Islands, and point a Counterspell at it.
+fn counter_with_two(engine: &mut Engine<RegistryLookup>, spell: ObjectId, islands: &[ObjectId]) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_mana_where(engine, p1, |id| islands.contains(&id));
+    let answer = in_hand(engine, p1, counterspell()).expect("a Counterspell in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: answer })
+        .expect("two Islands pay {U}{U}");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![spell],
+            },
+        )
+        .expect("a counterspell may point at what it cannot counter");
+    pass_until(engine, stack_is_empty);
+}
+
+/// Sphinx of the Final Word: "This spell can't be countered."
+///
+/// Cast into two Islands and a Counterspell, which resolves and counters
+/// nothing: the Sphinx arrives.
+#[test]
+fn sphinx_of_the_final_word_resolves_through_a_counterspell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(396, island())
+        .battlefield(0, &[island(); 7])
+        .hand(0, &[sphinx_of_the_final_word()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sphinx = in_hand(&engine, p0, sphinx_of_the_final_word()).expect("the Sphinx in hand");
+    cast_from_hand(&mut engine, p0, sphinx_of_the_final_word());
+    let islands = all_on_battlefield(&engine, p1, island());
+    counter_with_two(&mut engine, sphinx, &islands);
+
+    assert!(
+        in_graveyard(&engine, p1, counterspell()).is_some(),
+        "the Counterspell resolved"
+    );
+    assert!(
+        on_battlefield(&engine, p0, sphinx_of_the_final_word()).is_some(),
+        "and the Sphinx arrived anyway"
+    );
+}
+
+/// Sphinx of the Final Word: "Instant and sorcery spells you control can't be
+/// countered."
+///
+/// With the Sphinx on the battlefield, a Lightning Bolt goes through a
+/// Counterspell and a Llanowar Elves does not: the grant is to instants and
+/// sorceries, and the Elves are the half of the sentence that says so.
+#[test]
+fn sphinx_of_the_final_word_keeps_your_instant_uncounterable_and_not_your_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(397, island())
+        .battlefield(0, &[sphinx_of_the_final_word(), mountain(), forest()])
+        .hand(0, &[lightning_bolt(), llanowar_elves()])
+        .battlefield(1, &[island(); 4])
+        .hand(1, &[counterspell(), counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let islands = all_on_battlefield(&engine, p1, island());
+    let mountain_id = on_battlefield(&engine, p0, mountain()).expect("the Mountain");
+    let forest_id = on_battlefield(&engine, p0, forest()).expect("the Forest");
+
+    let bolt = in_hand(&engine, p0, lightning_bolt()).expect("the Bolt in hand");
+    tap_mana_where(&mut engine, p0, |id| id == mountain_id);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opponent is a legal target");
+    counter_with_two(&mut engine, bolt, &islands[..2]);
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "the Bolt resolved through the Counterspell"
+    );
+
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("the Elves in hand");
+    tap_mana_where(&mut engine, p0, |id| id == forest_id);
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    counter_with_two(&mut engine, elves, &islands[2..]);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "a creature spell is not an instant or sorcery: countered"
+    );
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
 }
 
 /// Tyrranax Rex: ward {4} charges an opponent for the privilege.
@@ -40597,10 +40837,6 @@ fn wirewood_hivemaster_asks_per_elf_and_makes_a_green_insect_for_each_yes() {
         2,
         "both Elves resolved and are standing beside the Hivemaster"
     );
-}
-
-fn wretched_anurid() -> CardIndex {
-    card_index("f8beeb0a-750f-4afa-a244-10011342bbeb")
 }
 
 /// Wretched Anurid is a {1}{B} 3/3 whose whole text is "Whenever another

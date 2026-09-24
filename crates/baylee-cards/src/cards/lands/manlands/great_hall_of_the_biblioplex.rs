@@ -3,11 +3,40 @@
 //! Oracle: {T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast an instant or sorcery spell.
 //! Oracle: {5}: If this land isn't a creature, it becomes a 2/4 Wizard creature with "Whenever you cast an instant or sorcery spell, this creature gets +1/+0 until end of turn." It's still a land.
 //! Set: SOS #257 — Secrets of Strixhaven | Scryfall ID: 42d92674-2664-411c-b9c5-b04da7c845f4 | Oracle ID: a8c70dab-1e27-4a9c-bd2d-910d5720d02d
-// PARTIAL — both mana abilities ({C}, and one mana of any color for {T} plus 1
-// life, spendable only on an instant or sorcery spell); the {5} animation is
-// not expressible, see the NOT SUPPORTED line at the foot of the file.
 
 use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
+
+/// "…it becomes a 2/4 Wizard creature with 'Whenever you cast an instant or
+/// sorcery spell, this creature gets +1/+0 until end of turn.' It's still a
+/// land." The sentence prints no duration, so the land stays a Wizard; and
+/// `AddType` adds, so the land type is never taken away.
+static BECOME_A_WIZARD: &[Effect] = &[
+    Effect::continuous(
+        &Filter::This,
+        Modifier::AddType(TypeSet::CREATURE),
+        Duration::Indefinitely,
+    ),
+    Effect::continuous(
+        &Filter::This,
+        Modifier::AddSubtype(creature::WIZARD),
+        Duration::Indefinitely,
+    ),
+    Effect::continuous(&Filter::This, Modifier::SetPT(2, 4), Duration::Indefinitely),
+    Effect::continuous(
+        &Filter::This,
+        Modifier::GrantTriggered {
+            trigger: Trigger::SpellCast(&f!(your INSTANT_OR_SORCERY)),
+            effects: &[Effect::continuous(
+                &Filter::This,
+                Modifier::ModifyPT(1, 0),
+                Duration::UntilEndOfTurn,
+            )],
+            target: None,
+        },
+        Duration::Indefinitely,
+    ),
+];
 
 card!(
     index = index::GREAT_HALL_OF_THE_BIBLIOPLEX,
@@ -17,12 +46,7 @@ card!(
         name = "Great Hall of the Biblioplex",
         types = TypeSet::LAND,
     ),],
-    coverage = Coverage::Partial(
-        "the {5} ability: no DSL effect animates the source itself (a created \
-         continuous effect binds Filter::This to its first target, and this \
-         ability targets nothing), no branch asks whether the source is a \
-         creature, and nothing animates a permanent while leaving it a land"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(
@@ -30,13 +54,15 @@ card!(
             &[Effect::mana_of_any_color()
                 .restricted(&Filter::INSTANT_OR_SORCERY, SpendRider::None)]
         ),
+        // "If this land isn't a creature" is asked as the ability resolves:
+        // a land that is already a Wizard is left as it is.
+        activated!(
+            cost!("{5}"),
+            &[Effect::IfCondition {
+                condition: Condition::SourceMatches(&Filter::CREATURE),
+                then: &[],
+                otherwise: BECOME_A_WIZARD,
+            }]
+        ),
     ],
 );
-
-// NOT SUPPORTED: "{5}: If this land isn't a creature, it becomes a 2/4 Wizard
-// creature with 'Whenever you cast an instant or sorcery spell, this creature
-// gets +1/+0 until end of turn.' It's still a land." — turning the *source*
-// into a creature is three characteristics at once (type, P/T, a granted
-// trigger) and the DSL has no effect that acts on the source without being
-// given a target it does not print; nor is there a conditional that reads the
-// source's own types.

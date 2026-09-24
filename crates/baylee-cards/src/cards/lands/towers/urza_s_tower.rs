@@ -1,9 +1,8 @@
 //! Urza's Tower — (no cost) — Land — Urza's Tower
 //! Oracle: {T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead.
 //! Set: CMM #1053 — Commander Masters | Scryfall ID: 1e9f09b3-dd2d-4ba9-a57e-4f3c1793f752 | Oracle ID: 32fbb638-ab14-4e8b-a07a-d4c44e3496f2
-// PARTIAL — {T}: Add {C} built; the "instead" clause is not expressible, see
-// the NOT SUPPORTED line beside the ability.
 
+use crate::filters::{URZA_S_MINE, URZA_S_POWER_PLANT};
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -16,19 +15,22 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::URZA_S, subtypes::land::TOWER],
     ),],
-    coverage = Coverage::Partial(
-        "the 'instead' clause: the printed condition is two counts joined by 'and', \
-         and Condition offers only one ControlCount(filter, n) over a single filter",
-    ),
-    abilities = &[
-        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        // NOT SUPPORTED: "If you control an Urza's Mine and an Urza's
-        // Power-Plant, add {C}{C}{C} instead." — the clause is a conjunction
-        // of two separate counts ("you control a Mine" AND "you control a
-        // Power-Plant"), and the nearest variant,
-        // `Condition::ControlCount(filter, n)`, counts one filter once. No
-        // single filter answers it: a filter for "a Mine or a Power-Plant"
-        // counted at two is also satisfied by two Mines, and a filter for a
-        // permanent that is both matches neither card.
-    ],
+    coverage = Coverage::Implemented,
+    // "If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C}
+    // instead." The {C} is always made, and "instead" is the two more it takes
+    // to reach the larger amount: a mana ability makes its mana at the top of
+    // its list, where `lints::mana_ability_fault` looks, and the "and" is two
+    // nested conditions, one per land type.
+    abilities = &[mana_ability!(&[
+        Effect::mana(ManaColor::Colorless, 1),
+        Effect::IfCondition {
+            condition: Condition::ControlCount(&URZA_S_MINE, 1),
+            then: &[Effect::IfCondition {
+                condition: Condition::ControlCount(&URZA_S_POWER_PLANT, 1),
+                then: &[Effect::mana(ManaColor::Colorless, 2)],
+                otherwise: &[],
+            }],
+            otherwise: &[],
+        },
+    ])],
 );

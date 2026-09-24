@@ -5,12 +5,14 @@
 //! Oracle: {3}{U}: Target player draws a card.
 //! Oracle: {4}{B}: Put target creature card from a graveyard onto the battlefield under its owner's control.
 //! Set: PLST #ELD-303 — The List | Scryfall ID: 0e259db1-14db-4314-998c-6a076a28d8cb | Oracle ID: d209b948-9afb-4fd1-a961-72c87282878c
-// PARTIAL — the {R} team pump, {1}{G} counter, {2}{W} life and {3}{U} draw
-// abilities are each one activated ability; the {4}{B} clause is dropped
-// (NOT SUPPORTED below).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+/// "target creature card from a graveyard" — no player named, so any
+/// graveyard at the table.
+const ANY_GRAVEYARD_CREATURE: TargetSpec =
+    TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::EachPlayer);
 
 card!(
     index = index::KENRITH_THE_RETURNED_KING,
@@ -33,12 +35,7 @@ card!(
         power = Some(5),
         toughness = Some(5),
     ),],
-    coverage = Coverage::Partial(
-        "the {4}{B} ability: the card prints a creature card from a graveyard — no player \
-         named — returned under its owner's control, where TargetSpec::CardInGraveyard \
-         names one player's graveyard and Effect::GraveyardToBattlefield puts the card \
-         onto the battlefield under *your* control"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         activated!(
             cost!("{R}"),
@@ -75,10 +72,16 @@ card!(
             }],
             target = Some(TargetSpec::AnyPlayer)
         ),
-        // NOT SUPPORTED: "{4}{B}: Put target creature card from a graveyard onto the
-        // battlefield under its owner's control." — the target names no graveyard, and
-        // TargetSpec::CardInGraveyard carries a PlayerRel for exactly one; the effect is
-        // the reanimation variant, which returns the card under your control rather than
-        // its owner's.
+        // "…onto the battlefield under its owner's control": a creature card
+        // from an opponent's graveyard comes back on their side.
+        activated!(
+            cost!("{4}{B}"),
+            &[Effect::GraveyardToBattlefield {
+                target: ANY_GRAVEYARD_CREATURE,
+                owner_control: true,
+                counters: None,
+            }],
+            target = Some(ANY_GRAVEYARD_CREATURE)
+        ),
     ],
 );

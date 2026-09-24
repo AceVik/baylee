@@ -647,10 +647,12 @@ reader answers all of them, `eval::condition_holds`.
 There is no `All`, and that is not an omission. The printed sentence that
 needs a disjunction is real and prints as one — "activate only if this land
 entered this turn or you control a basic land" is Gathering Place, Gleaming
-Bastion and Hidden Lair — while a conjunction has never appeared on a card
-in this pool: a second clause is written as a second sentence, and a second
-sentence is a second `condition` on a second ability. Add `All` the day a
-card prints one, not before, so that every variant here stands for a
+Bastion and Hidden Lair. A conjunction is printed too, but inside an
+effect: the Urza lands' "if you control an Urza's Mine and an Urza's
+Power-Plant, add {C}{C}{C} instead" is two nested `Effect::IfCondition`s,
+one per land type. Add `All` the day a card prints one where a single
+condition is all there is room for — an activation restriction or an
+intervening `if` — not before, so that every variant here stands for a
 sentence somebody printed.
 
 `triggered!` and `modal_triggered!` take the same vocabulary as

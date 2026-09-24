@@ -26998,7 +26998,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Sphinx of the Final Word
+    &[FaceLines {
+        sentences: 4,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -32255,8 +32262,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Kenrith, the Returned King
     &[FaceLines {
         sentences: 5,
-        stackable: 4,
-        lines: &[Some(0), Some(1), Some(2), Some(3)],
+        stackable: 5,
+        lines: &[Some(0), Some(1), Some(2), Some(3), Some(4)],
         modes: &[],
         alternatives: &[],
     }],
@@ -45523,8 +45530,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Oakhollow Village
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50057,8 +50064,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Great Hall of the Biblioplex
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50568,7 +50575,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -51095,7 +51102,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

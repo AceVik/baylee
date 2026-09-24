@@ -5,11 +5,19 @@
 //! Set: ZNR #76 — Zendikar Rising | Scryfall ID: 193071fe-180b-4d35-ba78-9c16675c29fc | Oracle ID: 4a8d41fe-e04d-484b-a7d1-19be311e6ca7
 //! Face: Sea Gate Restoration — {4}{U}{U}{U} — Sorcery
 //! Face: Sea Gate, Reborn —  — Land
-// PARTIAL — "no maximum hand size for the rest of the game" (a created
-// indefinite effect) plus the whole land face: pay 3 life or enter tapped,
-// and {T}: Add {U}. The draw itself has no spelling in the DSL.
 
 use baylee_cards_dsl::prelude::*;
+
+/// "…equal to the number of cards in your hand plus one", counted once as
+/// the spell resolves: the spell itself is on the stack and not in the hand,
+/// and the cards it draws arrive after the number is read.
+static HAND_PLUS_ONE: Amount = Amount::Plus {
+    base: &Amount::CountOf {
+        filter: &Filter::Any,
+        zone: ZoneSel::HandYou,
+    },
+    offset: 1,
+};
 
 /// `{T}: Add {U}.` — the back face's entire rules text.
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
@@ -32,14 +40,11 @@ card!(
             enter_modifiers = &[EnterModifier::TappedOrPayLife(3)],
         ),
     ],
-    coverage = Coverage::Partial(
-        "the draw: no Amount adds a constant to a count, so \"equal to the number of cards \
-         in your hand plus one\" is not sayable — CountOf would read the hand and nothing adds one"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[spell!(&[
-        // NOT SUPPORTED: "Draw cards equal to the number of cards in your
-        // hand plus one." — Amount::CountOf answers the count itself and no
-        // variant of Amount adds a constant to it.
+        Effect::DrawCards {
+            amount: HAND_PLUS_ONE,
+        },
         Effect::continuous(
             &Filter::Any,
             Modifier::NoMaxHandSize,

@@ -931,6 +931,10 @@ fn wartime_protestors() -> CardIndex {
     card_index("6557813b-4ee7-4881-a37c-10c8ea097360")
 }
 
+fn wretched_anurid() -> CardIndex {
+    card_index("f8beeb0a-750f-4afa-a244-10011342bbeb")
+}
+
 fn aminatou() -> CardIndex {
     card_index("3a30089d-cd2d-49be-9b06-7a2454117692")
 }

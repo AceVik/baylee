@@ -668,11 +668,9 @@ fn a_two_mana_red_spell() -> CardIndex {
 /// so the two the pool reports are two the engine will let a spell spend.
 ///
 /// The second printed clause — "then add {R} for each card named Rite of
-/// Flame in each graveyard" — is the `Coverage::Partial` this card declares
-/// and is not what this test is about. No graveyard holds a Rite of Flame
-/// while this one resolves (the card is on the stack, and nothing else was
-/// cast), so the clause would add nothing here even if it were written: the
-/// two below is the printed answer under either reading.
+/// Flame in each graveyard" — has nothing to count here: no graveyard holds
+/// a Rite of Flame while this one resolves (the card is on the stack, and
+/// nothing else was cast). The next test is about that clause.
 #[test]
 fn rite_of_flame_spends_one_red_and_leaves_two_spendable_in_the_pool() {
     let p0 = PlayerId::new(0);
@@ -766,6 +764,41 @@ fn rite_of_flame_spends_one_red_and_leaves_two_spendable_in_the_pool() {
          castable now, off the same tapped Mountain: what the Rite added is \
          mana a spell can be paid with and not a number in a pool: {legal:?}"
     );
+}
+
+/// Rite of Flame's second clause: "then add {R} for each card named Rite of
+/// Flame in each graveyard."
+///
+/// One copy in p0's graveyard and two in p1's, so both words are read:
+/// "each graveyard" counts across the table, where a count of your own would
+/// add three. The five is also the answer to whether the resolving copy
+/// counts itself — it is on the stack until the very end of its resolution
+/// (CR 608.2n), so a sixth would mean it had been counted from the
+/// graveyard.
+#[test]
+fn rite_of_flame_adds_one_more_red_for_each_copy_in_each_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    // The library filler is the card itself, which is how copies reach a
+    // graveyard nobody cast them from.
+    let mut engine = Duel::new(83, rite_of_flame())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[rite_of_flame()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 2);
+
+    cast_from_hand(&mut engine, p0, rite_of_flame());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        5,
+        "{{R}}{{R}}, then one for each of the three copies across both graveyards"
+    );
+    assert_eq!(pool.total(), 5, "and no other mana");
 }
 
 // oracle_id = "1d67f5ff-1fce-45e5-b6a1-416c569351e2"
@@ -2809,12 +2842,11 @@ fn ondu_inversion_destroys_all_nonland_permanents_on_both_sides() {
     );
 }
 
-/// `Sea Gate Restoration` // `Sea Gate, Reborn` (`Coverage::Partial`): "Draw cards equal to the
+/// `Sea Gate Restoration` // `Sea Gate, Reborn`: "Draw cards equal to the
 /// number of cards in your hand plus one. You have no maximum hand size for the rest of the game.
 /// // As this land enters, you may pay 3 life. If you don't, it enters tapped. {T}: Add {U}."
 ///
-/// Under `Coverage::Partial`, the front-face draw clause cannot be expressed in the DSL, but the
-/// back face (`Sea Gate, Reborn`) is fully modeled. The test plays the land face via
+/// The back face; the front face's draw is the next test. The test plays the land face via
 /// `play_land_face`, pays 3 life on the `EnterModifier::TappedOrPayLife(3)` prompt to enter
 /// untapped, and immediately activates its mana ability to add `{U}` to the pool.
 #[test]
@@ -2849,6 +2881,39 @@ fn sea_gate_reborn_pays_three_life_to_enter_untapped_and_taps_for_blue() {
         blue_before + 1,
         "adds one blue mana to the pool"
     );
+}
+
+/// Sea Gate Restoration's front face: "Draw cards equal to the number of
+/// cards in your hand plus one."
+///
+/// Three cards stay in hand while it resolves, so it draws four and not
+/// three (the "plus one") and not five (the spell itself is on the stack,
+/// not in the hand). The number is read once: a draw that re-read the hand
+/// after each card would never stop growing, and the library says it did.
+#[test]
+fn sea_gate_restoration_draws_the_hand_plus_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 7])
+        .hand(0, &[sea_gate_restoration(), island(), island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let hand = |e: &Engine<RegistryLookup>| e.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let held = hand(&engine) - 1;
+    let library = library_size(&engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, sea_gate_restoration());
+    assert_eq!(hand(&engine), held, "the spell left the hand for the stack");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library - (held + 1),
+        "{held} cards in hand, plus one"
+    );
+    assert_eq!(hand(&engine), held + held + 1);
 }
 
 /// `Song-Mad Treachery` // `Song-Mad Ruins` (`Coverage::Implemented`): "Gain control of target

@@ -173,9 +173,12 @@ pub enum Condition {
     /// "or you control a basic land" would have to be added to every
     /// `Condition` the cycle could ever pair it with.
     ///
-    /// There is no `All`: an activation already takes one condition, and two
-    /// conditions that must both hold are a sentence no card in this pool
-    /// prints. It is added the day one does, and not before.
+    /// There is no `All`. A conjunction is printed, but inside an effect:
+    /// the Urza lands' "if you control an Urza's Mine and an Urza's
+    /// Power-Plant, add {C}{C}{C} instead" is two nested
+    /// `Effect::IfCondition`s. It is added the day one stands where a single
+    /// condition is all there is room for (an activation restriction, an
+    /// intervening `if`), and not before.
     Any(&'static [Condition]),
 }
 

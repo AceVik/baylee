@@ -9966,8 +9966,8 @@ fn urborg_taps_for_black_mana_and_omits_keyword_loss() {
 }
 
 /// Urza's Power Plant: "{T}: Add {C}. If you control an Urza's Mine and an Urza's Tower, add {C}{C} instead."
-/// Under `Coverage::Partial`, the multi-permanent Tron replacement condition is omitted.
-/// The land taps for its base mana ability to add {C} to the mana pool.
+/// Alone it taps for the one {C}; the other two beside it are
+/// `the_urza_lands_make_seven_together_and_one_each_without_the_third_type`.
 #[test]
 fn urza_s_power_plant_taps_for_colorless_mana() {
     let p0 = PlayerId::new(0);
@@ -11457,8 +11457,8 @@ fn untaidake_the_cloud_keeper_adds_restricted_mana_paying_life() {
 }
 
 /// Urza's Mine: "{T}: Add {C}. If you control an Urza's Power-Plant and an Urza's Tower, add {C}{C} instead."
-/// Under `Coverage::Partial`, the multi-permanent Tron replacement condition is omitted.
-/// The land taps for its base mana ability to add {C} to the mana pool.
+/// Alone it taps for the one {C}; the other two beside it are
+/// `the_urza_lands_make_seven_together_and_one_each_without_the_third_type`.
 #[test]
 fn urza_s_mine_taps_for_colorless_mana() {
     let p0 = PlayerId::new(0);
@@ -11478,8 +11478,8 @@ fn urza_s_mine_taps_for_colorless_mana() {
 }
 
 /// Urza's Tower: "{T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead."
-/// Under `Coverage::Partial`, the multi-permanent Tron replacement condition is omitted.
-/// The land taps for its base mana ability to add {C} to the mana pool.
+/// Alone it taps for the one {C}; the other two beside it are
+/// `the_urza_lands_make_seven_together_and_one_each_without_the_third_type`.
 #[test]
 fn urza_s_tower_taps_for_colorless_mana() {
     let p0 = PlayerId::new(0);
@@ -11496,6 +11496,66 @@ fn urza_s_tower_taps_for_colorless_mana() {
     assert_eq!(pool.total(), 1);
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert!(is_tapped(&engine, tower));
+}
+
+/// Urza's Mine, Urza's Power Plant and Urza's Tower: "{T}: Add {C}. If you
+/// control an Urza's [the other two], add {C}{C} ({C}{C}{C} for the Tower)
+/// instead."
+///
+/// The full set makes seven, read one land at a time: two, two, three. The
+/// second board has two Mines and a Tower and no Power-Plant, so every land
+/// is missing one of its two, and each makes its one {C}. That board is the
+/// one a single "a Mine or a Power-Plant" filter counted at two would have
+/// paid the Tower's three for.
+#[test]
+fn the_urza_lands_make_seven_together_and_one_each_without_the_third_type() {
+    let p0 = PlayerId::new(0);
+    let made = |board: &[CardIndex]| -> Vec<(CardIndex, u32)> {
+        let mut engine = Duel::new(122, forest()).battlefield(0, board).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let mut made = Vec::new();
+        for id in engine.state().zones.list(ZoneLocation::Battlefield).clone() {
+            let card = engine
+                .state()
+                .object(id)
+                .and_then(|o| o.card)
+                .map(|c| c.index);
+            let Some(card) = card.filter(|c| board.contains(c)) else {
+                continue;
+            };
+            let before = engine.state().players[0].mana_pool.total();
+            tap_mana_where(&mut engine, p0, |x| x == id);
+            let pool = &engine.state().players[0].mana_pool;
+            assert_eq!(
+                u32::from(pool.available(ManaColor::Colorless)),
+                pool.total(),
+                "colorless only"
+            );
+            made.push((card, pool.total() - before));
+        }
+        made.sort();
+        made
+    };
+
+    let mut tron = vec![
+        (urza_s_mine(), 2),
+        (urza_s_power_plant(), 2),
+        (urza_s_tower(), 3),
+    ];
+    tron.sort();
+    assert_eq!(
+        made(&[urza_s_mine(), urza_s_power_plant(), urza_s_tower()]),
+        tron
+    );
+
+    let mut short = vec![(urza_s_mine(), 1), (urza_s_mine(), 1), (urza_s_tower(), 1)];
+    short.sort();
+    assert_eq!(
+        made(&[urza_s_mine(), urza_s_mine(), urza_s_tower()]),
+        short,
+        "two Mines are not a Mine and a Power-Plant"
+    );
 }
 
 /// Vault of the Archangel: "{T}: Add {C}." / "{2}{W}{B}, {T}: Creatures you control gain deathtouch and lifelink until end of turn."
@@ -11654,8 +11714,8 @@ fn cradle_of_the_accursed_taps_for_colorless_mana() {
 }
 
 /// Dark Fortress: "{T}: Add {C}." / "{T}: Add {B} or {R}. Activate only if this land entered this turn or if you control a basic land."
-/// Under `Coverage::Partial`, the conditional {B}/{R} disjunctive ability is omitted.
-/// Activating the implemented ability taps the land for {C} and adds colorless mana to the pool.
+/// Ability 0 taps the land for {C}; the conditional ability is
+/// `the_gathering_place_sentence_holds_on_dark_fortress_and_training_compound`.
 #[test]
 fn dark_fortress_taps_for_colorless_mana() {
     let p0 = PlayerId::new(0);
@@ -12647,8 +12707,8 @@ fn thran_quarry_taps_for_any_color() {
 }
 
 /// Training Compound: "{T}: Add {C}." / "{T}: Add {R} or {G}. Activate only if this land entered this turn or if you control a basic land."
-/// Under `Coverage::Partial`, the conditional {R}/{G} disjunctive ability is omitted.
-/// Activating the land produces {C} and leaves Training Compound tapped.
+/// Ability 0 produces {C} and leaves Training Compound tapped; the conditional
+/// ability is `the_gathering_place_sentence_holds_on_dark_fortress_and_training_compound`.
 #[test]
 fn training_compound_taps_for_colorless_mana() {
     let p0 = PlayerId::new(0);
@@ -14388,8 +14448,8 @@ fn glacial_chasm_sacrifices_a_land_on_etb() {
 }
 
 /// Great Hall of the Biblioplex: "{T}: Add {C}." / "{T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast an instant or sorcery spell."
-/// Under `Coverage::Partial`, the `{5}` animation ability is omitted because no effect animates the source without a target.
 /// Activating ability 1 pays 1 life and adds one restricted mana of the chosen color to `pool.restricted()`.
+/// The `{5}` animation is `great_hall_of_the_biblioplex_becomes_a_wizard_once_and_stays_one`.
 #[test]
 fn great_hall_of_the_biblioplex_adds_restricted_spell_mana() {
     let p0 = PlayerId::new(0);
@@ -14418,6 +14478,89 @@ fn great_hall_of_the_biblioplex_adds_restricted_spell_mana() {
     assert_eq!(pool.restricted()[0].amount, 1);
     assert_eq!(pool.restricted()[0].color, ManaColor::Blue);
     assert!(is_tapped(&engine, hall));
+}
+
+/// Great Hall of the Biblioplex's third ability: "{5}: If this land isn't a
+/// creature, it becomes a 2/4 Wizard creature with 'Whenever you cast an
+/// instant or sorcery spell, this creature gets +1/+0 until end of turn.'
+/// It's still a land."
+///
+/// Activated twice. The second time the land already is a creature, so the
+/// "if" leaves it alone — and that is visible: a second animation would
+/// have granted the trigger a second time, and the Bolt below would pump it
+/// by two. The sentence prints no duration, so a turn later it is still a
+/// 2/4 Wizard, and the +1/+0 is gone.
+#[test]
+fn great_hall_of_the_biblioplex_becomes_a_wizard_once_and_stays_one() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut board = vec![great_hall_of_the_biblioplex()];
+    board.extend(std::iter::repeat_n(mountain(), 11));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let hall = on_battlefield(&engine, p0, great_hall_of_the_biblioplex()).expect("the Hall");
+    let mountains = all_on_battlefield(&engine, p0, mountain());
+    let is_creature = |e: &Engine<RegistryLookup>| {
+        e.state()
+            .object(hall)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE))
+    };
+    assert!(!is_creature(&engine), "a land to begin with");
+
+    for batch in [&mountains[..5], &mountains[5..10]] {
+        tap_mana_where(&mut engine, p0, |id| batch.contains(&id));
+        activate(&mut engine, p0, great_hall_of_the_biblioplex(), 2);
+        pass_until(&mut engine, stack_is_empty);
+        let hall_now = engine
+            .state()
+            .object(hall)
+            .expect("the Hall")
+            .characteristics();
+        assert!(
+            hall_now
+                .types
+                .contains(TypeSet::CREATURE.union(TypeSet::LAND)),
+            "a creature and still a land"
+        );
+        assert!(
+            hall_now
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::WIZARD)
+        );
+        assert_eq!(pt(&engine, hall), (2, 4));
+    }
+
+    tap_mana_where(&mut engine, p0, |id| id == mountains[10]);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opponent is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, hall),
+        (3, 4),
+        "one instant, one trigger: +1/+0, and not +2 from a second grant"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert!(
+        is_creature(&engine),
+        "no duration was printed: still a creature"
+    );
+    assert_eq!(
+        pt(&engine, hall),
+        (2, 4),
+        "and the pump ended with its turn"
+    );
 }
 
 /// The Forgotten Realms creature-lands and Thran Portal, played from hand
@@ -26514,8 +26657,8 @@ fn a_mana_x_in_an_activation_cost_is_announced_and_bounded_by_the_pool() {
 /// Elemental creature with "{X}: This creature gets +X/+0 until end of
 /// turn." It's still a land.`
 ///
-/// Under `Coverage::Partial`, the granted pump ability is dropped because the
-/// engine cannot grant an activated ability at run time. This test plays the
+/// Under `Coverage::Partial`, the granted pump ability is dropped because a
+/// granted ability is activated with X fixed at 0. This test plays the
 /// land tapped, untaps on the following turn, pays `{1}{B}{R}` to animate it
 /// into a 2/2 black and red Elemental creature that remains a land, and confirms
 /// it offers only its printed abilities.
@@ -30746,8 +30889,7 @@ fn nykthos_shrine_to_nyx_taps_for_colorless_and_omits_devotion_ability() {
 
 /// Oakhollow Village prints `{{T}}: Add {{C}}.`, `{{T}}: Add {{G}}. Spend this mana only to cast a creature spell.`, and `{{G}}, {{T}}: Put a +1/+1 counter on each Frog, Rabbit, Raccoon, or Squirrel you control that entered the battlefield this turn.`
 ///
-/// Under `Coverage::Partial`, the counter ability is omitted because tracking creatures that entered the battlefield this turn is not expressible in the filter system.
-/// With Oakhollow Village and a `forest()` on the battlefield under `PlayerId::new(0)`, floating `{{G}}` while keeping Oakhollow Village untapped shows that abilities 0 and 1 are offered while ability 2 is omitted from `legal.abilities`.
+/// With Oakhollow Village and a `forest()` on the battlefield under `PlayerId::new(0)`, floating `{{G}}` while keeping Oakhollow Village untapped shows that all three abilities are offered; the counter ability is `oakhollow_village_counters_only_this_turns_arrivals`.
 /// Activating ability 1 produces green mana restricted to creature spells, which appears in `pool.restricted()` rather than general available mana, and leaves the land tapped.
 #[test]
 fn oakhollow_village_produces_creature_restricted_green_mana() {
@@ -30777,8 +30919,8 @@ fn oakhollow_village_produces_creature_restricted_green_mana() {
         "ability 1 ({{T}}: Add {{G}} restricted) is offered"
     );
     assert!(
-        !legal.abilities.contains(&(village, 2)),
-        "ability 2 is omitted under `Coverage::Partial` even with {{G}} floating"
+        legal.abilities.contains(&(village, 2)),
+        "ability 2 ({{G}}, {{T}}: the counters) is offered with {{G}} floating"
     );
 
     activate(&mut engine, p0, oakhollow_village(), 1);
@@ -30794,6 +30936,62 @@ fn oakhollow_village_produces_creature_restricted_green_mana() {
     assert_eq!(pool.restricted()[0].color, ManaColor::Green);
     assert_eq!(pool.total(), 2);
     assert!(is_tapped(&engine, village));
+}
+
+/// Oakhollow Village's third ability: "{G}, {T}: Put a +1/+1 counter on each
+/// Frog, Rabbit, Raccoon, or Squirrel you control that entered the
+/// battlefield this turn."
+///
+/// Two Frogs (Wretched Anurid, a Zombie Frog Beast) on one board: one was
+/// there when the turn began and one is cast this turn. Only the new one is
+/// counted, which is the whole of "that entered the battlefield this turn";
+/// a filter without it would put a counter on both.
+#[test]
+fn oakhollow_village_counters_only_this_turns_arrivals() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                oakhollow_village(),
+                forest(),
+                swamp(),
+                swamp(),
+                wretched_anurid(),
+            ],
+        )
+        .hand(0, &[wretched_anurid()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let old = on_battlefield(&engine, p0, wretched_anurid()).expect("the Frog already here");
+
+    let swamps = all_on_battlefield(&engine, p0, swamp());
+    tap_mana_where(&mut engine, p0, |id| swamps.contains(&id));
+    cast_with_floating(&mut engine, p0, wretched_anurid());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let new = all_on_battlefield(&engine, p0, wretched_anurid())
+        .into_iter()
+        .find(|id| *id != old)
+        .expect("the Frog cast this turn");
+
+    let the_forest = on_battlefield(&engine, p0, forest()).expect("p0's Forest");
+    tap_mana_where(&mut engine, p0, |id| id == the_forest);
+    activate(&mut engine, p0, oakhollow_village(), 2);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        counters_on(&engine, new, CounterKind::P1P1),
+        1,
+        "the Frog that entered this turn"
+    );
+    assert_eq!(
+        counters_on(&engine, old, CounterKind::P1P1),
+        0,
+        "and not the one that was already here"
+    );
+    let village = on_battlefield(&engine, p0, oakhollow_village()).expect("the village");
+    assert!(is_tapped(&engine, village), "{{T}} was part of the cost");
 }
 
 /// Oscorp Industries prints `This land enters tapped.`, `When this land enters from a graveyard, you lose 2 life.`, `{{T}}: Add {{U}}, {{B}}, or {{R}}.`, and `Mayhem (You may play this card from your graveyard if you discarded it this turn. Timing rules still apply.)`
@@ -35170,6 +35368,66 @@ fn gathering_place_activates_on_entry_turn_or_with_basic_land() {
         "adds one green mana"
     );
     assert!(is_tapped(&engine, gp));
+}
+
+/// Dark Fortress and Training Compound print Gathering Place's sentence in
+/// other colours: "{T}: Add {B} or {R}" / "{R} or {G}. Activate only if this
+/// land entered this turn or if you control a basic land."
+///
+/// Each half of the "or" is read alone. On the turn the land is played
+/// there is no basic, so the entry clause is what offers the ability; a
+/// turn later it has not entered this turn and there is still no basic, so
+/// it is withheld; a Forest then answers the other half.
+#[test]
+fn the_gathering_place_sentence_holds_on_dark_fortress_and_training_compound() {
+    let p0 = PlayerId::new(0);
+    let offered = |engine: &Engine<RegistryLookup>, land: ObjectId, index: u32| {
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending());
+        };
+        legal
+            .abilities
+            .iter()
+            .any(|(id, idx)| *id == land && *idx == index)
+    };
+    for (card, colors) in [
+        (dark_fortress(), [ManaColor::Black, ManaColor::Red]),
+        (training_compound(), [ManaColor::Red, ManaColor::Green]),
+    ] {
+        let mut engine = Duel::new(SEED, forest()).hand(0, &[card, forest()]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = play_land(&mut engine, p0, card);
+        assert!(
+            offered(&engine, land, 1),
+            "the turn it entered, with no basic land: the entry clause"
+        );
+        activate(&mut engine, p0, card, 1);
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!("expected a colour choice, got {:?}", engine.pending());
+        };
+        assert_eq!(options.len(), 2, "exactly the two printed colours");
+        assert!(colors.iter().all(|c| options.contains(c)), "{options:?}");
+        engine
+            .apply(p0, PlayerAction::ChooseColor(colors[1]))
+            .expect("a colour the question offered");
+        assert_eq!(engine.state().players[0].mana_pool.available(colors[1]), 1);
+
+        reach_their_main_phase(&mut engine, PlayerId::new(1));
+        reach_their_main_phase(&mut engine, p0);
+        assert!(
+            !offered(&engine, land, 1),
+            "a turn later, still with no basic land: withheld"
+        );
+        assert!(offered(&engine, land, 0), "{{T}}: Add {{C}} stays");
+
+        let _ = play_land(&mut engine, p0, forest());
+        assert!(
+            offered(&engine, land, 1),
+            "a basic land answers the other half of the \"or\""
+        );
+    }
 }
 
 /// Gleaming Bastion prints `{{T}}: Add {{C}}.` and

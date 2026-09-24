@@ -6,8 +6,8 @@
 // PARTIAL — enters tapped, taps for {B} or {R}, and animates into a 2/2
 // black and red Elemental that is still a land (AddType adds, so the land
 // type is never taken away). The animated creature's granted
-// "{X}: This creature gets +X/+0" ability is not built: granting an
-// activated ability to an object at run time has no engine support.
+// "{X}: This creature gets +X/+0" ability is not built: a granted ability
+// has no stage that chooses X.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -23,15 +23,16 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     )],
     coverage = Coverage::Partial(
-        "the animated land's granted \"{X}: This creature gets +X/+0 until end of turn\" ability is dropped — the engine cannot grant an activated ability"
+        "the animated land's granted \"{X}: This creature gets +X/+0 until end of turn\" ability is dropped — a granted ability is activated with X fixed at 0"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
         // NOT SUPPORTED: the animated creature's "{X}: This creature gets
-        // +X/+0 until end of turn." Granting an activated ability to an
-        // object at run time is not implemented (docs/card-dsl.md,
-        // "Explicitly not supported yet"), so the ability comes off the card
-        // rather than being written and silently skipped.
+        // +X/+0 until end of turn." `Modifier::GrantActivated` carries it
+        // (Wandering Fumarole grants its "{0}" this way), but
+        // `start_granted_activation` pays a granted cost with X = 0 and
+        // resolves it with no X, so the ability would be free and do
+        // nothing. It comes off the card rather than being written that way.
         activated!(
             cost!("{1}{B}{R}"),
             &[
