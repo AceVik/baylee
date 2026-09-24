@@ -174,8 +174,8 @@ fn only_its_own_graveyard_is_read() {
     assert!(mana_for(&duel, BURIED).is_none());
 }
 
-/// A sorcery is flashed back when a sorcery could be cast (CR 702.34a casts
-/// it; CR 307.1 times it), and not otherwise.
+/// A sorcery's flashback is offered when a sorcery could be cast (CR 702.34a
+/// casts it; CR 307.1 times it), and not otherwise.
 ///
 /// Faithless Looting prints flashback `{2}{R}`; the price is set by hand
 /// because the view carries granted flashback only, so far.
