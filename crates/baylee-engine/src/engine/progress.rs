@@ -2058,9 +2058,11 @@ impl<L: CardLookup> Engine<L> {
                     .map(|c| c.index);
                 let name = self.synthetic_source_name(t.source);
                 let base = self.state.bare_base(name);
-                // The event object doubles as the implicit target
-                // (prowess: itself; ward: the targeting spell).
-                let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
+                // The implicit target (prowess: itself; ward: the targeting
+                // spell; a granted trigger: none, so its "this" is its
+                // source). Not the event object: that is carried below, and
+                // a granted trigger's event object is whatever set it off.
+                let targets: SmallVec<[ObjectId; 2]> = t.implicit_target.into_iter().collect();
                 let id = self.state.arena.insert_with(|id| {
                     let mut obj = GameObject::new_ability_on_stack(
                         id,
@@ -2073,10 +2075,11 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         base,
                     );
-                    // The event object is carried *twice*, and the two halves
-                    // are read by different things. As a target it is what
-                    // prowess pumps and what ward counters; as `event_object`
-                    // it is what `TargetSpec::EventObject` resolves through
+                    // The event object is usually carried *twice*, and the
+                    // two halves are read by different things. As the
+                    // implicit target it is what prowess pumps and what ward
+                    // counters; as `event_object` it is what
+                    // `TargetSpec::EventObject` resolves through
                     // (`resolve::zones::spec_object`). Only the non-synthetic
                     // branch below wrote the second one, so a synthetic effect
                     // list naming the event object read `None` and did
@@ -3479,6 +3482,7 @@ impl<L: CardLookup> Engine<L> {
                     controller,
                     timestamp,
                     event_object: None,
+                    implicit_target: None,
                     synthetic_effects: None,
                     once_per_turn: false,
                     synthetic_target: None,

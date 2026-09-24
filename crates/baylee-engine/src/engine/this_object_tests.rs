@@ -27,11 +27,16 @@
 //! at Pendrell Vale, whose `ThisObject` is two levels down — inside a
 //! `PlayerMayPayOr` inside a `Modifier::GrantTriggered` — which is the case
 //! a walk over an ability's own effect list cannot see.
+//!
+//! The last test is the same question asked of `Filter::This` inside a
+//! *granted* triggered ability: "this creature" names the creature that has
+//! the ability, not the object whose event set it off (#248).
 
-use super::synthetic::{SyntheticLookup, keep_mulligans, land, preset, walk_past};
+use super::synthetic::{SyntheticLookup, creature, keep_mulligans, land, preset, walk_past};
 use super::*;
 use baylee_cards_dsl::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Cost, Effect, TargetSpec,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, CardDef, Cost, Duration, Effect,
+    Filter, Modifier, TargetSpec, Trigger,
 };
 
 const BOUNCER: u32 = 1_401;
@@ -279,4 +284,140 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         unread.len(),
         unread.join("\n  ")
     );
+}
+
+const GRANTEE: u32 = 1_402;
+const RUNNER: u32 = 1_403;
+
+/// "This creature gets +1/+0 until end of turn."
+static PUMP_THIS: &[Effect] = &[Effect::continuous(
+    &Filter::This,
+    Modifier::ModifyPT(1, 0),
+    Duration::UntilEndOfTurn,
+)];
+
+/// `{0}: This creature gains "Whenever a creature you control attacks, this
+/// creature gets +1/+0 until end of turn" until end of turn.` — Raging
+/// Ravine's shape, with an event whose object is some *other* creature.
+static GAIN_THE_TRIGGER: &[AbilityDef] = &[AbilityDef::Activated {
+    cost: Cost::FREE,
+    effects: &[Effect::continuous(
+        &Filter::This,
+        Modifier::GrantTriggered {
+            trigger: Trigger::Attacks(&Filter::YOUR_CREATURE),
+            effects: PUMP_THIS,
+            target: None,
+        },
+        Duration::UntilEndOfTurn,
+    )],
+    targets: None,
+    second_targets: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: ActivationZone::Battlefield,
+    limit: ActivationLimit::Unlimited,
+}];
+
+/// The rule for a granted trigger: its "this" is the object that has it.
+///
+/// The source of a triggered ability is the object whose ability triggered
+/// (CR 113.7), a granted ability is that object's own (CR 113.1a), and a
+/// gained ability's word for itself names the object that gained it
+/// (CR 201.5b). The Grantee stays home and the Runner attacks, so the event
+/// object and the grantee are two different creatures and the pump can only
+/// be right on one of them. The untargeted synthetic path used to put the
+/// event object first among the trigger's targets, where `Filter::This`
+/// reads it — and the Runner got +1/+0.
+#[test]
+fn a_granted_trigger_pumps_the_creature_that_has_it_and_not_the_one_that_set_it_off() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let grantee: &'static CardDef = Box::leak(Box::new(CardDef {
+        abilities: GAIN_THE_TRIGGER,
+        ..*creature(GRANTEE, "Grantee", 0, 1, &[])
+    }));
+    let lookup = SyntheticLookup::new(vec![grantee, creature(RUNNER, "Runner", 2, 2, &[])]);
+    let mut engine = Engine::new(&preset(3, &[GRANTEE, RUNNER]), lookup).expect("the game starts");
+    keep_mulligans(&mut engine);
+    let object = |engine: &Engine<SyntheticLookup>, index: u32| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .find(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index.get() == index)
+            })
+            .expect("the bench seated it")
+    };
+    let (grantee, runner) = (object(&engine, GRANTEE), object(&engine, RUNNER));
+    let power = |engine: &Engine<SyntheticLookup>, id: ObjectId| {
+        engine
+            .state()
+            .object(id)
+            .and_then(|o| o.characteristics().power)
+    };
+    let drain = |engine: &mut Engine<SyntheticLookup>| {
+        while !engine.state().zones.list(ZoneLocation::Stack).is_empty() {
+            let Pending::Priority { player, .. } = engine.pending().clone() else {
+                panic!("expected priority, got {:?}", engine.pending())
+            };
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        }
+    };
+
+    for _ in 0..400 {
+        if matches!(engine.state().turn.phase, Phase::FirstMain)
+            && engine.state().turn.active == me
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == me)
+        {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "walked past {pending:?}");
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: grantee,
+                ability_index: 0,
+            },
+        )
+        .expect("the ability activates");
+    drain(&mut engine);
+
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseAttackers { player, .. } if player == me => break,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("expected the way to combat, got {other:?}"),
+        }
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(runner, baylee_core::ids::Defender::Player(them))],
+            },
+        )
+        .expect("the Runner attacks");
+    assert!(
+        !engine.state().zones.list(ZoneLocation::Stack).is_empty(),
+        "the granted trigger is on the stack"
+    );
+    drain(&mut engine);
+
+    assert_eq!(
+        power(&engine, grantee),
+        Some(1),
+        "the Grantee got its +1/+0"
+    );
+    assert_eq!(power(&engine, runner), Some(2), "the Runner got nothing");
 }

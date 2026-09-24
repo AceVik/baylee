@@ -31,6 +31,21 @@ pub struct PendingTrigger {
     pub timestamp: u64,
     /// The object the triggering event was about (if any).
     pub event_object: Option<ObjectId>,
+    /// What an untargeted synthetic trigger puts first among its targets,
+    /// which is what its `Filter::This` and its "target" words then name
+    /// (`resolve::this_object`).
+    ///
+    /// The event object for ward (the spell it counters) and the monarch's
+    /// takeover (the creature whose controller takes the crown); the
+    /// permanent itself for prowess, undying and persist. `None` for a
+    /// granted triggered ability: the object that has the ability is its
+    /// source (CR 113.7), and a gained ability's word for itself names the
+    /// object that gained it (CR 201.5b), which is what `this_object` reads
+    /// when there is no target. This used to be `event_object` for all of
+    /// them, and Great Hall of the Biblioplex's granted "this creature gets
+    /// +1/+0" pumped the instant that had triggered it. The event object is
+    /// still carried, for `TargetSpec::EventObject`.
+    pub implicit_target: Option<ObjectId>,
     /// The effects of a trigger no card prints. Three things produce one:
     /// an engine-level keyword (prowess, ward), a granted triggered ability,
     /// and a reflexive triggered ability an effect created (CR 603.12,
@@ -149,6 +164,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 controller: obj.controller,
                                 timestamp: obj.timestamp,
                                 event_object,
+                                implicit_target: None,
                                 synthetic_effects: None,
                                 once_per_turn: firing.once_per_turn,
                                 synthetic_target: None,
@@ -239,6 +255,7 @@ fn monarch_triggers(
         controller: monarch,
         timestamp: 0,
         event_object,
+        implicit_target: event_object,
         synthetic_effects: Some(effects),
         once_per_turn: false,
         synthetic_target: None,
@@ -422,6 +439,7 @@ fn collect_for_objects(
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object: Some(permanent),
+                        implicit_target: Some(permanent),
                         abilities: None,
                         synthetic_effects: Some(PROWESS_PUMP),
                         once_per_turn: false,
@@ -512,6 +530,7 @@ fn collect_for_objects(
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object: Some(permanent),
+                            implicit_target: Some(permanent),
                             abilities: None,
                             synthetic_effects: Some(effects),
                             once_per_turn: false,
@@ -546,6 +565,7 @@ fn collect_for_objects(
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,
+                            implicit_target: None,
                             abilities: None,
                             synthetic_effects: Some(effects),
                             synthetic_target: *target,
@@ -587,6 +607,7 @@ fn collect_for_objects(
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object: Some(target_obj),
+                        implicit_target: Some(target_obj),
                         abilities: None,
                         synthetic_effects: Some(synthetic),
                         once_per_turn: false,
@@ -625,6 +646,7 @@ fn collect_for_objects(
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,
+                            implicit_target: None,
                             synthetic_effects: None,
                             once_per_turn: firing.once_per_turn,
                             synthetic_target: None,

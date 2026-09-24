@@ -57,11 +57,13 @@ pub(super) fn arm(
             abilities: None,
             controller: res.controller,
             timestamp,
-            // Never the event's object. On the untargeted synthetic path the
-            // stacker turns `event_object` into an implicit target, which is
-            // how prowess pumps itself, and a reflexive body names its
-            // target through `synthetic_target` or not at all.
+            // Never the event's object, and no implicit target. On the
+            // untargeted synthetic path the stacker puts `implicit_target`
+            // first among the targets, which is how prowess pumps itself,
+            // and a reflexive body names its target through
+            // `synthetic_target` or not at all.
             event_object: None,
+            implicit_target: None,
             synthetic_effects: Some(effects),
             synthetic_target: target,
             once_per_turn: false,
@@ -240,7 +242,8 @@ mod tests {
         assert_eq!(t.source, land, "CR 603.7e: the creating ability's source");
         assert_eq!(t.controller, me());
         assert_eq!(t.ability_index, AbilityRef::SYNTHETIC);
-        assert_eq!(t.event_object, None, "never an implicit target");
+        assert_eq!(t.implicit_target, None, "never an implicit target");
+        assert_eq!(t.event_object, None, "and no event object to name");
         assert_eq!(t.synthetic_effects, Some(BODY));
     }
 

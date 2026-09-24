@@ -103,8 +103,8 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
 /// fix, one card earlier (Pit of Offerings).
 ///
 /// The two implicit specs stay singular by construction: neither names a
-/// list, and `res.targets` for a synthetic trigger is the event object
-/// itself, so reading it here would be the same answer by a longer road.
+/// list, and `res.targets` for an untargeted synthetic trigger holds at most
+/// its one implicit target, so reading it here would add nothing.
 fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
     match target {
         TargetSpec::ThisObject | TargetSpec::EventObject => {
