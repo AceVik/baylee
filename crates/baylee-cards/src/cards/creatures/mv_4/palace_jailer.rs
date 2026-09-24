@@ -23,7 +23,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[
-        triggered!(Trigger::ETB, &[Effect::BecomeMonarch]),
+        triggered!(Trigger::ETB, &[Effect::BecomeMonarch(PlayerRel::You)]),
         triggered!(
             Trigger::ETB,
             &[Effect::ExileLinked {

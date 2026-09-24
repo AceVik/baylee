@@ -910,6 +910,8 @@ mod mdfc_tests;
 #[cfg(test)]
 mod miracle_tests;
 #[cfg(test)]
+mod monarch_tests;
+#[cfg(test)]
 mod offer_tests;
 #[cfg(test)]
 mod printed_tests;

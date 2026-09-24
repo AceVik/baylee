@@ -1898,8 +1898,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
-        Effect::BecomeMonarch => {
-            state.set_monarch(you);
+        Effect::BecomeMonarch(rel) => {
+            // One monarch at a time (CR 724.3), so one player at most.
+            if let Some(&player) = players_of(rel, state, you, res).first() {
+                state.set_monarch(player);
+            }
             None
         }
         Effect::Reflexive {
@@ -2012,7 +2015,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             };
             let id = state.create_bare(you, ObjectKind::Emblem, name, ZoneLocation::Command(you));
             if let Some(obj) = state.object_mut(id) {
-                obj.own_abilities = Some(abilities);
+                // No card prints an emblem's list.
+                obj.take_abilities(crate::object::AbilityList {
+                    abilities,
+                    printed: None,
+                });
             }
             None
         }

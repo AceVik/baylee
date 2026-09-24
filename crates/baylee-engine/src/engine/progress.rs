@@ -2045,10 +2045,7 @@ impl<L: CardLookup> Engine<L> {
                     .object(t.source)
                     .and_then(|o| o.card)
                     .map(|c| c.index);
-                let name = self
-                    .state
-                    .object(t.source)
-                    .map_or(NameRef::new(0), |o| o.base.name);
+                let name = self.synthetic_source_name(t.source);
                 let base = self.state.bare_base(name);
                 // The event object doubles as the implicit target
                 // (prowess: itself; ward: the targeting spell).
@@ -3192,6 +3189,19 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// The name a synthetic ability on the stack goes by: its source's, or,
+    /// for the monarch's abilities, which have none (CR 724.2), the
+    /// designation's. Falling back to name `0` named them after whatever
+    /// card was interned first.
+    fn synthetic_source_name(&mut self, source: ObjectId) -> NameRef {
+        if source == ObjectId::NO_SOURCE {
+            return self.state.names.intern("Monarch");
+        }
+        self.state
+            .object(source)
+            .map_or(NameRef::new(0), |o| o.base.name)
+    }
+
     /// Pushes a synthetic trigger (prowess, ward, granted abilities) with
     /// explicitly chosen targets onto the stack.
     pub(crate) fn push_synthetic_trigger_with_targets(
@@ -3209,10 +3219,7 @@ impl<L: CardLookup> Engine<L> {
             .object(t.source)
             .and_then(|o| o.card)
             .map(|c| c.index);
-        let name = self
-            .state
-            .object(t.source)
-            .map_or(NameRef::new(0), |o| o.base.name);
+        let name = self.synthetic_source_name(t.source);
         let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
@@ -3800,12 +3807,6 @@ impl<L: CardLookup> Engine<L> {
             phase: next_phase,
             step: next_step,
         });
-        // Monarch: at the beginning of the monarch's end step, draw (CR 724.2).
-        if next_step == Step::End
-            && let Some(monarch) = self.state.monarch
-        {
-            self.state.draw_cards(monarch, 1);
-        }
     }
 
     pub(crate) fn any_first_or_double_striker(&self) -> bool {

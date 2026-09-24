@@ -161,6 +161,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
             }
         }
     }
+    monarch_triggers(state, events, &mut triggers);
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
     // longer on the battlefield when they fire.
     for seat in 0..state.players.len() {
@@ -193,6 +194,81 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         (distance, t.timestamp)
     });
     triggers
+}
+
+/// "At the beginning of the monarch's end step, that player draws a card."
+static MONARCH_DRAW: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::draw(1)];
+
+/// "Whenever a creature deals combat damage to the monarch, its controller
+/// becomes the monarch." The creature is the ability's event object, which
+/// the synthetic path also puts first among its objects, and that is what
+/// `ControllerOfTarget` reads.
+static MONARCH_TAKEOVER: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::BecomeMonarch(
+    PlayerRel::ControllerOfTarget,
+)];
+
+/// The monarch's two inherent triggered abilities (CR 724.2).
+///
+/// No permanent has them, so no walk over permanents finds them: they are
+/// read off the events directly. They have no source ([`ObjectId::NO_SOURCE`])
+/// and are controlled by whoever was the monarch when they triggered, which
+/// for the takeover is the player who is about to lose the title.
+///
+/// The monarch is read once for the whole batch. A batch is what happened
+/// between two scans, and nothing that makes a player the monarch shares
+/// one with a step beginning or with combat damage: a resolution is scanned
+/// before the next step begins, and damage is scanned before anything
+/// resolves.
+///
+/// Timestamp `0` puts them ahead of the monarch's other triggers from the
+/// same batch in the queue, so they go on the stack first and resolve last.
+/// The rules let the controller choose that order (CR 603.3b), which this
+/// engine does not ask yet for any trigger.
+fn monarch_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    let Some(monarch) = state.monarch else {
+        return;
+    };
+    let inherent = |effects, event_object| PendingTrigger {
+        source: ObjectId::NO_SOURCE,
+        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        abilities: None,
+        controller: monarch,
+        timestamp: 0,
+        event_object,
+        synthetic_effects: Some(effects),
+        once_per_turn: false,
+        synthetic_target: None,
+        chosen_mode: None,
+    };
+    for entry in events {
+        match &entry.event {
+            GameEvent::StepChanged {
+                step: crate::turn::Step::End,
+                ..
+            } if state.turn.active == monarch => {
+                triggers.push(inherent(MONARCH_DRAW, None));
+            }
+            GameEvent::DamageDealt {
+                source: Some(creature),
+                target: crate::event::DamageTarget::Player(player),
+                is_combat: true,
+                ..
+            } if *player == monarch
+                && state.object_or_departed(*creature).is_some_and(|o| {
+                    o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                }) =>
+            {
+                triggers.push(inherent(MONARCH_TAKEOVER, Some(*creature)));
+            }
+            _ => {}
+        }
+    }
 }
 
 static PROWESS_SELF: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::This;

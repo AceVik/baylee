@@ -351,6 +351,13 @@ Three things about it are easy to get backwards:
   position as the board without one and loop detection would otherwise call
   them equal.
 
+### The monarch's abilities have no source (CR 724.2)
+
+`trigger::monarch_triggers` reads both off the events and queues synthetic
+triggers from `ObjectId::NO_SOURCE`, controlled by the monarch they
+triggered against; on the stack they are named "Monarch". The takeover is
+`BecomeMonarch(ControllerOfTarget)`, read off the creature it carries.
+
 ### Undying and persist, and the question about an object that is gone
 
 Both are keyword *triggered* abilities (CR 702.93a, CR 702.79a) and neither

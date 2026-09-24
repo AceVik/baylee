@@ -1180,7 +1180,7 @@ Utility: `UntapTarget`, `UntapSelf` (the source, with no target and no
 question — CR 115.1c makes an activated ability targeted only when it says
 the word, so "untap this creature" is the second variant and not the first
 pointed at itself), `NegXFixed` (amount), `CreateTokenCopyOfFirstToken`,
-`BecomeMonarch`, `Sequence(&[..])`.
+`BecomeMonarch(PlayerRel)` (`You` on a card), `Sequence(&[..])`.
 Modal/sequence: `Sequence(&[..])`.
 
 ### Modifiers (layer effects)

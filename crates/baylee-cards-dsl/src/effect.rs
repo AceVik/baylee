@@ -1443,8 +1443,11 @@ pub enum Effect {
         /// The emblem's abilities.
         abilities: &'static [crate::ability::AbilityDef],
     },
-    /// You become the monarch (Palace Jailer).
-    BecomeMonarch,
+    /// A player becomes the monarch (CR 724): `You` for Palace Jailer, and
+    /// `ControllerOfTarget` for the monarch's own "its controller becomes
+    /// the monarch", which the engine resolves with the creature that dealt
+    /// the damage as its first object.
+    BecomeMonarch(PlayerRel),
     /// A relative player may search their library for a basic land onto
     /// the battlefield tapped, then shuffle (Path to Exile).
     OptionalBasicLandSearchFor {
@@ -2016,7 +2019,7 @@ impl Effect {
             | Effect::SacrificeSelf
             | Effect::PayCostOrLoseLater { .. }
             | Effect::CreateEmblem { .. }
-            | Effect::BecomeMonarch
+            | Effect::BecomeMonarch(_)
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::PumpFilter { .. }
             | Effect::Regenerate { .. }

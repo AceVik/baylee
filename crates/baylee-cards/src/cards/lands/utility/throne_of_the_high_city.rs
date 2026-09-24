@@ -20,7 +20,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             cost!("{4}", TapSelf, SacrificeSelf),
-            &[Effect::BecomeMonarch]
+            &[Effect::BecomeMonarch(PlayerRel::You)]
         ),
     ],
 );

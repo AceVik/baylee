@@ -184,6 +184,13 @@ impl ObjectId {
     pub const SLOT_MASK: u32 = 0x00FF_FFFF;
     /// Highest addressable arena slot (~16.7M objects per game).
     pub const MAX_SLOT: u32 = Self::SLOT_MASK;
+    /// The source of a triggered ability that has none.
+    ///
+    /// The monarch's two inherent triggered abilities have no source
+    /// (CR 724.2), but an ability on the stack names one. This handle names
+    /// no object: the arena never reaches its slot, so every lookup of it
+    /// answers `None`, the answer a missing source should get.
+    pub const NO_SOURCE: Self = Self(u32::MAX);
 
     /// Packs a slot and a generation into one handle.
     ///
