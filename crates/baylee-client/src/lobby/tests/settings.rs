@@ -165,15 +165,21 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
         "the row where this seat declares blocks must stay green"
     );
 
-    // A switch actually flips, and the screen redraws to say so.
-    press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));
-    assert!(
+    // A switch actually flips, both ways. Asked against where it stood and
+    // not against a constant: this test once passed only on a machine whose
+    // own preferences file had the switch off, and failed wherever the
+    // default was read instead.
+    let skips = |app: &App| {
         app.world()
             .resource::<crate::prefs::Prefs>()
             .auto()
-            .skip_empty_blocks,
-        "the switch did not take"
-    );
+            .skip_empty_blocks
+    };
+    let before = skips(&app);
+    press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));
+    assert_eq!(skips(&app), !before, "the switch did not take");
+    press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));
+    assert_eq!(skips(&app), before, "the switch did not come back");
 }
 
 /// Settings sit *over* the lobby: coming back has to land exactly where

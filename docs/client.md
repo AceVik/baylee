@@ -5480,10 +5480,11 @@ once the sheet is placed from a band whose height is the window's.
 A drag cannot be proved through `dev-control`: `/pointer` presses and
 releases in one call, so there is no frame in the middle with the cursor
 somewhere else. `input::dragging` proves it headlessly on the sheet's own
-`Node` instead. That test also found the reason `ClientSettings::save` is a
-no-op under `cfg(test)`: releasing the pointer wrote the developer's real
+`Node` instead. That test also found the first reason a test must not reach
+the settings store: releasing the pointer wrote the developer's real
 `~/.config/baylee/client-settings.json`, moving the sheet in their own client
-by the delta the test had invented.
+by the delta the test had invented. The store is now shut in every test
+process (§"In the browser", "Only the player's client opens that store").
 
 The diagnosis is the part worth keeping. Reading the HUD for a full-screen
 node that might be swallowing the ray found nothing — `HudRoot` has carried
@@ -5956,6 +5957,20 @@ JSON lives in `localStorage` under `baylee:client-settings`, scoped to the
 origin the client is served from. Both are best-effort — a corrupt file, a
 private window, a browser set to block site data — so `ClientSettings::load`
 falls back to defaults rather than failing a launch.
+
+**Only the player's client opens that store.** Both back ends answer nothing
+and write nothing until `settings::open_store()` is called, and only
+`standalone::run` calls it. A unit test, an integration test and a bench never
+pass through `run`, so none of them reads or writes the player's settings,
+preferences, hand-built offline decks or card-text cache, on any machine. The
+door used to be `cfg!(test)` at two of five callers, which missed both ways:
+`cfg(test)` does not reach a test under `tests/`, and `Prefs::local` had no
+guard at all. A settings test passed on the owner's machine (their
+`preferences.json` had `skip_empty_blocks: false`) and failed on CI, where
+there was no file to read, and the same unguarded path saved. A test that needs
+a starting state sets it, or asserts relative to what it found.
+`settings::store::tests::a_process_that_never_opened_the_store_reads_and_writes_nothing`
+is the proof, and goes red when the door is taken out.
 
 ## On a phone
 

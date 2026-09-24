@@ -8,6 +8,38 @@
 
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Whether this process may read and write the player's own files.
+///
+/// **Shut until [`open_store`] opens it, and only [`crate::standalone::run`]
+/// does.** A unit test, an integration test under `tests/` and a bench never
+/// go through `run`, so every one of them reads nothing and writes nothing,
+/// whoever's machine it runs on. Both back ends ask here, below every caller.
+///
+/// It was `cfg!(test)` at two of the five callers before, and that missed
+/// in both directions. `cfg(test)` is set only while this library is
+/// compiled for its *own* unit tests, not as the dependency of one in
+/// `tests/`. And `Prefs::local` had no guard at all: a settings test passed
+/// on the owner's machine, whose `preferences.json` said
+/// `skip_empty_blocks: false`, and failed on CI, where no file meant the
+/// default. The same unguarded function also *saved*, so a test could have
+/// overwritten the owner's preferences, and `offline-decks.json` holds decks
+/// built by hand. One door at the store rather than a guard per caller,
+/// because the next caller would not have brought one.
+static OPEN: AtomicBool = AtomicBool::new(false);
+
+/// Lets this process read and write the player's settings, decks and card
+/// text cache. Called once, first thing, by [`crate::standalone::run`].
+pub fn open_store() {
+    OPEN.store(true, Ordering::Release);
+}
+
+/// Whether [`open_store`] has been called in this process.
+#[must_use]
+pub fn store_is_open() -> bool {
+    OPEN.load(Ordering::Acquire)
+}
 
 /// Everything the client remembers.
 #[derive(Resource, Clone, Debug, Serialize, Deserialize)]
@@ -188,20 +220,14 @@ impl ClientSettings {
     /// Loads the settings (defaults on any problem — a corrupt or missing
     /// store must never stop the game from starting).
     ///
-    /// **Not under the crate's own unit tests**, for the same reason
-    /// [`ClientSettings::save`] does not write there, and it took the
-    /// opposite direction to notice: the developer set their own client to
-    /// German to photograph it, and three lobby tests failed on the spot,
-    /// because `LobbyState::new` reads this and they assert on the words on
-    /// the screen. A test that passes or fails on whose machine it runs is
-    /// worse than no test. The same `cfg(test)` caveat applies — it is set
-    /// while this library is compiled *for* its own tests and not while it is
-    /// compiled as a dependency of one in `tests/`.
+    /// Defaults in a test, because a test never opens the store
+    /// ([`store_is_open`]). That mattered here first: the developer set their
+    /// own client to German to photograph it, and three lobby tests failed on
+    /// the spot, because `LobbyState::new` reads this and they assert on the
+    /// words on the screen. A test that passes or fails on whose machine it
+    /// runs is worse than no test.
     #[must_use]
     pub fn load() -> Self {
-        if cfg!(test) {
-            return Self::default();
-        }
         store::read()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default()
@@ -210,24 +236,14 @@ impl ClientSettings {
     /// Persists the settings (best-effort; neither a read-only home dir nor a
     /// browser with site data blocked is worth a crash).
     ///
-    /// **Not under the crate's own unit tests.** This writes to the player's
-    /// real config directory, and a test that reached it would edit the
-    /// settings of whoever ran `cargo test` — which is exactly what the zone
-    /// browser's drag test did the first time it released the pointer, moving
-    /// the sheet in the developer's own client by the delta the test had
-    /// invented. The in-memory half is what a test has business asserting;
-    /// the file is the platform's, and `settings_round_trip_through_json`
-    /// proves the encoding without one.
-    ///
-    /// The guard reaches exactly that far and no further: `cfg(test)` is set
-    /// while this library is compiled *for* its own tests and **not** while
-    /// it is compiled as a dependency of one in `tests/`, so an integration
-    /// test that drove a system which saves would write the file for real.
-    /// None does today.
+    /// Nothing in a test, because a test never opens the store
+    /// ([`store_is_open`]). This writes to the player's real config
+    /// directory, and the zone browser's drag test, the first time it
+    /// released the pointer, moved the sheet in the developer's own client by
+    /// the delta the test had invented. The in-memory half is what a test has
+    /// business asserting; `settings_round_trip_through_json` proves the
+    /// encoding without a file.
     pub fn save(&self) {
-        if cfg!(test) {
-            return;
-        }
         if let Ok(text) = serde_json::to_string_pretty(self) {
             store::write(&text);
         }
@@ -299,8 +315,18 @@ pub(crate) mod store {
         let _ = std::fs::rename(&path, &broken);
     }
 
-    /// A config-dir file location.
+    /// A config-dir file location, and `None` in a process that has not
+    /// opened the store ([`super::store_is_open`]): every function here goes
+    /// through this one.
     fn path(name: &str) -> Option<std::path::PathBuf> {
+        if !super::store_is_open() {
+            return None;
+        }
+        resolve(name)
+    }
+
+    /// Where `name` lives in the platform config dir, door or no door.
+    fn resolve(name: &str) -> Option<std::path::PathBuf> {
         let base = std::env::var("XDG_CONFIG_HOME")
             .ok()
             .filter(|v| !v.is_empty())
@@ -309,6 +335,26 @@ pub(crate) mod store {
                 Some,
             )?;
         Some(std::path::PathBuf::from(base).join("baylee").join(name))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        /// A test process reads and writes none of the player's files.
+        ///
+        /// `resolve` answers first, so the `None`s below are the door's and
+        /// not a missing `HOME`. And the probe is written *before* it is read:
+        /// with the door broken, the read would find the write.
+        #[test]
+        fn a_process_that_never_opened_the_store_reads_and_writes_nothing() {
+            const PROBE: &str = "hermetic-probe.json";
+            assert!(!super::super::store_is_open(), "nothing in a test opens it");
+            let real = super::resolve(PROBE).expect("this machine has a config dir");
+
+            super::write_named(PROBE, "{}");
+            assert_eq!(super::read_named(PROBE), None);
+            assert!(!real.exists(), "{} was written", real.display());
+            assert_eq!(super::path(PROBE), None);
+        }
     }
 }
 
@@ -386,7 +432,13 @@ pub(crate) mod store {
     /// Every step here is genuinely fallible: there is no window off the main
     /// thread, and a browser configured to block site data throws on the
     /// `local_storage` accessor itself rather than returning an empty store.
+    ///
+    /// And `None` in a process that has not opened the store
+    /// ([`super::store_is_open`]): every function here goes through this one.
     fn storage() -> Option<web_sys::Storage> {
+        if !super::store_is_open() {
+            return None;
+        }
         web_sys::window()?.local_storage().ok().flatten()
     }
 }

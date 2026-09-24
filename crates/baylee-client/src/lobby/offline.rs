@@ -868,8 +868,8 @@ mod tests {
     /// loss cannot be undone by setting something again, and the derived
     /// reader would have refused the whole list over one row. Written against
     /// the row decoder rather than through `Offline::load`, because `load`
-    /// reads the *developer's real deck file* — the same reason `persist` is
-    /// false in every test in this module.
+    /// reads no file at all in a test (`settings::store_is_open`), and outside
+    /// one it reads the player's real deck file.
     ///
     /// The bad row names a field the build has never seen **and** gives
     /// `cards` the wrong type, which is the case `#[serde(default)]` cannot

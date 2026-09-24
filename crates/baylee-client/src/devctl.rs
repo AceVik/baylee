@@ -1860,11 +1860,21 @@ mod tests {
             "a sentence this client owns is named and translated"
         );
 
+        // Who wrote it is `said`, and never the language: a sentence the
+        // engine is known to send reads in the player's language
+        // (`i18n::server`), and only a diagnostic this client has never seen
+        // keeps the engine's own words.
         let theirs = Refusal::Verbatim("illegal action for your seat".to_string());
         assert_eq!(
             refusal_json(Some(&theirs), Lang::De),
-            r#"{"said":null,"text":"illegal action for your seat"}"#,
-            "another process's prose is neither named nor translated"
+            r#"{"said":null,"text":"Diese Aktion ist für deinen Platz gerade nicht möglich."}"#,
+            "another process's known sentence is not named, and is translated"
+        );
+        let unknown = Refusal::Verbatim("a diagnostic from a newer engine".to_string());
+        assert_eq!(
+            refusal_json(Some(&unknown), Lang::De),
+            r#"{"said":null,"text":"a diagnostic from a newer engine"}"#,
+            "an unknown one is neither named nor translated"
         );
 
         // The two that a one-field probe could not separate.
