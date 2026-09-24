@@ -174,6 +174,18 @@ fn a_card_standing_for_several_wears_their_count_and_a_pile_does_not() {
     assert_eq!(at(obj(60)).badge, 0, "a lone card wears a count");
     assert_eq!(at(obj(100)).count, 10, "the pile lost its deck");
     assert_eq!(at(obj(100)).badge, 0, "the pile wears a count");
+    // And the cards under the merged card are Goblins; the ones under the
+    // pile's top card are whatever else went to the graveyard.
+    assert_eq!(
+        at(obj(1)).shared,
+        crate::cardmat::glow::IDENTITY,
+        "the Goblins stand on other cards"
+    );
+    assert_eq!(
+        at(obj(100)).shared,
+        0,
+        "the graveyard stands on its top card's kind"
+    );
 }
 
 /// The same rule outside combat, where `selected()` *is* the answer being

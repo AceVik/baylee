@@ -767,6 +767,31 @@ and the bubble's clip lets it out as far
 (`a_preview_keeps_its_count_badge_on_the_screen`). `BoardModel::group` is
 how it and `/state` find the card a pointer is on.
 
+**A merged card is a stack** (#261: "wie ein Stapel gerendert"). It stands
+on its deck: the top card at the deck's height (`stack_rise`, 0.006 a card
+up to thirty) and one slab per card under it up to fourteen
+(`stack_layers`), children of the card built by `table::sync_stack`. A slab
+is a frame with no print — nothing under the top card carries an image —
+in the top card's identity paper (`glow::IDENTITY`: verdigris for tokens,
+violet for copies, oxblood for commanders; not its offer, its sickness or
+its protection, which are the top card's and this turn's), jogged
+`PILE_JOG` (0.012 card widths) right and left in turn so that each slab's
+edge shows as a sliver of paper. The jog is less than the frame's side, so
+what shows is never a window. A pile's slabs — a graveyard's, an exile's —
+wear plain paper, because the cards under a pile's top card are other
+cards (`Placement::shared`), and the library stays backs all the way down,
+face down (CR 401.2; `a_library_is_backs_all_the_way_down`).
+
+The deck follows the count. `sync_stack` rebuilds the slabs when the count
+or the paper changes, and the contact shadow when the count does — rebuilt
+rather than moved, because `ground_the_shadows` remembers a flier's resting
+shadow by entity. Until #274 the deck was built once, when the card was
+spawned: a group of Treasures growing from two to twelve under the same top
+card kept one slab under a card that had risen to stand on eleven
+(`the_deck_follows_the_count`). **Accepted:** in a fanned lane the jog lies
+under the neighbours on both sides, so only a roomy row shows it; the badge
+and the deck's own walls still say "stack" there.
+
 When they merge depends on what they are (`board::group_objects`). Tokens
 merge from two, on any row: a token is made to be one of many, and a fan of
 Treasures says nothing their `×N` does not. Cards merge only once the row

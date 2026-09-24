@@ -20,6 +20,7 @@ fn card(slot: u32, flying: bool) -> Placement {
         flying,
         count: 1,
         badge: 0,
+        shared: 0,
         art: None,
         offer: crate::cardmat::Offer::default(),
         corner: baylee_client_core::cardplate::Corner::default(),

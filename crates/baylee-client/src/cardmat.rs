@@ -137,6 +137,13 @@ pub mod glow {
     ///
     /// Where it is for the reason [`TOKEN`] is.
     pub const REACHABLE: u32 = 1 << 23;
+
+    /// What a card *is*, as the paper's colour: [`COMMANDER`], [`TOKEN`] and
+    /// [`COPY`]. True of every member of a merged group, in every zone and
+    /// for the whole game, which is why the slabs under a merged card wear
+    /// it (#261) and nothing else in this word: an offer is the top card's,
+    /// sickness is this turn's, and protection is not a colour.
+    pub const IDENTITY: u32 = COMMANDER | TOKEN | COPY;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.

@@ -212,9 +212,21 @@ const _: () = assert!(STRIP_STEP_SHARE > 0.0 && STRIP_STEP_SHARE < 1.0);
 /// Where the keyword strip sits in the transparent pass: the height it lies
 /// at, on a card's face. See [`sort_bias`].
 pub(crate) const STRIP_RUNG: f32 = CARD_LIFT + CARD_THICKNESS;
-/// The back of a card: what a stack behind a counted group is made of, and
-/// what a card whose art never arrives falls back to.
+/// The back of a card: what a card whose art never arrives falls back to,
+/// and what fills a slab's window under a pile, where nothing sees it.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
+
+/// How far each slab under a pile stands out sideways from the one above it,
+/// in card widths (#261), alternating left and right, so a merged card reads
+/// as a stack of its own kind rather than as one card on a dark block.
+///
+/// Only the frame's paper ever shows: a slab's window is further in than
+/// this on every side, so what peeks out is paper, never a print — and a
+/// slab has no print in any case. Sideways only: a slab standing out at the
+/// top would reach towards the band the seat bar writes on, and one at the
+/// bottom towards the row behind.
+const PILE_JOG: f32 = 0.012;
+const _: () = assert!(PILE_JOG <= baylee_client_core::cardframe::FRAME_SIDE);
 /// How many slabs a pile is ever built from.
 ///
 /// Fourteen rather than four, and the number is about *continuity* rather
@@ -1542,6 +1554,12 @@ pub struct SceneIndex {
     /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
     /// mesh for the whole table, since the shader sizes the body inside it.
     badge_quad: Option<Handle<Mesh>>,
+    /// What stands under each card on the table: the slabs of its deck and
+    /// its contact shadow, with the count and the paper they were built for
+    /// (#261). Held for the strip's reason, and because a group grows under
+    /// the same top card: a deck built once at spawn kept one slab under a
+    /// card that had risen to stand on eleven.
+    stacks: HashMap<ObjectId, Stack>,
     /// What stood in a pile's hover fan on the **previous** frame, and which
     /// pile each card came out of.
     ///
@@ -1980,8 +1998,9 @@ pub fn spawn_stage(
         })
         .collect();
     // The card back: no finish, no glow, and no picture *yet*. It is what a
-    // library is drawn as, what the stack behind a counted group is made of,
-    // and what a card this seat may not see wears. The printed back is
+    // library is drawn as, slab by slab (CR 401.2: face down), and what a
+    // card this seat may not see wears. The slabs under a card on the table
+    // are not backs but frames (`sync_stack`). The printed back is
     // fetched like any other image, so `sync_scene` dresses this material in
     // it the frame it lands; until then it is the flat colour below.
     // A second duel in one session gets a second material, and the flag is
@@ -2811,6 +2830,7 @@ pub fn despawn_stage(
     index.marks_materials.clear();
     index.badges.clear();
     index.badge_materials.clear();
+    index.stacks.clear();
     watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
     // it; what is left is the bookkeeping that would otherwise point at
@@ -3019,6 +3039,135 @@ fn sync_badge(
         .insert(placement.object, (placement.badge, placement.rung, badge));
 }
 
+/// One slab of the deck under a card: depth, not a card. A marker, so the
+/// slabs can be found and counted without being taken for the card.
+#[derive(Component)]
+pub struct StackSlab;
+
+/// What stands under one card: see [`SceneIndex::stacks`].
+#[derive(Default)]
+struct Stack {
+    /// The count the deck was built for.
+    count: usize,
+    /// The paper its slabs wear, as glow bits: see [`Placement::shared`].
+    paper: u32,
+    /// The slabs, top first.
+    slabs: Vec<Entity>,
+    /// The contact shadow under the whole deck.
+    shadow: Option<Entity>,
+}
+
+/// Where the `i`-th of `layers` slabs hangs under a card standing `deck`
+/// high, in the card's own space: that share of the deck down, and
+/// [`PILE_JOG`] to the right for an odd slab and to the left for an even one.
+fn slab_transform(i: usize, layers: usize, deck: f32) -> Transform {
+    let side = if i % 2 == 1 { 1.0 } else { -1.0 };
+    Transform::from_xyz(
+        side * PILE_JOG * CARD_WIDTH,
+        0.0,
+        -deck * i as f32 / layers as f32,
+    )
+}
+
+/// Builds what stands under a card — the slabs of its deck and its contact
+/// shadow — and rebuilds it when the count or the paper changes (#261).
+///
+/// A pile stands on the cards under it: the top card is drawn at the deck's
+/// own height and the rest hangs below it as children, so what a player sees
+/// is one block of cardboard with a face on top. The slabs are frames with no
+/// print, jogged ([`PILE_JOG`]) so their edges show: a merged group's in the
+/// top card's identity paper, a pile's in plain paper. Children and not loose
+/// entities, for the strip's reasons and one more: as loose entities they
+/// were never despawned at all, and every card that ever lay on a graveyard
+/// left its slabs standing there for the rest of the game.
+///
+/// The shadow is rebuilt only with the count, and rebuilt rather than moved:
+/// [`ground_the_shadows`] remembers a flier's resting shadow by entity, and a
+/// moved one would be put back where the smaller deck had it when the card
+/// lands. It sits under the whole deck and wider the taller the deck is — a
+/// thick pile sits in more shadow than a single card does, which is most of
+/// what makes it read as thick at all.
+#[allow(clippy::too_many_arguments)]
+fn sync_stack(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<CardMaterial>,
+    card: Entity,
+    placement: &Placement,
+    glow: u32,
+    motion: f32,
+) {
+    let paper = glow & placement.shared;
+    let current = index.stacks.get(&placement.object);
+    if current.is_some_and(|stack| stack.count == placement.count && stack.paper == paper) {
+        return;
+    }
+    let Some(quad) = index.quad.clone() else {
+        return;
+    };
+    let recount = current.is_none_or(|stack| stack.count != placement.count);
+    let mut stack = index.stacks.remove(&placement.object).unwrap_or_default();
+    for slab in stack.slabs.drain(..) {
+        commands.entity(slab).despawn();
+    }
+    let under = placement.count.saturating_sub(1);
+    let deck = stack_rise(under);
+    if recount {
+        if let Some(shadow) = stack.shadow.take() {
+            commands.entity(shadow).despawn();
+        }
+        if let Some((mesh, material)) = index.shadow_quad.clone().zip(index.shadow_material.clone())
+        {
+            let shadow = commands
+                .spawn((
+                    CardShadow,
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_xyz(0.0, 0.0, -(CARD_LIFT * 0.5 + deck)).with_scale(Vec3::new(
+                        1.0 + deck * DECK_SHADOW_SPREAD,
+                        1.0 + deck * DECK_SHADOW_SPREAD,
+                        1.0,
+                    )),
+                    // Between the felt and the card, and a click near a
+                    // card's edge means the table.
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(card).add_child(shadow);
+            stack.shadow = Some(shadow);
+        }
+    }
+    let layers = stack_layers(under);
+    if layers > 0 {
+        // The window is filled with the back's colour, and nothing sees it:
+        // the card on top covers every slab but its jog, which is paper.
+        let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain, paper);
+        let material = index
+            .face_materials
+            .entry(look)
+            .or_insert_with(|| materials.add(material(look, None, BACK_COLOR, motion)))
+            .clone();
+        for i in 1..=layers {
+            let slab = commands
+                .spawn((
+                    StackSlab,
+                    Mesh3d(quad.clone()),
+                    MeshMaterial3d(material.clone()),
+                    slab_transform(i, layers, deck),
+                    // The deck under a card is depth, not cards: the top
+                    // card is what a click has to reach.
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(card).add_child(slab);
+            stack.slabs.push(slab);
+        }
+    }
+    stack.count = placement.count;
+    stack.paper = paper;
+    index.stacks.insert(placement.object, stack);
+}
+
 /// How one card of a pile's hover fan is turned.
 ///
 /// A rotation of its own rather than two more arguments to
@@ -3058,6 +3207,12 @@ struct Placement {
     /// battlefield, and zero for a lone card, a pile and a fanned card — a
     /// pile's size is `count` above and is drawn as the deck under it.
     badge: u32,
+    /// What of this card's paper the cards under it share, as glow bits: a
+    /// merged group's members are its own kind and share its identity
+    /// ([`glow::IDENTITY`](crate::cardmat::glow::IDENTITY)); a pile's are
+    /// other cards and share nothing — a commander on top of a graveyard
+    /// does not make the cards under it commanders.
+    shared: u32,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
     corner: baylee_client_core::cardplate::Corner,
@@ -3182,6 +3337,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     flying: group.badges.contains(&KeywordBadge::Flying),
                     count: group.count(),
                     badge: cardplate::count_word(group.count()),
+                    shared: crate::cardmat::glow::IDENTITY,
                     art: group.art,
                     // Resolved here rather than in the sync loop, because
                     // here is where the group's *members* are: a plan taps
@@ -3259,6 +3415,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                             1
                         },
                         badge: 0,
+                        shared: 0,
                         art: card.art,
                         offer: pile_offer(duel, card.object),
                         corner: baylee_client_core::cardplate::Corner::default(),
@@ -3294,6 +3451,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 flying: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 badge: 0,
+                shared: 0,
                 art: pile.art,
                 offer: pile_offer(duel, top),
                 corner: baylee_client_core::cardplate::Corner::default(),
@@ -3358,7 +3516,6 @@ pub fn sync_scene(
         return;
     };
     let blank = index.blank.clone();
-    let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
     // Read after the guards and not before them: a frame that bails because
     // the quad or the print table has not arrived yet must not swallow the
     // one batch of moves this view will ever produce. `sheen` may have read
@@ -3380,8 +3537,8 @@ pub fn sync_scene(
         .materials
         .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)));
 
-    // One original sleeve for the library, its fan and all shared hidden
-    // slabs. Dress the resident material in place: some stacks spawn once
+    // One original sleeve for the library, its fan and every hidden card.
+    // Dress the resident material in place: the library's slabs spawn once
     // and are never visited again. Downloaded printing art cannot replace it.
     if !index.back_dressed
         && let Some(handle) = blank.as_ref()
@@ -3637,52 +3794,6 @@ pub fn sync_scene(
                 commands.entity(entity).insert(Floating);
             }
 
-            // The contact shadow rides along as a child, which is what keeps
-            // it under a tapped card without anything having to rotate it. It
-            // sits between the felt and the card, and is not pickable — a
-            // click near a card's edge means the table.
-            //
-            // Set here for the card as it stands and then left alone, which
-            // is right for every card that lies on the felt. A card that
-            // *rises* off it is [`ground_the_shadows`]'s business, and it
-            // finds this child by its marker.
-            if let Some((mesh, material)) = shadow.clone() {
-                commands.entity(entity).with_child((
-                    CardShadow,
-                    Mesh3d(mesh),
-                    MeshMaterial3d(material),
-                    // Under the whole deck rather than under the top card, and
-                    // wider the taller the deck is: a thick pile sits in more
-                    // shadow than a single card does, which is most of what
-                    // makes it read as thick at all.
-                    Transform::from_xyz(0.0, 0.0, -(CARD_LIFT * 0.5 + deck)).with_scale(Vec3::new(
-                        1.0 + deck * DECK_SHADOW_SPREAD,
-                        1.0 + deck * DECK_SHADOW_SPREAD,
-                        1.0,
-                    )),
-                    Pickable::IGNORE,
-                ));
-            }
-
-            // The rest of the deck, as children hanging below the face. They
-            // are children and not loose entities for two reasons: they
-            // follow the card through every glide, tap and lift with nothing
-            // to keep in step, and they are despawned with it — as loose
-            // entities they were never despawned at all, so every card that
-            // ever lay on a graveyard left its backing slabs standing there
-            // for the rest of the game.
-            let layers = stack_layers(placement.count.saturating_sub(1));
-            for i in 1..=layers {
-                let down = deck * i as f32 / layers as f32;
-                commands.entity(entity).with_child((
-                    Mesh3d(quad.clone()),
-                    MeshMaterial3d(blank.clone().unwrap_or_default()),
-                    Transform::from_xyz(0.0, 0.0, -down),
-                    // The deck under a card is depth, not cards: the top
-                    // card is what a click has to reach.
-                    Pickable::IGNORE,
-                ));
-            }
             entity
         };
 
@@ -3700,6 +3811,15 @@ pub fn sync_scene(
             &mut badge_materials,
             entity,
             placement,
+        );
+        sync_stack(
+            &mut commands,
+            &mut index,
+            &mut card_materials,
+            entity,
+            placement,
+            glow,
+            motion,
         );
 
         // The text children follow the same decision as the material, and are
@@ -3744,6 +3864,7 @@ pub fn sync_scene(
             index.faces.remove(&id);
             index.marks.remove(&id);
             index.badges.remove(&id);
+            index.stacks.remove(&id);
             // A stale id with no move behind it did not leave anywhere: it is
             // a graveyard's old top card, covered by the one that landed on
             // it this frame, or a group that re-keyed when its lowest-id
@@ -3897,5 +4018,7 @@ mod badge_tests;
 /// shadow is left behind on the felt when the card takes off.
 #[cfg(test)]
 mod flying_tests;
+#[cfg(test)]
+mod stack_tests;
 #[cfg(test)]
 mod strip_tests;
