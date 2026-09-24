@@ -1697,21 +1697,24 @@ fn buttons_json(believed: &Believed) -> String {
 /// What an ability row reads, as three more fields on its button.
 ///
 /// `words` is what the row says: the whole printed sentence, cost and all
-/// (for a prepared cast, the spell's name and text), or the client's
+/// (for a prepared cast, the spell's name and text; for a grant, the
+/// grantor's name and the sentence that grants it), or the client's
 /// one-line name where the card prints none, `null` where it draws neither.
 /// `head` is its cost column as drawn: the sentence's own head, the
 /// ability's symbols where there is no sentence, `null` where the sentence
 /// is drawn whole. `source` is where the words came from: `localized` (the
 /// player's printing), `oracle` (the compiled English), `token` (a registry
 /// token's row, which no card prints) or `none` (no printed sentence: the
-/// CR 305.6 tap, a grant, a sentence the count guard refused). A pour pip
-/// reports all three empty: it draws a colour and no words.
+/// CR 305.6 tap, a grant whose grantor is hidden, a sentence the count guard
+/// refused). A grant's is its sentence's, or its name's where the view names
+/// no sentence. A pour pip reports all three empty: it draws a colour and no
+/// words.
 ///
 /// Read through the doors the sheet itself draws through
 /// ([`crate::cardtext::said`], [`crate::abilities::printed_words`],
-/// [`crate::abilities::prepared_words`]), so it
-/// cannot say one thing while the row says another. A driver checking "is
-/// this row German" could only read a screenshot before.
+/// [`crate::abilities::prepared_words`], [`crate::abilities::grant_words`]),
+/// so it cannot say one thing while the row says another. A driver checking
+/// "is this row German" could only read a screenshot before.
 fn ability_row_words(believed: &Believed, index: usize) -> String {
     let unknown = ",\"words\":null,\"head\":null,\"source\":\"none\"".to_string();
     let Some(duel) = believed.duel.as_deref() else {
@@ -1741,6 +1744,9 @@ fn ability_row_words(believed: &Believed, index: usize) -> String {
         .and_then(|(at, rules)| crate::cardtext::said(texts, rules.card, at))
         .or_else(|| {
             texts.and_then(|texts| crate::abilities::prepared_words(texts, view, object, &option))
+        })
+        .or_else(|| {
+            texts.and_then(|texts| crate::abilities::grant_words(texts, view, object, &option))
         });
     let cut = crate::abilities::printed_words(texts, view, object, &option);
     let source = match &said {

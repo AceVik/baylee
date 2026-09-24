@@ -576,9 +576,10 @@ struct SheetRow {
     /// out (*„Bitte nicht custom texte für abilities verwenden, sondern die
     /// echten texte von skryfall"*). For an ability it is set only where
     /// `AbilityOption::printed_index` is `None` — the CR 305.6 mana of a basic
-    /// land type, an ability a continuous effect granted, a prepared cast
-    /// whose spell has no text to draw — each of which is printed on no card
-    /// at all, so there is no first wording for it to be a second of. For a cast row it is
+    /// land type, an ability granted by something this seat may not see, a
+    /// prepared cast whose spell has no text to draw — none of which has a
+    /// printed sentence this client can draw, so there is no first wording
+    /// for it to be a second of. For a cast row it is
     /// `choices::cast_label`, which *is* the printed sentence where the card
     /// has one and the face's own name where the row is a face.
     line: Option<String>,
@@ -665,21 +666,28 @@ fn ability_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) 
                     None => option.cost.clone(),
                 },
                 // A prepared cast is the spell it casts: that card's name
-                // over its whole text.
+                // over its whole text. A grant is its grantor's name over
+                // the sentence that grants it.
                 blocks: words
                     .map(|cut| cut.blocks)
                     .filter(|blocks| !blocks.is_empty())
                     .or_else(|| {
                         crate::abilities::prepared_words(faces, view, object, option)
                             .map(|(blocks, _)| blocks)
+                    })
+                    .or_else(|| {
+                        crate::abilities::grant_words(faces, view, object, option)
+                            .map(|(blocks, _)| blocks)
                     }),
                 // Only where the card prints nothing for this row at all.
                 // `printed_index` is `None` for exactly three things a
                 // permanent can offer — the CR 305.6 mana of a basic land
                 // type, an ability a continuous effect granted, a prepared
-                // cast — and for the first two this client's one-line name is
-                // the only wording there has ever been. The third has blocks
-                // above, and its line is the spell's English name.
+                // cast. The first is printed on no card, and this client's
+                // one-line name is the only wording there has ever been. The
+                // other two have blocks above wherever the view names their
+                // card, and their line is that card's English name, or
+                // "Granted ability" for a grantor this seat may not see.
                 line: (option.printed_index().is_none() && !option.label.is_empty())
                     .then(|| option.label.clone()),
             }

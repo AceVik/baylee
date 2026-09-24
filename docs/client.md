@@ -884,10 +884,10 @@ ability fit both. What it changes is only which cell the table holds, never
 the denominator — a mana ability does not use the stack (CR 605.1), and
 `LineShape::stackable` is the one place that says so. Two lines with the same cost are separated by what they
 *make* (`lines::mana_fits`, the same job `loyalty_head` does for a walker);
-Yavimaya Coast's `{T}: Add {C}` and `{T}: Add {G} or {U}` are why. The two
-taps that are printed nowhere keep a composed label: the CR 305.6 shortcut,
-which a Bayou's text does not mention, and a granted ability, which the
-Chromatic Lantern prints and the land under it does not.
+Yavimaya Coast's `{T}: Add {C}` and `{T}: Add {G} or {U}` are why. The one
+tap printed nowhere keeps a composed label: the CR 305.6 shortcut, which a
+Bayou's text does not mention. A granted ability is printed too, only not on
+the land it is granted to, and it has its own paragraph below.
 
 **The cost column is the sentence's own head** (#212). A row draws its cost on
 the left and what the ability does beside it, and both halves come out of the
@@ -903,6 +903,30 @@ symbols, so a colon inside an effect never passes for a cost. A sentence with
 no cost colon, which is every keyword line (`Equip {1}`, `Level up {1}`,
 `Reconfigure {R}`, `Station`), is drawn whole with an empty column. Only a row
 the card prints no sentence for draws the ability's symbols there.
+
+**A granted ability is its grantor's sentence** (#212). The land under a
+Chromatic Lantern prints nothing about the `{T}` it was given; the Lantern
+prints it, in the sentence saying lands "have" it (CR 113.10). The view names
+that sentence per grant (`PublicObject::grants`, view version 31,
+docs/protocol.md §"Who granted it"), and the row draws the grantor's name
+over it (`abilities::grant_words`): *Chromatische Laterne* over *Länder, die
+du kontrollierst, haben „{T}: Erzeuge ein Mana beliebiger Farbe."*, through
+`cardtext::said` like every other sentence, so it is the player's language
+where the grantor's text has arrived and the compiled English before. Both
+lines and not just the sentence, because the row is on the land and the
+sentence is about lands: without the name, nothing on the row says which
+permanent to look at. The cost column stays empty. The engine's cost is the
+granted ability's and the sentence's head is the grantor's, so no head is cut
+and the sentence is drawn whole. `AbilityOption::label` is the grantor
+face's English name (the fallback line, the armed shelf, the redraw
+fingerprint). A grantor the view names with no sentence (nothing on its card
+wrote the grant by value) is its name alone. A grantor this seat may not see
+(gone to a hand or a library, face down) is an entry with nothing in it, and
+the row is "Granted ability", as every grant was before. A granted *mana*
+ability whose output the view states (`PublicObject::granted_mana`) is mostly
+not a row at all: `abilities::pour_out` turns it into pips, which draw a
+colour and no words, so the Lantern's sentence is read on a land only where
+the view could not reduce the grant to colours.
 
 This replaced seventeen `Phrase::Cost*` wordings of `CostPart` (`Sacrifice
 this`, where the card prints `Sacrifice this artifact`) and a cut at the first
@@ -6557,12 +6581,14 @@ An ability row also says what it reads: `words` (the whole sentence the row
 draws, cost and all, or the one-line name of a row the card prints nothing
 for; `null` for neither), `head` (the cost column as drawn) and `source`,
 where the words came from: `localized` (the player's printing), `oracle` (the
-compiled English), `token` or `none` (the CR 305.6 tap, a grant, a sentence
-the count guard refused; also a pour pip, which draws a colour and no words).
-A prepared cast reports the spell's name and text and where they came from.
-All three go through the sheet's own doors, `cardtext::said`,
-`abilities::printed_words` and `abilities::prepared_words`, so the field
-cannot say German while the row draws English. Before them, "is this row
+compiled English), `token` or `none` (the CR 305.6 tap, a grant whose
+grantor is hidden, a sentence the count guard refused; also a pour pip, which
+draws a colour and no words). A prepared cast reports the spell's name and
+text and where they came from; a grant its grantor's name and sentence, and
+where the sentence came from. All three go through the sheet's own doors,
+`cardtext::said`, `abilities::printed_words`, `abilities::prepared_words` and
+`abilities::grant_words`, so the field cannot say German while the row draws
+English. Before them, "is this row
 localised" was a screenshot and a reader of German (#212).
 
 It was built, though, on a claim that turned out to be false — that a yes/no

@@ -58,7 +58,8 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     }
 
     // Printed mana abilities: Command Tower, a Llanowar Elf, a Sol Ring —
-    // and the one that is printed on no card, which the view carries instead.
+    // and the one printed on no card the permanent has, which the view
+    // carries instead.
     for &(id, index) in &legal.abilities {
         let source = match baylee_engine::choice::granted_slot(index) {
             Some(slot) => granted_source(view, id, slot),
@@ -438,9 +439,9 @@ pub fn offers(
             continue;
         }
         let read = match baylee_engine::choice::granted_slot(index) {
-            // A grant is printed on no card, so there is no ability to read:
-            // the host has already reduced it to colours *and* a count, which
-            // is why a grant is always a number here.
+            // A grant is on no card the permanent has, so there is no ability
+            // to read: the host has already reduced it to colours *and* a
+            // count, which is why a grant is always a number here.
             Some(slot) => granted_source(view, object, slot).map(|source| (source.colors, true)),
             None => match ability_at(view, object, index) {
                 Some(

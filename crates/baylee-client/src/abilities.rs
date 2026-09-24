@@ -49,8 +49,9 @@ pub struct AbilityOption {
     /// sacrifice, a discard, life, mana or a loyalty cost is not paid out of
     /// the card in that sense, and stays arm-then-act.
     ///
-    /// `false` wherever the cost cannot be read: a granted ability is printed
-    /// on no card, and `PREPARED_CAST` is not an ability at all. Guessing
+    /// `false` wherever the cost cannot be read: a granted ability is in no
+    /// ability list this client reads, and `PREPARED_CAST` is not an ability
+    /// at all. Guessing
     /// there would fire something unarmed, and an extra tap is the cheaper
     /// way to be wrong.
     pub tap_only: bool,
@@ -71,7 +72,7 @@ pub struct AbilityOption {
     /// what casting the copy pays.
     ///
     /// `None` where the ability costs no symbol, or has no cost to read: a
-    /// grant is printed on no card.
+    /// grant is in no ability list this client reads.
     pub cost: Option<String>,
     /// Where this ability's printed sentence is, for a client holding the
     /// card's text in the player's own language.
@@ -81,7 +82,8 @@ pub struct AbilityOption {
     /// the same question: which sentence of this face is this ability. `None`
     /// for everything the generated table has no row for — a reserved index,
     /// a granted ability, a printed one no sentence fits — and the sheet then
-    /// falls back to [`Self::label`].
+    /// draws the prepared spell's or the grantor's words ([`prepared_words`],
+    /// [`grant_words`]), else [`Self::label`].
     pub printed: Option<baylee_view::StackText>,
     /// The colour this row pours, when the row is one pip of a mana header.
     ///
@@ -103,13 +105,14 @@ impl AbilityOption {
     /// The one door for "does the printing say anything about this", which
     /// is the question the sheet's words hang on: every row that answers
     /// `Some` has a printed sentence and draws it, and the three that answer
-    /// `None` are printed on no card and can only be named by this client.
+    /// `None` are printed on no card the permanent has.
     ///
     /// - the CR 305.6 mana of a basic land type, which a Bayou's text does
     ///   not mention and which is offered as `ActivateManaAbility`, carrying
     ///   no index because there is nothing on the card to index;
     /// - a **granted** ability, which the Chromatic Lantern prints and the
-    ///   land under it does not ([`baylee_engine::choice::granted_slot`]);
+    ///   land under it does not ([`baylee_engine::choice::granted_slot`];
+    ///   its row draws the Lantern's sentence, [`grant_words`]);
     /// - a **prepared cast**, which is a cast and not an ability
     ///   ([`baylee_engine::choice::PREPARED_CAST`]).
     ///
@@ -411,10 +414,10 @@ pub fn options_for(
         // The synthetic indices are not positions on the card, so neither the
         // registry nor the card's ability list has anything to say about
         // them. A prepared cast is a cast and never a mana ability, and it is
-        // named by the spell it casts; a granted one is whichever the view
-        // said, per slot.
+        // named by the spell it casts; a granted one is named by its grantor
+        // and is a mana ability or not by whichever the view said, per slot.
         let (label, mana) = if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-            (Phrase::GrantedAbility.text(lang).to_string(), {
+            (grant_label(lang, view, object, slot), {
                 match view.object(object).and_then(|o| o.granted_mana.as_ref()) {
                     // Whether *this* grant is the mana one, not whether the
                     // permanent has one anywhere: Urza's Saga is granted a
@@ -453,8 +456,8 @@ pub fn options_for(
             action,
             label,
             mana,
-            // Only a printed ability can answer this: a grant is on no card
-            // and a prepared cast is not an ability.
+            // Only a printed ability can answer this: a grant is in no list
+            // this client reads and a prepared cast is not an ability.
             tap_only: baylee_engine::choice::granted_slot(index).is_none()
                 && index != baylee_engine::choice::PREPARED_CAST
                 && tap_only(view, object, index),
@@ -937,6 +940,75 @@ pub fn prepared_words(
     Some((blocks, said))
 }
 
+/// Who granted the ability in `slot`, as the view says (#212): the grantor's
+/// card and face, and which of that face's sentences granted it.
+fn grant_of(view: &PlayerView, object: ObjectId, slot: u32) -> Option<&baylee_view::GrantSource> {
+    view.object(object)?.grants.get(usize::try_from(slot).ok()?)
+}
+
+/// A granted ability's label: the English name of the face that grants it,
+/// which is what a row falls back to and what the sheet's redraw fingerprint
+/// reads. The sheet itself draws that name and sentence in the player's
+/// language ([`grant_words`]).
+///
+/// "Granted ability" only where the view names no grantor: one this seat
+/// may not see, or a slot the view has no entry for.
+fn grant_label(lang: Lang, view: &PlayerView, object: ObjectId, slot: u32) -> String {
+    grant_of(view, object, slot)
+        .and_then(|grant| grant.rules)
+        .and_then(|rules| crate::cardtext::english(rules.card, usize::from(rules.face)))
+        .map_or_else(
+            || Phrase::GrantedAbility.text(lang).to_string(),
+            |text| text.name,
+        )
+}
+
+/// What a granted ability's row says: the grantor's name over the sentence
+/// that grants it, each in the player's language where it has arrived, else
+/// in English ([`crate::cardtext::CardTexts::face`],
+/// [`crate::cardtext::said`]), and which of the two the sentence is.
+///
+/// The ability is printed on no card the permanent has. The land under a
+/// Chromatic Lantern prints nothing about its `{T}`. The Lantern prints it,
+/// in the sentence saying lands "have" it (CR 113.10), which is the card's
+/// own text for this row and says where the ability came from as well.
+///
+/// The name alone where the view names the grantor and no sentence
+/// (`GrantSource::text` is `None`: nothing on its card wrote this grant by
+/// value), and `None` where it names no grantor at all. The sheet then
+/// draws [`AbilityOption::label`].
+#[must_use]
+pub fn grant_words(
+    texts: &crate::cardtext::CardTexts,
+    view: &PlayerView,
+    object: ObjectId,
+    option: &AbilityOption,
+) -> Option<(Vec<TextBlock>, crate::cardtext::Said)> {
+    let PlayerAction::ActivateAbility { ability_index, .. } = option.action else {
+        return None;
+    };
+    let slot = baylee_engine::choice::granted_slot(ability_index)?;
+    let grant = grant_of(view, object, slot)?;
+    let rules = grant.rules?;
+    let name = texts.face(rules.card, rules.face)?.name;
+    let sentence = grant
+        .text
+        .and_then(|at| crate::cardtext::said(Some(texts), rules.card, at));
+    let said = match &sentence {
+        Some((_, said)) => *said,
+        None if texts
+            .get(rules.card, rules.face)
+            .is_some_and(|text| text.lang != "en") =>
+        {
+            crate::cardtext::Said::Localized
+        }
+        None => crate::cardtext::Said::Oracle,
+    };
+    let mut blocks = vec![TextBlock::Rules(name)];
+    blocks.extend(sentence.map(|(sentence, _)| sentence).unwrap_or_default());
+    Some((blocks, said))
+}
+
 /// [`AbilityOption::cost`] for an offered index: a prepared cast's is the
 /// spell's mana cost, anything else's its [`cost_key`].
 fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
@@ -1307,6 +1379,139 @@ mod tests {
         let out = options(Lang::En, &view, &i, id);
         assert_eq!(out[0].label, "");
         assert!(!out[0].mana);
+    }
+
+    /// Chromatic Lantern, msc #428, read from the catalog 2026-09-24.
+    const LANTERN_DE: &str = "Länder, die du kontrollierst, haben „{T}: Erzeuge ein Mana beliebiger Farbe.\"\n{T}: Erzeuge ein Mana beliebiger Farbe.";
+
+    /// A granted ability's row is its grantor's name over the sentence that
+    /// grants it, in the player's language where the grantor's text has
+    /// arrived and in English before (#212). It said "Granted ability",
+    /// which is this client's phrase and not the card's.
+    ///
+    /// The Lantern's line is the one the host's own test pins
+    /// (`baylee_gamehost` view, line 0 of 2). Offered here as a grant that
+    /// is not a mana ability, so the row is a row and not a pip: the words
+    /// are what is under test, not the mana routing.
+    #[test]
+    fn a_granted_ability_is_the_sentence_of_the_card_that_granted_it() {
+        let id = ObjectId::new(1, 0);
+        let lantern = baylee_cards::decks::by_name("Chromatic Lantern").expect("in the pool");
+        let mut land = crate::registry_printed(1, 0, "Island");
+        land.grants = vec![baylee_view::GrantSource {
+            source: Some(ObjectId::new(2, 0)),
+            rules: Some(baylee_view::RulesFace {
+                card: lantern,
+                face: 0,
+            }),
+            text: Some(baylee_view::StackText {
+                face: 0,
+                line: 0,
+                of: 2,
+            }),
+        }];
+        let view = ViewBuilder::new(2).with_battlefield(0, [land]).build();
+
+        let out = options(
+            Lang::En,
+            &view,
+            &offering(vec![(id, GRANTED_ABILITY)], vec![]),
+            id,
+        );
+        assert_eq!(out[0].label, "Chromatic Lantern");
+        assert_eq!(out[0].printed_index(), None, "the Island prints no grant");
+
+        let english = crate::cardtext::CardTexts::default();
+        let (blocks, said) = grant_words(&english, &view, id, &out[0]).expect("words");
+        assert_eq!(said, crate::cardtext::Said::Oracle);
+        assert_eq!(
+            blocks,
+            vec![
+                TextBlock::Rules("Chromatic Lantern".to_string()),
+                TextBlock::Rules(
+                    "Lands you control have \"{T}: Add one mana of any color.\"".to_string()
+                ),
+            ]
+        );
+
+        let german = crate::cardtext::CardTexts::filed(CardTextEntry {
+            scryfall_id: String::new(),
+            oracle_id: baylee_cards::by_index(lantern)
+                .expect("in the pool")
+                .oracle_id
+                .to_string(),
+            lang: "de".to_string(),
+            layout: "normal".to_string(),
+            faces: vec![FaceText {
+                name: "Chromatische Laterne".to_string(),
+                english_name: "Chromatic Lantern".to_string(),
+                printed: Some(LANTERN_DE.to_string()),
+                oracle_text: LANTERN_DE.to_string(),
+                ..FaceText::default()
+            }],
+        });
+        let (blocks, said) = grant_words(&german, &view, id, &out[0]).expect("words");
+        assert_eq!(said, crate::cardtext::Said::Localized);
+        assert_eq!(
+            blocks,
+            vec![
+                TextBlock::Rules("Chromatische Laterne".to_string()),
+                TextBlock::Rules(
+                    "Länder, die du kontrollierst, haben „{T}: Erzeuge ein Mana beliebiger Farbe.\""
+                        .to_string()
+                ),
+            ]
+        );
+
+        // The words are the grant's row alone, and the slot's own: a second
+        // slot the view says nothing about is the client's label again.
+        let printed = AbilityOption {
+            action: PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: 0,
+            },
+            ..out[0].clone()
+        };
+        assert_eq!(grant_words(&german, &view, id, &printed), None);
+        let second = baylee_engine::choice::granted_ability(1);
+        let out = options(Lang::En, &view, &offering(vec![(id, second)], vec![]), id);
+        assert_eq!(out[0].label, "Granted ability");
+        assert_eq!(grant_words(&german, &view, id, &out[0]), None);
+    }
+
+    /// Where the view names the grantor and no sentence, the row is the
+    /// grantor's name alone; where it names no grantor, the row is the
+    /// client's label, and nothing is read off a card the seat may not see.
+    #[test]
+    fn a_grant_the_view_cannot_place_draws_no_sentence() {
+        let id = ObjectId::new(1, 0);
+        let opt = baylee_cards::decks::by_name("Opt").expect("in the pool");
+        let mut land = crate::registry_printed(1, 0, "Island");
+        land.grants = vec![baylee_view::GrantSource {
+            source: Some(ObjectId::new(2, 0)),
+            rules: Some(baylee_view::RulesFace { card: opt, face: 0 }),
+            text: None,
+        }];
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [land.clone()])
+            .build();
+        let i = offering(vec![(id, GRANTED_ABILITY)], vec![]);
+        let out = options(Lang::En, &view, &i, id);
+        assert_eq!(out[0].label, "Opt");
+        let english = crate::cardtext::CardTexts::default();
+        assert_eq!(
+            grant_words(&english, &view, id, &out[0]),
+            Some((
+                vec![TextBlock::Rules("Opt".to_string())],
+                crate::cardtext::Said::Oracle
+            ))
+        );
+
+        land.grants = vec![baylee_view::GrantSource::default()];
+        let view = ViewBuilder::new(2).with_battlefield(0, [land]).build();
+        let out = options(Lang::En, &view, &i, id);
+        assert_eq!(out[0].label, "Granted ability");
+        assert_eq!(grant_words(&english, &view, id, &out[0]), None);
     }
 
     /// Demonic Tutor, cmm #150, read from the catalog 2026-09-24.
