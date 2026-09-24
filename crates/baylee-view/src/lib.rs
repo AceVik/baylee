@@ -85,7 +85,11 @@ use serde::{Deserialize, Serialize};
 /// 28 adds [`PublicObject::rules`] and `StackItem::Ability::rules`, the card
 /// an object's abilities are printed on — the copied card's for a copy — and
 /// makes `StackItem::Ability::text` an index into *that* card's sentences.
-pub const VIEW_VERSION: u32 = 28;
+/// 29 replaces `SeatView::has_lost` with [`SeatView::loss`], which says why
+/// (the bool is now the method [`SeatView::has_lost`]), and adds
+/// [`SeatView::house_answered`], so a game lost while the house was answering
+/// for a seat is not drawn as one the player played and lost (#83).
+pub const VIEW_VERSION: u32 = 29;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1069,8 +1073,23 @@ pub struct SeatView {
     /// Cards in the graveyard, so a client can show the count without
     /// rendering the pile.
     pub graveyard_count: u32,
-    /// Whether the seat has lost.
-    pub has_lost: bool,
+    /// Why the seat lost the game, or `None` while it is still in it.
+    ///
+    /// Public: a seat going out is announced at a real table, and so is why.
+    pub loss: Option<LossCause>,
+    /// Who answered this seat's most recent decision, when it was not the
+    /// seat itself: the decision clock, or the house standing in for a
+    /// player whose socket is gone. `None` when the seat answered its own
+    /// last decision.
+    ///
+    /// It clears only on the seat's own next answer over a socket.
+    /// Reconnecting does not clear it, because the last decision is still
+    /// the house's until the player makes one; neither does an automation
+    /// setting, which is not an answer. An AI chair never carries it: the
+    /// roster already says the house plays that chair. A seat that has lost
+    /// is asked nothing more, so the value it had then stays, which is what
+    /// tells a loss to the clock from a loss the player played out.
+    pub house_answered: Option<HouseAnswer>,
     /// Mana floating in this seat's pool.
     pub mana_pool: ManaPoolView,
     /// This seat's commanders (CR 903.3), in the order they were designated.
@@ -1088,6 +1107,44 @@ pub struct SeatView {
     /// [`SeatView::commanders`], which is what a client resolves it through;
     /// seats with no damage from a given commander simply have no entry.
     pub commander_damage: Vec<CommanderDamage>,
+}
+
+impl SeatView {
+    /// Whether the seat has lost the game.
+    #[must_use]
+    pub const fn has_lost(&self) -> bool {
+        self.loss.is_some()
+    }
+}
+
+/// Why a seat lost the game (CR 104.3).
+///
+/// A mirror of the engine's reason rather than the engine's type, so renaming
+/// an engine variant cannot silently change the protocol.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum LossCause {
+    /// Life total reached 0 or less (CR 104.3b).
+    Life,
+    /// Drew from an empty library (CR 104.3c).
+    EmptyDraw,
+    /// Ten or more poison counters (CR 104.3d).
+    Poison,
+    /// Twenty-one combat damage from one commander (CR 903.10a).
+    CommanderDamage,
+    /// Conceded (CR 104.3a).
+    Conceded,
+    /// An effect said the seat loses (CR 104.3e), such as a pact left
+    /// unpaid.
+    Effect,
+}
+
+/// Who answered a seat's decision in its place.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum HouseAnswer {
+    /// The seat's socket was there, and its decision clock ran out.
+    Clock,
+    /// The seat had no socket, and the house was standing in for the player.
+    StandIn,
 }
 
 /// One of a seat's commanders, and what casting it has cost so far.
@@ -1540,7 +1597,8 @@ mod tests {
                     hand_count: 7,
                     library_count: 93,
                     graveyard_count: 0,
-                    has_lost: false,
+                    loss: None,
+                    house_answered: None,
                     commanders: vec![],
                     commander_damage: vec![],
                 })
@@ -2186,7 +2244,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (28, 0xdcff_36e0_328c_354f);
+        const RECORDED: (u32, u64) = (29, 0x3566_dd9a_2d2c_0a9b);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

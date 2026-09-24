@@ -469,7 +469,7 @@ fn spawn_phases(
                     now: row == current,
                     gold: view.active == seat.player,
                     selected: orders.selected() == Some((side, row)),
-                    lost: seat.has_lost,
+                    lost: seat.has_lost(),
                 },
             );
             commands.entity(tile).insert(PhaseHint {

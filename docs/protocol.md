@@ -580,6 +580,53 @@ These are the *room's* numbers and `PlayerView::decision_remaining_ms` is the
 would show a thirty-second table its clock for three seconds, which is why
 the limit is stated once here and the warning threshold is flat.
 
+## Why a seat lost, and who answered for it (#83)
+
+`SeatView::loss` is why a seat is out of the game, and `None` while it plays
+on: `Life`, `EmptyDraw`, `Poison`, `CommanderDamage`, `Conceded`, or `Effect`
+when an effect said the seat loses, such as a pact left unpaid (CR 104.3e).
+The type is `LossCause`, a mirror of the engine's `LossReason`, so an engine
+rename cannot move the wire. It replaced the bare `has_lost` flag, which is now
+the method `SeatView::has_lost()`. It is public, because a seat going out is
+announced at a real table and so is why. The engine keeps the first loss:
+a seat that is already out and then concedes still lost the way it lost.
+
+`SeatView::house_answered` is who answered the seat's most recent decision
+in its place: `Clock` when its decision clock ran out with the socket
+attached, `StandIn` when the socket was gone and the house was holding the
+chair. `None` means the seat answered its last decision itself.
+
+- **It clears only on the seat's own next answer over a socket.** Reconnecting
+  does not clear it (the last decision is still the house's until the player
+  makes one), and neither does an automation setting, which is not an answer.
+- **An AI chair never carries it**, driven or not. The roster's `is_ai`
+  already says the house plays that chair.
+- **It freezes at a loss**, because a seat that is out is asked nothing more.
+  That is what lets a client draw a loss to the clock as one:
+  `loss.is_some() && house_answered == Some(HouseAnswer::Clock)`.
+
+**The host records it; the engine does not know.** The engine has one door,
+`apply(player, action)`, and takes an action without asking who produced it:
+a rules kernel with a second door would have a second set of rules. Only the
+session knows which answers were its own, so it records them.
+`Session::answer_by_clock` is the clock's door: `EngineRunner` calls it when a
+`Deadline::Decide` expires, and it refuses (answers nothing) when the seat it
+names is no longer the one being asked, so a timer that fired after its
+question moved on cannot take another seat's decision. A stand-in is marked
+where `Session::pump` plays it. Both marks are set before the views of that
+answer are built, so the frames that carry the answer also say who gave it.
+
+Two things this does not do. **A replay does not carry it**: a replay
+re-applies actions, and who produced an action is not in the journal. That
+comes with the game log (`docs/game-log-design.md`). **Nothing escalates**: the
+clock answers one question at a time, as often as the seat keeps timing out,
+and a player who never answers is answered for until the game ends. Whether a
+run of clock answers should become a stand-in or a concession is a table
+policy nobody has decided.
+
+`EndReason` is unchanged. It says how the *game* was decided (CR 104), which
+is the same sentence for every seat; why one seat lost is that seat's.
+
 ## Commanders (view version 13)
 
 `SeatView` used to carry `commander_casts: Vec<u32>`, and it was two things

@@ -303,6 +303,7 @@ pub fn play_report<L: CardLookup>(
                 owed: crate::view::owed_payment(&engine),
                 decision_remaining_ms: None,
             },
+            &[],
         );
         let crate::SeatKind::Ai(agent) = &seats[usize::from(player.get())] else {
             unreachable!()
@@ -553,6 +554,7 @@ mod tests {
                     owed: crate::view::owed_payment(engine),
                     ..Default::default()
                 },
+                &[],
             )
         };
         let va = view(&a);
@@ -932,6 +934,7 @@ mod tests {
                     owed: crate::view::owed_payment(&engine),
                     decision_remaining_ms: None,
                 },
+                &[],
             );
             let action = agent.act(&view, &pending);
             let activating = player == me

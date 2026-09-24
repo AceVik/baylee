@@ -93,7 +93,8 @@ impl ViewBuilder {
                         hand_count: 7,
                         library_count: 80,
                         graveyard_count: 2,
-                        has_lost: false,
+                        loss: None,
+                        house_answered: None,
                         commanders: vec![],
                         commander_damage: vec![],
                     })

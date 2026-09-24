@@ -163,15 +163,17 @@ impl EngineRunner {
         match clock.what {
             // One answer, because the seat is there and simply took too long
             // over this question.
-            Deadline::Decide => {
-                let Some((seat, action)) = session.timeout_action() else {
-                    return Vec::new();
-                };
-                if seat != clock.seat {
-                    return Vec::new();
+            // Through the session's clock door rather than `apply`, so the
+            // views sent on the way out say the clock answered this one.
+            Deadline::Decide => match session.answer_by_clock(clock.seat) {
+                None => Vec::new(),
+                Some(Ok(routed)) => {
+                    let mut out = self.route(&routed);
+                    out.extend(self.ending());
+                    out
                 }
-                self.apply(seat, action)
-            }
+                Some(Err(reason)) => self.refused(clock.seat, &reason),
+            },
             // A change of who answers, because the seat is not there at all.
             // The same race as above, in the other direction: the socket may
             // have come back between the timer firing and this being called,
@@ -920,6 +922,25 @@ mod tests {
         assert!(
             !runner.timeout(clock).is_empty(),
             "the seat's own deadline did nothing"
+        );
+    }
+
+    /// The frames the clock's answer goes out in say the clock gave it. The
+    /// runner answers through the session's clock door rather than the one
+    /// a player's answer takes, which is the only way the session can tell.
+    #[test]
+    fn the_frames_a_timeout_sends_say_the_clock_answered() {
+        use baylee_gamehost::view::wire::HouseAnswer;
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(60));
+        attach(&mut runner, 0);
+        let clock = runner.clock().expect("someone is being asked");
+        assert_eq!(clock.what, Deadline::Decide);
+        let out = runner.timeout(clock);
+        let view = last_view(&out, clock.seat.get().into()).expect("the seat is sent the table");
+        assert_eq!(
+            view.seat(clock.seat).and_then(|s| s.house_answered),
+            Some(HouseAnswer::Clock)
         );
     }
 

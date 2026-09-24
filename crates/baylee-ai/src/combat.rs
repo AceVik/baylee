@@ -575,7 +575,7 @@ pub(crate) fn hold_back_for_the_crack_back(
     let threats: Vec<Vec<Fighter>> = view
         .seats
         .iter()
-        .filter(|s| !s.has_lost && hostile(s.player))
+        .filter(|s| !s.has_lost() && hostile(s.player))
         .filter(|s| !(lethal && s.player == victim))
         .map(|s| {
             creatures(view, s.player, |_| true)

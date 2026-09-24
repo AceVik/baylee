@@ -89,7 +89,7 @@ fn the_agent_pays_ward_and_its_removal_resolves() {
             owed: owed_payment(&engine),
             ..Default::default()
         };
-        let view = player_view(engine.state(), seat, seq, Some(pending), &ctx);
+        let view = player_view(engine.state(), seat, seq, Some(pending), &ctx, &[]);
         let action = match pending {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
             Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,

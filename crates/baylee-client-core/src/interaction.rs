@@ -460,10 +460,10 @@ pub fn outcome(result: &GameResult, seat: PlayerId, team: Option<u8>) -> Outcome
 /// true from exactly one chair at the table and false from the others.
 ///
 /// What a player actually wants after a loss — zero life, an empty library,
-/// ten poison — is not here because it is not in the view: `SeatView` carries
-/// `has_lost` and no reason for it, and inventing one from the life totals
-/// would be the client deciding a rules fact. See the backlog's
-/// "richer loss reason" item.
+/// ten poison — is not here because it is one seat's and not the table's: the
+/// view carries it per seat as `SeatView::loss` (#83), which nothing draws
+/// yet. Inventing it from the life totals would be the client deciding a
+/// rules fact.
 #[must_use]
 pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
     let phrase = match result.reason {

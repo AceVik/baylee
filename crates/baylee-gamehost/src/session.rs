@@ -10,7 +10,7 @@ use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, SeatIdentity};
+use baylee_view::{GameStatic, HouseAnswer, SeatIdentity};
 
 /// Registry lookup backed by the compiled card pool.
 pub struct RegistryLookup;
@@ -136,6 +136,19 @@ pub struct Session {
     revealed: Vec<Vec<bool>>,
     /// Team per seat, for the seat roster.
     teams: Vec<Option<u8>>,
+    /// Per seat, who answered its most recent decision in its place — the
+    /// decision clock or a stand-in — and `None` when the seat answered it
+    /// itself. What [`SeatView::house_answered`](baylee_view::SeatView::house_answered)
+    /// reports.
+    ///
+    /// Not game state: the engine takes an action without asking who produced
+    /// it, and should — a rules kernel with two doors would have two sets of
+    /// rules. Only the host knows, so the host records it: set by
+    /// [`Session::answer_by_clock`] and by [`Session::pump`] for a stand-in,
+    /// cleared by the seat's own decision through [`Session::act`]. Never
+    /// set for an AI chair, driven or not: the roster already says the house
+    /// plays it.
+    house_answered: Vec<Option<HouseAnswer>>,
     /// Which seats have yet to be told that a chair changed hands.
     ///
     /// Not game state, for the same reason `revealed` is not: it is what a
@@ -195,6 +208,7 @@ impl Session {
                 .map(|spec| own_prints(spec, preset.prints.len()))
                 .collect(),
             teams: preset.seats.iter().map(|s| s.team).collect(),
+            house_answered: vec![None; preset.seats.len()],
             roster_dirty: vec![false; preset.seats.len()],
             game_id: String::new(),
             names: Vec::new(),
@@ -466,6 +480,7 @@ impl Session {
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: self.decision_remaining_ms(),
             },
+            &self.house_answered,
         );
         let mut out = Vec::new();
         // Two separate `let`s: `reveal` marks printings as shown, so folding
@@ -547,6 +562,7 @@ impl Session {
                             // legally and invisibly. Same invariant as #87.
                             decision_remaining_ms: None,
                         },
+                        &self.house_answered,
                     );
                     let context = self.engine.decision_context();
                     let scouting = agent.scouting_request(&pending).and_then(|request| {
@@ -566,10 +582,14 @@ impl Session {
                 // Both answer over a socket, so `pump` returned above.
                 SeatKind::Human | SeatKind::Driven(_) => unreachable!(),
             };
+            let by = self.seats[player.get() as usize]
+                .is_away()
+                .then_some(HouseAnswer::StandIn);
             let moves_the_game = self.apply_house_action(player, action);
             self.seq += 1;
             if moves_the_game {
                 self.decisions += 1;
+                self.house_answered[player.get() as usize] = by;
             }
         }
         out
@@ -706,6 +726,7 @@ impl Session {
                 // expired number could reach a rules decision.
                 decision_remaining_ms: None,
             },
+            &self.house_answered,
         );
         Some((player, agent.act(&view, pending)))
     }
@@ -755,6 +776,7 @@ impl Session {
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: self.decision_remaining_ms(),
             },
+            &self.house_answered,
         );
         let mut out = vec![view_envelope(self.seq, &view)];
         if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
@@ -785,13 +807,48 @@ impl Session {
         player: PlayerId,
         action: PlayerAction,
     ) -> Result<Vec<(PlayerId, Envelope)>, String> {
-        if !self
-            .seats
-            .get(player.get() as usize)
-            .is_some_and(SeatKind::answers_over_socket)
-        {
+        self.answer(player, action, None)
+    }
+
+    /// The decision clock ran out on `seat`: the house answers this one
+    /// question for it, and the seat is marked as answered by the clock
+    /// until it answers one itself.
+    ///
+    /// `None` when `seat` is not the one being asked, which is how a timer
+    /// that fired after the question moved on is told apart from one that
+    /// is still due: one seat's expired clock must never take another seat's
+    /// decision. `Some(Err)` when the engine refused the house's answer,
+    /// which a caller treats like any refused answer.
+    ///
+    /// Its own door rather than [`Session::timeout_action`] followed by
+    /// [`Session::act`], because through `act` the session cannot tell the
+    /// clock's answer from the player's — and the views `act` builds on the
+    /// way out are the ones that have to say which it was.
+    pub fn answer_by_clock(
+        &mut self,
+        seat: PlayerId,
+    ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
+        let (player, action) = self.timeout_action()?;
+        if player != seat {
+            return None;
+        }
+        Some(self.answer(player, action, Some(HouseAnswer::Clock)))
+    }
+
+    /// Applies an answer for a socket seat and records who produced it.
+    fn answer(
+        &mut self,
+        player: PlayerId,
+        action: PlayerAction,
+        by: Option<HouseAnswer>,
+    ) -> Result<Vec<(PlayerId, Envelope)>, String> {
+        let Some(kind) = self.seats.get(player.get() as usize) else {
+            return Err("not a human seat".to_string());
+        };
+        if !kind.answers_over_socket() {
             return Err("not a human seat".to_string());
         }
+        let by = by.filter(|_| !kind.is_ai_chair());
         // Read before the action is spent: an automation setting is the one
         // thing the engine takes from a seat that is not being asked, and it
         // leaves the question standing. See [`Session::decision_seq`].
@@ -802,6 +859,7 @@ impl Session {
         self.seq += 1;
         if moves_the_game {
             self.decisions += 1;
+            self.house_answered[player.get() as usize] = by;
         }
         Ok(self.pump())
     }
@@ -1958,6 +2016,122 @@ mod tests {
         );
     }
 
+    /// Answers for every seat but `seat` until `seat` is asked, as the
+    /// players at those seats would: with the house's legal answer, through
+    /// the socket door, so none of them is marked as answered by the house.
+    fn until_asked(session: &mut Session, seat: PlayerId) {
+        for _ in 0..200 {
+            let asked = session.awaiting_seat().expect("the game goes on");
+            if asked == seat {
+                return;
+            }
+            let (player, action) = session.timeout_action().expect("a question is out");
+            session.act(player, action).expect("a legal answer");
+        }
+        panic!("seat {seat:?} was never asked");
+    }
+
+    /// The clock's answer is marked on the seat it answered for, in the very
+    /// views that answer sends out. An automation setting from the seat
+    /// afterwards is not an answer and leaves the mark; the seat's own next
+    /// decision clears it.
+    #[test]
+    fn the_clock_marks_the_seat_until_it_answers_itself() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let _ = session.pump();
+        let me = PlayerId::new(0);
+        until_asked(&mut session, me);
+
+        let routed = session
+            .answer_by_clock(me)
+            .expect("the seat is being asked")
+            .expect("the house's answer is legal");
+        let seats = routed_view(&routed, me).seats;
+        assert_eq!(seats[0].house_answered, Some(HouseAnswer::Clock));
+        assert_eq!(seats[1].house_answered, None, "an AI chair is never marked");
+
+        let turn = session.engine.state().turn.number;
+        let routed = session
+            .act(
+                me,
+                PlayerAction::SetPriorityHold(
+                    baylee_engine::choice::PriorityHold::UntilEndOfTurn { turn },
+                ),
+            )
+            .expect("a seat may state a standing order at any time");
+        assert_eq!(
+            routed_view(&routed, me).seats[0].house_answered,
+            Some(HouseAnswer::Clock),
+            "an automation setting is not the seat answering"
+        );
+
+        until_asked(&mut session, me);
+        let (_, action) = session.timeout_action().expect("the seat is asked");
+        let routed = session.act(me, action).expect("a legal answer");
+        assert_eq!(routed_view(&routed, me).seats[0].house_answered, None);
+    }
+
+    /// A timer that fires after its question has moved on answers nothing:
+    /// one seat's expired clock never takes another seat's decision.
+    #[test]
+    fn the_clock_answers_nothing_for_a_seat_that_is_not_asked() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let _ = session.pump();
+        let me = PlayerId::new(0);
+        until_asked(&mut session, me);
+        let before = session.decision_seq();
+        assert!(session.answer_by_clock(PlayerId::new(1)).is_none());
+        assert_eq!(session.decision_seq(), before);
+        assert_eq!(seat_view(&session, me).seats[0].house_answered, None);
+    }
+
+    /// The house standing in for an absent player marks the chair, and the
+    /// player coming back does not clear it: the last decision is still the
+    /// house's until the player makes one.
+    #[test]
+    fn a_stand_in_marks_the_seat_and_a_reconnect_leaves_the_mark() {
+        let mut preset = test_preset();
+        preset.seats[1].controller = SeatController::Open;
+        let mut session = Session::new(&preset).expect("session builds");
+        let _ = session.pump();
+        let (me, other) = (PlayerId::new(0), PlayerId::new(1));
+        until_asked(&mut session, me);
+
+        assert!(session.stand_in(me));
+        let routed = session.pump();
+        assert_eq!(
+            routed_view(&routed, other).seats[0].house_answered,
+            Some(HouseAnswer::StandIn),
+            "the table is told the house played that chair"
+        );
+        assert!(session.hand_back(me));
+        assert_eq!(
+            seat_view(&session, other).seats[0].house_answered,
+            Some(HouseAnswer::StandIn)
+        );
+
+        until_asked(&mut session, me);
+        let (_, action) = session.timeout_action().expect("the seat is asked");
+        let routed = session.act(me, action).expect("a legal answer");
+        assert_eq!(routed_view(&routed, other).seats[0].house_answered, None);
+    }
+
+    /// An AI chair is the house's to play, driven or not, so the clock
+    /// answering for a driven one marks nothing: the roster already says it.
+    #[test]
+    fn the_clock_does_not_mark_a_driven_ai_chair() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let driven = PlayerId::new(1);
+        assert!(session.take_over(driven));
+        let _ = session.pump();
+        until_asked(&mut session, driven);
+        let routed = session
+            .answer_by_clock(driven)
+            .expect("the seat is being asked")
+            .expect("the house's answer is legal");
+        assert_eq!(routed_view(&routed, driven).seats[1].house_answered, None);
+    }
+
     /// Answering by timeout over and over drives the game forward rather than
     /// deadlocking on a pending nobody can satisfy.
     #[test]
@@ -2068,6 +2242,7 @@ mod tests {
             0,
             None,
             &crate::view::SeatContext::default(),
+            &[],
         );
         let report = crate::scouting::request(
             &session.seats,
@@ -2110,7 +2285,8 @@ mod tests {
                 PlayerId::new(0),
                 0,
                 None,
-                &crate::view::SeatContext::default()
+                &crate::view::SeatContext::default(),
+                &[]
             )
         );
     }

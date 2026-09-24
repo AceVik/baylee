@@ -25,6 +25,7 @@ fn asked_view(
             awaiting: Some(seat),
             ..Default::default()
         },
+        &[],
     )
 }
 
@@ -1037,7 +1038,7 @@ fn a_creature_blocks_to_keep_a_walker_the_attack_would_kill() {
                 Some(blocks),
                 "{name}, walker on {loyalty}: blocked {blocked:?}"
             );
-            let view = player_view(engine.state(), me, 0, None, &SeatContext::default());
+            let view = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
             assert!(
                 view.battlefield_of(me)
                     .any(|o| o.types.contains(TypeSet::PLANESWALKER)),

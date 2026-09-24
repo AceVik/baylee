@@ -4594,10 +4594,12 @@ chair at the table and false from the others; the reason is a fact about the
 table.
 
 What a player actually wants after a loss — zero life, an empty library, ten
-poison — is **not here**, and not for want of trying: `SeatView` carries
-`has_lost` and no reason for it, and deriving one from the last view's life
-totals would be the client deciding a rules fact, which is the line
-`CLAUDE.md` draws. It needs a field on the view and a `VIEW_VERSION` bump.
+poison — is **not here**, because it is not about the table: it is one
+seat's, and the view now carries it per seat (`SeatView::loss`, with
+`SeatView::house_answered` telling a loss to the clock from one played out;
+#83). Deriving it from the last view's life totals instead would be the
+client deciding a rules fact, which is the line `CLAUDE.md` draws. Nothing
+draws it yet.
 
 ### Two plugins, one composition
 

@@ -742,8 +742,12 @@ fn split_frame(commands: &mut Commands, bar: Entity, seat: &SeatView) -> [Entity
                 border_radius: BorderRadius::all(px(5)),
                 ..default()
             },
-            BackgroundColor(palette::DOCK_EDGE.with_alpha(if seat.has_lost { 0.06 } else { 0.18 })),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(if seat.has_lost {
+            BackgroundColor(palette::DOCK_EDGE.with_alpha(if seat.has_lost() {
+                0.06
+            } else {
+                0.18
+            })),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(if seat.has_lost() {
                 DEAD_INK
             } else {
                 0.85
@@ -837,7 +841,7 @@ const TILE_RADIUS: f32 = 3.0;
 
 /// The ink a seat's bar is written in.
 fn ink_of(seat: &SeatView) -> Color {
-    if seat.has_lost {
+    if seat.has_lost() {
         palette::DOCK_INK.with_alpha(DEAD_INK)
     } else {
         palette::DOCK_INK
@@ -905,7 +909,7 @@ fn swatch(
                 border_radius: BorderRadius::all(px(1.5)),
                 ..default()
             },
-            BackgroundColor(if seat.has_lost {
+            BackgroundColor(if seat.has_lost() {
                 colour.with_alpha(DEAD_INK)
             } else {
                 colour
@@ -1039,13 +1043,13 @@ fn life(
     height: f32,
     density: Density,
 ) -> Entity {
-    let low = seat.life <= 5 && !seat.has_lost;
+    let low = seat.life <= 5 && !seat.has_lost();
     let heart = if low {
         palette::DANGER
     } else {
         palette::PARCHMENT_EDGE
     };
-    let numeral = if seat.has_lost {
+    let numeral = if seat.has_lost() {
         ink_of(seat)
     } else if low {
         palette::DANGER
@@ -1122,7 +1126,7 @@ fn count(
             .unwrap_or(u32::MAX),
         ),
     };
-    let soft = if seat.has_lost {
+    let soft = if seat.has_lost() {
         palette::PARCHMENT_EDGE.with_alpha(DEAD_INK)
     } else {
         palette::PARCHMENT_EDGE
@@ -1340,7 +1344,7 @@ fn steps(
                     now: step == current,
                     gold: is_active_seat,
                     selected: orders.selected() == Some((side, step)),
-                    lost: seat.has_lost,
+                    lost: seat.has_lost(),
                 },
             );
             // What lets the tile follow its shelf without the tree being

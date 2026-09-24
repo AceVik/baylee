@@ -325,7 +325,7 @@ impl HeuristicAgent {
         let every = || {
             view.seats
                 .iter()
-                .filter(|seat| !seat.has_lost)
+                .filter(|seat| !seat.has_lost())
                 .map(|seat| seat.player)
         };
         Some(match rel {
@@ -351,7 +351,7 @@ impl HeuristicAgent {
         let everyone: Vec<PlayerId> = view
             .seats
             .iter()
-            .filter(|seat| !seat.has_lost)
+            .filter(|seat| !seat.has_lost())
             .map(|seat| seat.player)
             .collect();
         any(effects.iter().map(|effect| match effect {

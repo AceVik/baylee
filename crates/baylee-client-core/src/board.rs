@@ -1550,7 +1550,7 @@ fn build_pod(
         hand_count: seat.map_or(0, |s| s.hand_count),
         library_count: seat.map_or(0, |s| s.library_count),
         graveyard_count: seat.map_or(0, |s| s.graveyard_count),
-        has_lost: seat.is_some_and(|s| s.has_lost),
+        has_lost: seat.is_some_and(baylee_view::SeatView::has_lost),
         is_local: player == view.seat,
         is_active: player == view.active,
         is_awaited: view.awaiting == Some(player),

@@ -15,14 +15,15 @@ use baylee_cards::dsl::AbilityDef;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 use baylee_engine::choice::Pending;
+use baylee_engine::event::LossReason;
 use baylee_engine::object::{GameObject, ObjectKind, PrintedFace};
 use baylee_engine::state::GameState;
 use baylee_engine::turn::{DayNight as EngineDayNight, Phase as EnginePhase, Step as EngineStep};
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, CommanderDamage, CommanderView,
-    CounterEntry, CounterKind, DayNight, GameStatic, HandObject, ObjectStatus, Phase, PlayerView,
-    PublicObject, RulesFace, SeatView, Step, TargetRef,
+    CounterEntry, CounterKind, DayNight, GameStatic, HandObject, HouseAnswer, LossCause,
+    ObjectStatus, Phase, PlayerView, PublicObject, RulesFace, SeatView, Step, TargetRef,
 };
 
 pub use baylee_view as wire;
@@ -35,6 +36,18 @@ const fn phase(p: EnginePhase) -> Phase {
         EnginePhase::Combat => Phase::Combat,
         EnginePhase::SecondMain => Phase::SecondMain,
         EnginePhase::Ending => Phase::Ending,
+    }
+}
+
+/// Translates the engine's reason a seat lost into the wire enum.
+const fn loss_cause(reason: LossReason) -> LossCause {
+    match reason {
+        LossReason::Life => LossCause::Life,
+        LossReason::EmptyDraw => LossCause::EmptyDraw,
+        LossReason::Poison => LossCause::Poison,
+        LossReason::CommanderDamage => LossCause::CommanderDamage,
+        LossReason::Conceded => LossCause::Conceded,
+        LossReason::Effect => LossCause::Effect,
     }
 }
 
@@ -659,6 +672,12 @@ fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
 /// `ctx` carries the three facts that are on the `Engine` rather than in the
 /// state; see [`SeatContext`].
 ///
+/// `house_answered` is per seat, in seat order: who answered that seat's most
+/// recent decision in its place ([`SeatView::house_answered`]). It is neither
+/// state nor on the `Engine`; only the host knows who produced an answer, so
+/// a host passes what it recorded and anything else passes `&[]`. A seat the
+/// slice does not reach reads `None`.
+///
 /// `pending` is the outstanding choice, and it is here for one reason:
 /// [`PlayerView::looking_at`]. A tutor, a scry and a revealed hand all ask a
 /// seat about objects that are in no zone the view carries, so the choice
@@ -671,6 +690,7 @@ pub fn player_view(
     seq: u64,
     pending: Option<&Pending>,
     ctx: &SeatContext,
+    house_answered: &[Option<HouseAnswer>],
 ) -> PlayerView {
     let hand = own_hand(state, seat);
 
@@ -698,7 +718,8 @@ pub fn player_view(
                 hand_count: state.zones.list(ZoneLocation::Hand(p.id)).len() as u32,
                 library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,
                 graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
-                has_lost: p.has_lost(),
+                loss: p.loss.map(loss_cause),
+                house_answered: house_answered.get(p.id.get() as usize).copied().flatten(),
                 mana_pool: mana_pool(&p.mana_pool),
                 commanders: state
                     .commanders
@@ -965,6 +986,7 @@ mod tests {
             0,
             None,
             &SeatContext::default(),
+            &[],
         );
         let theirs = player_view(
             engine.state(),
@@ -972,6 +994,7 @@ mod tests {
             0,
             None,
             &SeatContext::default(),
+            &[],
         );
 
         let teferi = theirs
@@ -1000,7 +1023,7 @@ mod tests {
         let preset = mixed_print_preset();
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let seat = PlayerId::new(0);
-        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default());
+        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
 
         let battlefield: Vec<u16> = view
             .battlefield
@@ -1136,6 +1159,7 @@ mod tests {
             1,
             None,
             &SeatContext::default(),
+            &[],
         );
         for object in &view.battlefield {
             assert!(
@@ -1198,7 +1222,7 @@ mod tests {
             .apply(seat, PlayerAction::PlayLand { card })
             .expect("playing a land from hand is legal");
 
-        let view = player_view(engine.state(), seat, 1, None, &SeatContext::default());
+        let view = player_view(engine.state(), seat, 1, None, &SeatContext::default(), &[]);
         let played = view
             .battlefield
             .iter()
@@ -1239,7 +1263,7 @@ mod tests {
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let me = PlayerId::new(0);
         let them = PlayerId::new(1);
-        let view = player_view(engine.state(), me, 1, None, &SeatContext::default());
+        let view = player_view(engine.state(), me, 1, None, &SeatContext::default(), &[]);
 
         let their_hand = engine.state().zones.list(ZoneLocation::Hand(them));
         assert!(!their_hand.is_empty(), "the opponent holds cards");
@@ -1265,7 +1289,7 @@ mod tests {
         let preset = mixed_print_preset();
         let engine = Engine::new(&preset, Registry).expect("game starts");
         for seat in [PlayerId::new(0), PlayerId::new(1)] {
-            let view = player_view(engine.state(), seat, 1, None, &SeatContext::default());
+            let view = player_view(engine.state(), seat, 1, None, &SeatContext::default(), &[]);
             let visible = ids_in(&view);
             for owner in [PlayerId::new(0), PlayerId::new(1)] {
                 let library = engine.state().zones.list(ZoneLocation::Library(owner));
@@ -1307,8 +1331,8 @@ mod tests {
             .status
             .insert(baylee_engine::object::Status::FACE_DOWN);
 
-        let mine = player_view(engine.state(), me, 1, None, &SeatContext::default());
-        let theirs = player_view(engine.state(), them, 1, None, &SeatContext::default());
+        let mine = player_view(engine.state(), me, 1, None, &SeatContext::default(), &[]);
+        let theirs = player_view(engine.state(), them, 1, None, &SeatContext::default(), &[]);
         let of = |v: &baylee_view::PlayerView| {
             v.battlefield
                 .iter()
@@ -1368,6 +1392,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         let shown: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
         assert_eq!(
@@ -1396,6 +1421,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         assert!(
             theirs.looking_at.is_empty(),
@@ -1412,7 +1438,7 @@ mod tests {
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let seat = PlayerId::new(0);
 
-        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default());
+        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
         assert!(
             view.looking_at.is_empty(),
             "a view with no pending choice was still showing cards"
@@ -1445,6 +1471,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         assert!(
             view.looking_at.is_empty(),
@@ -1468,6 +1495,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         for object in &view.looking_at {
             let print = object
@@ -1505,6 +1533,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         assert!(
             view.looking_at.is_empty(),
@@ -1538,6 +1567,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         let shown: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
         assert_eq!(
@@ -1556,6 +1586,7 @@ mod tests {
             0,
             Some(&pending),
             &SeatContext::default(),
+            &[],
         );
         assert!(
             theirs.looking_at.is_empty(),
@@ -1605,6 +1636,7 @@ mod tests {
             1,
             None,
             &SeatContext::default(),
+            &[],
         );
 
         let land_of = |seat: u8| {
@@ -1719,6 +1751,7 @@ mod tests {
             1,
             None,
             &SeatContext::default(),
+            &[],
         );
         let cave = view
             .battlefield
@@ -1836,6 +1869,7 @@ mod tests {
                 0,
                 None,
                 &SeatContext::default(),
+                &[],
             );
             assert_eq!(
                 view.seats[0].commanders.len(),
@@ -1880,6 +1914,7 @@ mod tests {
                 0,
                 None,
                 &SeatContext::default(),
+                &[],
             );
             let casts = |i: usize| -> Vec<u32> {
                 view.seats[i].commanders.iter().map(|c| c.casts).collect()
@@ -1903,6 +1938,7 @@ mod tests {
             0,
             None,
             &SeatContext::default(),
+            &[],
         );
 
         let named: Vec<ObjectId> = view
@@ -1958,7 +1994,14 @@ mod tests {
             )
             .expect("the commander reaches its owner's hand");
 
-        let owner = player_view(&state, PlayerId::new(0), 0, None, &SeatContext::default());
+        let owner = player_view(
+            &state,
+            PlayerId::new(0),
+            0,
+            None,
+            &SeatContext::default(),
+            &[],
+        );
         let held = owner
             .hand
             .iter()
@@ -1966,7 +2009,14 @@ mod tests {
             .expect("it is in the hand it was sent to");
         assert!(held.commander, "it is still a commander in a hand");
 
-        let other = player_view(&state, PlayerId::new(1), 0, None, &SeatContext::default());
+        let other = player_view(
+            &state,
+            PlayerId::new(1),
+            0,
+            None,
+            &SeatContext::default(),
+            &[],
+        );
         assert!(
             other.command[0].iter().all(|o| o.id != katara_obj),
             "it has left the command zone, so no seat sees it there"
@@ -2013,7 +2063,7 @@ mod tests {
         let land = fresh("Fresh Land", baylee_core::types::TypeSet::LAND);
         let bear = fresh("Fresh Bear", baylee_core::types::TypeSet::CREATURE);
 
-        let view = player_view(&state, seat, 0, None, &SeatContext::default());
+        let view = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
         let asleep = |id: ObjectId| {
             view.battlefield
                 .iter()
@@ -2058,7 +2108,7 @@ mod tests {
         let dying = walker(baylee_engine::zone::ZoneLocation::Battlefield, 1);
         let held = walker(baylee_engine::zone::ZoneLocation::Graveyard(seat), 0);
 
-        let view = player_view(&state, seat, 0, None, &SeatContext::default());
+        let view = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
         let loyalty = |id: ObjectId| {
             view.battlefield
                 .iter()
@@ -2100,6 +2150,7 @@ mod tests {
                 0,
                 None,
                 &SeatContext::default(),
+                &[],
             );
             let taken: Vec<(ObjectId, u16)> = view.seats[1]
                 .commander_damage
@@ -2283,6 +2334,7 @@ mod tests {
                 0,
                 None,
                 &SeatContext::default(),
+                &[],
             );
             for object in view.battlefield.iter().chain(view.command.iter().flatten()) {
                 let Some(card) = object.card else { continue };
@@ -2315,7 +2367,7 @@ mod tests {
             .insert(baylee_engine::object::Status::FACE_DOWN);
         let other = PlayerId::new(1 - owner.get());
         for (seat, entitled) in [(owner, true), (other, false)] {
-            let view = player_view(&state, seat, 0, None, &SeatContext::default());
+            let view = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
             let Some(object) = view
                 .battlefield
                 .iter()
@@ -2392,6 +2444,7 @@ mod tests {
             1,
             None,
             &SeatContext::default(),
+            &[],
         );
         (engine, view)
     }
@@ -2505,6 +2558,7 @@ mod tests {
             1,
             None,
             &SeatContext::default(),
+            &[],
         );
 
         let identity = |card: CardIndex| {
@@ -2584,5 +2638,79 @@ mod tests {
             return;
         }
         panic!("seat 0 never got priority");
+    }
+
+    /// A seat in the game carries no loss; a seat that is out carries the
+    /// reason the engine recorded, and the view's `has_lost` reads it.
+    #[test]
+    fn a_lost_seat_carries_the_engines_reason_and_a_live_one_carries_none() {
+        let preset = mixed_print_preset();
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let view = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
+        assert!(view.seats.iter().all(|s| s.loss.is_none() && !s.has_lost()));
+
+        engine
+            .apply(them, baylee_engine::choice::PlayerAction::Concede)
+            .expect("a seated player may always concede");
+        let view = player_view(engine.state(), me, 1, None, &SeatContext::default(), &[]);
+        let seat = |p: PlayerId| view.seat(p).expect("seated");
+        assert_eq!(seat(them).loss, Some(LossCause::Conceded));
+        assert!(seat(them).has_lost());
+        assert_eq!(seat(me).loss, None);
+    }
+
+    /// Each engine reason reaches the wire under its own name. The mapping is
+    /// an exhaustive match, so a new reason cannot be forgotten; this is what
+    /// catches two arms swapped.
+    #[test]
+    fn every_loss_reason_reaches_the_wire_as_itself() {
+        for reason in [
+            LossReason::Life,
+            LossReason::EmptyDraw,
+            LossReason::Poison,
+            LossReason::CommanderDamage,
+            LossReason::Conceded,
+            LossReason::Effect,
+        ] {
+            assert_eq!(format!("{:?}", loss_cause(reason)), format!("{reason:?}"));
+        }
+    }
+
+    /// Who answered for a seat is on that seat and no other, and a seat the
+    /// host's record does not reach reads as having answered itself.
+    #[test]
+    fn a_house_answer_is_on_the_seat_the_host_names_and_no_other() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let ctx = SeatContext::default();
+        let view = player_view(
+            engine.state(),
+            me,
+            0,
+            None,
+            &ctx,
+            &[None, Some(HouseAnswer::Clock)],
+        );
+        assert_eq!(
+            view.seat(them).map(|s| s.house_answered),
+            Some(Some(HouseAnswer::Clock))
+        );
+        assert_eq!(view.seat(me).map(|s| s.house_answered), Some(None));
+
+        let short = player_view(
+            engine.state(),
+            me,
+            0,
+            None,
+            &ctx,
+            &[Some(HouseAnswer::StandIn)],
+        );
+        assert_eq!(
+            short.seat(me).map(|s| s.house_answered),
+            Some(Some(HouseAnswer::StandIn))
+        );
+        assert_eq!(short.seat(them).map(|s| s.house_answered), Some(None));
     }
 }
