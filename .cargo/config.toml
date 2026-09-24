@@ -14,4 +14,14 @@
 # `scripts/gate-rules.sh` runs both and stops at the first failure.
 [alias]
 lint-rules = "clippy --workspace --all-targets --exclude baylee-client -- -D warnings"
-test-rules = "test --workspace --all-targets --exclude baylee-client"
+test-rules = "nextest run --workspace --all-targets --exclude baylee-client"
+
+# macOS keeps debug info in each codegen unit's `.o` (`split-debuginfo =
+# unpacked`, the default there) and leaves those files in `target/debug/deps`.
+# Incremental builds keep naming new ones and cargo never deletes them: 1.3 M
+# files on 24.09.2026, and every rustc lists that directory when it starts, so
+# a gate spent most of its 13 minutes in `readdir`. `packed` runs dsymutil and
+# keeps backtrace line numbers; `off` would lose them. macOS only, because on
+# Linux (CI) `packed` means split DWARF, which nothing here needs.
+[target.'cfg(target_os = "macos")']
+rustflags = ["-Csplit-debuginfo=packed"]

@@ -1,0 +1,4 @@
+# The run ends when its longest test does, so the long ones start first.
+[[profile.default.overrides]]
+filter = 'test(every_implemented_card_survives_a_game) | test(a_table_of_more_than_two_plays_itself) | test(every_question_this_suite_reaches_gets_an_answer) | test(self_play_acceptance_decks_terminates_without_panics) | test(a_cue_renders_the_same_bytes_twice)'
+priority = 100

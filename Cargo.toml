@@ -212,3 +212,9 @@ panic = "abort"
 # Not `debug = false`: a panic with no line number costs more to chase than
 # the disk ever saved.
 debug = "line-tables-only"
+
+# The engine hashes its state on every step, and unoptimised xxh3 was the top
+# of the debug profile of the slowest test. A dependency, so it is compiled once.
+[profile.dev.package.xxhash-rust]
+opt-level = 3
+debug-assertions = false
