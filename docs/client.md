@@ -2689,6 +2689,9 @@ follows is a `401`, the kept guest is dropped and the player told
 (`Lobby::session_ended`). That makes the settings file a credential store,
 so it is written `0600` on unix, new or over an old one
 (`settings::store::write_at`), and `KeptGuest`'s `Debug` prints no token.
+In a browser the token sits in `localStorage` under `baylee:client-settings`
+with the rest of the settings, readable by any script on the client's origin
+and with no mode to narrow; it is never logged, there or natively.
 Removing a gateway from the list leaves its guest kept, as it leaves an
 account's decks on the gateway.
 
