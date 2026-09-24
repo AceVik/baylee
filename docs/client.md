@@ -3058,6 +3058,18 @@ registry, which `baylee-client-core` deliberately does not link, so that half
 lives in `baylee-client/src/manasources.rs`. It refuses an ability that costs
 mana to activate, because the plan would have to recurse.
 
+The list an ability index points into is read where the engine reads it
+(`manasources::printed_abilities`): the card the object's abilities are
+printed on, else the **token definition** behind `PublicObject::token`. A
+token has no card and so no `rules`, and until #210 nothing on the client read
+a token's abilities: a Treasure was never a source, and seventeen of them left
+a four-mana spell unreachable with the lands tapped. A Treasure now plans and
+clicks like Lotus Petal — a mana ability, so one tap and a colour, never armed.
+It makes any colour, so the matcher reaches for it after every source making
+fewer; a tie with a *free* five-colour source (a Command Tower, a land under
+Chromatic Lantern) still falls to object order, because `priced` ranks the
+modes of one permanent and nothing across permanents.
+
 An ability that does something *besides* make mana it accepts, and **ranks**
 — which is the same policy reached a different way. A tap with a price beyond
 the tap sorts behind every clean tap the permanent has, and a permanent is one

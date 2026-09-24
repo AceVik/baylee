@@ -156,24 +156,51 @@ fn priced(view: &PlayerView, source: &Source) -> bool {
     costs_more_than_a_tap || does_more_than_add
 }
 
-/// Ability `index` of `object`, out of the registry.
-///
-/// Out of the list of the card the object's abilities are *printed on*
-/// ([`baylee_view::PublicObject::rules`]), which is the list the engine's
-/// index points into: a copy's is the copied card's, and reading the copy's
-/// own card for it named the wrong ability, or none. The face matters for
-/// the same reason — an MDFC's back has its own abilities, and reading the
-/// front's list for it would name the wrong one.
+/// Ability `index` of `object`, out of the registry — see
+/// [`printed_abilities`] for which list.
 #[must_use]
 pub fn ability_at(
     view: &PlayerView,
     object: baylee_core::ids::ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    let rules = view.object(object)?.rules?;
-    let def = baylee_cards::by_index(rules.card)?;
-    let abilities = def.abilities_for_face(rules.face as usize);
-    abilities.get(usize::try_from(index).ok()?)
+    printed_abilities(view.object(object)?).get(usize::try_from(index).ok()?)
+}
+
+/// Every ability `object` prints, from the list the engine's ability index
+/// points into, in the engine's own order (`Object::abilities`).
+///
+/// First the card the abilities are *printed on*
+/// ([`baylee_view::PublicObject::rules`]): a copy's is the copied card's, and
+/// reading the copy's own card for it named the wrong ability, or none. The
+/// face matters for the same reason — an MDFC's back has its own abilities,
+/// and reading the front's list for it would name the wrong one.
+///
+/// Then the token definition ([`baylee_view::PublicObject::token`]), because
+/// a token has no card and so no `rules`. While this read `rules` alone,
+/// nothing on this client could read a single token ability: a Treasure was
+/// never a mana source, and seventeen of them left a four-mana spell neither
+/// castable nor reachable with the lands tapped (#210, measured in play).
+///
+/// Two copies of a registry token are out of its reach, because the host
+/// fills `rules` only from a card and `token` only from the object's own
+/// definition: a card copying a Treasure has neither and answers nothing,
+/// and a registry token that has become a copy of *another* registry token
+/// answers its own definition rather than the copied one. Closing either
+/// needs the view to name the token a copied list came from.
+#[must_use]
+pub fn printed_abilities(object: &baylee_view::PublicObject) -> &'static [AbilityDef] {
+    if let Some(rules) = object.rules {
+        return baylee_cards::by_index(rules.card)
+            .map_or(&[], |def| def.abilities_for_face(rules.face as usize));
+    }
+    // Face down, a token has no text (CR 708.2), and the host names its
+    // definition whether or not the seat may know it.
+    object
+        .token
+        .filter(|_| !object.status.is_face_down())
+        .and_then(baylee_cards::tokens::by_token_id)
+        .map_or(&[], |token| token.abilities)
 }
 
 /// Whether this printed ability is the **same button** as the CR 305.6
@@ -548,13 +575,8 @@ pub fn granted_source(
 /// eventually has one, and it would miss it in silence.
 #[must_use]
 pub fn ability_count(view: &PlayerView, object: baylee_core::ids::ObjectId) -> usize {
-    let Some(rules) = view.object(object).and_then(|o| o.rules) else {
-        return 0;
-    };
-    let Some(def) = baylee_cards::by_index(rules.card) else {
-        return 0;
-    };
-    def.abilities_for_face(rules.face as usize).len()
+    view.object(object)
+        .map_or(0, |o| printed_abilities(o).len())
 }
 
 /// The five basic land types and the mana CR 305.6 gives them.
@@ -600,12 +622,10 @@ const BASIC_MANA: [(baylee_core::ids::SubtypeId, baylee_core::mana::ManaColor); 
 /// what makes the reading cheap: no `LegalActions`, so the same walk answers
 /// for every seat's permanents and not only for the one holding priority.
 ///
-/// Two holes, named rather than papered over. A **token** has no `card`, so
-/// a Treasure counts for nothing — which is wrong and is the same gap
-/// `board::provenance_of` works around by name; closing it wants the token
-/// registry and a reason better than this one. And a **face-down**
-/// permanent counts for nothing, which is right: nobody at the table knows
-/// what it makes.
+/// A **token** counts through its definition ([`printed_abilities`]), so a
+/// Treasure feeds every fire a fifth; until #210 it counted for nothing. A
+/// **face-down** permanent's basic types count for nothing, which is right:
+/// nobody at the table knows what it makes.
 #[must_use]
 pub fn table_mana(view: &PlayerView) -> [f32; 5] {
     let mut tally = [0.0_f32; 5];
@@ -1367,5 +1387,129 @@ mod tests {
             "{} cards gained a source: {gained:?}",
             gained.len()
         );
+    }
+
+    /// A Treasure on the battlefield, as the host sends one: no card, so no
+    /// `rules`, and the registry's token id beside the name.
+    fn treasure(slot: u32) -> baylee_view::PublicObject {
+        let mut obj = token(slot, 0, "Treasure", 0, 0);
+        obj.types = baylee_core::types::TypeSet::ARTIFACT;
+        obj.power = None;
+        obj.toughness = None;
+        obj.token = Some(baylee_cards::tokens::token_id(
+            &baylee_cards::tokens::TREASURE,
+        ));
+        obj
+    }
+
+    /// Treasures on the battlefield and their one ability each, offered.
+    fn treasures(slots: &[u32]) -> (PlayerView, LegalActions) {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, slots.iter().map(|&slot| treasure(slot)))
+            .build();
+        let legal = LegalActions {
+            abilities: slots
+                .iter()
+                .map(|&slot| (ObjectId::new(slot, 0), 0))
+                .collect(),
+            ..LegalActions::default()
+        };
+        (view, legal)
+    }
+
+    /// #210, measured in play: with every land tapped and seventeen
+    /// Treasures untapped, a four-mana spell was neither castable nor
+    /// reachable, because a token has no `rules` and the ability lookup read
+    /// nothing else. The Treasure was no source at all.
+    #[test]
+    fn a_treasure_is_a_source_the_planner_can_see() {
+        let (view, legal) = treasures(&[1]);
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "the Treasure is still invisible");
+        assert_eq!(sources[0].tap, Tap::Ability(0));
+        assert_eq!(sources[0].amount, 1, "one mana, as printed");
+        assert_eq!(
+            sources[0].colors,
+            vec![
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green
+            ],
+            "one mana of any colour"
+        );
+        assert!(
+            priced(&view, &sources[0]),
+            "sacrificing it is a price beyond the tap"
+        );
+    }
+
+    /// And the half a player sees: four Treasures pay `{4}`, each asked for
+    /// a colour, since the engine asks which one a Treasure makes.
+    #[test]
+    fn four_treasures_pay_four() {
+        let (view, legal) = treasures(&[1, 2, 3, 4]);
+        let plan = baylee_client_core::manaplan::plan(
+            &mana_cost("{4}"),
+            &baylee_view::ManaPoolView::default(),
+            &sources(&view, &legal),
+        )
+        .expect("four Treasures pay {4}");
+        assert_eq!(plan.steps.len(), 4, "one sacrifice per mana");
+        assert!(
+            plan.steps.iter().all(|step| step.color.is_some()),
+            "a Treasure asks for its colour: {:?}",
+            plan.steps
+        );
+    }
+
+    /// A Treasure is spent only when a land cannot pay instead: it makes any
+    /// colour, so the planner reaches for it after every source that makes
+    /// fewer, and a Mountain pays a generic pip while the Treasure stays.
+    #[test]
+    fn a_mountain_pays_before_a_treasure_is_sacrificed() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [card(1, 0, "Mountain"), treasure(2)])
+            .build();
+        let legal = LegalActions {
+            mana_abilities: vec![ObjectId::new(1, 0)],
+            abilities: vec![(ObjectId::new(2, 0), 0)],
+            ..LegalActions::default()
+        };
+        let plan = baylee_client_core::manaplan::plan(
+            &mana_cost("{1}"),
+            &baylee_view::ManaPoolView::default(),
+            &sources(&view, &legal),
+        )
+        .expect("a Mountain pays {1}");
+        assert_eq!(plan.steps.len(), 1);
+        assert_eq!(
+            plan.steps[0].source,
+            ObjectId::new(1, 0),
+            "sacrificed the Treasure with a Mountain untapped"
+        );
+    }
+
+    /// The hearth counts a Treasure as the planner does: one permanent that
+    /// may make any colour, a fifth to every fire.
+    #[test]
+    fn a_treasure_feeds_every_fire_a_fifth() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [treasure(1)])
+            .build();
+        let tally = table_mana(&view);
+        for color in [
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ] {
+            assert!(
+                (tally[color as usize] - 0.2).abs() < 1e-5,
+                "{color:?} is {tally:?}"
+            );
+        }
     }
 }
