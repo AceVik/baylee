@@ -136,7 +136,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - `GameStatic.prints` is `Option<PrintEntry>` per index; the index is the `PrintRef` objects point at, so hide with `None`, never shorten the list. A seat gets its deck's printings plus cards seen; `Session` re-sends before the view needing it.
 - AI plays only through `HeuristicAgent::act(&PlayerView, &Pending)`, never an `Engine`/`GameState`. Scouting only for a current `SeatKind::Ai` (`scouting::request`); reports are never serialized, sent over the protocol, merged into views or prints, or retained. The harness uses the same guarded adapter as a hosted AI. `docs/house-ai.md`.
 - `SeatKind::Driven`: AI seat taken by a socket (`Session::take_over`; `release` returns it to the retained agent). View senders ask `answers_over_socket()`, never "is human".
-- `SeatKind::StandIn`: house answers for an absent player (`Session::stand_in`; `SeatAttached` → `hand_back`). The awaited seat has one clock: `Deadline::Decide` (answers once) or, socketless, `Deadline::StandIn` (`reconnect_window_secs`, hands the chair over).
+- `SeatKind::StandIn`: house answers for an absent player (`Session::stand_in`; `SeatAttached` → `hand_back`). Each awaited seat has one clock (in the mulligan window every deciding seat is awaited): `Deadline::Decide` (answers once) or, socketless, `Deadline::StandIn` (`reconnect_window_secs`, hands the chair over).
 - An away chair keeps `is_ai` false (`SeatIdentity.away`). The roster rides in `GameStatic`; any chair change marks every seat's roster stale.
 - Engine-server harness: `JoinGame.seat_token` is a seat number; joining an AI chair takes it over, disconnecting returns it. Each socket sends only its own seat's envelopes.
 
@@ -146,7 +146,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - The gateway links neither `baylee-engine` nor `baylee-gamehost`; its e2e tests pull `baylee-engine` and `baylee-engine-server` (and gamehost through it) as dev-dependencies only. No agent → `POST /lobby/games` is 503.
 - `SeatFrame { seat, envelope }` nests an encoded player `Envelope` the gateway never decodes; keep that shape.
 - Secrets: `BAYLEE_AGENT_TOKEN` on `/agent/ws`, per-game token on `/engine/ws`, seat token on `/games/{id}/ws`; not interchangeable.
-- The decision clock runs in the engine (`EngineRunner::clock`, `crates/baylee-engine-server/src/lib.rs`), anchored to `decision_seq` (questions, not frames), never for a socketless seat, whose frames the engine (not the gateway) drops. Losing the engine link ends the game.
+- The decision clocks run in the engine (`EngineRunner::clocks`, `crates/baylee-engine-server/src/lib.rs`), at most one per awaited seat, each anchored to `Session::asked_at(seat)`, a `decision_seq` (questions, not frames), never for a socketless seat, whose frames the engine (not the gateway) drops. Losing the engine link ends the game.
 - One process per game is the panic boundary; the hosting path wraps no rules call in `catch_unwind`.
 - Gateway e2e tests spawn real gateways (own schema each, pool of two; CI has `postgres:18-alpine`) with the engine in-process (`EngineRunner`); `e2e_processes` is `#[ignore]`d.
 
