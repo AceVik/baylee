@@ -28,8 +28,12 @@ Italic), which sets the interface, and Faustina by Omnibus-Type (upright and
 italic,
 variable weight), which sets card names and rules text — both licensed under
 the SIL Open Font License 1.1, whose text is in assets/fonts/licenses/;
-Font Awesome Free 6.7.2 (https://fontawesome.com), icons licensed under
-CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); and the Mana font
+Font Awesome Free 6.7.2 by Fonticons, Inc. (https://fontawesome.com), whose
+font files are licensed under the SIL Open Font License 1.1 with Reserved
+Font Name "Font Awesome" (assets/fonts/licenses/OFL-FontAwesome.txt; CC BY
+4.0 covers only its SVG and JS icons, which are not bundled), shipped
+unmodified: byte for byte the npm package's `webfonts/fa-solid-900.ttf`;
+and the Mana font
 (https://github.com/andrewgioia/mana) by Andrew Gioia, licensed under the SIL
 Open Font License 1.1 (assets/fonts/licenses/OFL-Mana.txt), whose glyphs the
 client uses to draw mana symbols — bundled unmodified and under its own name,

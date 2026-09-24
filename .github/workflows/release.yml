@@ -1,0 +1,141 @@
+# Publishes the game client for every desktop system as a GitHub Release.
+#
+# A tag `v<version>` publishes; it must name the workspace version and a
+# commit `ci` passed on, or nothing is built. `workflow_dispatch` is the dry
+# run: the same builds, uploaded as workflow artifacts, and no release.
+#
+# These jobs produce binaries other people run, so the one third-party action
+# on the path is pinned to a commit rather than a tag a push could move, and
+# no cache is restored into a build: a release is built from source alone.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n '/^\[workspace\.package\]/,/^\[/{s/^version = "\(.*\)"$/\1/p;}' Cargo.toml)
+          [ -n "$version" ] || { echo "::error::no workspace.package.version in Cargo.toml"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            # The version is bumped in a commit on main and the tag follows it;
+            # a tag that names another number would publish a binary whose
+            # build stamp contradicts its own release.
+            if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match workspace version $version"
+              exit 1
+            fi
+            passed=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq length)
+            if [ "$passed" = 0 ]; then
+              echo "::error::ci has not passed on $GITHUB_SHA; tag a green commit"
+              exit 1
+            fi
+          else
+            version="$version-dev.${GITHUB_SHA::10}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "releasing $version"
+
+  build:
+    needs: version
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest supported Ubuntu rather than the newest: a Linux binary
+          # runs on any glibc at least as new as the one it was linked against.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    env:
+      # x86-64-v2 (SSE4.2, POPCNT) costs no player a machine: Windows 11 24H2
+      # will not boot without it. aarch64-apple-darwin already defaults to
+      # apple-m1, the oldest Apple silicon there is.
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
+      # The `stable` branch as of 2026-09-03; bump by commit, never by tag.
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - shell: bash
+        run: cargo build --locked -p baylee-client --profile dist --target ${{ matrix.target }}
+      - id: pack
+        shell: bash
+        run: |
+          archive=$(scripts/package-client.sh target/${{ matrix.target }}/dist ${{ matrix.target }} ${{ needs.version.outputs.version }})
+          ( cd "$(dirname "$archive")"
+            f=$(basename "$archive")
+            if command -v sha256sum >/dev/null; then sha256sum "$f"; else shasum -a 256 "$f"; fi > "$f.sha256" )
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            ${{ steps.pack.outputs.archive }}
+            ${{ steps.pack.outputs.archive }}.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: [version, build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cat > notes.md <<EOF
+          Unofficial fan content, not affiliated with Wizards of the Coast.
+
+          One archive per system. Unpack it and start \`baylee-client\` (on macOS: \`Baylee.app\`); \`README.txt\` in each archive has the first-start steps.
+          The builds are not code-signed, so macOS and Windows warn on first start.
+          Every binary names its commit and CI run in its build stamp. The run number is this workflow's, not \`ci\`'s.
+          EOF
+          ls -l out
+          gh release create "$GITHUB_REF_NAME" out/* --verify-tag --title "Baylee $VERSION" --notes-file notes.md --generate-notes

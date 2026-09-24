@@ -203,6 +203,17 @@ lto = "thin"
 codegen-units = 1
 panic = "abort"
 
+# What a published binary is built with (`.github/workflows/release.yml`).
+# `release` plus line tables, so a player's crash report keeps file and line,
+# and no strip; file size is no concern. Thin, not fat, LTO: fat linked the
+# client in 12 min at a 17.1 GB peak on 24.09.2026 (`/usr/bin/time -l`), and
+# no free GitHub runner has more than 16 GB. A profile barely moves RAM at
+# run time; the allocator is the lever for that (#217).
+[profile.dist]
+inherits = "release"
+debug = "line-tables-only"
+strip = "none"
+
 [profile.dev]
 # Line tables instead of full debug info. A backtrace keeps its file and line
 # numbers — which is all a panicking test is ever read for — while the
