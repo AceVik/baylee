@@ -1050,6 +1050,37 @@ mod tests {
         assert_eq!(tapped(&found), [1, 2], "dropped a tap the plan needed");
     }
 
+    /// The steps come back in the order the sources were given, whatever the
+    /// matcher preferred and whatever `consolidate` gave back.
+    ///
+    /// A contract rather than an accident of `steps` walking a set of
+    /// indices: the house AI puts a restricted source last and relies on it
+    /// being the last tap (#223), because mana that may only be spent on some
+    /// spells, once floating, is counted by no plan. The ids run against the
+    /// slice here so a sorted answer cannot pass for an ordered one.
+    #[test]
+    fn the_steps_come_back_in_the_order_the_sources_were_given() {
+        let order =
+            |found: &Plan| -> Vec<u32> { found.steps.iter().map(|s| s.source.slot()).collect() };
+
+        // The Tower pays white, the Forest green and the Sol Ring both
+        // generics; the Treasure, listed last, is never reached.
+        let sources = [
+            tower(9),
+            sol_ring(5),
+            land(3, ManaColor::Green),
+            treasure(1),
+        ];
+        let found = plan(&cost("{2}{W}{G}"), &empty(), &sources).expect("payable");
+        assert_eq!(order(&found), [9, 5, 3]);
+
+        // The Forest is matched for a generic and then given back to the
+        // Sol Ring's second mana; what is left keeps the slice's order.
+        let sources = [tower(9), land(7, ManaColor::Green), sol_ring(5)];
+        let found = plan(&cost("{2}{W}"), &empty(), &sources).expect("payable");
+        assert_eq!(order(&found), [9, 5]);
+    }
+
     #[test]
     fn a_zero_cost_spell_taps_nothing() {
         let sources = [land(1, ManaColor::Green)];
