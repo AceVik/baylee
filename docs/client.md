@@ -5791,6 +5791,15 @@ something everywhere else: a player who wants `Esc` on some other action has
 to be able to press it. Escape backs out, backspace unbinds, and unbinding is
 a real answer because a pointer still reaches everything.
 
+An unbound action is a row with no chords, and that difference is what lets a
+new action reach players who saved their keys before it existed. A stored map
+replaces the standard one whole, so `⇧E` (take a whole merged card, #210) was
+dead on the first machine it was tried on: that machine's keymap had been
+saved a week earlier and had no row for it. `Keymap::migrated` now gives each
+*missing* row its standard chords, keeping only the ones no row in the map
+already holds. An empty row is the player's decision and stays empty, and no
+key the player bound is taken or shadowed.
+
 ## The interface's own words
 
 Card text has been translated for as long as `/pool?lang=` existed — the

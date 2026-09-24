@@ -490,16 +490,49 @@ impl Keymap {
     /// So the rule is all-or-nothing and needs no heuristic: a map that is
     /// exactly the previous standard belongs to someone who never customised
     /// anything, and becomes the new standard. Every other map is a player's
-    /// own and is returned untouched — including one that only *looks* close,
-    /// because guessing which rows of somebody's keymap to overwrite is how a
-    /// settings screen loses a binding without saying so.
+    /// own and keeps every row it has — including one that only *looks*
+    /// close, because guessing which rows of somebody's keymap to overwrite
+    /// is how a settings screen loses a binding without saying so.
+    ///
+    /// What it gains is the rows it never had ([`Self::with_new_actions`]),
+    /// which overwrite nothing.
     #[must_use]
     pub fn migrated(self) -> Self {
         if self == Self::legacy() {
             Self::standard()
         } else {
-            self
+            self.with_new_actions()
         }
+    }
+
+    /// Binds every action this map has no row for to its standard chords,
+    /// where no action in the map answers to them already.
+    ///
+    /// A stored map replaces the defaults whole, so an action added after it
+    /// was saved had no key at all: `⇧E` (#210) was dead on the one machine
+    /// it was first tried on, whose keymap had been saved the week before.
+    /// A row with no chords is an action the player unbound and stays that
+    /// way; only a *missing* row is filled, and only with a chord nothing
+    /// else holds, so no binding the player made is taken or shadowed. A
+    /// row that finds every chord taken stays missing, and is tried again on
+    /// the next read.
+    fn with_new_actions(mut self) -> Self {
+        let standard = Self::standard();
+        for action in Action::ALL {
+            if self.bindings.contains_key(&action) {
+                continue;
+            }
+            let free: Vec<Chord> = standard
+                .chords(action)
+                .iter()
+                .filter(|chord| self.holder_of(chord).is_none())
+                .cloned()
+                .collect();
+            if !free.is_empty() {
+                self.bindings.insert(action, free);
+            }
+        }
+        self
     }
 
     /// The chords bound to an action. Empty means the player unbound it,
@@ -945,7 +978,7 @@ mod tests {
     /// the two the swap is about — overwriting half of somebody's keymap
     /// because the other half looked untouched is the failure mode here.
     #[test]
-    fn a_customised_keymap_is_left_exactly_as_it_was() {
+    fn a_customised_keymap_keeps_every_row_it_had() {
         let mut keymap = Keymap::legacy();
         keymap.bind(Action::CombatNone, vec![Chord::key("KeyZ")]);
         let stored = Preferences {
@@ -953,8 +986,45 @@ mod tests {
             ..Preferences::default()
         };
         let read = Preferences::from_json(&stored.to_json());
-        assert_eq!(read.keymap, keymap);
+        for action in Action::ALL {
+            if !keymap.chords(action).is_empty() {
+                assert_eq!(
+                    read.keymap.chords(action),
+                    keymap.chords(action),
+                    "{action:?}"
+                );
+            }
+        }
         assert_eq!(read.keymap.chords(Action::Primary), &[Chord::key("Space")]);
+    }
+
+    /// An action added after a keymap was saved gets its key, and nothing the
+    /// player bound is taken for it. Measured on this client's own keymap,
+    /// saved before `⇧E` existed: it had no row for it, so the key did
+    /// nothing at all.
+    #[test]
+    fn an_action_added_later_gets_its_key_where_the_key_is_free() {
+        let mut before = Keymap::standard();
+        before.bindings.remove(&Action::ActivateGroup);
+        before.bind(Action::CombatNone, vec![Chord::key("KeyZ")]);
+        let read = before.clone().migrated();
+        assert_eq!(read.chords(Action::ActivateGroup), &[Chord::shift("KeyE")]);
+        assert_eq!(read.chords(Action::CombatNone), &[Chord::key("KeyZ")]);
+
+        // The player gave ⇧E to something else: it stays theirs, and the new
+        // action waits without a key rather than taking it.
+        let mut taken = before.clone();
+        taken.bind(Action::Confirm, vec![Chord::shift("KeyE")]);
+        let read = taken.clone().migrated();
+        assert_eq!(read.chords(Action::Confirm), &[Chord::shift("KeyE")]);
+        assert!(read.chords(Action::ActivateGroup).is_empty());
+        assert_eq!(read.holder_of(&Chord::shift("KeyE")), Some(Action::Confirm));
+
+        // And an action the player unbound is a row with no chords, which
+        // is theirs too.
+        let mut unbound = Keymap::standard();
+        unbound.bind(Action::ActivateGroup, vec![]);
+        assert!(unbound.migrated().chords(Action::ActivateGroup).is_empty());
     }
 
     /// Reading twice must not do anything the second time.
@@ -1009,7 +1079,12 @@ mod tests {
             &[Chord::key("KeyQ")],
             "the player's own binding was thrown away with the row beside it"
         );
-        assert!(prefs.keymap.chords(Action::Cancel).is_empty());
+        // A row the blob never had is filled in, which is not the same as
+        // the map being thrown away: the player's `KeyQ` above still stands.
+        assert_eq!(
+            prefs.keymap.chords(Action::Cancel),
+            Keymap::standard().chords(Action::Cancel)
+        );
     }
 
     #[test]
