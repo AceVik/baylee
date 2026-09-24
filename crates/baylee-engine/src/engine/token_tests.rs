@@ -555,6 +555,128 @@ fn a_token_grows_on_the_prowess_it_was_lent() {
     );
 }
 
+fn lightning_bolt() -> CardIndex {
+    card_index("4457ed35-7c10-48c8-9776-456485fdf070")
+}
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// A token that dies with its own prowess on the stack gets nothing, and
+/// nothing is registered against it (#236).
+///
+/// Prowess says "this creature", not "target" (CR 702.108a), so the trigger
+/// is not targeted (CR 115.1d) and the resolution's target check (CR 608.2b)
+/// has nothing to remove it for: it resolves. By then the token has ceased
+/// to exist (CR 704.5d), and a continuous effect that modifies
+/// characteristics fixes the set it affects as it begins (CR 611.2c), which
+/// is the empty set. The resolution registered one anyway, against an id
+/// the arena no longer held — the `debug_assert` in `EffectFilter::object`
+/// in a debug build, a dead effect in a release one. The soak table found
+/// it with Sokka's Allies.
+///
+/// A Brainstorm is cast with the Ally token on the board, and a Bolt
+/// answers it with the token's prowess still on the stack. The Bolt's own
+/// prowess resolves first and makes the token a 2/2, the Bolt kills it, and
+/// the Brainstorm's prowess then resolves with no token left to grow.
+#[test]
+fn a_token_that_dies_under_its_own_prowess_grows_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, island())
+        .battlefield(
+            0,
+            &[sokka(), island(), island(), island(), island(), mountain()],
+        )
+        .hand(0, &[brainstorm(), brainstorm(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Taps every land, so the red for the Bolt floats from here on.
+    cast_a_brainstorm(&mut engine, p0);
+    let token = *tokens_on_battlefield(&engine)
+        .first()
+        .expect("Sokka made an Ally token");
+
+    testkit::cast_with_floating(&mut engine, p0, brainstorm());
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the caster holds priority over the Brainstorm and its triggers, got {:?}",
+        engine.pending()
+    );
+    testkit::cast_with_floating(&mut engine, p0, lightning_bolt());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the Bolt asks for its target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&token),
+        "the token is a target: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![token],
+                players: vec![],
+            },
+        )
+        .unwrap();
+
+    for _ in 0..48 {
+        if stack_is_empty(&engine)
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
+        {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                ..
+            } => {
+                let back: Vec<_> = options.into_iter().rev().take(min as usize).collect();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects: back })
+                    .unwrap();
+            }
+            other => panic!("nothing else should be asked here, got {other:?}"),
+        }
+    }
+    assert!(stack_is_empty(&engine), "the stack resolved");
+    assert!(
+        engine.state().object(token).is_none(),
+        "the Bolt killed the token and it ceased to exist"
+    );
+    // The token is gone, so what the effects still say about it is read off
+    // their filters: the version each one was registered against.
+    // `EffectFilter::object` writes `u32::MAX` for an object it could not
+    // find.
+    let versions: Vec<u32> = engine
+        .state()
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.filter {
+            crate::effects::EffectFilter::ObjectIs(id, version) if id == token => Some(version),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        versions.len(),
+        1,
+        "one pump names the token — the Bolt's prowess, which found it alive — \
+         and the Brainstorm's, which found nothing, registered none: {versions:?}"
+    );
+    assert_ne!(
+        versions[0],
+        u32::MAX,
+        "and that one was registered against the token itself"
+    );
+}
+
 /// The projected size of a permanent, which is the only one worth asking
 /// about here: prowess is a continuous effect, not a counter.
 fn power_and_toughness(engine: &Engine<RegistryLookup>, id: ObjectId) -> (i16, i16) {

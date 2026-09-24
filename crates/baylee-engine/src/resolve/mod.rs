@@ -161,6 +161,19 @@ pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
     }
 }
 
+/// What an effect on [`Filter::This`](baylee_cards_dsl::Filter::This)
+/// registers against: [`this_object`], while it is still in the arena.
+///
+/// An ability that never said "target" is not removed when its object goes
+/// (CR 115.1d; CR 608.2b checks targets only), so prowess on a token that
+/// died in response still resolves. The token has ceased to exist
+/// (CR 704.5d), and an effect that modifies characteristics fixes the
+/// objects it affects as it begins (CR 611.2c): none. So it registers
+/// nothing, as an ability that said "target" and got none does (#236).
+pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<ObjectId> {
+    this_object(res).filter(|&id| state.object(id).is_some())
+}
+
 /// The one destination Path to Exile's basic-land search uses.
 static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
     &[baylee_cards_dsl::effect::Find::BATTLEFIELD_TAPPED];
@@ -1876,9 +1889,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         } => {
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 // Nothing to become anything: the ability said "target" and
-                // was activated with none, so this half of its sentence has
-                // no subject and registers nothing.
-                let this = this_object(res)?;
+                // was activated with none, or its object is gone, so this
+                // half of its sentence has no subject and registers nothing.
+                let this = this_to_affect(state, res)?;
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
                 bound_now(state, filter, &modifier, you, res.source, None)

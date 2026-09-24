@@ -122,9 +122,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             duration,
         } => {
             // Read before anything is registered: an ability that said
-            // "target" and got none sets the power and toughness of nobody.
+            // "target" and got none, or whose object is gone, sets the power
+            // and toughness of nobody.
             let this = if matches!(filter, baylee_cards_dsl::Filter::This) {
-                this_object(res)?
+                this_to_affect(state, res)?
             } else {
                 res.source
             };
