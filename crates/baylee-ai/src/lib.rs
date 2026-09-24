@@ -15,6 +15,7 @@ mod fight;
 mod filter;
 pub mod intelligence;
 mod policy;
+mod restricted;
 pub mod search;
 mod tactics;
 
@@ -422,7 +423,7 @@ impl HeuristicAgent {
             }
 
             Pending::ChooseColor { options, .. } => {
-                PlayerAction::ChooseColor(self.color(view, &options))
+                PlayerAction::ChooseColor(self.color(view, &options, context))
             }
             Pending::ChooseNumber { min, max, .. } => {
                 PlayerAction::ChooseNumber(self.number(view, min, max, context))
@@ -4031,6 +4032,121 @@ mod tests {
                 "{name} sacrificed the Treasure with a Mountain untapped"
             );
         }
+    }
+
+    /// #223. Restricted mana is spent first, so it is never counted as held
+    /// up.
+    ///
+    /// A Bolt in hand beside a creature on board holds one mana back. The
+    /// Mountain is that mana, and the Elves are paid off Ancient Ziggurat,
+    /// which could hold up nothing: its mana may not pay for the Bolt.
+    /// Counting the Ziggurat's mana against the reserve as though the Elves
+    /// were paid from the Mountain left the Elves in hand.
+    #[test]
+    fn restricted_mana_is_not_counted_as_held_up() {
+        let index = baylee_cards::decks::by_name("Ancient Ziggurat").unwrap();
+        let mut ziggurat = permanent(obj(20), PlayerId::new(0), 0);
+        ziggurat.types = TypeSet::LAND;
+        ziggurat.power = None;
+        ziggurat.toughness = None;
+        ziggurat.card = Some(baylee_view::CardIdentity {
+            index,
+            print: baylee_core::ids::PrintRef::new(0),
+            face: 0,
+        });
+        ziggurat.rules = Some(baylee_view::RulesFace {
+            card: index,
+            face: 0,
+        });
+        let mut mountain = permanent(obj(21), PlayerId::new(0), 0);
+        mountain.types = TypeSet::LAND;
+        mountain
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::MOUNTAIN);
+        mountain.power = None;
+        mountain.toughness = None;
+        let bear = permanent(obj(30), PlayerId::new(0), 2);
+        let mut v = view(0, &[20, 20], vec![ziggurat, mountain, bear]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![
+            hand_card(1, "Lightning Bolt"),
+            hand_card(2, "Llanowar Elves"),
+        ];
+        let pending = Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                abilities: vec![(obj(20), 0)],
+                mana_abilities: vec![obj(21)],
+                ..Default::default()
+            }),
+        };
+        // NOVICE and CASUAL hold nothing up, and their noise is wide enough
+        // to pick the Bolt.
+        for (name, profile) in &PROFILES[2..] {
+            assert_eq!(
+                HeuristicAgent::new(*profile).act(&v, &pending),
+                PlayerAction::ActivateAbility {
+                    source: obj(20),
+                    ability_index: 0
+                },
+                "{name} did not pay for the Elves off the Ziggurat"
+            );
+        }
+    }
+
+    /// #223. Restricted mana is named for a spell it may pay for (CR 106.6).
+    ///
+    /// Ancient Ziggurat asks its colour after the tap, and the agent named
+    /// the colour of the best spell in hand — here Swords to Plowshares,
+    /// which a creature-only mana cannot pay for, so the Birds it was tapped
+    /// for stayed in hand as well. The premise is asserted first: without the
+    /// restriction in the context, the Swords is the spell the colour goes to.
+    #[test]
+    fn restricted_mana_is_named_for_a_spell_it_may_pay_for() {
+        use baylee_core::mana::ManaColor;
+        use baylee_engine::engine::DecisionContext;
+        let ziggurat =
+            baylee_cards::by_index(baylee_cards::decks::by_name("Ancient Ziggurat").unwrap())
+                .unwrap();
+        let AbilityDef::Activated { effects, .. } = &ziggurat.abilities_for_face(0)[0] else {
+            panic!("the Ziggurat's mana ability moved");
+        };
+        let mut v = view(0, &[20, 20], vec![permanent(obj(30), PlayerId::new(1), 2)]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![
+            hand_card(1, "Swords to Plowshares"),
+            hand_card(2, "Birds of Paradise"),
+        ];
+        let pending = Pending::ChooseColor {
+            player: PlayerId::new(0),
+            options: vec![
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ],
+        };
+        let agent = HeuristicAgent::new(AIProfile {
+            temperature_milli: 0,
+            ..AIProfile::STEADY
+        });
+        assert_eq!(
+            agent.act_with_context(&v, &pending, &DecisionContext::default()),
+            PlayerAction::ChooseColor(ManaColor::White),
+            "the premise: unrestricted mana goes to the Swords"
+        );
+        let context = DecisionContext {
+            source: Some(obj(20)),
+            effects,
+            ..Default::default()
+        };
+        assert_eq!(
+            agent.act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseColor(ManaColor::Green),
+            "the Ziggurat's mana may pay only for the Birds"
+        );
     }
 
     /// The planner's half of the kicker: the engine asks with no window to

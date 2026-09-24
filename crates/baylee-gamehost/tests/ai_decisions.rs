@@ -756,6 +756,99 @@ fn a_kicker_and_a_waterbend_are_paid_when_the_mana_is_there() {
     );
 }
 
+/// Seat 0's first turn with `hand` and `board`: whether `spell` reached the
+/// battlefield, and whether `land` was ever tapped.
+fn first_turn(
+    profile: AIProfile,
+    hand: &[&str],
+    board: &[&str],
+    spell: &str,
+    land: &str,
+) -> (bool, bool) {
+    let mut engine = Engine::new(&position(hand, board), RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(profile);
+    let is = |o: &baylee_view::PublicObject, name: &str| {
+        o.card.is_some_and(|c| c.index == entry(name).card)
+    };
+    let (mut cast, mut tapped) = (false, false);
+    for seq in 0..200 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("nobody has lost on turn 1");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.turn > 1 {
+            return (cast, tapped);
+        }
+        cast |= view.battlefield_of(PlayerId::new(0)).any(|o| is(o, spell));
+        tapped |= view
+            .battlefield_of(PlayerId::new(0))
+            .any(|o| is(o, land) && o.status.contains(baylee_view::ObjectStatus::TAPPED));
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ if seat == PlayerId::new(1) => panic!("unexpected opposing question: {pending:?}"),
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("every planned action is legal");
+    }
+    panic!("turn 1 never ended");
+}
+
+/// #223. Restricted mana (CR 106.6) pays for the spells it names and is
+/// left alone for the rest.
+///
+/// Ancient Ziggurat makes one mana of any colour that may only be spent on a
+/// creature spell. The agent read every restricted tap as no source at all,
+/// so a creature it could only cast off the Ziggurat stayed in hand. The
+/// rest are the ways the fix can go wrong:
+///
+/// - **The instant.** Its mana would be stranded, so the Ziggurat is not
+///   tapped for a Bolt — and with Elves beside the Bolt, a Ziggurat tapped
+///   for it in the upkeep is gone by the main phase.
+/// - **The order.** Once restricted mana floats, no plan counts it, so a
+///   Ziggurat tapped before the Forest leaves a plan one short and a
+///   Caryatid in hand. Both board orders are played.
+/// - **The other mode.** Abundant Countryside prints `{T}: Add {C}` beside
+///   the restricted any-colour tap. The restricted mode takes over that
+///   permanent only for a spell it admits, so the {C} still casts a Sol
+///   Ring.
+///
+/// Which colour the Ziggurat's mana is named is `baylee-ai`'s
+/// `restricted_mana_is_named_for_a_spell_it_may_pay_for`: in a real hand the
+/// creature usually outscores the rest, and the question never goes wrong.
+#[test]
+fn restricted_mana_pays_for_the_spells_it_names_and_no_others() {
+    let zig = "Ancient Ziggurat";
+    let fields = "Abundant Countryside";
+    let cases: [(&[&str], &[&str], &str); 6] = [
+        (&["Llanowar Elves"], &[zig], "Llanowar Elves"),
+        (
+            &["Lightning Bolt", "Llanowar Elves"],
+            &[zig],
+            "Llanowar Elves",
+        ),
+        (&["Sylvan Caryatid"], &[zig, "Forest"], "Sylvan Caryatid"),
+        (&["Sylvan Caryatid"], &["Forest", zig], "Sylvan Caryatid"),
+        (&["Sol Ring"], &[fields], "Sol Ring"),
+        (&["Llanowar Elves"], &[fields], "Llanowar Elves"),
+    ];
+    for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+        for (hand, board, spell) in cases {
+            let (cast, _) = first_turn(profile, hand, board, spell, zig);
+            assert!(
+                cast,
+                "{profile:?}: {board:?} did not cast {spell} from {hand:?}"
+            );
+        }
+        let (_, tapped) = first_turn(profile, &["Lightning Bolt"], &[zig], "Lightning Bolt", zig);
+        assert!(
+            !tapped,
+            "{profile:?}: the Ziggurat was tapped for an instant"
+        );
+    }
+}
+
 #[test]
 fn x_cannot_demand_more_graveyard_targets_than_exist() {
     let preset = position(

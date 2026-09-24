@@ -1,13 +1,14 @@
 //! Hand and mana decisions use legal offers and printed properties. A private
 //! scouting summary may adjust values without supplying actionable hidden ids.
 
-use baylee_cards_dsl::{AbilityDef, Effect, FaceDef, KeywordSet, ManaSource};
+use baylee_cards_dsl::{AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource};
 use baylee_client_core::manaplan::{self, Source, Tap};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaColor;
 use baylee_core::preset::HoldUp;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::{LegalActions, PlayerAction};
+use baylee_engine::engine::DecisionContext;
 use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
@@ -305,9 +306,22 @@ impl HeuristicAgent {
         }
     }
 
-    pub(crate) fn color(&self, view: &PlayerView, options: &[ManaColor]) -> ManaColor {
+    /// The colour to name for mana being made. Restricted mana (CR 106.6) is
+    /// named for the spells it may pay for and no others: Ancient Ziggurat's
+    /// named white for the Swords to Plowshares beside the Birds it was
+    /// tapped for would pay for neither.
+    pub(crate) fn color(
+        &self,
+        view: &PlayerView,
+        options: &[ManaColor],
+        context: &DecisionContext<'_>,
+    ) -> ManaColor {
+        let only_for = crate::restricted::only_for(context.effects);
+        let may_pay = |id: ObjectId| {
+            only_for.is_none_or(|filter| self.admits(view, filter, context.source, id))
+        };
         if self.profile.mulligan_skill >= 2
-            && let Some(color) = self.planned_color(view, options)
+            && let Some(color) = self.planned_color(view, options, &may_pay)
         {
             return color;
         }
@@ -318,16 +332,17 @@ impl HeuristicAgent {
                 let demand: u32 = view
                     .hand
                     .iter()
-                    .map(|c| c.card)
+                    .map(|c| (c.id, Some(c.card)))
                     .chain(
                         view.command
                             .get(usize::from(view.seat.get()))
                             .into_iter()
                             .flatten()
                             .filter(|o| o.commander)
-                            .filter_map(|o| o.card),
+                            .map(|o| (o.id, o.card)),
                     )
-                    .filter_map(face)
+                    .filter(|&(id, _)| may_pay(id))
+                    .filter_map(|(_, card)| card.and_then(face))
                     .map(|f| {
                         f.mana_cost
                             .symbols()
@@ -349,7 +364,12 @@ impl HeuristicAgent {
     /// Reconstruct a useful payment from this view instead of remembering a
     /// previous decision. The mana choice has no legal-action offer attached;
     /// projected untapped sources are estimates here, never actions to send.
-    fn planned_color(&self, view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
+    fn planned_color(
+        &self,
+        view: &PlayerView,
+        options: &[ManaColor],
+        may_pay: &impl Fn(ObjectId) -> bool,
+    ) -> Option<ManaColor> {
         let sources = remaining_sources(view);
         let seat = view.seat(view.seat)?;
         let mut best = None;
@@ -373,6 +393,9 @@ impl HeuristicAgent {
                     .filter(|o| o.commander)
                     .map(|o| o.id),
             ) {
+                if !may_pay(id) {
+                    continue;
+                }
                 let Some(card) = identity(view, id) else {
                     continue;
                 };
@@ -401,6 +424,46 @@ impl HeuristicAgent {
         best.map(|(_, color)| color)
     }
 
+    /// What may pay for `spell` when a restricted tap can (CR 106.6): the
+    /// unrestricted sources, with the best restricted tap whose filter admits
+    /// it in place of whatever else that permanent makes; and that tap.
+    ///
+    /// One restricted tap and not every one: after the first, the next plan
+    /// cannot see its mana floating (`restricted`).
+    fn paying_for(
+        &self,
+        view: &PlayerView,
+        restricted: &[Offer],
+        plain: &[Source],
+        spell: ObjectId,
+    ) -> Option<(Vec<Source>, Source)> {
+        let best = restricted
+            .iter()
+            .filter(|o| {
+                o.only_for
+                    .is_some_and(|filter| self.admits(view, filter, Some(o.source.id), spell))
+            })
+            .min_by_key(|o| {
+                (
+                    o.source.priced,
+                    std::cmp::Reverse(o.source.amount),
+                    std::cmp::Reverse(o.source.colors.len()),
+                    o.source.id,
+                )
+            })?;
+        let mut sources: Vec<Source> = plain
+            .iter()
+            .filter(|s| s.id != best.source.id)
+            .cloned()
+            .collect();
+        // Last, because `manaplan::plan` sends its steps in source order and
+        // restricted mana has to be the last tap: once it floats, no plan
+        // counts it, and the engine's own merge makes the spell castable only
+        // when the rest is already there.
+        sources.push(best.source.clone());
+        Some((sources, best.source.clone()))
+    }
+
     /// Every candidate is paid for before a tap is committed. A five-mana
     /// card beside two lands used to make the agent tap both, then pass.
     pub(crate) fn spell_or_mana(
@@ -411,14 +474,15 @@ impl HeuristicAgent {
         let seat = view.seat(view.seat)?;
         let pool = &seat.mana_pool;
         let command = view.command.get(usize::from(view.seat.get()));
-        let sources = sources(view, legal);
+        let (restricted, plain) = split_restricted(offers(view, legal));
+        let plain = usable(plain);
         let main = view.active == view.seat
             && view.stack.is_empty()
             && matches!(
                 view.phase,
                 baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
             );
-        let available = pool.total() + sources.iter().map(|s| u32::from(s.amount)).sum::<u32>();
+        let available = pool.total() + plain.iter().map(|s| u32::from(s.amount)).sum::<u32>();
         let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
         for id in view
@@ -464,14 +528,23 @@ impl HeuristicAgent {
             } else {
                 available
             };
-            let (cost, floats_first) =
-                aim(view, card, f, spell_cost(view, id, f), &sources, budget);
+            let (cost, floats_first) = aim(view, card, f, spell_cost(view, id, f), &plain, budget);
+            // A price floated before the cast is checked against the pool the
+            // planner reads, which holds no restricted mana (`restricted`).
+            let paying = if floats_first || restricted.is_empty() {
+                None
+            } else {
+                self.paying_for(view, &restricted, &plain, id)
+            };
+            let (sources, last_tap) = paying
+                .as_ref()
+                .map_or((&plain[..], None), |(all, only)| (&all[..], Some(only)));
             let action = if legal.castable.contains(&id)
                 && (!floats_first || manaplan::plan(&cost, pool, &[]).is_some())
             {
                 PlayerAction::CastSpell { card: id }
             } else {
-                let Some(plan) = manaplan::plan(&cost, pool, &sources) else {
+                let Some(plan) = manaplan::plan(&cost, pool, sources) else {
                     continue;
                 };
                 let Some(step) = plan.steps.first() else {
@@ -489,7 +562,12 @@ impl HeuristicAgent {
             };
             // Establish a board before reserving answers. Once a creature is
             // out, holding the last two mana can protect the investment.
-            if main && !instant && available.saturating_sub(cost.cmc()) < reserve {
+            // Restricted mana pays for this spell first and could hold up
+            // nothing else.
+            let spent = cost
+                .cmc()
+                .saturating_sub(last_tap.map_or(0, |r| u32::from(r.amount)));
+            if main && !instant && available.saturating_sub(spent) < reserve {
                 continue;
             }
             if best.as_ref().is_none_or(|(value, _)| score > *value) {
@@ -721,7 +799,33 @@ fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
 /// the old order is untouched. A permanent whose *only* mana ability is
 /// priced is unaffected: the dedup keeps one entry per permanent whatever the
 /// key says, so this changes which mode survives and never how many.
+///
+/// Restricted taps are left out: what their mana may pay for is a question
+/// about one spell, which [`HeuristicAgent::paying_for`] asks.
 fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
+    usable(split_restricted(offers(view, legal)).1)
+}
+
+/// The restricted taps and the rest. Moved out only when there are any: this
+/// runs at every priority, and a board without restricted mana is the usual
+/// one.
+fn split_restricted(mut offers: Vec<Offer>) -> (Vec<Offer>, Vec<Offer>) {
+    if offers.iter().all(|o| o.only_for.is_none()) {
+        return (Vec::new(), offers);
+    }
+    let restricted = offers.extract_if(.., |o| o.only_for.is_some()).collect();
+    (restricted, offers)
+}
+
+/// One offered mana tap, before the one-permanent-one-source dedup.
+struct Offer {
+    source: Source,
+    /// What its mana may be spent on, when it is restricted (CR 106.6).
+    only_for: Option<&'static Filter>,
+}
+
+/// Every offered simple mana tap, restricted ones with their filter.
+fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     // The price rides on `manaplan::Source` itself. It used to be paired
     // with the source only until the dedup had run, because the solver asked
     // nothing but what comes out; since #165's second half the solver ranks
@@ -736,7 +840,7 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // lands from three directions — `mana_bundle`, `duplicates_intrinsic`
     // and this field — and one flag doing two jobs would silently make that
     // one reader wearing three names.
-    let mut result: Vec<Source> = Vec::new();
+    let mut result: Vec<Offer> = Vec::new();
     for &id in &legal.mana_abilities {
         if let Some(color) = view
             .object(id)
@@ -744,7 +848,10 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
             // and nothing else.
-            result.push(Source::fixed(id, Tap::Intrinsic, color));
+            result.push(Offer {
+                source: Source::fixed(id, Tap::Intrinsic, color),
+                only_for: None,
+            });
         }
     }
     for &(id, index) in &legal.abilities {
@@ -760,7 +867,7 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 // carries colours and an amount and no cost at all, and the
                 // registry lookup below would be reaching for a printed
                 // ability that has nothing to do with the grant.
-                .map(|m| (m.colors.clone(), m.amount, false))
+                .map(|m| (m.colors.clone(), m.amount, false, None))
         } else {
             crate::activate::printed(view, id, index).and_then(|a| {
                 let (AbilityDef::Activated {
@@ -778,10 +885,7 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 else {
                     return None;
                 };
-                let (kind, amount, restricted) = baylee_cards_dsl::mana_shape(cost, effects)?;
-                if restricted {
-                    return None;
-                }
+                let (kind, amount, _) = baylee_cards_dsl::mana_shape(cost, effects)?;
                 let colors = match kind {
                     ManaSource::Fixed(c) => vec![c],
                     ManaSource::Choice(c) => c.to_vec(),
@@ -792,25 +896,39 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                         .colors
                         .clone(),
                 };
-                Some((colors, amount?, priced(cost)))
+                Some((
+                    colors,
+                    amount?,
+                    priced(cost),
+                    crate::restricted::only_for(effects),
+                ))
             })
         };
-        if let Some((colors, amount, priced)) = source {
-            result.push(Source {
-                id,
-                tap: Tap::Ability(index),
-                colors,
-                amount,
-                // Correct only while `mana_shape`'s one-effect match hides
-                // every multi-`AddMana` ability from this reader, so nothing
-                // that reaches here is a bundle. #170 is where that stops
-                // being true, and it has to decide this per ability rather
-                // than restate the constant.
-                bundle: false,
-                priced,
+        if let Some((colors, amount, priced, only_for)) = source {
+            result.push(Offer {
+                source: Source {
+                    id,
+                    tap: Tap::Ability(index),
+                    colors,
+                    amount,
+                    // Correct only while `mana_shape`'s one-effect match hides
+                    // every multi-`AddMana` ability from this reader, so nothing
+                    // that reaches here is a bundle. #170 is where that stops
+                    // being true, and it has to decide this per ability rather
+                    // than restate the constant.
+                    bundle: false,
+                    priced,
+                },
+                only_for,
             });
         }
     }
+    result
+}
+
+/// One source per permanent, the mode [`sources`] explains.
+fn usable(offers: Vec<Offer>) -> Vec<Source> {
+    let mut result: Vec<Source> = offers.into_iter().map(|o| o.source).collect();
     result.sort_by_key(|s| {
         (
             s.id,

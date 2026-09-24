@@ -403,6 +403,8 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
                 std::ptr::eq(*token, &raw const baylee_cards::tokens::TREASURE)
             }),
         ),
+        // Spent, #223: `restricted_mana_pays_for_the_spells_it_names_and_no_\
+        // others` through the engine, when the view can read the filter.
         (
             "Alternate resource engines (restricted mana)",
             count_reaching(|effect| {

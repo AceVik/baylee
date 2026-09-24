@@ -33,7 +33,9 @@ counter even when the colour asked for was the one their free tap makes. `priced
 amount, so free wins first and the old order decides between free modes. A
 permanent whose *only* mana ability is priced is untouched, because the dedup
 keeps one entry per permanent whatever the key says: this changes which mode
-survives and never how many.
+survives and never how many. Between permanents the solver ranks the price a
+second time: `manaplan::Source` carries `priced`, and the matcher reaches for
+a priced tap only where no clean one fits the pip (#210).
 Command-zone commanders participate in these plans, including their public
 cast-count tax. Steady and harder levels choose a mana colour by the casts it
 can complete with the
@@ -81,6 +83,18 @@ pool covers it. Waterbend counts every untapped creature and artifact that is
 not a planned mana source, since the convoke question is answered by tapping
 all of them. Kicked is the better half by design, so it is paid whenever it can
 be, except when the kicked half would draw the library out.
+
+**Restricted mana pays for the spells it names.** Mana that may be spent only
+on some spells (CR 106.6), such as Ancient Ziggurat's creature mana, is read off
+the ability before the tap, because the view says how much restricted mana
+floats and never what it may pay for. `restricted.rs` taps such a source for a
+spell only when `filter_matches` reads its filter as a match. An unreadable
+filter (a chosen type, the commander's types) is a no. It taps at most one
+restricted source per spell, and that tap comes last: once the mana floats, no
+plan counts it, and only the engine's merge makes the spell castable. Its mana
+is spent first, so it never counts as held up. Its colour is named for a spell
+it may pay for. A price floated before the cast (an X, a kicker) is paid from
+unrestricted sources only.
 
 Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
