@@ -54,8 +54,8 @@ pub struct TextFace {
 /// collector number, then the printing id. The order is read twice — the
 /// English printing that supplies the Oracle is the first English one, and a
 /// card whose every printing in `lang` is untranslated is named from the
-/// first of those — so a caller that gathers printings anywhere else sorts
-/// them this way first.
+/// first of those that translated the most of it (`fullest`) — so a caller
+/// that gathers printings anywhere else sorts them this way first.
 ///
 /// `None` only for a card with no printing at all in the language or in
 /// English.
@@ -90,9 +90,7 @@ pub fn card_entry(lang: &str, printings: &[TextPrinting]) -> Option<CardTextEntr
             .copied()
             .find(|p| p.scryfall_id == layer.printing.scryfall_id)
     });
-    let served = picked
-        .or_else(|| local.first().copied())
-        .unwrap_or(reference);
+    let served = picked.or_else(|| fullest(&local)).unwrap_or(reference);
     // An English row's `printed_*` is a promo's spelling (Secret Lair's
     // `IMP'S MSCHF`), never the card's.
     let localized = served.lang != "en";
@@ -128,6 +126,33 @@ pub fn card_entry(lang: &str, printings: &[TextPrinting]) -> Option<CardTextEntr
         lang: served.lang.clone(),
         layout: served.layout.clone(),
         faces,
+    })
+}
+
+/// Of printings none of which translated the rules text, the one that
+/// translated the most of the rest: names, type lines and texts, counted
+/// over every face. Ties go to the first, which in the order [`card_entry`]
+/// reads is the newest.
+///
+/// Not simply the newest. A promo that prints only the name `Wald` would
+/// put `Basic Land — Forest` on a German card beside an older printing's
+/// `Basisland — Wald`; the deck builder picked by this count before the
+/// entry did (#239).
+fn fullest<'p>(local: &[&'p TextPrinting]) -> Option<&'p TextPrinting> {
+    let translated = |printing: &TextPrinting| {
+        printing
+            .faces
+            .iter()
+            .flat_map(|f| [&f.printed_name, &f.printed_type_line, &f.printed_text])
+            .filter(|text| text.as_deref().is_some_and(|t| !t.is_empty()))
+            .count()
+    };
+    local.iter().copied().reduce(|best, p| {
+        if translated(p) > translated(best) {
+            p
+        } else {
+            best
+        }
     })
 }
 
@@ -235,6 +260,99 @@ mod tests {
             assert_eq!(entry.faces[0].printed, None);
             assert_eq!(entry.faces[0].oracle_text, ORACLE);
         }
+    }
+
+    /// A basic land's face, whose whole Oracle text is its reminder.
+    fn basic(english: &str, local: &str, oracle: &str, printed: Option<&str>) -> TextFace {
+        TextFace {
+            name: english.to_owned(),
+            printed_name: Some(local.to_owned()),
+            type_line: Some(format!("Basic Land — {english}")),
+            printed_type_line: Some(format!("Standardland — {local}")),
+            oracle_text: Some(oracle.to_owned()),
+            printed_text: printed.map(str::to_owned),
+            mana_cost: None,
+        }
+    }
+
+    /// Island's full-art printings (NEO 285 and its kind) print a bare `U`
+    /// where the reminder goes. NEO is newer than the German reminder, and
+    /// its `U` was served as the card's rules text. It translates nothing, so
+    /// the reminder speaks for the card; with only the symbol to choose
+    /// from, the card is named and typed in German and read in English.
+    #[test]
+    fn a_full_art_basic_s_mana_symbol_is_not_its_rules_text() {
+        const ISLAND: &str = "({T}: Add {U}.)";
+        let full_art = printing(
+            "neo",
+            "de",
+            "2022-02-18",
+            vec![basic("Island", "Insel", ISLAND, Some("U"))],
+        );
+        let reminder = printing(
+            "m20",
+            "de",
+            "2019-07-12",
+            vec![basic(
+                "Island",
+                "Insel",
+                ISLAND,
+                Some("({T}: Erzeuge {U}.)"),
+            )],
+        );
+
+        let entry = served("de", &[full_art.clone(), reminder]);
+        assert_eq!(entry.scryfall_id, "m20");
+        assert_eq!(
+            entry.faces[0].printed.as_deref(),
+            Some("({T}: Erzeuge {U}.)")
+        );
+
+        let entry = served("de", &[full_art]);
+        assert_eq!(
+            (entry.scryfall_id.as_str(), entry.lang.as_str()),
+            ("neo", "de")
+        );
+        assert_eq!(entry.faces[0].name, "Insel");
+        assert_eq!(entry.faces[0].type_line, "Standardland — Insel");
+        assert_eq!(entry.faces[0].printed, None);
+        assert_eq!(entry.faces[0].oracle_text, ISLAND);
+    }
+
+    /// With no printing that translates the rules text, the card is still
+    /// named and typed in the language, by the printing that translated the
+    /// most of it rather than the newest. A promo Forest that prints only
+    /// `Wald` would otherwise put `Basic Land — Forest` on a German card
+    /// beside an older printing's `Basisland — Wald`. This is the lobby's
+    /// `translated_types_win_over_a_name_only_promo`, whose rule this is.
+    #[test]
+    fn with_no_text_translated_the_most_complete_printing_names_the_card() {
+        const FOREST: &str = "({T}: Add {G}.)";
+        let mut name_only = basic("Forest", "Wald", FOREST, None);
+        name_only.printed_type_line = None;
+        let promo = printing("promo", "de", "2024-01-01", vec![name_only]);
+        let older = printing(
+            "older",
+            "de",
+            "2019-07-12",
+            vec![basic("Forest", "Wald", FOREST, None)],
+        );
+        let entry = served("de", &[promo, older.clone()]);
+        assert_eq!(entry.scryfall_id, "older");
+        assert_eq!(entry.faces[0].type_line, "Standardland — Wald");
+        assert_eq!(entry.faces[0].printed, None);
+
+        let newer = printing(
+            "newer",
+            "de",
+            "2023-01-01",
+            vec![basic("Forest", "Wald", FOREST, None)],
+        );
+        assert_eq!(
+            served("de", &[newer, older]).scryfall_id,
+            "newer",
+            "and between two that translated as much, the newest, as before"
+        );
     }
 
     #[test]

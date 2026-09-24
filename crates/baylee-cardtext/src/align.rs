@@ -1,6 +1,6 @@
 //! Which line of a printing stands for which line of the Oracle.
 
-use crate::text::{fold, reminder_only, repair_braces, sentences};
+use crate::text::{fold, head, is_submultiset, reminder_only, repair_braces, sentences, symbols};
 
 /// Whether a printing's face says nothing the English Oracle does not.
 ///
@@ -21,7 +21,15 @@ use crate::text::{fold, reminder_only, repair_braces, sentences};
 ///
 /// A face whose whole text is a reminder folds to nothing in any language,
 /// so for it the reminders are kept: a German Forest's `({T}: Erzeuge {G}.)`
-/// is a translation.
+/// is a translation. And for it a printing has to print the reminder's cost
+/// to translate it at all. The full-art basics of ELD, NEO and RAV (M11 and
+/// ROE in Italian) print a mana symbol where the reminder goes, which
+/// Scryfall writes as `U` or `{U}` in every language, and that bare letter
+/// was served as a German Island's rules text (#239). Asking for the cost
+/// rejects exactly those five cards in their full-art printings and keeps
+/// every reminder, in any script, as well as the 21 German faces of the dual
+/// lands' old wording (3ed, fbb), which spell out `{T}: Erhöhe …` (measured
+/// 2026-09-24 over the local catalog).
 #[must_use]
 pub fn untranslated(oracle: &str, printed: Option<&str>) -> bool {
     let Some(printed) = printed else {
@@ -30,9 +38,21 @@ pub fn untranslated(oracle: &str, printed: Option<&str>) -> bool {
     let folded = fold(oracle, false);
     if folded.is_empty() {
         fold(printed, true) == fold(oracle, true)
+            || !is_submultiset(&reminder_cost(oracle), &symbols(printed))
     } else {
         fold(printed, false) == folded
     }
+}
+
+/// The symbols of the cost a reminder prints inside its parentheses: `{T}`
+/// for a basic land's `({T}: Add {U}.)`, and none for a theme card's
+/// `(Theme color: {B})`, whose colon introduces no cost.
+fn reminder_cost(oracle: &str) -> Vec<String> {
+    let mut cost: Vec<String> = sentences(oracle)
+        .flat_map(|sentence| symbols(head(sentence.trim_start().trim_start_matches(['(', '（']))))
+        .collect();
+    cost.sort_unstable();
+    cost
 }
 
 /// How a face's lines were brought level with the Oracle's.
@@ -283,6 +303,31 @@ mod tests {
             Some("({T}: Erzeuge {G}.)")
         ));
         assert!(untranslated("({T}: Add {G}.)", Some("({T}: Add {G}.)")));
+    }
+
+    /// The full-art basics of ELD, NEO and RAV print a mana symbol where
+    /// the reminder goes, and Scryfall writes it `U` or `{U}` in every
+    /// language. Neither prints the reminder's cost, so neither translates
+    /// it. A reminder in any script does, and so does a dual land's old
+    /// wording, which spells the ability out.
+    #[test]
+    fn a_reminder_is_translated_only_by_text_that_prints_its_cost() {
+        let island = "({T}: Add {U}.)";
+        assert!(untranslated(island, Some("U")));
+        assert!(untranslated(island, Some("{U}")));
+        assert!(!untranslated(island, Some("({T}: Erzeuge {U}.)")));
+        assert!(!untranslated(island, Some("（{T}：{U}を加える。）")));
+        assert!(!untranslated(
+            "({T}: Add {B} or {R}.)",
+            Some(
+                "{T}: Erhöhe Deinen Manavorrat um {R} oder {B}.\n\
+                 Die Badlands gelten als Gebirge und Sumpf."
+            )
+        ));
+        assert!(
+            !untranslated("(Theme color: {B})", Some("(Themenfarbe: {B})")),
+            "a reminder that prints no cost asks for none"
+        );
     }
 
     #[test]
