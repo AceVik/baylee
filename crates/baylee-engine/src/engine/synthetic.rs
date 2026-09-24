@@ -50,6 +50,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         miracle: None,
         delve: false,
         convoke: false,
+        waterbend: false,
         cost_reduction: None,
         disturb: false,
         adventure: false,

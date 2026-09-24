@@ -4022,6 +4022,18 @@ mod tests {
             "a tapped creature pays nothing"
         );
         v.battlefield[0].status = ObjectStatus::default();
+        // Eight bodies pay the `{6}` and not the `{1}` beside it (CR 701.67b):
+        // the engine asks for six taps, so `{U}{U}` floating is one short.
+        v.battlefield
+            .extend((16..18).map(|i| permanent(obj(i), PlayerId::new(0), 1)));
+        v.seats[0].mana_pool.blue = 2;
+        assert_eq!(
+            asked(&v, "Spirit Water Revival", "{1}{U}{U}"),
+            PlayerAction::YesNo(false),
+            "a tap past the six was counted toward the printed {{1}}"
+        );
+        v.battlefield.truncate(6);
+        v.seats[0].mana_pool.blue = 3;
         v.seats[0].library_count = 7;
         assert_eq!(
             asked(&v, "Spirit Water Revival", "{1}{U}{U}"),

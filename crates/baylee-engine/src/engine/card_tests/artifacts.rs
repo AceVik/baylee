@@ -7894,10 +7894,6 @@ fn charcoal_diamond_enters_tapped_and_taps_for_black() {
     assert_eq!(pool.total(), 1, "exactly one mana in pool");
 }
 
-fn darksteel_pendant() -> CardIndex {
-    card_index("431838a8-f020-4e4e-a6f4-2d4ca27c56df")
-}
-
 /// `Darksteel Pendant` prints `Indestructible` and `{{1}}, {{T}}: Scry 1.` with `Coverage::Implemented`.
 /// In this scenario, seat 0 controls `Darksteel Pendant` and a `forest()`.
 /// The artifact possesses `KeywordSet::INDESTRUCTIBLE`. Floating one mana activates the ability,

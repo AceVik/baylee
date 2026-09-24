@@ -1031,9 +1031,13 @@ fn spell_effects(card: CardIdentity) -> &'static [Effect] {
 /// bonus. The kicked half is the better one by design, so it is paid whenever
 /// it can be, unless it would draw the library out.
 ///
-/// The help is every untapped creature and artifact not already counted as a
-/// mana source, because the convoke question is answered by tapping all of
-/// them. A cost with a non-mana part is never paid: nothing reads one yet.
+/// The help is a waterbend's: every untapped creature and artifact not already
+/// counted as a mana source, because the tap question is answered by tapping
+/// as many as it allows, and no more than the waterbend cost's own generic
+/// mana, which is all they may pay for (CR 701.67b). Uncapped, eight bodies
+/// read as `{7}{U}{U}` less eight; the engine takes six, and a yes over
+/// `{U}{U}` floating lost the whole cast. A cost with a non-mana part is never
+/// paid: nothing reads one yet.
 fn kicked_price(
     view: &PlayerView,
     face: &FaceDef,
@@ -1056,8 +1060,13 @@ fn kicked_price(
     if draws >= library {
         return None;
     }
-    let total = extra.iter().fold(cost, |total, c| total.combine(&c.mana));
-    let help = if face.convoke {
+    let extra_mana = extra
+        .iter()
+        .fold(baylee_core::mana::ManaCost::ZERO, |total, c| {
+            total.combine(&c.mana)
+        });
+    let total = cost.combine(&extra_mana);
+    let help = if face.waterbend {
         view.battlefield_of(view.seat)
             .filter(|o| {
                 o.types
@@ -1072,7 +1081,10 @@ fn kicked_price(
     } else {
         0
     };
-    Some(total.with_less_generic(u32::try_from(help).unwrap_or(u32::MAX)))
+    let help = u32::try_from(help)
+        .unwrap_or(u32::MAX)
+        .min(extra_mana.generic_total());
+    Some(total.with_less_generic(help))
 }
 
 /// The answer to `YesNoPrompt::Kicker`: yes when the floating pool covers the

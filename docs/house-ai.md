@@ -85,8 +85,9 @@ the kicked total from the floating pool alone and refuses the whole cast when
 it is short (CR 601.2h), so the planner floats the kicked price before it casts
 whenever it fits beside the reserve, and `policy::kicks` says yes only when the
 pool covers it. Waterbend counts every untapped creature and artifact that is
-not a planned mana source, since the convoke question is answered by tapping
-all of them. Kicked is the better half by design, so it is paid whenever it can
+not a planned mana source, up to the waterbend's own generic mana: the tap
+question is answered with as many as it allows, and CR 701.67b lets them pay
+nothing past that. Kicked is the better half by design, so it is paid whenever it can
 be, except when the kicked half would draw the library out.
 
 **Restricted mana pays for the spells it names.** Mana that may be spent only

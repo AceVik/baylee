@@ -345,7 +345,9 @@ Open milestones discovered tonight:
   Storm of Saruman "copy isn't legendary" done; target re-choice stays
   protocol v2.
 - Spirit Water Revival: `IfKicked` branch + `ShuffleGraveyardIntoLibrary`;
-  waterbend = convoke extended to artifacts.
+  waterbend is its own `waterbend = true` (#229). It was written as
+  convoke, which let its taps pay the printed `{1}` and asked for them after
+  the waterbend was declined.
 - Mycosynth Lattice: `Modifier::ManaIsAnyColor` + `pay_wild` (cost → cmc
   against pool total).
 - Spark Double: CopyOnEnter with 3 mods (both counters unconditionally —

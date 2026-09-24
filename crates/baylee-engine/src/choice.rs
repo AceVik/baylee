@@ -352,8 +352,9 @@ pub enum TargetPrompt {
     /// The targets of a spell or ability (CR 115).
     #[default]
     Targets,
-    /// Convoke: tap creatures and artifacts, each paying for {1}
-    /// (CR 702.51).
+    /// Tap permanents to help pay, each paying for {1}: creatures for
+    /// convoke (CR 702.51a), artifacts and creatures for a paid waterbend
+    /// (CR 701.67a). `options` says which.
     Convoke,
 }
 

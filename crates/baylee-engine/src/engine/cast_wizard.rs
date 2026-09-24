@@ -46,7 +46,8 @@ pub(crate) enum WizardStage {
     PitchChoice,
     /// Delve choice (exile-from-graveyard, {1} each).
     Delve,
-    /// Convoke choice (tap creatures, {1} each).
+    /// The tap question of convoke (creatures) or of a paid waterbend
+    /// (artifacts and creatures), {1} each.
     Convoke,
     /// Ready to pay and cast.
     Done,
@@ -78,7 +79,7 @@ pub(crate) struct CastWizard {
     pub pitch: SmallVec<[ObjectId; 2]>,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
-    /// Creatures chosen to tap for convoke ({1} each).
+    /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
     /// Current stage.
     pub stage: WizardStage,
@@ -290,7 +291,7 @@ impl<L: CardLookup> Engine<L> {
         // included (CR 601.2f) — and on the affordability probes too, or a
         // mode would be offered that the player then cannot pay for.
         let tax = casting::commander_tax(&self.state, player, card);
-        // Convoke (CR 702.51) pays {1} per untapped creature or artifact and
+        // Convoke (CR 702.51a) pays {1} per untapped creature and
         // delve (CR 702.66a) pays {1} per card exiled from the graveyard, so
         // both are part of what "afford" means. It has to be the same count
         // `casting::can_cast` uses, or the spell is offered in
@@ -794,8 +795,37 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::Convoke => {
                 let face = self.wizard_face(&wizard);
-                let untapped = crate::casting::convoke_sources(&self.state, wizard.player);
-                if !face.convoke || untapped.is_empty() {
+                // Two keywords tap permanents to pay, and they differ in
+                // what they tap and in how much of the cost the taps may pay
+                // (#229). A waterbend's taps exist only once its cost is paid
+                // and pay that cost's generic mana alone (CR 701.67b). Convoke
+                // may pay the spell's whole total cost (CR 702.51a), but
+                // `finish_cast` takes the taps off its generic mana only, so
+                // the bound is the generic delve has left; #230 teaches the
+                // payment a creature's colour and moves this bound with it.
+                // A bound the payment cannot honour is a tap spent for
+                // nothing, as in the delve stage above.
+                let generic =
+                    |cost: &ManaCost| usize::try_from(cost.generic_total()).unwrap_or(usize::MAX);
+                let (sources, room) = if face.waterbend && wizard.kicked {
+                    let waterbend = face
+                        .additional_costs
+                        .iter()
+                        .fold(ManaCost::ZERO, |total, add| total.combine(&add.mana));
+                    (
+                        crate::casting::waterbend_sources(&self.state, wizard.player),
+                        generic(&waterbend),
+                    )
+                } else if face.convoke {
+                    (
+                        crate::casting::convoke_sources(&self.state, wizard.player),
+                        generic(&wizard_total_cost(face, &wizard))
+                            .saturating_sub(wizard.delve_exiles.len()),
+                    )
+                } else {
+                    (Vec::new(), 0)
+                };
+                if sources.is_empty() || room == 0 {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
@@ -804,11 +834,12 @@ impl<L: CardLookup> Engine<L> {
                 // The bound is what is actually on the table, not a sentinel.
                 // `99` is what a player casting a waterbend spell was shown:
                 // "choose up to 99 targets", over two creatures, for a
-                // question that is not targeting at all.
-                let max = u8::try_from(untapped.len()).unwrap_or(u8::MAX);
+                // question that is not targeting at all. *Which* permanents
+                // tap is the player's, so every source stays in `options`.
+                let max = u8::try_from(sources.len().min(room)).unwrap_or(u8::MAX);
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
-                    options: untapped,
+                    options: sources,
                     player_options: Vec::new(),
                     min: 0,
                     max,

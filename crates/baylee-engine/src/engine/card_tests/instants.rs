@@ -18098,3 +18098,128 @@ fn void_rend_destroys_a_nonland_permanent_and_carries_its_uncounterable_clause()
         "the instant itself resolved and went to its owner's graveyard"
     );
 }
+
+/// Clever Concealment on `board`, main phase, every land tapped for mana.
+fn concealment_table(board: &[CardIndex]) -> Engine<RegistryLookup> {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(229, plains())
+        .hand(0, &[clever_concealment()])
+        .battlefield(0, board)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    tap_all_mana(&mut engine, seat);
+    engine
+}
+
+fn concealment_is_offered(engine: &Engine<RegistryLookup>) -> bool {
+    let seat = PlayerId::new(0);
+    let card = in_hand(engine, seat, clever_concealment()).expect("in hand");
+    matches!(engine.pending(), Pending::Priority { legal, .. } if legal.castable.contains(&card))
+}
+
+/// Casts Clever Concealment phasing nothing out, and returns the tap question
+/// its convoke asks, if it asks one.
+fn concealment_convoke_question(
+    engine: &mut Engine<RegistryLookup>,
+) -> Option<(Vec<ObjectId>, u8)> {
+    let seat = PlayerId::new(0);
+    let card = in_hand(engine, seat, clever_concealment()).expect("in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the spell is offered");
+    if let Pending::ChooseTargets { reason, .. } = engine.pending()
+        && *reason != crate::choice::TargetPrompt::Convoke
+    {
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![],
+                },
+            )
+            .expect("\"any number of target\" permanents may be none");
+    }
+    tap_to_pay_question(engine)
+}
+
+/// Convoke taps creatures (CR 702.51a), and an artifact is not one. #229:
+/// convoke and waterbend shared one walk over creatures *and* artifacts, so a
+/// Darksteel Pendant paid Clever Concealment's `{1}` and was offered in its
+/// tap question.
+#[test]
+fn clever_concealment_is_convoked_by_creatures_and_never_by_an_artifact() {
+    assert!(
+        concealment_is_offered(&concealment_table(&[
+            plains(),
+            plains(),
+            ondu_cleric(),
+            ondu_cleric()
+        ])),
+        "the control: two Plains and two creatures pay {{2}}{{W}}{{W}}"
+    );
+    assert!(
+        !concealment_is_offered(&concealment_table(&[
+            plains(),
+            plains(),
+            ondu_cleric(),
+            darksteel_pendant()
+        ])),
+        "an artifact's tap was counted toward convoke"
+    );
+
+    let seat = PlayerId::new(0);
+    let mut engine = concealment_table(&[
+        plains(),
+        plains(),
+        ondu_cleric(),
+        ondu_cleric(),
+        darksteel_pendant(),
+    ]);
+    let pendant = on_battlefield(&engine, seat, darksteel_pendant()).expect("on the battlefield");
+    let (options, _) =
+        concealment_convoke_question(&mut engine).expect("convoke asks for its taps");
+    assert!(!options.contains(&pendant), "convoke offered an artifact");
+    assert_eq!(options.len(), 2, "both creatures are offered");
+}
+
+/// Convoke's question offers what the payment can take, and the payment
+/// takes generic mana only until #230: five creatures are offered, two may be
+/// tapped, and the Plains pay `{W}{W}`. #229 asked for up to five, and the
+/// third to fifth tap paid for nothing.
+///
+/// This pins a limitation. #230 teaches the payment to take a white creature
+/// for a `{W}` (CR 702.51a), the bound moves to four with it, and this test
+/// goes red on purpose.
+#[test]
+fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230() {
+    let seat = PlayerId::new(0);
+    let mut board = vec![plains(), plains()];
+    board.extend(std::iter::repeat_n(ondu_cleric(), 5));
+    let mut engine = concealment_table(&board);
+    let (options, max) =
+        concealment_convoke_question(&mut engine).expect("convoke asks for its taps");
+    assert_eq!(options.len(), 5, "every creature may be the one tapped");
+    assert_eq!(max, 2, "the taps pay {{2}} and nothing past it");
+    let tapped: Vec<ObjectId> = options.iter().copied().take(2).collect();
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: tapped.clone(),
+                players: vec![],
+            },
+        )
+        .expect("two taps and two Plains pay {2}{W}{W}");
+    assert!(
+        !engine.state().zones.stack_is_empty(),
+        "the spell never reached the stack"
+    );
+    assert!(
+        options
+            .iter()
+            .all(|id| is_tapped(&engine, *id) == tapped.contains(id)),
+        "the taps chosen are the taps spent"
+    );
+}

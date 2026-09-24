@@ -350,11 +350,11 @@ not by the order they were told, and nothing here is fixed yet.
     costs", and left the game unplayable from that point. The worst of the
     lot: it ends the game, not just the interaction.
 
-    *Three separate faults, two of them fixed.* Waterbend is an optional
-    additional cost paid convoke-style, so the cast asks "waterbend {6}?" and
-    then "tap what you like to help pay"; taking the first and declining the
-    second leaves `{10}{U}` against five lands, which the engine has to
-    refuse.
+    *Three separate faults, all fixed, and a UX point open.* Waterbend is an
+    optional additional cost paid convoke-style, so the cast asks "waterbend
+    {6}?" and then "tap what you like to help pay"; taking the first and
+    declining the second leaves `{7}{U}{U}` against five lands, which the
+    engine has to refuse.
 
     - **Fixed.** The refusal walked the priority round on to the *next seat*
       — `advance_cast_wizard` resumed through `run_until_choice`, and to
@@ -369,10 +369,11 @@ not by the order they were told, and nothing here is fixed yet.
       `TargetPrompt` now, is bounded by what is on the table, and reads "tap
       creatures or artifacts to help pay". Delve had the same two faults and
       got the same two fixes.
-    - **Open.** `spirit_water_revival.rs` declares plain `convoke: true`, so
-      the tapping is offered on the un-waterbent `{4}{U}` cast as well.
-      Waterbend's reminder text scopes it to the waterbend cost alone. That
-      needs a DSL that can say "convoke, but only for this additional cost".
+    - **Fixed (#229).** `spirit_water_revival.rs` declared plain
+      `convoke: true`, so the tapping was offered on the un-waterbent
+      `{1}{U}{U}` cast as well, and paid its `{1}`. It is `waterbend = true`
+      now: taps are asked only once the waterbend is paid, and pay its `{6}`
+      and nothing else (CR 701.67b).
     - **Open, UX.** The kicker is offered as a yes/no with no indication that
       answering yes cannot be paid. A player should not be able to walk into
       a refusal the client could see coming.

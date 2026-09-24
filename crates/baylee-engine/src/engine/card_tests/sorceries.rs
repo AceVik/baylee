@@ -11016,3 +11016,134 @@ fn rampant_growth_searches_and_puts_basic_land_onto_battlefield_tapped() {
         "Rampant Growth is in the graveyard"
     );
 }
+
+/// Spirit Water Revival on `board`, main phase, every land tapped for mana.
+fn revival_table(board: &[CardIndex]) -> Engine<RegistryLookup> {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(229, island())
+        .hand(0, &[spirit_water_revival()])
+        .battlefield(0, board)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    tap_all_mana(&mut engine, seat);
+    engine
+}
+
+fn revival_is_offered(engine: &Engine<RegistryLookup>) -> bool {
+    let seat = PlayerId::new(0);
+    let revival = in_hand(engine, seat, spirit_water_revival()).expect("in hand");
+    matches!(engine.pending(), Pending::Priority { legal, .. } if legal.castable.contains(&revival))
+}
+
+/// Spirit Water Revival's taps pay for the waterbend `{6}` and for nothing
+/// else (CR 701.67b), so `{U}{U}` and a body to tap cannot pay the printed
+/// `{1}{U}{U}`. #229: the offer counted the body as the missing `{1}`.
+#[test]
+fn spirit_water_revival_is_not_offered_on_a_tap_that_could_only_pay_its_printed_cost() {
+    assert!(
+        revival_is_offered(&revival_table(&[
+            island(),
+            island(),
+            island(),
+            ondu_cleric()
+        ])),
+        "the control: three Islands pay {{1}}{{U}}{{U}}"
+    );
+    assert!(
+        !revival_is_offered(&revival_table(&[island(), island(), ondu_cleric()])),
+        "a creature's tap was counted toward the printed cost"
+    );
+}
+
+/// Declining the waterbend declines its taps (CR 701.67b): after "waterbend
+/// {6}?" is answered no, the cast asks nothing more and taps nothing.
+#[test]
+fn spirit_water_revival_asks_for_no_taps_when_the_waterbend_is_declined() {
+    let seat = PlayerId::new(0);
+    let mut engine = revival_table(&[
+        island(),
+        island(),
+        island(),
+        ondu_cleric(),
+        darksteel_pendant(),
+    ]);
+    let revival = in_hand(&engine, seat, spirit_water_revival()).expect("in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: revival })
+        .expect("three Islands pay {1}{U}{U}");
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::Kicker,
+                ..
+            }
+        ),
+        "the waterbend was not asked: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(seat, PlayerAction::YesNo(false))
+        .expect("the waterbend is optional");
+    assert_eq!(
+        tap_to_pay_question(&engine),
+        None,
+        "a declined waterbend still asked for taps"
+    );
+    assert!(
+        !engine.state().zones.stack_is_empty(),
+        "the spell never reached the stack"
+    );
+    for card in [ondu_cleric(), darksteel_pendant()] {
+        let id = on_battlefield(&engine, seat, card).expect("on the battlefield");
+        assert!(
+            !is_tapped(&engine, id),
+            "a declined waterbend tapped something"
+        );
+    }
+}
+
+/// A paid waterbend taps artifacts as well as creatures (CR 701.67a), and
+/// only as many as its `{6}` has generic mana (CR 701.67b): eight bodies are
+/// offered, six may be tapped, and the Islands pay the printed cost.
+#[test]
+fn spirit_water_revival_s_waterbend_taps_pay_the_six_and_no_more() {
+    let seat = PlayerId::new(0);
+    let mut board = vec![island(), island(), island(), darksteel_pendant()];
+    board.extend(std::iter::repeat_n(ondu_cleric(), 7));
+    let mut engine = revival_table(&board);
+    let revival = in_hand(&engine, seat, spirit_water_revival()).expect("in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: revival })
+        .expect("three Islands pay {1}{U}{U}");
+    engine
+        .apply(seat, PlayerAction::YesNo(true))
+        .expect("the waterbend is taken");
+    let (options, max) = tap_to_pay_question(&engine).expect("the waterbend asks for its taps");
+    let pendant = on_battlefield(&engine, seat, darksteel_pendant()).expect("on the battlefield");
+    assert_eq!(options.len(), 8, "seven creatures and an artifact may help");
+    assert!(options.contains(&pendant), "waterbend may tap an artifact");
+    assert_eq!(
+        max, 6,
+        "the taps pay the waterbend's {{6}} and nothing past it"
+    );
+    let tapped: Vec<ObjectId> = options.iter().copied().take(6).collect();
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: tapped.clone(),
+                players: vec![],
+            },
+        )
+        .expect("six taps and three Islands pay {7}{U}{U}");
+    assert!(
+        !engine.state().zones.stack_is_empty(),
+        "the spell never reached the stack"
+    );
+    assert!(
+        tapped.iter().all(|id| is_tapped(&engine, *id)),
+        "a tap was not spent"
+    );
+}

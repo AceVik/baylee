@@ -9,7 +9,7 @@
 //! Waterbend is an *optional* additional cost paid convoke-style, so the
 //! cast asks two questions: "waterbend {6}?", then "which permanents do you
 //! tap to help". Saying yes to the first and nothing to the second leaves
-//! `{10}{U}` against five Islands, which is unpayable — a legal line to walk
+//! `{7}{U}{U}` against five Islands, which is unpayable — a legal line to walk
 //! into, and one the engine has to refuse.
 //!
 //! The last clause of the report is what the refusal did wrong. Answering it
@@ -25,7 +25,7 @@ use baylee_core::ids::CardIndex;
 fn island() -> CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
 }
-/// `{4}{U}` sorcery — "you *may* waterbend {6}", then draw two, or shuffle
+/// `{1}{U}{U}` sorcery — "you *may* waterbend {6}", then draw two, or shuffle
 /// the graveyard back and draw seven.
 fn spirit_water_revival() -> CardIndex {
     card_index("68979160-b5ce-4787-8a1e-1f40e614c3b0")
@@ -88,7 +88,7 @@ fn cast_waterbend(
     let card = *legal
         .castable
         .first()
-        .expect("five Islands pay {4}{U} with nothing waterbent");
+        .expect("five Islands pay {1}{U}{U} with nothing waterbent");
     engine
         .apply(seat, PlayerAction::CastSpell { card })
         .expect("the spell is castable");
@@ -130,7 +130,7 @@ fn creatures(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
         .collect()
 }
 
-/// Declining the waterbend cost casts the spell for its printed `{4}{U}`.
+/// Declining the waterbend cost casts the spell for its printed `{1}{U}{U}`.
 ///
 /// The control: the same board, the same two questions, and nothing refused.
 /// Without it the test below could pass on a table where the spell was never
@@ -141,7 +141,7 @@ fn declining_the_waterbend_cost_casts_the_spell() {
     let mut engine = table();
     assert!(
         cast_waterbend(&mut engine, seat, false).is_none(),
-        "five Islands could not pay {{4}}{{U}}"
+        "five Islands could not pay {{1}}{{U}}{{U}}"
     );
     assert!(
         !engine.state().zones.stack_is_empty(),
@@ -157,7 +157,7 @@ fn declining_the_waterbend_cost_casts_the_spell() {
 /// A waterbend the table cannot pay leaves the caster holding priority.
 ///
 /// This is the "ab hier war das Spiel gar nicht mehr spielbar" half of the
-/// report. `{4}{U}` plus a waterbent `{6}` is `{10}{U}`; five Islands and two
+/// report. `{1}{U}{U}` plus a waterbent `{6}` is `{7}{U}{U}`; five Islands and two
 /// untapped bodies cannot reach it, and the two bodies are worth nothing at
 /// all once the convoke question is answered with none. `finish_cast`
 /// refuses, correctly, and tears the wizard down.
@@ -175,7 +175,7 @@ fn a_waterbend_that_cannot_be_paid_gives_the_caster_their_turn_back() {
     let refused = cast_waterbend(&mut engine, seat, true);
     assert!(
         matches!(refused, Some(EngineError::IllegalAction(_))),
-        "the engine paid {{10}}{{U}} out of five Islands: {refused:?}"
+        "the engine paid {{7}}{{U}}{{U}} out of five Islands: {refused:?}"
     );
 
     assert!(
@@ -213,13 +213,19 @@ fn a_waterbend_that_cannot_be_paid_gives_the_caster_their_turn_back() {
     );
 }
 
-/// The convoke question says what it is, and asks for what is there.
+/// The tap question says what it is, and asks for what is there.
 ///
 /// "Sie wollte von mir 99 Targets." It did: the stage published
 /// `Pending::ChooseTargets` with `max: 99`, a sentinel standing in for "as
 /// many as you like", over a board holding two. Convoke is not targeting and
 /// 99 is not a number on this table; both were read off the screen by the one
 /// person who could not check them against the source.
+///
+/// Asked after a *yes*. This test used to decline the waterbend and still
+/// expect the question, which pinned #229: a declined waterbend has no taps
+/// to ask about (CR 701.67b), and
+/// `card_tests::sorceries::spirit_water_revival_asks_for_no_taps_when_the_waterbend_is_declined`
+/// holds that half. Two bodies under a `{6}` keep the board the bound.
 #[test]
 fn the_convoke_question_is_named_and_bounded_by_the_board() {
     let seat = PlayerId::new(0);
@@ -233,8 +239,8 @@ fn the_convoke_question_is_named_and_bounded_by_the_board() {
         .apply(seat, PlayerAction::CastSpell { card })
         .expect("castable");
     engine
-        .apply(seat, PlayerAction::YesNo(false))
-        .expect("the waterbend cost is optional");
+        .apply(seat, PlayerAction::YesNo(true))
+        .expect("the waterbend cost may be taken");
 
     let Pending::ChooseTargets {
         options,

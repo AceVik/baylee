@@ -355,6 +355,12 @@ express at all yet.
   hand to exile is not a cast the engine lists.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
+- `waterbend = true` — "you may waterbend {N}": the additional cost above is
+  a waterbend cost, so once it is paid, artifacts and creatures may be tapped
+  for its generic mana and nothing else (CR 701.67b). It is not
+  `convoke = true`, which taps creatures only, for the whole cost, and
+  whether or not anything was kicked. `lints::waterbend_fault` holds the
+  shape: `{N}` alone, no convoke beside it.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
   `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to

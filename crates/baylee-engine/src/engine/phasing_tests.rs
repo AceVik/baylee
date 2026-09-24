@@ -102,7 +102,6 @@ fn a_phased_out_land_does_not_count_against_a_fastland() {
 /// it a reason) makes this test fail until the row is lowered, so the table
 /// cannot go stale in the direction that hides work.
 const UNAUDITED: &[(&str, usize)] = &[
-    ("casting.rs", 1),
     ("combat.rs", 2),
     ("engine/abilities.rs", 1),
     ("engine/progress.rs", 11),

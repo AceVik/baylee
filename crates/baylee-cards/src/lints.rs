@@ -1084,6 +1084,32 @@ fn face_costs(def: &CardDef) -> Vec<Cost> {
         .collect()
 }
 
+/// What keeps a face's waterbend from being the one the cast wizard asks.
+///
+/// `FaceDef.waterbend` says the face's optional additional cost is a waterbend
+/// cost, and the wizard reads it that way (#229): it asks for taps once
+/// `additional_costs` is paid and bounds them by that cost's generic mana
+/// (CR 701.67b), on the stage convoke asks on. So a waterbend face needs an
+/// additional cost of generic mana alone, and no convoke beside it.
+fn waterbend_fault(face: &FaceDef) -> Option<&'static str> {
+    if !face.waterbend {
+        return None;
+    }
+    if face.convoke {
+        Some("prints convoke too, and one tap question cannot ask for both")
+    } else if face.additional_costs.is_empty() {
+        Some("has no additional cost to waterbend")
+    } else if face
+        .additional_costs
+        .iter()
+        .any(|c| !c.parts.is_empty() || c.mana.generic_total() != c.mana.cmc() || c.mana.cmc() == 0)
+    {
+        Some("waterbends a cost that is not generic mana alone")
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2870,5 +2896,57 @@ mod tests {
             offenders.len(),
             offenders.join("\n")
         );
+    }
+
+    /// Each shape the waterbend lint refuses, and the one it lets through.
+    #[test]
+    fn the_waterbend_lint_refuses_a_face_the_wizard_would_misread() {
+        const SIX: &[Cost] = &[Cost {
+            mana: ManaCost::parse("{6}"),
+            parts: &[],
+        }];
+        const BLUE: &[Cost] = &[Cost {
+            mana: ManaCost::parse("{5}{U}"),
+            parts: &[],
+        }];
+        const SACRIFICE: &[Cost] = &[Cost {
+            mana: ManaCost::parse("{6}"),
+            parts: &[CostPart::SacrificeSelf],
+        }];
+        let face = |additional_costs, convoke| FaceDef {
+            additional_costs,
+            convoke,
+            waterbend: true,
+            ..FaceDef::DEFAULT
+        };
+        assert_eq!(waterbend_fault(&face(SIX, false)), None);
+        for (broken, why) in [
+            (face(SIX, true), "convoke beside it"),
+            (face(&[], false), "no cost"),
+            (face(BLUE, false), "a coloured pip"),
+            (face(SACRIFICE, false), "a non-mana part"),
+        ] {
+            assert!(waterbend_fault(&broken).is_some(), "{why} went through");
+        }
+    }
+
+    /// Spirit Water Revival is the pool's one waterbend, measured 2026-09-24.
+    #[test]
+    fn every_waterbend_in_the_pool_is_one_the_wizard_can_ask() {
+        let mut seen = 0_usize;
+        let mut wrong = Vec::new();
+        for def in crate::all() {
+            for face in def.faces.iter().filter(|f| f.waterbend) {
+                seen += 1;
+                if let Some(fault) = waterbend_fault(face) {
+                    wrong.push(format!("{} ({}) {fault}", def.name(), face.name));
+                }
+            }
+        }
+        assert!(
+            (1..=10).contains(&seen),
+            "{seen} waterbend faces; the sweep read something other than the pool's"
+        );
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     }
 }

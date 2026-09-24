@@ -71,8 +71,8 @@ pub fn mana_is_wild(state: &GameState) -> bool {
         .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor))
 }
 
-/// The permanents convoke may be paid with (CR 702.51): untapped creatures
-/// and artifacts the caster controls, one `{1}` each.
+/// The permanents convoke may be paid with (CR 702.51a): untapped creatures
+/// the caster controls, one `{1}` each.
 ///
 /// One function because the offer and the payment must not disagree. The
 /// wizard enumerated these to ask which to tap, and `can_cast` did not
@@ -80,18 +80,31 @@ pub fn mana_is_wild(state: &GameState) -> bool {
 /// when its printed cost was already payable, which is the one case convoke
 /// is not for. Clever Concealment and Spirit Water Revival were
 /// `Coverage::Implemented` and could never actually be convoked.
+///
+/// Creatures only: artifacts are what [`waterbend_sources`] adds, and the two
+/// were one walk until #229, so a Darksteel Pendant convoked. Over
+/// [`GameState::battlefield_seen`], because a phased-out creature is treated
+/// as though it does not exist (CR 702.26b) and cannot be tapped for anything.
 #[must_use]
 pub fn convoke_sources(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
+    untapped_of(state, player, TypeSet::CREATURE)
+}
+
+/// The permanents a waterbend cost may be paid with (CR 701.67a): untapped
+/// artifacts and creatures the caster controls, one `{1}` each — of the
+/// waterbend cost alone (CR 701.67b), which is the wizard's bound to set.
+#[must_use]
+pub fn waterbend_sources(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
+    untapped_of(state, player, TypeSet::CREATURE.union(TypeSet::ARTIFACT))
+}
+
+fn untapped_of(state: &GameState, player: PlayerId, types: TypeSet) -> Vec<ObjectId> {
     state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .copied()
+        .battlefield_seen()
         .filter(|id| {
             state.object(*id).is_some_and(|o| {
                 o.controller == player
-                    && (o.characteristics().types.contains(TypeSet::CREATURE)
-                        || o.characteristics().types.contains(TypeSet::ARTIFACT))
+                    && o.characteristics().types.intersects(types)
                     && !o.status.contains(crate::object::Status::TAPPED)
             })
         })
@@ -116,6 +129,12 @@ pub fn convoke_sources(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
 ///
 /// The *printed* face, because neither keyword can be granted: a copy of a
 /// delve spell is not a delve spell.
+///
+/// Waterbend counts for nothing here, and that is its rule rather than an
+/// omission: its taps pay only the waterbend cost itself (CR 701.67b), which
+/// no probe of the printed cost includes, and paying it adds at least as much
+/// as they take off. Counting them was #229: Spirit Water Revival was offered
+/// off `{U}{U}` and one creature.
 #[must_use]
 pub fn keyword_reduction(
     state: &GameState,
@@ -1718,17 +1737,22 @@ mod tests {
         state.set_tapped(id, true);
     }
 
-    /// Convoke pays with untapped creatures and artifacts its caster
-    /// controls (CR 702.51), and each of those four words is a row: a tapped
-    /// one is not a source, an opponent's is not a source, and a land is
-    /// not one however untapped it is.
+    /// Convoke pays with untapped creatures its caster controls (CR
+    /// 702.51a), and each of those words is a row: a tapped one is not a
+    /// source, an opponent's is not a source, a land is not one however
+    /// untapped it is, and a phased-out one does not exist (CR 702.26b).
+    /// Waterbend pays with the same and with artifacts too (CR 701.67a).
+    ///
+    /// #229: the two were one walk over creatures and artifacts, and this
+    /// test asserted it. The walk read the whole battlefield, phased-out
+    /// permanents included.
     ///
     /// The count is what the offer and the payment both read. They disagreed
     /// once and the result was a convoke spell offered exactly when its
     /// printed cost was already payable — which is the one case convoke is
-    /// not for.
+    /// not for. A waterbend adds nothing to the offer (CR 701.67b).
     #[test]
-    fn convoke_counts_untapped_permanents_of_two_types_on_one_side() {
+    fn convoke_taps_creatures_and_waterbend_artifacts_too_on_one_side() {
         let mut state = state();
         let bear = creature(&mut state, me(), "Bear");
         let mox = artifact(&mut state, me(), "Mox");
@@ -1739,12 +1763,27 @@ mod tests {
         let untapped_theirs = creature(&mut state, them(), "Also theirs");
         let land = permanent(&mut state, me(), "Land");
         state.object_mut(land).expect("made it").base_mut().types = TypeSet::LAND;
+        for phased in [
+            creature(&mut state, me(), "Phased creature"),
+            artifact(&mut state, me(), "Phased artifact"),
+        ] {
+            state
+                .object_mut(phased)
+                .expect("made it")
+                .status
+                .insert(crate::object::Status::PHASED_OUT);
+        }
 
-        let sources = convoke_sources(&state, me());
         assert_eq!(
-            sources,
+            convoke_sources(&state, me()),
+            vec![bear],
+            "an artifact, a tapped one, an opponent's, a land and a phased-out \
+             one are none of them"
+        );
+        assert_eq!(
+            waterbend_sources(&state, me()),
             vec![bear, mox],
-            "a tapped one, an opponent's, and a land are none of them"
+            "waterbend taps the artifact as well, and nothing else more"
         );
         assert_eq!(
             convoke_sources(&state, them()),
@@ -1756,11 +1795,18 @@ mod tests {
         // must agree on — and nothing at all on a face that does not print it.
         assert_eq!(
             keyword_reduction(&state, &probe_face(true, false, None), me()),
-            2
+            1
         );
         assert_eq!(
             keyword_reduction(&state, &probe_face(false, false, None), me()),
             0
+        );
+        let mut waterbend = probe_face(false, false, None);
+        waterbend.waterbend = true;
+        assert_eq!(
+            keyword_reduction(&state, &waterbend, me()),
+            0,
+            "a waterbend's taps pay the waterbend and never the printed cost"
         );
     }
 

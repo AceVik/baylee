@@ -263,9 +263,19 @@ pub struct FaceDef {
     /// casting pays for {1} — as many cards as the spell's total cost has
     /// generic mana, and no more (CR 702.66a).
     pub delve: bool,
-    /// Convoke (CR 702.51): each creature tapped while casting pays for
-    /// {1} (colored-mana option is a payment refinement).
+    /// Convoke (CR 702.51a): each untapped creature tapped while casting
+    /// pays for {1} of the spell's total cost. Creatures only, never an
+    /// artifact; paying a coloured pip with a creature of that colour is #230.
     pub convoke: bool,
+    /// Waterbend (CR 701.67a): the face's optional additional cost is a
+    /// waterbend cost, so when it is paid each untapped artifact or creature
+    /// tapped pays for {1} of *that* cost's generic mana and of nothing else
+    /// (CR 701.67b). A declined waterbend taps nothing.
+    ///
+    /// Not convoke, which it was written as until #229: convoke taps
+    /// creatures only, for any part of the whole cost, whether or not an
+    /// additional cost was paid.
+    pub waterbend: bool,
     /// A conditional cost reduction printed on the card.
     pub cost_reduction: Option<crate::cost::CostReduction>,
     /// Disturb (CR 702.146): this face may be cast from the graveyard
@@ -307,6 +317,7 @@ impl FaceDef {
         miracle: None,
         delve: false,
         convoke: false,
+        waterbend: false,
         cost_reduction: None,
         disturb: false,
         adventure: false,

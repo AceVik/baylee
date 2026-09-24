@@ -69,6 +69,37 @@ fn ondu_cleric() -> CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
 }
 
+/// `{1}{U}{U}` sorcery: "you may waterbend {6}", then draw two, or shuffle
+/// the graveyard back and draw seven.
+fn spirit_water_revival() -> CardIndex {
+    card_index("68979160-b5ce-4787-8a1e-1f40e614c3b0")
+}
+
+/// `{2}{W}{W}` instant with convoke: any number of target nonland permanents
+/// you control phase out.
+fn clever_concealment() -> CardIndex {
+    card_index("42bb7ea9-f6e4-4551-8d93-3b1eae84b865")
+}
+
+/// `{2}` artifact with no mana ability: waterbend may tap it, convoke may not.
+fn darksteel_pendant() -> CardIndex {
+    card_index("431838a8-f020-4e4e-a6f4-2d4ca27c56df")
+}
+
+/// The question a convoke or waterbend cast asks for its taps, if it asked
+/// one: `(options, max)`.
+fn tap_to_pay_question(engine: &Engine<RegistryLookup>) -> Option<(Vec<ObjectId>, u8)> {
+    match engine.pending() {
+        Pending::ChooseTargets {
+            options,
+            max,
+            reason: crate::choice::TargetPrompt::Convoke,
+            ..
+        } => Some((options.clone(), *max)),
+        _ => None,
+    }
+}
+
 fn counterspell() -> CardIndex {
     card_index("cc187110-1148-4090-bbb8-e205694a39f5")
 }
