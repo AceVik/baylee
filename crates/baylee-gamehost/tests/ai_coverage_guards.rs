@@ -194,7 +194,7 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
 #[test]
 #[allow(clippy::too_many_lines)] // one entry per table row, in one readable list
 fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
-    let rows: [(&str, usize); 27] = [
+    let rows: [(&str, usize); 28] = [
         (
             "Commander pair rules (plain Partner)",
             count(|def| matches!(def.partner, PartnerKind::Partner)),
@@ -250,6 +250,18 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         (
             "Variable costs (convoke and delve)",
             count(|def| def.faces.iter().any(|face| face.convoke || face.delve)),
+        ),
+        (
+            // Paid, #74: `an_optional_additional_cost_is_paid_when_the_pool_\
+            // covers_it`, `the_kicker_is_floated_before_the_cast` and the
+            // real-engine `a_kicker_and_a_waterbend_are_paid_when_the_mana_is_\
+            // there`. Kicker and "you may waterbend" are both this field.
+            "Variable costs (an optional additional cost)",
+            count(|def| {
+                def.faces
+                    .iter()
+                    .any(|face| !face.additional_costs.is_empty())
+            }),
         ),
         (
             // Paid, #73: `a_lore_counter_goes_on_my_own_saga_and_never_the_\

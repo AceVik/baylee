@@ -474,10 +474,14 @@ impl HeuristicAgent {
                 YesNoPrompt::PayTax { mana } => {
                     PlayerAction::YesNo(policy::pays_tax(view, mana, context))
                 }
-                // Kicker is declined to keep the mana; a draw is declined
-                // because the house AI has no match score to protect, so
-                // accepting would only ever be a game given away.
-                YesNoPrompt::Kicker | YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
+                // Kicker and "you may waterbend" alike: paid when the pool
+                // already covers it, because the engine pays from the pool
+                // alone and a short one loses the whole cast.
+                YesNoPrompt::Kicker => PlayerAction::YesNo(policy::kicks(view, context)),
+                // A draw is declined because the house AI has no match score
+                // to protect, so accepting would only ever be a game given
+                // away.
+                YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
                 // Both yes, for reasons that happen to agree. An optional
                 // effect is written on a card this seat chose to play, so
                 // taking it is the default. And a commander goes home
@@ -3740,6 +3744,142 @@ mod tests {
             assert!(
                 !matches!(action, PlayerAction::ActivateManaAbility { .. }),
                 "{name} tapped toward an eight-drop with two lands: {action:?}",
+            );
+        }
+    }
+
+    /// Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) are one
+    /// question to the engine, `YesNoPrompt::Kicker`, and it pays the answer
+    /// out of the floating pool alone: a yes the pool cannot cover loses the
+    /// whole cast. The answer used to be no, always — Rite of Replication made
+    /// one copy with nine mana floating.
+    #[test]
+    fn an_optional_additional_cost_is_paid_when_the_pool_covers_it() {
+        use baylee_engine::engine::DecisionContext;
+        let pending = Pending::YesNo {
+            player: PlayerId::new(0),
+            prompt: YesNoPrompt::Kicker,
+            source: None,
+        };
+        let asked = |v: &PlayerView, name: &str, cost: &str| {
+            let def = baylee_cards::by_index(baylee_cards::decks::by_name(name).unwrap()).unwrap();
+            let effects = def
+                .abilities_for_face(0)
+                .iter()
+                .find_map(|a| match a {
+                    AbilityDef::Spell { effects, .. } => Some(*effects),
+                    _ => None,
+                })
+                .unwrap();
+            let context = DecisionContext {
+                source: Some(obj(1)),
+                cost: Some(cost.parse().unwrap()),
+                effects,
+                ..Default::default()
+            };
+            agent().act_with_context(v, &pending, &context)
+        };
+
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = vec![hand_card(1, "Rite of Replication")];
+        v.seats[0].mana_pool.blue = 9;
+        assert_eq!(
+            asked(&v, "Rite of Replication", "{2}{U}{U}"),
+            PlayerAction::YesNo(true),
+            "nine floating pays {{2}}{{U}}{{U}} and its kicker {{5}}"
+        );
+        v.seats[0].mana_pool.blue = 8;
+        assert_eq!(
+            asked(&v, "Rite of Replication", "{2}{U}{U}"),
+            PlayerAction::YesNo(false),
+            "one short, a yes loses the cast and not only the kicker"
+        );
+
+        // Waterbend {6}: every untapped creature pays {1} of it.
+        let mut v = view(
+            0,
+            &[20, 20],
+            (10..16)
+                .map(|i| permanent(obj(i), PlayerId::new(0), 1))
+                .collect(),
+        );
+        v.hand = vec![hand_card(1, "Spirit Water Revival")];
+        v.seats[0].mana_pool.blue = 3;
+        assert_eq!(
+            asked(&v, "Spirit Water Revival", "{1}{U}{U}"),
+            PlayerAction::YesNo(true),
+            "six creatures pay the {{6}}, the pool pays the rest"
+        );
+        v.battlefield[0].status = ObjectStatus::TAPPED;
+        assert_eq!(
+            asked(&v, "Spirit Water Revival", "{1}{U}{U}"),
+            PlayerAction::YesNo(false),
+            "a tapped creature pays nothing"
+        );
+        v.battlefield[0].status = ObjectStatus::default();
+        v.seats[0].library_count = 7;
+        assert_eq!(
+            asked(&v, "Spirit Water Revival", "{1}{U}{U}"),
+            PlayerAction::YesNo(false),
+            "the kicked half draws seven, and seven is the whole library"
+        );
+        v.seats[0].library_count = 8;
+        assert_eq!(
+            asked(&v, "Spirit Water Revival", "{1}{U}{U}"),
+            PlayerAction::YesNo(true),
+            "eight leaves one behind"
+        );
+    }
+
+    /// The planner's half of the kicker: the engine asks with no window to
+    /// tap anything more, so the kicked price is floated before the cast.
+    /// The spell is castable with its base cost floating, which is where the
+    /// agent used to cast it.
+    #[test]
+    fn the_kicker_is_floated_before_the_cast() {
+        let island = |slot: u32| {
+            let mut o = permanent(obj(slot), PlayerId::new(0), 0);
+            o.types = TypeSet::LAND;
+            o.subtypes = {
+                let mut set = SubtypeSet::EMPTY;
+                set.insert(baylee_core::generated::subtypes::land::ISLAND);
+                set
+            };
+            o.power = None;
+            o.toughness = None;
+            o
+        };
+        let mut battlefield: Vec<PublicObject> = (20..25).map(island).collect();
+        battlefield.push(permanent(obj(30), PlayerId::new(1), 3));
+        let mut v = view(0, &[20, 20], battlefield);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![hand_card(1, "Rite of Replication")];
+        v.seats[0].mana_pool.blue = 4;
+        let pending = |lands: std::ops::Range<u32>| Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(1)],
+                mana_abilities: lands.map(obj).collect(),
+                ..Default::default()
+            }),
+        };
+        for (name, profile) in PROFILES {
+            let action = HeuristicAgent::new(profile).act(&v, &pending(20..25));
+            assert!(
+                matches!(action, PlayerAction::ActivateManaAbility { .. }),
+                "{name} cast with the base cost floating and five Islands untapped: {action:?}",
+            );
+        }
+        // One Island fewer and the kicked nine is out of reach, so the spell
+        // is cast as it is rather than waited on.
+        v.battlefield.remove(0);
+        for (name, profile) in PROFILES {
+            let action = HeuristicAgent::new(profile).act(&v, &pending(21..25));
+            assert_eq!(
+                action,
+                PlayerAction::CastSpell { card: obj(1) },
+                "{name} waited on a kicker it cannot reach",
             );
         }
     }

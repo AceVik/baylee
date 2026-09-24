@@ -684,6 +684,77 @@ fn an_x_draw_spell_pays_for_x_and_draws_for_its_caster() {
     panic!("the two-card draw must resolve");
 }
 
+/// Plays seat 0's first main phase out with the agent, the other seat
+/// passing, until `done` holds or a hundred questions pass. Returns what the
+/// agent answered to the kicker question, if it was asked.
+fn play_the_kicker(
+    hand: &[&str],
+    board: &[&str],
+    done: impl Fn(&PlayerView) -> bool,
+) -> (Option<PlayerAction>, PlayerView) {
+    let preset = position(hand, board);
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    let mut kicker = None;
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).unwrap();
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if seat == PlayerId::new(0) && done(&view) {
+            return (kicker, view);
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        if let Pending::YesNo {
+            prompt: baylee_engine::choice::YesNoPrompt::Kicker,
+            ..
+        } = pending
+        {
+            kicker = Some(action.clone());
+        }
+        engine.apply(seat, action).expect("the kicked cast is paid");
+    }
+    panic!("the spell never resolved; kicker answered {kicker:?}");
+}
+
+/// Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) through the real
+/// engine, which pays the kicked total out of the floating pool alone: the
+/// agent has to float it before the cast, answer yes, and — for waterbend —
+/// tap its creatures toward the {6} when the convoke question comes.
+#[test]
+fn a_kicker_and_a_waterbend_are_paid_when_the_mana_is_there() {
+    let islands = ["Island"; 9];
+    let mut board: Vec<&str> = islands.to_vec();
+    board.push("Ondu Cleric");
+    // A copy token carries neither `card` nor `token` in the view, so the
+    // copies are counted by name.
+    let clerics = |v: &PlayerView| {
+        v.battlefield_of(v.seat)
+            .filter(|o| o.name == "Ondu Cleric")
+            .count()
+    };
+    let (kicker, view) = play_the_kicker(&["Rite of Replication"], &board, |v| clerics(v) > 1);
+    assert_eq!(kicker, Some(PlayerAction::YesNo(true)));
+    assert_eq!(
+        clerics(&view),
+        6,
+        "kicked, Rite of Replication makes five copies"
+    );
+
+    let mut board = vec!["Island"; 3];
+    board.extend(["Ondu Cleric"; 6]);
+    let (kicker, view) = play_the_kicker(&["Spirit Water Revival"], &board, |v| v.hand.len() > 2);
+    assert_eq!(kicker, Some(PlayerAction::YesNo(true)));
+    assert_eq!(
+        view.hand.len(),
+        7,
+        "three Islands and six creatures pay the waterbend, so it draws seven"
+    );
+}
+
 #[test]
 fn x_cannot_demand_more_graveyard_targets_than_exist() {
     let preset = position(

@@ -69,7 +69,20 @@ mana and the spell, where one that taps none has lost only what it had
 already agreed to lose. It reads `awaiting` beside `owed`, because both ride
 in every view and a seat taking one without the other pays for its
 opponent's window. `crates/baylee-gamehost/tests/ai_ward.rs` plays it out
-against the real engine. Searches, bottoming,
+against the real engine.
+
+**An optional additional cost is paid when the pool already holds it.**
+Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) are one question,
+`YesNoPrompt::Kicker`, and `policy::kicked_price` answers both. The engine pays
+the kicked total from the floating pool alone and refuses the whole cast when
+it is short (CR 601.2h), so the planner floats the kicked price before it casts
+whenever it fits beside the reserve, and `policy::kicks` says yes only when the
+pool covers it. Waterbend counts every untapped creature and artifact that is
+not a planned mana source, since the convoke question is answered by tapping
+all of them. Kicked is the better half by design, so it is paid whenever it can
+be, except when the kicked half would draw the library out.
+
+Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
 in `PlayerView`, including `looking_at` while a search is open.
 

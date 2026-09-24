@@ -458,23 +458,16 @@ impl HeuristicAgent {
             if score <= 0 {
                 continue;
             }
-            let base_cost = spell_cost(view, id, f);
-            let variable = base_cost.has_variable();
-            let cost = if variable {
-                (1..=available.min(50))
-                    .rev()
-                    .find_map(|x| {
-                        let cost = base_cost.with_x(x);
-                        manaplan::plan(&cost, pool, &sources)
-                            .is_some()
-                            .then_some(cost)
-                    })
-                    .unwrap_or_else(|| base_cost.with_x(0))
+            // What the reserve leaves to spend on this spell.
+            let budget = if main && !instant {
+                available.saturating_sub(reserve)
             } else {
-                base_cost
+                available
             };
+            let (cost, floats_first) =
+                aim(view, card, f, spell_cost(view, id, f), &sources, budget);
             let action = if legal.castable.contains(&id)
-                && (!variable || manaplan::plan(&cost, pool, &[]).is_some())
+                && (!floats_first || manaplan::plan(&cost, pool, &[]).is_some())
             {
                 PlayerAction::CastSpell { card: id }
             } else {
@@ -855,6 +848,124 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
         cost = cost.with_less_generic(u32::try_from(grave).unwrap_or(u32::MAX));
     }
     cost
+}
+
+/// The price a spell is planned toward, and whether it has to be floating
+/// before the cast. X is the largest the sources can make. A kicker is
+/// aimed for when it fits the budget, and cast only once floating, as with X:
+/// the engine asks the kicker question with no window to tap anything more.
+fn aim(
+    view: &PlayerView,
+    card: CardIdentity,
+    face: &FaceDef,
+    cost: baylee_core::mana::ManaCost,
+    sources: &[Source],
+    budget: u32,
+) -> (baylee_core::mana::ManaCost, bool) {
+    let Some(pool) = view.seat(view.seat).map(|s| &s.mana_pool) else {
+        return (cost, false);
+    };
+    if cost.has_variable() {
+        let available = pool.total() + sources.iter().map(|s| u32::from(s.amount)).sum::<u32>();
+        let x = (1..=available.min(50))
+            .rev()
+            .find_map(|x| {
+                let cost = cost.with_x(x);
+                manaplan::plan(&cost, pool, sources)
+                    .is_some()
+                    .then_some(cost)
+            })
+            .unwrap_or_else(|| cost.with_x(0));
+        return (x, true);
+    }
+    kicked_price(view, face, spell_effects(card), cost, sources)
+        .filter(|net| net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some())
+        .map_or((cost, false), |net| (net, true))
+}
+
+/// The effects of the spell ability on the face `card` names.
+fn spell_effects(card: CardIdentity) -> &'static [Effect] {
+    baylee_cards::by_index(card.index)
+        .and_then(|d| {
+            d.abilities_for_face(usize::from(card.face))
+                .iter()
+                .find_map(|a| match a {
+                    AbilityDef::Spell { effects, .. } => Some(*effects),
+                    _ => None,
+                })
+        })
+        .unwrap_or(&[])
+}
+
+/// What `cost` becomes with the face's optional additional costs paid, less
+/// what the convoke-style help will pay; `None` when they are not to be paid.
+///
+/// Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) are one question
+/// to the engine, `YesNoPrompt::Kicker`, and one answer here, asked twice: by
+/// the planner, so the mana is floating before the cast, and by the question
+/// itself, which the engine pays out of the pool alone — a yes the pool
+/// cannot cover loses the whole cast (CR 601.2h), where a no loses only the
+/// bonus. The kicked half is the better one by design, so it is paid whenever
+/// it can be, unless it would draw the library out.
+///
+/// The help is every untapped creature and artifact not already counted as a
+/// mana source, because the convoke question is answered by tapping all of
+/// them. A cost with a non-mana part is never paid: nothing reads one yet.
+fn kicked_price(
+    view: &PlayerView,
+    face: &FaceDef,
+    effects: &[Effect],
+    cost: baylee_core::mana::ManaCost,
+    sources: &[Source],
+) -> Option<baylee_core::mana::ManaCost> {
+    let extra = face.additional_costs;
+    if extra.is_empty() || extra.iter().any(|c| !c.parts.is_empty()) {
+        return None;
+    }
+    let library = view.seat(view.seat)?.library_count;
+    let draws: u32 = effects
+        .iter()
+        .map(|effect| match effect {
+            Effect::IfKicked { then, .. } => crate::tactics::meaning(then, 0).draws(view),
+            other => crate::tactics::meaning(std::slice::from_ref(other), 0).draws(view),
+        })
+        .sum();
+    if draws >= library {
+        return None;
+    }
+    let total = extra.iter().fold(cost, |total, c| total.combine(&c.mana));
+    let help = if face.convoke {
+        view.battlefield_of(view.seat)
+            .filter(|o| {
+                o.types
+                    .intersects(TypeSet::CREATURE.union(TypeSet::ARTIFACT))
+            })
+            .filter(|o| {
+                !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                    && !o.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+            })
+            .filter(|o| sources.iter().all(|s| s.id != o.id))
+            .count()
+    } else {
+        0
+    };
+    Some(total.with_less_generic(u32::try_from(help).unwrap_or(u32::MAX)))
+}
+
+/// The answer to `YesNoPrompt::Kicker`: yes when the floating pool covers the
+/// kicked price, which [`kicked_price`] says is the only safe yes.
+pub(crate) fn kicks(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+) -> bool {
+    let (Some(id), Some(cost), Some(seat)) = (context.source, context.cost, view.seat(view.seat))
+    else {
+        return false;
+    };
+    identity(view, id)
+        .and_then(face)
+        .and_then(|f| kicked_price(view, f, context.effects, cost.with_x(context.x), &[]))
+        .is_some_and(|net| manaplan::plan(&net, &seat.mana_pool, &[]).is_some())
 }
 
 /// Whether a tax is worth paying, asked of what refusing it would do.
