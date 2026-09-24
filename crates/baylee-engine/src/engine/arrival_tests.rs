@@ -2,10 +2,10 @@
 //!
 //! [`Filter::EnteredThisTurn`] is the first filter in the vocabulary that is
 //! **history** rather than a characteristic: nothing on a `GameObject` says
-//! it, and there is no field to read. It is answered by scanning the journal
-//! from `state.turn_start_seq`, the shape `Effect::IfNotLostLifeThisTurn`
-//! already uses for "lost life this turn", so no state is added and
-//! `snapshot_hash` keeps its shape.
+//! it. It is answered from `per_turn.entered_battlefield`, the turn's record
+//! of arrivals, beside `per_turn.life_lost` for "lost life this turn". Both
+//! used to be scans of the journal from `state.turn_start_seq`, which
+//! `snapshot_hash` does not read (#241).
 //!
 //! Asked of `eval` directly rather than through one of the nine cards that
 //! print it. A card test would prove the filter *and* an ability *and* a
@@ -15,18 +15,16 @@
 //!
 //! 1. a permanent seeded by `SeatSpec::starting_battlefield` → **no**, and
 //!    not because `Cause::Setup` is filtered out. It is not: a seeded
-//!    permanent writes a real `ZoneChanged` to the battlefield, and the
-//!    answer is no because that write sits *below* `turn_start_seq`. The
-//!    exclusion was written first and taken out again when injecting its
-//!    removal left this test green — measured here, the setup entry is at
-//!    journal index 1 against a `turn_start_seq` of 125. The ordering is
-//!    asserted below rather than assumed, because it is the whole reason,
-//!    and the five `Cause::Setup` writes all sit inside the game's
-//!    construction, where nothing can move them above a turn start.
+//!    permanent is recorded like any other arrival while the game is built,
+//!    and the answer is no because the first turn start, after the
+//!    mulligans, clears the record. The exclusion was written first and
+//!    taken out again when injecting its removal left this test green. Both
+//!    halves are asserted below rather than assumed, because together they
+//!    are the whole reason.
 //! 2. a land actually played this turn → **yes**.
 //! 3. the same land on the next turn → **no**. That is the clause the whole
-//!    filter is named for, and a scan anchored at the journal's start rather
-//!    than at the turn's would pass 1 and 2 and fail only here.
+//!    filter is named for, and a record cleared at the game's first turn
+//!    and never again would pass 1 and 2 and fail only here.
 //!
 //! [`Condition::Any`] is beside it because the Gathering Place cycle needs
 //! both at once: "activate only if this land entered this turn **or** if you
@@ -77,36 +75,26 @@ fn a_permanent_entered_this_turn_only_on_the_turn_it_was_played() {
         .battlefield(0, &[forest()])
         .hand(0, &[forest()])
         .start();
+
+    // *Why* the seeded Forest will answer no, which the answer cannot say
+    // on its own: it is recorded like any other arrival while the game is
+    // built, and the first turn start clears the record. Asserted rather
+    // than trusted, because the whole filter rests on it and nothing else
+    // in the engine would notice a setup path that ran after that clearing.
+    let seeded = on_battlefield(&engine, p0, forest()).expect("the bench seated one Forest");
+    assert!(
+        engine
+            .state()
+            .per_turn
+            .entered_battlefield
+            .contains(&seeded),
+        "no `Cause` is filtered out: the seating is recorded as an arrival"
+    );
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-
-    let seeded = on_battlefield(&engine, p0, forest()).expect("the bench seated one Forest");
     assert!(
         !arrived(&engine, seeded),
         "a permanent the preset seated did not enter this turn"
-    );
-    // …and this is *why*, which the assertion above cannot say on its own:
-    // the setup write is a real battlefield `ZoneChanged` and is simply
-    // below the window. Asserted rather than trusted, because the whole
-    // filter rests on it and nothing else in the engine would notice if a
-    // future setup path moved above a turn start.
-    let setup_at = engine
-        .state()
-        .journal
-        .entries()
-        .iter()
-        .position(|e| {
-            matches!(
-                &e.event,
-                crate::event::GameEvent::ZoneChanged { object, to, .. }
-                    if *object == seeded && *to == crate::zone::Zone::Battlefield
-            )
-        })
-        .expect("a seeded permanent does write a battlefield ZoneChanged");
-    assert!(
-        (setup_at as u64) < engine.state().turn_start_seq,
-        "the setup write ({setup_at}) has to sit under the turn's window ({})",
-        engine.state().turn_start_seq
     );
 
     // A real `PlayLand` and not a second seeding, which is the whole point.
@@ -125,9 +113,9 @@ fn a_permanent_entered_this_turn_only_on_the_turn_it_was_played() {
         "and the one that was already there is still not"
     );
 
-    // On to the next turn this seat takes: the land is the same object and
-    // the answer has to change, which is what anchors the scan at the turn
-    // rather than at the start of the game.
+    // On to the next turn: the land is the same object and the answer has
+    // to change, which is what clearing the record at every turn start is
+    // for.
     pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active != p0
     });

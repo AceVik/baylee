@@ -37,8 +37,8 @@
 //!   considered-looking wrong decision above.
 //!
 //! - [`Filter::EnteredThisTurn`] is history rather than a characteristic: the
-//!   engine reads its own journal from `turn_start_seq`, and a view carries
-//!   no journal at all. A seat can see that a permanent is on the
+//!   engine keeps its own per-turn record of arrivals, and a view carries
+//!   no such record. A seat can see that a permanent is on the
 //!   battlefield and not when it got there, so there is nothing to read
 //!   from — and guessing `true` would plan a pump for a creature the engine
 //!   will refuse as a target.

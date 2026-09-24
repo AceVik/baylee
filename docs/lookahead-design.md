@@ -547,9 +547,9 @@ all enabling gates still apply regardless of rank.
 2. **Snapshot hashes are not complete continuation identities.**
    `GameState::snapshot_hash` names every field of every struct it walks
    since #122, so a field added later cannot be left out by accident. It
-   still leaves out the journal, although one rule reads this turn's part of
-   it (`EnteredThisTurn`): a known gap, because that window belongs in
-   `per_turn`, where life lost this turn already moved (#241). `Engine::snapshot_hash` does not add all driver fields,
+   still leaves out the journal. Since #241 no rule reads it for a fact
+   about this turn: `EnteredThisTurn` and life lost this turn are in
+   `per_turn`. `Engine::snapshot_hash` does not add all driver fields,
    including `loyalty_used_this_turn` (#238). Equal hashes therefore do not
    establish equal futures. Keep the requested unchanged-source hash assertion, add direct
    checks, and audit hashing separately before using it for transpositions.

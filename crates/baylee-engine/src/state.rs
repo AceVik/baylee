@@ -232,6 +232,11 @@ pub struct PerTurn {
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
+    /// What entered the battlefield this turn, in arrival order
+    /// (`Filter::EnteredThisTurn`). Written where a `ZoneChanged` into the
+    /// battlefield is journaled: [`GameState::move_object`] and a token's
+    /// arrival.
+    pub entered_battlefield: Vec<ObjectId>,
 }
 
 impl PerTurn {
@@ -244,6 +249,7 @@ impl PerTurn {
             life_lost: vec![false; players],
             creatures_died: 0,
             draws: vec![0; players],
+            entered_battlefield: Vec::new(),
         }
     }
 
@@ -254,6 +260,7 @@ impl PerTurn {
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.creatures_died = 0;
+        self.entered_battlefield.clear();
     }
 }
 
@@ -1677,6 +1684,9 @@ impl GameState {
         {
             self.invalidate_projections();
         }
+        if to.zone() == Zone::Battlefield {
+            self.per_turn.entered_battlefield.push(id);
+        }
         self.journal.record(GameEvent::ZoneChanged {
             object: id,
             from: from_zone,
@@ -1884,11 +1894,12 @@ impl GameState {
             starting_player,
             ability_fires,
             rng,
-            // A record of what happened, not an input to what happens next,
-            // with one exception that is a known gap: `Filter::EnteredThisTurn`
-            // reads its entries since `turn_start_seq` (hashed below), and
-            // that window is not hashed. It belongs in `per_turn`, where
-            // "lost life this turn" already went (#241).
+            // A record of what happened, not an input to what happens next.
+            // The two rules that used to read this turn's entries now read
+            // `per_turn` instead (#241). The engine's remaining readers are
+            // anchored to state the `Engine` holds: `trigger_scan_seq`,
+            // `entry_scan_seq`, and the resolution in progress
+            // (`resolve::reflexive`). Hashing those is #238.
             journal: _,
             names,
             // Printed faces shared between objects. Each object's face is
@@ -3380,6 +3391,9 @@ mod tests {
             ("turn_start_seq", |s, _| s.turn_start_seq += 1),
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.entered_battlefield", |s, id| {
+                s.per_turn.entered_battlefield.push(id);
+            }),
             ("delayed", |s, _| {
                 s.delayed.push(DelayedTrigger {
                     controller: PlayerId::new(0),

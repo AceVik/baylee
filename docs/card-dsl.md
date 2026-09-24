@@ -873,11 +873,12 @@ opponent and no choice at all — is a different card.
 a characteristic — "target creature that entered this turn" (Drannith
 Ruins), "each creature that entered this turn" (Novijen), "activate only if
 this land entered this turn" (Mirrex). Every other filter reads the object
-in front of it; this one reads the journal from `state.turn_start_seq` for
-a `ZoneChanged` into the battlefield naming that object. Two consequences.
-It costs a scan rather than a field compare, so it belongs in the narrow
-half of an `And` and not the wide one. And a `PlayerView` carries no
-journal, so `baylee_ai::filter` answers `None` for it and the client's
+in front of it. This one reads `per_turn.entered_battlefield`, the turn's
+list of arrivals, which `move_object` and a token's arrival write and every
+turn start clears. Two consequences. It costs a search of that list rather
+than a field compare, so it belongs in the narrow half of an `And` and not
+the wide one. And a `PlayerView` carries no such list, so
+`baylee_ai::filter` answers `None` for it and the client's
 targeting reader refuses it: a seat cannot pre-compute the legal targets of
 an ability that asks this, and takes the engine's enumeration instead.
 

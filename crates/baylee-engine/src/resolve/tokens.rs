@@ -358,6 +358,7 @@ fn arrive(state: &mut GameState, id: ObjectId) {
     // is standing under, and any counter about to be placed on it, are both
     // invisible until something asks for the pass.
     state.invalidate_projections();
+    state.per_turn.entered_battlefield.push(id);
     state.journal.record(crate::event::GameEvent::ZoneChanged {
         object: id,
         from: crate::zone::Zone::OutsideGame,

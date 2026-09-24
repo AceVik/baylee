@@ -65,30 +65,20 @@ pub fn matches_projected(
             .attackers
             .iter()
             .any(|info| info.creature == obj.id),
-        // The journal from turn start, the way `IfNotLostLifeThisTurn` reads
-        // "lost life this turn". `move_object` records the id it returns, so
-        // the handle a permanent has now is the one written on the way in.
+        // The turn's record of arrivals. It is written where a `ZoneChanged`
+        // into the battlefield is journaled, and it holds the id
+        // `move_object` returns, so the handle a permanent has now is the one
+        // written on the way in. It used to be a scan of the journal from
+        // `turn_start_seq`, which the snapshot hash does not read (#241).
         //
         // No `Cause` is filtered out, and `Cause::Setup` is the one worth
-        // saying so about. A seeded battlefield does write a `ZoneChanged`
-        // to the battlefield, but every one of the five `Cause::Setup`
-        // writes is inside the game's construction, and `turn_start_seq` is
-        // set at each turn start — measured on a seeded duel: the setup
-        // entry sits at journal index 1 against a `turn_start_seq` of 125,
-        // so it is under the window and can never be in it. An exclusion
-        // here was written first and removed on that measurement rather than
-        // kept as a guard nothing can reach;
+        // saying so about. A seeded battlefield is recorded like any other
+        // arrival while the game is built, and the first turn start, after
+        // the mulligans, clears the record. An exclusion here was written
+        // first and removed when injecting its removal left the test green;
         // `arrival_tests::a_permanent_entered_this_turn_only_on_the_turn_it_was_played`
-        // asserts the ordering that makes it unnecessary.
-        Filter::EnteredThisTurn => state.journal.entries()[state.turn_start_seq as usize..]
-            .iter()
-            .any(|e| {
-                matches!(
-                    &e.event,
-                    crate::event::GameEvent::ZoneChanged { object, to, .. }
-                        if *object == obj.id && *to == crate::zone::Zone::Battlefield
-                )
-            }),
+        // asserts both halves of what makes it unnecessary.
+        Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)

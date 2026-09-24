@@ -49,6 +49,48 @@ fn a_token_arriving_is_a_permanent_entering_the_battlefield() {
     );
 }
 
+/// A token made this turn "entered the battlefield this turn"
+/// (`Filter::EnteredThisTurn`: Novijen, Oran-Rief). On the next turn it has
+/// not.
+///
+/// `tokens::arrive` is the door both token paths share, and it writes the
+/// turn's record of arrivals beside `move_object` (#241). Before this test,
+/// the suite stayed green with that write taken out.
+#[test]
+fn a_token_made_this_turn_entered_the_battlefield_this_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(94, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(0, &[crib_swap()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let entered = |engine: &Engine<RegistryLookup>, id| {
+        let obj = engine.state().object(id).expect("the token is in play");
+        crate::eval::matches(
+            &baylee_cards_dsl::Filter::EnteredThisTurn,
+            engine.state(),
+            obj,
+            obj.controller,
+            id,
+        )
+    };
+
+    aim_at_their_elf(&mut engine, crib_swap(), false);
+    let shapeshifter = the_copy_on(&engine, p1);
+    assert!(
+        entered(&engine, shapeshifter),
+        "the Shapeshifter was created this turn"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        !entered(&engine, shapeshifter),
+        "a new turn began, so nothing entered *this* one"
+    );
+}
+
 /// The other door tokens come through: a **copy**, which is created by
 /// [`crate::resolve::tokens::create_token_copies`] and never touches the
 /// factory the test above exercises.
