@@ -5924,6 +5924,26 @@ back to something else. `hud::despawn_overlay` runs beside `table::despawn_stage
 and resets `HudRevision` with it — a revision describing a tree that no longer
 exists would make the next duel's first frame skip its own rebuild.
 
+## Where a packaged desktop build finds its fonts
+
+`standalone::asset_root` takes the `assets` directory **beside the executable**
+when one exists, and the crate's own `assets` directory otherwise. The second
+is baked in at build time as an absolute path, which is what `cargo run` needs
+from any working directory, and it used to be the only answer. On a player's
+machine that answer points into the build machine's checkout: a release built
+on CI would look for its fonts under the runner's workspace. On the owner's Mac
+a packaged `.app` started identically with and without its bundled assets,
+because both runs read the source tree (#216). `target/debug/` has no `assets`
+beside the binary, so a development build still takes the baked path.
+`BEVY_ASSET_ROOT` and `dev-reload`'s check on it are untouched.
+
+The choice is logged once at info, `assets from <path>`, after `LogPlugin` is
+installed. That line is how a smoke test tells the two apart, because both
+builds start and look the same. Measured on 24.09.2026 with a copy of the
+debug binary: with `assets` beside it the log names that directory, and
+without it the log names the crate's directory. The true negative, where the
+baked path does not exist either, is a CI-built artifact on another machine.
+
 ## In the browser
 
 `trunk serve index.html --release` from `crates/baylee-client/` serves the

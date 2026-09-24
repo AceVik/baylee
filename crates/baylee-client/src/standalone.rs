@@ -48,6 +48,7 @@ pub fn run() {
         }
     };
 
+    let assets = asset_root();
     let plugins = DefaultPlugins
         .set(WindowPlugin {
             primary_window: Some({
@@ -66,10 +67,10 @@ pub fn run() {
             ..default()
         })
         .set(bevy::asset::AssetPlugin {
-            // Natively the fonts live in the crate's assets dir (run
-            // from the repo root or anywhere else); trunk copies that
-            // dir to `dist/assets`, the browser's asset root.
-            file_path: asset_root().to_string(),
+            // See `asset_root`: beside the executable for a packaged
+            // desktop build, the crate's own dir under `cargo run`, and
+            // trunk's `dist/assets` in a browser.
+            file_path: assets.clone(),
             // This repo ships no `.meta` file at all — `find assets -name
             // '*.meta'` is empty — so the default `Always` asks for a
             // sibling that never exists, and what happens next is not a 404.
@@ -105,6 +106,10 @@ pub fn run() {
     app.add_plugins(plugins).add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
+    // After the plugins, because `LogPlugin` is what installs the logger.
+    // The one line that tells a packaged build reading its own fonts from a
+    // build reading the build machine's: both start, and look, the same.
+    info!("assets from {assets}");
     // A phone's run loop is not a desktop's. `WinitSettings::default()` is
     // `game()`, which asks for `UpdateMode::Continuous` — and on iOS winit
     // hands the thread to `UIApplicationMain`, where nothing then wakes the
@@ -156,31 +161,45 @@ fn open_duel(mut commands: MessageWriter<DuelCommand>) {
     commands.write(DuelCommand::Open);
 }
 
-/// Where the asset server looks. Relative paths resolve against the
-/// executable's directory (target/...), not the working directory — so
-/// natively the crate's assets dir is baked in as an absolute path at
-/// build time. Trunk copies the same dir to `dist/assets`, the browser's
-/// asset root.
+/// Where the asset server looks.
 ///
-/// The two mobile arms are the same silent failure the browser one is: a
-/// root that is one level off loads no font, draws no glyph, and reports
-/// nothing.
-fn asset_root() -> &'static str {
+/// On a desktop, the `assets` directory **beside the executable** when there
+/// is one, which is where a packaged build ships it (#216); otherwise the
+/// crate's own assets dir, baked in as an absolute path at build time, which
+/// is what `cargo run` from anywhere needs. The order matters and was the
+/// other way once: with only the baked path, a release binary built on CI
+/// looked for its fonts under the runner's checkout, and on the owner's Mac a
+/// packaged `.app` started identically with and without its bundled assets,
+/// because both runs read the source tree. `target/debug/` has no `assets`,
+/// so a development build still takes the baked path, and `dev-reload`'s own
+/// `BEVY_ASSET_ROOT` check below is untouched by either.
+///
+/// Trunk copies the same dir to `dist/assets`, the browser's asset root. The
+/// two mobile arms are the same silent failure the browser one is: a root
+/// that is one level off loads no font, draws no glyph, and reports nothing.
+fn asset_root() -> String {
     if cfg!(target_arch = "wasm32") {
-        "assets"
+        "assets".to_string()
     } else if cfg!(target_os = "android") {
         // Android hands out no path at all. Bevy reads through the APK's
         // `AssetManager`, whose root *is* the `assets/` directory cargo-apk
         // packed, so the base has to be empty rather than "assets" — which
         // would look inside `assets/assets`.
-        ""
+        String::new()
     } else if cfg!(target_os = "ios") {
         // Beside the executable, inside the `.app` bundle: that is bevy's
         // own fallback when neither `BEVY_ASSET_ROOT` nor
         // `CARGO_MANIFEST_DIR` is set, and on a phone neither ever is.
-        "assets"
+        "assets".to_string()
     } else {
-        concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| Some(exe.parent()?.join("assets")))
+            .filter(|beside| beside.is_dir())
+            .map_or_else(
+                || concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string(),
+                |beside| beside.to_string_lossy().into_owned(),
+            )
     }
 }
 
