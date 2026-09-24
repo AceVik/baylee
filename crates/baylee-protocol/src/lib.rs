@@ -2,8 +2,13 @@
 //!
 //! v0: transport handshake + preset transfer (see `docs/protocol.md`).
 //! Choice/action/view messages land with the engine API (M1–M3).
+//!
+//! Also the rules both ends of the gateway's HTTP API check alike
+//! ([`names`]), so that the client can refuse what the gateway would.
 
 #![warn(missing_docs)]
+
+pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
 pub const PROTOCOL_VERSION: u32 = 1;

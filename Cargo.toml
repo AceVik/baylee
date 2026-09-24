@@ -58,6 +58,9 @@ prost = "0.14"
 prost-build = "0.14"
 protoc-bin-vendored = "3"
 bytes = "1"
+# NFKC for usernames (`baylee_protocol::names`): already in the tree through
+# `stringprep`, pure Rust, and it builds for the browser.
+unicode-normalization = "0.1"
 futures-util = "0.3"
 rustc-hash = "2"
 glam = "0.32"

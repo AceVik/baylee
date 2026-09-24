@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 prost.workspace = true
 bytes.workspace = true
+unicode-normalization.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

@@ -1011,6 +1011,7 @@ dependencies = [
  "prost",
  "prost-build",
  "protoc-bin-vendored",
+ "unicode-normalization",
 ]
 
 [[package]]
