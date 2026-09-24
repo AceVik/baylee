@@ -28,6 +28,7 @@
 //! row of nodes.
 
 use baylee_client_core::card_face::{CardFace, Stats, TextBlock};
+use baylee_client_core::cardplate::Plate;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_core::color::{Color as MagicColor, ColorSet};
 use baylee_core::mana::{ManaSymbol, Variable};
@@ -605,11 +606,13 @@ pub struct WorldFace;
 /// Positions are in the quad's local space, where the card is
 /// [`baylee_client_core::layout::CARD_WIDTH`] by `CARD_HEIGHT` units centred on
 /// the origin. Children inherit the parent's rotation, so a tapped card's face
-/// turns with it and needs no special case.
+/// turns with it and needs no special case. `plate` is what the card's ledge
+/// already says, so the face does not say it twice ([`world_stats`]).
 pub fn spawn_world(
     commands: &mut Commands,
     card: Entity,
     face: &CardFace,
+    plate: Plate,
     fonts: &UiFonts,
 ) -> Vec<Entity> {
     use baylee_client_core::cardframe;
@@ -663,7 +666,7 @@ pub fn spawn_world(
             line(cost, 11.0, Color::srgb(0.85, 0.82, 0.72), half_h * 0.44, z);
         }
         line(face.type_line.clone(), 10.0, MUTED, half_h * 0.06, z);
-        if let Some(stats) = face.stats {
+        if let Some(stats) = world_stats(face.stats, plate) {
             line(
                 stats_label(stats),
                 14.0,
@@ -678,10 +681,54 @@ pub fn spawn_world(
 
 use bevy::text::TextBounds;
 
+/// The body line a table card's text face still has to write: none when the
+/// plate on its ledge already says the same number (#274).
+///
+/// The plate is drawn by the card's material under every face, text or art,
+/// so a creature drawn as text used to say `3/3` twice, a hand's width
+/// apart. What it keeps is the one shape where the two differ — a
+/// planeswalker that is also a creature plates its loyalty, and its power
+/// and toughness are then said nowhere else on the table.
+fn world_stats(stats: Option<Stats>, plate: Plate) -> Option<Stats> {
+    match (stats?, plate) {
+        (Stats::PowerToughness { .. }, Plate::Fight { .. })
+        | (Stats::Loyalty(_), Plate::Loyalty(_)) => None,
+        (stats, _) => Some(stats),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use baylee_core::mana::ManaCost;
+
+    /// A number the ledge already shows is not written on the face again,
+    /// and a number it does not show is.
+    #[test]
+    fn the_face_leaves_the_body_to_the_plate() {
+        let body = Stats::PowerToughness {
+            power: 3,
+            toughness: 3,
+            damage: 0,
+        };
+        let fight = Plate::Fight {
+            power: 3,
+            toughness: 3,
+            damage: 0,
+        };
+        assert_eq!(world_stats(Some(body), fight), None);
+        assert_eq!(
+            world_stats(Some(Stats::Loyalty(4)), Plate::Loyalty(4)),
+            None
+        );
+        assert_eq!(
+            world_stats(Some(body), Plate::Loyalty(4)),
+            Some(body),
+            "an animated planeswalker's body is said nowhere else"
+        );
+        assert_eq!(world_stats(Some(body), Plate::None), Some(body));
+        assert_eq!(world_stats(None, fight), None);
+    }
 
     #[test]
     fn pips_label_every_symbol_a_cost_can_contain() {

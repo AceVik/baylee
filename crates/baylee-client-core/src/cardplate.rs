@@ -1,12 +1,12 @@
-//! What a card's reserved bottom-right corner says.
+//! What a card's numbers say, on the ledge under its print.
 //!
 //! Three rules facts are printed on a Magic card and drawn nowhere in this
 //! client on a card showing art: power, toughness, and the damage marked on a
 //! creature. A fourth, a planeswalker's loyalty, is not printed at all — it is
-//! a number the game keeps. All four live in the corner
-//! [`crate::cardrail`] has been leaving empty since the keyword rail was
-//! written, which is why the rail is `RAIL_SPAN` wide rather than the whole
-//! bottom edge.
+//! a number the game keeps. All four lived in the bottom-right corner of the
+//! print, which [`crate::cardrail`] left empty for them, until #274 took
+//! everything this client draws off the print: they stand on the frame's
+//! ledge now, at its left end (see "the ledge" below).
 //!
 //! The same split as `cardrail`: the plate is *drawn* by the card shader, one
 //! more layer on the pipeline that already draws eleven pictograms, and *what
@@ -18,9 +18,9 @@
 //! flat tint is a card whose art has not loaded, and a 4/4 that could block is
 //! the thing a player most needs off a card they cannot otherwise read.
 //!
-//! Above the plate stands the other half of the corner: the **swing**, the
-//! net power and toughness a permanent's ±1/±1 counters add, written out in
-//! the same numerals one size down. It replaced a column of stamped chips —
+//! Beside the plate stands the **chip**: the swing, the net power and
+//! toughness a permanent's ±1/±1 counters add, written out in the same
+//! numerals. It replaced a column of stamped chips —
 //! pips to six, a colour per kind of counter — which the owner read as
 //! saying nothing, and which was hard to defend once the plate underneath it
 //! was writing the answer in figures. A green disc with three pips on it is
@@ -295,19 +295,19 @@ pub fn tone_of(badges: &[KeywordBadge]) -> Tone {
 
 // ------------------------------------------------------------- the corner
 
-/// Everything the reserved corner says about one card.
+/// Everything the ledge's numbers say about one card.
 ///
-/// Three lines, read top to bottom: what the counters add, the plate, and
-/// what the printing says the body was. The middle one is the only one that
-/// is always there.
+/// The plate, and the chip beside it: what the counters add and, drawn
+/// large, what the printing says the body was. The plate is the only one
+/// that is always there.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Corner {
     /// What the plate itself says.
     pub plate: Plate,
-    /// The net ±1/±1 swing, written small above the plate.
+    /// The net ±1/±1 swing, written in the chip.
     pub swing: Option<(i16, i16)>,
-    /// The printed body, written small below the plate — and only when it
-    /// is not the body the plate is already showing.
+    /// The printed body, written in the chip when the card is drawn large —
+    /// and only when it is not the body the plate is already showing.
     pub base: Option<(i16, i16)>,
     /// Which numerals are not written in the plate's own ink.
     pub tone: Tone,
@@ -359,7 +359,7 @@ impl Corner {
 
     /// The three uniforms the shader reads.
     ///
-    /// The plate, the swing above it, and the printed body below it.
+    /// The plate, the swing, and the printed body.
     #[must_use]
     pub fn packed(self) -> [u32; 3] {
         let swing = match self.swing {
@@ -398,18 +398,19 @@ pub const SWING_SET: u32 = 1 << 20;
 /// Walking Ballista is a real body.
 pub const BASE_SET: u32 = 1 << 20;
 
-/// The printed body, when it is worth drawing under the plate.
+/// The printed body, when it is worth writing in the chip.
 ///
 /// Only when it **differs** from what the plate is showing, which is the
 /// whole design of the appendage. A creature drawn at its printed size has
-/// its printed size on the plate already, and a second line under every
+/// its printed size on the plate already, and a second figure beside every
 /// untouched creature on the board is noise with no information in it. When
 /// they differ, that difference is exactly the thing a player is trying to
-/// work out — and it is the thing the plate itself hid, because the plate
-/// sits where a real card prints its power and toughness.
+/// work out. (The plate used to sit on the print's own P/T box and hide it;
+/// since #274 the print shows it, but a card drawn from its tint or its text
+/// has no print to read it off.)
 ///
 /// A permanent whose plate is not a body (a planeswalker, a saga, a land)
-/// gets nothing: there is no printed number the corner is standing on.
+/// gets nothing: there is no printed body to set against it.
 #[must_use]
 pub fn base_body(plate: Plate, power: Option<i16>, toughness: Option<i16>) -> Option<(i16, i16)> {
     let Plate::Fight {
@@ -442,105 +443,96 @@ pub const TONE_TOXIC: u32 = 2;
 /// composition rule and an honest number beats a pretty one.
 pub const ROMAN_MAX: u16 = 5;
 
-/// How tall the swing line above the plate is, as a share of the plate's
-/// own numerals.
+/// How tall a card has to be *drawn* before the chip writes the printed
+/// body, as the pixel size the shader already measures.
 ///
-/// A subordinate line: it says how the plate's number got to be what it is,
-/// and a player who wants the number reads the plate. Small enough to be
-/// read second, large enough to survive the table — at this share it is
-/// about seven physical pixels on a card lying at `CAMERA_LEAN`, against the
-/// plate's eleven.
-pub const SWING_SCALE: f32 = 0.62;
-
-/// The gap between the plate's top edge and the swing line, in card widths.
-pub const SWING_GAP: f32 = 0.012;
-
-/// The gap between the plate's bottom edge and the base line.
-pub const BASE_GAP: f32 = 0.006;
-
-/// How tall the base line's figures are, in card widths.
-///
-/// Derived from the room rather than chosen, which is the difference between
-/// an appendage and a patch: the plate is inset [`PLATE_INSET`] from the
-/// card's bottom edge, that strip is all there is below it, and this fills
-/// what is left of it once the line has a gap on each side. Choosing a size
-/// instead would leave the constant to be re-checked by hand every time the
-/// band moved — and the failure is a printed body hanging off the bottom of
-/// the card.
-pub const BASE_H: f32 = PLATE_INSET - 2.0 * BASE_GAP;
-
-const _: () = assert!(BASE_H > 0.0);
-const _: () = assert!(BASE_GAP + BASE_H <= PLATE_INSET);
-
-/// How tall a card has to be *drawn* before the base line appears, as the
-/// pixel size the shader already measures.
-///
-/// It is not drawn on the table and that is the measurement, not a
-/// preference: a card there is about 150 physical pixels wide, which puts
-/// this line at five, and five-pixel figures are a smudge that says only
-/// "something is here" — on every pumped creature at once. The damage band's
-/// rules appear on the same terms and through the same `aa`
-/// (`TICK_AA`), so the corner already has this behaviour and a player has
-/// already met it: push the camera in, or hover the card, and the corner
-/// says more.
+/// It is not written on the table and that is the measurement, not a
+/// preference: a card there is about 94 physical pixels wide, which would
+/// put a second line in the chip at three, and three-pixel figures are a
+/// smudge that says only "something is here" — on every pumped creature at
+/// once. The damage band's rules appear on the same terms and through the
+/// same `aa` (`TICK_AA`), so the ledge already has this behaviour and a
+/// player has already met it: push the camera in, or hover the card, and the
+/// ledge says more.
 pub const BASE_AA: f32 = 0.004;
 
-/// How tall the swing line's figures are, in card widths.
-///
-/// The plate's own figure height times [`SWING_SCALE`]. Derived rather than
-/// written, so that a change to the plate's padding moves both lines
-/// together and the corner keeps reading as one column.
-pub const SWING_H: f32 = (PLATE_H - 2.0 * PLATE_PAD) * SWING_SCALE;
+// ---------------------------------------------------------------- the ledge
+//
+// Since #274 the numbers are not drawn on the print at all: they stand on
+// the frame's ledge under it (`cardframe::FRAME_FOOT` deep), and read from
+// the left, because a lane fans with each card's own **left** edge exposed
+// (`layout::MIN_VISIBLE_FRACTION`). The plate comes first, then the chip,
+// and the identity crest (`cardcrest`) is right-aligned at the other end;
+// all three are centred on the ledge's own middle line.
 
-/// The swing line is subordinate to the plate, sits clear of it, and stays
-/// on the card.
-///
-/// Compile-time, for the reason the plate's own padding assertion is: all
-/// four of these are constants, so a test would be asserting something the
-/// compiler already knows and could only fail after a build that had already
-/// shipped the wrong corner. The last of the three is the one that is not
-/// obvious — the line is *above* the plate, so raising either the plate's
-/// height or this one's walks it off the card's top edge.
-const _: () = assert!(SWING_GAP > 0.0);
-const _: () = assert!(SWING_H < PLATE_H - 2.0 * PLATE_PAD);
-const _: () =
-    assert!(1.0 / crate::cardrail::CARD_ASPECT - PLATE_INSET - PLATE_H - SWING_GAP - SWING_H > 0.0);
-
-/// How far in from the printed edge the plate sits, in card widths.
-///
-/// The rail's own inset, so the two rows share a baseline and a margin.
-pub const PLATE_INSET: f32 = crate::cardrail::RAIL_INSET;
+/// How far in from the card's left edge the plate starts, in card widths.
+pub const LEDGE_PAD: f32 = 0.030;
 
 /// The plate's width, in card widths.
 ///
-/// Exactly what the rail left: `RAIL_INSET + RAIL_SPAN` is 0.752 and the plate
-/// runs from there to `1 - RAIL_INSET`. The reserved fifth of §1.4 was
-/// reserved to this number, and taking a hair more would push a card with
-/// eleven keywords into it.
-pub const PLATE_W: f32 = 1.0 - 2.0 * crate::cardrail::RAIL_INSET - crate::cardrail::RAIL_SPAN;
-
-/// The plate's height, in card widths — the rail's slot, so both rows are one
-/// band along the bottom of the card rather than two things at two heights.
-pub const PLATE_H: f32 = crate::cardrail::RAIL_SLOT;
+/// The width the corner always had. What changed is where it stands: it ends
+/// at `LEDGE_PAD + PLATE_W` = 0.226, inside the 0.26 of a card the tightest
+/// fan still shows, so every creature in a crowded lane shows its body.
+pub const PLATE_W: f32 = 0.196;
 
 /// The margin inside the plate, in card widths.
 ///
-/// Raised from 0.014 when the numerals stopped being a 4×6 stencil. A
-/// stencil's ink stopped a cell short of its own box on most glyphs, so the
-/// old padding was really the padding plus whatever sidebearing the picture
-/// happened to have; a typeface's figures fill the height they are given
-/// exactly. Measured on the table at this camera, 0.014 left about
-/// three quarters of a physical pixel between a digit and the plate's rim
-/// and the two ran together; this leaves a little under two.
-pub const PLATE_PAD: f32 = 0.020;
+/// Was 0.020 when the plate was 0.115 deep. The ledge is 0.125, and the
+/// figures did not shrink to pay for it: the margin did, from a little under
+/// two physical pixels to a little over one, and [`PLATE_CAP`] is where it
+/// was.
+pub const PLATE_PAD: f32 = 0.012;
 
-/// The plate has room for a glyph once its own margin is taken out of it.
+/// How tall the plate's figures are, in card widths: seven physical pixels
+/// on a card 94 wide, which is the floor the ledge was measured against.
+pub const PLATE_CAP: f32 = 0.075;
+
+/// The plate's height, in card widths: its figures and its margin.
+pub const PLATE_H: f32 = PLATE_CAP + 2.0 * PLATE_PAD;
+
+/// The air between the plate and the chip, in card widths.
+pub const CHIP_GAP: f32 = 0.010;
+
+/// The chip's width, in card widths.
 ///
-/// A compile-time assertion rather than a test, because all three of these are
-/// constants: a padding raised past the height would leave the shader dividing
-/// by a negative and drawing nothing at all, which is the failure that looks
-/// exactly like "this card has no body".
-const _: () = assert!(PLATE_H > 2.0 * PLATE_PAD + 0.02);
+/// The chip is what the counters did — the net swing of a permanent's ±1/±1
+/// counters, on green stock for growth and violet for a shrink — and, drawn
+/// large, the printed body under it. It used to be two lines, one standing
+/// on the plate and one hanging under it; the ledge has no room above or
+/// below a plate, so they stand beside it.
+pub const CHIP_W: f32 = 0.100;
+
+/// The ledge's middle line, in card widths from the card's top edge.
+#[must_use]
+pub const fn ledge_mid() -> f32 {
+    crate::cardframe::CARD_TALL - crate::cardframe::FRAME_FOOT * 0.5
+}
+
+/// The plate's rectangle on the card, `[x0, y0, x1, y1]` in card widths from
+/// the card's top-left corner, `y` growing down the card.
+///
+/// A saga's page is the square at the left of this rectangle.
+#[must_use]
+pub const fn plate_rect() -> [f32; 4] {
+    let y0 = ledge_mid() - PLATE_H * 0.5;
+    [LEDGE_PAD, y0, LEDGE_PAD + PLATE_W, y0 + PLATE_H]
+}
+
+/// The chip's rectangle, likewise.
+#[must_use]
+pub const fn chip_rect() -> [f32; 4] {
+    let [_, y0, x1, y1] = plate_rect();
+    [x1 + CHIP_GAP, y0, x1 + CHIP_GAP + CHIP_W, y1]
+}
+
+/// The plate has room for a glyph once its own margin is taken out of it,
+/// and fits on the ledge with air round it.
+///
+/// Compile-time rather than tests, because every term is a constant: a
+/// plate taller than the ledge would sit on the print, which is the one
+/// place #274 exists to keep it off.
+const _: () = assert!(PLATE_CAP > 0.02);
+const _: () = assert!(PLATE_H < crate::cardframe::FRAME_FOOT);
 
 /// The characters the corner writes with, in the order their cells sit in the
 /// atlas.
@@ -670,7 +662,7 @@ pub const COUNT_MAX: u32 = 999;
 /// The #210 measurement is why this exists: 54 Goblins drew as one Goblin
 /// and 16 Plains as one Plains, because a merged card's only cue was the
 /// thickness of the slab under it. The pill sits in the top-right corner,
-/// over the printed cost — the one corner that is dead on the battlefield,
+/// [`COUNT_INSET`] in, over the printed cost — the one corner that is dead on the battlefield,
 /// and empty on the tokens and lands that merge most — written in the
 /// plate's own numerals on the plate's own dark body, so it reads as one of
 /// this client's numbers rather than as something printed.
@@ -681,7 +673,7 @@ pub fn count_word(members: usize) -> u32 {
 }
 
 /// How wide the count pill is for `count`, in card widths — the shader's own
-/// arithmetic, mirrored so the widest one can be held clear of the slips.
+/// arithmetic, mirrored so the widest one can be held to the title bar.
 ///
 /// The figures are the plate's height, so the pill is as tall as the plate
 /// and grows sideways with its digits: `×` and up to three tabular digits,
@@ -694,9 +686,12 @@ pub fn count_width(count: u32) -> f32 {
         _ => 3.0,
     };
     let cells = TEXT_ADV[GLYPH_TIMES] + digits * TEXT_ADV[0];
-    let cap = PLATE_H - 2.0 * PLATE_PAD;
-    cells * cap / TEXT_CAP + 2.0 * PLATE_PAD
+    cells * PLATE_CAP / TEXT_CAP + 2.0 * PLATE_PAD
 }
+
+/// How far in from the card's top and right edges the count pill sits, in
+/// card widths.
+pub const COUNT_INSET: f32 = 0.052;
 
 #[cfg(test)]
 mod tests {
@@ -820,16 +815,35 @@ mod tests {
         assert_eq!(((word & SLOT_MASK) as i32) - BIAS, -BIAS);
     }
 
-    /// The plate ends exactly where the rail's inset does, and starts exactly
-    /// where its span does. Both are asserted rather than assumed, because the
-    /// rail's constants are what reserved this corner in the first place.
+    /// The ledge reads plate, then chip, from the left, and the plate is
+    /// whole in the strip of a card the tightest fan still shows.
+    ///
+    /// The fan is why the left: a lane offsets each card to the right of the
+    /// one under it and draws it higher, so what is left of a covered card is
+    /// its own left edge, `MIN_VISIBLE_FRACTION` of it at the tightest
+    /// pitch. A plate that ran past that edge would show a creature's power
+    /// and not its toughness in exactly the lane that most needs both.
     #[test]
-    fn the_plate_is_what_the_rail_left() {
-        let start = 1.0 - crate::cardrail::RAIL_INSET - PLATE_W;
+    fn the_plate_leads_the_ledge_and_survives_the_tightest_fan() {
+        let [_, py0, px1, py1] = plate_rect();
+        let [cx0, cy0, cx1, cy1] = chip_rect();
         assert!(
-            (start - (crate::cardrail::RAIL_INSET + crate::cardrail::RAIL_SPAN)).abs() < 1e-6,
-            "the plate starts at {start}, the rail ends at {}",
-            crate::cardrail::RAIL_INSET + crate::cardrail::RAIL_SPAN
+            px1 < crate::layout::MIN_VISIBLE_FRACTION,
+            "the plate ends at {px1}, past the {} a fanned card shows",
+            crate::layout::MIN_VISIBLE_FRACTION
+        );
+        assert!(
+            (cx0 - px1 - CHIP_GAP).abs() < 1e-6,
+            "the chip is not one gap past the plate"
+        );
+        assert!((cx1 - cx0 - CHIP_W).abs() < 1e-6);
+        assert!(
+            (py0 - cy0).abs() < 1e-6 && (py1 - cy1).abs() < 1e-6,
+            "one row"
+        );
+        assert!(
+            (f32::midpoint(py0, py1) - ledge_mid()).abs() < 1e-6,
+            "the plate is not centred on the ledge"
         );
     }
 
@@ -1050,21 +1064,14 @@ mod tests {
         assert_eq!(count_word(4000), COUNT_MAX, "clamped, not wrapped");
     }
 
-    /// The pill grows leftwards from the right edge and must never reach the
-    /// slips hanging from the left margin, however many digits it writes —
-    /// nor leave the printed name less than half the title bar.
+    /// The pill grows leftwards from the right edge and must never leave the
+    /// printed name less than half the title bar, however many digits it
+    /// writes.
     #[test]
-    fn the_widest_count_stays_clear_of_the_slips_and_the_name() {
-        use crate::cardcrest::{SLIP_INSET, SLIP_W};
+    fn the_widest_count_leaves_the_name_half_the_title_bar() {
         let widest = count_width(COUNT_MAX);
-        let left = 1.0 - PLATE_INSET - widest;
         assert!(
-            left > SLIP_INSET + SLIP_W,
-            "a ×999 pill starts at {left}, inside the slips ending at {}",
-            SLIP_INSET + SLIP_W
-        );
-        assert!(
-            widest < 0.5 * (1.0 - 2.0 * PLATE_INSET),
+            widest < 0.5 * (1.0 - 2.0 * COUNT_INSET),
             "a ×999 pill takes {widest} of the title bar"
         );
         // And it is wider with every digit, so a count that grows past ten

@@ -3460,7 +3460,8 @@ pub fn sync_scene(
             continue;
         };
         let built = face::of_object(object, None, &texts);
-        let spawned = face::spawn_world(&mut commands, entity, &built, fonts);
+        let spawned =
+            face::spawn_world(&mut commands, entity, &built, placement.corner.plate, fonts);
         index.faces.insert(placement.object, (seq, spawned));
     }
 

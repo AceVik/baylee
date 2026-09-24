@@ -2447,10 +2447,14 @@ struct Globals { time: f32 };
         let src = include_str!("shaders/card_common.wgsl");
 
         for (name, ours) in [
-            ("PLATE_INSET", plate::PLATE_INSET),
+            ("LEDGE_PAD", plate::LEDGE_PAD),
             ("PLATE_W", plate::PLATE_W),
             ("PLATE_H", plate::PLATE_H),
             ("PLATE_PAD", plate::PLATE_PAD),
+            ("PLATE_CAP", plate::PLATE_CAP),
+            ("CHIP_GAP", plate::CHIP_GAP),
+            ("CHIP_W", plate::CHIP_W),
+            ("COUNT_INSET", plate::COUNT_INSET),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
@@ -2513,10 +2517,6 @@ struct Globals { time: f32 };
             ("TEXT_ADV_I", plate::TEXT_ADV[plate::GLYPH_I]),
             ("TEXT_ADV_V", plate::TEXT_ADV[plate::GLYPH_V]),
             ("TEXT_ADV_TIMES", plate::TEXT_ADV[plate::GLYPH_TIMES]),
-            ("SWING_GAP", plate::SWING_GAP),
-            ("SWING_H", plate::SWING_H),
-            ("BASE_GAP", plate::BASE_GAP),
-            ("BASE_H", plate::BASE_H),
             ("BASE_AA", plate::BASE_AA),
         ] {
             let theirs = wgsl_const(src, name);
@@ -2525,16 +2525,6 @@ struct Globals { time: f32 };
                 "{name}: {ours} here, {theirs} in the shader"
             );
         }
-
-        // And the plate starts where the rail stops. Asserted against the
-        // shader's own numbers rather than against Rust's, because these two
-        // constants are what reserved the corner and they live in both files.
-        let rail_end = wgsl_const(src, "RAIL_INSET") + wgsl_const(src, "RAIL_SPAN");
-        let plate_start = 1.0 - wgsl_const(src, "PLATE_INSET") - wgsl_const(src, "PLATE_W");
-        assert!(
-            (rail_end - plate_start).abs() < 1e-5,
-            "the rail ends at {rail_end} and the plate starts at {plate_start}"
-        );
     }
 
     /// Parchment is one material, and the card and the interface draw it from
@@ -2821,8 +2811,20 @@ struct Globals { time: f32 };
             );
         }
         for (name, ours) in [
-            ("SLIP_PAPER_TOKEN", crest::SLIP_PAPER[crest::GLYPH_TOKEN]),
-            ("SLIP_PAPER_COPY", crest::SLIP_PAPER[crest::GLYPH_COPY]),
+            ("CREST_W", crest::CREST_W),
+            ("CREST_X1", crest::CREST_X1),
+            ("CREST_GAP", crest::CREST_GAP),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours).abs() < 1e-5,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        for (name, ours) in [
+            ("PAPER_TOKEN", crest::PAPER[crest::GLYPH_TOKEN]),
+            ("PAPER_COPY", crest::PAPER[crest::GLYPH_COPY]),
+            ("CREST_INK", crest::CREST_INK),
         ] {
             let theirs = wgsl_vec3(src, name);
             for c in 0..3 {

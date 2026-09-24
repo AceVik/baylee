@@ -222,9 +222,9 @@ fn perimeter(uv: vec2<f32>) -> f32 {
 fn frame_paper(glow: u32, ledge: f32) -> vec3<f32> {
     var made = FRAME_PAPER;
     if (glow & GLOW_TOKEN) != 0u {
-        made = SLIP_PAPER_TOKEN;
+        made = PAPER_TOKEN;
     } else if (glow & GLOW_COPY) != 0u {
-        made = SLIP_PAPER_COPY;
+        made = PAPER_COPY;
     }
     if (glow & GLOW_COMMANDER) != 0u {
         return mix(FRAME_COMMANDER, made, ledge * f32((glow & (GLOW_TOKEN | GLOW_COPY)) != 0u));
@@ -319,9 +319,14 @@ fn frame_layer(
         out = out + vec3<f32>(0.56, 0.60, 0.98) * band * 0.40 * pulse;
     }
 
-    // ---- the numbers
-    out = mark_layer(uv, (glow >> MARK_SHIFT) & MARK_FIELD, t, out, marks, marks_s);
-    out = plate_layer(uv, plate, chips_a, chips_b, out, marks, marks_s);
+    // ---- the ledge: the numbers from the left, the identity at the end
+    //
+    // The keyword rail is not drawn while it moves off the card (#274): it
+    // lay across the print's bottom edge, and it comes back as an object of
+    // its own lifted over the art.
+    let night = (glow & GLOW_SUMMONING_SICK) != 0u;
+    out = plate_layer(uv, plate, chips_a, chips_b, night, out, marks, marks_s);
+    out = crest_layer(uv, glow, out, marks, marks_s);
     out = count_layer(uv, count, out, marks, marks_s);
     return out;
 }
@@ -1034,28 +1039,110 @@ const CREST_COMMANDER: u32 = 2u;
 /// Nothing to draw.
 const CREST_NONE: u32 = 3u;
 
-/// The paper a token and a copy are made of. `cardcrest::SLIP_PAPER`.
+/// The paper a token and a copy are made of. `cardcrest::PAPER`.
 ///
 /// Linear, and card stock rather than writing paper: displayed around 175 of
 /// 255, dark enough to hold ink and to show a night or a wash. Verdigris is a
 /// thing conjured rather than printed; violet is what the swing uses for a
 /// permanent that is not what it was. A commander's paper is the frame's own
 /// constant, `FRAME_COMMANDER`.
-const SLIP_PAPER_TOKEN: vec3<f32> = vec3<f32>(0.396, 0.440, 0.418);
-const SLIP_PAPER_COPY: vec3<f32> = vec3<f32>(0.429, 0.385, 0.506);
+const PAPER_TOKEN: vec3<f32> = vec3<f32>(0.396, 0.440, 0.418);
+const PAPER_COPY: vec3<f32> = vec3<f32>(0.429, 0.385, 0.506);
+
+/// A crest's square, where the first one's right edge sits, and the air
+/// between two, in card widths. `cardcrest::CREST_W`, `CREST_X1`,
+/// `CREST_GAP`.
+const CREST_W: f32 = 0.085;
+const CREST_X1: f32 = 0.955;
+const CREST_GAP: f32 = 0.012;
+
+/// The crests' ink, near-black so it holds on all three papers.
+/// `cardcrest::CREST_INK`.
+const CREST_INK: vec3<f32> = vec3<f32>(0.008, 0.007, 0.006);
+
+/// The identity glyphs, right-aligned on the ledge: a caption for the
+/// preview. The paper already says the same thing at table size, so the
+/// glyph is not relied on there — a legibility ladder, not the same claim
+/// twice.
+///
+/// Packed from the right, provenance first (`cardcrest::marks`): a lone
+/// commander takes the first crest where a lone token would. `glow` is a
+/// uniform, so every branch here is uniform, and the atlas is read with an
+/// explicit level in `cell_sdf` anyway.
+fn crest_layer(
+    uv: vec2<f32>,
+    glow: u32,
+    color: vec3<f32>,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec3<f32> {
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let aa = max(fwidth(p.x), 0.0015);
+
+    var first = CREST_NONE;
+    if (glow & GLOW_TOKEN) != 0u {
+        first = CREST_TOKEN;
+    } else if (glow & GLOW_COPY) != 0u {
+        first = CREST_COPY;
+    }
+    var second = CREST_NONE;
+    if (glow & GLOW_COMMANDER) != 0u {
+        if first == CREST_NONE {
+            first = CREST_COMMANDER;
+        } else {
+            second = CREST_COMMANDER;
+        }
+    }
+    if first == CREST_NONE {
+        return color;
+    }
+
+    let foot = FRAME_TOP + PRINT_SCALE / CARD_ASPECT;
+    let mid_y = (foot + 1.0 / CARD_ASPECT) * 0.5;
+    var out = color;
+    for (var n = 0u; n < 2u; n = n + 1u) {
+        let which = select(first, second, n == 1u);
+        if which == CREST_NONE {
+            continue;
+        }
+        let x1 = CREST_X1 - f32(n) * (CREST_W + CREST_GAP);
+        let cell = (p - vec2<f32>(x1 - CREST_W * 0.5, mid_y)) / CREST_W;
+        if abs(cell.x) > 0.5 || abs(cell.y) > 0.5 {
+            continue;
+        }
+        let d = cell_sdf(CREST_BASE + which, cell, MARK_RANGE, marks, marks_s);
+        let e = max(aa / CREST_W, 0.02);
+        out = mix(out, CREST_INK, 1.0 - smoothstep(-e, e, d));
+    }
+    return out;
+}
 
 // ------------------------------------------------------------------ the plate
 //
-// The bottom-right corner the rail has been reserving: a creature's power and
-// toughness with the damage marked on it, or a planeswalker's loyalty. The
-// Rust half is `baylee_client_core::cardplate`, which is where the numbers are
-// packed and where every constant below is mirrored and tested.
+// A creature's power and toughness with the damage marked on it, or a
+// planeswalker's loyalty, on the ledge under the print (#274): the plate at
+// the ledge's left end and the chip beside it. The Rust half is
+// `baylee_client_core::cardplate`, which is where the numbers are packed and
+// where every constant below is mirrored and tested.
 
-/// The plate's inset, width, height and inner margin, in card widths.
-const PLATE_INSET: f32 = 0.052;
+/// Where the plate starts, how wide it is, its inner margin and its figure
+/// height, in card widths. `cardplate::LEDGE_PAD`, `PLATE_W`, `PLATE_PAD`,
+/// `PLATE_CAP`.
+const LEDGE_PAD: f32 = 0.030;
 const PLATE_W: f32 = 0.196;
-const PLATE_H: f32 = 0.115;
-const PLATE_PAD: f32 = 0.020;
+const PLATE_PAD: f32 = 0.012;
+const PLATE_CAP: f32 = 0.075;
+/// The plate's height: its figures and its margin. `cardplate::PLATE_H`.
+const PLATE_H: f32 = 0.099;
+
+/// The air between the plate and the chip, and the chip's width.
+/// `cardplate::CHIP_GAP` and `CHIP_W`.
+const CHIP_GAP: f32 = 0.010;
+const CHIP_W: f32 = 0.100;
+
+/// Where the count pill sits from the top and right edges.
+/// `cardplate::COUNT_INSET`.
+const COUNT_INSET: f32 = 0.052;
 
 /// How the packed word is read: three ten-bit numbers, two kind bits on top.
 const PLATE_KIND_SHIFT: u32 = 30u;
@@ -1183,23 +1270,23 @@ const TONE_PLAIN: u32 = 0u;
 const TONE_DEADLY: u32 = 1u;
 const TONE_TOXIC: u32 = 2u;
 
-/// Where the swing line stands and how tall its figures are, in card widths.
-/// `cardplate::SWING_GAP` and `SWING_H`.
-const SWING_GAP: f32 = 0.012;
-const SWING_H: f32 = 0.04650;
-
-/// The printed body's line, under the plate. `cardplate::BASE_*`.
+/// The printed body's word. `cardplate::BASE_SET`.
 const BASE_SET: u32 = 0x100000u;
-const BASE_GAP: f32 = 0.006;
-const BASE_H: f32 = 0.040;
 
-/// How large a card has to be *drawn* before the printed body appears.
+/// How large a card has to be *drawn* before the chip writes the printed
+/// body. `cardplate::BASE_AA`.
 ///
-/// On the table a card is about 150 physical pixels wide, which puts this
-/// line at five and makes it a smudge on every pumped creature at once. The
-/// damage band's rules appear on the same terms and through the same `aa`,
-/// so the corner already behaves this way and a player has already met it.
+/// On the table a card is about 94 physical pixels wide, which would put a
+/// second line in the chip at three and make it a smudge on every pumped
+/// creature at once. The damage band's rules appear on the same terms and
+/// through the same `aa`, so the ledge already behaves this way and a player
+/// has already met it.
 const BASE_AA: f32 = 0.004;
+
+/// A sleeping creature's plate ink: moon-grey, the night the paper round it
+/// is under carried on to the numbers, and still about 5.8:1 on the plate's
+/// body.
+const MOON_INK: vec3<f32> = vec3<f32>(0.50, 0.54, 0.64);
 
 /// The printed body's ink: the plate's accent, held well back.
 ///
@@ -1227,8 +1314,9 @@ const TOXIC: vec3<f32> = vec3<f32>(0.95, 0.35, 0.33);
 ///
 /// The two colours the counter chips carried before the numerals took their
 /// place — growth green and bruise violet — kept because they were the one
-/// part of a chip that was read at a glance, and because a `+2/+2` and a
-/// `-2/-2` differ by a character eleven pixels tall otherwise.
+/// part of a chip that was read at a glance, and since #274 they are the
+/// chip's own stock: at the nine pixels a chip is wide on the table the
+/// colour is the reading, and the figures on it are the preview's.
 const GROWN: vec3<f32> = vec3<f32>(0.40, 0.82, 0.46);
 const SHRUNK: vec3<f32> = vec3<f32>(0.72, 0.46, 0.84);
 
@@ -1405,16 +1493,19 @@ fn fit(cap: f32, line: vec2<u32>, room: f32) -> f32 {
     return min(cap, room * TEXT_CAP / max(text_width(line), 0.001));
 }
 
-/// Draws the plate, the swing line above it and the printed body below it.
+/// Draws the plate and the chip beside it, on the ledge.
 ///
-/// The three words are `cardplate::Corner::packed` in order. Not gated on whether the card has artwork: a
+/// The three words are `cardplate::Corner::packed` in order: the plate, the
+/// swing and the printed body. Not gated on whether the card has artwork: a
 /// card drawn as a flat tint is a card whose art has not loaded, and its
-/// body is the thing a player most needs off it.
+/// body is the thing a player most needs off it. `night` turns the plate's
+/// ink to moon-grey on a sleeping creature.
 fn plate_layer(
     uv: vec2<f32>,
     word: u32,
     swing: u32,
     base: u32,
+    night: bool,
     color: vec3<f32>,
     marks: texture_2d<f32>,
     marks_s: sampler,
@@ -1434,7 +1525,7 @@ fn plate_layer(
     let aa = max(fwidth(p.x), 0.0015);
 
     // A chapter is a page: square, barely rounded, and light. Everything else
-    // is the wide dark plate. Same corner and same right edge, so the two can
+    // is the wide dark plate. Same corner and same left edge, so the two can
     // never be mistaken for each other and never move.
     var pw = PLATE_W;
     var radius = PLATE_H * 0.28;
@@ -1448,64 +1539,86 @@ fn plate_layer(
     } else if kind == PLATE_LOYALTY {
         // Gilt, and explicitly not a shield — see GILT.
         accent = GILT;
+    } else if night {
+        accent = MOON_INK;
     }
 
-    let x1 = 1.0 - PLATE_INSET;
-    let x0 = x1 - pw;
-    let y1 = height - PLATE_INSET;
-    let y0 = y1 - PLATE_H;
+    // Centred on the ledge: `cardplate::plate_rect`.
+    let foot = FRAME_TOP + PRINT_SCALE / CARD_ASPECT;
+    let y0 = (foot + height - PLATE_H) * 0.5;
+    let y1 = y0 + PLATE_H;
+    let x0 = LEDGE_PAD;
+    let x1 = x0 + pw;
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
     let half = vec2<f32>(pw * 0.5, PLATE_H * 0.5);
 
     var out = color;
 
-    // ---- the swing, above the plate
+    // ---- the chip, beside the plate
     //
-    // The net that this permanent's ±1/±1 counters added, one size down and
-    // on the plate's own centre line, so the corner reads as one column. It
-    // is drawn first because it is *outside* the plate and the plate's own
-    // early return below is on the plate's rectangle.
-    if (swing & SWING_SET) != 0u {
+    // What the counters did, and — drawn large — what the printing says the
+    // body was. It used to be two lines, the swing standing on the plate and
+    // the printed body hanging under it; the ledge has room for neither, so
+    // they stand beside it, one row each. A swing is a chip of green or
+    // violet stock with the plate's dark body for ink, the way a damaged
+    // plate is a hot box with dark digits: at table size the stock is what
+    // is read. A swing that nets to neither is a dark chip in the plate's
+    // ink, and a `+1/-1` says as much by being neither colour.
+    let has_swing = (swing & SWING_SET) != 0u;
+    let has_base = (base & BASE_SET) != 0u && aa <= BASE_AA;
+    if has_swing || has_base {
+        let cx0 = LEDGE_PAD + PLATE_W + CHIP_GAP;
+        let chip_mid = vec2<f32>(cx0 + CHIP_W * 0.5, mid.y);
+        let chip_half = vec2<f32>(CHIP_W * 0.5, PLATE_H * 0.5);
+        let d_chip = sd_round_box(p - chip_mid, chip_half, PLATE_H * 0.28);
+        let on_chip = 1.0 - smoothstep(-aa, aa, d_chip);
+
         let dp = i32(swing & PLATE_SLOT_MASK) - PLATE_BIAS;
         let dt = i32((swing >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
-        var line = text_signed(vec2<u32>(0u, 0u), dp, true);
-        line = text_push(line, GLYPH_SLASH);
-        line = text_signed(line, dt, true);
-        let at = vec2<f32>(mid.x, y0 - SWING_GAP - SWING_H * 0.5);
-        // Never wider than the plate it explains. `+2/-1` is six characters
-        // against the plate's usual three, and unclamped it hung off the
-        // card's right edge — an appendage has to stay inside the thing it
-        // is an appendage to.
-        let hit = text_cover(p, at, fit(SWING_H, line, pw), line, marks, marks_s, aa);
-        // Green for a creature that grew, violet for one that shrank, and
-        // the plate's ink for the rare swing that nets to neither — a
-        // `+1/-1` says as much by being neither colour.
-        var tint = accent;
-        if dp + dt > 0 {
-            tint = GROWN;
-        } else if dp + dt < 0 {
-            tint = SHRUNK;
+        var stock = body;
+        var figure = accent;
+        if has_swing && dp + dt > 0 {
+            stock = GROWN;
+            figure = body;
+        } else if has_swing && dp + dt < 0 {
+            stock = SHRUNK;
+            figure = body;
         }
-        out = mix(out, tint, hit.x);
-    }
+        out = mix(out, stock, on_chip * 0.88);
+        let chip_rim = 1.0 - smoothstep(-aa, aa, abs(d_chip) - 0.0045);
+        out = mix(out, figure, chip_rim * 0.55);
 
-    // ---- the printed body, below the plate
-    //
-    // The number the plate is *standing on*: a real card prints its power
-    // and toughness in this exact corner, so the plate covers them, and a
-    // player looking at a 5/5 cannot see that it was printed a 2/2. Drawn
-    // only when the two differ — a creature at its printed size says it
-    // once — and only when the card is drawn large enough to read a line
-    // this small.
-    if (base & BASE_SET) != 0u && aa <= BASE_AA {
-        let bp = i32(base & PLATE_SLOT_MASK) - PLATE_BIAS;
-        let bt = i32((base >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
-        var line = text_signed(vec2<u32>(0u, 0u), bp, false);
-        line = text_push(line, GLYPH_SLASH);
-        line = text_signed(line, bt, false);
-        let at = vec2<f32>(mid.x, y1 + BASE_GAP + BASE_H * 0.5);
-        let hit = text_cover(p, at, fit(BASE_H, line, pw), line, marks, marks_s, aa);
-        out = mix(out, accent, hit.x * BASE_FADE);
+        // One row, or two when both are there: the swing on top, because it
+        // is news, and the printed body under it, because it is history.
+        let room = CHIP_W - 2.0 * PLATE_PAD;
+        let rows = select(1.0, 2.0, has_swing && has_base);
+        let row_h = PLATE_CAP / rows;
+        let row_cap = select(row_h, row_h * 0.85, has_swing && has_base);
+        let top = mid.y - PLATE_CAP * 0.5 + row_h * 0.5;
+        if has_swing {
+            // A symmetric swing — every `+1/+1` and `-1/-1` counter there is
+            // — says its number once: `+2` in a green chip beside a `4/4`
+            // reads as what it is, and `+2/+2` in nine pixels would not read
+            // at all. The rare lopsided one is written out and shrinks to fit.
+            var line = text_signed(vec2<u32>(0u, 0u), dp, true);
+            if dp != dt {
+                line = text_push(line, GLYPH_SLASH);
+                line = text_signed(line, dt, true);
+            }
+            let at = vec2<f32>(chip_mid.x, top);
+            let hit = text_cover(p, at, fit(row_cap, line, room), line, marks, marks_s, aa);
+            out = mix(out, figure, hit.x * on_chip);
+        }
+        if has_base {
+            let bp = i32(base & PLATE_SLOT_MASK) - PLATE_BIAS;
+            let bt = i32((base >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
+            var line = text_signed(vec2<u32>(0u, 0u), bp, false);
+            line = text_push(line, GLYPH_SLASH);
+            line = text_signed(line, bt, false);
+            let at = vec2<f32>(chip_mid.x, top + row_h * (rows - 1.0));
+            let hit = text_cover(p, at, fit(row_cap, line, room), line, marks, marks_s, aa);
+            out = mix(out, mix(stock, figure, BASE_FADE), hit.x * on_chip);
+        }
     }
 
     // ---- the plate
@@ -1584,7 +1697,7 @@ fn plate_layer(
         left = line.y;
     }
 
-    let cap = fit(PLATE_H - 2.0 * PLATE_PAD, line, pw - 2.0 * PLATE_PAD);
+    let cap = fit(PLATE_CAP, line, pw - 2.0 * PLATE_PAD);
     let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
     if hit.x <= 0.0 {
         return out;
@@ -1638,12 +1751,12 @@ fn count_layer(
 
     var line = text_push(vec2<u32>(0u, 0u), GLYPH_TIMES);
     line = text_number(line, min(count, COUNT_MAX));
-    let cap = PLATE_H - 2.0 * PLATE_PAD;
+    let cap = PLATE_CAP;
     let w = text_width(line) * cap / TEXT_CAP + 2.0 * PLATE_PAD;
 
-    let x1 = 1.0 - PLATE_INSET;
+    let x1 = 1.0 - COUNT_INSET;
     let x0 = x1 - w;
-    let y0 = PLATE_INSET;
+    let y0 = COUNT_INSET;
     let y1 = y0 + PLATE_H;
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
     let half = vec2<f32>(w * 0.5, PLATE_H * 0.5);

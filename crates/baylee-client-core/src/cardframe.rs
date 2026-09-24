@@ -137,6 +137,52 @@ mod tests {
         assert!((y1 + FRAME_FOOT - CARD_TALL).abs() < 1e-6);
     }
 
+    /// Signed distance to the card's own rounded outline, in card widths:
+    /// negative inside. `card_common.wgsl`'s `corner_sdf`, for a point
+    /// already in card widths.
+    fn card_sdf(x: f32, y: f32) -> f32 {
+        const CORNER: f32 = 0.0476;
+        let (hx, hy) = (0.5, CARD_TALL * 0.5);
+        let (qx, qy) = (
+            (x - hx).abs() - (hx - CORNER),
+            (y - hy).abs() - (hy - CORNER),
+        );
+        let outside = qx.max(0.0).hypot(qy.max(0.0));
+        outside + qx.max(qy).min(0.0) - CORNER
+    }
+
+    /// Everything the ledge carries lies off the print and on the card.
+    ///
+    /// The Rust half of #274's rule, over every rectangle the frame draws in:
+    /// the plate, the chip and both crests. Each must lie wholly below the
+    /// window — not overlap it by a hair — and each of its corners inside
+    /// the card's rounded outline, so the ledge's end does not hang off the
+    /// card either. The shader is held to the same numbers by `cardmat`'s
+    /// mirror tests, and to the window itself by the live diff.
+    #[test]
+    fn nothing_on_the_ledge_lies_on_the_print() {
+        use crate::cardcrest::{MAX_CRESTS, crest_rect};
+        use crate::cardplate::{chip_rect, plate_rect};
+        let [wx0, _, wx1, wy1] = window();
+        let mut rects = vec![("the plate", plate_rect()), ("the chip", chip_rect())];
+        for n in 0..MAX_CRESTS {
+            rects.push(("a crest", crest_rect(n)));
+        }
+        for (what, [x0, y0, x1, y1]) in rects {
+            let clear = y0 >= wy1 || x1 <= wx0 || x0 >= wx1;
+            assert!(
+                clear,
+                "{what} at [{x0}, {y0}, {x1}, {y1}] lies on the print, which ends at {wy1}"
+            );
+            for (x, y) in [(x0, y0), (x1, y0), (x0, y1), (x1, y1)] {
+                assert!(
+                    card_sdf(x, y) <= 0.0,
+                    "{what} reaches ({x}, {y}), off the card"
+                );
+            }
+        }
+    }
+
     /// An offer is light on the rim and has faded out before the print.
     #[test]
     fn an_offer_fades_before_it_reaches_the_print() {
@@ -161,12 +207,12 @@ mod tests {
     /// plain frame, or a token would be told from a card only in the preview.
     #[test]
     fn the_night_and_every_identity_are_seen_on_the_frame() {
-        use crate::cardcrest::{GLYPH_COPY, GLYPH_TOKEN, SLIP_PAPER};
+        use crate::cardcrest::{GLYPH_COMMANDER, GLYPH_COPY, GLYPH_TOKEN, PAPER};
         let papers = [
             ("plain", FRAME_PAPER),
-            ("token", SLIP_PAPER[GLYPH_TOKEN]),
-            ("copy", SLIP_PAPER[GLYPH_COPY]),
-            ("commander", COMMANDER_PAPER),
+            ("token", PAPER[GLYPH_TOKEN]),
+            ("copy", PAPER[GLYPH_COPY]),
+            ("commander", PAPER[GLYPH_COMMANDER]),
         ];
         for (name, paper) in papers {
             let night = paper.map(|v| v * FRAME_NIGHT);

@@ -728,7 +728,7 @@ tapped card. The `×` is load-bearing: a bare `12` over a cost slot reads as
 twelve generic mana. It grows sideways with its digits (`count_width`): at
 `×999` its left edge sits 0.67 card widths across, right of the centred name
 a token frame prints (measured on a Treasure at `×28`, whose pill starts at
-0.73), and `the_widest_count_stays_clear_of_the_slips_and_the_name` holds it
+0.73), and `the_widest_count_leaves_the_name_half_the_title_bar` holds it
 to the right half of the title bar. Until #210 the sentence above was true
 of a function (`table::stack_badge`) that nothing called: 54 Goblins drew as
 one Goblin, the slab under the card was the only cue, and a pile's depth is
@@ -1857,9 +1857,8 @@ three registers of the frame, and that separation is the whole grammar:
   marks and not more paint because paint cannot *count*: a creature can carry
   six of these at once, and six colours mixed into one border is one colour
   that says nothing. The row used to run along the card's bottom edge, over
-  the artist's line; for now it is drawn where it was but on the frame, so
-  the window hides what of it falls on the print, until it becomes an object
-  of its own above the card (#274). **The mark is the Mana font's own ability glyph**, baked
+  the artist's line, and is **not drawn** while it moves off the card
+  (#274): it comes back as an object of its own lifted over the art. **The mark is the Mana font's own ability glyph**, baked
   to a distance field at startup by `markatlas.rs` and sampled out of one
   atlas row — twelve procedural pictograms drawn in WGSL until September
   2026, and replaced not because they were bad but because a player arriving
@@ -1878,10 +1877,17 @@ three registers of the frame, and that separation is the whole grammar:
   three homes were on the print. Since #274 the tab's stock is the frame's
   paper; the glyphs stay in the atlas (`cardcrest::GLYPHS`, the third door
   of `docs/legal.md` §2a) for the frame to caption the paper with.
-- **The corner says what the card *is* in numbers.** The fifth of the bottom
-  edge the rail has been reserving since it was written now carries a plate:
-  a creature's power and toughness, or a planeswalker's loyalty behind a gilt
-  rim. `client-core/src/cardplate.rs` decides what it says and packs it into
+- **The ledge says what the card *is* in numbers.** The frame's ledge under
+  the print carries a plate: a creature's power and toughness, or a
+  planeswalker's loyalty behind a gilt rim. It was the bottom-right fifth of
+  the print until #274, which the rail left empty for it; now it is the
+  ledge's **left** end (`cardplate::plate_rect`: in 0.030, 0.196 wide,
+  centred on the ledge), because a lane fans with each card's own left edge
+  exposed and the plate ends at 0.226, inside the 0.26 the tightest fan
+  shows — `the_plate_leads_the_ledge_and_survives_the_tightest_fan`.
+  `cardframe::tests::nothing_on_the_ledge_lies_on_the_print` holds the plate,
+  the chip and the crests off the window and on the card, and went red on
+  the plate moved back to its old inset and on the old rail's rectangle. `client-core/src/cardplate.rs` decides what it says and packs it into
   one `u32` — three ten-bit numbers and two kind bits — that rides the
   material key beside `glow`, so a creature dealt three damage becomes a
   different material and the corner redraws with no second pass. Marked
@@ -1906,7 +1912,11 @@ three registers of the frame, and that separation is the whole grammar:
   creature growing from `9/9` to `10/10` does not shunt its own slash
   sideways. `PLATE_PAD` went 0.014 → 0.020 in the same change, because a
   stencil's ink stopped short of its own box and a typeface's does not — at
-  the old padding the digits and the plate's rim ran together.
+  the old padding the digits and the plate's rim ran together. It went back
+  to 0.012 for the ledge, which is 0.125 deep: the figures kept their 0.075
+  (`PLATE_CAP`, seven physical pixels on the felt) and the margin paid.
+  A sleeping creature's plate writes in moon-grey, the paper's night carried
+  on to the numbers.
 - **Deathtouch greens the power, and only the power.** That is the half of
   the body the keyword acts through: a 1/1 deathtoucher trades with anything,
   and what does the trading is the 1 on the left. A colour on the number
@@ -1915,22 +1925,41 @@ three registers of the frame, and that separation is the whole grammar:
   reads it off the rail's own badges rather than off the raw keyword word, so
   the mark and the colour cannot disagree. Toxic is written into the enum and
   reaches nothing: `board::keyword_bits` has no toxic bit yet.
-- **And the counters stand above it, in words.** The net power and toughness
-  a permanent's ±1/±1 counters add, written `+2/-1` one size down on the
-  plate's own centre line — green when it grew, violet when it shrank. What
-  stood there was a column of stamped **chips**, pips to six and a colour per
+- **And the counters stand beside it, on a chip.** The net power and
+  toughness a permanent's ±1/±1 counters add, on a chip 0.100 wide one gap
+  right of the plate: green stock when it grew, violet when it shrank, the
+  plate's dark body for ink. At table size the chip is nine pixels wide and
+  the **stock** is the reading; the figures are the preview's. A symmetric
+  swing — every `+1/+1` and `-1/-1` counter there is — is written once
+  (`+2`), and a lopsided one in full, shrinking to fit. It stood *above* the
+  plate, one size down, until #274; the ledge has no room above a plate. What
+  stood there before that was a column of stamped **chips**, pips to six and a colour per
   kind of counter, and the owner read it as saying nothing: a green disc with
   three pips on it is a rebus for `+3/+3`, and the plate two millimetres
   below was already writing the answer in figures. The cost is named rather
   than hidden — charge, time, level, keyword and loyalty-on-a-non-planeswalker
   counters had a chip each and now have none on the table; the badge tooltip
   names them in full, which is where the chips' colour code always had to be
-  decoded anyway. A **saga** is the exception that takes the plate itself: a
-  square parchment page with the chapter in roman numerals. `Corner::of`
-  decides the plate and the line together, and `Corner::of_object` does the
+  decoded anyway. Drawn large (`BASE_AA`, the same test the damage rules
+  use), the chip also writes the **printed body** when it is not the body on
+  the plate — under the swing when there is one — which used to hang under
+  the plate because the plate covered the print's own P/T box. A **saga** is
+  the exception that takes the plate itself: a square parchment page with
+  the chapter in roman numerals, at the same left edge. `Corner::of` decides
+  the plate and the chip together, and `Corner::of_object` does the
   same for the hover preview — which drew the *printed* numbers until it did,
   so a 2/2 under an anthem was a 3/3 on the table and a 2/2 in its own
-  preview.
+  preview. A card drawn as text on the table (`face::spawn_world`) no longer
+  writes the body under its type line when the plate already says it
+  (`face::world_stats`): it said `3/3` twice. An animated planeswalker keeps
+  its line, because its plate is its loyalty.
+- **The crest captions the paper.** The identity glyphs — the Mana font's
+  `ms-token`, `ms-ability-copy`, `ms-commander` — stand right-aligned on the
+  ledge (`cardcrest::crest_rect`, 0.870–0.955, a second one gap to the left
+  for a token or copy that is also a commander) in a near-black ink that
+  holds 4.5:1 on all three papers (`the_ink_reads_on_every_paper`; the slips'
+  ink measured 3.5:1 on the oxblood). At table size the paper is the answer
+  and the glyph is not relied on; in the preview it names it.
 
 The pictograms live in a third shader file, `card_common.wgsl`, together with
 the printed corner both shaders cut at: it is everything the table and the
