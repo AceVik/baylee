@@ -560,10 +560,13 @@ thing that has to be right is the host's own arithmetic.
 seat on the clock. A table where one player is running out of time and nobody
 else can see it is a table where the pause reads as rudeness rather than as a
 clock. It is read with `PlayerView::awaiting`, which names whose remainder it
-is, exactly as `owed` is above.
+is, exactly as `owed` is above. The opening mulligans are the one exception:
+every deciding seat is on its own clock then, and each is told its own
+remainder and nobody else's (below).
 
-**`None` is four situations wearing one answer**: nobody is being asked, the
-table is `untimed` (`decision_timeout_secs` at zero — no number because there
+**`None` is five situations wearing one answer**: nobody is being asked, this
+seat has kept while others still decide their mulligans, the table is
+`untimed` (`decision_timeout_secs` at zero — no number because there
 is no limit), the awaited seat is an AI chair, or the awaited seat is on the
 **stand-in** clock rather than the decision clock. That last one is the one
 worth stating: its socket is gone, so it is not deciding at all, and a
@@ -590,7 +593,7 @@ asked a moment ago. It is anchored to a count of questions and not to a
 timestamp for the reason that counter exists at all: it counts *questions
 asked* rather than frames sent, so an opponent's priority hold cannot wind it.
 
-### Every seat is asked its mulligan at once
+### Every seat is asked its mulligan at once (view version 32)
 
 Before turn 1 every seat owes its own `Mulligan`, and later its own
 `MulliganBottom` (`Engine::awaited`, `Engine::pending_for`), and a pump sends
@@ -604,6 +607,17 @@ without asking any other seat anything new, so a clock anchored to the shared
 asked something it was not asked before; outside the window every move asks
 the one awaited seat anew, exactly as the shared count did. A seat's expired
 clock keeps its hand (`choice::timeout_answer`, #258).
+
+The views follow. `PlayerView::deciding` is the set of seats that have
+neither kept nor left, empty from turn 1 on. While it is not empty,
+`PlayerView::awaiting` is per seat: this seat while it still has a question
+open, `None` once it has kept. So `decision_remaining_ms` is this seat's own
+remainder or nothing. A seat that has kept is told no other seat's clock,
+because with several clocks running a bare number would not say whose it is.
+Another seat's progress reaches a view only as `deciding` and as its hand and
+library counts; what it is asked and the cards it looks at stay with it.
+`baylee_gamehost::view::awaiting_for` and `view::deciding` are what every host
+passes into the `SeatContext`.
 
 The resolution happens twice per frame, and the second time is not
 redundant. Registering a socket moves the awaited seat off the reconnect
@@ -1687,9 +1701,10 @@ nobody. The clock lives in the **engine process** (it started in the gateway;
 it moved with the rules), never in the rules kernel or the session: the kernel
 is deterministic, and a session that timed itself would replay differently on
 every machine. `Session` only answers three clock-free questions — who owes an
-answer, what a legal answer would be, and how many questions have been asked
-(`decision_seq`) — and the process anchors a deadline to that last one so it
-restarts when the game moves rather than whenever the task wakes up. On
+answer, what a legal answer would be, and at which count of questions asked
+(`decision_seq`) each seat was asked the one it owes (`asked_at`) — and the
+process anchors each seat's deadline to that last one so it restarts when
+the seat is asked something new rather than whenever the task wakes up. On
 expiry the house agent answers for the seat, because it is legal for every
 `Pending`; a timeout that produced an illegal action would leave the same
 seat stuck on the same question forever.
@@ -1698,7 +1713,7 @@ seat stuck on the same question forever.
 **second clock**, not a longer first one. A seat with no socket is on no
 decision clock at all — nobody should lose on time to a question they never
 saw — which was right and left the table waiting on a closed laptop forever.
-So the same `awaiting_seat()` is on exactly one of two deadlines: the decision
+So each awaited seat is on exactly one of two deadlines: the decision
 clock if its socket is here, the reconnect window if it is not, and neither if
 the chair is an AI's (it never had a socket to lose). The two limits are
 independent: a table that gives its players all the time in the world still

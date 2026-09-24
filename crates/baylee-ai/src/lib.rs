@@ -641,6 +641,7 @@ mod tests {
     use super::*;
     use baylee_cards_dsl::AbilityDef;
     use baylee_core::color::ColorSet;
+    use baylee_core::ids::SeatSet;
     use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
     use baylee_engine::choice::{ArrangePile, ArrangePlace};
     use baylee_view::{
@@ -3829,6 +3830,7 @@ mod tests {
             step: baylee_view::Step::DeclareAttackers,
             active: PlayerId::new(seat),
             awaiting: None,
+            deciding: SeatSet::new(),
             decision_remaining_ms: None,
             priority_held: false,
             monarch: None,

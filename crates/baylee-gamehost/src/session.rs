@@ -474,7 +474,7 @@ impl Session {
     /// The order matters: the entry has to be there before the object that
     /// points at it, or the client draws a card it cannot key an image on.
     fn view_envelopes(&mut self, seat: PlayerId) -> Vec<Envelope> {
-        let awaiting = self.awaiting_seat();
+        let awaiting = crate::view::awaiting_for(&self.engine, seat);
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
@@ -482,6 +482,7 @@ impl Session {
             self.engine.pending_for(seat),
             &crate::view::SeatContext {
                 awaiting,
+                deciding: self.deciding(),
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
@@ -568,7 +569,8 @@ impl Session {
                         self.seq,
                         Some(&pending),
                         &crate::view::SeatContext {
-                            awaiting: self.awaiting_seat(),
+                            awaiting: crate::view::awaiting_for(&self.engine, player),
+                            deciding: self.deciding(),
                             held: self.engine.automation(player).hold.suppresses(),
                             owed: crate::view::owed_payment(&self.engine),
                             // No clock in a view an agent answers from. This
@@ -747,18 +749,10 @@ impl Session {
         self.asked_at.get(seat.get() as usize).copied()
     }
 
-    /// The seats owing an opening mulligan question.
+    /// The seats owing an opening mulligan question: the same set every
+    /// view carries as `PlayerView::deciding`.
     fn deciding(&self) -> SeatSet {
-        self.engine
-            .awaited()
-            .iter()
-            .filter(|seat| {
-                matches!(
-                    self.engine.pending_for(*seat),
-                    Some(Pending::Mulligan { .. } | Pending::MulliganBottom { .. })
-                )
-            })
-            .collect()
+        crate::view::deciding(&self.engine)
     }
 
     /// The game moved, by `answered`'s answer or concession: counts the
@@ -820,7 +814,8 @@ impl Session {
             self.seq,
             Some(pending),
             &crate::view::SeatContext {
-                awaiting: self.awaiting_seat(),
+                awaiting: crate::view::awaiting_for(&self.engine, player),
+                deciding: self.deciding(),
                 held: self.engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 // As in `pump`, and pointedly so here: this view exists
@@ -865,7 +860,7 @@ impl Session {
     #[must_use]
     pub fn snapshot(&self, seat: PlayerId) -> Vec<Envelope> {
         let own = self.engine.pending_for(seat);
-        let awaiting = self.awaiting_seat();
+        let awaiting = crate::view::awaiting_for(&self.engine, seat);
         // Read-only, so no printing is revealed here: this rebuilds a state a
         // `pump` already showed this seat, and the reveal happened there.
         let view = crate::view::player_view(
@@ -875,6 +870,7 @@ impl Session {
             own,
             &crate::view::SeatContext {
                 awaiting,
+                deciding: self.deciding(),
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
@@ -1715,38 +1711,49 @@ mod tests {
     ///
     /// The opponent's copy is the half that cannot be worked out client-side:
     /// a session sends the pending question only to the seat it is addressed
-    /// to, so seat 1 has nothing else to read it off.
+    /// to, so the other seat has nothing else to read it off.
+    ///
+    /// The opening mulligans have no such other seat: every seat is asked
+    /// its own at once (#257), so each seat's view names itself until it has
+    /// kept, and nobody after.
     #[test]
     fn a_seat_that_holds_no_priority_is_still_the_seat_being_waited_for() {
         // Both seats human, so the seat that is not being asked is sent a
-        // view and the second assertion has something to read.
+        // view and the assertions on it have something to read.
         let mut preset = test_preset();
         preset.seats[1].controller = SeatController::Open;
         let mut session = Session::new(&preset).expect("session builds");
-        let asked = PlayerId::new(0);
-        let bystander = PlayerId::new(1);
+        let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
 
         assert!(
             matches!(session.pending(), Pending::Mulligan { .. }),
             "the game opens on a question nobody holds priority for"
         );
-        assert_eq!(session.awaiting_seat(), Some(asked));
+        for seat in [zero, one] {
+            assert_eq!(
+                seat_view(&session, seat).awaiting,
+                Some(seat),
+                "a seat deciding its mulligan is told the table is waiting \
+                 for it"
+            );
+        }
+        session
+            .act(zero, PlayerAction::MulliganKeep)
+            .expect("a keep");
         assert_eq!(
-            seat_view(&session, asked).awaiting,
-            Some(asked),
-            "the seat being asked is told the table is waiting for it"
+            seat_view(&session, zero).awaiting,
+            None,
+            "a seat that has kept is asked nothing"
         );
-        assert_eq!(
-            seat_view(&session, bystander).awaiting,
-            Some(asked),
-            "and so is the seat that is not being asked, which has no other \
-             way to know"
-        );
+        assert_eq!(seat_view(&session, one).awaiting, Some(one));
+        session
+            .act(one, PlayerAction::MulliganKeep)
+            .expect("a keep");
 
         // Play the game out with the house agent answering both chairs, and
-        // hold every view against the seat that actually owes an answer.
+        // hold both views against the seat that actually owes an answer.
         // Bounded on the questions seen rather than on the loop, because a
-        // run that stopped after the mulligans would assert almost nothing.
+        // run that stopped early would assert almost nothing.
         let agent = HeuristicAgent::new(AIProfile::default());
         let mut priority_questions = 0usize;
         let mut other_questions = 0usize;
@@ -1759,11 +1766,14 @@ mod tests {
             } else {
                 other_questions += 1;
             }
-            assert_eq!(
-                seat_view(&session, bystander).awaiting,
-                Some(seat),
-                "every question names the seat that owes the answer"
-            );
+            for viewer in [zero, one] {
+                assert_eq!(
+                    seat_view(&session, viewer).awaiting,
+                    Some(seat),
+                    "every question names the seat that owes the answer, in \
+                     both views"
+                );
+            }
             let view = seat_view(&session, seat);
             let action = agent.act(&view, session.pending());
             if session.act(seat, action).is_err() {

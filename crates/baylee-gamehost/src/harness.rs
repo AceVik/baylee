@@ -298,7 +298,8 @@ pub fn play_report<L: CardLookup>(
             i as u64,
             Some(&pending),
             &crate::view::SeatContext {
-                awaiting: pending_player(&pending),
+                awaiting: crate::view::awaiting_for(&engine, player),
+                deciding: crate::view::deciding(&engine),
                 held: engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&engine),
                 decision_remaining_ms: None,
@@ -929,7 +930,8 @@ mod tests {
                 i,
                 Some(&pending),
                 &crate::view::SeatContext {
-                    awaiting: pending_player(&pending),
+                    awaiting: crate::view::awaiting_for(&engine, player),
+                    deciding: crate::view::deciding(&engine),
                     held: engine.automation(player).hold.suppresses(),
                     owed: crate::view::owed_payment(&engine),
                     decision_remaining_ms: None,

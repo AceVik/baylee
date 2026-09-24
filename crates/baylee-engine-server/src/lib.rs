@@ -633,6 +633,16 @@ mod tests {
 
     /// One seat's answer, wrapped the way its socket would deliver it.
     fn act(runner: &mut EngineRunner, seat: u32, action: &PlayerAction) -> Vec<Envelope> {
+        act_reading(runner, seat, action, &[])
+    }
+
+    /// [`act`], with what the attach loop read off its armed clocks.
+    fn act_reading(
+        runner: &mut EngineRunner,
+        seat: u32,
+        action: &PlayerAction,
+        remaining: &[(Clock, u32)],
+    ) -> Vec<Envelope> {
         let inner = Envelope {
             msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                 game_id: "g1".to_string(),
@@ -647,7 +657,7 @@ mod tests {
                     envelope: prost::Message::encode_to_vec(&inner),
                 })),
             },
-            &[],
+            remaining,
         )
     }
 
@@ -1304,12 +1314,17 @@ mod tests {
     /// The clock is public: the seat that is *not* being asked is told how
     /// long the seat that is has left. A table where one player is running
     /// out of time and nobody else can see it reads the pause as rudeness.
+    ///
+    /// From turn 1 on, so past the mulligans, where every seat is asked its
+    /// own question and told its own remainder (the next test).
     #[test]
     fn the_other_seat_is_told_the_awaited_seats_remainder() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &two_humans(600));
         attach(&mut runner, 0);
-        let out = attach(&mut runner, 1);
+        attach(&mut runner, 1);
+        act(&mut runner, 0, &PlayerAction::MulliganKeep);
+        let out = act(&mut runner, 1, &PlayerAction::MulliganKeep);
         let awaited = runner.session().expect("a game").awaiting_seat();
         assert_eq!(
             awaited.map(PlayerId::get),
@@ -1323,5 +1338,50 @@ mod tests {
             Some(600_000),
             "seat 1 was not told the clock seat 0 is on"
         );
+    }
+
+    /// During the opening mulligans each deciding seat is on its own clock
+    /// and is told its own remainder. A seat that has kept is told none: its
+    /// view waits on nobody (`PlayerView::awaiting`), so a number there
+    /// would name nobody's clock.
+    #[test]
+    fn in_the_mulligans_each_seat_is_told_its_own_remainder() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        let [zero, one] = runner.clocks()[..] else {
+            panic!("both seats are deciding");
+        };
+        // Seat 0 takes with nine seconds left and seat 1 has four: seat 0 is
+        // asked anew, and seat 1 is still on the question it had.
+        let out = act_reading(
+            &mut runner,
+            0,
+            &PlayerAction::MulliganTake,
+            &[(zero, 9_000), (one, 4_000)],
+        );
+        let told = |out: &[Envelope], seat: u32| {
+            let view = last_view(out, seat).expect("a view");
+            (view.awaiting.map(PlayerId::get), view.decision_remaining_ms)
+        };
+        assert_eq!(told(&out, 0), (Some(0), Some(600_000)));
+        assert_eq!(told(&out, 1), (Some(1), Some(4_000)));
+
+        // Seat 1 keeps with nine seconds gone from seat 0's new question,
+        // which is still the question seat 0 owes: the reading stays with it.
+        let [zero, one] = runner.clocks()[..] else {
+            panic!("both seats are deciding");
+        };
+        let out = act_reading(
+            &mut runner,
+            1,
+            &PlayerAction::MulliganKeep,
+            &[(zero, 591_000), (one, 3_000)],
+        );
+        assert_eq!(told(&out, 1), (None, None), "seat 1 has kept");
+        assert_eq!(told(&out, 0), (Some(0), Some(591_000)));
+        let deciding = last_view(&out, 1).expect("a view").deciding;
+        assert_eq!(deciding.iter().map(PlayerId::get).collect::<Vec<_>>(), [0]);
     }
 }

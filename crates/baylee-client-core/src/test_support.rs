@@ -5,7 +5,7 @@
 //! not also be a test about how to spell a `PlayerView`.
 
 use baylee_core::color::ColorSet;
-use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef, SeatSet};
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, Finish, GameStatic, HandObject,
@@ -81,6 +81,7 @@ impl ViewBuilder {
                 step: Step::Main,
                 active: PlayerId::new(0),
                 awaiting: Some(PlayerId::new(0)),
+                deciding: SeatSet::new(),
                 decision_remaining_ms: None,
                 priority_held: false,
                 monarch: None,

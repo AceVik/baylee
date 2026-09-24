@@ -34,7 +34,7 @@
 use std::borrow::Cow;
 
 use baylee_core::color::ColorSet;
-use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef};
+use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef, SeatSet};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
@@ -95,7 +95,12 @@ use serde::{Deserialize, Serialize};
 /// (#242).
 /// 31 adds [`PublicObject::grants`], who granted each granted ability and in
 /// which sentence, so a client draws the grantor's text on that row (#212).
-pub const VIEW_VERSION: u32 = 31;
+/// 32 adds [`PlayerView::deciding`], the seats still deciding their opening
+/// mulligan, which every seat now answers at once (#257). While it is not
+/// empty, [`PlayerView::awaiting`] is per seat: this seat while it has a
+/// question open, `None` once it has kept. So a seat that has kept is told no
+/// remainder.
+pub const VIEW_VERSION: u32 = 32;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1367,7 +1372,23 @@ pub struct PlayerView {
     /// A client cannot work it out for itself: a session sends the pending
     /// question only to the seat it is addressed to, so a seat that is not
     /// being asked never sees one at all.
+    ///
+    /// **Per seat during the opening mulligans.** Before turn 1 every seat is
+    /// asked its own question at once (house rule 4, #257), so there is no
+    /// one seat the table waits on. While [`Self::deciding`] is not empty this
+    /// is `Some(self.seat)` while this seat still has a question open, and
+    /// `None` once it has kept. Who else is still deciding is `deciding`.
+    /// From turn 1 on it is the same seat in every view again.
     pub awaiting: Option<PlayerId>,
+    /// The seats still deciding their opening mulligan: every seat that has
+    /// neither kept nor left. Empty from turn 1 on, so it also says whether
+    /// the mulligans are still open.
+    ///
+    /// **Public, and only seat numbers.** At a real table everybody sees who
+    /// is still shuffling. What a seat is being asked, and the cards it is
+    /// looking at, stay with that seat: another seat's progress reaches this
+    /// view only as this set and its [`SeatView::hand_count`].
+    pub deciding: SeatSet,
     /// How long [`PlayerView::awaiting`] has left to answer, in milliseconds
     /// from the moment this view was built.
     ///
@@ -1380,10 +1401,13 @@ pub struct PlayerView {
     /// **Public.** Every seat is told the awaited seat's remainder, not only
     /// the seat on the clock. A table where one player is running out of time
     /// and nobody else can see it is a table where the pause reads as
-    /// rudeness rather than as a clock.
+    /// rudeness rather than as a clock. During the opening mulligans every
+    /// deciding seat is on its own clock, and each is told its own remainder
+    /// and nobody else's, because `awaiting` names this seat or nobody then.
     ///
-    /// `None` means *no decision clock is running*, which is four situations
-    /// wearing one answer: nobody is being asked, the table set
+    /// `None` means *no decision clock is running* for `awaiting`, which is
+    /// five situations wearing one answer: nobody is being asked, this seat
+    /// has kept while others still decide their mulligans, the table set
     /// `decision_timeout_secs` to zero (`untimed`, where there is no number
     /// because there is no limit), the awaited seat is an AI chair, or the
     /// awaited seat is on the **stand-in** clock instead — its socket is
@@ -1691,6 +1715,7 @@ mod tests {
             step: Step::Main,
             active: PlayerId::new(0),
             awaiting: Some(PlayerId::new(0)),
+            deciding: SeatSet::new(),
             decision_remaining_ms: None,
             priority_held: false,
             monarch: None,
@@ -2386,7 +2411,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (31, 0x1365_1ed5_0817_fdb1);
+        const RECORDED: (u32, u64) = (32, 0x9b27_d7db_32e5_91cc);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

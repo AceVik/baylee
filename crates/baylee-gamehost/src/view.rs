@@ -12,7 +12,7 @@
 
 use baylee_ai::pending_player;
 use baylee_cards::dsl::AbilityDef;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_core::mana::ManaCost;
 use baylee_engine::choice::Pending;
 use baylee_engine::event::LossReason;
@@ -684,16 +684,60 @@ pub fn owed_payment<L: baylee_engine::state::CardLookup>(
         .map(|(_, mana)| ManaCost::from_symbol_generic(u32::from(mana)))
 }
 
+/// The seats still deciding their opening mulligan, for
+/// [`SeatContext::deciding`]: every seat the engine is waiting on whose own
+/// question is a `Mulligan` or a `MulliganBottom`.
+///
+/// Neither question exists outside the window, so this is empty from turn 1
+/// on and doubles as the answer to whether the window is open.
+#[must_use]
+pub fn deciding<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+) -> SeatSet {
+    engine
+        .awaited()
+        .iter()
+        .filter(|seat| {
+            matches!(
+                engine.pending_for(*seat),
+                Some(Pending::Mulligan { .. } | Pending::MulliganBottom { .. })
+            )
+        })
+        .collect()
+}
+
+/// Who `seat`'s view says the table is waiting for, for
+/// [`SeatContext::awaiting`].
+///
+/// From turn 1 on, the one seat [`Engine::pending`] is addressed to, the same
+/// in every view. During the opening mulligans every seat is asked at once,
+/// so it is `seat` itself while it is still deciding and nobody once it has
+/// kept: each view names the one question its own seat can answer.
+///
+/// [`Engine::pending`]: baylee_engine::engine::Engine::pending
+#[must_use]
+pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+    seat: PlayerId,
+) -> Option<PlayerId> {
+    let deciding = deciding(engine);
+    if deciding.is_empty() {
+        engine.pending().asked()
+    } else {
+        deciding.contains(seat).then_some(seat)
+    }
+}
+
 /// What a per-seat view needs that the [`GameState`] cannot supply.
 ///
-/// Three facts live on the `Engine` and not in the state it hands out — who
-/// the table is waiting for, whether this seat's own standing order is
-/// withholding its priority, and what it owes inside a payment window — so
-/// each of them has to be carried across. They travelled as three positional
-/// arguments until the fourth was proposed, at which point `player_view`
-/// would have taken eight and stopped compiling: clippy's
-/// `too_many_arguments` allows seven, and this workspace builds with
-/// `-D warnings`.
+/// Four facts live on the `Engine` and not in the state it hands out — who
+/// the table is waiting for, who is still deciding a mulligan, whether this
+/// seat's own standing order is withholding its priority, and what it owes
+/// inside a payment window — so each of them has to be carried across. The
+/// first three travelled as positional arguments until the fourth was
+/// proposed, at which point `player_view` would have taken eight and stopped
+/// compiling: clippy's `too_many_arguments` allows seven, and this workspace
+/// builds with `-D warnings`.
 ///
 /// A struct rather than an `#[allow]`, because the argument list had a
 /// failure the limit is only a proxy for. Every call site passes these
@@ -706,12 +750,14 @@ pub fn owed_payment<L: baylee_engine::state::CardLookup>(
 /// exhaustively** and must keep doing so: a `..Default::default()` tail turns
 /// the next field added here into a silent `None` at every site carrying it,
 /// compiling everywhere and read nowhere. `session.rs` and `harness.rs` are
-/// the two that should go red when a fourth field arrives.
+/// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext {
-    /// The seat the table is waiting for: whoever the pending question is
-    /// addressed to. Pass `pending_player(engine.pending())`.
+    /// The seat the table is waiting for, as this seat's view tells it. Pass
+    /// [`awaiting_for`], which is per seat during the opening mulligans.
     pub awaiting: Option<PlayerId>,
+    /// The seats still deciding their opening mulligan. Pass [`deciding`].
+    pub deciding: SeatSet,
     /// Whether *this* seat's standing order is currently withholding its own
     /// priority. Pass `engine.automation(seat).hold.suppresses()`.
     pub held: bool,
@@ -721,8 +767,8 @@ pub struct SeatContext {
     /// How long the awaited seat has left to answer, in milliseconds. Pass
     /// [`Session::decision_remaining_ms`](crate::Session::decision_remaining_ms).
     ///
-    /// The odd one out in this struct, and deliberately so. Its three
-    /// neighbours are read off the `Engine` by whoever builds the context;
+    /// The odd one out in this struct, and deliberately so. Its neighbours
+    /// are read off the `Engine` by whoever builds the context;
     /// this one cannot be, because **this crate is forbidden a wall clock** —
     /// a session that timed itself would replay differently on every machine.
     /// So it is measured outside and handed in.
@@ -769,7 +815,7 @@ fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
 
 /// Builds the hidden-information-filtered view of `state` for `seat`.
 ///
-/// `ctx` carries the three facts that are on the `Engine` rather than in the
+/// `ctx` carries the facts that are on the `Engine` rather than in the
 /// state; see [`SeatContext`].
 ///
 /// `house_answered` is per seat, in seat order: who answered that seat's most
@@ -802,6 +848,7 @@ pub fn player_view(
         step: step(state.turn.step),
         active: state.turn.active,
         awaiting: ctx.awaiting,
+        deciding: ctx.deciding,
         decision_remaining_ms: ctx.decision_remaining_ms,
         priority_held: ctx.held,
         owed: ctx.owed,
@@ -1409,6 +1456,103 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A two-seat table dealt seven cards each, with the mulligans open.
+    fn a_table_deciding_its_mulligans() -> Engine<Registry> {
+        let mut preset = mixed_print_preset();
+        for seat in &mut preset.seats {
+            seat.starting_hand = None;
+            seat.starting_battlefield = vec![];
+        }
+        Engine::new(&preset, Registry).expect("game starts")
+    }
+
+    /// `seat`'s view, with its context built the way a session builds it.
+    fn seen_by(engine: &Engine<Registry>, seat: PlayerId) -> baylee_view::PlayerView {
+        let ctx = SeatContext {
+            awaiting: awaiting_for(engine, seat),
+            deciding: deciding(engine),
+            ..SeatContext::default()
+        };
+        player_view(engine.state(), seat, 1, engine.pending_for(seat), &ctx, &[])
+    }
+
+    /// Before turn 1 every seat is asked its own mulligan at once (#257), so
+    /// a view waits on its own seat while that seat is deciding, and on
+    /// nobody once it has kept. From turn 1 on every view waits on the same
+    /// seat again, and `deciding` is empty: it is the window.
+    #[test]
+    fn during_the_mulligans_each_view_waits_on_its_own_seat() {
+        use baylee_engine::choice::PlayerAction;
+
+        let mut engine = a_table_deciding_its_mulligans();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let both: SeatSet = [me, them].into_iter().collect();
+        for seat in [me, them] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(view.awaiting, Some(seat));
+            assert_eq!(view.deciding, both);
+        }
+
+        engine.apply(me, PlayerAction::MulliganKeep).unwrap();
+        let mine = seen_by(&engine, me);
+        let theirs = seen_by(&engine, them);
+        assert_eq!(mine.awaiting, None, "a seat that has kept is asked nothing");
+        assert_eq!(theirs.awaiting, Some(them));
+        let still: SeatSet = [them].into_iter().collect();
+        assert_eq!((mine.deciding, theirs.deciding), (still, still));
+
+        engine.apply(them, PlayerAction::MulliganKeep).unwrap();
+        let asked = engine.pending().asked();
+        assert!(asked.is_some(), "turn 1 asks somebody");
+        for seat in [me, them] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(view.deciding, SeatSet::new(), "the window has closed");
+            assert_eq!(view.awaiting, asked, "every view waits on the same seat");
+        }
+    }
+
+    /// Another seat's mulligans reach this seat's view as `deciding` and as
+    /// that seat's counts, and as nothing else: not the question it is
+    /// answering, not the hands it drew, not the cards it put on the bottom.
+    #[test]
+    fn another_seats_mulligan_shows_only_as_deciding_and_its_counts() {
+        use baylee_engine::choice::PlayerAction;
+
+        let mut engine = a_table_deciding_its_mulligans();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let before = seen_by(&engine, me);
+
+        // Two takes: a new hand each time, and a bottom owed however the
+        // first mulligan is priced.
+        engine.apply(them, PlayerAction::MulliganTake).unwrap();
+        engine.apply(them, PlayerAction::MulliganTake).unwrap();
+        assert_eq!(seen_by(&engine, me), before, "a take shows nothing here");
+        engine.apply(them, PlayerAction::MulliganKeep).unwrap();
+        let Some(Pending::MulliganBottom { count, .. }) = engine.pending_for(them).cloned() else {
+            panic!("two takes owe a bottom");
+        };
+        assert_eq!(
+            seen_by(&engine, me),
+            before,
+            "their bottom question shows nothing here"
+        );
+
+        let hand = engine.state().zones.list(ZoneLocation::Hand(them)).clone();
+        let objects = hand.iter().take(usize::from(count)).copied().collect();
+        engine
+            .apply(them, PlayerAction::ChooseObjects { objects })
+            .unwrap();
+        let mut after = seen_by(&engine, me);
+        let line = after.seat(them).expect("their seat line");
+        assert_eq!(line.hand_count, 7 - u32::from(count));
+        assert_eq!(after.deciding, [me].into_iter().collect());
+        // Put back the three things that may differ, and nothing else did.
+        after.deciding = before.deciding;
+        after.seats[1].hand_count = before.seats[1].hand_count;
+        after.seats[1].library_count = before.seats[1].library_count;
+        assert_eq!(after, before);
     }
 
     /// Two seats looking at the same battlefield see different things when a
