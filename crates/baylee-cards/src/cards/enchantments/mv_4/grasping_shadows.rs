@@ -6,26 +6,23 @@
 //! Set: LCI #108 — The Lost Caverns of Ixalan | Scryfall ID: 81b8b9c9-725d-476d-a3cf-55e3dc3e433d | Oracle ID: 522a4b02-24c7-45d2-9097-2803cc9fffad
 //! Face: Grasping Shadows — {3}{B} — Enchantment
 //! Face: Shadows' Lair —  — Land — Cave
-// PARTIAL — only the back face's {T}: Add {B} is expressible; the front face
-// is entirely blocked and the back face's dread-counter ability with it.
+// PARTIAL — only the back face's {T}: Add {B} is written; the front face's
+// one trigger is off, and the back face's dread-counter ability with it.
 
 // NOT SUPPORTED: "Whenever a creature you control attacks alone, it gains
-// deathtouch and lifelink until end of turn." — Trigger::Attacks fires once
-// for every attacking creature its filter matches, and no Condition says the
-// attacker is the only one: Condition::ControlCount(&Filter::ATTACKING_CREATURE,
-// 1) is "at least one", which holds for each attacker in a two-creature
-// combat. The trigger is off the card, and the two clauses after it go with
-// it, because they are that trigger's effects and have no trigger to hang on.
+// deathtouch and lifelink until end of turn." — sayable on its own:
+// Trigger::Attacks with Condition::ControlCountAtMost(&Filter::ATTACKING_CREATURE,
+// 1). It stays off with the two clauses after it, because they are the same
+// trigger's effects and neither can be written.
 //
 // NOT SUPPORTED: "Put a dread counter on this enchantment. Then if there are
 // three or more dread counters on it, transform it." — "dread" is a word the
 // rules have never heard of, so it would be a CounterKind::Custom id assigned
 // in `baylee_cards_dsl::counters`, and no DREAD constant exists there (a card
 // writes `counters::DREAD`, never a bare `CounterKind::Custom(…)`, which is
-// the collision that module exists to prevent). The follow-up branch is
-// missing for its own reason: no Effect asks whether the source has three or
-// more counters of a kind — Effect::IfNoCountersOnSelf is the comparison
-// against zero and nothing else.
+// the collision that module exists to prevent). The branch on three is
+// sayable (Effect::IfCondition over Condition::CountersOnSelf); the transform
+// it leads to is not (#206).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -62,6 +59,6 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "Trigger::Attacks fires for every attacker and no Condition says a lone one; no counters::DREAD id; no effect branches on three-or-more counters on the source",
+        "no counters::DREAD id, and no effect transforms a permanent in place (#206), so the attack trigger that puts the dread counters is off and Shadows' Lair is never reached",
     ),
 );

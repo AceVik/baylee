@@ -7,9 +7,10 @@
 //! Set: RIX #173 — Rivals of Ixalan | Scryfall ID: c16ba84e-a0cc-4c6c-9b80-713247b8fef9 | Oracle ID: 72205fac-a94a-45cc-94c6-40ece2fdce0e
 //! Face: Storm the Vault — {2}{U}{R} — Legendary Enchantment
 //! Face: Vault of Catlacan —  — Legendary Land
-// IMPLEMENTED — the combat-damage trigger makes a Treasure, the end-step
-// intervening-if transforms into the back face, and the back face's two mana
-// abilities are any color and {U} per artifact you control.
+// PARTIAL — the back face's two mana abilities are any color and {U} per
+// artifact you control. The combat-damage trigger makes a Treasure per
+// creature rather than per batch, and the end-step "transform" is
+// exile-and-return (see the NOT SUPPORTED lines beside each).
 
 use crate::tokens::TREASURE;
 use baylee_cards_dsl::prelude::*;
@@ -45,9 +46,19 @@ card!(
             abilities = BACK_MANA,
         ),
     ],
-    coverage = Coverage::Implemented,
+    coverage = Coverage::Partial(
+        "no Trigger fires once for \"one or more creatures\", so each creature that \
+         deals combat damage makes its own Treasure; and no Effect transforms a \
+         permanent in place (#206), so ExileSelfReturnAsFace returns Vault of \
+         Catlacan as a new object that enters"
+    ),
     abilities = &[
         triggered!(
+            // NOT SUPPORTED as printed: "Whenever one or more creatures you
+            // control deal combat damage to a player" fires once for the
+            // whole batch. `DealsCombatDamageToPlayer` fires once per
+            // creature (`trigger.rs`, the "No `break`" note), so two
+            // connecting creatures make two Treasures.
             Trigger::DealsCombatDamageToPlayer(&Filter::YOUR_CREATURE),
             &[Effect::CreateToken { token: &TREASURE }],
         ),
@@ -56,6 +67,12 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
+            // NOT SUPPORTED: "transform Storm the Vault" as printed. To
+            // transform is to turn the permanent over (CR 701.27a), and it
+            // stays the same object (CR 712.18). `ExileSelfReturnAsFace`
+            // exiles it and returns a new object, so Vault of Catlacan
+            // *enters*: landfall and "whenever a land enters" see it, and
+            // anything that applied to the enchantment is gone. #206.
             &[Effect::ExileSelfReturnAsFace { face: 1 }],
             condition = Some(Condition::ControlCount(&Filter::ARTIFACT, 5)),
         ),

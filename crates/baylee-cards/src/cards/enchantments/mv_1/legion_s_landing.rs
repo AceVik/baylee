@@ -7,25 +7,20 @@
 //! Set: XLN #22 — Ixalan | Scryfall ID: 05e2a5e6-3aaa-4096-bdd0-fcc1afe5a36c | Oracle ID: f7d8b91b-6541-4d3e-af51-7e000eac69c1
 //! Face: Legion's Landing — {W} — Legendary Enchantment
 //! Face: Adanto, the First Fort —  — Legendary Land
-// PARTIAL — built: the back face's `{T}: Add {W}`. Built nothing else; the
-// three clauses that are not built each carry a NOT SUPPORTED line below.
+// PARTIAL — built: the enters Vampire and the back face's `{T}: Add {W}`.
+// The transform is not, and the back face's Vampire waits for it; both carry
+// a NOT SUPPORTED line below.
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
 // NOT SUPPORTED: "When you attack with three or more creatures, transform
-// Legion's Landing" — no `Trigger` variant counts attackers. `Attacks(filter)`
-// fires once per attacking object and says nothing about how many attacked,
-// and no `Condition` counts attacking creatures, so "attack with three or
-// more" has nothing to hang the transform on.
-// NOT SUPPORTED: "When Legion's Landing enters, create a 1/1 white Vampire
-// creature token with lifelink" — `Effect::CreateToken` needs a `&'static
-// TokenDef`, and the pool's registry (`crate::tokens`) holds no 1/1 white
-// Vampire with lifelink. A card file may not define a token of its own: the
-// index into `crate::tokens::ALL` is the art key, so a local literal reaches
-// the table nameless.
+// Legion's Landing" — no `Trigger` fires once for a declaration of three or
+// more attackers (`Attacks(filter)` fires once per attacker), and nothing
+// transforms a permanent in place (#206). So Adanto is never reached.
 // NOT SUPPORTED: "{2}{W}, {T}: Create a 1/1 white Vampire creature token with
-// lifelink" — the same absent token, so the ability comes off the card rather
-// than shipping a cost that pays for nothing.
+// lifelink" — sayable (the same token as the enters trigger), and left off a
+// face nothing reaches until #206, where no test could play it.
 static BACK_ABILITIES: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
 
 card!(
@@ -34,10 +29,18 @@ card!(
     scryfall_id = "05e2a5e6-3aaa-4096-bdd0-fcc1afe5a36c",
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Partial(
-        "no Trigger counts attacking creatures, so \"when you attack with three or more \
-         creatures\" cannot be stated; and the pool has no 1/1 white Vampire token with \
-         lifelink in crate::tokens, which both token-creating clauses need"
+        "\"When you attack with three or more creatures, transform Legion's Landing\" \
+         cannot be stated: no Trigger fires once for a declaration of three or more \
+         attackers (Trigger::Attacks fires per attacker) and nothing transforms a \
+         permanent in place (#206), so Adanto, the First Fort is never reached, \
+         and its {2}{W} Vampire ability is left unwritten with it"
     ),
+    abilities = &[triggered!(
+        Trigger::ETB,
+        &[Effect::CreateToken {
+            token: &generated_tokens::VAMPIRE_1_1_WHITE_LIFELINK,
+        }],
+    )],
     faces = &[
         face!(
             name = "Legion's Landing",

@@ -3,8 +3,9 @@
 //! Oracle: {T}: Add one mana of any color. Activate only if this land entered this turn.
 //! Oracle: {3}, {T}: Create a 1/1 colorless Phyrexian Mite artifact creature token with toxic 1 and "This token can't block." (Players dealt combat damage by it also get a poison counter.)
 //! Set: ONE #254 — Phyrexia: All Will Be One | Scryfall ID: 54a702cd-ca49-4570-b47e-8b090452a3c3 | Oracle ID: 5502741a-e3b9-454e-8121-4360a6db6750
-// PARTIAL — the {C} mana ability is the only printed clause the DSL can say;
-// the other two are NOT SUPPORTED beside the ability list.
+// PARTIAL — both mana abilities are built, the any-color one gated on the
+// land having entered this turn; the Mite ability is NOT SUPPORTED beside
+// the ability list.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -19,9 +20,10 @@ card!(
         subtypes = &[subtypes::land::SPHERE],
     ),],
     coverage = Coverage::Partial(
-        "the 1/1 Phyrexian Mite token cannot be created: no such token is in \
-         `crate::tokens`, toxic 1 is a keyword no rule reads, and no Modifier \
-         says a creature can't block",
+        "the {3}, {T} Mite ability is missing: no Phyrexian Mite token is in the \
+         registry, and toxic has no keyword bit and nothing in the engine gives a \
+         player poison counters, so a Mite could carry \"can't block\" \
+         (KeywordSet::CANT_BLOCK) but not toxic 1",
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
@@ -36,7 +38,8 @@ card!(
         // NOT SUPPORTED: "{3}, {T}: Create a 1/1 colorless Phyrexian Mite
         // artifact creature token with toxic 1 and 'This token can't
         // block.'" — a card file may not define its own `TokenDef` and no
-        // Mite stands in `crate::tokens`; toxic is a keyword bit no rule
-        // reads; and no `Modifier` says "can't block".
+        // Mite stands in `crate::tokens`; toxic has no keyword bit, and
+        // nothing gives a player poison counters. "Can't block" is
+        // `KeywordSet::CANT_BLOCK`.
     ],
 );

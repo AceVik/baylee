@@ -3306,8 +3306,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sheltered Valley
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -19506,8 +19506,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Springjack Pasture
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -29306,8 +29306,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -39733,8 +39733,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Argoth, Sanctum of Nature
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -42821,7 +42821,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[Some(1), Some(2)],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -44534,7 +44534,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -48197,8 +48197,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Secluded Starforge
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[Some(0), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49223,8 +49223,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Chocobo Camp
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

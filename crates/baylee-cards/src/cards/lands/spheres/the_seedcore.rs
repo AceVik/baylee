@@ -26,9 +26,10 @@ card!(
         subtypes = &[subtypes::land::SPHERE],
     ),],
     coverage = Coverage::Partial(
-        "Corrupted — {T}: target 1/1 creature gets +2/+1 is missing: no Condition \
-         variant counts an opponent's poison counters, and no Filter names a 1/1 \
-         creature (only ToughnessAtMost, which a 0/1 or a 3/1 also matches)"
+        "Corrupted — {T}: target 1/1 creature gets +2/+1 is left off: its gate \
+         \"an opponent has three or more poison counters\" needs a Condition that \
+         reads another player's poison counters, which does not exist, and the \
+         ability is not shipped ungated"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
@@ -37,12 +38,10 @@ card!(
         ]),
         // NOT SUPPORTED: "Corrupted — {T}: Target 1/1 creature gets +2/+1
         // until end of turn. Activate only if an opponent has three or more
-        // poison counters." `Condition` has ControlCount,
-        // OpponentGraveyardCountAtLeast, CountersOnSelf, CountersOnSelfExactly
-        // and SourceMatches, none of which reads a counter on another player,
-        // and `Filter` has no power or exact-size predicate to point at "1/1
-        // creature". Written without the gate the ability would pump any
-        // creature at any time, so it comes off the card rather than shipping
-        // ungated.
+        // poison counters." No `Condition` reads a counter on another player
+        // (and nothing in the engine gives a player poison yet). The target is
+        // sayable, Power/ToughnessAtLeast and AtMost 1; written without the
+        // gate the ability would pump a 1/1 at any time, so it comes off the
+        // card rather than shipping ungated.
     ],
 );

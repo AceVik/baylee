@@ -51,9 +51,9 @@ card!(
     ],
     coverage = Coverage::Partial(
         "the {2} ability fights and then returns this creature transformed \
-         if it dies this turn, and no variant registers that delayed trigger; \
-         the back face's {4}, {T} ability needs a 4/4 colorless Golem artifact \
-         creature token, which the token ledger does not have"
+         if it dies this turn; no effect registers that delayed trigger or \
+         returns a card transformed (#206), so Gold-Forge Garrison is never \
+         reached, and its {4}, {T} Golem ability is left unwritten with it"
     ),
     keywords = KeywordSet::DEFENDER,
 );
@@ -67,5 +67,5 @@ card!(
 // activated is the return. `Effect::ExileSelfReturnAsFace` is the
 // exile-and-return sentence and reads neither half of this one.
 // NOT SUPPORTED: "{4}, {T}: Create a 4/4 colorless Golem artifact creature
-// token." — the token ledger has no such token, and a card file may not
-// define its own `TokenDef` (it would have no id and no art key).
+// token." — sayable (`GOLEM_ARTIFACT_4_4`), and left off a face nothing
+// reaches until the ability above can be written, where no test could play it.

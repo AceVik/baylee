@@ -14,16 +14,14 @@ use baylee_cards_dsl::prelude::*;
 
 // NOT SUPPORTED: "Instant and sorcery spells you cast cost {1} less to cast."
 // — no `Modifier` reduces a cost; `CostReduction` carries only
-// NotStartingPlayer and is read by nothing.
+// NotStartingPlayer, which reduces the card's own printed cost.
 // NOT SUPPORTED: "Then if there are four or more charge counters on it, you
-// may remove those counters and transform it." — no effect branches on a
-// counter threshold (`Effect::IfNoCountersOnSelf` is the zero comparison
-// only), nothing removes counters from the source as an effect, and the one
-// transform shape, `Effect::ExileSelfReturnAsFace`, is out of reach behind
-// both.
+// may remove those counters and transform it." — the check is sayable
+// (`Effect::IfCondition` over `Condition::CountersOnSelf`), but nothing
+// removes counters from the source as an effect, and nothing transforms a
+// permanent in place (#206).
 // NOT SUPPORTED: "When that mana is spent to cast an instant or sorcery
-// spell, copy that spell…" — `SpendRider` has no copy arm, and pool mana
-// carries no provenance.
+// spell, copy that spell…" — `SpendRider` has no copy arm.
 
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana_of_any_color()])];
 
@@ -47,7 +45,7 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "instant/sorcery cost reduction, the four-counter transform clause and the back face's mana copy rider are not expressible"
+        "instant and sorcery cost reduction has no Modifier, the four-counter transform needs a transform in place (#206) and an effect that removes counters, and Primal Wellspring's mana has no spend rider that copies the spell"
     ),
     abilities = &[triggered!(
         Trigger::SpellCast(&f!(your INSTANT_OR_SORCERY)),

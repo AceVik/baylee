@@ -19,7 +19,9 @@ card!(
         subtypes = &[subtypes::artifact::EQUIPMENT],
     ),],
     coverage = Coverage::Partial(
-        "the graveyard return-and-attach trigger for 1/1 creatures is not expressible"
+        "the return-and-attach trigger has to work while this card is in the \
+         graveyard, and triggered abilities fire only from the battlefield (the \
+         graveyard is scanned only to look back for leaves and dies triggers)"
     ),
     abilities = &[
         static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(1, 2)),
@@ -27,8 +29,9 @@ card!(
         // NOT SUPPORTED: "Whenever a 1/1 creature you control enters, you may
         // return this card from your graveyard to the battlefield, then attach
         // it to that creature." — AbilityDef::Triggered functions only on the
-        // battlefield, Filter has no 1/1 power/toughness check, and Effect lacks
-        // a variant to return self from the graveyard and attach to an entering
-        // creature.
+        // battlefield. The rest is sayable: a 1/1 is Power/ToughnessAtLeast and
+        // AtMost 1, and the body is MayDo { GraveyardToBattlefield(ThisObject),
+        // AttachSelf } on an EventObject target; none of it fires from the
+        // graveyard.
     ],
 );

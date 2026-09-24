@@ -10198,10 +10198,11 @@ fn mikaeus_the_unhallowed() -> CardIndex {
 ///
 /// The rest is the `Coverage::Partial` gap, and it is struck rather than left
 /// implied, because the first draft of this card claimed both keywords and
-/// nothing at the table changed: intimidate and undying are bits in
-/// `KeywordSet` that no engine rule reads. So the same creature is fed to an
-/// Ashnod's Altar, and what the board says afterwards is a dead Elf — which
-/// is what a granted keyword nobody reads actually looks like.
+/// nothing at the table changed: intimidate is a bit no engine rule reads, and
+/// the undying look-back reads only a printed undying, never a granted one. So
+/// the same creature is fed to an Ashnod's Altar, and what the board says
+/// afterwards is a dead Elf — which is what a granted keyword nobody reads
+/// actually looks like.
 #[test]
 fn mikaeus_lords_the_nonhumans_beside_him_and_the_undying_half_is_not_granted() {
     let p0 = PlayerId::new(0);
@@ -10241,8 +10242,9 @@ fn mikaeus_lords_the_nonhumans_beside_him_and_the_undying_half_is_not_granted() 
     );
     assert!(
         !keywords(&engine, elves).contains(KeywordSet::UNDYING),
-        "the undying half of that same sentence is *not* granted: no rule \
-         reads the bit, and a keyword nothing reads would read as finished"
+        "the undying half of that same sentence is *not* granted: the \
+         look-back never reads a granted undying, and a keyword nothing reads \
+         would read as finished"
     );
     assert!(
         !keywords(&engine, mikaeus).contains(KeywordSet::INTIMIDATE),
@@ -10282,14 +10284,15 @@ fn mikaeus_lords_the_nonhumans_beside_him_and_the_undying_half_is_not_granted() 
     // The trigger has to come and go before the board can be read.
     pass_until(&mut engine, stack_is_empty);
 
-    // The gap, struck rather than left implied. Undying is a bit in
-    // `KeywordSet` that no engine rule reads, so the card does not grant it
-    // (`keyword_tests::ENFORCED` is the list, and the lint beside it is what
-    // caught this card claiming intimidate as well). What that looks like at
-    // the table is exactly this: the creature dies and stays dead.
+    // The gap, struck rather than left implied. The undying look-back asks
+    // the card that died, not the keywords it had on the battlefield, so a
+    // granted undying is gone by the time it is asked, and the card does not
+    // grant it (the lint beside `keyword_tests::ENFORCED` is what caught this
+    // card claiming intimidate). What that looks like at the table is exactly
+    // this: the creature dies and stays dead.
     assert!(
         in_graveyard(&engine, p0, llanowar_elves()).is_some(),
-        "no rule reads undying, so the Elves lie where the Altar put them"
+        "no undying was granted, so the Elves lie where the Altar put them"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_none(),
@@ -15854,10 +15857,10 @@ fn aclazotz_attacks_to_cause_discard_and_gains_life_from_combat_damage() {
 /// "`{{T}}`: Add `{{G}}`. Ferocious — `{{T}}`: Add `{{G}}{{G}}{{G}}{{G}}`. Activate only
 /// if you control a creature with power 4 or greater. Eternalize `{{2}}{{G}}{{G}}`."
 ///
-/// Under `Coverage::Partial`, the ferocious condition and eternalize from graveyard are omitted,
-/// leaving the printed 1/4 body and the unconditional `{{T}}`: Add `{{G}}` mana ability.
-/// The test verifies that `Fanatic of Rhonas` has 1/4 stats, that `tap_all_mana` taps it for
-/// exactly one green mana, and that it is tapped after producing mana.
+/// Under `Coverage::Partial`, Eternalize is omitted. With no creature of power 4 or greater
+/// the ferocious ability is closed, so the test verifies that `Fanatic of Rhonas` has 1/4
+/// stats, that `tap_all_mana` taps it for exactly one green mana, and that it is tapped after
+/// producing mana.
 #[test]
 fn fanatic_of_rhonas_taps_for_one_green_mana() {
     let p0 = PlayerId::new(0);
@@ -15895,6 +15898,38 @@ fn fanatic_of_rhonas_taps_for_one_green_mana() {
     assert!(
         is_tapped(&engine, snake),
         "Fanatic is tapped after activating its mana ability"
+    );
+}
+
+/// Fanatic of Rhonas's Ferocious — "{T}: Add {G}{G}{G}{G}. Activate only if
+/// you control a creature with power 4 or greater." The same board with and
+/// without a 4/2 Ogre Berserker beside it: the gate is closed on the Snake's
+/// own power 1 and open on the Ogre's 4.
+#[test]
+fn fanatic_of_rhonas_makes_four_green_beside_a_creature_with_power_four() {
+    let p0 = PlayerId::new(0);
+    let offered = |board: &[CardIndex]| {
+        let mut engine = Duel::new(307, forest()).battlefield(0, board).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let snake = on_battlefield(&engine, p0, fanatic_of_rhonas()).expect("Fanatic deployed");
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending());
+        };
+        (engine, legal.abilities.contains(&(snake, 1)))
+    };
+
+    let (_, alone) = offered(&[fanatic_of_rhonas()]);
+    assert!(!alone, "power 1 does not open the gate");
+
+    let (mut engine, beside) = offered(&[fanatic_of_rhonas(), ogre_berserker()]);
+    assert!(beside, "a 4/2 does");
+    activate(&mut engine, p0, fanatic_of_rhonas(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        4
     );
 }
 

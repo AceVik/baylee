@@ -3104,8 +3104,9 @@ fn time_sieve_sacrifices_five_different_artifacts_for_its_extra_turn() {
 /// Under `Coverage::Partial`, the enters-trigger is omitted, but the static +2/+1 pump, the
 /// `Trigger::DealsCombatDamageToPlayer` transform trigger, and equip {2} are implemented. The test
 /// equips `Dowsing Dagger` to an elf, confirms the +2/+1 pump, attacks an opponent with the
-/// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` transforms into
-/// `Lost Vale` as a land on face 1.
+/// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` becomes
+/// `Lost Vale` as a land on face 1 — by exile and return, a new object, and not by transforming
+/// in place (#206).
 #[test]
 fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -3453,7 +3454,8 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
 /// {T}, Sacrifice a Treasure: Draw a card."
 ///
 /// Under `Coverage::Partial`, the landmark counter, counter-count branch, and transform are
-/// omitted because landmark counters have no id in `baylee_cards_dsl::counters`. The front-face
+/// omitted: landmark counters have no id in `baylee_cards_dsl::counters`, no effect removes
+/// counters, and nothing transforms a permanent in place (#206). The front-face
 /// `{1}, {T}: Scry 1` ability is fully functional. The test activates ability 0, answers the
 /// scry arrangement (`ArrangePrompt::Scry`) to bottom the top card, and verifies the bottomed
 /// card, the tapped state, and that `Treasure Map` remains on face 0.

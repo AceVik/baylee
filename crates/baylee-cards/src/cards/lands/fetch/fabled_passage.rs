@@ -11,9 +11,9 @@ card!(
     oracle_id = "0c85b8f7-0bd0-4680-9ec5-d4b110460a54",
     scryfall_id = "76edd22f-808e-4a7c-b941-13c0f5e30418",
     coverage = Coverage::Partial(
-        "\"Then if you control four or more lands, untap that land.\" — no effect \
-         untaps the card a search just found, and no conditional effect wrapper \
-         reads a land count"
+        "\"Then if you control four or more lands, untap that land.\" — the land \
+         count is sayable with IfCondition, but nothing keeps hold of the card a \
+         search found, so there is no \"that land\" to untap"
     ),
     faces = &[face!(name = "Fabled Passage", types = TypeSet::LAND,),],
     abilities = &[activated!(

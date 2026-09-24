@@ -24,7 +24,7 @@ card!(
         loyalty = Some(4),
     ),],
     coverage = Coverage::Partial(
-        "not expressible: the +1 (nothing takes away every ability a permanent has) and the −5 (control of two chosen permanents cannot be exchanged, and no Filter reads power)",
+        "the +1 needs a modifier that removes every ability (LoseKeywords strips keywords only) and one that replaces creature types; the −5 needs a two-target control exchange, and loyalty abilities carry no second target",
     ),
     abilities = &[
         // +2: Create a Food token.
@@ -38,7 +38,7 @@ card!(
         // NOT SUPPORTED: "−5: Exchange control of target artifact or creature you
         // control and target creature an opponent controls with power 3 or less." —
         // Effect::ExchangeControlOrSacrifice exchanges the source with one target
-        // (and sacrifices the source), not two chosen permanents, and there is no
-        // power-bounded Filter for the second target.
+        // (and sacrifices the source), not two chosen permanents. The second
+        // target's filter is sayable (`Filter::PowerAtMost(3)`).
     ],
 );

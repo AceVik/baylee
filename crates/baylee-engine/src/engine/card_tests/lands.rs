@@ -11882,8 +11882,8 @@ fn glimmervoid_taps_for_any_color() {
 }
 
 /// Gods' Eye, Gate to the Reikai: "{T}: Add {C}." / "When Gods' Eye is put into a graveyard from the battlefield, create a 1/1 colorless Spirit creature token."
-/// Under `Coverage::Partial`, the Spirit token death trigger is omitted due to a missing token registry entry.
-/// Activating the implemented mana ability adds {C} to the pool and leaves Gods' Eye tapped.
+/// Activating the mana ability adds {C} to the pool and leaves Gods' Eye tapped; the Spirit
+/// trigger is played in `gods_eye_leaves_a_colorless_spirit_when_it_is_destroyed`.
 #[test]
 fn gods_eye_gate_to_the_reikai_taps_for_colorless_mana() {
     let p0 = PlayerId::new(0);
@@ -13513,7 +13513,7 @@ fn shrine_of_the_forsaken_gods_adds_two_restricted_colorless_with_seven_lands() 
 }
 
 /// Springjack Pasture: "{T}: Add {C}." / "{4}, {T}: Create a 0/1 white Goat creature token." / "{T}, Sacrifice X Goats: Add X mana of any one color. You gain X life."
-/// Under `Coverage::Partial`, Goat tokens and counted sacrifice costs are unsupported, leaving only ability 0.
+/// Under `Coverage::Partial`, the counted Goat sacrifice is unsupported, leaving the mana at 0 and the Goat at 1.
 /// Activating ability 0 adds one colorless mana to the pool and leaves the land tapped.
 #[test]
 fn springjack_pasture_taps_for_colorless_mana() {
@@ -13531,6 +13531,42 @@ fn springjack_pasture_taps_for_colorless_mana() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert!(is_tapped(&engine, pasture));
+}
+
+/// Springjack Pasture's `{4}, {T}`: one 0/1 white Goat, and nothing at
+/// ability 2, where the counted sacrifice would be.
+#[test]
+fn springjack_pasture_makes_a_goat_for_four() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(136, forest())
+        .battlefield(
+            0,
+            &[springjack_pasture(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let pasture =
+        on_battlefield(&engine, p0, springjack_pasture()).expect("Springjack Pasture deployed");
+    tap_mana_except(&mut engine, p0, pasture);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(legal.abilities.contains(&(pasture, 1)), "the Goat");
+    assert!(
+        !legal.abilities.contains(&(pasture, 2)),
+        "and no third ability: the X-Goat sacrifice is not written"
+    );
+
+    activate(&mut engine, p0, springjack_pasture(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, pasture));
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Goat");
+    assert_eq!(pt(&engine, tokens[0]), (0, 1));
+    assert!(types(&engine, tokens[0]).contains(TypeSet::CREATURE));
 }
 
 /// Starting Town: "This land enters tapped unless it's your first, second, or third turn of the game." / "{T}: Add {C}." / "{T}, Pay 1 life: Add one mana of any color."
@@ -14176,7 +14212,7 @@ fn bucolic_ranch_adds_restricted_mount_mana() {
 }
 
 /// Chocobo Camp: "This land enters tapped unless you control a legendary creature." / "{T}: Add {G}." / "{2}{G}{G}, {T}: Create a 2/2 green Bird creature token..."
-/// Under `Coverage::Partial`, the delayed counter rider and token creation are omitted.
+/// Under `Coverage::Partial`, the delayed counter rider is omitted.
 /// Controlling a legendary creature allows Chocobo Camp to enter untapped and immediately tap for green mana.
 #[test]
 fn chocobo_camp_enters_untapped_with_legendary_creature() {
@@ -14195,6 +14231,28 @@ fn chocobo_camp_enters_untapped_with_legendary_creature() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 1);
     assert!(is_tapped(&engine, land));
+}
+
+/// Chocobo Camp's `{{2}}{{G}}{{G}}, {{T}}`: one 2/2 green Bird creature token.
+#[test]
+fn chocobo_camp_makes_a_bird_for_four() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(213, forest())
+        .battlefield(0, &[chocobo_camp(), forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let camp = on_battlefield(&engine, p0, chocobo_camp()).expect("Chocobo Camp deployed");
+    tap_mana_except(&mut engine, p0, camp);
+    activate(&mut engine, p0, chocobo_camp(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, camp));
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Bird");
+    assert_eq!(pt(&engine, tokens[0]), (2, 2));
+    assert!(types(&engine, tokens[0]).contains(TypeSet::CREATURE));
 }
 
 /// Demolition Field: "{T}: Add {C}." / "{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls..."
@@ -15838,7 +15896,8 @@ fn minas_morgul_dark_fortress_enters_tapped_and_taps_for_black() {
 }
 
 /// Mirrex: "{T}: Add {C}." / "{T}: Add one mana of any color. Activate only if this land entered this turn." / "{3}, {T}: Create a 1/1 colorless Phyrexian Mite..."
-/// Under `Coverage::Partial`, the entered-this-turn any-color ability and token creation are omitted.
+/// Under `Coverage::Partial`, the Mite token ability is omitted; the entered-this-turn any-color
+/// ability is written and played in `mirrex_enters_untapped_adds_any_color_only_on_entry_turn`.
 /// Playing this land allows it to enter untapped and immediately tap for colorless mana.
 #[test]
 fn mirrex_taps_for_colorless() {
@@ -23534,11 +23593,11 @@ fn realm_of_koh_enters_untapped_with_basic_land_and_taps_for_black() {
 
 /// Sunken Citadel prints `This land enters tapped. As it enters, choose a color`, `{{T}}: Add one mana of the chosen color`,
 /// and `{{T}}: Add two mana of the chosen color. Spend this mana only to activate abilities of land sources.`
-/// The card is marked `Coverage::Partial` because the spend restriction on the two-mana ability is not expressible in the engine.
+/// The card is marked `Coverage::Partial` and the two-mana ability is left off: its spend restriction cannot be stated, and without it the land made two mana for anything.
 /// When played, Sunken Citadel prompts for a color choice as it enters, arrives tapped, untaps on the next turn,
-/// and activating its second ability produces two mana of the chosen color.
+/// offers only its one-mana ability, and that makes one mana of the chosen color.
 #[test]
-fn sunken_citadel_chooses_color_and_taps_for_two_mana() {
+fn sunken_citadel_chooses_color_and_taps_for_one_of_it() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -23559,12 +23618,20 @@ fn sunken_citadel_chooses_color_and_taps_for_two_mana() {
     reach_their_main_phase(&mut engine, p0);
     assert!(!is_tapped(&engine, citadel));
 
-    activate(&mut engine, p0, sunken_citadel(), 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.contains(&(citadel, 1)),
+        "the unrestricted two-mana ability is gone"
+    );
+
+    activate(&mut engine, p0, sunken_citadel(), 0);
     assert_eq!(
         engine.state().players[0]
             .mana_pool
             .available(ManaColor::Blue),
-        2
+        1
     );
     assert!(is_tapped(&engine, citadel));
 }
@@ -27687,46 +27754,47 @@ fn planar_nexus_filters_mana_into_any_chosen_color() {
 /// Tomb of Urami prints `{{T}}: Add {{B}}. Tomb of Urami deals 1 damage to you if you don't control an Ogre.`
 /// and `{2}{B}{B}, {{T}}, Sacrifice all lands you control: Create Urami, a legendary 5/5 black Demon Spirit creature token with flying.`
 ///
-/// Under `Coverage::Partial`, the damage rider and Urami token creation are omitted
-/// because neither can be expressed in the card domain-specific language. This test verifies
-/// that activating Tomb of Urami adds one black mana to the pool without dealing damage
-/// to its controller even when no Ogre is controlled, and confirms no second ability is offered.
+/// Under `Coverage::Partial`, the Urami ability is omitted because its sacrifice-all-lands cost
+/// cannot be stated. The mana ability carries its rider: tapped with no Ogre, the land makes one
+/// black mana and deals 1 damage to its controller; tapped beside Ogre Berserker, it deals none.
+/// Only one ability is offered either way.
 #[test]
-fn tomb_of_urami_taps_for_black_without_damage_or_second_ability() {
+fn tomb_of_urami_hurts_without_an_ogre_and_not_with_one() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[tomb_of_urami()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+    let life_lost = |board: &[CardIndex]| {
+        let mut engine = Duel::new(SEED, forest()).battlefield(0, board).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
 
-    let tomb = on_battlefield(&engine, p0, tomb_of_urami()).expect("tomb on battlefield");
+        let tomb = on_battlefield(&engine, p0, tomb_of_urami()).expect("tomb on battlefield");
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        assert_eq!(
+            legal.abilities.iter().filter(|(id, _)| *id == tomb).count(),
+            1,
+            "only the mana ability: the Urami ability is not written"
+        );
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
+        let before = engine.state().players[0].life;
+        activate(&mut engine, p0, tomb_of_urami(), 0);
+        assert_eq!(
+            engine.state().players[0]
+                .mana_pool
+                .available(ManaColor::Black),
+            1,
+            "{{T}}: Add {{B}}"
+        );
+        assert!(is_tapped(&engine, tomb));
+        before - engine.state().players[0].life
     };
-    assert_eq!(
-        legal.abilities.iter().filter(|(id, _)| *id == tomb).count(),
-        1,
-        "only ability 0 is offered under Coverage::Partial"
-    );
 
-    let life_before = engine.state().players[0].life;
-    activate(&mut engine, p0, tomb_of_urami(), 0);
-
+    assert_eq!(life_lost(&[tomb_of_urami()]), 1, "no Ogre: 1 damage");
     assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Black),
-        1,
-        "{{T}}: Add {{B}}"
+        life_lost(&[tomb_of_urami(), ogre_berserker()]),
+        0,
+        "an Ogre stops it"
     );
-    assert_eq!(
-        engine.state().players[0].life,
-        life_before,
-        "no damage dealt because damage rider is omitted"
-    );
-    assert!(is_tapped(&engine, tomb));
 }
 
 /// Uthros, Titanic Godcore prints `This land enters tapped.`, `{{T}}: Add {{U}}.`,
@@ -28319,8 +28387,9 @@ fn ishgard_the_holy_see_enters_tapped_and_taps_for_white() {
 /// to cast a creature spell of the chosen type or activate an ability of a creature
 /// source of the chosen type.`
 ///
-/// Under `Coverage::Partial`, the spend restriction on the any-color mana is
-/// unsupported by the engine. Playing the land prompts for a creature subtype
+/// Under `Coverage::Partial`, the any-color mana pays for creature spells of the
+/// chosen type only: its activated-ability half has no shape, and restricted mana
+/// pays for no activation. Playing the land prompts for a creature subtype
 /// via `Pending::ChooseSubtype`. Activating ability 1 prompts for a color choice
 /// via `Pending::ChooseColor` and produces one restricted mana in `pool.restricted()`
 /// rather than `pool.available()`.
@@ -28511,8 +28580,8 @@ fn the_monumental_facade_taps_for_colorless_mana() {
 /// Target 1/1 creature gets +2/+1 until end of turn. Activate only if an opponent
 /// has three or more poison counters.`
 ///
-/// Under `Coverage::Partial`, the Corrupted ability is omitted because poison counter
-/// counts on opponents and 1/1 creature target filters are unsupported. Activating
+/// Under `Coverage::Partial`, the Corrupted ability is omitted because no Condition
+/// reads an opponent's poison counters. Activating
 /// ability 1 prompts for a color choice via `Pending::ChooseColor` and produces one
 /// restricted mana in `pool.restricted()` rather than `pool.available()`.
 #[test]
@@ -28546,8 +28615,9 @@ fn the_seedcore_produces_restricted_phyrexian_mana() {
 /// Zanarkand, Ancient Metropolis prints `This land enters tapped.` and `{{T}}: Add {{G}}.`
 /// on its front face, alongside the Adventure sorcery Lasting Fayth.
 ///
-/// Under `Coverage::Partial`, the adventure half is unsupported because Hero tokens and
-/// creating tokens with counters are not implemented in the DSL. Playing the card as a land
+/// Under `Coverage::Partial`, the adventure half is unsupported: a card whose front face is a
+/// land cannot be cast as its Adventure, and no effect puts counters on a token the same
+/// resolution created. Playing the card as a land
 /// enters the battlefield tapped as a `TypeSet::LAND` rather than `TypeSet::SORCERY`.
 /// Advancing to the next turn untaps the Town, where activating ability 0 produces one green mana.
 #[test]
@@ -28694,10 +28764,9 @@ fn amonkhet_raceway_taps_for_colorless_and_omits_speed_ability() {
 /// green creature.`, `{{T}}: Add {{G}}.`, `{{2}}{{G}}{{G}}, {{T}}: Create a 2/2 green Bear creature
 /// token, then mill three cards. Activate only as a sorcery.`, and `(Melds with Titania, Voice of Gaea.)`
 ///
-/// Under `Coverage::Partial`, `EnterModifier::TappedUnless` and the `{{T}}: Add {{G}}` mana ability
-/// are built; the Bear token creation and meld are omitted. Without a legendary green creature,
-/// playing this land enters tapped. After advancing to the next turn, it untaps, withholds
-/// ability index 1 despite floating `{{2}}{{G}}{{G}}` from four `forest()` lands, and taps for one green mana.
+/// Under `Coverage::Partial`, meld is omitted. Without a legendary green creature,
+/// playing this land enters tapped. After advancing to the next turn, it untaps and taps for one
+/// green mana; `argoth_sanctum_of_nature_makes_a_bear_and_mills_three` plays the Bear ability.
 #[test]
 fn argoth_sanctum_of_nature_enters_tapped_and_taps_for_green() {
     let p0 = PlayerId::new(0);
@@ -28722,23 +28791,54 @@ fn argoth_sanctum_of_nature_enters_tapped_and_taps_for_green() {
     tap_mana_except(&mut engine, p0, land);
     assert_eq!(engine.state().players[0].mana_pool.total(), 4);
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
-    };
-    assert!(
-        legal.abilities.contains(&(land, 0)),
-        "ability 0 ({{T}}: Add {{G}}) is offered"
-    );
-    assert!(
-        !legal.abilities.contains(&(land, 1)),
-        "under `Coverage::Partial`, Bear token ability is omitted despite floating {{2}}{{G}}{{G}}"
-    );
-
     activate(&mut engine, p0, argoth_sanctum_of_nature(), 0);
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 5);
     assert_eq!(pool.total(), 5);
     assert!(is_tapped(&engine, land));
+}
+
+/// Argoth's `{{2}}{{G}}{{G}}, {{T}}: Create a 2/2 green Bear creature token, then
+/// mill three cards. Activate only as a sorcery.` One Bear, and exactly three
+/// cards from the library to the graveyard.
+#[test]
+fn argoth_sanctum_of_nature_makes_a_bear_and_mills_three() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                argoth_sanctum_of_nature(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = on_battlefield(&engine, p0, argoth_sanctum_of_nature()).expect("Argoth deployed");
+    tap_mana_except(&mut engine, p0, land);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).len();
+    let graveyard = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+
+    activate(&mut engine, p0, argoth_sanctum_of_nature(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, land));
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Bear");
+    assert_eq!(pt(&engine, tokens[0]), (2, 2));
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)).len(),
+        library - 3
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        graveyard + 3
+    );
 }
 
 /// Avishkar Raceway prints `Start your engines!`, `{{T}}: Add {{C}}.`, and
@@ -31668,11 +31768,10 @@ fn secluded_starforge() -> CardIndex {
 
 /// `Secluded Starforge` prints `{{T}}: Add {{C}}.`, `{{2}}, {{T}}, Tap X untapped artifacts you control: Target creature gets +X/+0 until end of turn. Activate only as a sorcery.`, and `{{5}}, {{T}}: Create a 2/2 colorless Robot artifact creature token.`
 ///
-/// Under `Coverage::Partial`, only the mana ability is implemented because artifact count costs and Robot tokens are unsupported.
-/// With `Secluded Starforge` and five `forest()` lands on the battlefield under `PlayerId::new(0)`, floating `{{5}}` while keeping `Secluded Starforge` untapped shows that ability 0 is offered while ability 1 and ability 2 are omitted from `legal.abilities`.
-/// Activating ability 0 produces one colorless mana and leaves the land tapped.
+/// Under `Coverage::Partial`, the pump is left off because its cost taps a counted number of artifacts, which no cost part says. So the card has two abilities, the mana at 0 and the Robot at 1, and nothing at 2.
+/// With five Forests floating `{{5}}`, the Robot ability taps the land and makes one 2/2 colorless artifact creature.
 #[test]
-fn secluded_starforge_taps_for_colorless_and_omits_unsupported_abilities() {
+fn secluded_starforge_taps_for_colorless_and_makes_a_robot_for_five() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -31693,32 +31792,50 @@ fn secluded_starforge_taps_for_colorless_and_omits_unsupported_abilities() {
     let starforge = on_battlefield(&engine, p0, secluded_starforge())
         .expect("secluded starforge on battlefield");
 
-    // Float {{5}} from Forests while keeping Secluded Starforge untapped.
     tap_mana_except(&mut engine, p0, starforge);
     assert_eq!(engine.state().players[0].mana_pool.total(), 5);
-    assert!(!is_tapped(&engine, starforge));
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
         legal.abilities.contains(&(starforge, 0)),
-        "ability 0 ({{T}}: Add {{C}}) is offered"
+        "the mana ability"
     );
-    assert!(
-        !legal.abilities.contains(&(starforge, 1)),
-        "ability 1 is omitted under `Coverage::Partial` despite floating mana"
-    );
+    assert!(legal.abilities.contains(&(starforge, 1)), "the Robot");
     assert!(
         !legal.abilities.contains(&(starforge, 2)),
-        "ability 2 is omitted under `Coverage::Partial` despite floating mana"
+        "and no third ability: the pump is not written"
     );
 
+    activate(&mut engine, p0, secluded_starforge(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, starforge));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0, "{{5}} paid");
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Robot");
+    assert_eq!(pt(&engine, tokens[0]), (2, 2));
+    let t = types(&engine, tokens[0]);
+    assert!(t.contains(TypeSet::ARTIFACT) && t.contains(TypeSet::CREATURE));
+}
+
+/// Secluded Starforge's `{{T}}: Add {{C}}`, on its own.
+#[test]
+fn secluded_starforge_taps_for_colorless() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[secluded_starforge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let starforge = on_battlefield(&engine, p0, secluded_starforge())
+        .expect("secluded starforge on battlefield");
     activate(&mut engine, p0, secluded_starforge(), 0);
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 1);
-    assert_eq!(pool.available(ManaColor::Green), 5);
-    assert_eq!(pool.total(), 6);
+    assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, starforge));
 }
 
@@ -31728,11 +31845,10 @@ fn sheltered_valley() -> CardIndex {
 
 /// `Sheltered Valley` prints `If this land would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put this land onto the battlefield.`, `At the beginning of your upkeep, if you control three or fewer lands, you gain 1 life.`, and `{{T}}: Add {{C}}.`
 ///
-/// Under `Coverage::Partial`, only the mana ability is implemented because the namesake sacrifice replacement and the upper-bounded land count trigger are unsupported.
-/// Playing a second `Sheltered Valley` from hand enters the battlefield untapped without sacrificing the first, and advancing through upkeep with two lands does not trigger life gain.
+/// Under `Coverage::Partial`, the namesake sacrifice replacement is unsupported: a second copy played from hand enters beside the first. That half is pinned, and moves when the replacement is written.
 /// Both copies tap for one colorless mana each.
 #[test]
-fn sheltered_valley_enters_without_sacrifice_omits_upkeep_life_and_taps_for_colorless() {
+fn sheltered_valley_enters_beside_its_namesake_and_taps_for_colorless() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[sheltered_valley()])
@@ -31746,19 +31862,7 @@ fn sheltered_valley_enters_without_sacrifice_omits_upkeep_life_and_taps_for_colo
     assert_eq!(
         all_on_battlefield(&engine, p0, sheltered_valley()).len(),
         2,
-        "under `Coverage::Partial`, neither copy is sacrificed on entry"
-    );
-
-    let initial_life = engine.state().players[0].life;
-
-    // Advance to next turn's main phase (passing through upkeep with <= 3 lands).
-    reach_their_main_phase(&mut engine, PlayerId::new(1));
-    reach_their_main_phase(&mut engine, p0);
-
-    assert_eq!(
-        engine.state().players[0].life,
-        initial_life,
-        "under `Coverage::Partial`, no upkeep life trigger is executed"
+        "pinned: no replacement sacrifices the first copy"
     );
 
     let taken = tap_all_mana(&mut engine, p0);
@@ -31766,6 +31870,35 @@ fn sheltered_valley_enters_without_sacrifice_omits_upkeep_life_and_taps_for_colo
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 2);
     assert_eq!(pool.total(), 2);
+}
+
+/// Sheltered Valley: "At the beginning of your upkeep, if you control three
+/// or fewer lands, you gain 1 life." Measured over one full turn cycle
+/// (the opponent's turn and then this seat's upkeep), on three lands and on
+/// four. The four-land board is the half that says the count is bounded from
+/// above, and the opponent's upkeep in between is the half that says `your`.
+#[test]
+fn sheltered_valley_gains_a_life_in_your_upkeep_on_three_lands_and_none_on_four() {
+    let p0 = PlayerId::new(0);
+    let gained_over_a_turn_cycle = |lands: &[CardIndex]| {
+        let mut engine = Duel::new(SEED, forest()).battlefield(0, lands).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let before = engine.state().players[0].life;
+        cross_into_the_next_own_main(&mut engine, p0);
+        engine.state().players[0].life - before
+    };
+
+    assert_eq!(
+        gained_over_a_turn_cycle(&[sheltered_valley(), forest(), forest()]),
+        1,
+        "three lands: one upkeep of this seat's, one life"
+    );
+    assert_eq!(
+        gained_over_a_turn_cycle(&[sheltered_valley(), forest(), forest(), forest()]),
+        0,
+        "four lands is one too many"
+    );
 }
 
 fn skemfar_elderhall() -> CardIndex {

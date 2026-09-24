@@ -25,15 +25,16 @@ card!(
         }],
     )],
     coverage = Coverage::Partial(
-        "the animated land's granted ability — \"Whenever this creature attacks, create a 1/1 red Goblin creature token that's tapped and attacking\" — cannot be said: no `Effect` makes a token that is tapped and attacking, and `crate::tokens` carries no 1/1 red Goblin for it to name",
+        "the animated land's granted ability — \"Whenever this creature attacks, create a 1/1 red Goblin creature token that's tapped and attacking\" — cannot be said: no `Effect` creates a token tapped and attacking, and a Goblin created any other way would play wrongly",
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
         // NOT SUPPORTED: "… with \"Whenever this creature attacks, create a
         // 1/1 red Goblin creature token that's tapped and attacking.\"" — the
         // granted trigger would need a token that is tapped and attacking,
-        // which no `Effect` produces, and a 1/1 red Goblin `TokenDef` this
-        // pool does not register (a card file may not define one of its own).
+        // which no `Effect` produces. The 1/1 red Goblin exists
+        // (`GOBLIN_1_1_RED`), but made untapped and outside combat it would
+        // be a blocker the card never prints.
         activated!(
             cost!("{3}{R}"),
             &[Effect::Sequence(&[

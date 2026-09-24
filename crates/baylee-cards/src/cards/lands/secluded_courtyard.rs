@@ -4,7 +4,8 @@
 //! Oracle: {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type or activate an ability of a creature source of the chosen type.
 //! Set: MSC #265 — Marvel Super Heroes Commander | Scryfall ID: c0d17d04-cf0b-4918-bfec-b34b0d98a602 | Oracle ID: 79ba18fd-f184-43c1-86df-56ee18ce806c
 // PARTIAL — the choose-a-type arrival and both mana abilities are built; the
-// printed spend restriction on the any-color mana is not enforced.
+// any-color mana's spend restriction is enforced for spells, and its
+// activated-ability half has no shape.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,11 +17,10 @@ static CHOSEN_TYPE_CREATURE_SPELL: Filter =
 
 // NOT SUPPORTED: "Spend this mana only to cast a creature spell of the chosen
 // type or activate an ability of a creature source of the chosen type." The
-// restriction is written down as a `ManaRestriction`, but mana in the pool
-// carries no provenance, so nothing enforces it — the {T} ability hands out
-// one mana of any color for anything (docs/card-dsl.md, "Explicitly not
-// supported yet": mana-source tracking / restricted mana riders). The second
-// half names an *ability* on the stack, which no filter reaches at all.
+// first half is a `ManaRestriction`, enforced when the mana pays for a spell.
+// The second half names an *ability*, and a restriction is asked only of a
+// spell being cast: restricted mana never pays for an activated ability, so
+// the land's any-color mana is narrower than printed.
 
 card!(
     index = index::SECLUDED_COURTYARD,
@@ -32,7 +32,10 @@ card!(
         enter_modifiers = &[EnterModifier::ChooseSubtype],
     )],
     coverage = Coverage::Partial(
-        "the spend restriction on the any-color mana is not enforced by the engine"
+        "the any-color mana can pay only for creature spells of the chosen type: \
+         \"or activate an ability of a creature source of the chosen type\" has no \
+         shape, because a ManaRestriction's filter is asked only of a spell being \
+         cast and restricted mana never pays for an activated ability"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),

@@ -23,10 +23,9 @@ card!(
         ))],
     ),],
     coverage = Coverage::Partial(
-        "the token ability's \"This ability costs {1} less to activate for each Equipment you \
-         control\": no variant reduces an activation cost (CostReduction carries only \
-         NotStartingPlayer), and the 2/2 red Dwarf it makes is not one of the tokens \
-         `crate::tokens` declares, which is the only registry a card file may name"
+        "the Dwarf ability stays off until an activation cost can be reduced by {1} per \
+         Equipment you control (CostReduction carries only NotStartingPlayer); the 2/2 \
+         red Dwarf token exists"
     ),
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
 );
@@ -35,12 +34,8 @@ card!(
 // ability costs {1} less to activate for each Equipment you control. Activate
 // only as a sorcery." — two clauses of one ability.
 //
-// The discount is the first: docs/card-dsl.md lists cost reducers under
-// "Explicitly not supported yet (M3+)", and an ability printed at the
-// un-reduced {4}{R} would charge a price the card does not print, so the
-// ability comes off the card rather than onto it wrong.
-//
-// The token is the second and would block the ability on its own: a
-// `TokenDef` literal in a card file has no id in the ledger
-// (`no_card_file_defines_its_own_token`), and `crate::tokens` carries no
-// Dwarf for it to name.
+// The discount is the gap: no variant reduces an activation cost
+// (`CostReduction` carries only NotStartingPlayer), and an ability printed at
+// the un-reduced {4}{R} would charge a price the card does not print, so the
+// ability comes off the card rather than onto it wrong. The token is not a
+// gap: `generated_tokens::DWARF_2_2_RED` exists.

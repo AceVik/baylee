@@ -19,17 +19,17 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
     coverage = Coverage::Partial(
-        "the any-color line is restricted to Cleric, Rogue, Warrior and Wizard \
-         spells only: \"or to activate an ability of a Cleric, Rogue, Warrior, \
-         or Wizard\" has no DSL shape, since a ManaRestriction's filter names \
-         the spell being cast and never an activated ability's source — and \
-         the pool tracks no mana provenance to enforce it with"
+        "the any-color mana can pay only for Cleric, Rogue, Warrior or Wizard \
+         spells: \"or to activate an ability of a Cleric, Rogue, Warrior, or \
+         Wizard\" has no shape, because a ManaRestriction's filter is asked only \
+         of a spell being cast and restricted mana never pays for an activated \
+         ability"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         // NOT SUPPORTED: "or to activate an ability of a Cleric, Rogue,
         // Warrior, or Wizard" — one ManaRestriction holds one filter, applied
-        // to the spell on the stack.
+        // to the spell on the stack; restricted mana pays for no activation.
         mana_ability!(&[Effect::mana_of_any_color().restricted(
             &Filter::Or(&[
                 Filter::HasSubtype(creature::CLERIC),

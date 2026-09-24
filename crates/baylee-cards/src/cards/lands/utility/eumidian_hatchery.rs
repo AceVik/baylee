@@ -15,7 +15,7 @@ use baylee_cards_dsl::prelude::*;
 /// number, and it has to move there before a second card prints the word.
 const HATCHLING: CounterKind = CounterKind::Custom(5);
 
-// NOT SUPPORTED: "When this land is put into a graveyard from the battlefield, for each hatchling counter on it, create a 1/1 black Insect creature token with flying." — `Amount` has no variant that counts counters on the source (`CountOf` counts objects in a zone, not counters), and no 1/1 black flying Insect token exists in `crate::tokens`, which a card file may not define for itself.
+// NOT SUPPORTED: "When this land is put into a graveyard from the battlefield, for each hatchling counter on it, create a 1/1 black Insect creature token with flying." — the trigger (`Trigger::Dies(&Filter::This)`) and the token (`INSECT_1_1_BLACK_FLYING`) are sayable, but `Amount` has no variant that counts the counters the land had as it left the battlefield: a move clears them, and the record kept of them is read only by undying and persist.
 
 card!(
     index = index::EUMIDIAN_HATCHERY,
@@ -24,9 +24,10 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     faces = &[face!(name = "Eumidian Hatchery", types = TypeSet::LAND,),],
     coverage = Coverage::Partial(
-        "the graveyard trigger needs an amount that counts counters on the \
-         source, which Amount does not carry, and a 1/1 black flying Insect \
-         token, which crate::tokens does not have",
+        "the graveyard trigger needs an amount that counts the hatchling \
+         counters the land had as it left the battlefield, which Amount does \
+         not carry (the record of a departed permanent's counters is read only \
+         by undying and persist)",
     ),
     abilities = &[mana_ability!(
         cost!(TapSelf, PayLife(1)),

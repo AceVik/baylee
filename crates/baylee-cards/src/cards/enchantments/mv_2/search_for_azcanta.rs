@@ -45,16 +45,17 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "the upkeep trigger's transform clause is gated on seven or more cards in \
-         your graveyard and no Condition or Effect reads the size of your own \
-         graveyard; the back face's look-at-four ability has no LookAtTopPick \
-         filter and so cannot be restricted to a noncreature, nonland card"
+        "the upkeep trigger's \"you may transform\" has nothing to call, since no \
+         effect transforms a permanent in place (#206), so its seven-card graveyard \
+         gate stays unwritten with it; and the back face's look-at-four ability has \
+         no LookAtTopPick filter to restrict the pick to a noncreature, nonland card"
     ),
     abilities = &[
         // NOT SUPPORTED: "Then if you have seven or more cards in your
-        // graveyard, you may transform Search for Azcanta." — the transform is
-        // gated on a graveyard count nothing in the DSL can ask, so it is not
-        // written at all rather than written unconditionally.
+        // graveyard, you may transform Search for Azcanta." — the gate is
+        // sayable (`Condition::GraveyardCountAtLeast(7)` under
+        // `Effect::IfCondition`), but nothing transforms a permanent in place
+        // (#206), so the gate would have nothing behind it.
         triggered!(
             Trigger::StepBegin {
                 step: StepKind::Upkeep,

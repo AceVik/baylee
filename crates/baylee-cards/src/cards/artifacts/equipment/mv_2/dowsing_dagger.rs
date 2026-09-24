@@ -8,8 +8,9 @@
 //! Set: XLN #235 — Ixalan | Scryfall ID: 514d53be-6ade-4f73-a844-e9ae2dafd6ce | Oracle ID: df34a6ad-ae1c-4470-8c9e-49815bba1973
 //! Face: Dowsing Dagger — {2} — Artifact — Equipment
 //! Face: Lost Vale —  — Land
-// PARTIAL — the equip bonus, the combat-damage transform trigger and Lost
-// Vale's three mana are built; the enters-trigger is not (see NOT SUPPORTED).
+// PARTIAL — the equip bonus and Lost Vale's three mana are built. The
+// combat-damage trigger is written as an exile-and-return, not a transform
+// (#206), and the enters-trigger is not written (see NOT SUPPORTED).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -43,11 +44,14 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "enters-trigger: no 0/2 green Plant token with defender is in the token registry, and no effect creates tokens under a chosen player",
+        "enters-trigger: no effect creates tokens under a target opponent (CreateTokenForTargetController reads an object target's controller, not a chosen player); and the transform to Lost Vale is an exile-and-return, not a transform (#206)",
     ),
-    // NOT SUPPORTED: When this Equipment enters, target opponent creates two 0/2 green Plant creature tokens with defender. — the token does not exist in `crate::tokens`/`generated_tokens`, and `CreateTokenForTargetController` reads an object target's controller rather than the `AnyOpponent` seat.
+    // NOT SUPPORTED: When this Equipment enters, target opponent creates two 0/2 green Plant creature tokens with defender. — the token exists (`PLANT_0_2_GREEN_DEFENDER`), but `CreateTokenForTargetController` reads an object target's controller rather than a target player, so the Plants would be yours.
     abilities = &[
         static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(2, 1)),
+        // NOT SUPPORTED (#206): "you may transform it" — ExileSelfReturnAsFace
+        // exiles the Equipment and returns Lost Vale as a new object, which
+        // enters; a transform turns the same permanent over (CR 701.27a).
         triggered!(
             Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource),
             &[Effect::MayDo {

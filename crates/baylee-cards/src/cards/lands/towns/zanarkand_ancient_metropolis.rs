@@ -25,10 +25,10 @@ card!(
         ),
         // NOT SUPPORTED: "Create a 1/1 colorless Hero creature token. Put a
         // +1/+1 counter on it for each land you control." — two things stop it.
-        // The pool's token registry carries no Hero token for
-        // `Effect::CreateToken` to name, and a card file may not define one
-        // (`tokens::no_card_file_defines_its_own_token`). And no effect puts
-        // counters on a token the same resolution created: `Effect::AddCounter`
+        // A card whose front face is a land cannot be cast as its Adventure
+        // (`can_cast` refuses a land face first), nor played from exile
+        // afterwards. And no effect puts counters on a token the same
+        // resolution created (the Hero token exists): `Effect::AddCounter`
         // counts onto the first target or onto the source, `AddCounterFilter`
         // onto every object a filter matches, and `CreateTokenPtPerCount`
         // grants +P/+T for a count rather than the counters this card prints.
@@ -40,7 +40,7 @@ card!(
         ),
     ],
     coverage = Coverage::Partial(
-        "Lasting Fayth: no Hero token in the registry, and no effect puts counters on the token the resolution just created",
+        "Lasting Fayth is unreachable and unwritten: a card whose front face is a land cannot be cast as its Adventure or played from exile afterwards, and no effect puts +1/+1 counters on the token the same resolution created",
     ),
     abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])],
 );

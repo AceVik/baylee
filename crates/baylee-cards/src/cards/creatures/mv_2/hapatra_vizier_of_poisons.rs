@@ -24,7 +24,9 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    coverage = Coverage::Partial("no Trigger variant for counters being put on a creature"),
+    coverage = Coverage::Partial(
+        "no Trigger fires on -1/-1 counters being put on a creature, and the counter event does not record who put them"
+    ),
     abilities = &[triggered!(
         Trigger::DealsCombatDamageToPlayer(&Filter::This),
         &[Effect::AddCounter {
@@ -39,4 +41,5 @@ card!(
 // create a 1/1 green Snake creature token with deathtouch." — no `Trigger`
 // fires on counters being placed on a permanent (`TriggerEventKind` has only
 // `EntersBattlefield`/`Any`, and replaces trigger *rules* rather than
-// counters), and the token it makes has no entry in `crate::tokens`.
+// counters), and `GameEvent::CounterChanged` does not record who put the
+// counters, which "whenever you put" needs. The Snake token exists.

@@ -7,11 +7,12 @@
 //! Set: RIX #160 — Rivals of Ixalan | Scryfall ID: d81c4b3f-81c2-403b-8a5d-c9415f73a1f9 | Oracle ID: 7d6ccd0b-df16-40b2-930b-bcde0b6ef73f
 //! Face: Journey to Eternity — {1}{B}{G} — Legendary Enchantment — Aura
 //! Face: Atzal, Cave of Eternity —  — Legendary Land
-// IMPLEMENTED — the Aura's enchanting clause as one `spell!` (AttachSelf plus
+// PARTIAL — the Aura's enchanting clause as one `spell!` (AttachSelf plus
 // the "creature you control" requirement the engine reads its legality from),
-// its dies trigger returning the event object from the graveyard and then
-// returning this card as its back face, and Atzal's two activated abilities:
-// any-colour mana and the graveyard reanimation.
+// its dies trigger returning the event object from the graveyard, and Atzal's
+// two activated abilities: any-colour mana and the graveyard reanimation.
+// Returning this card as its back face goes through exile (see NOT SUPPORTED
+// below).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -53,7 +54,11 @@ card!(
             abilities = ATZAL_ABILITIES,
         ),
     ],
-    coverage = Coverage::Implemented,
+    coverage = Coverage::Partial(
+        "\"return this card to the battlefield transformed\": ExileSelfReturnAsFace \
+         moves the Aura from the graveyard to exile before the battlefield, a step \
+         the card does not print (#206)"
+    ),
     abilities = &[
         spell!(
             &[Effect::AttachSelf {
@@ -65,6 +70,12 @@ card!(
             Trigger::Dies(&Filter::AttachedToBySource),
             &[
                 Effect::reanimate(TargetSpec::EventObject),
+                // NOT SUPPORTED as printed: "then return this card to the
+                // battlefield transformed". The card is in the graveyard,
+                // and `ExileSelfReturnAsFace` exiles it from there first, so
+                // a leaves-the-graveyard or put-into-exile trigger sees a
+                // move the card never makes. No effect returns a card from
+                // the graveyard as its back face (#206).
                 Effect::ExileSelfReturnAsFace { face: 1 },
             ]
         ),

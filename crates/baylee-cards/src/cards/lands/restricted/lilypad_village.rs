@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     faces = &[face!(name = "Lilypad Village", types = TypeSet::LAND,),],
     coverage = Coverage::Partial(
-        "the {U}, {T} ability's activation condition — \"a Bird, Frog, Otter, or Rat entered the battlefield under your control this turn\" — is a record of a past event, which no `Condition` variant states; the ability is left off the card rather than shipped activating unconditionally"
+        "the {U}, {T} ability's activation condition — \"a Bird, Frog, Otter, or Rat entered the battlefield under your control this turn\" — is a record of a past event no `Condition` reads, and ControlCount over EnteredThisTurn would miss a creature that entered under your control and has since left the battlefield, so the ability is left off"
     ),
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),

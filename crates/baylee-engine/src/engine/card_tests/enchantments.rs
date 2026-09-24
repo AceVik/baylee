@@ -2085,20 +2085,15 @@ fn walk_in_closet_lets_its_controller_play_a_land_out_of_the_graveyard() {
     );
 }
 
-/// Legion's Landing is `Coverage::Partial` with **both** of its printed
-/// clauses in the reason — no trigger counts attacking creatures, and the
-/// pool has no 1/1 white Vampire token with lifelink for either clause to
-/// make — so the front face carries no ability at all, which is what this
-/// pins.
+/// Legion's Landing: "When Legion's Landing enters, create a 1/1 white
+/// Vampire creature token with lifelink." The card is `Coverage::Partial`
+/// for its transform alone (#206); the enters trigger is written.
 ///
-/// The enchantment is cast and the battlefield is counted before and after:
-/// one new permanent, which is the enchantment itself and no Vampire beside
-/// it. It is **meant to fail** the day the token exists. The legendary
-/// supertype is checked alongside, because it is the one printed
-/// characteristic the card does still carry and a `Partial` is not a licence
-/// to get the type line wrong.
+/// The enchantment is cast and the tokens are counted: one 1/1 with
+/// lifelink. The legendary supertype is checked alongside, because a
+/// `Partial` is not a licence to get the type line wrong.
 #[test]
-fn legions_landing_makes_no_vampire_because_the_pool_has_no_such_token() {
+fn legions_landing_makes_a_lifelink_vampire_as_it_enters() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[plains()])
@@ -2107,7 +2102,6 @@ fn legions_landing_makes_no_vampire_because_the_pool_has_no_such_token() {
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
-    let before = engine.state().zones.list(ZoneLocation::Battlefield).len();
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, legion_s_landing());
     pass_until(&mut engine, |e| at_rest(e, p0));
@@ -2123,13 +2117,10 @@ fn legions_landing_makes_no_vampire_because_the_pool_has_no_such_token() {
             .contains(baylee_core::types::SupertypeSet::LEGENDARY),
         "Legion's Landing is a legendary enchantment"
     );
-    assert_eq!(
-        engine.state().zones.list(ZoneLocation::Battlefield).len(),
-        before + 1,
-        "one new permanent and no Vampire beside it: \"create a 1/1 white \
-         Vampire creature token with lifelink\" has no token to create — \
-         delete this the day `crate::tokens` has one"
-    );
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Vampire");
+    assert_eq!(pt(&engine, tokens[0]), (1, 1));
+    assert!(keywords(&engine, tokens[0]).contains(KeywordSet::LIFELINK));
 }
 
 /// Rancor: the whole card, which is three sentences and a return trip.
@@ -2987,16 +2978,35 @@ fn hadana_s_climb_puts_plus_one_counter_on_controlled_creature_at_combat() {
     );
 }
 
-/// `Journey to Eternity` // `Atzal, Cave of Eternity` (`Coverage::Implemented`):
+/// Whether the journal holds a move of `object` from a graveyard to exile.
+fn went_from_graveyard_to_exile(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
+    engine.journal().entries().iter().any(|e| {
+        matches!(
+            e.event,
+            crate::event::GameEvent::ZoneChanged {
+                object: moved,
+                from: crate::zone::Zone::Graveyard,
+                to: crate::zone::Zone::Exile,
+                ..
+            } if moved == object
+        )
+    })
+}
+
+/// `Journey to Eternity` // `Atzal, Cave of Eternity` (`Coverage::Partial`):
 /// "Enchant creature you control. When enchanted creature dies, return it to the battlefield
 /// under your control, then return this card to the battlefield transformed under your control.
 /// // `{{T}}`: Add one mana of any color. `{{3}}{{B}}{{G}}`, `{{T}}`: Return target creature card
 /// from your graveyard to the battlefield."
 ///
-/// Under `Coverage::Implemented`, casting `Journey to Eternity` targets and attaches to a controlled
-/// creature. When that creature dies (sacrificed to `ashnods_altar()`), the dies trigger returns the
-/// creature to the battlefield and returns `Journey to Eternity` transformed as the legendary land
-/// `Atzal, Cave of Eternity` on face 1, which then activates its `{{T}}` mana ability for black mana.
+/// Casting `Journey to Eternity` targets and attaches to a controlled creature. When that creature
+/// dies (sacrificed to `ashnods_altar()`), the dies trigger returns the creature to the battlefield
+/// and returns `Journey to Eternity` transformed as the legendary land `Atzal, Cave of Eternity` on
+/// face 1, which then activates its `{{T}}` mana ability for black mana.
+///
+/// It is `Coverage::Partial` for the way back: the Aura goes from the graveyard to exile before
+/// the battlefield, a move the card does not print. That step is pinned below and has to go when
+/// #206 gives the card a return that does not pass through exile.
 #[test]
 fn journey_to_eternity_returns_creature_and_transforms_into_atzal() {
     let p0 = PlayerId::new(0);
@@ -3065,6 +3075,10 @@ fn journey_to_eternity_returns_creature_and_transforms_into_atzal() {
         .unwrap();
 
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        went_from_graveyard_to_exile(&engine, aura),
+        "pinned (#206): the return still passes through exile; drop this when it does not"
+    );
 
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_some(),
@@ -3382,17 +3396,18 @@ fn sidequest_catch_a_fish_casts_and_enters_as_enchantment_without_upkeep_trigger
     );
 }
 
-/// `Storm the Vault` // `Vault of Catlacan` (`Coverage::Implemented`):
+/// `Storm the Vault` // `Vault of Catlacan` (`Coverage::Partial`):
 /// "Whenever one or more creatures you control deal combat damage to a player, create a Treasure
 /// token. At the beginning of your end step, if you control five or more artifacts, transform
 /// `Storm the Vault`. // `{{T}}`: Add one mana of any color. `{{T}}`: Add `{{U}}` for each artifact
 /// you control."
 ///
-/// Under `Coverage::Implemented`, controlling five artifacts satisfies the end-step transform
-/// condition. The test sets up five `quiet_artifact()`s, advances to the end step where the
-/// transform trigger resolves, verifies `Storm the Vault` transforms into the legendary land
-/// `Vault of Catlacan` on face 1, and activates its second mana ability to produce blue mana
-/// equal to the artifact count.
+/// Controlling five artifacts satisfies the end-step transform condition. The test sets up five
+/// `quiet_artifact()`s, advances to the end step where the transform trigger resolves, verifies
+/// `Storm the Vault` becomes the legendary land `Vault of Catlacan` on face 1, and activates its
+/// second mana ability to produce blue mana equal to the artifact count. `Coverage::Partial`
+/// because it gets there by exile and return, a new object entering, and not by transforming
+/// in place (#206).
 #[test]
 fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
     let p0 = PlayerId::new(0);

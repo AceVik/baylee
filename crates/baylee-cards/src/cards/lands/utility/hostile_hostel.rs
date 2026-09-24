@@ -16,8 +16,9 @@ use baylee_core::generated::subtypes;
 // NOT SUPPORTED: "{1}, {T}, Sacrifice a creature: Put a soul counter on this land. Then if there
 // are three or more soul counters on it, remove those counters, transform it, then untap it."
 // — the whole activated ability is dropped: `counters` assigns no id for a soul counter, no
-// `Effect` removes counters (`RemoveCounterSelf` is a cost), and no effect-level branch asks
-// "three or more counters on this" (`IfNoCountersOnSelf` is the nought case only).
+// `Effect` removes counters (`RemoveCounterSelf` is a cost), and nothing transforms a permanent
+// in place (#206), which is the only way to reach Creeping Inn. The branch on three is sayable
+// (`Effect::IfCondition` over `Condition::CountersOnSelf`).
 // NOT SUPPORTED: "Whenever this creature attacks, you may exile a creature card from your
 // graveyard. If you do, each opponent loses X life and you gain X life, where X is the number of
 // creature cards exiled with this creature."
@@ -35,8 +36,10 @@ card!(
     scryfall_id = "ac83c27f-55d6-4e5a-93a4-febb0c183289",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "front's soul-counter transform ability and back's linked-exile attack trigger \
-         are not expressible",
+        "the soul-counter ability stays off because no Effect removes counters and \
+         nothing transforms a permanent in place (#206), which is the only way to \
+         reach Creeping Inn; its attack trigger also has no Amount for the cards \
+         exiled with it",
     ),
     faces = &[
         face!(name = "Hostile Hostel", types = TypeSet::LAND,),
