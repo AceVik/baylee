@@ -579,6 +579,11 @@ mod tests {
     /// commit that gave its front face `DealDamageEach`. One card, arriving
     /// with a DSL change rather than a generator round, so the rate #162
     /// watches did not move.
+    ///
+    /// Read again the same day, at **fourteen**: Grasping Shadows, whose
+    /// Shadows' Lair spends a dread counter to draw once `counters::DREAD`
+    /// gave the word an id. Hand-written again, one card, no generator
+    /// round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -603,6 +608,7 @@ mod tests {
                 "Hostile Hostel",
                 "Sheoldred",
                 "Dowsing Device",
+                "Grasping Shadows",
                 "Ojer Kaslem, Deepest Growth",
                 "Ojer Pakpatiq, Deepest Epoch",
                 "Balamb Garden, SeeD Academy",

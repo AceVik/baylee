@@ -3453,14 +3453,14 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
 /// those counters, transform this artifact, and create three Treasure tokens. // {T}: Add {C}.
 /// {T}, Sacrifice a Treasure: Draw a card."
 ///
-/// Under `Coverage::Partial`, the landmark counter, counter-count branch, and transform are
-/// omitted: landmark counters have no id in `baylee_cards_dsl::counters`, no effect removes
-/// counters, and nothing transforms a permanent in place (#206). The front-face
-/// `{1}, {T}: Scry 1` ability is fully functional. The test activates ability 0, answers the
-/// scry arrangement (`ArrangePrompt::Scry`) to bottom the top card, and verifies the bottomed
-/// card, the tapped state, and that `Treasure Map` remains on face 0.
+/// Under `Coverage::Partial`, the counter-count branch and the transform are omitted: no
+/// effect removes counters, and nothing transforms a permanent in place (#206). The front-face
+/// `{1}, {T}: Scry 1. Put a landmark counter on this artifact.` is written. The test activates
+/// ability 0, answers the scry arrangement (`ArrangePrompt::Scry`) to bottom the top card, and
+/// verifies the bottomed card, the tapped state, the landmark counter, and that `Treasure Map`
+/// remains on face 0.
 #[test]
-fn treasure_map_activates_to_scry_one() {
+fn treasure_map_activates_to_scry_one_and_put_a_landmark_counter() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(267, forest())
         .battlefield(0, &[forest(), forest(), treasure_map()])
@@ -3512,9 +3512,60 @@ fn treasure_map_activates_to_scry_one() {
         "the inspected card was put on the bottom of the library"
     );
     assert_eq!(
+        counters_on(&engine, map, baylee_cards_dsl::counters::LANDMARK),
+        1,
+        "\"put a landmark counter on this artifact\""
+    );
+    assert_eq!(
         engine.state().object(map).map(|o| o.face_index),
         Some(0),
         "map remains on face 0 under Coverage::Partial"
+    );
+}
+
+/// `Treasure Map` activated on three of its controller's turns carries three landmark
+/// counters, and — with the three-counter clause unwritten — that is all: no Treasures and no
+/// transform. That is the reason the clause stays off whole: its Treasures, written without
+/// the counter removal and the transform in front of them, would be made by every activation
+/// from the third on.
+#[test]
+fn treasure_map_gathers_three_landmark_counters_and_stops_there() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(268, forest())
+        .battlefield(0, &[forest(), forest(), treasure_map()])
+        .start();
+    keep_mulligans(&mut engine);
+    let map = on_battlefield(&engine, p0, treasure_map()).expect("map on battlefield");
+
+    for activation in 1..=3 {
+        assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+        tap_all_mana_but(&mut engine, p0, Some(treasure_map()));
+        activate(&mut engine, p0, treasure_map(), 0);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::Arrange { .. })
+        });
+        let Pending::Arrange { cards, .. } = engine.pending().clone() else {
+            unreachable!("pass_until only stops on the scry")
+        };
+        engine.apply(p0, look_answer(&cards, &[])).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            counters_on(&engine, map, baylee_cards_dsl::counters::LANDMARK),
+            activation,
+            "one landmark counter per activation"
+        );
+        // Out of this turn, so the next walk finds the next one.
+        pass_until(&mut engine, |e| e.state().turn.active != p0);
+    }
+
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "no Treasure is made while the clause in front of it is unwritten"
+    );
+    assert_eq!(
+        engine.state().object(map).map(|o| o.face_index),
+        Some(0),
+        "and the map is still the map"
     );
 }
 

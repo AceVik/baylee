@@ -67,6 +67,12 @@ pub const WISH: CounterKind = CounterKind::Custom(5);
 /// Hatchling counters (Eumidian Hatchery).
 pub const HATCHLING: CounterKind = CounterKind::Custom(6);
 
+/// Dread counters (Grasping Shadows // Shadows' Lair).
+pub const DREAD: CounterKind = CounterKind::Custom(7);
+
+/// Landmark counters (Treasure Map).
+pub const LANDMARK: CounterKind = CounterKind::Custom(8);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -79,6 +85,8 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("storage", STORAGE),
     ("wish", WISH),
     ("hatchling", HATCHLING),
+    ("dread", DREAD),
+    ("landmark", LANDMARK),
 ];
 
 #[cfg(test)]
