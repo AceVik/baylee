@@ -98,7 +98,7 @@ impl<L: CardLookup> Engine<L> {
             let abilities = self
                 .activating_abilities
                 .filter(|(id, _)| *id == source)
-                .map(|(_, list)| list)
+                .map(|(_, list)| list.abilities)
                 .or_else(|| self.state.object(source).map(|o| o.abilities(&self.lookup)));
             return DecisionContext {
                 source: Some(source),

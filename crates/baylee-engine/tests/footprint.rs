@@ -45,7 +45,12 @@ const CACHE_BUDGET: usize = 32;
 /// and 32 bytes — the gate caught it at 304 — so it is one `Option<Box<…>>`,
 /// null on every object but a spell or ability that says "target" twice,
 /// and the eight bytes of that pointer are the whole cost.
-const OBJECT_BUDGET: usize = 280;
+///
+/// Raised 280 → 288 on 2026-09-24 by the printed face an object's own
+/// ability list is (`GameObject::own_face`), which a client needs to draw a
+/// copy's sentence and which the list's address cannot supply. Packed into a
+/// `NonZeroU32` so its `Option` is four bytes: the plain pair measured 296.
+const OBJECT_BUDGET: usize = 288;
 
 #[test]
 fn game_object_stays_within_its_budget() {

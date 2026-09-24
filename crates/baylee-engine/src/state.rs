@@ -444,7 +444,7 @@ pub struct GameState {
     /// is a `tests/footprint.rs` budget and a memcpy per object per ply,
     /// while a list that is empty in almost every game state is a `Vec`
     /// header once.
-    pub ltb_abilities: Vec<(ObjectId, &'static [baylee_cards_dsl::AbilityDef])>,
+    pub ltb_abilities: Vec<(ObjectId, crate::object::AbilityList)>,
     /// What was attached to a permanent the moment it left the battlefield.
     ///
     /// The other half of CR 603.10a, and it is needed for the same reason and
@@ -1418,7 +1418,12 @@ impl GameState {
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
         // What the object could *do*.
-        let departing = self.object(id).and_then(|o| o.own_abilities);
+        let departing = self.object(id).and_then(|o| {
+            o.own_abilities.map(|abilities| crate::object::AbilityList {
+                abilities,
+                printed: o.own_face,
+            })
+        });
         self.ltb_abilities.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield
             && let Some(abilities) = departing
@@ -1542,7 +1547,7 @@ impl GameState {
                 if let Some(original) = obj.original_base.take() {
                     obj.base = original;
                 }
-                obj.own_abilities = None;
+                obj.drop_own_abilities();
                 // And the flag that says when the field it just cleared was
                 // due back, because it describes that copy and the copy ends
                 // here. A Cursed Mirror that bounced and was recast without

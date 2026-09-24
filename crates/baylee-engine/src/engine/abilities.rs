@@ -1177,7 +1177,7 @@ impl<L: CardLookup> Engine<L> {
         self.activating_abilities = self
             .state
             .object(source)
-            .map(|o| (source, o.abilities(&self.lookup)));
+            .map(|o| (source, o.ability_list(&self.lookup)));
         // Zone validation (battlefield abilities vs. hand abilities).
         let in_right_zone = match zone {
             ActivationZone::Battlefield => self
@@ -1561,10 +1561,12 @@ impl<L: CardLookup> Engine<L> {
         let abilities = self
             .state
             .object(source)
-            .map_or(&[][..], |o| o.abilities(&self.lookup));
+            .map_or(crate::object::AbilityList::NONE, |o| {
+                o.ability_list(&self.lookup)
+            });
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
-            obj.own_abilities = Some(abilities);
+            obj.take_abilities(abilities);
             obj.chosen_player = self.loyalty_player_choice.take();
             obj
         });
@@ -1712,10 +1714,12 @@ impl<L: CardLookup> Engine<L> {
         let abilities = self
             .state
             .object(source)
-            .map_or(&[][..], |o| o.abilities(&self.lookup));
+            .map_or(crate::object::AbilityList::NONE, |o| {
+                o.ability_list(&self.lookup)
+            });
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
-            obj.own_abilities = Some(abilities);
+            obj.take_abilities(abilities);
             obj.chosen_player = self.loyalty_player_choice.take();
             obj
         });
@@ -1985,11 +1989,14 @@ impl<L: CardLookup> Engine<L> {
             .activating_abilities
             .take()
             .and_then(|(id, abilities)| (id == source).then_some(abilities));
-        let abilities = captured.unwrap_or_else(|| {
+        let list = captured.unwrap_or_else(|| {
             self.state
                 .object(source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(crate::object::AbilityList::NONE, |o| {
+                    o.ability_list(&self.lookup)
+                })
         });
+        let abilities = list.abilities;
         // CR 107.3m: an object's **own** enters-the-battlefield triggered
         // ability that refers to X uses the X chosen for the spell that
         // became that object, although X for the permanent itself is 0. The
@@ -2030,7 +2037,7 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 base,
             );
-            obj.own_abilities = Some(abilities);
+            obj.take_abilities(list);
             obj.x_value = announced_x;
             obj
         });

@@ -224,3 +224,16 @@ the stack that says "target" twice, so `GameState::clone` pays eight bytes per
 object and one allocation per such stack object. The budget was raised to 280
 deliberately. `state/clone` was **not** re-benched for it; eight bytes on 272
 is under 3 % of the object and the arena is not the whole state.
+
+## Where an ability list is printed (24.09.2026)
+
+`GameObject` **280 → 288 B**. A copy's abilities are printed on the copied
+card and an ability on the stack keeps its source's, so the object carries
+which card and face its own list is (`GameObject::own_face`) — a client draws
+that card's sentence, and the list cannot say where it came from: identical
+lists share one address, 31 of them in a debug build and 162 in release. A
+plain `Option<{ card, face }>` was 12 bytes and measured 296 B; the face is
+packed into one `NonZeroU32` instead, so the `Option` is four bytes and the
+object grows by the eight its alignment rounds them to. The budget was raised
+to 288 deliberately. `state/clone` was not re-benched, on the argument the
+entry above makes for the same eight bytes.

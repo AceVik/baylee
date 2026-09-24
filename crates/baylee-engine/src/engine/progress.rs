@@ -1270,11 +1270,14 @@ impl<L: CardLookup> Engine<L> {
             // the reason the permanent branch below does: a target that is
             // itself a copy answers with what it has become, which is what a
             // copy of it takes.
-            let copied = self.state.object(target).map(|o| o.abilities(&self.lookup));
+            let copied = self
+                .state
+                .object(target)
+                .map(|o| o.ability_list(&self.lookup));
             if let Some(copied) = copied
                 && let Some(obj) = self.state.object_mut(id)
             {
-                obj.own_abilities = Some(copied);
+                obj.take_abilities(copied);
                 // Unlike every other writer of that field. This copy ends
                 // with the turn, and the field it writes is the one half of
                 // the copy that cannot expire on its own.
@@ -1356,7 +1359,10 @@ impl<L: CardLookup> Engine<L> {
         let Some(target_base) = crate::layers::copiable_values(&self.state, target) else {
             return;
         };
-        let Some(target_abilities) = self.state.object(target).map(|o| o.abilities(&self.lookup))
+        let Some(target_abilities) = self
+            .state
+            .object(target)
+            .map(|o| o.ability_list(&self.lookup))
         else {
             return;
         };
@@ -1372,7 +1378,7 @@ impl<L: CardLookup> Engine<L> {
             // Abilities are copiable values too (CR 707.2), and `base` holds
             // only characteristics — a copy that took the base alone arrived
             // with the right name and P/T and no rules text at all.
-            obj.own_abilities = Some(target_abilities);
+            obj.take_abilities(target_abilities);
         }
         if keeps_its_own {
             self.keep_own_statics(id, own_printed);
@@ -1721,11 +1727,14 @@ impl<L: CardLookup> Engine<L> {
         &self,
         t: &crate::trigger::PendingTrigger,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
-        t.abilities.unwrap_or_else(|| {
-            self.state
-                .object(t.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
-        })
+        t.abilities.map_or_else(
+            || {
+                self.state
+                    .object(t.source)
+                    .map_or(&[][..], |o| o.abilities(&self.lookup))
+            },
+            |list| list.abilities,
+        )
     }
 
     /// Puts a look-back trigger's own ability list in the slot
@@ -2730,9 +2739,15 @@ impl<L: CardLookup> Engine<L> {
             let printed = self
                 .lookup
                 .card(card)
-                .map(|def| def.abilities_for_face(face as usize));
-            if let Some(obj) = self.state.object_mut(id) {
-                obj.own_abilities = obj.own_abilities.or(printed);
+                .map(|def| crate::object::AbilityList {
+                    abilities: def.abilities_for_face(face as usize),
+                    printed: crate::object::PrintedFace::new(card, face),
+                });
+            if let Some(obj) = self.state.object_mut(id)
+                && obj.own_abilities.is_none()
+                && let Some(printed) = printed
+            {
+                obj.take_abilities(printed);
             }
         }
     }
@@ -2895,14 +2910,16 @@ impl<L: CardLookup> Engine<L> {
         if !is_copy {
             return;
         }
-        let printed = self.state.object(spell).and_then(|o| {
-            let face = o.face_index as usize;
-            o.card
-                .and_then(|c| self.lookup.card(c.index))
-                .map(|def| def.abilities_for_face(face))
-        });
+        let printed = self
+            .state
+            .object(spell)
+            .map(|o| o.ability_list(&self.lookup));
         if let Some(obj) = self.state.object_mut(spell) {
-            obj.own_abilities = obj.own_abilities.or(printed);
+            if obj.own_abilities.is_none()
+                && let Some(printed) = printed
+            {
+                obj.take_abilities(printed);
+            }
             obj.card = None;
             obj.riders
                 .retain(|r| !matches!(r, crate::object::Rider::SpellCopy));
@@ -4027,7 +4044,7 @@ impl<L: CardLookup> Engine<L> {
             // (CR 701.19a) — an unspent shield does not keep.
             obj.regeneration_shields = 0;
             if obj.own_abilities_until_eot {
-                obj.own_abilities = None;
+                obj.drop_own_abilities();
                 obj.own_abilities_until_eot = false;
                 reverted.push(obj.id);
             }

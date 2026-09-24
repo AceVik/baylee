@@ -24,7 +24,7 @@ pub struct PendingTrigger {
     /// battlefield: a legend choice or lethal SBA can remove a copy before
     /// this trigger is stacked. Synthetic keyword triggers carry their own
     /// effects instead and leave this `None`.
-    pub abilities: Option<&'static [AbilityDef]>,
+    pub abilities: Option<crate::object::AbilityList>,
     /// Controller of the trigger.
     pub controller: PlayerId,
     /// Timestamp of the source (stable same-controller ordering).
@@ -142,7 +142,10 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                             triggers.push(PendingTrigger {
                                 source: emblem,
                                 ability_index: index as u32,
-                                abilities: Some(abilities),
+                                abilities: Some(crate::object::AbilityList {
+                                    abilities,
+                                    printed: obj.own_face,
+                                }),
                                 controller: obj.controller,
                                 timestamp: obj.timestamp,
                                 event_object,
@@ -314,12 +317,13 @@ fn collect_for_objects(
                 .ltb_abilities
                 .iter()
                 .find(|(id, _)| *id == permanent)
-                .map(|(_, abilities)| *abilities)
+                .map(|(_, list)| *list)
         };
         // Not `obj.card`: a token has none, and bailing out here is how every
         // token on the battlefield used to be invisible to triggers —
         // including its own.
-        let abilities = looked_back.unwrap_or_else(|| obj.abilities(lookup));
+        let list = looked_back.unwrap_or_else(|| obj.ability_list(lookup));
+        let abilities = list.abilities;
         // Prowess (engine-level keyword trigger, CR 702.108).
         if obj
             .characteristics()
@@ -541,7 +545,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             source: permanent,
                             ability_index: index as u32,
-                            abilities: Some(abilities),
+                            abilities: Some(list),
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,

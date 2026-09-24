@@ -290,7 +290,10 @@ pub(super) fn create_token_copies(
 ) -> Vec<ObjectId> {
     let (own, token, face) = state.object(original).map_or((None, None, None), |o| {
         (
-            o.own_abilities,
+            o.own_abilities.map(|abilities| crate::object::AbilityList {
+                abilities,
+                printed: o.own_face,
+            }),
             o.token,
             o.card.map(|c| (c.index, o.face_index)),
         )
@@ -303,7 +306,9 @@ pub(super) fn create_token_copies(
                 let mut obj =
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
-                obj.own_abilities = own;
+                if let Some(own) = own {
+                    obj.take_abilities(own);
+                }
                 obj.token = token;
                 obj
             });

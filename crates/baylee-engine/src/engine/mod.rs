@@ -244,7 +244,7 @@ pub struct Engine<L: CardLookup> {
     /// pushes.
     ///
     /// [`Engine::hand_over_trigger_abilities`]: crate::engine::Engine
-    activating_abilities: Option<(ObjectId, &'static [baylee_cards_dsl::AbilityDef])>,
+    activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
     /// What each seat may do beyond answering its own choices.
     ///
     /// Not game state: it never enters the snapshot hash and never changes

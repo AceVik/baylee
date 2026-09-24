@@ -20,6 +20,7 @@ mod copied_abilities;
 mod doubling;
 mod filters;
 mod grants;
+mod printed_faces;
 mod spell_copies;
 mod temporary_copies;
 mod token_arrivals;

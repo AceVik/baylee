@@ -39,6 +39,105 @@ pub struct CardRef {
     pub print: PrintRef,
 }
 
+/// The card and face whose printed ability list an object's abilities are.
+///
+/// Not the object's own card, and that is the whole reason it exists. A
+/// copy's abilities are the copied card's (CR 707.2), and an ability on the
+/// stack keeps the list its source had when it was put there (CR 113.7a),
+/// so a Spark Double's ability and a Phyrexian Metamorph's dies trigger
+/// are printed on some *other* card — which is the card whose sentence a
+/// client has to draw.
+///
+/// Carried rather than recovered, because the list itself cannot say where
+/// it came from. Two cards whose ability lists are byte-identical may share
+/// one address — they are promoted constants, and the compiler merges
+/// them. Measured 2026-09-24 over the pool's 2533 non-empty face and token
+/// lists: 31 addresses shared by more than one owner in a debug build
+/// (Fyndhorn Elves and Skyshroud Troopers) and 162 in release (Lotus
+/// Petal and the Treasure token), so an address answers "which card" for
+/// neither profile.
+///
+/// The engine reads none of it.
+///
+/// Packed into one non-zero `u32` — the card's index, three bits of face,
+/// plus one — so that `Option<PrintedFace>` is four bytes. It sits on every
+/// `GameObject`, and a plain `{ card, face }` pair costs twelve there once
+/// the `Option` needs a tag of its own: measured, it took the object from
+/// 280 to 296 B against `tests/footprint.rs`, where this takes it to 288.
+/// Three bits because no card has more than eight faces; a face past that
+/// is refused by [`PrintedFace::new`] rather than stored as another one.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PrintedFace(std::num::NonZeroU32);
+
+impl PrintedFace {
+    /// The bits the face takes at the bottom of the packed value.
+    const FACE_BITS: u32 = 3;
+
+    /// The face `face` of `card`; `None` where the pair does not fit.
+    #[must_use]
+    pub fn new(card: CardIndex, face: u8) -> Option<Self> {
+        if u32::from(face) >> Self::FACE_BITS != 0 {
+            return None;
+        }
+        let packed = card
+            .get()
+            .checked_shl(Self::FACE_BITS)
+            .filter(|packed| packed >> Self::FACE_BITS == card.get())?
+            | u32::from(face);
+        packed
+            .checked_add(1)
+            .and_then(std::num::NonZeroU32::new)
+            .map(Self)
+    }
+
+    /// The card the list is printed on.
+    #[must_use]
+    pub fn card(self) -> CardIndex {
+        CardIndex::new((self.0.get() - 1) >> Self::FACE_BITS)
+    }
+
+    /// Which of its faces.
+    #[must_use]
+    pub fn face(self) -> u8 {
+        // Three bits, so the cast cannot truncate.
+        #[allow(clippy::cast_possible_truncation)]
+        let face = ((self.0.get() - 1) & ((1 << Self::FACE_BITS) - 1)) as u8;
+        face
+    }
+}
+
+impl std::fmt::Debug for PrintedFace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PrintedFace")
+            .field("card", &self.card())
+            .field("face", &self.face())
+            .finish()
+    }
+}
+
+/// An ability list, and the printed face it is when it is one.
+///
+/// One value so the two cannot come apart: every place the engine sets a
+/// list aside — a trigger waiting for the stack, an activation paying its
+/// cost, a copy that has just left the battlefield — sets this aside
+/// instead, and whatever it later writes onto an object carries both.
+#[derive(Clone, Copy, Debug)]
+pub struct AbilityList {
+    /// What the object can do.
+    pub abilities: &'static [baylee_cards_dsl::AbilityDef],
+    /// Where that is printed; `None` for a token's list and an emblem's,
+    /// which no card prints.
+    pub printed: Option<PrintedFace>,
+}
+
+impl AbilityList {
+    /// No abilities, printed nowhere — what an object that is gone has.
+    pub const NONE: Self = Self {
+        abilities: &[],
+        printed: None,
+    };
+}
+
 /// Which ability an `AbilityOnStack` object represents.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct AbilityLoc {
@@ -672,6 +771,19 @@ pub struct GameObject {
     ///
     /// [`Engine::cleanup_step`]: crate::engine::Engine
     pub own_abilities_until_eot: bool,
+    /// Which printed face [`GameObject::own_abilities`] is, when it is one.
+    ///
+    /// Written wherever that field is written, and read only through
+    /// [`GameObject::printed_face`], which answers from the card underneath
+    /// whenever there is no list of the object's own. `None` beside a list
+    /// is a token's or an emblem's (neither is printed on a card).
+    ///
+    /// Four bytes on every object ([`PrintedFace`] says how), and the face
+    /// alone: not a token definition beside it, because a token's list is
+    /// already named by [`GameObject::token`] everywhere but on an ability
+    /// whose token source is gone — a Clue's, sacrificed to pay for it — and
+    /// that one case is not worth a pointer on every object in every AI ply.
+    pub own_face: Option<PrintedFace>,
     /// What this object could do as it *left* the battlefield is not here but
     /// on the state, in [`GameState::ltb_abilities`], for the reason the
     /// paragraph above gives about a second `Option<&[_]>`: it is `Some` for
@@ -745,6 +857,7 @@ impl GameObject {
             face_index: 0,
             own_abilities: None,
             own_abilities_until_eot: false,
+            own_face: None,
             token: None,
             pending_face_change: None,
             cast_from_hand: true,
@@ -829,6 +942,45 @@ impl GameObject {
         obj.card = None;
         obj.kind = kind;
         obj
+    }
+
+    /// The card and face whose printed list [`Self::abilities`] answers
+    /// with, when a card prints it.
+    ///
+    /// The same three arms in the same order, so the two cannot disagree
+    /// about which list they mean: a list of the object's own names its
+    /// face beside it, a card answers with its active face, and a token or
+    /// an emblem answers `None`.
+    #[must_use]
+    pub fn printed_face(&self) -> Option<PrintedFace> {
+        if self.own_abilities.is_some() {
+            return self.own_face;
+        }
+        self.card
+            .and_then(|card| PrintedFace::new(card.index, self.face_index))
+    }
+
+    /// [`Self::abilities`] and [`Self::printed_face`] together — what an
+    /// ability put on the stack, or a copy made of this object, takes.
+    #[must_use]
+    pub fn ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
+        AbilityList {
+            abilities: self.abilities(lookup),
+            printed: self.printed_face(),
+        }
+    }
+
+    /// Makes `list` this object's own abilities, and its face with it.
+    pub fn take_abilities(&mut self, list: AbilityList) {
+        self.own_abilities = Some(list.abilities);
+        self.own_face = list.printed;
+    }
+
+    /// Gives up a list of the object's own, so the card underneath answers
+    /// again.
+    pub fn drop_own_abilities(&mut self) {
+        self.own_abilities = None;
+        self.own_face = None;
     }
 
     /// The abilities this object actually has, whatever it is.
