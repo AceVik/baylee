@@ -9,7 +9,7 @@ use baylee_engine::choice::GRANTED_ABILITY;
 /// Any-colour sources on purpose: what is under test is whether the
 /// command zone is *looked at*, and a test that also had to get the
 /// colours right would fail for two reasons and say one.
-fn table_with(lands: usize, commander_casts: u32) -> Duel {
+pub(crate) fn table_with(lands: usize, commander_casts: u32) -> Duel {
     let mut objects = Vec::new();
     for slot in 0..lands {
         let mut land = token(100 + slot as u32, 0, "Wastes", 0, 0);

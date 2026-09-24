@@ -113,3 +113,68 @@ fn a_debt_this_table_cannot_settle_lights_nothing() {
         "a land lit towards a payment it cannot finish"
     );
 }
+
+/// A card lying in a pile is drawn with the offer made for it (#242).
+///
+/// The same join one card along: `reach_of` is tested in
+/// `flashback_reach_tests`, and the line that hands it to the pile's top card
+/// is [`super::pile_offer`]. Until it existed both pile sites passed `false`,
+/// so Opt with Snapcaster Mage's flashback on it lay dark on its graveyard.
+/// Three boards, one per answer, so a client that lit every pile card — or
+/// lit them all the engine's colour — fails at least one.
+#[test]
+fn a_card_in_a_pile_is_drawn_with_the_offer_made_for_it() {
+    use crate::flashback_reach_tests::{BURIED, buried, table, table_with};
+    let top = |mut duel: crate::Duel| {
+        duel.layout = Some(TableLayout::new(&[PlayerId::new(0)], 16.0 / 9.0, None));
+        placements(&duel)
+            .into_iter()
+            .find(|p| p.object == BURIED)
+            .map(|p| (p.offer.activatable, p.offer.reachable))
+            .expect("the graveyard's top card is drawn")
+    };
+
+    assert_eq!(
+        top(table(1, vec![buried(0, "Opt", Some("{U}"))])),
+        (false, true),
+        "a card this client would tap for is lit as its offer"
+    );
+    assert_eq!(
+        top(table_with(
+            1,
+            vec![buried(0, "Opt", Some("{U}"))],
+            Vec::new(),
+            vec![BURIED],
+        )),
+        (true, false),
+        "a card the engine offers is lit as the engine's"
+    );
+    assert_eq!(
+        top(table(1, vec![buried(0, "Opt", None)])),
+        (false, false),
+        "a card nobody offers lies dark"
+    );
+}
+
+/// And a commander standing in the command zone, which is the same line and
+/// was the same fault: reachable since `commander_reach_tests`, drawn dark
+/// until #242 because the pile site passed `false`.
+///
+/// The fixture is a `Duel` literal, so `rebuild_board` is what writes the
+/// `reachable` this reads — the join, not the literal.
+#[test]
+fn a_commander_in_the_command_zone_is_drawn_with_the_offer_made_for_it() {
+    let mut duel = crate::commander_reach_tests::table_with(3, 0);
+    let commander = duel.view.as_ref().expect("the view").seats[0].commanders[0].object;
+    duel.layout = Some(TableLayout::new(&[PlayerId::new(0)], 16.0 / 9.0, None));
+    crate::rebuild_board(&mut duel);
+    let offer = placements(&duel)
+        .into_iter()
+        .find(|p| p.object == commander)
+        .map(|p| p.offer)
+        .expect("the commander is drawn on its slot");
+    assert!(
+        offer.reachable && !offer.activatable,
+        "three lands pay for the commander and it was drawn {offer:?}"
+    );
+}

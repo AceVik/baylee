@@ -229,6 +229,24 @@ pub enum Proposing<'a> {
     Owed(&'a baylee_client_core::manaplan::Plan),
 }
 
+/// Who is offering this seat a card that lies in a pile, if anyone.
+///
+/// The hand's two lights, asked of the cards the hand does not hold — a
+/// graveyard, an exile pile, the command zone — which the table draws on the
+/// pile and the zone browser on its rows (#242). Two answers rather than a
+/// flag for the hand's reason: one is the game saying yes, the other is this
+/// client offering to tap lands first, and a player who cannot tell them
+/// apart cannot tell a click that acts from a click that spends the mana.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reach {
+    /// The engine: a click plays it, casts it, or activates something on it,
+    /// with what is already floating. Gold in the hand.
+    Offered,
+    /// This client: a click taps lands first and then casts it
+    /// ([`Duel::reachable`]). Indigo in the hand.
+    Taps,
+}
+
 /// What an [`Armed`] tap is waiting to do.
 ///
 /// Two of the three are *intents* rather than built actions, and the third
@@ -831,6 +849,33 @@ impl Duel {
         match self.owed_plan.as_ref() {
             Some(plan) => Proposing::Owed(plan),
             None => Proposing::Nothing,
+        }
+    }
+
+    /// Who is offering this seat `object`, in the two lights of [`Reach`].
+    ///
+    /// The one predicate behind both drawings of a pile card, the table's and
+    /// the zone browser's, so the two cannot light the same card differently.
+    /// The engine's offer is its three lists — a land to play, a spell to
+    /// cast, an ability to activate — because a pile card is not a
+    /// permanent, and `activatable` alone would leave the Opt that Snapcaster
+    /// Mage made castable dark once its `{U}` was floating.
+    #[must_use]
+    pub fn reach_of(&self, object: ObjectId) -> Option<Reach> {
+        let offered = self.activatable.contains(&object)
+            || self
+                .interaction
+                .as_ref()
+                .and_then(Interaction::legal_actions)
+                .is_some_and(|legal| {
+                    legal.lands.contains(&object) || legal.castable.contains(&object)
+                });
+        if offered {
+            Some(Reach::Offered)
+        } else if self.reachable.contains(&object) {
+            Some(Reach::Taps)
+        } else {
+            None
         }
     }
 
@@ -1933,13 +1978,20 @@ pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
 pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    // A hand card, or a commander standing in the command zone. The two are
-    // the only places this client offers to tap lands *for*, and they have to
-    // be the same two [`reachable`] admits — a card in one set and not the
-    // other is a card that lights up and then does nothing when it is
-    // clicked.
+    // A hand card, a card in the seat's own graveyard it may flash back, or a
+    // commander standing in the command zone. The three are the only places
+    // this client offers to tap lands *for*, and they have to be the same
+    // three [`reachable`] admits — a card in one set and not the other is a
+    // card that lights up and then does nothing when it is clicked. The
+    // graveyard's price is the flashback cost, for the reason given there.
     let cost = if let Some(hand_card) = view.hand.iter().find(|c| c.id == card) {
         manasources::hand_cost(hand_card)?
+    } else if let Some(buried) = view
+        .graveyards
+        .get(view.seat.get() as usize)
+        .and_then(|zone| zone.iter().find(|o| o.id == card))
+    {
+        buried.flashback?
     } else {
         let commander = view
             .seat(view.seat)?
@@ -2230,7 +2282,8 @@ fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         .unwrap_or_default()
 }
 
-/// Which cards in hand a tap or two would make castable.
+/// Which cards a tap or two would make castable: in hand, in the command
+/// zone, and in the seat's own graveyard.
 ///
 /// The engine answers "castable" against the mana already floating, which is
 /// the correct rules answer and a hand that looks empty to a player with five
@@ -2289,7 +2342,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // *prove* no legal target exists and offers whenever it cannot tell,
         // which is the opposite default from `castmodes::parts_payable` and
         // deliberately so — the reasoning is in that module's header.
-        .filter(|card| !targeting::provably_targetless(view, card))
+        .filter(|card| !targeting::provably_targetless(view, card.card))
         .map(|card| card.id)
         // The command zone is castable from too (CR 903.8), and leaving it
         // out is why a commander could not be played. A card the engine has
@@ -2337,6 +2390,41 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                         .is_some_and(&affordable)
                 })
                 .map(|c| c.object),
+        )
+        // And the seat's own graveyard, for a card it may flash back
+        // (CR 702.34a; #242). The engine offers such a card in `castable`
+        // only once its cost is floating, exactly as it does a hand card, so
+        // until this read the graveyard, Snapcaster Mage's Opt was a card
+        // nothing could click on: it ended the turn in the graveyard beside
+        // the untapped Island that paid for it.
+        //
+        // Priced at the flashback cost the view names and never at the card's
+        // own. The two agree for the grants this pool has (Snapcaster, Past
+        // in Flames), and they are different numbers for a card that prints
+        // flashback (Think Twice: `{1}{U}` in hand, `{2}{U}` from the
+        // graveyard). `PublicObject::flashback` is `None` in every zone and
+        // for every card the seat may not cast that way, so the zone and the
+        // owner are asked here only because no other graveyard can answer.
+        .chain(
+            view.graveyards
+                .get(view.seat.get() as usize)
+                .into_iter()
+                .flatten()
+                .filter(|o| !legal.castable.contains(&o.id))
+                .filter(|o| {
+                    o.card.is_some_and(|card| {
+                        baylee_client_core::timing::allows(view, o.types, has_flash(card))
+                    })
+                })
+                .filter(|o| {
+                    o.flashback
+                        .is_some_and(|cost| cost.symbols().next().is_some() && affordable(cost))
+                })
+                .filter(|o| {
+                    o.card
+                        .is_some_and(|card| !targeting::provably_targetless(view, card))
+                })
+                .map(|o| o.id),
         )
         .collect()
 }
@@ -2442,6 +2530,9 @@ mod reconnect_tests;
 
 #[cfg(test)]
 mod commander_reach_tests;
+
+#[cfg(test)]
+pub(crate) mod flashback_reach_tests;
 
 #[cfg(test)]
 mod owed_tests;

@@ -460,7 +460,7 @@ pub fn activate(duel: &mut Duel, object: ObjectId, whole: bool) -> Answer {
 fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     let view = duel.view.as_ref()?;
     let card = view.hand.iter().find(|card| card.id == object)?;
-    if crate::targeting::provably_targetless(view, card) {
+    if crate::targeting::provably_targetless(view, card.card) {
         return Some(Phrase::CardHasNoTarget);
     }
     let priority = duel.interaction.as_ref().is_some_and(|i| {

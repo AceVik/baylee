@@ -556,3 +556,47 @@ fn the_dialog_says_nothing_in_teal() {
         );
     }
 }
+
+/// A row is lit by the predicate the table lights the same card by, in the
+/// hand's two colours (#242).
+///
+/// Two halves because they are two joins: [`pile_reach`] is what the sheet's
+/// rebuild gate compares and what its rows read, and [`light_thumb`] is the
+/// colour each answer becomes. A sheet that drew every row indigo passes the
+/// first and fails the second; one that asked a different question than the
+/// felt fails the first.
+#[test]
+fn a_row_is_lit_by_the_offer_the_table_draws() {
+    use crate::flashback_reach_tests::{BURIED, buried, table};
+
+    assert_eq!(
+        pile_reach(&table(1, vec![buried(0, "Opt", Some("{U}"))])),
+        vec![(BURIED, crate::Reach::Taps)],
+        "Opt with Snapcaster's flashback on it, and one land to pay"
+    );
+    assert!(
+        pile_reach(&table(1, vec![buried(0, "Opt", None)])).is_empty(),
+        "and without it, a card nobody offers"
+    );
+
+    let mut world = World::new();
+    let offered = world.spawn_empty().id();
+    let taps = world.spawn_empty().id();
+    let dark = world.spawn_empty().id();
+    let mut queue = bevy::ecs::world::CommandQueue::default();
+    {
+        let mut commands = Commands::new(&mut queue, &world);
+        light_thumb(&mut commands, offered, Some(crate::Reach::Offered));
+        light_thumb(&mut commands, taps, Some(crate::Reach::Taps));
+        light_thumb(&mut commands, dark, None);
+    }
+    queue.apply(&mut world);
+    let tint = |entity: Entity| {
+        world
+            .get::<BoxShadow>(entity)
+            .map(|shadow| shadow.0[0].color.with_alpha(1.0))
+    };
+    assert_eq!(tint(offered), Some(palette::ACTIVE), "the engine's gold");
+    assert_eq!(tint(taps), Some(palette::REACHABLE), "this client's indigo");
+    assert_eq!(tint(dark), None);
+}

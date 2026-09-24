@@ -560,8 +560,9 @@ struct Globals {{ time: f32 }};
     ///
     /// The shelf has `ledge.rs::the_ledge_speaks_only_dialog` for this; the
     /// cloth hangs off the shelf and is read in the same glance, so it is
-    /// held to the same list. `ACTIVATABLE`, `ARMED` and `WILL_TAP` are rules
-    /// statements on cards and nothing in the interface may borrow them.
+    /// held to the same list. `ACTIVATABLE`, `REACHABLE`, `ARMED` and
+    /// `WILL_TAP` are rules statements on cards and nothing in the interface
+    /// may borrow them.
     #[test]
     fn the_cloth_borrows_no_light_that_means_something() {
         let source = include_str!("frontal.rs")
@@ -571,6 +572,7 @@ struct Globals {{ time: f32 }};
         let shader = include_str!("shaders/frontal.wgsl");
         for forbidden in [
             "ACTIVATABLE",
+            "REACHABLE",
             "WILL_TAP",
             "palette::ARMED",
             "palette::BRASS",

@@ -1877,7 +1877,11 @@ separation is the whole grammar:
   travelling round the border rather than as a material for exactly that
   reason (see "Tapping lands for a spell"). It is added on top of any sheath
   instead of averaged into it, because the two are answering different
-  questions and both have to stay legible.
+  questions and both have to stay legible. `glow::REACHABLE` is its twin for
+  a card lying in a pile: the same chase in the hand's indigo, because it is
+  this client's offer to tap lands first rather than the engine's yes (see
+  "A card in a pile is reached for too"). `glow_of` draws one or the other,
+  never both, and the engine's wins.
 - **And the perimeter also says what has been decided.** Two more bits share
   that register, and the difference between them and `ACTIVATABLE` is motion.
   `glow::ARMED` is the card an armed deed is waiting on (see
@@ -3278,6 +3282,38 @@ spell ability is provable, never-targetless (a spec naming a player, or naming
 something the spell already holds, refused by construction rather than by a
 gap), or blind; a blind one is offered and never withheld, and the test puts a
 floor under the population and a ceiling over the blind bucket.
+
+#### A card in a pile is reached for too (#242)
+
+The hand was the first place `reachable` read, and the command zone the
+second. The third is the seat's **own graveyard**, for a card it may flash
+back: the engine offers such a card in `castable` only once its cost is
+floating, exactly as it does a hand card, so Snapcaster Mage's Opt ended the
+turn in the graveyard beside the untapped Island that could have paid for it.
+The view says which cards and at what price, `PublicObject::flashback`, and
+the price is that and never the card's own — the two agree for a grant
+(Snapcaster, Past in Flames) and differ for a card that prints flashback
+(Think Twice: `{1}{U}` from the hand, `{2}{U}` from the graveyard).
+`mana_for` reads the same three places, since a card in one and not the other
+lights up and then does nothing when it is clicked. Timing and targets are
+asked exactly as for a hand card; `targeting::provably_targetless` takes the
+card's identity rather than a hand object for that reason.
+
+A pile card is lit wherever it is drawn, by one predicate,
+`Duel::reach_of`: `Reach::Offered` when the engine will play, cast or activate
+it with what is floating, `Reach::Taps` when this client would tap for it
+first. On the felt that is the pile's top card and the cards a hover fans out
+(`glow::ACTIVATABLE` and `glow::REACHABLE`); in the zone browser it is the
+hand's halo on the row's picture, gold and indigo, in all three views. The
+browser's rebuild gate holds the lit list itself rather than trusting `seq`,
+because the sets it reads come from the interaction as well as the view.
+
+Two consequences worth knowing. A commander standing in the command zone with
+the lands to pay for it was reachable and drawn dark; it is lit now, by the
+same line. And a tap on a lit pile top is the cast, not the pile: it arms the
+run as a tap on a hand card does, where it used to fall through to opening the
+graveyard. The pile is still opened from the tray button and `G`, and by a tap
+on any top card nothing is offered for.
 
 ### Which way to cast it is asked before anything is tapped
 

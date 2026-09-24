@@ -153,6 +153,20 @@ pub mod glow {
     /// the three the *border* is a material for and this is not a border
     /// treatment.
     pub const DEFENDER: u32 = 1 << 22;
+
+    /// This client would tap lands for this card and then cast it:
+    /// `Duel::reachable`, drawn on a card lying in a pile (#242).
+    ///
+    /// [`ACTIVATABLE`]'s twin and deliberately its motion — the same light
+    /// running round the border, because both are "you could" — in the
+    /// hand's indigo rather than its amber, because the hand already says
+    /// the two claims in those two hues: one is the engine's yes, the other
+    /// is this client's offer to spend the mana first. Never set with it;
+    /// [`super::glow_of`] picks one.
+    ///
+    /// Above [`MARK_MASK`] for the reason [`TOKEN`] is: the eight low bits
+    /// are full.
+    pub const REACHABLE: u32 = 1 << 23;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -216,15 +230,21 @@ pub fn glow_bits(keywords: u128) -> u32 {
 
 /// What this client is offering to do with one card, right now.
 ///
-/// Three claims about the *client's own state* rather than about the card, and
-/// they travel together rather than as three arguments for the same reason
+/// Four claims about the *client's own state* rather than about the card, and
+/// they travel together rather than as four arguments for the same reason
 /// [`glow_of`] exists at all: they change with priority and with a tap, and a
-/// caller that passed two of the three would have the same card saying two
+/// caller that passed some of them would have the same card saying two
 /// different things in the hand and on the table.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // four claims `glow_of` ranks; each keeps its own reader
 pub struct Offer {
-    /// Something on this permanent can be activated right now.
+    /// Something on this permanent can be activated right now — or, on a card
+    /// in a pile, the engine offers to play, cast or activate it
+    /// ([`crate::Reach::Offered`]).
     pub activatable: bool,
+    /// This client would tap lands for this pile card and then cast it
+    /// ([`crate::Reach::Taps`]).
+    pub reachable: bool,
     /// This is the card [`crate::Duel::armed`] is holding.
     pub armed: bool,
     /// An armed mana run would tap this permanent to pay for its deed.
@@ -236,6 +256,7 @@ impl Offer {
     /// one being asked.
     pub const NONE: Self = Self {
         activatable: false,
+        reachable: false,
         armed: false,
         will_tap: false,
     };
@@ -246,9 +267,20 @@ impl Offer {
     pub const fn activatable(activatable: bool) -> Self {
         Self {
             activatable,
+            reachable: false,
             armed: false,
             will_tap: false,
         }
+    }
+
+    /// The same offer, with this client's own on top: a pile card it would
+    /// tap lands for ([`crate::Reach::Taps`]).
+    ///
+    /// Separate from [`Self::on`] because only a pile card can be reached
+    /// for — a hand card says it with a halo, and a permanent is never cast.
+    #[must_use]
+    pub const fn reaching(self, reachable: bool) -> Self {
+        Self { reachable, ..self }
     }
 
     /// What one drawn card is being offered, given what this client has
@@ -282,6 +314,7 @@ impl Offer {
             crate::Proposing::Nothing => Self::activatable(activatable),
             crate::Proposing::Armed(armed) => Self {
                 activatable,
+                reachable: false,
                 armed: members.contains(&armed.object),
                 will_tap: match &armed.deed {
                     // Whichever end the run has: a land the plan spends is a
@@ -299,6 +332,7 @@ impl Offer {
             // mana ability is one tap and the arming contract exempts it.
             crate::Proposing::Owed(plan) => Self {
                 activatable,
+                reachable: false,
                 armed: false,
                 will_tap: spends(plan),
             },
@@ -335,10 +369,16 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
     // An armed card is not also inviting a tap: the invitation was accepted,
     // and drawing both would put a travelling light and a steady one on the
     // same border saying the same thing twice.
+    //
+    // The engine's yes beats this client's offer for the same reason: a card
+    // the engine will take as it stands needs no lands tapped for it, and
+    // `Duel::reachable` leaves such a card out anyway.
     let offered = if offer.armed {
         glow::ARMED
     } else if offer.activatable {
         glow::ACTIVATABLE
+    } else if offer.reachable {
+        glow::REACHABLE
     } else {
         0
     };
@@ -1839,6 +1879,7 @@ pub(crate) mod tests {
             ("GLOW_TOKEN", glow::TOKEN),
             ("GLOW_COPY", glow::COPY),
             ("GLOW_DEFENDER", glow::DEFENDER),
+            ("GLOW_REACHABLE", glow::REACHABLE),
         ] {
             for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
                 let theirs = wgsl_const(src, name);
@@ -2248,6 +2289,7 @@ pub(crate) mod tests {
         let obj = permanent(TypeSet::CREATURE);
         let offer = Offer {
             activatable: true,
+            reachable: false,
             armed: true,
             will_tap: false,
         };
@@ -2260,6 +2302,7 @@ pub(crate) mod tests {
         // the land being spent is not the card being cast.
         let paying = Offer {
             activatable: true,
+            reachable: false,
             armed: false,
             will_tap: true,
         };
@@ -2267,6 +2310,29 @@ pub(crate) mod tests {
             glow_of(Some(&obj), paying),
             glow::ACTIVATABLE | glow::WILL_TAP
         );
+    }
+
+    /// This client's offer is drawn only where nothing stronger is: the
+    /// engine's yes wins over it, and so does the deed it becomes once armed.
+    ///
+    /// Three answers from one card, because each is a way to draw two lights
+    /// on one border — a chase in two hues at once, or a chase still running
+    /// round a card that has stopped inviting anything.
+    #[test]
+    fn a_reachable_card_is_lit_only_where_nothing_stronger_is() {
+        use baylee_core::types::TypeSet;
+        let obj = permanent(TypeSet::INSTANT);
+        let reached = Offer::NONE.reaching(true);
+        assert_eq!(glow_of(Some(&obj), reached), glow::REACHABLE);
+        assert_eq!(
+            glow_of(Some(&obj), Offer::activatable(true).reaching(true)),
+            glow::ACTIVATABLE,
+        );
+        let armed = Offer {
+            armed: true,
+            ..reached
+        };
+        assert_eq!(glow_of(Some(&obj), armed), glow::ARMED);
     }
 
     /// A card standing for four permanents lights up when the deed touches

@@ -34,7 +34,7 @@ Two consequences worth knowing before changing anything here:
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
-| Open the zone browser (graveyards, exile, the stack) | `G`, a tap on the top card of a pile, or the tray's button | implemented |
+| Open the zone browser (graveyards, exile, the stack) | `G`, a tap on the top card of a pile (unless that card is lit: then the tap casts it), or the tray's button | implemented |
 | Minimise the zone browser into the tray (the same three doors, and the button on its own head) | `G` / `Esc` / the button | implemented |
 | Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred, stays put, and draws neither corner nor minimise button) | drag its title row / its bottom-right corner | implemented |
 | Battlefield camera: pan / zoom / rotate / tilt | — (deliberately none) | removed |

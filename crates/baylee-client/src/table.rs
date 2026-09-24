@@ -3026,7 +3026,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         },
                         stands_for: 1,
                         art: card.art,
-                        offer: crate::cardmat::Offer::on(duel.proposing(), &[card.object], false),
+                        offer: pile_offer(duel, card.object),
                         corner: baylee_client_core::cardplate::Corner::default(),
                         selected: duel
                             .interaction
@@ -3059,7 +3059,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 stands_for: 1,
                 art: pile.art,
-                offer: crate::cardmat::Offer::on(duel.proposing(), &[top], false),
+                offer: pile_offer(duel, top),
                 corner: baylee_client_core::cardplate::Corner::default(),
                 selected: duel
                     .interaction
@@ -3070,6 +3070,22 @@ fn placements(duel: &Duel) -> Vec<Placement> {
         }
     }
     out
+}
+
+/// The offer drawn on a card lying in a pile, or lifted out of one by a
+/// hover: [`crate::Duel::reach_of`], in the two lights it answers with.
+///
+/// Until #242 both pile sites passed `false` here, so nothing in a pile was
+/// ever lit — not the Opt Snapcaster Mage had just made castable, and not a
+/// commander standing in the command zone with the lands to pay for it.
+fn pile_offer(duel: &Duel, object: ObjectId) -> crate::cardmat::Offer {
+    let reach = duel.reach_of(object);
+    crate::cardmat::Offer::on(
+        duel.proposing(),
+        &[object],
+        reach == Some(crate::Reach::Offered),
+    )
+    .reaching(reach == Some(crate::Reach::Taps))
 }
 
 /// Brings the scene in line with the board model.
