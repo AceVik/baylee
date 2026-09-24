@@ -24,6 +24,7 @@ use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use axum::routing::{get, post};
+use baylee_protocol::names;
 use baylee_protocol::v1::{self, Envelope};
 use lobby::{Lobby, LobbyGame, LobbyState};
 use parking_lot::Mutex;
@@ -381,7 +382,11 @@ fn spawn_cleanup(state: Shared) {
 
 #[derive(Deserialize)]
 struct RegisterBody {
-    email: String,
+    /// The name to sign in with (#269). Defaulted so that a client from
+    /// before usernames, which sends an address instead, is told what is
+    /// missing rather than handed a deserialiser's error.
+    #[serde(default)]
+    username: String,
     display_name: String,
     password: String,
     /// The language to write to this account in. Defaulted, because a client
@@ -404,7 +409,10 @@ struct ConfirmQuery {
 
 #[derive(Deserialize)]
 struct Credentials {
-    email: String,
+    /// A username, or until the end of 2026 an address (#269, #280). `email`
+    /// is what a client from before usernames calls the same field.
+    #[serde(alias = "email")]
+    username: String,
     password: String,
 }
 
@@ -757,7 +765,6 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,
-        "confirmation_required": state.mail.required(),
         // Whether `GET /art/…` mirrors card images. A client that pointed at a
         // gateway with the mirror switched off would get a 404 for every card
         // and draw a whole table of constructed faces, so it is told here
@@ -894,88 +901,89 @@ async fn register(
     {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
-    if !auth::valid_email(&body.email) {
-        return Err(err(StatusCode::BAD_REQUEST, "invalid e-mail"));
-    }
+    let Ok(username) = names::username(&body.username) else {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid username"));
+    };
     if !auth::valid_display_name(&body.display_name) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid display name"));
     }
-    if !auth::valid_password(&body.email, &body.display_name, &body.password) {
+    if !auth::valid_password(&username.shown, &body.display_name, &body.password) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid password"));
     }
-    // Anti-enumeration: identical response AND identical work whether or
-    // not the e-mail was free — hashing always (~100 ms), so timing can't
-    // tell "taken" (fast reject) from "created". Argon2 is deliberately
-    // expensive and runs off the async worker.
-    //
-    // A display name is no longer among the things that can be taken, which
-    // makes this strictly stronger than it was: a refusal used to be able to
-    // mean "that name exists", and the only thing it can mean now is that
-    // the address does.
+    // Argon2 is deliberately expensive and runs off the async worker.
     let password = body.password.clone();
     let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
-    let now = auth::now_secs();
     let account = store::NewAccount {
-        email: body.email.to_lowercase(),
+        username: username.shown,
+        username_key: username.key,
         display_name: body.display_name,
         password_hash,
-        created_at: now,
-        // A gateway that sends no mail confirms on the spot. That is
-        // not a weaker rule than it looks: it is the same rule, asked
-        // of a gateway that never asked the question.
-        confirmed_at: (!state.mail.required()).then_some(now),
+        created_at: auth::now_secs(),
         lang: body.lang,
     };
     // The refusal is the unique index's, not a check's. Reading "is this
-    // address free" and then writing is two statements another registration
+    // name free" and then writing is two statements another registration
     // can slip between, and both of them would have read "free".
     //
-    // What comes back is the row the database made: the tag is its to hand
-    // out, so the account only exists in full once it has been written.
-    let created = store::create_account(&state.db, account)
+    // And it is said openly (#269). An address could be registered without
+    // saying whether it existed, because its owner would get the mail; a
+    // username has to be chosen, so a taken one has to be named, and a name
+    // that can be chosen can be found. The per-IP limiter above is what
+    // bounds that: ten tries in five minutes. What it finds is a login name
+    // and no more — the username is shown to nobody but its owner, and the
+    // password is still the other half.
+    match store::create_account(&state.db, account)
         .await
-        .map_err(|e| db_down(&e))?;
-    if let Some(made) = &created {
-        mail_confirmation(&state, &made.id).await;
+        .map_err(|e| db_down(&e))?
+    {
+        Some(_) => Ok(Json(serde_json::json!({ "ok": true }))),
+        None => Err(err(StatusCode::CONFLICT, "that username is taken")),
     }
-    // Anti-enumeration again, and the reason the mail is sent before the
-    // answer rather than after it: the answer is the same either way, so it
-    // must not be *timed* differently either.
-    Ok(Json(
-        serde_json::json!({ "ok": true, "confirmation_required": state.mail.required() }),
-    ))
 }
 
 async fn login(
     State(state): State<Shared>,
     Json(creds): Json<Credentials>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    // Eight tries at **this address**, not at this machine. Lower-cased for
-    // the key because `Store::account_by_email` matches that way, so two
-    // spellings of one address are one account and have to be one count.
-    if !state
-        .sign_in_limiter
-        .allow(&creds.email.to_ascii_lowercase())
-    {
+    // The account first, so that the tries are counted against it.
+    //
+    // By address only while there are players who have not yet learnt the
+    // name they were given (#269): until 31.12.2026, when #280 removes it,
+    // and the answer below tells them their username. A username cannot hold an `@`, so the two
+    // never mean the same input. Anything that is not a username at all is
+    // simply nobody.
+    let account = if creds.username.contains('@') {
+        store::account_by_email(&state.db, &creds.username).await
+    } else {
+        match names::username(&creds.username) {
+            Ok(name) => store::account_by_username_key(&state.db, &name.key).await,
+            Err(_) => Ok(None),
+        }
+    }
+    .map_err(|e| db_down(&e))?;
+    // Eight tries at **one account**, however it was named: by its username
+    // and by its address, in any case, the tries are one count. A name that
+    // is nobody's is counted under what was typed, so guessing at it is
+    // bounded too, and it is answered exactly as a wrong password is.
+    let budget = match &account {
+        Some(account) => format!("account:{}", account.id),
+        None => format!("typed:{}", creds.username.to_lowercase()),
+    };
+    if !state.sign_in_limiter.allow(&budget) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
-    // Fetch the hash under a short lock; the expensive verify runs off
-    // the async worker and outside the store lock.
-    let account = store::account_by_email(&state.db, &creds.email)
-        .await
-        .map_err(|e| db_down(&e))?;
+    // The expensive verify runs off the async worker, and against a dummy
+    // hash when there is no account, so the two take the same time.
     let stored_hash = account.as_ref().map(|a| a.password_hash.clone());
-    let account_id = account.as_ref().map(|a| a.id.clone());
-    let confirmed_at = account.and_then(|a| a.confirmed_at);
     let password = creds.password.clone();
     let ok = tokio::task::spawn_blocking(move || {
         auth::verify_password(stored_hash.as_deref(), &password)
     })
     .await
     .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "verify failed"))?;
-    let Some(account_id) = account_id else {
+    let Some(account) = account else {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
     };
     if !ok {
@@ -984,19 +992,10 @@ async fn login(
     // Getting it right is what the window was counting towards. Leaving the
     // typos on the clock would refuse the next sign-in from a player who has
     // just proved who they are.
-    state
-        .sign_in_limiter
-        .forget(&creds.email.to_ascii_lowercase());
-    // Checked *after* the password, deliberately: answering "confirm your
-    // e-mail first" to a wrong password would tell a stranger the address
-    // exists, which is the one thing every other answer on this route is
-    // careful not to say.
-    if state.mail.required() && confirmed_at.is_none() {
-        return Err(err(
-            StatusCode::FORBIDDEN,
-            "confirm your e-mail address first",
-        ));
-    }
+    state.sign_in_limiter.forget(&budget);
+    // An unconfirmed address no longer keeps anyone out (#269): the account
+    // signs in with its name, and the address is only a way to reach them.
+    let account_id = account.id;
     let issued = auth::IssuedToken::new();
     store::put_token(
         &state.db,
@@ -1011,6 +1010,9 @@ async fn login(
     Ok(Json(serde_json::json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
+        // Its own name, to the one player who may see it: a player who signed
+        // in with an address is told the username they were given (#269).
+        "username": account.username,
     })))
 }
 
@@ -1305,6 +1307,9 @@ async fn me(
     Ok(Json(serde_json::json!({
         "id": account.id,
         "email": account.email,
+        // Only ever to its owner: nothing that shows one player to another
+        // carries it (#269).
+        "username": account.username,
         "display_name": account.display_name,
         // The two halves separately, because this is the one caller that
         // wants them apart: a settings screen shows the name in a field a

@@ -41,7 +41,7 @@ async fn the_listing_is_searched_ordered_and_paged() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "p1@example.com", "Pager");
+    let host = login(port, "p1-player", "Pager");
     let deck = make_deck(port, &host, "d");
 
     // Six tables, opened in a known order. `created_at` is whole seconds, so
@@ -127,8 +127,8 @@ async fn the_lobby_socket_pushes_a_change_nobody_asked_about() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let watcher = login(port, "w@example.com", "Watcher");
-    let opener = login(port, "o@example.com", "Opener");
+    let watcher = login(port, "w-player", "Watcher");
+    let opener = login(port, "o-player", "Opener");
     let deck = make_deck(port, &opener, "d");
 
     let url = format!("ws://127.0.0.1:{port}/lobby/ws?token={watcher}");
@@ -165,7 +165,7 @@ async fn the_lobby_socket_takes_a_page_and_not_only_a_token() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let watcher = login(port, "q@example.com", "Querier");
+    let watcher = login(port, "q-player", "Querier");
     let deck = make_deck(port, &watcher, "d");
     for name in ["One", "Two", "Three"] {
         let create = format!("{{\"deck_id\":\"{deck}\",\"seats\":2,\"name\":\"{name}\"}}");

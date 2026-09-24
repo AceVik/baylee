@@ -52,28 +52,31 @@ use uuid::Uuid;
 /// one database cannot agree on.
 #[derive(Clone, Debug)]
 pub struct NewAccount {
-    /// Login e-mail.
-    pub email: String,
+    /// The name it signs in with, as the rule folded it
+    /// (`baylee_protocol::names::Username::shown`).
+    pub username: String,
+    /// What that name is unique under (`Username::key`).
+    pub username_key: String,
     /// Display name shown in the lobby. Not unique.
     pub display_name: String,
     /// Argon2id PHC password hash.
     pub password_hash: String,
     /// Created at (unix seconds).
     pub created_at: u64,
-    /// When the address was confirmed, if it has been.
-    pub confirmed_at: Option<u64>,
     /// The language the account registered in, for the mail it is sent.
     pub lang: String,
 }
 
-/// A registered account. The username is the e-mail address; the
-/// display name is shown to other players.
+/// A registered account. It signs in with its username, which only its
+/// owner is ever shown; the display name is shown to other players.
 #[derive(Clone, Debug)]
 pub struct Account {
     /// Account id (`UUIDv7`).
     pub id: String,
     /// The e-mail address (lowercased, unique), if the account has one.
     pub email: Option<String>,
+    /// The name it signs in with (#269). Private to its owner.
+    pub username: Option<String>,
     /// Display name shown in the lobby. Not unique — [`Account::tag`] is.
     pub display_name: String,
     /// The discriminator, handed out by the database. See [`crate::handle`].
@@ -224,6 +227,7 @@ impl From<account::Model> for Account {
         Self {
             id: id(row.id),
             email: row.email,
+            username: row.username,
             display_name: row.display_name,
             tag: row.tag,
             password_hash: row.password_hash,
@@ -317,7 +321,24 @@ pub async fn account(db: &DatabaseConnection, account_id: &str) -> Result<Option
     Ok(Accounts::find_by_id(id).one(db).await?.map(Into::into))
 }
 
-/// One account by login e-mail, case-insensitively.
+/// One account by the name it signs in with, given as its key
+/// (`baylee_protocol::names::Username::key`), which the unique index is on.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn account_by_username_key(
+    db: &DatabaseConnection,
+    key: &str,
+) -> Result<Option<Account>> {
+    Ok(Accounts::find()
+        .filter(account::Column::UsernameKey.eq(key))
+        .one(db)
+        .await?
+        .map(Into::into))
+}
+
+/// One account by its e-mail address, case-insensitively.
 ///
 /// The comparison is `lower(email) = lower($1)`, which is the expression the
 /// unique index is built on — so this is an index lookup and not the scan an
@@ -383,12 +404,12 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
         .map(Into::into))
 }
 
-/// Write a new account, answering `None` when the address is already taken.
+/// Write a new account, answering `None` when the username is already taken.
 ///
 /// The refusal comes from the unique index rather than from a check, which is
 /// what closes the window the file-backed version had: two registrations of
-/// one address could both read "free" and both write. A *display name* is no
-/// longer among the things that can be taken.
+/// one name could both read "free" and both write. A *display name* is not
+/// among the things that can be taken.
 ///
 /// What comes back is the row the database made, not the one that went in,
 /// because the tag is the database's to hand out: [`account::Column::Tag`]
@@ -401,14 +422,16 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
 pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<Option<Account>> {
     let row = account::ActiveModel {
         id: NotSet,
-        email: Set(Some(new.email)),
-        username: NotSet,
-        username_key: NotSet,
+        // Registration asks for no address (#269); one may be added later,
+        // for recovery.
+        email: Set(None),
+        username: Set(Some(new.username)),
+        username_key: Set(Some(new.username_key)),
         display_name: Set(new.display_name),
         tag: NotSet,
         password_hash: Set(new.password_hash),
         created_at: Set(at(new.created_at)),
-        confirmed_at: Set(new.confirmed_at.map(at)),
+        confirmed_at: Set(None),
         lang: Set(new.lang),
     };
     match Accounts::insert(row).exec_with_returning(db).await {

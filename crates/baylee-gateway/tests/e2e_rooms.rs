@@ -51,8 +51,8 @@ async fn a_room_is_arranged_in_the_open_and_starts_when_the_host_says_so() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "host@example.com", "host");
-    let guest = login(port, "guest@example.com", "guest");
+    let host = login(port, "host", "host");
+    let guest = login(port, "guest", "guest");
     let host_deck = make_deck(port, &host, "host-deck");
     let guest_deck = make_deck(port, &guest, "guest-deck");
 
@@ -154,8 +154,8 @@ async fn a_locked_room_takes_a_password_and_the_listing_never_carries_it() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "h5@example.com", "hostfive");
-    let guest = login(port, "g5@example.com", "guestfive");
+    let host = login(port, "h5-player", "hostfive");
+    let guest = login(port, "g5-player", "guestfive");
     let host_deck = make_deck(port, &host, "hd");
     let guest_deck = make_deck(port, &guest, "gd");
 
@@ -199,9 +199,9 @@ async fn the_room_passes_to_whoever_has_been_there_longest() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "h6@example.com", "hostsix");
-    let early = login(port, "e6@example.com", "earlysix");
-    let late = login(port, "l6@example.com", "latesix");
+    let host = login(port, "h6-player", "hostsix");
+    let early = login(port, "e6-player", "earlysix");
+    let late = login(port, "l6-player", "latesix");
     let decks = [
         make_deck(port, &host, "hd"),
         make_deck(port, &early, "ed"),
@@ -287,8 +287,8 @@ async fn only_the_host_arranges_the_table_and_only_a_player_brings_their_own_dec
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "h2@example.com", "hosttwo");
-    let guest = login(port, "g2@example.com", "guesttwo");
+    let host = login(port, "h2-player", "hosttwo");
+    let guest = login(port, "g2-player", "guesttwo");
     let host_deck = make_deck(port, &host, "hd");
     let guest_deck = make_deck(port, &guest, "gd");
 
@@ -365,8 +365,8 @@ async fn a_guest_leaving_frees_the_chair_and_the_last_player_out_closes_the_room
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "h3@example.com", "hostthree");
-    let guest = login(port, "g3@example.com", "guestthree");
+    let host = login(port, "h3-player", "hostthree");
+    let guest = login(port, "g3-player", "guestthree");
     let host_deck = make_deck(port, &host, "hd");
     let guest_deck = make_deck(port, &guest, "gd");
 
@@ -421,7 +421,7 @@ async fn a_table_seats_between_two_and_eight() {
     let gw = spawn_gateway("rooms-size");
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
-    let host = login(port, "h4@example.com", "hostfour");
+    let host = login(port, "h4-player", "hostfour");
     let deck = make_deck(port, &host, "d");
 
     // The gateway's bound is the engine's: `GamePreset::validate` takes two
@@ -439,8 +439,8 @@ async fn sides_are_the_hosts_to_arrange_and_a_table_needs_two_of_them() {
     let gw = spawn_gateway("rooms-teams");
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
-    let host = login(port, "cap@example.com", "captain");
-    let guest = login(port, "mate@example.com", "shipmate");
+    let host = login(port, "cap", "captain");
+    let guest = login(port, "mate", "shipmate");
     let host_deck = make_deck(port, &host, "host-deck");
     let guest_deck = make_deck(port, &guest, "guest-deck");
 
@@ -557,9 +557,9 @@ async fn a_player_who_lost_their_client_is_given_their_seat_back() {
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
 
-    let host = login(port, "back-host@example.com", "host");
-    let guest = login(port, "back-guest@example.com", "guest");
-    let stranger = login(port, "back-nobody@example.com", "nobody");
+    let host = login(port, "back-host", "host");
+    let guest = login(port, "back-guest", "guest");
+    let stranger = login(port, "back-nobody", "nobody");
     let host_deck = make_deck(port, &host, "host-deck");
     let guest_deck = make_deck(port, &guest, "guest-deck");
 

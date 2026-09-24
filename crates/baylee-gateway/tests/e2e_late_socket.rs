@@ -27,7 +27,7 @@ async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
     let port = gw.port;
     let (_agent, mut engines) = attach_agent_watching(&gw).await;
 
-    let token = login(port, "latecomer@example.com", "latecomer");
+    let token = login(port, "latecomer", "latecomer");
     let (status, body) = http(
         port,
         "POST",

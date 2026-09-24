@@ -4761,9 +4761,11 @@ fn explain(root: &Path, name: &str, scripts_dir: &Path, cache: &Path) -> anyhow:
 
 // ------------------------------------------------------------- dev table
 
-/// The dev account. Fixed, so a repeated run reuses one account and one deck
-/// rather than filling the store with strangers.
-const DEV_EMAIL: &str = "dev@baylee.local";
+/// The dev account's username. Fixed, so a repeated run reuses one account
+/// and one deck rather than filling the store with strangers. An older dev
+/// database's `dev@baylee.local` was given this name by the migration that
+/// brought usernames (#269).
+const DEV_USERNAME: &str = "dev";
 /// The dev account's password. This account exists only on a developer's own
 /// gateway and owns nothing worth taking.
 const DEV_PASSWORD: &str = "dev-password-dev-password";
@@ -4960,14 +4962,14 @@ fn dev_table(
         &format!("{gateway}/auth/register"),
         None,
         &serde_json::json!({
-            "email": DEV_EMAIL, "display_name": DEV_NAME, "password": DEV_PASSWORD,
+            "username": DEV_USERNAME, "display_name": DEV_NAME, "password": DEV_PASSWORD,
         }),
     )?;
     let (status, body) = post(
         &agent,
         &format!("{gateway}/auth/login"),
         None,
-        &serde_json::json!({ "email": DEV_EMAIL, "password": DEV_PASSWORD }),
+        &serde_json::json!({ "username": DEV_USERNAME, "password": DEV_PASSWORD }),
     )?;
     anyhow::ensure!(status == 200, "sign in as {DEV_NAME}: {status} {body}");
     let token = field(&body, "token")?;

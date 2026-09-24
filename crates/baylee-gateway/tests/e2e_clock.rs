@@ -41,7 +41,7 @@ async fn the_clock_a_room_picks_is_the_clock_the_engine_is_given() {
     let gw = spawn_gateway("clock");
     let port = gw.port;
     let (agent, mut presets) = attach_agent_watching(&gw).await;
-    let token = login(port, "clock@example.com", "clock_player");
+    let token = login(port, "clock", "clock_player");
     let deck = a_deck(port, &token);
 
     let (status, body) = ai_game(port, &token, &deck, ",\"clock\":\"blitz\"");
@@ -76,7 +76,7 @@ async fn saying_nothing_keeps_the_game_every_table_already_played() {
     let gw = spawn_gateway("clock-default");
     let port = gw.port;
     let (agent, mut presets) = attach_agent_watching(&gw).await;
-    let token = login(port, "default@example.com", "default_player");
+    let token = login(port, "default", "default_player");
     let deck = a_deck(port, &token);
 
     let (status, body) = ai_game(port, &token, &deck, "");
@@ -99,7 +99,7 @@ async fn saying_nothing_keeps_the_game_every_table_already_played() {
 async fn a_player_can_see_the_pace_before_sitting_down() {
     let gw = spawn_gateway("clock-listing");
     let port = gw.port;
-    let host = login(port, "host@example.com", "clock_host");
+    let host = login(port, "host", "clock_host");
     let deck = a_deck(port, &host);
 
     let body = format!("{{\"deck_id\":\"{deck}\",\"name\":\"fast table\",\"clock\":\"blitz\"}}");
@@ -109,7 +109,7 @@ async fn a_player_can_see_the_pace_before_sitting_down() {
     // A room has no preset until it starts, so this number can only come from
     // the room itself — which is why the lobby model carries it rather than
     // reading it back off a preset that does not exist yet.
-    let stranger = login(port, "stranger@example.com", "clock_stranger");
+    let stranger = login(port, "stranger", "clock_stranger");
     let (status, listing) = http(port, "GET", "/lobby/games", Some(&stranger), "");
     assert_eq!(status, 200, "listing: {listing}");
     assert_eq!(
@@ -124,7 +124,7 @@ async fn a_player_can_see_the_pace_before_sitting_down() {
 async fn a_clock_nobody_offers_is_refused_and_says_what_there_is() {
     let gw = spawn_gateway("clock-refused");
     let port = gw.port;
-    let token = login(port, "bad@example.com", "bad_clock");
+    let token = login(port, "bad", "bad_clock");
     let deck = a_deck(port, &token);
 
     // Rooms rather than `mode:"ai"`, and for a reason worth stating: opening
@@ -211,7 +211,7 @@ async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
     let port = gw.port;
     let _agent = common::attach_agent(&gw).await;
 
-    let token = login(port, "sheet@example.com", "clock_sheet");
+    let token = login(port, "sheet", "clock_sheet");
     let deck = a_deck(port, &token);
     let (status, body) = ai_game(port, &token, &deck, ",\"clock\":\"blitz\"");
     assert_eq!(status, 200, "blitz game: {body}");

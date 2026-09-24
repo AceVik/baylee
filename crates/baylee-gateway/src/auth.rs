@@ -8,8 +8,9 @@
 //!   and unknown-user attempts verify against a fixed dummy hash so
 //!   response timing doesn't leak account existence.
 //! - Sliding-window rate limiters throttle the auth endpoints. Signing in
-//!   is counted per **address** and the rest per IP; `RateLimiter` holds the
-//!   window and the count and the caller says what a key is.
+//!   is counted per **account**, however it was named (#269), and the rest
+//!   per IP; `RateLimiter` holds the window and the count and the caller
+//!   says what a key is.
 //! - All secret comparisons are constant-time (`subtle`).
 
 use argon2::Argon2;
@@ -152,8 +153,8 @@ pub fn now_secs() -> u64 {
 /// Sliding-window rate limiter for auth endpoints.
 ///
 /// It counts keys and has no opinion about what a key *is*: an IP for the
-/// routes where there is no account yet to name, an e-mail address for the
-/// one route that is aimed at a particular account. That is the whole reason
+/// routes where there is no account yet to name, the account for the one
+/// route that is aimed at a particular account. That is the whole reason
 /// it takes a `&str` — keying sign-ins on the machine punished a household
 /// for one member's typing, and on a development box it made every scripted
 /// call and the owner's own typing share a single budget.
@@ -215,28 +216,6 @@ impl RateLimiter {
     }
 }
 
-/// E-mail validation: practical shape (local@domain.tld), bounded
-/// length, no whitespace. Full RFC 5322 is intentionally not attempted.
-#[must_use]
-pub fn valid_email(email: &str) -> bool {
-    if email.len() > 254 || email.chars().any(char::is_whitespace) {
-        return false;
-    }
-    let Some((local, domain)) = email.rsplit_once('@') else {
-        return false;
-    };
-    if local.is_empty() || local.len() > 64 {
-        return false;
-    }
-    if domain.len() > 253 || !domain.contains('.') {
-        return false;
-    }
-    let mut parts = domain.split('.');
-    let host = parts.next().unwrap_or("");
-    let tld = parts.next_back().unwrap_or("");
-    !host.is_empty() && tld.len() >= 2
-}
-
 /// Display-name validation (shown to other players).
 ///
 /// Three to sixteen characters, ASCII letters and digits with `_` and `-`
@@ -269,9 +248,10 @@ pub fn valid_display_name(name: &str) -> bool {
 }
 
 /// Input validation for passwords (hygiene, not a strength meter):
-/// length, not the e-mail/display name, and not a top common password.
+/// length, not the username or the display name, and not a top common
+/// password.
 #[must_use]
-pub fn valid_password(email: &str, display_name: &str, password: &str) -> bool {
+pub fn valid_password(username: &str, display_name: &str, password: &str) -> bool {
     const COMMON: &[&str] = &[
         "password",
         "password1",
@@ -294,11 +274,9 @@ pub fn valid_password(email: &str, display_name: &str, password: &str) -> bool {
     if !(8..=256).contains(&password.len()) {
         return false;
     }
-    let local = email.split('@').next().unwrap_or("");
-    if !local.is_empty() && password.eq_ignore_ascii_case(local) {
-        return false;
-    }
-    if password.eq_ignore_ascii_case(display_name) {
+    // Either name in any case: the username is half of the credential, and
+    // the display name is on every table the player sits at.
+    if password.eq_ignore_ascii_case(username) || password.eq_ignore_ascii_case(display_name) {
         return false;
     }
     !COMMON.iter().any(|c| password.eq_ignore_ascii_case(c))
@@ -321,19 +299,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn email_validation_accepts_and_rejects() {
-        assert!(valid_email("player@example.com"));
-        assert!(valid_email("a.b-c_d@sub.domain.org"));
-        assert!(!valid_email("not-an-email"));
-        assert!(!valid_email("@example.com"));
-        assert!(!valid_email("player@"));
-        assert!(!valid_email("player@localhost"));
-        assert!(!valid_email("player@example.c"));
-        assert!(!valid_email("play er@example.com"));
-        assert!(!valid_email(&format!("{}@example.com", "x".repeat(65))));
-    }
-
-    #[test]
     fn display_name_validation() {
         assert!(valid_display_name("Alice"));
         assert!(valid_display_name("player_one-99"));
@@ -354,14 +319,21 @@ mod tests {
 
     #[test]
     fn password_rules() {
-        assert!(valid_password("a@b.co", "alice", "a-very-fine-password"));
-        assert!(!valid_password("a@b.co", "alice", "short"));
+        assert!(valid_password(
+            "wonderland",
+            "Alice",
+            "a-very-fine-password"
+        ));
+        assert!(!valid_password("wonderland", "Alice", "short"));
         // Eight is the floor, and seven is under it.
-        assert!(valid_password("a@b.co", "alice", "8charact"));
-        assert!(!valid_password("a@b.co", "alice", "7chars!"));
-        assert!(!valid_password("alice@b.co", "alice", "Alice"));
-        assert!(!valid_password("a@b.co", "alice", "alice"));
-        assert!(!valid_password("a@b.co", "alice", "password"));
+        assert!(valid_password("wonderland", "Alice", "8charact"));
+        assert!(!valid_password("wonderland", "Alice", "7chars!"));
+        // Neither name, in any case, and each long enough that the length
+        // is not what refuses it.
+        assert!(!valid_password("wonderland", "Alice", "WonderLand"));
+        assert!(!valid_password("wonderland", "Rabbit_hole", "rabbit_HOLE"));
+        assert!(valid_password("wonderland", "Rabbit_hole", "wonderland2"));
+        assert!(!valid_password("wonderland", "Alice", "password"));
     }
 
     #[test]
@@ -545,8 +517,8 @@ mod tests {
     }
 
     /// **A unique key is not a way to grow this map**, which is why the
-    /// sweep exists: the keys are e-mail addresses and IP addresses a
-    /// stranger chooses, and one attempt each would otherwise be one entry
+    /// sweep exists: the keys are typed names and IP addresses a stranger
+    /// chooses, and one attempt each would otherwise be one entry
     /// each for as long as the process runs.
     ///
     /// The sweep is periodic rather than per call, so it happens on the

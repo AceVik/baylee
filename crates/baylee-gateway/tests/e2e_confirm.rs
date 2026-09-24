@@ -1,21 +1,22 @@
-//! Registration confirmation, end to end through a real SMTP conversation.
+//! Confirming an address, end to end through a real SMTP conversation.
+//!
+//! Since usernames (#269) a new account has no address and is sent nothing,
+//! and an unconfirmed address keeps nobody out. What is left is the accounts
+//! that registered with an address before: a link already mailed still
+//! confirms it, and its owner may ask for another. The address stays the way
+//! to reach a player, for the day it is used for recovery.
 //!
 //! The link cannot be recovered from the store — only its hash is kept there,
 //! for the same reason a session token's is — so the only honest way to test
-//! the happy path is to receive the mail. The sink below speaks just enough
-//! SMTP for lettre to hand over a message, which is also what proves the
-//! gateway's transport is configured the way a real relay would need.
-//!
-//! The other half of the feature is the half that must not change: a gateway
-//! with no `BAYLEE_SMTP_URL` confirms an account on creation, sends nothing,
-//! and lets it log in immediately. Every other test in this directory is that
-//! assertion, so it is only stated once here.
+//! it is to receive the mail. The sink below speaks just enough SMTP for
+//! lettre to hand over a message, which is also what proves the gateway's
+//! transport is configured the way a real relay would need.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
 mod common;
 
-use common::{http, spawn_gateway, spawn_gateway_with};
+use common::{http, spawn_gateway_with};
 use std::io::{BufRead, BufReader, Write};
 use std::sync::mpsc;
 
@@ -102,37 +103,30 @@ fn link_in(body: &str) -> String {
     raw.replace("=3D", "=")
 }
 
-fn register(port: u16, email: &str, name: &str, lang: &str) -> (u16, String) {
+fn register(port: u16, username: &str, name: &str) -> (u16, String) {
     let body = format!(
-        "{{\"email\":\"{email}\",\"display_name\":\"{name}\",\
-         \"password\":\"{PASSWORD}\",\"lang\":\"{lang}\"}}"
+        "{{\"username\":\"{username}\",\"display_name\":\"{name}\",\
+         \"password\":\"{PASSWORD}\",\"lang\":\"de\"}}"
     );
     http(port, "POST", "/auth/register", None, &body)
 }
 
-fn sign_in(port: u16, email: &str) -> (u16, String) {
-    let body = format!("{{\"email\":\"{email}\",\"password\":\"{PASSWORD}\"}}");
+fn sign_in(port: u16, who: &str) -> (u16, String) {
+    let body = format!("{{\"username\":\"{who}\",\"password\":\"{PASSWORD}\"}}");
     http(port, "POST", "/auth/login", None, &body)
 }
 
-#[test]
-fn a_gateway_with_no_mailer_confirms_on_the_spot() {
-    let gw = spawn_gateway("confirm-off");
-    let (status, body) = http(gw.port, "GET", "/auth/config", None, "");
-    assert_eq!(status, 200);
-    assert!(
-        body.contains("\"confirmation_required\":false"),
-        "config: {body}"
-    );
-
-    let (status, body) = register(gw.port, "nobody@example.com", "Nobody", "en");
-    assert_eq!(status, 200, "register: {body}");
-    let (status, body) = sign_in(gw.port, "nobody@example.com");
-    assert_eq!(status, 200, "the account must be usable at once: {body}");
+/// An account as registration made them before usernames: with an address,
+/// not yet confirmed.
+fn give_an_address(gw: &common::Gateway, username: &str, address: &str) {
+    gw.sql(&format!(
+        "UPDATE account SET email = '{address}', confirmed_at = NULL \
+         WHERE username_key = '{username}'"
+    ));
 }
 
 #[test]
-fn a_mailed_link_is_what_lets_the_account_in() {
+fn a_new_account_is_sent_nothing_and_an_old_address_keeps_nobody_out() {
     let (smtp_port, mail) = smtp_sink();
     let gw = spawn_gateway_with(
         "confirm-on",
@@ -148,37 +142,49 @@ fn a_mailed_link_is_what_lets_the_account_in() {
     // request header is how a confirmation link ends up pointing wherever
     // the `Host:` header said.
     let (status, body) = http(gw.port, "GET", "/auth/config", None, "");
+    assert_eq!(status, 200);
     assert!(
-        body.contains("\"confirmation_required\":true"),
-        "config ({status}): {body}"
+        !body.contains("confirmation_required"),
+        "nothing waits on a mail any more: {body}"
     );
 
-    let (status, body) = register(gw.port, "player@example.com", "Player", "de");
+    // A new account signs in at once, mailer or not.
+    let (status, body) = register(gw.port, "fresh", "Fresh");
     assert_eq!(status, 200, "register: {body}");
-    assert!(
-        body.contains("\"confirmation_required\":true"),
-        "the client is told to expect a mail: {body}"
-    );
+    assert_eq!(body, r#"{"ok":true}"#);
+    let (status, body) = sign_in(gw.port, "fresh");
+    assert_eq!(status, 200, "a new account is usable at once: {body}");
 
-    // Unconfirmed is refused, and refused *differently* from a wrong
-    // password — a player who cannot tell the two apart cannot act on it.
-    let (status, body) = sign_in(gw.port, "player@example.com");
-    assert_eq!(status, 403, "login before confirming: {body}");
-    let (status, _) = http(
+    // One that registered with an address and never confirmed it signs in
+    // too, by its name and, until the end of 2026, by the address.
+    let (status, body) = register(gw.port, "oldtimer", "Oldtimer");
+    assert_eq!(status, 200, "register: {body}");
+    give_an_address(&gw, "oldtimer", "oldtimer@example.com");
+    let (status, body) = sign_in(gw.port, "oldtimer");
+    assert_eq!(
+        status, 200,
+        "an unconfirmed address kept its owner out: {body}"
+    );
+    let (status, body) = sign_in(gw.port, "OldTimer@Example.com");
+    assert_eq!(status, 200, "by the address: {body}");
+
+    // Its owner asks for the link again. The sink takes exactly one message,
+    // so this being the one it got is also what says that registering sent
+    // none.
+    let (status, body) = http(
         gw.port,
         "POST",
-        "/auth/login",
+        "/auth/confirm/resend",
         None,
-        r#"{"email":"player@example.com","password":"the-wrong-password"}"#,
+        r#"{"email":"oldtimer@example.com"}"#,
     );
-    assert_eq!(status, 401, "a wrong password stays a wrong password");
-
+    assert_eq!(status, 200, "resend: {body}");
     let received = mail
         .recv_timeout(common::WAIT_BUDGET)
         .expect("the confirmation mail arrives");
     assert!(
-        received.contains("Best") || received.contains("=?utf-8?"),
-        "written in the language it registered in: {received}"
+        received.contains("Oldtimer") && !received.contains("Fresh"),
+        "the one mail sent is the one asked for: {received}"
     );
     let link = link_in(&received);
     let path = link
@@ -192,8 +198,6 @@ fn a_mailed_link_is_what_lets_the_account_in() {
 
     let (status, body) = http(gw.port, "GET", &path, None, "");
     assert_eq!(status, 200, "following the link: {body}");
-    let (status, body) = sign_in(gw.port, "player@example.com");
-    assert_eq!(status, 200, "login after confirming: {body}");
 
     // The link is spent: a mailbox is not a place to leave a working one.
     let (status, _) = http(gw.port, "GET", &path, None, "");
@@ -207,8 +211,9 @@ fn a_resend_says_nothing_about_who_exists() {
         "confirm-resend",
         &[("BAYLEE_SMTP_URL", format!("smtp://127.0.0.1:{smtp_port}"))],
     );
-    let (status, body) = register(gw.port, "someone@example.com", "Someone", "en");
+    let (status, body) = register(gw.port, "someone", "Someone");
     assert_eq!(status, 200, "register: {body}");
+    give_an_address(&gw, "someone", "someone@example.com");
     for email in ["someone@example.com", "nobody-at-all@example.com"] {
         let (status, body) = http(
             gw.port,
@@ -220,184 +225,4 @@ fn a_resend_says_nothing_about_who_exists() {
         assert_eq!(status, 200, "resend for {email}: {body}");
         assert!(body.contains("\"ok\":true"), "resend for {email}: {body}");
     }
-}
-
-/// Sign-in attempts are counted against the **address**, not the machine.
-///
-/// Keyed per IP, one development box is one bucket: the owner's typing and
-/// every scripted call this session made shared ten attempts, and the owner
-/// was the one locked out. An address is what guessing is aimed at, so it is
-/// what the count belongs to — and a wrong password at one address must not
-/// cost another address anything.
-#[test]
-fn eight_tries_are_eight_tries_at_one_address() {
-    let gw = spawn_gateway("attempts");
-    let port = gw.port;
-    let (status, body) = register(port, "eight@example.com", "Eight", "en");
-    assert_eq!(status, 200, "register: {body}");
-    let (status, body) = register(port, "other@example.com", "Other", "en");
-    assert_eq!(status, 200, "register: {body}");
-
-    let wrong = |email: &str| {
-        http(
-            port,
-            "POST",
-            "/auth/login",
-            None,
-            &format!("{{\"email\":\"{email}\",\"password\":\"not-it\"}}"),
-        )
-        .0
-    };
-
-    // Eight are answered on their merits; the ninth is not answered at all.
-    for i in 1..=8 {
-        assert_eq!(wrong("eight@example.com"), 401, "try {i} is a real answer");
-    }
-    assert_eq!(wrong("eight@example.com"), 429, "the ninth is refused");
-    // The same address in a different spelling is the same account, so it is
-    // the same count.
-    assert_eq!(wrong("Eight@Example.com"), 429, "one account, one count");
-
-    // And the machine is not what was counted.
-    assert_eq!(
-        wrong("other@example.com"),
-        401,
-        "a neighbour's typing costs this address nothing"
-    );
-    let (status, body) = sign_in(port, "other@example.com");
-    assert_eq!(status, 200, "and the right password still works: {body}");
-}
-
-/// Getting in is what the window was counting towards, so it hands the tries
-/// back: a player who mistypes six times, signs in, then signs out has not
-/// spent anything.
-#[test]
-fn signing_in_clears_what_the_typos_spent() {
-    let gw = spawn_gateway("attempts-cleared");
-    let port = gw.port;
-    let (status, body) = register(port, "clear@example.com", "Clear", "en");
-    assert_eq!(status, 200, "register: {body}");
-
-    for _ in 0..7 {
-        let (status, _) = http(
-            port,
-            "POST",
-            "/auth/login",
-            None,
-            "{\"email\":\"clear@example.com\",\"password\":\"not-it\"}",
-        );
-        assert_eq!(status, 401);
-    }
-    let (status, body) = sign_in(port, "clear@example.com");
-    assert_eq!(status, 200, "the eighth try is the right one: {body}");
-    // Without the clearing this would be the ninth attempt and refused.
-    let (status, body) = sign_in(port, "clear@example.com");
-    assert_eq!(status, 200, "and signing in again is not rationed: {body}");
-}
-
-/// Registering an address twice answers exactly what registering it once
-/// answers, and leaves the first account alone.
-///
-/// The refusal moved from a check in the gateway to a unique index in the
-/// database, and the gateway recognises it by reading the driver's error
-/// text. If that reading ever misses, `create_account` returns `Err` and the
-/// route answers **503** — which is an oracle telling an attacker exactly
-/// which addresses exist, in the one route written from top to bottom to
-/// avoid saying so. Nothing else in the suite registers the same address
-/// twice, so nothing else would notice.
-#[test]
-fn a_second_registration_says_no_more_than_the_first() {
-    let gw = spawn_gateway("taken");
-
-    let (status, body) = register(gw.port, "twice@example.com", "Twice", "en");
-    assert_eq!(status, 200, "the first registration: {body}");
-    let first = body;
-
-    // The same address in another case is the same address: the index is on
-    // `lower(email)`.
-    let (status, body) = register(gw.port, "TWICE@Example.COM", "Somebody", "en");
-    assert_eq!(
-        status, 200,
-        "a taken address must answer as a free one does, not 503: {body}"
-    );
-    assert_eq!(body, first, "the two answers differ, which is the leak");
-
-    // A display name is **not** unique, and this is where that stops being
-    // a claim in a doc comment. The second `twice` is a second account.
-    let (status, body) = register(gw.port, "other@example.com", "twice", "en");
-    assert_eq!(status, 200, "a name shared with somebody: {body}");
-    assert_eq!(body, first, "the two answers differ, which is the leak");
-
-    // The account that was there first is untouched, and the second one
-    // exists — which is the half the old rule got wrong.
-    let (status, body) = sign_in(gw.port, "twice@example.com");
-    assert_eq!(status, 200, "the original account still signs in: {body}");
-    let mine = token_of(&body);
-    let (status, body) = sign_in(gw.port, "other@example.com");
-    assert_eq!(status, 200, "the second `twice` must exist: {body}");
-    let theirs = token_of(&body);
-
-    // And what tells them apart is the tag, which each of them can read off
-    // their own profile and neither of them chose.
-    let (status, my_profile) = http(gw.port, "GET", "/me", Some(&mine), "");
-    assert_eq!(status, 200, "/me: {my_profile}");
-    let (status, their_profile) = http(gw.port, "GET", "/me", Some(&theirs), "");
-    assert_eq!(status, 200, "/me: {their_profile}");
-    assert!(
-        my_profile.contains("\"display_name\":\"Twice\""),
-        "{my_profile}"
-    );
-    assert!(
-        their_profile.contains("\"display_name\":\"twice\""),
-        "{their_profile}"
-    );
-    assert_ne!(
-        handle_of(&my_profile),
-        handle_of(&their_profile),
-        "two players called twice were handed the same handle"
-    );
-
-    // The tag is how one of them finds the other, and a bare name is not.
-    let (status, found) = http(
-        gw.port,
-        "GET",
-        &format!("/players/%23{}", tag_of(&their_profile)),
-        Some(&mine),
-        "",
-    );
-    assert_eq!(status, 200, "looking somebody up by tag: {found}");
-    assert_eq!(handle_of(&found), handle_of(&their_profile));
-
-    let (status, refused) = http(gw.port, "GET", "/players/twice", Some(&mine), "");
-    assert_eq!(
-        status, 400,
-        "a bare name is not a handle — it would answer for whichever twice \
-         registered first: {refused}"
-    );
-}
-
-/// The session token out of a sign-in answer.
-fn token_of(body: &str) -> String {
-    field(body, "token")
-}
-
-/// The `handle` field out of a `/me` or `/players` answer.
-fn handle_of(body: &str) -> String {
-    field(body, "handle")
-}
-
-/// The `tag` field out of a `/me` answer.
-fn tag_of(body: &str) -> String {
-    field(body, "tag")
-}
-
-/// One string field out of a flat JSON object, without a parser.
-fn field(body: &str, name: &str) -> String {
-    let key = format!("\"{name}\":\"");
-    let from = body
-        .find(&key)
-        .unwrap_or_else(|| panic!("no {name} in {body}"))
-        + key.len();
-    let rest = &body[from..];
-    rest[..rest.find('"').expect("unterminated string")].to_string()
 }

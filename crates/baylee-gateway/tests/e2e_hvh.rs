@@ -62,8 +62,8 @@ async fn human_vs_human_both_seats_receive_updates() {
 
     // Two accounts.
     let tokens = [
-        login(port, "alice@example.com", "alice_hvh"),
-        login(port, "bob@example.com", "bob_hvh"),
+        login(port, "alice", "alice_hvh"),
+        login(port, "bob", "bob_hvh"),
     ];
 
     // One deck each (basic lands pass the registry and the count rules).
@@ -228,7 +228,7 @@ async fn human_vs_human_both_seats_receive_updates() {
 #[tokio::test]
 async fn a_game_without_an_agent_is_refused() {
     let gw = spawn_gateway("no-agent");
-    let token = login(gw.port, "solo@example.com", "solo_player");
+    let token = login(gw.port, "solo", "solo_player");
     let (status, body) = http(
         gw.port,
         "POST",

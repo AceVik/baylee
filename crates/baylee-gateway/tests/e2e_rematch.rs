@@ -114,8 +114,8 @@ async fn both_players_press_rematch_and_land_at_the_same_new_table() {
     let agent = attach_agent(&gw).await;
 
     let tokens = [
-        login(port, "ann@example.com", "ann_rematch"),
-        login(port, "ben@example.com", "ben_rematch"),
+        login(port, "ann", "ann_rematch"),
+        login(port, "ben", "ben_rematch"),
     ];
     let decks = [
         deck(port, &tokens[0], "ann's islands", "Island"),
@@ -238,7 +238,7 @@ async fn one_press_is_enough_when_the_other_chair_is_the_house() {
     let port = gw.port;
     let agent = attach_agent(&gw).await;
 
-    let token = login(port, "cass@example.com", "cass_rematch");
+    let token = login(port, "cass", "cass_rematch");
     let deck_id = deck(port, &token, "cass's swamps", "Swamp");
 
     let create = format!("{{\"deck_id\":\"{deck_id}\",\"mode\":\"ai\"}}");
@@ -287,8 +287,8 @@ async fn the_room_answers_to_its_own_id_as_well() {
     let agent = attach_agent(&gw).await;
 
     let tokens = [
-        login(port, "fay@example.com", "fay_rematch"),
-        login(port, "gus@example.com", "gus_rematch"),
+        login(port, "fay", "fay_rematch"),
+        login(port, "gus", "gus_rematch"),
     ];
     let decks = [
         deck(port, &tokens[0], "fay's islands", "Island"),
@@ -403,8 +403,8 @@ async fn a_stranger_cannot_rematch_someone_elses_table() {
     let port = gw.port;
     let agent = attach_agent(&gw).await;
 
-    let token = login(port, "dee@example.com", "dee_rematch");
-    let outsider = login(port, "eve@example.com", "eve_rematch");
+    let token = login(port, "dee", "dee_rematch");
+    let outsider = login(port, "eve", "eve_rematch");
     let deck_id = deck(port, &token, "dee's plains", "Plains");
 
     let create = format!("{{\"deck_id\":\"{deck_id}\",\"mode\":\"ai\"}}");

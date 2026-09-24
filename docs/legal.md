@@ -7,7 +7,10 @@ Urheber- und Medienrecht.
 1. **Code license:** AGPL-3.0-only (`LICENSE`). `NOTICE` carries the fan
    content disclaimer.
 2. **WotC Fan Content Policy:** the service is and stays completely free
-   (no paywall, no paid features); clients show "unofficial fan content,
+   (no paywall, no paid features), and asks for no e-mail address, which
+   the policy names beside payment as a price fan content may not charge:
+   an account is a username and a password (#269; `docs/protocol.md`
+   §"Signing in with a username"); clients show "unofficial fan content,
    not affiliated with Wizards of the Coast"; no WotC logos, no
    "Magic: The Gathering" in branding; no WotC asset is shipped or fetched
    except a card image under clause 3, and the symbols a client draws are

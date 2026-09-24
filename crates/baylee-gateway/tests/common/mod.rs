@@ -37,6 +37,33 @@ impl Gateway {
             self.schema
         )
     }
+
+    /// Runs one statement in this gateway's schema, for a row no route
+    /// writes any more, such as an account with an address (#269). Panics
+    /// when it fails: a fixture that was not written makes every assertion
+    /// after it mean something else.
+    pub fn sql(&self, statement: &str) {
+        let url = self.database_url();
+        let statement = statement.to_owned();
+        let done = std::thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("a runtime for one statement")
+                .block_on(async move {
+                    use sea_orm::ConnectionTrait as _;
+                    let db = sea_orm::Database::connect(&url)
+                        .await
+                        .expect("connecting to the gateway's schema");
+                    db.execute_unprepared(&statement).await.map(|_| ())
+                })
+        })
+        .join()
+        .expect("the statement's thread");
+        if let Err(e) = done {
+            panic!("{e}");
+        }
+    }
 }
 
 impl Drop for Gateway {
@@ -287,13 +314,13 @@ pub fn json_field<'a>(body: &'a str, field: &str) -> &'a str {
 }
 
 /// Registers an account and logs in, returning the bearer token.
-pub fn login(port: u16, email: &str, name: &str) -> String {
+pub fn login(port: u16, username: &str, name: &str) -> String {
     let register = format!(
-        "{{\"email\":\"{email}\",\"display_name\":\"{name}\",\"password\":\"a-very-fine-password\"}}"
+        "{{\"username\":\"{username}\",\"display_name\":\"{name}\",\"password\":\"a-very-fine-password\"}}"
     );
     let (status, body) = http(port, "POST", "/auth/register", None, &register);
     assert_eq!(status, 200, "register: {body}");
-    let creds = format!("{{\"email\":\"{email}\",\"password\":\"a-very-fine-password\"}}");
+    let creds = format!("{{\"username\":\"{username}\",\"password\":\"a-very-fine-password\"}}");
     let (status, body) = http(port, "POST", "/auth/login", None, &creds);
     assert_eq!(status, 200, "login: {body}");
     json_field(&body, "token").to_string()

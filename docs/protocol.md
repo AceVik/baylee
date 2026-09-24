@@ -1035,33 +1035,31 @@ table that will never start would be worse.
 
 ## Confirming an address, and why it is optional
 
-`BAYLEE_SMTP_URL` decides the whole feature. Without it the gateway has no
-mailer, `POST /auth/register` marks the account confirmed on creation, and
-everything behaves exactly as it did before confirmation existed — which is
-the development default and what every other test in the suite assumes. With
-it, a fresh account gets a link by mail and `POST /auth/login` answers `403`
-`confirm your e-mail address first` until the link is followed.
+Since usernames (#269, below) a new account has **no address**: nothing is
+mailed at registration, and an address, confirmed or not, keeps nobody out.
+What is left is for the accounts that registered with an address before: a
+link already mailed still confirms it, and `POST /auth/confirm/resend
+{email}` mails another to an address not yet confirmed. The address stays on
+the account as the way to reach its player, for recovery later.
+`BAYLEE_SMTP_URL` decides whether anything is mailed at all.
 
 Three details are load-bearing:
 
-- **The confirmation check runs after the password check.** Answering "confirm
-  your e-mail" to a *wrong* password would tell a stranger that the address
-  exists, which is the one thing every other answer on that route is careful
-  not to say. `POST /auth/confirm/resend` answers `{"ok":true}` for the same
-  reason, whether or not there was anything to send.
-- **Only the hash of the link's token is stored**, like a session token's:
-  the store is a file on disk, and a live link in it would be a live login.
-  A link lasts 24 hours, a new one invalidates the last, and following one
-  spends it.
+- **`POST /auth/confirm/resend` answers `{"ok":true}` whatever happened.** A
+  route that said "no such address" would be an address oracle, and this one
+  needs no password to call.
+- **Only the hash of the link's token is stored**, like a session token's: a
+  live link in the store would be a live login. A link lasts 24 hours, a new
+  one invalidates the last, and following one spends it.
 - **`BAYLEE_PUBLIC_URL` is where the link points.** The gateway cannot work
   out its own public address, and taking it from a request header is how a
   confirmation link ends up pointing at whatever `Host:` an attacker sent.
 
-`GET /auth/config` reports `confirmation_required` beside
-`registration_enabled`, so a client can say "check your e-mail" instead of
-trying a log-in that is going to be refused. The mail itself is written in
-the `lang` the account registered with — kept on the account, so a resend
-months later still lands in the language the player signed up in.
+The mail is written in the `lang` the account registered with, kept on the
+account, so a resend months later still lands in the language the player
+signed up in. `confirmation_required` is gone from `GET /auth/config` and
+from the registration answer: a client that still reads it finds nothing and
+takes `false`, which is now the truth.
 
 **A new key here is safe in one direction only.** A client's config struct
 deserializes the keys it names and ignores the rest, so a key it has never
@@ -1069,6 +1067,50 @@ heard of — `clocks`, below — reaches an old client as nothing at all. That i
 a property of that struct and not a promise this route makes: a field a
 client is *required* to read breaks every client that predates it while the
 same sentence stays true, and is a version bump rather than a new key.
+
+## Signing in with a username (#269)
+
+Online play must not require an e-mail address (the Fan Content Policy
+forbids "email registration" as the price of fan content; `docs/legal.md`
+§2), so a player signs up with a **username** and signs in with it. The
+username is **private**: its owner is shown it (`/me`, the sign-in answer)
+and nobody else ever is. The name other players see stays the display name
+and its tag, below. A public login name would give away half of every
+credential.
+
+**The rule** is one function both ends link, `baylee_protocol::names::username`:
+a control character or one that is invisible or turns the text's direction
+is refused before anything else (normalisation keeps them, and they are what
+a look-alike is made of); then the name is folded to NFKC (full-width
+`Ａｌｉｃｅ` is `Alice`) and must be ASCII letters, digits and `_ - .`, three
+to twenty-four of them, beginning and ending on a letter or a digit, with no
+two separators side by side. Its **key**, the lower case, is what is unique
+and what sign-in looks up, so `Alice` and `alice` are one name; the name is
+kept as typed, after folding.
+
+- **Registration** takes `{username, display_name, password, lang}` and
+  answers `{"ok":true}`, or `400` (`invalid username`, `invalid display
+  name`, `invalid password`: the password may be neither name, in any case)
+  or `409` `that username is taken`. A taken name is said openly, which an
+  address never was: a username has to be chosen, so a taken one has to be
+  named, and a name that can be chosen can be found. The per-IP limiter
+  (ten tries in five minutes) is what bounds that, and what is found is a
+  login name and no more.
+- **Sign-in** takes `{username, password}` (`email` is accepted as the
+  field's old name) and answers `{token, expires_at, username}`. Until
+  **31.12.2026** an input with an `@` is looked up as an address, so that a
+  player from before usernames is not locked out before learning the name
+  they were given; the answer's `username` is how the client tells them.
+  #280 removes that path.
+- **One account, one budget:** eight tries in five minutes, counted against
+  the account however it was named, by username or address in any case. A
+  name that is nobody's is counted under what was typed. A wrong password
+  and an unknown name are the same `401`.
+- **Accounts from before usernames** were each given one from their
+  address's local part (migration `m20260924_000006_usernames`,
+  `baylee_db::usernames`): folded and made to keep the rule, with the tag in
+  a handle's hex added after a `-` where that part is shorter than three
+  characters or taken (`al-af03`), the older account keeping the plain name.
 
 ## A name is not a claim: `Alice#af03`
 
@@ -1117,11 +1159,11 @@ from a curl recipe into a contract:
 | step | call | answer |
 | --- | --- | --- |
 | which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version}` |
-| sign up | `POST /auth/register` `{email, display_name, password, lang}` | `{"ok":true, "confirmation_required":bool}` |
+| sign up | `POST /auth/register` `{username, display_name, password, lang}` | `{"ok":true}`; `409` for a taken username |
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
-| send it again | `POST /auth/confirm/resend` `{email}` | `{"ok":true}`, always |
-| sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
-| who am I | `GET /me` | `{id, email, display_name, tag, handle}` |
+| send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
+| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}` |
+| who am I | `GET /me` | `{id, email, username, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, cards, sideboard, commanders, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |

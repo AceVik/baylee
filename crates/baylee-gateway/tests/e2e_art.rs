@@ -39,7 +39,7 @@ async fn the_art_mirror_serves_a_signed_in_player_and_nobody_else() {
     assert_eq!(status, 401);
 
     // With one: served, and for this player only.
-    let token = login(gw.port, "art@example.com", "Artist");
+    let token = login(gw.port, "art", "Artist");
     let (status, body) = http(gw.port, "GET", CACHED_PATH, Some(&token), "");
     assert_eq!((status, body.as_str()), (200, "a picture"));
     let bearer = format!("Bearer {token}");

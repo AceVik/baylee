@@ -63,7 +63,7 @@ async fn a_real_agent_starts_a_real_engine_for_a_real_seat() {
             .expect("spawn agent"),
     );
 
-    let token = login(port, "processes@example.com", "process_player");
+    let token = login(port, "processes", "process_player");
     let (status, body) = http(
         port,
         "POST",

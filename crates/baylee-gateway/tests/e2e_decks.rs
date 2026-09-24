@@ -50,7 +50,7 @@ fn the_card_pool_is_public_and_says_what_the_engine_does_with_each_card() {
 #[test]
 fn a_deck_survives_a_round_trip_with_its_sideboard() {
     let gateway = spawn_gateway("decks");
-    let token = login(gateway.port, "builder@example.test", "Builder");
+    let token = login(gateway.port, "builder", "Builder");
 
     let body = r#"{"name":"Strixes","cards":["4 Baleful Strix","20 Forest"],
                    "sideboard":["2 Counterspell"],"commander":null}"#;
@@ -125,7 +125,7 @@ fn a_deck_survives_a_round_trip_with_its_sideboard() {
 #[test]
 fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
     let gateway = spawn_gateway("legality");
-    let token = login(gateway.port, "picky@example.test", "Picky");
+    let token = login(gateway.port, "picky", "Picky");
 
     for (why, body) in [
         (
@@ -193,8 +193,8 @@ fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
 #[test]
 fn another_account_cannot_read_edit_or_delete_a_deck() {
     let gateway = spawn_gateway("deck-owners");
-    let mine = login(gateway.port, "mine@example.test", "Mine");
-    let theirs = login(gateway.port, "theirs@example.test", "Theirs");
+    let mine = login(gateway.port, "mine", "Mine");
+    let theirs = login(gateway.port, "theirs", "Theirs");
 
     let body = r#"{"name":"Mine","cards":["1 Forest"],"sideboard":[],"commander":null}"#;
     let (status, saved) = http(gateway.port, "POST", "/decks", Some(&mine), body);
@@ -221,7 +221,7 @@ fn another_account_cannot_read_edit_or_delete_a_deck() {
 #[test]
 fn a_row_keeps_the_printing_its_owner_chose() {
     let gateway = spawn_gateway("printings");
-    let token = login(gateway.port, "collector@example.test", "Collector");
+    let token = login(gateway.port, "collector", "Collector");
 
     let rows = r#"["4 Baleful Strix (2X2) 155 [de] *F*",
                    "1 Counterspell scryfall=11111111-2222-3333-4444-555555555555",
@@ -253,7 +253,7 @@ fn a_row_keeps_the_printing_its_owner_chose() {
 #[test]
 fn a_printing_does_not_buy_a_fifth_copy() {
     let gateway = spawn_gateway("printing-rules");
-    let token = login(gateway.port, "sneaky@example.test", "Sneaky");
+    let token = login(gateway.port, "sneaky", "Sneaky");
 
     for (why, row) in [
         ("five copies", "5 Baleful Strix (2X2) 155 *F*"),
@@ -322,7 +322,7 @@ fn a_card_always_has_at_least_one_printing_to_choose() {
 #[test]
 fn a_deck_remembers_every_state_it_has_been_in() {
     let gateway = spawn_gateway("history");
-    let token = login(gateway.port, "historian@example.test", "Historian");
+    let token = login(gateway.port, "historian", "Historian");
 
     let first = r#"{"name":"Strixes","cards":["4 Baleful Strix","20 Forest"],
                     "commander":null,"description":"erster Wurf"}"#;
@@ -413,7 +413,7 @@ fn a_deck_remembers_every_state_it_has_been_in() {
 #[test]
 fn going_back_is_a_change_and_not_an_erasure() {
     let gateway = spawn_gateway("revert");
-    let token = login(gateway.port, "reverter@example.test", "Reverter");
+    let token = login(gateway.port, "reverter", "Reverter");
 
     let first = r#"{"name":"Strixes","cards":["4 Baleful Strix","20 Forest"],
                     "commander":null,"description":"erster Wurf"}"#;
@@ -513,7 +513,7 @@ fn going_back_is_a_change_and_not_an_erasure() {
 #[test]
 fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
     let gateway = spawn_gateway("house");
-    let token = login(gateway.port, "copier@example.test", "Copier");
+    let token = login(gateway.port, "copier", "Copier");
 
     let (status, shared) = http(gateway.port, "GET", "/decks/shared", Some(&token), "");
     assert_eq!(status, 200, "{shared}");
@@ -617,7 +617,7 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
 #[test]
 fn a_real_card_this_build_cannot_play_is_not_called_unknown() {
     let gateway = spawn_gateway("unplayable");
-    let token = login(gateway.port, "importer@example.test", "Importer");
+    let token = login(gateway.port, "importer", "Importer");
 
     // A deck row carries a printing, a language and a finish in brackets and
     // parentheses, so a name holding one would be refused for parsing rather
@@ -689,7 +689,7 @@ fn a_real_card_this_build_cannot_play_is_not_called_unknown() {
 #[test]
 fn a_deck_row_may_name_a_card_by_either_of_its_printed_spellings() {
     let gateway = spawn_gateway("two-spellings");
-    let token = login(gateway.port, "importer2@example.test", "Importer");
+    let token = login(gateway.port, "importer2", "Importer");
 
     let (whole, index) = baylee_cards::generated_names::WHOLE_NAMES
         .iter()

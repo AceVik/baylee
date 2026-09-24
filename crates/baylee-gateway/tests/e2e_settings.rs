@@ -16,7 +16,7 @@ use common::{http, login, spawn_gateway};
 #[test]
 fn preferences_follow_the_account_and_not_the_machine() {
     let gw = spawn_gateway("settings");
-    let token = login(gw.port, "keys@example.com", "rebinder");
+    let token = login(gw.port, "keys", "rebinder");
 
     // A player who has never opened the settings screen has no row, and gets
     // an empty object rather than a 404 — the client's own defaults are the
@@ -74,7 +74,7 @@ fn preferences_follow_the_account_and_not_the_machine() {
     );
 
     // Per account.
-    let other = login(gw.port, "other@example.com", "other_player");
+    let other = login(gw.port, "other", "other_player");
     let (status, body) = http(gw.port, "GET", "/settings", Some(&other), "");
     assert_eq!(status, 200);
     assert_eq!(

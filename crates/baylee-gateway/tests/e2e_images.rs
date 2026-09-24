@@ -62,7 +62,7 @@ fn a_picture_becomes_a_sleeve_of_the_one_size_a_sleeve_is_drawn_at() {
         "images",
         &[("BAYLEE_DECK_IMAGE_PATH", dir.to_string_lossy().into_owned())],
     );
-    let token = login(gw.port, "sleeves@example.com", "sleeve_fan");
+    let token = login(gw.port, "sleeves", "sleeve_fan");
 
     // A panorama: twenty to one, against a sleeve's 63:88. Nothing about it
     // fits, which is the point.
