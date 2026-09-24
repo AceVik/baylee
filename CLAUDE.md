@@ -121,7 +121,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 
 ### Engine
 
-- Exposes essentially `pending()`, `apply(player, action)`, `state()`, `journal()`, `snapshot_hash()`; advances only via `apply`, which validates against what `Pending` enumerated. Never add action methods. Combat options come from `Pending::ChooseAttackers`/`ChooseBlockers`, not the client.
+- Exposes essentially `pending()`, `apply(player, action)`, `state()`, `journal()`, `snapshot_hash()`; during the opening-hand window every seat decides at once: `pending()` shows the lowest open seat, `pending_for(seat)`/`awaited()` are queries (`engine/mulligan.rs`). Advances only via `apply`, which validates against what `Pending` enumerated. Never add action methods. Combat options come from `Pending::ChooseAttackers`/`ChooseBlockers`, not the client.
 - Layers: cached projection, one `u64` generation compare. Events: propose → replacement → apply → journal → triggers. SBAs: fixpoint before each priority grant. Loops: Brent over `loop_signature`, never `snapshot_hash`. `docs/engine-internals.md` is normative.
 - Deterministic: seeded ChaCha8, no `HashMap` iteration in hot paths; `std::time`, `std::random`, `algebraic_*` floats banned in engine and core. Synchronous; async only as transport (engine-server, gateway, agent).
 - No card text in the engine: abilities are `AbilityRef { card, index }`, reserved indices (`SPELL`, `ENTERS`, …) down from `u32::MAX`; it also keys a seat's standing answers, which the client keeps in its preferences (`ability_orders`).
