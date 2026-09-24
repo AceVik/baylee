@@ -283,22 +283,21 @@ for a second copy, and the test suite must never reach the network. With the
 mirror off, `/art` answers 404 and a client falls back to fetching from
 Scryfall itself.
 
-## Remembered answers (`/automation`)
+## Standing answers
 
-A seat can tell the engine "always say yes to this ability" — that is
-`PlayerAction::SetStandingAnswer`, addressed by `AbilityRef { card, index }`.
-The handle names a *card's* ability and nothing about the table it is set at,
-which is what makes it a preference the gateway can keep:
+A seat can tell the engine "always say yes to this ability" — that is the
+`answer` of `PlayerAction::SetAbilityPolicy { ability, pass, answer }`,
+addressed by `AbilityRef { card, index }`. The handle names a *card's* ability
+and nothing about the table it is set at, which is what makes it a preference
+an account can keep: the client holds its policies in the preferences
+document (`ability_orders`, [`/settings`](#client-preferences-settings)) and
+sends them as seat actions once it has a view, and again whenever one
+changes. Setting one is not a game action (the pending question stays
+exactly as it was), so a reconnect simply restates what the seat already has.
 
-- `GET /automation` → `{ "answers": [{ "card", "ability", "yes" }, …] }`
-- `PUT /automation` replaces the list (at most 512 entries; card indices are
-  checked against the registry, duplicates collapsed, order normalised).
-
-The list is replayed into a seat as `SetStandingAnswer` actions when its
-socket opens — before the first pump, so a question the player never wanted
-to see is already covered when the opening hand arrives. Setting a standing
-answer is not a game action (the pending question stays exactly as it was),
-so a reconnect simply restates what the seat already has.
+The gateway neither stores nor replays them. It used to (`/automation`, and
+`SeatAttached.standing_json` replayed into the seat before the first pump);
+no client ever called the route, and #233 retired both on 2026-09-24.
 
 A stored answer covers one **kind** of question, and not every question a
 card asks. The engine's gate is `YesNoPrompt::automatable`, and it is true
@@ -315,15 +314,10 @@ off the list — its right answer depends on the `to_library` the prompt
 carries, and a stored bool cannot see it. A new variant is automatable only
 when saying yes to it costs nothing but the choice.
 
-Storing a handle the registry does not know is refused rather than kept: it
-could never fire, and it would fail silently — the seat would just be asked a
-question it believed it had answered for good. The handle is checked whole:
-the card has to be one this build plays, and the ability a position in one
-of its ability lists (the card's or a face's) or one of the reserved indices
-below. Until 2026-09-24 only the card was looked up, and an answer for Ondu
-Cleric's ability `1`, which the card does not have, was stored. `GET` leaves
-out any stored row `PUT` would refuse, so what a client reads it can always
-write back.
+Nothing checks a kept handle against the registry: `/settings` is opaque to
+the gateway, and the engine files whatever handle it is sent. One that names
+no ability this build has never fires, and fails silently — the seat is simply
+asked a question it believed it had answered for good.
 
 The reserved indices are therefore **wire constants**: a stored answer is a
 number, and moving one silently re-points every account that holds it. They
@@ -365,8 +359,8 @@ and a copied spell's scry rider stopped being refused for the same reason.
 
 ## Priority holds (view version 9)
 
-The other half of `SetStandingAnswer` is `PlayerAction::SetPriorityHold`, and
-it is deliberately **not** stored per account: a hold names a condition inside
+The other half of a standing answer is `PlayerAction::SetPriorityHold`, and
+it is deliberately **not** kept per account: a hold names a condition inside
 one game ("until this stack empties", "for the rest of this turn"), so there is
 nothing about it to carry to the next table. It is a game action in the same
 sense a standing answer is — it changes no pending question — and like one it
@@ -884,21 +878,15 @@ Two things moved out of the gateway with the rules:
   never take another seat's decision, and it does not run for a seat with no
   socket, because a player who walked away is not on a clock they cannot see.
   The distinction between the two counters is not cosmetic: a priority hold and
-  a standing answer are the only things the engine takes from a seat that is
-  *not* being asked, and an attach replays every remembered answer, so a clock
-  anchored to `seq` would restart every time the opponent pressed `F6` or
-  reconnected. That is unlimited thinking time for whoever spams either.
+  an ability's policy are the only things the engine takes from a seat that is
+  *not* being asked, and a client restates its policies whenever it
+  reconnects, so a clock anchored to `seq` would restart every time the
+  opponent pressed `F6` or reconnected. That is unlimited thinking time for
+  whoever spams either.
 - **The panic boundary.** One process per game *is* the boundary, so the
   `catch_unwind` the gateway used to wrap every rules call around is gone. A
   rules path that panics takes down exactly one game, and the agent reports the
   exit.
-
-Standing answers travel as JSON (`baylee_protocol::StandingAnswer`) rather than
-as actions: the gateway cannot build a `PlayerAction` any more, and the engine
-has never heard of an account. `EngineRunner::standing_answers` is the other
-half of that seam, and the gateway's own test reads its payload back with
-exactly that function — a wrong handle fails silently, so nothing here may be
-checked by eye alone.
 
 A seat's frames are dropped in the *engine* while it has no socket, not one hop
 later at the gateway. That is what keeps a seat's own opening payload first on

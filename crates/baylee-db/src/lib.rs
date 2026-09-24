@@ -1,7 +1,7 @@
 //! baylee-db — the account side of the gateway, in PostgreSQL.
 //!
-//! Accounts, session tokens, decks, confirmation links, standing answers and
-//! client preferences. Everything that used to live in one JSON file that was
+//! Accounts, session tokens, decks, confirmation links and client
+//! preferences. Everything that used to live in one JSON file that was
 //! held whole in memory, re-serialized on a debounce and written back over
 //! itself.
 //!
@@ -56,10 +56,9 @@
 //! Three tables are keyed by something else, and that is not an oversight. A
 //! session token and a confirmation link are looked up by the SHA-256 of the
 //! secret in them and by nothing else, so the hash *is* the key and a second
-//! id would only be a column nobody reads. A standing answer is identified by
-//! the question it answers — `(account, card, ability)` — and settings by the
+//! id would only be a column nobody reads. Settings are identified by the
 //! account they belong to. A surrogate key on any of those would be a way to
-//! store the same answer twice.
+//! store the same thing twice.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]

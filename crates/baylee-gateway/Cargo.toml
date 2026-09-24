@@ -22,7 +22,6 @@ argon2.workspace = true
 axum.workspace = true
 baylee-build.workspace = true
 baylee-cards.workspace = true
-baylee-cards-dsl.workspace = true
 # The ledger, for one question the pool cannot answer: whether a name this
 # build compiles no card for is a real card anyway. 2.7 MB of names the
 # rules engine must never link — which is why the table is its own crate

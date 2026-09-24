@@ -20,7 +20,7 @@
 //! *from* cannot be the authority on what it looked like.
 
 use crate::entity::prelude::*;
-use crate::entity::{account, client_settings, confirmation, deck, session_token, standing_answer};
+use crate::entity::{account, client_settings, confirmation, deck, session_token};
 use anyhow::{Context, Result};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
@@ -43,8 +43,6 @@ pub struct Imported {
     pub tokens: usize,
     /// Unspent confirmation links carried over.
     pub confirmations: usize,
-    /// Standing answers written.
-    pub answers: usize,
     /// Settings documents written.
     pub settings: usize,
     /// Rows dropped because the account they hang off was not in the file.
@@ -79,9 +77,15 @@ pub struct Legacy {
     /// Decks by id.
     #[serde(default)]
     pub decks: HashMap<String, LegacyDeck>,
-    /// Standing answers by account id.
+    /// Standing answers by account id, read and dropped.
+    ///
+    /// Nothing replays them any more (#233), and the table they went into is
+    /// gone. Declared rather than left to serde's unknown-key rule, so the
+    /// key stays part of the frozen format, and `IgnoredAny` rather than
+    /// the old row type, so a row in whatever shape costs nobody the
+    /// accounts in the same file.
     #[serde(default)]
-    pub automation: HashMap<String, Vec<LegacyAnswer>>,
+    pub automation: serde::de::IgnoredAny,
     /// Client preferences by account id.
     #[serde(default)]
     pub settings: HashMap<String, serde_json::Value>,
@@ -160,17 +164,6 @@ pub struct LegacyDeck {
     pub updated_at: u64,
 }
 
-/// A legacy standing answer.
-#[derive(Debug, Deserialize)]
-pub struct LegacyAnswer {
-    /// Registry index of the card.
-    pub card: u32,
-    /// Index into that card's ability list.
-    pub ability: u32,
-    /// The remembered answer.
-    pub yes: bool,
-}
-
 /// Parse a store file's text.
 ///
 /// # Errors
@@ -221,8 +214,6 @@ pub struct Plan {
     pub tokens: Vec<session_token::ActiveModel>,
     /// Unspent confirmation links.
     pub confirmations: Vec<confirmation::ActiveModel>,
-    /// Standing answers.
-    pub answers: Vec<standing_answer::ActiveModel>,
     /// Settings documents.
     pub settings: Vec<client_settings::ActiveModel>,
     /// Rows whose account was not in the file.
@@ -238,7 +229,6 @@ impl Plan {
             decks: self.decks.len(),
             tokens: self.tokens.len(),
             confirmations: self.confirmations.len(),
-            answers: self.answers.len(),
             settings: self.settings.len(),
             orphans: self.orphans,
         }
@@ -292,7 +282,6 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
         decks: owners.decks(legacy),
         tokens: owners.tokens(legacy),
         confirmations: owners.confirmations(legacy),
-        answers: owners.answers(legacy),
         settings: owners.settings(legacy, now),
         orphans: owners.orphans,
     }
@@ -393,25 +382,6 @@ impl<'a> Owners<'a> {
             .collect()
     }
 
-    fn answers(&mut self, legacy: &'a Legacy) -> Vec<standing_answer::ActiveModel> {
-        let mut rows = Vec::new();
-        for (raw, answers) in &legacy.automation {
-            let Some(account_id) = self.owner(raw) else {
-                // One miss, not one per answer: the account is the row that
-                // is gone, and counting its answers separately would report
-                // a file as forty times more broken than it is.
-                continue;
-            };
-            rows.extend(answers.iter().map(|r| standing_answer::ActiveModel {
-                account_id: Set(account_id),
-                card: Set(i64::from(r.card)),
-                ability: Set(i64::from(r.ability)),
-                yes: Set(r.yes),
-            }));
-        }
-        rows
-    }
-
     fn settings(
         &mut self,
         legacy: &'a Legacy,
@@ -468,7 +438,6 @@ pub async fn import_legacy(db: &DatabaseConnection, legacy: &Legacy) -> Result<O
     insert_all::<Deck, _>(&txn, plan.decks).await?;
     insert_all::<SessionToken, _>(&txn, plan.tokens).await?;
     insert_all::<Confirmation, _>(&txn, plan.confirmations).await?;
-    insert_all::<StandingAnswer, _>(&txn, plan.answers).await?;
     insert_all::<ClientSettings, _>(&txn, plan.settings).await?;
 
     txn.commit().await.context("committing the import")?;

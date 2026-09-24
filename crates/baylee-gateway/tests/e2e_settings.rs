@@ -73,7 +73,7 @@ fn preferences_follow_the_account_and_not_the_machine() {
         "a refused save still changed the store: {body}"
     );
 
-    // Per account, like the standing answers next door.
+    // Per account.
     let other = login(gw.port, "other@example.com", "other_player");
     let (status, body) = http(gw.port, "GET", "/settings", Some(&other), "");
     assert_eq!(status, 200);

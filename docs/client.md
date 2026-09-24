@@ -816,9 +816,9 @@ all counting down from `u32::MAX`) name the questions that are not listed on
 the card, and `AbilityRef::is_listed_ability` separates the two.
 
 The same handle addresses a seat's standing answers
-(`PlayerAction::SetStandingAnswer`), which is why it deliberately says nothing
-about a particular game: a gateway can store *"always say yes to Ondu Cleric's
-rally"* against an account and replay it into the next one.
+(`PlayerAction::SetAbilityPolicy`), which is why it deliberately says nothing
+about a particular game: the client keeps *"always say yes to Ondu Cleric's
+rally"* in the account's preferences and sends it into the next one.
 
 **Getting the text is the client's job, and no text crosses the engine
 boundary.** The source is codegen, and what it emits is an *index* rather than
@@ -1133,7 +1133,8 @@ For the selected ability (or the top ability without a selection), independent
 account settings; individual rules or all rules can be cleared in automation
 settings. Only optional, automatable yes/no prompts accept standing answers;
 targets, payments and other choices remain manual. Rules are applied to the
-engine, journaled and included in deterministic snapshots. Explicit stops and
+engine as seat actions, which move no journal entry, and are included in
+deterministic snapshots. Explicit stops and
 cancellation take precedence over standing yields.
 
 Under the title sits one more line

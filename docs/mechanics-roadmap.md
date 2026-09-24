@@ -128,8 +128,9 @@ guessing on its behalf:
 - `StandingAnswer` per `AbilityRef` — "always yes to Ondu Cleric's rally".
   A question that can lose the game carries no ability handle, so no standing
   answer can ever reach one.
-- The gateway remembers standing answers per account and replays them into
-  each new game (`/automation`, `docs/protocol.md`).
+- The client keeps standing answers in the account's preferences
+  (`ability_orders`, `/settings`) and sends them into each new game as
+  `SetAbilityPolicy` (`docs/protocol.md` §"Standing answers").
 
 
 ---

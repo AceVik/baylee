@@ -14,27 +14,9 @@ pub mod v1 {
     include!(concat!(env!("OUT_DIR"), "/baylee.v1.rs"));
 }
 
-/// One remembered answer, as it travels from the gateway to an engine.
-///
-/// The gateway keeps these per account and the engine turns them back into
-/// `SetStandingAnswer` actions. It lives here rather than in either end
-/// because it is the shape of a payload on the wire, and the two ends must
-/// not each own their own idea of it — the gateway cannot build a
-/// `PlayerAction` (it does not link the engine) and the engine has never
-/// heard of an account.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct StandingAnswer {
-    /// Registry index of the card the ability is printed on.
-    pub card: u32,
-    /// Index into that card's ability list (`AbilityRef::index`).
-    pub ability: u32,
-    /// What to answer without asking.
-    pub yes: bool,
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{PROTOCOL_VERSION, StandingAnswer, v1};
+    use super::{PROTOCOL_VERSION, v1};
     use prost::Message;
 
     /// The nesting contract, which is what lets the gateway run no rules.
@@ -115,30 +97,6 @@ mod tests {
         assert_eq!(
             v1::Envelope::decode(&wire[..]).expect("an empty envelope decodes"),
             empty
-        );
-    }
-
-    /// The JSON half of the wire. A standing answer is written by the
-    /// gateway, which has never heard of an ability, and read by the engine,
-    /// which has never heard of an account — so the spelling of these three
-    /// fields is the whole of what the two ends agree on, and a rename here
-    /// is a rename of a database column and of a payload at once.
-    #[test]
-    fn a_standing_answer_is_three_fields_with_these_names() {
-        let answer = StandingAnswer {
-            card: 42,
-            ability: 3,
-            yes: true,
-        };
-        let text = serde_json::to_string(&answer).expect("it serialises");
-        assert_eq!(text, r#"{"card":42,"ability":3,"yes":true}"#);
-        assert_eq!(
-            serde_json::from_str::<StandingAnswer>(&text).expect("and reads back"),
-            answer
-        );
-        assert!(
-            serde_json::from_str::<StandingAnswer>(r#"{"card":1,"ability":2}"#).is_err(),
-            "the answer itself is not optional — a missing `yes` is not a no"
         );
     }
 

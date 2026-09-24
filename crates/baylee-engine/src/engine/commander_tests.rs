@@ -528,11 +528,12 @@ fn a_standing_answer_sends_a_commander_home_without_asking() {
     engine
         .apply(
             p0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability: baylee_core::ids::AbilityRef::new(
                     katara(),
                     baylee_core::ids::AbilityRef::COMMANDER_ZONE,
                 ),
+                pass: false,
                 answer: Some(crate::choice::StandingAnswer::Yes),
             },
         )

@@ -36,7 +36,7 @@ use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
-    /// Accounts, sessions, decks, links, standing answers, preferences.
+    /// Accounts, sessions, decks, links, preferences.
     ///
     /// `store.rs` is the only module that knows this is a database; every
     /// route here calls a function there and gets a plain struct back.
@@ -200,7 +200,6 @@ async fn main() {
         .route("/players/{handle}", get(player))
         .merge(deck_routes())
         .route("/lobby/games", get(list_games).post(create_game))
-        .route("/automation", get(list_automation).put(set_automation))
         .route("/settings", get(get_settings).put(put_settings))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/seat", post(take_seat))
@@ -1400,20 +1399,6 @@ fn no_such_card(name: &str, if_no_card: &'static str) -> &'static str {
         EXISTS_UNPLAYABLE
     } else {
         if_no_card
-    }
-}
-
-/// The same two facts, reached by index rather than by name.
-///
-/// A `CardIndex` is the ledger's own key and its rows are dense, so "is that
-/// a card at all" is whether the ledger has a row there — no name lookup and
-/// no [`baylee_cards_index::row_by_name`], which would be the wrong
-/// instrument for a number.
-fn no_such_card_at(index: baylee_core::ids::CardIndex) -> &'static str {
-    if baylee_cards_index::ROWS.get(index.get() as usize).is_some() {
-        EXISTS_UNPLAYABLE
-    } else {
-        "unknown card"
     }
 }
 
@@ -3054,112 +3039,7 @@ async fn rematch(
     })))
 }
 
-// ------------------------------------------------------- standing answers
-
-/// Upper bound on remembered answers per account. Generous next to any real
-/// card pool, and small enough that a caller cannot grow the store with one
-/// request.
-const MAX_STANDING_ANSWERS: usize = 512;
-
-#[derive(Deserialize)]
-struct AutomationBody {
-    answers: Vec<store::StandingAnswer>,
-}
-
-/// The account's remembered answers.
-async fn list_automation(
-    State(state): State<Shared>,
-    headers: HeaderMap,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers).await?;
-    let mut answers = store::automation_of(&state.db, &account_id)
-        .await
-        .map_err(|e| db_down(&e))?;
-    // Nothing `PUT` would refuse is handed out. A client writes back what it
-    // read, and one row it never chose would get every later write refused:
-    // a row stored before the ability was checked, or for a card a later
-    // build dropped. It can never fire either way.
-    answers.retain(|answer| refusal(answer).is_none());
-    Ok(Json(serde_json::json!({ "answers": answers })))
-}
-
-/// Replaces the account's remembered answers.
-///
-/// References are validated against the card registry here rather than
-/// trusted: an answer for a card that does not exist could never fire, and
-/// storing junk from a client is how a store becomes unreadable later.
-///
-/// **A real card this build cannot play is refused too, and that is the
-/// right answer rather than a gap.** A standing answer is keyed by the
-/// `AbilityRef` the engine offered during a game, so a client only ever
-/// learns one for a card that was on a battlefield — an index for an
-/// uncompiled card is not a state a working client can reach. Storing it
-/// would keep a preference that can never fire and that nothing shows the
-/// player, and it would spend part of a bounded budget on nothing.
-///
-/// It also keeps the round trip safe, which is the concrete form of "junk
-/// outlives the request": a client that reads its settings and writes them
-/// back sends every index it was handed again, and one this build could not
-/// resolve would fail that write, so the player could change no setting at
-/// all. Refusing at the door keeps new junk out; for what is already stored
-/// (a card a later build dropped, an ability stored before abilities were
-/// checked), `GET /automation` leaves out whatever this would refuse.
-///
-/// What was wrong was only the message: a real card and a number that is no
-/// card were both `unknown card`, which accuses a client of sending
-/// nonsense when it may have sent a perfectly good handle.
-async fn set_automation(
-    State(state): State<Shared>,
-    headers: HeaderMap,
-    Json(body): Json<AutomationBody>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers).await?;
-    if body.answers.len() > MAX_STANDING_ANSWERS {
-        return Err(err(StatusCode::BAD_REQUEST, "too many remembered answers"));
-    }
-    if let Some(why) = body.answers.iter().find_map(refusal) {
-        return Err(err(StatusCode::BAD_REQUEST, why));
-    }
-    let mut answers = body.answers;
-    // One answer per ability, in a stable order: the engine keeps its own
-    // sorted list, and a duplicate would mean the stored preference and the
-    // engine's disagree about which one won.
-    answers.sort_by_key(|a| (a.card, a.ability));
-    answers.dedup_by_key(|a| (a.card, a.ability));
-    let count = answers.len();
-    store::put_automation(&state.db, &account_id, answers)
-        .await
-        .map_err(|e| db_down(&e))?;
-    Ok(Json(serde_json::json!({ "stored": count })))
-}
-
-/// Why `PUT /automation` refuses `answer`, when it does: the whole handle
-/// has to name a question the engine can ask.
-fn refusal(answer: &store::StandingAnswer) -> Option<&'static str> {
-    let index = baylee_core::ids::CardIndex::new(answer.card);
-    let Some(card) = baylee_cards::by_index(index) else {
-        return Some(no_such_card_at(index));
-    };
-    (!names_an_ability(card, answer.ability)).then_some("no such ability on that card")
-}
-
-/// Whether the engine can ever ask about `card`'s ability `ability`: a
-/// position in one of the card's ability lists, or one of the questions
-/// [`baylee_core::ids::AbilityRef`] reserves for every card.
-///
-/// Any list, not only the card's own: a face carries a list of its own, and
-/// the engine offers an ability under its index there.
-fn names_an_ability(card: &baylee_cards_dsl::CardDef, ability: u32) -> bool {
-    if ability >= baylee_core::ids::AbilityRef::FIRST_RESERVED {
-        return true;
-    }
-    let Ok(ability) = usize::try_from(ability) else {
-        return false;
-    };
-    std::iter::once(card.abilities.len())
-        .chain(card.faces.iter().map(|face| face.abilities.len()))
-        .any(|listed| ability < listed)
-}
+// --------------------------------------------------------------- settings
 
 /// Upper bound on a stored preferences blob.
 ///
@@ -3208,51 +3088,6 @@ async fn put_settings(
         .await
         .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "stored": bytes })))
-}
-
-/// The account's remembered answers, in the shape the engine reads them.
-///
-/// The gateway cannot build a `PlayerAction` — it does not link the engine —
-/// so what travels is the stored preference itself, and the engine turns it
-/// back into the handle it keeps its automation under. That handle is the one
-/// thing here that can silently be wrong: a wrong handle never fires, with no
-/// error and no log, and the seat is simply asked a question it believed it
-/// had answered for good.
-fn standing_payload(answers: &[store::StandingAnswer]) -> Vec<u8> {
-    let wire: Vec<baylee_protocol::StandingAnswer> = answers
-        .iter()
-        .map(|a| baylee_protocol::StandingAnswer {
-            card: a.card,
-            ability: a.ability,
-            yes: a.yes,
-        })
-        .collect();
-    serde_json::to_vec(&wire).unwrap_or_else(|_| b"[]".to_vec())
-}
-
-/// What a seat's account has remembered, ready to hand to the engine.
-async fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
-    let account_id = {
-        let lobby = state.lobby.lock();
-        lobby
-            .games
-            .get(game_id)
-            .and_then(|g| g.seats.iter().find(|s| s.seat == seat))
-            .and_then(|s| s.account_id.clone())
-    };
-    let Some(account_id) = account_id else {
-        return b"[]".to_vec();
-    };
-    // The guard above is read and dropped before this: an answer that never
-    // arrives is a question the player is asked again, but a lobby lock held
-    // across a query is every other route waiting on the database.
-    match store::automation_of(&state.db, &account_id).await {
-        Ok(answers) => standing_payload(&answers),
-        Err(e) => {
-            tracing::error!("{e:#}");
-            b"[]".to_vec()
-        }
-    }
 }
 
 // ---------------------------------------------------------------- game ws
@@ -3499,7 +3334,6 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
     }
     let attach = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
         seat: seat as u32,
-        standing_json: standing_for_seat(&state, &game_id, seat).await,
         resync: false,
     });
     if !to_engine(&state, &game_id, attach) {
@@ -3545,7 +3379,6 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
                         tracing::warn!(game_id, seat, n, "seat socket lagged; resyncing");
                         let resync = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
                             seat: seat as u32,
-                            standing_json: b"[]".to_vec(),
                             resync: true,
                         });
                         if !to_engine(&state, &game_id, resync) {

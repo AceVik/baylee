@@ -242,7 +242,7 @@ impl EngineRunner {
         self.absorb_clock();
         match envelope.msg {
             Some(v1::envelope::Msg::GameSetup(setup)) => self.setup(&setup),
-            Some(v1::envelope::Msg::SeatAttached(attached)) => self.attach(&attached),
+            Some(v1::envelope::Msg::SeatAttached(attached)) => self.attach(attached),
             Some(v1::envelope::Msg::SeatDetached(detached)) => {
                 self.attached.retain(|s| u32::from(*s) != detached.seat);
                 Vec::new()
@@ -271,7 +271,7 @@ impl EngineRunner {
 
     /// A seat's socket opened. Sends it the payload every later frame refers
     /// to, then either advances the game for it or hands it what it missed.
-    fn attach(&mut self, attached: &v1::SeatAttached) -> Vec<Envelope> {
+    fn attach(&mut self, attached: v1::SeatAttached) -> Vec<Envelope> {
         let Ok(seat) = u8::try_from(attached.seat) else {
             return Vec::new();
         };
@@ -307,13 +307,6 @@ impl EngineRunner {
                 out.push(seat_frame(seat, &env));
             }
             return out;
-        }
-        // The account's remembered answers go in before the first pump, so a
-        // question the player never wanted to see is already covered when the
-        // opening hand arrives. Setting one is not a game action, so this
-        // moves nothing and a reconnect simply restates what the seat has.
-        for answer in standing_answers(&attached.standing_json) {
-            let _ = session.act(player, answer);
         }
         let routed = session.pump();
         out.extend(self.route(&routed));
@@ -476,32 +469,6 @@ fn ended(game_id: &str, reason: &str) -> Envelope {
     }
 }
 
-/// The account's remembered answers, as engine actions.
-///
-/// A handle the registry does not know is dropped rather than applied: it
-/// could never fire, and the gateway already refuses to store one.
-///
-/// Public because it is one half of a seam: the gateway sends the stored
-/// preference and this turns it into the handle the engine keeps its
-/// automation under. A wrong handle fails silently — the seat is simply asked
-/// a question it believed it had answered for good — so the gateway's own
-/// tests read its payload back with exactly this function.
-#[must_use]
-pub fn standing_answers(json: &[u8]) -> Vec<PlayerAction> {
-    use baylee_core::ids::{AbilityRef, CardIndex};
-    use baylee_engine::choice::StandingAnswer as Answer;
-
-    serde_json::from_slice::<Vec<baylee_protocol::StandingAnswer>>(json)
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|a| baylee_cards::by_index(CardIndex::new(a.card)).is_some())
-        .map(|a| PlayerAction::SetStandingAnswer {
-            ability: AbilityRef::new(CardIndex::new(a.card), a.ability),
-            answer: Some(if a.yes { Answer::Yes } else { Answer::No }),
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -555,7 +522,6 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
                     seat,
-                    standing_json: b"[]".to_vec(),
                     resync: false,
                 })),
             },
@@ -723,12 +689,12 @@ mod tests {
 
     /// The clock belongs to the seat being asked, and nobody else may wind it.
     ///
-    /// A priority hold is one of the two things the engine takes from a seat
-    /// that is not on the clock — a standing answer is the other, and an
-    /// attach replays every one of them. Both produce frames without moving
-    /// the game, so a clock anchored to the frame counter restarts on every
-    /// press of `F6` at the other end of the table: unlimited thinking time
-    /// for whoever spams it, which is a cheat rather than a bug.
+    /// A priority hold is one of the settings the engine takes from a seat
+    /// that is not on the clock — an ability's yield or standing answer is
+    /// another. Both produce frames without moving the game, so a clock
+    /// anchored to the frame counter restarts on every press of `F6` at the
+    /// other end of the table: unlimited thinking time for whoever spams it,
+    /// which is a cheat rather than a bug.
     #[test]
     fn the_other_seats_hold_does_not_wind_the_clock() {
         let mut runner = EngineRunner::new();
@@ -1057,7 +1023,6 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
                     seat: 0,
-                    standing_json: b"[]".to_vec(),
                     resync: true,
                 })),
             },

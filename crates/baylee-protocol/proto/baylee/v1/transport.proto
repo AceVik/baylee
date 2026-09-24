@@ -261,10 +261,11 @@ message GameSetup {
 // Gateway → engine: a seat's socket opened.
 message SeatAttached {
   uint32 seat = 1;
-  // serde_json list of the account's standing answers, replayed into the seat
-  // before the first pump so a question it never wanted to see is already
-  // covered when the opening hand arrives.
-  bytes standing_json = 2;
+  // 2 was standing_json: the account's standing answers, replayed into the
+  // seat as it attached. Retired with `/automation` (#233); the client sends
+  // its own ability policies as seat actions.
+  reserved 2;
+  reserved "standing_json";
   // The seat is already in the game and only lost frames: send it a snapshot
   // rather than advancing the game on its behalf.
   bool resync = 3;

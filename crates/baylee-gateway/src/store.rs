@@ -1,7 +1,7 @@
 //! What the gateway remembers, and how it asks.
 //!
-//! Accounts, sessions, decks, confirmation links, standing answers and client
-//! preferences, in PostgreSQL through [`baylee_db`]. This module is the only
+//! Accounts, sessions, decks, confirmation links and client preferences, in
+//! PostgreSQL through [`baylee_db`]. This module is the only
 //! place in the gateway that knows there is a database: every route calls a
 //! function here and gets a plain struct back.
 //!
@@ -30,9 +30,8 @@ use baylee_db::entity::confirmation::Entity as Confirmations;
 use baylee_db::entity::deck::Entity as Decks;
 use baylee_db::entity::deck_version::Entity as DeckVersions;
 use baylee_db::entity::session_token::Entity as Sessions;
-use baylee_db::entity::standing_answer::Entity as Answers;
 use baylee_db::entity::{
-    account, client_settings, confirmation, deck, deck_version, session_token, standing_answer,
+    account, client_settings, confirmation, deck, deck_version, session_token,
 };
 use sea_orm::{
     ActiveValue::{NotSet, Set},
@@ -186,26 +185,6 @@ pub struct Deck {
     pub playmat: Option<String>,
     /// Last update (unix seconds).
     pub updated_at: u64,
-}
-
-/// A remembered answer to one optional ability, replayed into every game
-/// the account sits down to.
-///
-/// The engine addresses standing answers by `AbilityRef { card, index }`,
-/// a handle that says nothing about a particular game — which is exactly
-/// what makes it storable here. "Always gain the life from Ondu Cleric's
-/// rally trigger" is a preference about a *card*, so it belongs to the
-/// account and not to the table.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct StandingAnswer {
-    /// Registry index of the card the ability is printed on.
-    pub card: u32,
-    /// Index into that card's ability list (`AbilityRef::index`); the
-    /// reserved values above `AbilityRef::FIRST_RESERVED` name the
-    /// abilities that are not listed on the card.
-    pub ability: u32,
-    /// What to answer without asking.
-    pub yes: bool,
 }
 
 // ---------------------------------------------------------- the two edges
@@ -932,78 +911,7 @@ pub async fn delete_deck(db: &DatabaseConnection, deck_id: &str, account_id: &st
         > 0)
 }
 
-// ------------------------------------------------- automation, settings
-
-/// One account's standing answers.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn automation_of(
-    db: &DatabaseConnection,
-    account_id: &str,
-) -> Result<Vec<StandingAnswer>> {
-    let Some(id) = uuid(account_id) else {
-        return Ok(Vec::new());
-    };
-    Ok(Answers::find()
-        .filter(standing_answer::Column::AccountId.eq(id))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|row| StandingAnswer {
-            card: u32::try_from(row.card).unwrap_or(0),
-            ability: u32::try_from(row.ability).unwrap_or(0),
-            yes: row.yes,
-        })
-        .collect())
-}
-
-/// Replace one account's standing answers with this list.
-///
-/// A replacement and not a merge, because that is what the route means: the
-/// client sends the whole list it believes in, and an answer it left out is
-/// one the player has stopped standing by.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn put_automation(
-    db: &DatabaseConnection,
-    account_id: &str,
-    answers: Vec<StandingAnswer>,
-) -> Result<()> {
-    let Some(id) = uuid(account_id) else {
-        return Ok(());
-    };
-    Answers::delete_many()
-        .filter(standing_answer::Column::AccountId.eq(id))
-        .exec(db)
-        .await?;
-    if answers.is_empty() {
-        return Ok(());
-    }
-    Answers::insert_many(answers.into_iter().map(|a| standing_answer::ActiveModel {
-        account_id: Set(id),
-        card: Set(i64::from(a.card)),
-        ability: Set(i64::from(a.ability)),
-        yes: Set(a.yes),
-    }))
-    // The client is allowed to send the same ability twice; the last one it
-    // named is the one it means.
-    .on_conflict(
-        OnConflict::columns([
-            standing_answer::Column::AccountId,
-            standing_answer::Column::Card,
-            standing_answer::Column::Ability,
-        ])
-        .update_column(standing_answer::Column::Yes)
-        .to_owned(),
-    )
-    .exec(db)
-    .await?;
-    Ok(())
-}
+// ------------------------------------------------------------- settings
 
 /// One account's client preferences, if it has written any.
 ///

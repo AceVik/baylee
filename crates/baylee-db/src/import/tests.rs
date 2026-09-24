@@ -52,6 +52,37 @@ fn a_file_from_before_half_the_fields_still_reads() {
     assert!(set(&made.decks[0].sleeve).is_none());
 }
 
+/// A store from while standing answers existed imports without them.
+///
+/// The answers are dropped, not refused: the file is still the only copy of
+/// the accounts in it. They are not orphans either. One keyed to an account
+/// the file lacks, and one in a shape no release wrote, cost nothing, and
+/// the count of broken rows stays about the rows that are written.
+#[test]
+fn a_file_with_standing_answers_imports_everything_but_them() {
+    let text = ANCIENT.replace(
+        r#""tokens": {},"#,
+        r#""tokens": {},
+  "automation": {
+    "0192f0c0-0000-7000-8000-000000000001": [
+      { "card": 7, "ability": 4294967295, "yes": true }
+    ],
+    "0192f0c0-0000-7000-8000-0000000000ff": [{ "card": "seven" }]
+  },"#,
+    );
+    assert_ne!(text, ANCIENT, "the answers went into the file");
+    let legacy = read_legacy(&text).expect("a store with answers is still a store");
+    let made = plan(&legacy, OffsetDateTime::UNIX_EPOCH);
+
+    assert_eq!(
+        made.tally(),
+        plan(&read_legacy(ANCIENT).unwrap(), OffsetDateTime::UNIX_EPOCH).tally(),
+        "the answers changed what the file imports as"
+    );
+    assert_eq!(made.tally().accounts, 1);
+    assert_eq!(made.tally().orphans, 0);
+}
+
 /// The e-mail is written back exactly as its owner typed it. Uniqueness is an
 /// index on `lower(email)`, so lowercasing the stored value would buy nothing
 /// and would put an address in the confirmation mail that its owner does not

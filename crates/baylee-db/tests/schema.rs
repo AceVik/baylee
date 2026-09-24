@@ -21,8 +21,8 @@ use baylee_db::entity::prelude::*;
 use baylee_db::entity::{account, client_settings, deck, deck_version, session_token};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter,
+    ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbBackend, EntityTrait,
+    PaginatorTrait, QueryFilter, Statement,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -129,6 +129,88 @@ async fn the_schema_applies_and_reapplies() {
         "a fresh schema has no accounts in it"
     );
 
+    sandbox.close().await;
+}
+
+/// Whether `schema` holds a table called `table`, asked with both names
+/// spelled out so the search path has no say in the answer.
+async fn has_table(db: &DatabaseConnection, schema: &str, table: &str) -> bool {
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT count(*) AS n FROM information_schema.tables \
+             WHERE table_schema = $1 AND table_name = $2",
+            [schema.into(), table.into()],
+        ))
+        .await
+        .expect("asking for a table")
+        .expect("a count always comes back");
+    row.try_get::<i64>("", "n").expect("a count") == 1
+}
+
+/// The standing answers' table goes from the schema being migrated and from
+/// nowhere else, and stepping back past that migration builds it again.
+///
+/// A bare `DROP TABLE IF EXISTS` walks the search path: in a schema without
+/// such a table it drops the next one it finds, which in a test sandbox is
+/// the developer's `public`. So a table of that name is planted in a schema
+/// behind this one, and the sandbox loses its own by hand first — the one
+/// state in which a bare name would reach past it.
+#[tokio::test]
+async fn the_standing_answers_go_only_from_the_schema_being_migrated() {
+    use baylee_db::migration::Migrator;
+    use sea_orm_migration::MigratorTrait as _;
+
+    let sandbox = Sandbox::open("answers").await;
+    let here = sandbox.schema.clone();
+    let behind = format!("{here}_behind");
+    assert!(
+        !has_table(&sandbox.admin, &here, "standing_answer").await,
+        "a fresh schema still has the standing answers"
+    );
+
+    // Its own connection, with the second schema on the path and no
+    // migration run on connect: `baylee_db::connect` would migrate.
+    let path = sandbox.scoped.replace(
+        &format!("{here},public"),
+        &format!("{here},{behind},public"),
+    );
+    assert_ne!(path, sandbox.scoped, "the second schema went onto the path");
+    let db = Database::connect(&path).await.expect("connecting behind");
+
+    Migrator::down(&db, Some(1))
+        .await
+        .expect("stepping back past the drop");
+    assert!(
+        has_table(&sandbox.admin, &here, "standing_answer").await,
+        "stepping back did not build the table again"
+    );
+
+    sandbox
+        .admin
+        .execute_unprepared(&format!(
+            "CREATE SCHEMA \"{behind}\"; \
+             CREATE TABLE \"{behind}\".standing_answer (card bigint); \
+             DROP TABLE \"{here}\".standing_answer"
+        ))
+        .await
+        .expect("planting the table behind and losing this one");
+
+    Migrator::up(&db, None)
+        .await
+        .expect("migrating forward again");
+    assert!(!has_table(&sandbox.admin, &here, "standing_answer").await);
+    assert!(
+        has_table(&sandbox.admin, &behind, "standing_answer").await,
+        "the drop reached past the schema it was migrating"
+    );
+
+    drop(db);
+    sandbox
+        .admin
+        .execute_unprepared(&format!("DROP SCHEMA \"{behind}\" CASCADE"))
+        .await
+        .expect("dropping the schema behind");
     sandbox.close().await;
 }
 
@@ -621,7 +703,9 @@ async fn deleting_an_account_takes_everything_it_owned() {
 }
 
 /// A whole store file, with something in every one of the six maps, so the
-/// import's foreign keys are exercised rather than only its accounts.
+/// import's foreign keys are exercised rather than only its accounts. The
+/// standing answers in `automation` are read and dropped: their table is gone
+/// (#233), and the file must import anyway.
 const A_WHOLE_STORE: &str = r#"{
   "accounts": {
     "0192f0c0-0000-7000-8000-000000000001": {
@@ -692,7 +776,6 @@ async fn a_store_file_becomes_the_tables_it_describes() {
     assert_eq!(tally.decks, 1);
     assert_eq!(tally.tokens, 1);
     assert_eq!(tally.confirmations, 1);
-    assert_eq!(tally.answers, 1);
     assert_eq!(tally.settings, 1);
 
     let saved = Account::find().one(&sandbox.db).await.unwrap().unwrap();
@@ -710,15 +793,6 @@ async fn a_store_file_becomes_the_tables_it_describes() {
         .unwrap();
     assert_eq!(deck.account_id, Some(saved.id), "the deck found its owner");
     assert_eq!(deck.sideboard, ["2 Naturalize"]);
-
-    // The reserved ability index counts down from `u32::MAX`, which is why
-    // both numbers are `i64` in the table: as `i32` this row would not fit.
-    let answer = StandingAnswer::find()
-        .one(&sandbox.db)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(answer.ability, i64::from(u32::MAX));
 
     let again = baylee_db::import::import_legacy(&sandbox.db, &legacy)
         .await

@@ -1,4 +1,4 @@
-//! The seven tables, one module each.
+//! The six tables, one module each.
 //!
 //! Each is a `SeaORM` entity rather than a hand-written statement, so a
 //! column's Postgres type and its Rust type are declared in one place and a
@@ -10,7 +10,7 @@
 //! Every table here hangs off [`account`], and every one of those references
 //! is `ON DELETE CASCADE`. That is the whole deletion story: closing an
 //! account is one `DELETE` and the database removes the decks, the sessions,
-//! the unspent confirmation links, the standing answers and the settings.
+//! the unspent confirmation links and the settings.
 //! The JSON store had to walk six maps by hand to do the same thing, and a
 //! map it forgot left a deck owned by nobody.
 
@@ -20,7 +20,6 @@ pub mod confirmation;
 pub mod deck;
 pub mod deck_version;
 pub mod session_token;
-pub mod standing_answer;
 
 /// Everything a caller normally wants, under one `use`.
 pub mod prelude {
@@ -30,5 +29,4 @@ pub mod prelude {
     pub use super::deck::Entity as Deck;
     pub use super::deck_version::Entity as DeckVersion;
     pub use super::session_token::Entity as SessionToken;
-    pub use super::standing_answer::Entity as StandingAnswer;
 }

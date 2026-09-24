@@ -860,13 +860,6 @@ pub enum PlayerAction {
         /// Optional standing answer; `None` restores asking.
         answer: Option<StandingAnswer>,
     },
-    /// Change the remembered yes/no answer independently of auto-passing.
-    SetStandingAnswer {
-        /// Which ability's question.
-        ability: AbilityRef,
-        /// The answer to give from now on; `None` clears it.
-        answer: Option<StandingAnswer>,
-    },
 }
 
 impl PlayerAction {
@@ -879,10 +872,7 @@ impl PlayerAction {
     pub const fn is_automation_setting(&self) -> bool {
         matches!(
             self,
-            Self::SetPriorityHold(_)
-                | Self::SetStandingAnswer { .. }
-                | Self::SetAbilityYield { .. }
-                | Self::SetAbilityPolicy { .. }
+            Self::SetPriorityHold(_) | Self::SetAbilityYield { .. } | Self::SetAbilityPolicy { .. }
         )
     }
 }

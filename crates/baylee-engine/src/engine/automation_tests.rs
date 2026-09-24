@@ -95,8 +95,9 @@ fn setting_a_hold_is_not_a_game_action() {
     engine
         .apply(
             player,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability: AbilityRef::new(forest(), AbilityRef::ENTERS),
+                pass: false,
                 answer: Some(StandingAnswer::Yes),
             },
         )
@@ -113,7 +114,7 @@ fn setting_a_hold_is_not_a_game_action() {
 }
 
 /// A standing answer is stored under a stable `(card, ability)` handle, so
-/// a gateway can persist it per account and replay it into a new game.
+/// a client can keep it in its preferences and send it into a new game.
 #[test]
 fn standing_answers_round_trip_under_a_stable_handle() {
     let mut engine = started(Duel::new(3, forest()));
@@ -121,8 +122,9 @@ fn standing_answers_round_trip_under_a_stable_handle() {
     engine
         .apply(
             P0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability,
+                pass: false,
                 answer: Some(StandingAnswer::Yes),
             },
         )
@@ -140,8 +142,9 @@ fn standing_answers_round_trip_under_a_stable_handle() {
     engine
         .apply(
             P0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability,
+                pass: false,
                 answer: None,
             },
         )
@@ -279,15 +282,16 @@ fn a_standing_answer_covers_a_recurring_trigger() {
     engine
         .apply(
             P0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability: AbilityRef::new(ondu_cleric(), 0),
+                pass: false,
                 answer: Some(StandingAnswer::Yes),
             },
         )
         .unwrap();
     // The setting is remembered and addressed by a handle that says
-    // nothing about this particular game — which is what lets the gateway
-    // store it against an account.
+    // nothing about this particular game — which is what lets a client
+    // keep it across games.
     assert_eq!(
         engine
             .automation(P0)
@@ -337,8 +341,9 @@ fn a_standing_answer_never_reaches_a_cost_decision() {
     engine
         .apply(
             P0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability: kicker,
+                pass: false,
                 answer: Some(StandingAnswer::Yes),
             },
         )
@@ -469,8 +474,9 @@ fn marked_stack_boundary_outranks_a_standing_yield_and_yes() {
     engine
         .apply(
             P0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability,
+                pass: false,
                 answer: Some(StandingAnswer::Yes),
             },
         )
@@ -614,8 +620,9 @@ fn a_large_automated_stack_yields_a_real_choice_at_the_safety_limit() {
     engine
         .apply(
             P0,
-            PlayerAction::SetStandingAnswer {
+            PlayerAction::SetAbilityPolicy {
                 ability: AbilityRef::new(ondu_cleric(), 0),
+                pass: false,
                 answer: Some(StandingAnswer::Yes),
             },
         )

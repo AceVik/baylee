@@ -11,15 +11,6 @@ workspace = true
 [dependencies]
 prost.workspace = true
 bytes.workspace = true
-# The engine link carries a couple of payloads as JSON, exactly as the client
-# link carries the choice taxonomy: a shape that changes with the workspace
-# has no business in a wire schema.
-serde.workspace = true
-
-[dev-dependencies]
-# The JSON half of the wire is checked here, so its spelling is pinned where
-# the shape is declared rather than at each of the two ends that read it.
-serde_json.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

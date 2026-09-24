@@ -971,7 +971,6 @@ dependencies = [
  "axum",
  "baylee-build",
  "baylee-cards",
- "baylee-cards-dsl",
  "baylee-cards-index",
  "baylee-catalog",
  "baylee-core",
@@ -1009,8 +1008,6 @@ dependencies = [
  "prost",
  "prost-build",
  "protoc-bin-vendored",
- "serde",
- "serde_json",
 ]
 
 [[package]]

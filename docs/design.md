@@ -887,8 +887,9 @@ not move.
 
 The engine already has `PriorityHold::{Always, PassWhenNothingToDo,
 UntilStackEmpty, UntilTopOfStack, UntilEndOfTurn}`, and `SetPriorityHold` is
-journaled and legal at any time. The only sender today is the gateway replaying
-standing answers. That is the whole F6 apparatus, unused.
+legal at any time. When this was written, the only sender was the gateway
+replaying standing answers (retired with `/automation`, #233). That is the
+whole F6 apparatus, unused.
 
 Three layers: ~~**engine holds from the client**~~ (a key that sends
 `UntilStackEmpty{depth}` — cancelled the moment anyone responds, which is

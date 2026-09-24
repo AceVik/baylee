@@ -71,9 +71,6 @@ impl<L: CardLookup> Engine<L> {
                 seat.set_yield(*ability, *pass);
                 seat.set_standing_answer(*ability, *answer);
             }
-            PlayerAction::SetStandingAnswer { ability, answer } => {
-                seat.set_standing_answer(*ability, *answer);
-            }
             _ => {}
         }
     }

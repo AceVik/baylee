@@ -56,9 +56,6 @@ pub enum Relation {
     /// Unspent confirmation links.
     #[sea_orm(has_many = "super::confirmation::Entity")]
     Confirmation,
-    /// Remembered answers to optional abilities.
-    #[sea_orm(has_many = "super::standing_answer::Entity")]
-    StandingAnswer,
     /// The one preferences document.
     #[sea_orm(has_one = "super::client_settings::Entity")]
     ClientSettings,
@@ -79,12 +76,6 @@ impl Related<super::session_token::Entity> for Entity {
 impl Related<super::confirmation::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Confirmation.def()
-    }
-}
-
-impl Related<super::standing_answer::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::StandingAnswer.def()
     }
 }
 
