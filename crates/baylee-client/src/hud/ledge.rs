@@ -983,9 +983,10 @@ pub fn sync_ledge(
 
     let caps = keys_for(&prefs, &answers, armed.is_some(), duel.priority_held());
     let caps_w: f32 = caps.iter().flatten().map(|c| cap_width(c) + CAP_GAP).sum();
+    let (clock, clocked) = clock_placement(&duel, revision.clock, armed.is_some(), &answers);
     let mid = mid_width(
         sentence.as_ref().map(|(t, _)| t.as_str()),
-        revision.clock,
+        clock,
         &answers,
         &caps,
     );
@@ -1029,7 +1030,10 @@ pub fn sync_ledge(
     // about. It is built here and written by `count_down_the_decision`, which
     // is why it starts empty: one frame with no digits is invisible, and a
     // revision that carried the digits would rebuild the shelf once a second.
-    if revision.clock {
+    //
+    // Only where no button on the row is what the clock presses: otherwise
+    // the seconds are in that button (#258), and one number is drawn once.
+    if clock == Clock::Beside {
         let cell = commands
             .spawn((
                 DecisionClockLabel,
@@ -1108,6 +1112,11 @@ pub fn sync_ledge(
             match *says {
                 Says::Answer(action) => {
                     commands.entity(button).insert(PromptButton { action });
+                    if clocked == Some(action) {
+                        let (_, _, ink) = weight.colours();
+                        let seconds = button_clock(&mut commands, &fonts, ink);
+                        commands.entity(button).add_child(seconds);
+                    }
                 }
                 Says::Command(action) => {
                     commands.entity(button).insert(super::MenuButton { action });
@@ -1827,7 +1836,7 @@ fn cap_width(legend: &str) -> f32 {
 /// this is a decision the layout depends on.
 fn mid_width(
     sentence: Option<&str>,
-    clock: bool,
+    clock: Clock,
     answers: &[(Says, String)],
     caps: &[Option<String>],
 ) -> f32 {
@@ -1847,8 +1856,87 @@ fn mid_width(
     let words = sentence.map_or(0.0, |text| {
         super::text_width(text, SENTENCE_PT, false) + baylee_client_core::ledge::SENTENCE_GAP
     });
-    let clock = if clock { clock_width() } else { 0.0 };
+    let clock = match clock {
+        Clock::None => 0.0,
+        Clock::Beside => clock_width(),
+        Clock::InButton => button_clock_width() + CAP_GAP,
+    };
     clock + words + buttons + gaps
+}
+
+/// Where the countdown stands, and in which button when it is in one.
+///
+/// In the button the clock presses when it runs out, when this row has it
+/// (#258, [`baylee_client_core::ledge::clock_answer`]); beside the question
+/// otherwise. Only this seat's own question puts answers on the shelf, so a
+/// clock in a button is always this seat's. An armed deed replaces the row,
+/// and the answers it replaced cannot carry anything.
+fn clock_placement(
+    duel: &Duel,
+    shown: bool,
+    armed: bool,
+    answers: &[(Says, String)],
+) -> (Clock, Option<PromptAction>) {
+    if !shown {
+        return (Clock::None, None);
+    }
+    let clocked = duel
+        .interaction
+        .as_ref()
+        .filter(|_| !armed)
+        .and_then(|i| baylee_client_core::ledge::clock_answer(i.pending()))
+        .filter(|button| {
+            answers
+                .iter()
+                .any(|(says, _)| *says == Says::Answer(*button))
+        });
+    match clocked {
+        Some(_) => (Clock::InButton, clocked),
+        None => (Clock::Beside, None),
+    }
+}
+
+/// Where the decision countdown stands on the shelf, if it stands at all.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Clock {
+    /// No countdown is shown.
+    None,
+    /// In its own cell left of the question: someone else's clock, or a
+    /// question the house answers when it runs out.
+    Beside,
+    /// In the text of the button the clock presses (#258).
+    InButton,
+}
+
+/// The countdown inside a button, after its words (#258).
+///
+/// The same [`DecisionClockLabel`] the cell is, so
+/// [`count_down_the_decision`] writes whichever one was built, and the same
+/// ink as the button's words, because it is part of what the button says:
+/// "Pass 12" is what pressing nothing will do in twelve seconds.
+/// Its width is fixed at two digits for the cell's reason, so the button
+/// does not change size once a second.
+fn button_clock(commands: &mut Commands, fonts: &UiFonts, ink: Color) -> Entity {
+    commands
+        .spawn((
+            DecisionClockLabel,
+            Text::default(),
+            super::tf_bold(fonts, LABEL_PT),
+            TextColor(ink),
+            Node {
+                width: px(button_clock_width()),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// The room [`button_clock`] takes: the widest number it holds, at the
+/// button's own size.
+fn button_clock_width() -> f32 {
+    super::text_width("60", LABEL_PT, true)
 }
 
 /// The countdown's cell, so the seconds can be written in place.
@@ -2390,6 +2478,95 @@ mod tests {
                 Says::Answer(PromptAction::DeclareNothing),
             ],
             "a declaration standing is what the commit button is for"
+        );
+    }
+
+    /// The countdown stands in the button the clock presses, wherever the
+    /// row has that button, and beside the question everywhere else (#258).
+    #[test]
+    fn the_countdown_stands_in_the_button_the_clock_presses() {
+        use baylee_core::ids::{Defender, ObjectId, PlayerId};
+        use baylee_engine::choice::{LegalActions, Pending, YesNoPrompt};
+        let me = PlayerId::new(0);
+        let asked = |pending: Pending| Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                pending, me,
+            )),
+            ..Duel::default()
+        };
+        let placed = |duel: &Duel, shown: bool, armed: bool| {
+            let answers = answers_for(duel, Lang::En, false, false, false);
+            clock_placement(duel, shown, armed, &answers)
+        };
+        let yes_no = |prompt| Pending::YesNo {
+            player: me,
+            prompt,
+            source: None,
+        };
+
+        let priority = asked(Pending::Priority {
+            player: me,
+            legal: Box::new(LegalActions::default()),
+        });
+        assert_eq!(
+            placed(&priority, true, false),
+            (Clock::InButton, Some(PromptAction::Confirm)),
+            "at priority the clock passes, and the Pass button says so"
+        );
+        for (pending, button) in [
+            (
+                Pending::Mulligan {
+                    player: me,
+                    taken: 0,
+                    next_is_free: true,
+                },
+                PromptAction::Keep,
+            ),
+            (
+                Pending::ChooseAttackers {
+                    player: me,
+                    attackers: vec![ObjectId::new(3, 0)],
+                    defenders: vec![Defender::Player(PlayerId::new(1))],
+                },
+                PromptAction::DeclareNothing,
+            ),
+            (yes_no(YesNoPrompt::Kicker), PromptAction::No),
+        ] {
+            assert_eq!(
+                placed(&asked(pending.clone()), true, false),
+                (Clock::InButton, Some(button)),
+                "{pending:?}"
+            );
+        }
+
+        // The house answers these, so no button can carry its seconds.
+        for pending in [
+            yes_no(YesNoPrompt::CommanderZone {
+                card: ObjectId::new(3, 0),
+            }),
+            Pending::DiscardChoice {
+                player: me,
+                count: 1,
+            },
+        ] {
+            assert_eq!(
+                placed(&asked(pending.clone()), true, false),
+                (Clock::Beside, None),
+                "{pending:?}"
+            );
+        }
+        // An armed deed takes the row away, and no clock means no cell.
+        assert_eq!(placed(&priority, true, true), (Clock::Beside, None));
+        assert_eq!(placed(&priority, false, false), (Clock::None, None));
+        // Another seat's question puts no answers on this shelf.
+        let theirs = asked(Pending::Priority {
+            player: PlayerId::new(1),
+            legal: Box::new(LegalActions::default()),
+        });
+        let answers = answers_for(&theirs, Lang::En, false, true, false);
+        assert_eq!(
+            clock_placement(&theirs, true, false, &answers),
+            (Clock::Beside, None)
         );
     }
 

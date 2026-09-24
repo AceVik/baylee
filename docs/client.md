@@ -2572,6 +2572,25 @@ changed would shove the sentence sideways once a second. The write is guarded
 on the string having moved: assigning an equal `Text` still marks it changed,
 and `bevy_text` re-lays every glyph of a component it is told moved.
 
+**The seconds stand in the button the clock will press** (#258). The owner:
+*„Der countdown/timeout gehört in den Button Text von dem Button der
+‚gedrückt' bzw. als choice akzeptiert wird, wenn der Countdown abläuft."* The
+clock answers a timed-out seat with the answer that does nothing where the
+question has one (`baylee_engine::choice::timeout_answer`,
+docs/protocol.md §"What the clock answers"), and the client reads the same
+function: `ledge::clock_answer` turns it into the button that sends it.
+Pass priority is the priority row's Confirm ("Pass 12"), an empty
+declaration is "None", keeping the hand is "Keep", and a declined "may" is
+"No". The ledge then builds its `DecisionClockLabel` inside that button,
+after its words and in their ink, at `LABEL_PT` and two digits wide
+(`button_clock`), instead of the cell beside the question. It is still one
+label, so `count_down_the_decision` writes whichever was built. The cell
+remains for everything else: another seat's clock (no answers on this
+shelf), a question the house answers (a discard, targets), an armed deed,
+and the client's own cast chooser, which takes the answers off the row.
+`clock_answer`'s test sends every such button through `Interaction`, so a
+number on a button is an answer that button really sends.
+
 What is **not** here is the other half of #69 — stating the limit once, in the
 room and on the seat sheet. That needs the limit to reach a client at all, and
 it does not: see the section above for why a client cannot be told a window

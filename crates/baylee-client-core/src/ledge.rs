@@ -266,10 +266,115 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
     })
 }
 
+/// Which answer the decision clock presses when it runs out, as the button
+/// that sends it (#258), so the countdown is drawn in that button's text.
+///
+/// Read off [`baylee_engine::choice::timeout_answer`], the function the host
+/// answers a timed-out seat with, so the button and the clock cannot
+/// disagree. Pass priority is the priority row's [`PromptAction::Confirm`],
+/// an empty declaration is [`PromptAction::DeclareNothing`], keeping is
+/// [`PromptAction::Keep`], and "no" is [`PromptAction::No`].
+///
+/// `None` where the clock's answer is the house's, which no button can say
+/// ahead of time. The countdown then stays beside the question.
+#[must_use]
+pub fn clock_answer(pending: &baylee_engine::choice::Pending) -> Option<PromptAction> {
+    use baylee_engine::choice::PlayerAction;
+    match baylee_engine::choice::timeout_answer(pending)? {
+        PlayerAction::PassPriority => Some(PromptAction::Confirm),
+        PlayerAction::MulliganKeep => Some(PromptAction::Keep),
+        PlayerAction::DeclareAttackers { attackers } if attackers.is_empty() => {
+            Some(PromptAction::DeclareNothing)
+        }
+        PlayerAction::DeclareBlockers { blockers } if blockers.is_empty() => {
+            Some(PromptAction::DeclareNothing)
+        }
+        PlayerAction::YesNo(false) => Some(PromptAction::No),
+        // An answer `timeout_answer` does not give today. Should it start
+        // to, the countdown stays beside the question until it is mapped
+        // here, and `every_answer_the_clock_gives_has_its_button` fails.
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prefs::Keymap;
+
+    /// Every question the clock answers without the house has a button that
+    /// sends exactly that answer, through this client's own interaction, so
+    /// a countdown on it is a promise the button keeps (#258). And every
+    /// question the house answers has none.
+    #[test]
+    fn every_answer_the_clock_gives_has_its_button() {
+        use crate::Interaction;
+        use baylee_core::ids::{Defender, ObjectId, PlayerId};
+        use baylee_engine::choice::{BlockOption, LegalActions, Pending, YesNoPrompt};
+        let me = PlayerId::new(0);
+        let creature = ObjectId::new(1, 0);
+        let yes_no = |prompt| Pending::YesNo {
+            player: me,
+            prompt,
+            source: None,
+        };
+        let asked = [
+            Pending::Priority {
+                player: me,
+                legal: Box::new(LegalActions::default()),
+            },
+            Pending::Mulligan {
+                player: me,
+                taken: 0,
+                next_is_free: true,
+            },
+            Pending::ChooseAttackers {
+                player: me,
+                attackers: vec![creature],
+                defenders: vec![Defender::Player(PlayerId::new(1))],
+            },
+            Pending::ChooseBlockers {
+                player: me,
+                attacker: PlayerId::new(1),
+                blockers: vec![BlockOption {
+                    blocker: creature,
+                    attackers: vec![ObjectId::new(2, 0)],
+                }],
+            },
+            yes_no(YesNoPrompt::Kicker),
+            yes_no(YesNoPrompt::MayDo),
+            yes_no(YesNoPrompt::CommanderZone { card: creature }),
+            Pending::DiscardChoice {
+                player: me,
+                count: 1,
+            },
+        ];
+        let mut buttons = 0;
+        for pending in asked {
+            let clock = baylee_engine::choice::timeout_answer(&pending);
+            let Some(button) = clock_answer(&pending) else {
+                assert_eq!(clock, None, "the clock answers {pending:?} with no button");
+                continue;
+            };
+            let mut interaction = Interaction::new(pending.clone(), me);
+            let sent = match button {
+                PromptAction::Confirm => interaction.confirm(),
+                PromptAction::Keep => interaction.answer_mulligan(true),
+                PromptAction::No => interaction.answer_yes_no(false),
+                PromptAction::DeclareNothing => {
+                    interaction.cancel();
+                    interaction.confirm()
+                }
+                other => panic!("{other:?} is not an answer the clock gives"),
+            };
+            assert_eq!(sent, clock, "{button:?} on {pending:?}");
+            buttons += 1;
+        }
+        assert_eq!(
+            buttons, 6,
+            "the questions above with an answer that does nothing"
+        );
+    }
 
     /// The three widths of §2.3, at the screen it wrote them for.
     ///
