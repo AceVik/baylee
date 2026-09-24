@@ -528,6 +528,8 @@ pub(crate) mod scryfall {
         list.data
             .into_iter()
             .map(|card| CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 lang: card.lang.clone(),
                 faces: card.faces(),
                 scryfall_id: card.id,
@@ -604,6 +606,7 @@ pub(crate) mod scryfall {
         /// `Catalog::text` does it.
         fn text(&self) -> FaceText {
             FaceText {
+                printed: None,
                 name: self
                     .printed_name
                     .clone()
@@ -749,9 +752,12 @@ mod tests {
 
     fn entry(id: &str, name: &str) -> CardTextEntry {
         CardTextEntry {
+            oracle_id: String::new(),
+            layout: String::new(),
             scryfall_id: id.to_string(),
             lang: "en".to_string(),
             faces: vec![FaceText {
+                printed: None,
                 name: name.to_string(),
                 english_name: name.to_string(),
                 type_line: "Instant".to_string(),
@@ -991,9 +997,12 @@ mod tests {
     fn mind_stone(printed: &str) -> (CardIndex, CardTexts) {
         let card = baylee_cards::decks::by_name("Mind Stone").expect("in the pool");
         let entry = CardTextEntry {
+            oracle_id: String::new(),
+            layout: String::new(),
             scryfall_id: "b50fd971-3dd1-4878-889f-81e38970408c".to_string(),
             lang: "de".to_string(),
             faces: vec![FaceText {
+                printed: None,
                 name: "Gedankenstein".to_string(),
                 english_name: "Mind Stone".to_string(),
                 type_line: "Artifact".to_string(),

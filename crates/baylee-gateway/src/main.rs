@@ -961,7 +961,7 @@ fn db_down(e: &anyhow::Error) -> (StatusCode, Json<ErrorBody>) {
 
 // ------------------------------------------------------------------ catalog
 
-/// How many printings one text request may ask for.
+/// How many printings or cards one text request may ask for.
 ///
 /// A commander table's whole print table is a few hundred entries, so this
 /// covers a full game in one round trip and still bounds what a single request
@@ -1001,18 +1001,41 @@ async fn connect_catalog(db: sea_orm::DatabaseConnection) -> Option<baylee_catal
 /// Query for `/catalog/text`.
 #[derive(Deserialize)]
 struct CatalogTextQuery {
-    /// Comma-separated Scryfall printing ids.
-    ids: String,
+    /// Comma-separated Scryfall oracle ids: text by card.
+    oracle_ids: Option<String>,
+    /// Comma-separated Scryfall printing ids: text by printing, answered
+    /// under the id asked for. Kept for clients that predate `oracle_ids`.
+    ids: Option<String>,
     /// Preferred language; English is the fallback.
     lang: Option<String>,
 }
 
-/// Card text for a set of printings.
+/// The well-formed ids in a comma-separated list, lowercased, at most
+/// [`MAX_TEXT_IDS`].
+///
+/// They are bound parameters, so this is not about injection: one malformed
+/// id would fail the cast for the whole batch and cost every other card its
+/// text.
+fn text_ids(list: &str) -> Vec<String> {
+    list.split(',')
+        .map(str::trim)
+        .filter(|id| uuid::Uuid::parse_str(id).is_ok())
+        .map(str::to_lowercase)
+        .take(MAX_TEXT_IDS)
+        .collect()
+}
+
+/// Card text for a set of cards (`oracle_ids=`) or printings (`ids=`).
 ///
 /// Deliberately unauthenticated. This is public reference data — Scryfall
 /// serves the same thing without a token — and a client has to be able to draw
 /// a readable card before it has an account, which is exactly the case when a
 /// card image fails to load on first launch.
+///
+/// Asked by card, a card the catalog lacks is simply not answered: the
+/// client has the English Oracle compiled in and asks Scryfall itself.
+/// Asked by printing, a printing it lacks is fetched once and kept, as it
+/// always was for the clients that still ask that way.
 async fn catalog_text(
     State(state): State<Shared>,
     Query(params): Query<CatalogTextQuery>,
@@ -1025,17 +1048,16 @@ async fn catalog_text(
     })?;
     let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
 
-    // Only well-formed ids reach the query: they are bound parameters, so this
-    // is not about injection, but one malformed id would fail the cast for the
-    // whole batch and cost every other card its text.
-    let ids: Vec<String> = params
-        .ids
-        .split(',')
-        .map(str::trim)
-        .filter(|id| uuid::Uuid::parse_str(id).is_ok())
-        .map(str::to_lowercase)
-        .take(MAX_TEXT_IDS)
-        .collect();
+    if let Some(list) = params.oracle_ids.as_deref() {
+        let cards = text_ids(list);
+        let found = catalog
+            .text_by_card(&cards, &lang)
+            .await
+            .map_err(|e| catalog_error("looking up card text", &e))?;
+        return Ok(Json(found));
+    }
+
+    let ids = text_ids(params.ids.as_deref().unwrap_or_default());
     if ids.is_empty() {
         return Ok(Json(Vec::new()));
     }

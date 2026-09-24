@@ -1408,9 +1408,12 @@ fn localized_names_and_types_do_not_change_saved_card_identity() {
     let main = b.rows(Zone::Main);
     let side = b.rows(Zone::Side);
     let entries = [CardTextEntry {
+        oracle_id: String::new(),
+        layout: String::new(),
         scryfall_id: "test-print".into(),
         lang: "de".into(),
         faces: vec![FaceText {
+            printed: None,
             name: "Deutscher Kartenname".into(),
             type_line: "Kreatur — Mensch, Zauberer".into(),
             ..Default::default()

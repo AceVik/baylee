@@ -26,6 +26,19 @@ pub struct Gateway {
     schema: String,
 }
 
+impl Gateway {
+    /// The test database, scoped to this gateway's own schema: where a test
+    /// seeds what the gateway will read, such as catalog rows.
+    pub fn database_url(&self) -> String {
+        let base = database_url();
+        let sep = if base.contains('?') { '&' } else { '?' };
+        format!(
+            "{base}{sep}options=-c%20search_path%3D{},public",
+            self.schema
+        )
+    }
+}
+
 impl Drop for Gateway {
     fn drop(&mut self) {
         // The process first: a gateway still holding connections into the

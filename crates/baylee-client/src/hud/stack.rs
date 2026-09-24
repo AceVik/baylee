@@ -2271,9 +2271,12 @@ mod tests {
         crate::cardtext::CardTexts::filed(
             baylee_core::ids::PrintRef::new(7),
             CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 scryfall_id: "abc".to_string(),
                 lang: "de".to_string(),
                 faces: vec![FaceText {
+                    printed: None,
                     name: "Sheoldred".to_string(),
                     english_name: "Sheoldred".to_string(),
                     type_line: "Kreatur".to_string(),

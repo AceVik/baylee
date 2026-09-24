@@ -361,9 +361,12 @@ mod tests {
         enrich(
             &mut cards,
             &[baylee_catalog::CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 scryfall_id: id,
                 lang: "de".to_string(),
                 faces: vec![baylee_catalog::FaceText {
+                    printed: None,
                     name: "Ondu-Kleriker".to_string(),
                     english_name: "Ondu Cleric".to_string(),
                     type_line: "Kreatur — Mensch, Kleriker".to_string(),
@@ -391,6 +394,8 @@ mod tests {
         enrich(
             &mut cards,
             &[baylee_catalog::CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 scryfall_id: "00000000-0000-0000-0000-000000000000".to_string(),
                 lang: "en".to_string(),
                 faces: vec![baylee_catalog::FaceText::default()],

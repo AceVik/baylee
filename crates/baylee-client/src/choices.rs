@@ -638,9 +638,12 @@ mod tests {
         let texts = crate::cardtext::CardTexts::filed(
             print,
             CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 scryfall_id: "x".to_string(),
                 lang: lang.to_string(),
                 faces: vec![FaceText {
+                    printed: None,
                     name: def.faces[0].name.to_string(),
                     english_name: def.faces[0].name.to_string(),
                     type_line: String::new(),

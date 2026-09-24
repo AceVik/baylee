@@ -126,3 +126,105 @@ async fn every_fixture_row_is_the_catalog_s_row() {
         wrong.join("\n")
     );
 }
+
+/// The catalog serves each fixture card from the printing the rule picks
+/// over the fixture's printings.
+///
+/// The file was cut only where the cut left the pick unchanged, so over the
+/// whole catalog the answer has to be the same printing. A query that drops
+/// a printing, orders faces wrongly or reads the wrong column would change it,
+/// and nothing short of a full catalog can see that: every sandbox holds only
+/// the rows its own test wrote. A card no printing translated has no printed
+/// layer at all.
+#[tokio::test]
+#[ignore = "needs an ingested catalog; see the module header"]
+async fn the_catalog_serves_the_printing_the_rule_picks() {
+    let url = std::env::var("DATABASE_URL")
+        .ok()
+        .filter(|u| !u.is_empty())
+        .expect("DATABASE_URL is not set, and this test reads an ingested catalog");
+    let catalog = baylee_catalog::Catalog::connect(&url)
+        .await
+        .expect("connecting");
+    let file: File = serde_json::from_str(include_str!(
+        "../../baylee-cardtext/fixtures/printings.json"
+    ))
+    .expect("the fixture file parses");
+
+    let mut wrong = Vec::new();
+    let mut picked = 0_usize;
+    let mut untranslated = Vec::new();
+    for card in &file.cards {
+        let at = format!("{} ({})", card.name, card.lang);
+        let entries = catalog
+            .text_by_card(std::slice::from_ref(&card.oracle_id), &card.lang)
+            .await
+            .expect("looking up text");
+        let [entry] = entries.as_slice() else {
+            wrong.push(format!("{at}: {} entries", entries.len()));
+            continue;
+        };
+        let oracle: Vec<&str> = card.oracle.iter().map(String::as_str).collect();
+        let printings: Vec<baylee_cardtext::Printing> = card
+            .printings
+            .iter()
+            .map(|p| baylee_cardtext::Printing {
+                scryfall_id: p.scryfall_id.clone(),
+                released_at: p.released_at.clone(),
+                collector_number: p.collector_number.clone(),
+                layout: p.layout.clone(),
+                printed: p.printed.clone(),
+            })
+            .collect();
+        let Some(layer) = baylee_cardtext::pick(&card.lang, &oracle, &printings) else {
+            untranslated.push(at.clone());
+            if entry.faces.iter().any(|f| f.printed.is_some()) {
+                wrong.push(format!(
+                    "{at}: nothing is translated, and a layer was served"
+                ));
+            }
+            continue;
+        };
+        picked += 1;
+        if entry.scryfall_id != layer.printing.scryfall_id {
+            wrong.push(format!(
+                "{at}: served {} where the rule picks {}",
+                entry.scryfall_id, layer.printing.scryfall_id
+            ));
+            continue;
+        }
+        let want: Vec<Option<&str>> = layer
+            .printing
+            .printed
+            .iter()
+            .zip(&oracle)
+            .map(|(printed, oracle)| {
+                printed
+                    .as_deref()
+                    .filter(|t| !baylee_cardtext::untranslated(oracle, Some(t)))
+            })
+            .collect();
+        let got: Vec<Option<&str>> = entry.faces.iter().map(|f| f.printed.as_deref()).collect();
+        if got != want {
+            wrong.push(format!("{at}: printed {got:?}, the rule says {want:?}"));
+        }
+    }
+    // Measured 2026-09-24: three fixture cards have no translated printing,
+    // so the other 24 are served a picked one.
+    assert_eq!(
+        untranslated,
+        [
+            "Elven Palisade (de)",
+            "Kavaron, Memorial World (de)",
+            "Skullclamp (en)"
+        ],
+        "which cards no printing translates"
+    );
+    assert_eq!(picked, 24, "is the catalog ingested?");
+    assert!(
+        wrong.is_empty(),
+        "{} card(s) are not served as the rule picks:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+}

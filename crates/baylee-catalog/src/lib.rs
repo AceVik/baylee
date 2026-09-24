@@ -342,6 +342,141 @@ const PROJECT_SQL: &str = "\
       GROUP BY c.oracle_id, f.face_index \
     ) v USING (oracle_id, face_index)";
 
+/// Every printing [`Catalog::text_by_card`] chooses among, with its faces.
+///
+/// All of a card's printings in the asked language, and its newest English
+/// one: that carries the Oracle and the English names, and it is what an
+/// English reader is served. English printings beyond the newest are not
+/// read — under `en` the Oracle is drawn, never a printing's own wording —
+/// which keeps a basic land's several hundred English printings out of the
+/// answer. Ordered newest first within a card, faces in printed order, and
+/// every sort ends on a unique key.
+const TEXT_SQL: &str = "\
+    WITH wanted AS (SELECT DISTINCT unnest(string_to_array($1, ','))::uuid AS oracle_id), \
+    printing AS ( \
+      SELECT c.scryfall_id, c.oracle_id, c.lang, c.released_at, c.collector_number, c.layout \
+      FROM wanted w JOIN cards c ON c.oracle_id = w.oracle_id \
+      WHERE c.lang = $2 AND $2 <> 'en' \
+      UNION ALL \
+      SELECT e.scryfall_id, e.oracle_id, e.lang, e.released_at, e.collector_number, e.layout \
+      FROM wanted w CROSS JOIN LATERAL ( \
+        SELECT c.scryfall_id, c.oracle_id, c.lang, c.released_at, c.collector_number, c.layout \
+        FROM cards c WHERE c.oracle_id = w.oracle_id AND c.lang = 'en' \
+        ORDER BY c.released_at DESC NULLS LAST, length(c.collector_number), \
+                 c.collector_number, c.scryfall_id \
+        LIMIT 1 \
+      ) e \
+    ) \
+    SELECT p.scryfall_id::text AS scryfall_id, p.oracle_id::text AS oracle_id, p.lang AS lang, \
+           coalesce(to_char(p.released_at, 'YYYY-MM-DD'), '') AS released_at, \
+           p.collector_number AS collector_number, coalesce(p.layout, '') AS layout, \
+           f.name AS name, f.printed_name AS printed_name, \
+           f.type_line AS type_line, f.printed_type_line AS printed_type_line, \
+           f.oracle_text AS oracle_text, f.printed_text AS printed_text, \
+           f.mana_cost AS mana_cost \
+    FROM printing p JOIN card_faces f ON f.scryfall_id = p.scryfall_id \
+    ORDER BY p.oracle_id, p.released_at DESC NULLS LAST, length(p.collector_number), \
+             p.collector_number, p.scryfall_id, f.face_index";
+
+/// One printing [`TEXT_SQL`] gathered.
+#[derive(Clone, Debug, Default)]
+struct TextPrinting {
+    scryfall_id: String,
+    oracle_id: String,
+    lang: String,
+    released_at: String,
+    collector_number: String,
+    layout: String,
+    faces: Vec<TextFace>,
+}
+
+/// One face of it, as `card_faces` stores it.
+#[derive(Clone, Debug, Default)]
+struct TextFace {
+    name: String,
+    printed_name: Option<String>,
+    type_line: Option<String>,
+    printed_type_line: Option<String>,
+    oracle_text: Option<String>,
+    printed_text: Option<String>,
+    mana_cost: Option<String>,
+}
+
+/// One card's entry, from its printings as [`TEXT_SQL`] orders them.
+///
+/// `None` only for a card with no printing at all in the language or in
+/// English.
+fn card_entry(lang: &str, printings: &[TextPrinting]) -> Option<CardTextEntry> {
+    let english = printings.iter().find(|p| p.lang == "en");
+    let local: Vec<&TextPrinting> = printings
+        .iter()
+        .filter(|p| lang != "en" && p.lang == lang)
+        .collect();
+    // Scryfall carries the Oracle on every row, whatever its language, so a
+    // card never printed in English still has one.
+    let reference = english.or_else(|| local.first().copied())?;
+    let oracle: Vec<&str> = reference
+        .faces
+        .iter()
+        .map(|f| f.oracle_text.as_deref().unwrap_or_default())
+        .collect();
+    let candidates: Vec<baylee_cardtext::Printing> = local
+        .iter()
+        .map(|p| baylee_cardtext::Printing {
+            scryfall_id: p.scryfall_id.clone(),
+            released_at: p.released_at.clone(),
+            collector_number: p.collector_number.clone(),
+            layout: p.layout.clone(),
+            printed: p.faces.iter().map(|f| f.printed_text.clone()).collect(),
+        })
+        .collect();
+    let picked = baylee_cardtext::pick(lang, &oracle, &candidates).and_then(|layer| {
+        local
+            .iter()
+            .copied()
+            .find(|p| p.scryfall_id == layer.printing.scryfall_id)
+    });
+    let served = picked
+        .or_else(|| local.first().copied())
+        .unwrap_or(reference);
+    // An English row's `printed_*` is a promo's spelling (Secret Lair's
+    // `IMP'S MSCHF`), never the card's.
+    let localized = served.lang != "en";
+    let faces = served
+        .faces
+        .iter()
+        .enumerate()
+        .map(|(index, f)| {
+            let oracle_text = oracle
+                .get(index)
+                .copied()
+                .or(f.oracle_text.as_deref())
+                .unwrap_or_default();
+            let printed = picked.and(f.printed_text.as_ref()).filter(|printed| {
+                !baylee_cardtext::untranslated(oracle_text, Some(printed.as_str()))
+            });
+            let own = |printed: &Option<String>| printed.as_ref().filter(|_| localized).cloned();
+            FaceText {
+                name: own(&f.printed_name).unwrap_or_else(|| f.name.clone()),
+                english_name: f.name.clone(),
+                type_line: own(&f.printed_type_line)
+                    .or_else(|| f.type_line.clone())
+                    .unwrap_or_default(),
+                oracle_text: printed.cloned().unwrap_or_else(|| oracle_text.to_owned()),
+                mana_cost: f.mana_cost.clone().unwrap_or_default(),
+                printed: printed.cloned(),
+            }
+        })
+        .collect();
+    Some(CardTextEntry {
+        scryfall_id: served.scryfall_id.clone(),
+        oracle_id: served.oracle_id.clone(),
+        lang: served.lang.clone(),
+        layout: served.layout.clone(),
+        faces,
+    })
+}
+
 /// The columns one printing binds in `upsert_cards`, in bind order.
 ///
 /// The placeholder run, the value pushes and the table definition are written
@@ -743,79 +878,133 @@ impl Catalog {
         Ok(())
     }
 
-    /// Looks up text for a set of printings in a language.
+    /// Card text for a set of cards in a language: one entry per card the
+    /// catalog knows, in `oracle_id` order.
     ///
-    /// The requested printing only supplies the *identity*: the row that comes
-    /// back is the same card in the requested language when one exists, and
-    /// the English printing otherwise. That is what lets a player run an
-    /// English game and read German cards.
+    /// Which printing speaks for a card is [`baylee_cardtext::pick`]'s answer
+    /// over every printing in `lang`, the rule a client applies to what
+    /// Scryfall tells it when there is no gateway. The query only gathers:
+    /// every printing in the language, plus the newest English one for the
+    /// Oracle and the English names. It used to choose as well —
+    /// `ORDER BY (lang = $2) DESC, released_at DESC LIMIT 1` — and served the
+    /// newest printing whatever it said: a German row Scryfall never
+    /// translated came back as German, a `NULL` came back as English, and a
+    /// tie was settled by the order Postgres read the rows in.
+    ///
+    /// Every face of an entry comes from one printing, so a modal
+    /// double-faced card is never drawn from two. Where no printing of the
+    /// card translated anything, the newest printing in the language still
+    /// names it (a German name over the Oracle's text is what that printing
+    /// is), and where there is none, the newest English printing does.
     ///
     /// # Errors
     /// When the query fails.
-    pub async fn text(&self, ids: &[String], lang: &str) -> Result<Vec<CardTextEntry>> {
-        if ids.is_empty() {
+    pub async fn text_by_card(
+        &self,
+        oracle_ids: &[String],
+        lang: &str,
+    ) -> Result<Vec<CardTextEntry>> {
+        if oracle_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let sql = "\
-            WITH wanted AS (SELECT unnest(string_to_array($1, ','))::uuid AS id) \
-            SELECT w.id::text AS requested, c.lang AS lang, f.face_index AS face_index, \
-                   f.name AS name, f.printed_name AS printed_name, \
-                   f.type_line AS type_line, f.printed_type_line AS printed_type_line, \
-                   f.oracle_text AS oracle_text, f.printed_text AS printed_text, \
-                   f.mana_cost AS mana_cost \
-            FROM wanted w \
-            JOIN cards src ON src.scryfall_id = w.id \
-            JOIN LATERAL ( \
-                SELECT c2.scryfall_id, c2.lang FROM cards c2 \
-                WHERE c2.oracle_id = src.oracle_id AND c2.lang IN ($2, 'en') \
-                ORDER BY (c2.lang = $2) DESC, c2.released_at DESC NULLS LAST \
-                LIMIT 1 \
-            ) c ON TRUE \
-            JOIN card_faces f ON f.scryfall_id = c.scryfall_id \
-            ORDER BY requested, f.face_index";
-
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                sql,
-                [Value::from(ids.join(",")), Value::from(lang.to_string())],
+                TEXT_SQL,
+                [
+                    Value::from(oracle_ids.join(",")),
+                    Value::from(lang.to_string()),
+                ],
             ))
             .await
             .context("looking up card text")?;
 
-        let mut out: Vec<CardTextEntry> = Vec::new();
+        let mut printings: Vec<TextPrinting> = Vec::new();
         for row in rows {
-            let requested: String = row.try_get("", "requested")?;
-            let lang: String = row.try_get("", "lang")?;
-            let name: String = row.try_get("", "name")?;
-            let printed_name: Option<String> = row.try_get("", "printed_name")?;
-            let type_line: Option<String> = row.try_get("", "type_line")?;
-            let printed_type_line: Option<String> = row.try_get("", "printed_type_line")?;
-            let oracle_text: Option<String> = row.try_get("", "oracle_text")?;
-            let printed_text: Option<String> = row.try_get("", "printed_text")?;
-            let mana_cost: Option<String> = row.try_get("", "mana_cost")?;
-
-            let face = FaceText {
-                // Field-by-field fallback: a printing may be translated but
-                // have no translated rules text, and half a card is better
-                // than none.
-                name: printed_name.unwrap_or_else(|| name.clone()),
-                english_name: name,
-                type_line: printed_type_line.or(type_line).unwrap_or_default(),
-                oracle_text: printed_text.or(oracle_text).unwrap_or_default(),
-                mana_cost: mana_cost.unwrap_or_default(),
+            let scryfall_id: String = row.try_get("", "scryfall_id")?;
+            let face = TextFace {
+                name: row.try_get("", "name")?,
+                printed_name: row.try_get("", "printed_name")?,
+                type_line: row.try_get("", "type_line")?,
+                printed_type_line: row.try_get("", "printed_type_line")?,
+                oracle_text: row.try_get("", "oracle_text")?,
+                printed_text: row.try_get("", "printed_text")?,
+                mana_cost: row.try_get("", "mana_cost")?,
             };
-            match out.last_mut() {
-                Some(entry) if entry.scryfall_id == requested => entry.faces.push(face),
-                _ => out.push(CardTextEntry {
-                    scryfall_id: requested,
-                    lang,
+            match printings.last_mut() {
+                Some(printing) if printing.scryfall_id == scryfall_id => {
+                    printing.faces.push(face);
+                }
+                _ => printings.push(TextPrinting {
+                    scryfall_id,
+                    oracle_id: row.try_get("", "oracle_id")?,
+                    lang: row.try_get("", "lang")?,
+                    released_at: row.try_get("", "released_at")?,
+                    collector_number: row.try_get("", "collector_number")?,
+                    layout: row.try_get("", "layout")?,
                     faces: vec![face],
                 }),
             }
         }
-        Ok(out)
+        Ok(printings
+            .chunk_by(|a, b| a.oracle_id == b.oracle_id)
+            .filter_map(|card| card_entry(lang, card))
+            .collect())
+    }
+
+    /// Card text for a set of printings in a language, each answered under
+    /// the id that was asked for.
+    ///
+    /// The printing only supplies the *identity*: the answer is
+    /// [`Self::text_by_card`]'s for the card it is a printing of. That is
+    /// what lets a player run an English game and read German cards, and it
+    /// is why a client asking by printing gets the same text as one asking
+    /// by card.
+    ///
+    /// # Errors
+    /// When a query fails.
+    pub async fn text(&self, ids: &[String], lang: &str) -> Result<Vec<CardTextEntry>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT scryfall_id::text AS scryfall_id, oracle_id::text AS oracle_id \
+                 FROM cards WHERE scryfall_id = ANY(string_to_array($1, ',')::uuid[]) \
+                 ORDER BY scryfall_id",
+                [Value::from(ids.join(","))],
+            ))
+            .await
+            .context("looking up printings")?;
+        let mut asked: Vec<(String, String)> = Vec::with_capacity(rows.len());
+        for row in rows {
+            asked.push((
+                row.try_get("", "scryfall_id")?,
+                row.try_get("", "oracle_id")?,
+            ));
+        }
+        let mut cards: Vec<String> = asked.iter().map(|(_, card)| card.clone()).collect();
+        cards.sort_unstable();
+        cards.dedup();
+        let by_card: std::collections::BTreeMap<String, CardTextEntry> = self
+            .text_by_card(&cards, lang)
+            .await?
+            .into_iter()
+            .map(|entry| (entry.oracle_id.clone(), entry))
+            .collect();
+        Ok(asked
+            .into_iter()
+            .filter_map(|(scryfall_id, card)| {
+                let entry = by_card.get(&card)?;
+                Some(CardTextEntry {
+                    scryfall_id,
+                    ..entry.clone()
+                })
+            })
+            .collect())
     }
 
     /// Searches the catalog by name and rules text.
@@ -2055,6 +2244,178 @@ mod tests {
         ] {
             assert!(seed.contains(&format!("('{code}', ")), "no name for {code}");
         }
+    }
+
+    const ORACLE: &str = "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.";
+    const GERMAN: &str = "{T}: Erzeuge {C}.\n{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.";
+
+    fn face(name: &str, printed_name: Option<&str>, printed: Option<&str>) -> TextFace {
+        TextFace {
+            name: name.to_owned(),
+            printed_name: printed_name.map(str::to_owned),
+            type_line: Some("Artifact".to_owned()),
+            printed_type_line: printed_name.map(|_| "Artefakt".to_owned()),
+            oracle_text: Some(ORACLE.to_owned()),
+            printed_text: printed.map(str::to_owned),
+            mana_cost: Some("{2}".to_owned()),
+        }
+    }
+
+    fn printing(id: &str, lang: &str, date: &str, faces: Vec<TextFace>) -> TextPrinting {
+        TextPrinting {
+            scryfall_id: id.to_owned(),
+            oracle_id: "card".to_owned(),
+            lang: lang.to_owned(),
+            released_at: date.to_owned(),
+            collector_number: "1".to_owned(),
+            layout: "normal".to_owned(),
+            faces,
+        }
+    }
+
+    /// What a client leans on, held on every entry the tests below build: a
+    /// `printed` is always the asked language and never English, and an
+    /// entry that fell back to English names carries none.
+    fn served(lang: &str, printings: &[TextPrinting]) -> CardTextEntry {
+        let entry = card_entry(lang, printings).expect("an entry");
+        for face in &entry.faces {
+            if face.printed.is_some() {
+                assert_ne!(lang, "en", "English is never a printed layer");
+                assert_eq!(entry.lang, lang, "a printed layer is the asked language");
+                assert_eq!(
+                    face.printed.as_ref(),
+                    Some(&face.oracle_text),
+                    "the drawn text is the printed layer"
+                );
+            }
+        }
+        if entry.lang != lang {
+            assert!(entry.faces.iter().all(|f| f.printed.is_none()));
+        }
+        entry
+    }
+
+    #[test]
+    fn a_card_is_served_from_the_printing_pick_chooses() {
+        let printings = [
+            printing(
+                "english",
+                "en",
+                "2026-01-01",
+                vec![face("Mind Stone", None, None)],
+            ),
+            printing(
+                "null",
+                "de",
+                "2025-06-13",
+                vec![face("Mind Stone", Some("Gedankenstein"), None)],
+            ),
+            printing(
+                "german",
+                "de",
+                "2007-07-13",
+                vec![face("Mind Stone", Some("Gedankenstein"), Some(GERMAN))],
+            ),
+        ];
+        let entry = served("de", &printings);
+        assert_eq!(
+            (entry.scryfall_id.as_str(), entry.lang.as_str()),
+            ("german", "de")
+        );
+        assert_eq!(entry.faces[0].printed.as_deref(), Some(GERMAN));
+        assert_eq!(entry.faces[0].name, "Gedankenstein");
+        assert_eq!(entry.faces[0].english_name, "Mind Stone");
+        assert_eq!(entry.faces[0].type_line, "Artefakt");
+    }
+
+    /// Both branches of "untranslated": English words under `de` and no
+    /// text at all name the card in German and draw the Oracle.
+    #[test]
+    fn english_under_another_language_is_never_served_as_it() {
+        let english_words = "{T}: Add {C}.\n{1}, {T}, sacrifice this artifact: draw a card.";
+        for printed in [Some(english_words), None] {
+            let printings = [printing(
+                "untranslated",
+                "de",
+                "2025-06-13",
+                vec![face("Mind Stone", Some("Gedankenstein"), printed)],
+            )];
+            let entry = served("de", &printings);
+            assert_eq!(entry.lang, "de");
+            assert_eq!(entry.faces[0].name, "Gedankenstein");
+            assert_eq!(entry.faces[0].printed, None);
+            assert_eq!(entry.faces[0].oracle_text, ORACLE);
+        }
+    }
+
+    #[test]
+    fn a_card_never_printed_in_the_language_is_served_in_english() {
+        let printings = [printing(
+            "english",
+            "en",
+            "2026-01-01",
+            vec![face("Mind Stone", None, None)],
+        )];
+        let entry = served("de", &printings);
+        assert_eq!(
+            (entry.scryfall_id.as_str(), entry.lang.as_str()),
+            ("english", "en")
+        );
+        assert_eq!(entry.faces[0].printed, None);
+        assert_eq!(entry.faces[0].oracle_text, ORACLE);
+    }
+
+    /// Under `en` the Oracle is drawn, and the Oracle's name: a Secret Lair
+    /// row carries `printed_*` spellings that are the promo's, not the
+    /// card's.
+    #[test]
+    fn english_is_the_oracle_and_the_oracle_s_name() {
+        let printings = [printing(
+            "sld",
+            "en",
+            "2026-09-02",
+            vec![face("Mind Stone", Some("MIND STN"), Some("TAP: ADD C"))],
+        )];
+        let entry = served("en", &printings);
+        assert_eq!(entry.faces[0].name, "Mind Stone");
+        assert_eq!(entry.faces[0].type_line, "Artifact");
+        assert_eq!(entry.faces[0].printed, None);
+        assert_eq!(entry.faces[0].oracle_text, ORACLE);
+    }
+
+    /// A double-faced card is drawn from one printing: the one whose every
+    /// face is translated wins over a newer one with an untranslated back,
+    /// and with only the newer one, its back falls to the Oracle alone.
+    #[test]
+    fn every_face_of_an_entry_comes_from_one_printing() {
+        let half = printing(
+            "half",
+            "de",
+            "2025-01-01",
+            vec![
+                face("Front", Some("Vorne"), Some(GERMAN)),
+                face("Back", Some("Hinten"), None),
+            ],
+        );
+        let whole = printing(
+            "whole",
+            "de",
+            "2020-01-01",
+            vec![
+                face("Front", Some("Vorne"), Some(GERMAN)),
+                face("Back", Some("Hinten"), Some(GERMAN)),
+            ],
+        );
+        let entry = served("de", &[half.clone(), whole]);
+        assert_eq!(entry.scryfall_id, "whole");
+        assert!(entry.faces.iter().all(|f| f.printed.is_some()));
+
+        let entry = served("de", &[half]);
+        assert_eq!(entry.scryfall_id, "half");
+        assert_eq!(entry.faces[0].printed.as_deref(), Some(GERMAN));
+        assert_eq!(entry.faces[1].printed, None);
+        assert_eq!(entry.faces[1].oracle_text, ORACLE);
+        assert_eq!(entry.faces[1].name, "Hinten");
     }
 
     /// The placeholders a statement writes, in order: `$1`, `$2`, ….

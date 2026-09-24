@@ -853,9 +853,12 @@ mod tests {
     #[test]
     fn a_wire_entry_becomes_the_model_the_renderer_uses() {
         let entry = CardTextEntry {
+            oracle_id: String::new(),
+            layout: String::new(),
             scryfall_id: "id".to_string(),
             lang: "en".to_string(),
             faces: vec![FaceText {
+                printed: None,
                 name: "Forest".to_string(),
                 english_name: "Forest".to_string(),
                 type_line: "Basic Land — Forest".to_string(),

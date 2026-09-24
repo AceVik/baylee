@@ -733,9 +733,12 @@ mod tests {
         crate::cardtext::CardTexts::filed(
             baylee_core::ids::PrintRef::new(7),
             CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 scryfall_id: "abc".to_string(),
                 lang: "de".to_string(),
                 faces: vec![FaceText {
+                    printed: None,
                     name: "Ondu-Kleriker".to_string(),
                     english_name: "Ondu Cleric".to_string(),
                     type_line: "Kreatur".to_string(),
@@ -844,9 +847,12 @@ mod tests {
         let texts = crate::cardtext::CardTexts::filed(
             baylee_core::ids::PrintRef::new(9),
             CardTextEntry {
+                oracle_id: String::new(),
+                layout: String::new(),
                 scryfall_id: "def".to_string(),
                 lang: "de".to_string(),
                 faces: vec![FaceText {
+                    printed: None,
                     name: "Aminatou, die Schicksalswenderin".to_string(),
                     english_name: "Aminatou, the Fateshifter".to_string(),
                     type_line: "Legendärer Planeswalker — Aminatou".to_string(),

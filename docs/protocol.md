@@ -101,6 +101,77 @@ including through a zone change, because a printing that silently reset to
 entry 0 would be invisible in every other test — the game would play
 perfectly and show the wrong art.
 
+## Card text (`GET /catalog/text`)
+
+Unauthenticated, like Scryfall's own answer to the same question, because a
+client draws a readable card before it has an account.
+
+```
+GET /catalog/text?lang=de&oracle_ids=<uuid>,<uuid>,…   by card
+GET /catalog/text?lang=de&ids=<uuid>,<uuid>,…          by printing
+```
+
+The first 500 ids are read and the rest are ignored. A malformed id is
+dropped, not answered with an error, because one bad cast would cost the
+whole batch its text. `lang`
+defaults to `en`. Asked with neither list, the gateway answers `[]`. The
+answer is a JSON array of `baylee_cardtext::CardTextEntry`, whose field
+names are pinned in that crate. It is the one type both ends link:
+
+```json
+[{"scryfall_id": "…", "oracle_id": "…", "lang": "de", "layout": "normal",
+  "faces": [{"name": "Gedankenstein", "english_name": "Mind Stone",
+             "type_line": "Artifact", "mana_cost": "{2}",
+             "oracle_text": "{T}: Erzeuge {C}.\n…",
+             "printed": "{T}: Erzeuge {C}.\n…"}]}]
+```
+
+**Text is a property of the card, not of a printing.** Asked by card, the
+gateway answers one entry per card it knows, and every face of it comes from
+one printing, so a modal double-faced card is never drawn from two. Which
+printing that is gets decided by `baylee_cardtext::pick` over all of the
+card's printings in `lang`, the same rule a client applies to what Scryfall
+tells it when there is no gateway:
+
+- a printing that is really translated (not `NULL`, not the Oracle's own
+  words);
+- preferably one whose every face lines up with the Oracle;
+- then the newest;
+- then a tie-break that does not depend on row order.
+
+`printed` is that printing's text exactly as Scryfall has it, the input
+`baylee_cardtext::align` takes. **It is always the asked language and never
+English.** It is `null`:
+
+- under `en`, where the Oracle is drawn and a promo's own wording
+  (`TAP: ADD G`) never is;
+- on a face that printing left untranslated;
+- on every face when no printing of the card translated anything.
+
+In the last case the newest printing in the language still supplies the
+name, and without one the newest English printing does, so `lang` is `en`.
+`oracle_text` is what to draw for the whole face: `printed`, else the English
+Oracle. The English Oracle a row is aligned against is not on the wire. The
+client has it compiled in (`baylee_cards::oracle`), and it is the text the
+line table was computed from. Aligning against a catalog's copy of it after
+an errata would move rows.
+
+A card the catalog lacks is not answered. The client falls back to Scryfall
+and to the compiled Oracle.
+
+**By printing** is kept for clients that predate `oracle_ids`. Each id is
+answered with its card's entry under the id that was asked for, so an old
+client gets the same choice. That is the one answer in which an entry names
+two printings: `scryfall_id` is the one asked for, while `lang`, `layout`
+and the faces are the served printing's. A printing the catalog lacks is fetched once
+from Scryfall and kept, at most 25 a request, as before.
+
+`oracle_id`, `layout` and `printed` were added with `oracle_ids`, with serde
+defaults. A new client reads an old gateway's answer, and an old client,
+which refuses no unknown field, reads a new one. An old gateway refuses
+`oracle_ids` alone with a 400 (it requires `ids`), and a new client takes
+that as no answer.
+
 ## Card art (`GET /art/…`)
 
 The gateway mirrors printing images on disk, and the route is a **mirror of
