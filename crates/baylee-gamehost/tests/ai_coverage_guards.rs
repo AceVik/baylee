@@ -870,17 +870,21 @@ fn no_pool_face_states_two_mode_lists() {
 ///
 /// A modal double-faced card is filed under its front, and the front is the
 /// spell — so `HandObject::types` says sorcery and the land is on the other
-/// side. The engine has never read it that way: `compute_legal` offers the
-/// land drop when **any** face is a land (CR 712.12). `policy::plays_as_land`
-/// is the agent's half of that same sentence, and this is the population it
-/// is worth having: a floor rather than the number, because a card joining
-/// the pool does not make the rule less true, and nought would mean the rule
-/// is being kept for nothing.
+/// side. The engine does not read it that way: `compute_legal` offers the
+/// land drop for a modal card's land back (CR 712.12) and not for a
+/// transforming one's (CR 712.8a, #152). `policy::plays_as_land` asks the
+/// same function, and this is the population it is worth having: a floor
+/// rather than the number, because a card joining the pool does not make
+/// the rule less true, and nought would mean the rule is being kept for
+/// nothing.
 #[test]
 fn the_pool_prints_lands_on_a_back_face() {
     let hidden = baylee_cards::all()
         .filter(|def| {
-            def.faces.iter().any(|f| f.types.contains(TypeSet::LAND))
+            def.faces
+                .iter()
+                .skip(1)
+                .any(|f| f.types.contains(TypeSet::LAND) && f.castable_from_hand)
                 && !def.faces[0].types.contains(TypeSet::LAND)
         })
         .count();
@@ -888,10 +892,11 @@ fn the_pool_prints_lands_on_a_back_face() {
         .filter(|def| def.faces[0].types.contains(TypeSet::LAND))
         .count();
     assert!(
-        hidden >= 50,
-        "{hidden} card(s) print a land on a face that is not the front, where \
-         82 were measured on 20.09.2026. Below this the rule `plays_as_land` \
-         states is being kept for a handful of cards and is worth re-reading."
+        hidden >= 45,
+        "{hidden} modal card(s) print a land on a face that is not the front, \
+         where 50 were measured on 24.09.2026 (82 with the transforming ones). \
+         Below this the rule `plays_as_land` states is being kept for a \
+         handful of cards and is worth re-reading."
     );
     assert!(
         front > hidden,

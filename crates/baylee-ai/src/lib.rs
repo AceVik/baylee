@@ -2659,6 +2659,36 @@ mod tests {
         }
     }
 
+    /// The back face that is **not** a land drop (#152). Arguel's Blood Fast
+    /// turns into a land, but only by transforming: in hand it has only its
+    /// front face's characteristics (CR 712.8a), and CR 712.12 lets only a
+    /// modal card be played as its land face. So three of them beside four
+    /// spells is a hand with no land in it, and the engine will offer none.
+    /// Counting the Temple as a land kept a hand that could not play one.
+    #[test]
+    fn a_hand_whose_only_lands_are_transforming_backs_is_landless() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..3)
+            .map(|i| hand_card(i, "Arguel's Blood Fast"))
+            .chain((3..7).map(|i| hand_card(i, "Lightning Bolt")))
+            .collect();
+        let pending = Pending::Mulligan {
+            player: v.seat,
+            taken: 0,
+            next_is_free: false,
+        };
+        for (name, profile) in PROFILES {
+            if profile.mulligan_skill == 0 {
+                continue;
+            }
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::MulliganTake,
+                "{name} kept a hand with no land drop in it",
+            );
+        }
+    }
+
     /// The other half of the same count, and the reason the rule is "count
     /// them" and not "notice them": seven of those cards is seven lands and
     /// a hand with nothing to cast, which is a mulligan for the opposite

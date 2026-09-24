@@ -99,6 +99,27 @@ impl CardDef {
 
     /// Abilities of a face. Face 0 uses the face's own list when
     /// non-empty, else the card-level list (single-face convention).
+    /// The faces a player may play as a land out of hand (or any zone a land
+    /// is played from), in printed order.
+    ///
+    /// The front face when it is a land, because in hand a double-faced card
+    /// has only its front face's characteristics (CR 712.8a). A back face
+    /// only when it is a land *and* the card is modal (CR 712.12), which a
+    /// `FaceDef` says as `castable_from_hand`: codegen writes it `false` on
+    /// every transforming back from Scryfall's `layout`, and `xtask
+    /// validate` holds it against the layout. A transforming card's land back
+    /// is reached by turning over, never by a land drop.
+    ///
+    /// The engine's offer, its face choice and the house AI all ask this, so
+    /// the agent can never count a land drop the engine will not make.
+    pub fn land_faces_from_hand(&self) -> impl Iterator<Item = usize> + '_ {
+        self.faces.iter().enumerate().filter_map(|(index, face)| {
+            (face.types.contains(baylee_core::types::TypeSet::LAND)
+                && (index == 0 || face.castable_from_hand))
+                .then_some(index)
+        })
+    }
+
     /// Back faces (MDFC) use ONLY their own list — they never inherit
     /// the front's abilities.
     #[must_use]

@@ -31,7 +31,7 @@
 //! walking it to the next turn would cost the sweep a turn per card for a
 //! question the untapped arm already answers.
 
-use super::testkit::{RegistryLookup, basic_forest, card_index, play_land_face};
+use super::testkit::{RegistryLookup, basic_forest, card_index, play_land_face, turned_land_face};
 use super::*;
 use baylee_cards_dsl::{AbilityDef, CardDef, CostPart, FaceDef, SimpleMana};
 use baylee_core::generated::subtypes::land;
@@ -192,7 +192,7 @@ fn pressed(
     want: ManaColor,
 ) -> Result<(Vec<(ManaColor, u16)>, bool), String> {
     let seat = PlayerId::new(0);
-    let (mut engine, land) = play_land_face(card, face)?;
+    let (mut engine, land) = land_board(card, face)?;
     let action = match route {
         Route::Intrinsic => PlayerAction::ActivateManaAbility { source: land },
         Route::Printed(i) => PlayerAction::ActivateAbility {
@@ -293,6 +293,22 @@ impl Tally {
         self.self_typed += other.self_typed;
         self.also_a_creature += other.also_a_creature;
         self.busy += other.busy;
+    }
+}
+
+/// The board a land face makes its mana on: played as a land drop where it
+/// is one, and turned over on the battlefield where it is a transforming
+/// card's back (CR 712.8a, #152). What a face *makes* does not depend on how
+/// it got there; how it *enters* does, and that is `enter_tests`' question.
+fn land_board(
+    card: CardIndex,
+    face: usize,
+) -> Result<(Engine<RegistryLookup>, baylee_core::ids::ObjectId), String> {
+    let def = baylee_cards::by_index(card).ok_or("is not in the pool")?;
+    if def.land_faces_from_hand().any(|playable| playable == face) {
+        play_land_face(card, face)
+    } else {
+        turned_land_face(card, face)
     }
 }
 
@@ -398,7 +414,7 @@ fn walk_face(def: &CardDef, index: usize, offenders: &mut Vec<String>, tally: &m
     // to mana abilities the sweep can read — a manland's "become a creature"
     // belongs to nobody's mana question, and an ability with a cost this
     // player cannot pay is correctly not offered.
-    let (engine, land) = match play_land_face(def.index, index) {
+    let (engine, land) = match land_board(def.index, index) {
         Ok(board) => board,
         Err(why) => {
             offenders.push(format!("{name} {why}"));

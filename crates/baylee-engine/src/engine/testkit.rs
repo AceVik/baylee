@@ -863,6 +863,52 @@ pub fn play_land_face(
     Ok((engine, object))
 }
 
+/// Puts `card` on the battlefield on turn one and turns it over to face
+/// `face`, for the land faces [`play_land_face`] cannot reach.
+///
+/// A transforming card's land back is not a land drop (CR 712.8a, CR 712.12;
+/// `CardDef::land_faces_from_hand`): it is reached only by turning over on
+/// the battlefield, so that is how this board reaches it. It is a
+/// placement, not an entry, so it says nothing about how the face *enters*
+/// and is only the board for what the face then does.
+///
+/// # Errors
+/// As [`play_land_face`], in the same prose.
+pub fn turned_land_face(
+    card: CardIndex,
+    face: usize,
+) -> Result<(Engine<RegistryLookup>, baylee_core::ids::ObjectId), String> {
+    let seat = PlayerId::new(0);
+    let def = baylee_cards::by_index(card).ok_or("is not in the pool")?;
+    let mut engine = Duel::new(7, basic_forest()).battlefield(0, &[card]).start();
+    let object = on_battlefield(&engine, seat, card).ok_or("never reached the battlefield")?;
+    // Turned over before the first turn begins, while the opening hands are
+    // still being kept: the front face never gets a step to act in, so its
+    // upkeep triggers cannot stand between this board and the main phase.
+    let state = engine
+        .dev_state_mut(seat)
+        .ok_or("the harness was refused the board")?;
+    if !state.transform(object, def, face) {
+        return Err(format!("refused to turn over to face {face}"));
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    let turned = engine
+        .state()
+        .object(object)
+        .ok_or("was turned over and then vanished")?;
+    if turned.zone != crate::zone::Zone::Battlefield {
+        return Err(format!("was turned over and is in {:?}", turned.zone));
+    }
+    if usize::from(turned.face_index) != face {
+        return Err(format!(
+            "was turned over to face {} when face {face} was asked for",
+            turned.face_index
+        ));
+    }
+    Ok((engine, object))
+}
+
 // ---------------------------------------------------------------------------
 // Driving one activation, and the board it is driven on
 //

@@ -137,17 +137,16 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(card) else {
                 continue;
             };
-            let any_face_is_land = if obj.characteristics().types.contains(TypeSet::LAND) {
-                true
-            } else {
-                // MDFC: a back land face is playable (CR 712.12).
-                obj.card
+            // A modal card's land back is a land drop (CR 712.12); a
+            // transforming card's is not (CR 712.8a) — see
+            // `CardDef::land_faces_from_hand`, which `PlayLand` and the house
+            // AI ask as well.
+            let plays_as_land = obj.characteristics().types.contains(TypeSet::LAND)
+                || obj
+                    .card
                     .and_then(|c| self.lookup.card(c.index))
-                    .is_some_and(|def| def.faces.iter().any(|f| f.types.contains(TypeSet::LAND)))
-            };
-            if any_face_is_land
-                && sorcery_timing
-                && casting::has_a_land_drop_left(&self.state, player)
+                    .is_some_and(|def| def.land_faces_from_hand().next().is_some());
+            if plays_as_land && sorcery_timing && casting::has_a_land_drop_left(&self.state, player)
             {
                 legal.lands.push(card);
             }

@@ -199,20 +199,21 @@ its comment says why — `choose_blocks` computes an answer to that shape
 whether or not anything presents it, and a pass tested only on offers the
 engine has already filtered is a pass nothing tests.
 
-**A card in hand is what any of its faces can be.** A `CardIdentity` in hand
-names the face that is *up*, which for a modal double-faced card is the
-spell: Shatterskull Smashing is a sorcery with a land on its back, and every
-reading that asked `HandObject::types` counted nought lands. The engine has
-never agreed — `compute_legal` offers the land drop when **any** face is a
-land (CR 712.12) — so the agent was throwing away a hand whose land drops the
-engine was about to hand it, and keeping a card it had already decided was a
-spare spell. 82 cards in this pool print a land behind a front that is not
-one, floored by `the_pool_prints_lands_on_a_back_face`. `policy::plays_as_land`
-is the agent's half of the engine's sentence and is deliberately the same
-sentence: it does not ask whether the back is reached by playing it or by
-transforming (CR 712.2), because an agent that disagreed with the offer it is
-answering would decline land drops the engine is making it. If that
-distinction is wrong it is wrong in `compute_legal` first.
+**A modal card in hand is what either of its faces can be.** A
+`CardIdentity` in hand names the face that is *up*, which for a modal
+double-faced card is the spell: Shatterskull Smashing is a sorcery with a
+land on its back, and every reading that asked `HandObject::types` counted
+nought lands. The engine offers that land drop (CR 712.12), so the agent was
+throwing away a hand whose land drops the engine was about to hand it, and
+keeping a card it had already decided was a spare spell. A *transforming*
+card is not that: in hand it has only its front face's characteristics
+(CR 712.8a), and Arguel's Blood Fast reaches its Temple only by turning over
+(#152). `castable_from_hand` tells the two kinds apart, held against
+Scryfall's `layout` by `xtask validate`. `policy::plays_as_land` asks the
+engine's own function, `CardDef::land_faces_from_hand`, so the agent and the
+offer it answers cannot disagree: `a_land_on_a_modal_back_is_playable_and_one_on_a_transforming_back_is_not`
+floors both populations and pins one card of each, and
+`the_pool_prints_lands_on_a_back_face` floors the modal one.
 
 The *cast* faces are a separate reading and they are **not** made yet.
 `filter::cast_mode` returns the `Normal` option the moment one is offered, so

@@ -133,6 +133,11 @@ struct Tally {
     untapped: usize,
     /// Land faces carrying a modifier that asks a question.
     asks: usize,
+    /// Land faces a transforming card reaches only by turning over on the
+    /// battlefield (CR 712.8a; `CardDef::land_faces_from_hand`). They are
+    /// never a land drop, so they never enter as one, and there is no
+    /// arrival to compare.
+    turned: usize,
 }
 
 impl Tally {
@@ -140,6 +145,7 @@ impl Tally {
         self.tapped += other.tapped;
         self.untapped += other.untapped;
         self.asks += other.asks;
+        self.turned += other.turned;
     }
 }
 
@@ -180,12 +186,19 @@ const UNTAPPED_SHARE: usize = 4;
 /// about how much of it is written.
 const FACES_FLOOR: usize = 1200;
 
+/// Transforming cards' land backs, 32 of them on 2026-09-24 (#152).
+const TURNED_FLOOR: usize = 30;
+
 fn walk(slice: &[&'static CardDef]) -> (Vec<String>, Tally) {
     let mut offenders = Vec::new();
     let mut tally = Tally::default();
     for def in slice {
         for index in land_faces(def) {
             let face = &def.faces[index];
+            if !def.land_faces_from_hand().any(|playable| playable == index) {
+                tally.turned += 1;
+                continue;
+            }
             if arrival(face) == Arrival::Asks {
                 tally.asks += 1;
                 continue;
@@ -242,8 +255,9 @@ fn sweep() -> (Vec<String>, Tally) {
 fn every_land_in_the_pool_arrives_the_way_its_own_card_says_it_does() {
     let (offenders, tally) = sweep();
     println!(
-        "{} entered tapped, {} untapped, {} skipped for asking a question",
-        tally.tapped, tally.untapped, tally.asks
+        "{} entered tapped, {} untapped, {} skipped for asking a question, {} reached by \
+         turning over",
+        tally.tapped, tally.untapped, tally.asks, tally.turned
     );
     assert!(
         offenders.is_empty(),
@@ -251,11 +265,11 @@ fn every_land_in_the_pool_arrives_the_way_its_own_card_says_it_does() {
         offenders.len()
     );
     // Every face, not merely a lot of them. `offenders` is empty by the
-    // assertion above and a face lands in exactly one of the three buckets,
-    // so the three of them add back up to the population or the sweep
+    // assertion above and a face lands in exactly one of the four buckets,
+    // so the four of them add back up to the population or the sweep
     // dropped something on the floor.
     let faces: usize = baylee_cards::all().map(|def| land_faces(def).len()).sum();
-    let reached = tally.tapped + tally.untapped + tally.asks;
+    let reached = tally.tapped + tally.untapped + tally.asks + tally.turned;
     assert_eq!(
         reached, faces,
         "the sweep classified {reached} of the pool's {faces} land faces"
@@ -270,6 +284,15 @@ fn every_land_in_the_pool_arrives_the_way_its_own_card_says_it_does() {
         "only {} land faces entered tapped, under the floor of {TAPPED_FLOOR} — either \
          the pool lost a couple of hundred taplands or this sweep stopped reaching them",
         tally.tapped
+    );
+    // The turned bucket has a floor of its own, so that a predicate calling
+    // every land face a land drop — the defect of #152 — leaves it empty and
+    // goes red here rather than quietly playing 32 illegal land drops.
+    assert!(
+        tally.turned >= TURNED_FLOOR,
+        "only {} land faces are reached by turning over, under the floor of \
+         {TURNED_FLOOR}",
+        tally.turned
     );
     assert!(
         tally.untapped * UNTAPPED_SHARE >= faces,

@@ -24,20 +24,21 @@ pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
 /// double-faced card that is the spell: Shatterskull Smashing is a sorcery
 /// with a land on its back, and every reader that asked
 /// `types.contains(LAND)` read it as a spell and nothing else. The engine
-/// does not — `compute_legal` offers the land drop when **any** face is a
-/// land (CR 712.12) — so the agent was refusing to count a card the engine
-/// was already offering it. 82 cards in this pool print a spell over a land.
+/// does not — `compute_legal` offers the land drop for a modal card's land
+/// back (CR 712.12) — so the agent was refusing to count a card the engine
+/// was already offering it.
 ///
-/// The rule here is deliberately the engine's rule and not a better one. It
-/// does not ask whether the back is reached by *playing* it or by
-/// transforming (CR 712.2); if that distinction is wrong it is wrong in
-/// `compute_legal` first, and an agent that disagreed with the offer it is
-/// answering would decline land drops the engine is making it.
+/// The rule is the engine's rule, asked through the same function
+/// (`CardDef::land_faces_from_hand`): a modal card's land back is a land
+/// drop (CR 712.12) and a transforming card's is not, because in hand it has
+/// only its front face's characteristics (CR 712.8a). An agent that
+/// disagreed with the offer it is answering would count land drops the
+/// engine will not make, or decline ones it is making.
 pub(crate) fn land_face(card: CardIdentity) -> Option<&'static FaceDef> {
-    baylee_cards::by_index(card.index)?
-        .faces
-        .iter()
-        .find(|f| f.types.contains(TypeSet::LAND))
+    let def = baylee_cards::by_index(card.index)?;
+    def.land_faces_from_hand()
+        .next()
+        .and_then(|index| def.faces.get(index))
 }
 
 /// Whether a card in hand can be played as a land at all.
@@ -970,35 +971,65 @@ mod tests {
     /// answering declines land drops the engine is making it.
     ///
     /// So the rule is read over the **whole pool** rather than over an
-    /// example: `plays_as_land` and "any face is a land" name the same
-    /// cards, and the population that makes the sweep worth anything is
-    /// counted beside it — the cards whose front face is not a land and
-    /// whose back is, which are exactly the ones a front-face reader gets
-    /// wrong.
+    /// example, and in two populations, because the back face is a land drop
+    /// for one kind of double-faced card and not the other. A modal card's
+    /// land back is (CR 712.12); a transforming card's is not, since in hand
+    /// it has only its front face's characteristics (CR 712.8a) — Arguel's
+    /// Blood Fast is an enchantment there, and its Temple is reached only by
+    /// turning over. `castable_from_hand` is what tells the two apart, and
+    /// `xtask validate` holds it against Scryfall's `layout`.
+    ///
+    /// Both populations carry a floor and a card pinned by name, so an
+    /// answer that is "yes" for every back land, or "no" for every one, is
+    /// red here rather than a quiet pass over half the pool.
     #[test]
-    fn a_land_on_any_face_is_a_land_this_agent_can_play() {
+    fn a_land_on_a_modal_back_is_playable_and_one_on_a_transforming_back_is_not() {
         use baylee_core::ids::PrintRef;
         use baylee_core::types::TypeSet;
 
+        let identity = |index| super::CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let by_oracle = |oracle_id| {
+            identity(
+                baylee_cards::by_oracle_id(oracle_id)
+                    .expect("registry contains the card")
+                    .index,
+            )
+        };
         let mut read = 0usize;
-        let mut hidden_lands = Vec::new();
+        let mut modal = Vec::new();
+        let mut transforming = Vec::new();
         let mut wrong = Vec::new();
         for def in baylee_cards::all() {
             read += 1;
             // Face 0, because that is what a card in hand shows and what
             // every front-face reader was looking at.
-            let card = super::CardIdentity {
-                index: def.index,
-                print: PrintRef::new(0),
-                face: 0,
+            let card = identity(def.index);
+            let front_is_a_land = def.faces[0].types.contains(TypeSet::LAND);
+            let back_land = def
+                .faces
+                .iter()
+                .skip(1)
+                .find(|f| f.types.contains(TypeSet::LAND));
+            let playable = match back_land {
+                _ if front_is_a_land => true,
+                Some(back) if back.castable_from_hand => {
+                    modal.push(def.name());
+                    true
+                }
+                Some(_) => {
+                    transforming.push(def.name());
+                    false
+                }
+                None => false,
             };
-            let any_face_is_a_land = def.faces.iter().any(|f| f.types.contains(TypeSet::LAND));
-            if super::plays_as_land(card) != any_face_is_a_land {
+            if super::plays_as_land(card) != playable {
                 wrong.push(def.name());
             }
-            let front_is_a_land = def.faces[0].types.contains(TypeSet::LAND);
-            if any_face_is_a_land && !front_is_a_land {
-                hidden_lands.push(def.name());
+            if playable {
                 assert!(
                     super::land_face(card).is_some_and(|f| f.types.contains(TypeSet::LAND)),
                     "{} names a face that is not the land",
@@ -1013,30 +1044,34 @@ mod tests {
         );
         assert!(
             wrong.is_empty(),
-            "{} card(s) disagree with CR 712.12: {:?}",
+            "{} card(s) disagree with CR 712.12 / 712.8a: {:?}",
             wrong.len(),
             &wrong[..wrong.len().min(10)]
         );
-        // 82 on 2026-09-21, which is the number `land_face`'s own doc
-        // states — measured here rather than retyped. The floor is under it
-        // because the pool only grows, and a sweep that read none of these
-        // would report the same clean result as one that read all of them.
+        // Measured 2026-09-24: 50 modal and 32 transforming, over 2716
+        // cards. Floors under both, because the pool only grows, and a
+        // sweep that read none of either would report the same clean result
+        // as one that read all of them.
         assert!(
-            hidden_lands.len() >= 80,
-            "only {} card(s) print a spell over a land, so this sweep proves \
-             nothing about the case it exists for: {hidden_lands:?}",
-            hidden_lands.len()
+            modal.len() >= 48,
+            "only {} modal card(s) print a spell over a land: {modal:?}",
+            modal.len()
+        );
+        assert!(
+            transforming.len() >= 30,
+            "only {} transforming card(s) turn into a land: {transforming:?}",
+            transforming.len()
         );
 
-        // And the other direction, which is the one a card author would
-        // break: a card with no land face anywhere is not a land drop.
-        let bolt = baylee_cards::by_oracle_id("4457ed35-7c10-48c8-9776-456485fdf070")
-            .expect("registry contains Lightning Bolt");
-        let bolt = super::CardIdentity {
-            index: bolt.index,
-            print: PrintRef::new(0),
-            face: 0,
-        };
+        // Pinned by name, one of each kind.
+        let shatterskull = by_oracle("78301998-fd9b-4cd5-afad-dbcb43cac2a7");
+        assert!(super::plays_as_land(shatterskull), "Shatterskull Smashing");
+        let blood_fast = by_oracle("be2a4bc4-8af6-48c5-9421-32d26272e71a");
+        assert!(!super::plays_as_land(blood_fast), "Arguel's Blood Fast");
+        assert!(super::land_face(blood_fast).is_none());
+
+        // And a card with no land face anywhere is not a land drop.
+        let bolt = by_oracle("4457ed35-7c10-48c8-9776-456485fdf070");
         assert!(!super::plays_as_land(bolt));
         assert!(super::land_face(bolt).is_none());
     }

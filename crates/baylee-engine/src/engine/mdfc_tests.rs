@@ -326,3 +326,69 @@ fn the_true_scriptures_is_turned_over_and_never_cast() {
             .contains(baylee_core::types::TypeSet::CREATURE)
     );
 }
+
+/// #152: a transforming card's land back is not a land drop.
+///
+/// Arguel's Blood Fast turns into Temple of Aclazotz only by transforming,
+/// and in hand it has only its front face's characteristics (CR 712.8a):
+/// an enchantment. CR 712.12 lets a player choose a land face only when
+/// playing a *modal* card. The offer used to ask whether any face was a
+/// land, so the Temple was on the battlefield on turn one for nothing.
+/// Glasspool Mimic, a modal card in the same hand, is the control: the
+/// window is open and its land back is still offered.
+#[test]
+fn a_transforming_cards_land_back_is_not_a_land_drop() {
+    let blood_fast = card_index("be2a4bc4-8af6-48c5-9421-32d26272e71a");
+    let mut engine = Engine::new(
+        &preset(152, vec![blood_fast, glasspool_mimic()], vec![]),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let in_hand = |engine: &Engine<RegistryLookup>, idx: CardIndex| {
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .iter()
+            .copied()
+            .find(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == idx)
+            })
+            .expect("in hand")
+    };
+    let temple = in_hand(&engine, blood_fast);
+    let shore = in_hand(&engine, glasspool_mimic());
+    let lands = loop {
+        match engine.pending().clone() {
+            Pending::Priority { player, legal }
+                if player == p0 && engine.state().turn.phase == crate::turn::Phase::FirstMain =>
+            {
+                break legal.lands;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected pending: {other:?}"),
+        }
+    };
+    assert!(
+        lands.contains(&shore),
+        "the modal back is offered: {lands:?}"
+    );
+    assert!(
+        !lands.contains(&temple),
+        "the transforming back was offered as a land drop: {lands:?}"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: temple })
+            .is_err(),
+        "and naming it anyway is refused"
+    );
+}

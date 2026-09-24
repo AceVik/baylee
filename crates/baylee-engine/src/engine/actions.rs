@@ -186,25 +186,15 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.lands.contains(&card) {
                     return Err(EngineError::IllegalAction("land not playable now"));
                 }
-                // MDFC: which land face is played (CR 712.12)?
+                // MDFC: which land face is played (CR 712.12)? Only the
+                // faces the offer counted, so a transforming card's land back
+                // is never one of them.
                 let land_faces: Vec<usize> = self
                     .state
                     .object(card)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
-                    .map_or_else(
-                        || vec![0],
-                        |def| {
-                            def.faces
-                                .iter()
-                                .enumerate()
-                                .filter(|(_, f)| {
-                                    f.types.contains(baylee_core::types::TypeSet::LAND)
-                                })
-                                .map(|(i, _)| i)
-                                .collect()
-                        },
-                    );
+                    .map_or_else(|| vec![0], |def| def.land_faces_from_hand().collect());
                 if land_faces.len() > 1 {
                     // Both faces are lands (pathways): choose.
                     let options = land_faces
