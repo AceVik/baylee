@@ -316,15 +316,21 @@ pub type TableCosmetics = HashMap<usize, SeatCosmetics>;
 ///
 /// Raw rather than multipart: there is exactly one field, and a form encoding
 /// would be a parser and a dependency for no gain. The account is required so
-/// that filling the disk takes an account first.
+/// that filling the disk takes an account first, and a registered one (#269):
+/// a guest is an account anybody gets by asking, and a picture from nobody
+/// in particular is one this gateway would be the only one answerable for.
 pub async fn upload(
     State(state): State<Shared>,
     headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
     body: Bytes,
 ) -> Response {
-    if let Err(e) = crate::authed(&state, &headers).await {
-        return e.into_response();
+    match crate::authed_session(&state, &headers).await {
+        Err(e) => return e.into_response(),
+        Ok(session) if session.guest => {
+            return err(StatusCode::FORBIDDEN, "guests cannot upload images").into_response();
+        }
+        Ok(_) => {}
     }
     // A missing `kind` and an unknown one are the same answer on purpose:
     // both mean the caller named a kind of picture this gateway does not

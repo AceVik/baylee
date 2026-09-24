@@ -64,6 +64,38 @@ impl Gateway {
             panic!("{e}");
         }
     }
+
+    /// The one number a query in this gateway's schema answers, for what no
+    /// route says, such as whether a guest's decks went with it (#269).
+    /// Panics when there is no such number, for the reason [`Self::sql`]
+    /// does.
+    pub fn scalar(&self, query: &str) -> i64 {
+        let url = self.database_url();
+        let query = query.to_owned();
+        std::thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("a runtime for one query")
+                .block_on(async move {
+                    use sea_orm::ConnectionTrait as _;
+                    let db = sea_orm::Database::connect(&url)
+                        .await
+                        .expect("connecting to the gateway's schema");
+                    db.query_one_raw(sea_orm::Statement::from_string(
+                        sea_orm::DbBackend::Postgres,
+                        query.clone(),
+                    ))
+                    .await
+                    .unwrap_or_else(|e| panic!("{query}: {e}"))
+                    .unwrap_or_else(|| panic!("{query}: no row"))
+                    .try_get_by_index::<i64>(0)
+                    .unwrap_or_else(|e| panic!("{query}: {e}"))
+                })
+        })
+        .join()
+        .expect("the query's thread")
+    }
 }
 
 impl Drop for Gateway {

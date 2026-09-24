@@ -62,6 +62,12 @@ struct AppState {
     lobby: Mutex<Lobby>,
     /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
     registration_enabled: bool,
+    /// Whether a player may play as a guest (`BAYLEE_GUESTS=off` to
+    /// disable; #269).
+    guests_enabled: bool,
+    /// How many guests there may be at once (`BAYLEE_GUEST_CAP`, 1000 unless
+    /// set, `0` for no bound); `None` when unbounded. See [`guest_cap`].
+    guest_cap: Option<u64>,
     /// What this gateway calls itself to a client (`BAYLEE_GATEWAY_NAME`),
     /// already checked by [`display_name`]. `None` when unset, and the client
     /// names it by its address instead.
@@ -157,6 +163,8 @@ async fn main() {
     validate_the_dev_board();
     let display_name = display_name(std::env::var("BAYLEE_GATEWAY_NAME").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GATEWAY_NAME: {why}"));
+    let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -180,9 +188,9 @@ async fn main() {
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
             .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
-        registration_enabled: registration_enabled(
-            std::env::var("BAYLEE_REGISTRATION").ok().as_deref(),
-        ),
+        registration_enabled: switched_on(std::env::var("BAYLEE_REGISTRATION").ok().as_deref()),
+        guests_enabled: switched_on(std::env::var("BAYLEE_GUESTS").ok().as_deref()),
+        guest_cap,
         display_name,
         mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
@@ -202,6 +210,7 @@ async fn main() {
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/auth/guest", post(guest))
         .route("/auth/confirm", get(confirm))
         .route("/auth/confirm/resend", post(resend_confirmation))
         .route("/auth/logout", post(logout))
@@ -327,7 +336,8 @@ async fn open_database(store_path: &std::path::Path) -> sea_orm::DatabaseConnect
 }
 
 /// Periodically reclaims finished games (after a grace period), stale
-/// waiting lobbies, and expired tokens — all three grew without bound.
+/// waiting lobbies, expired tokens and the guests they were the way into —
+/// all of them grew without bound.
 fn spawn_cleanup(state: Shared) {
     /// How long a finished game stays joinable for reconnect/review.
     const OVER_GRACE_SECS: u64 = 3600;
@@ -371,6 +381,13 @@ fn spawn_cleanup(state: Shared) {
             // the gateway had ever issued.
             match store::sweep_tokens(&state.db, now).await {
                 Ok(purged) if purged > 0 => tracing::debug!(purged, "lapsed sessions swept"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!("{e:#}"),
+            }
+            // After the sessions, because a guest goes with its last one
+            // (#269).
+            match store::purge_guests(&state.db, now, None).await {
+                Ok(purged) if purged > 0 => tracing::info!(purged, "idle guests deleted"),
                 Ok(_) => {}
                 Err(e) => tracing::warn!("{e:#}"),
             }
@@ -449,8 +466,10 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
     )
 }
 
-/// Whether this gateway lets a stranger make an account
-/// (`BAYLEE_REGISTRATION`).
+/// Whether a switch is on: whether this gateway lets a stranger make an
+/// account (`BAYLEE_REGISTRATION`), and whether it lets one play as a guest
+/// (`BAYLEE_GUESTS`, #269), one reading for both so that an operator learns
+/// one.
 ///
 /// **Three spellings shut the door and every other value leaves it open**,
 /// which is the wrong way round for the one switch an operator reaches for
@@ -463,8 +482,30 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
 /// specification that does not resolve refuses to start the gateway rather
 /// than failing at the moment somebody presses Start. The day either is
 /// taken, the test named after this sentence is what changes.
-fn registration_enabled(raw: Option<&str>) -> bool {
+fn switched_on(raw: Option<&str>) -> bool {
     !matches!(raw, Some("off" | "0" | "false"))
+}
+
+/// How many guests there may be at once (`BAYLEE_GUEST_CAP`, #269), or
+/// `None` for no bound.
+///
+/// The per-address limiter bounds how fast one address makes guests, and
+/// nothing about how many a crowd of addresses makes; this bounds the
+/// accounts nobody registered. Unset is a thousand, `0` is no bound, and
+/// anything else that is not a count stops the gateway starting, as a bad
+/// name does: a cap that read a typo as "no cap" would be found out by the
+/// disk.
+fn guest_cap(raw: Option<&str>) -> Result<Option<u64>, String> {
+    /// How many guests a gateway takes when its operator says nothing.
+    const DEFAULT_GUEST_CAP: u64 = 1000;
+    match raw.map(str::trim) {
+        None | Some("") => Ok(Some(DEFAULT_GUEST_CAP)),
+        Some(count) => match count.parse::<u64>() {
+            Ok(0) => Ok(None),
+            Ok(cap) => Ok(Some(cap)),
+            Err(_) => Err(format!("{count:?} is not a count of guests")),
+        },
+    }
 }
 
 /// The proxies whose `X-Forwarded-For` this gateway believes
@@ -765,6 +806,8 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,
+        // Whether "play as a guest" is offered (#269).
+        "guests_enabled": state.guests_enabled,
         // Whether `GET /art/…` mirrors card images. A client that pointed at a
         // gateway with the mirror switched off would get a 404 for every card
         // and draw a whole table of constructed faces, so it is told here
@@ -976,7 +1019,9 @@ async fn login(
     }
     // The expensive verify runs off the async worker, and against a dummy
     // hash when there is no account, so the two take the same time.
-    let stored_hash = account.as_ref().map(|a| a.password_hash.clone());
+    // A guest has no hash, and no username or address to be found by
+    // either; were one found, the dummy would refuse it like a stranger.
+    let stored_hash = account.as_ref().and_then(|a| a.password_hash.clone());
     let password = creds.password.clone();
     let ok = tokio::task::spawn_blocking(move || {
         auth::verify_password(stored_hash.as_deref(), &password)
@@ -1016,15 +1061,105 @@ async fn login(
     })))
 }
 
+/// What `POST /auth/guest` takes (#269). Every field is optional, and an
+/// empty body is a guest called `Guest`.
+#[derive(Deserialize, Default)]
+struct GuestBody {
+    /// The name other players see, under the display-name rule.
+    #[serde(default)]
+    display_name: Option<String>,
+    /// The language it asks in.
+    #[serde(default)]
+    lang: String,
+}
+
+/// The name a guest is seen by when it chose none.
+const GUEST_NAME: &str = "Guest";
+
+/// `POST /auth/guest`: an account with no username, no address and no
+/// password, and its session, in one answer (#269).
+///
+/// The session is the guest: nothing signs in as one, so it lives as long
+/// as its session does ([`auth::Lifetime::GUEST`], thirty days from the last
+/// time it played) and goes with it, decks included ([`store::purge_guests`]).
+/// Bounded twice: per address by the limiter registration uses, and in all
+/// by [`AppState::guest_cap`]. The count is read before the write, so a
+/// burst of requests at the edge can pass it by as many as are in flight;
+/// the cap bounds a flood, not a queue.
+async fn guest(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(body): Json<GuestBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    if !state.guests_enabled {
+        return Err(err(StatusCode::FORBIDDEN, "this gateway takes no guests"));
+    }
+    if !state
+        .limiter
+        .allow(&rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers))
+    {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+    }
+    let display_name = body
+        .display_name
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| GUEST_NAME.to_owned());
+    if !auth::valid_display_name(&display_name) {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid display name"));
+    }
+    if let Some(cap) = state.guest_cap {
+        let guests = store::guest_count(&state.db)
+            .await
+            .map_err(|e| db_down(&e))?;
+        if guests >= cap {
+            return Err(err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "no guest seats free, sign up or try later",
+            ));
+        }
+    }
+    let issued = auth::IssuedToken::lasting(auth::Lifetime::GUEST);
+    let account = store::create_guest(
+        &state.db,
+        store::NewGuest {
+            display_name,
+            created_at: auth::now_secs(),
+            lang: body.lang,
+        },
+        auth::token_digest(&issued.token),
+        issued.expires_at,
+    )
+    .await
+    .map_err(|e| db_down(&e))?;
+    Ok(Json(serde_json::json!({
+        "token": issued.token,
+        "expires_at": issued.expires_at,
+        "guest": true,
+        "handle": handle::handle(&account.display_name, account.tag),
+    })))
+}
+
 /// Resolves the bearer token to an account id.
 ///
 /// One indexed read per authenticated request, and a write only once the
-/// session is past its half-life — see `store::resolve_token` for why the
+/// session is due a renewal — see `store::resolve_token` for why the
 /// sliding expiry stopped sliding on every request.
 async fn authed(
     state: &Shared,
     headers: &HeaderMap,
 ) -> Result<String, (StatusCode, Json<ErrorBody>)> {
+    authed_session(state, headers)
+        .await
+        .map(|session| session.account_id)
+}
+
+/// Resolves the bearer token to its session: the account, and whether it
+/// is a guest's, for the routes a guest may not use.
+async fn authed_session(
+    state: &Shared,
+    headers: &HeaderMap,
+) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
     let token = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
@@ -1288,9 +1423,18 @@ async fn logout(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    store::drop_token(&state.db, token)
+    let owner = store::drop_token(&state.db, token)
         .await
         .map_err(|e| db_down(&e))?;
+    // A guest's session is the guest (#269): signed out, nothing can reach
+    // it again, so it goes now rather than at the next sweep. The client
+    // asked the player first. An account's is left alone: the query deletes
+    // guests only.
+    if let Some(account_id) = owner {
+        store::purge_guests(&state.db, auth::now_secs(), Some(&account_id))
+            .await
+            .map_err(|e| db_down(&e))?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1310,6 +1454,9 @@ async fn me(
         // Only ever to its owner: nothing that shows one player to another
         // carries it (#269).
         "username": account.username,
+        // A guest's client says what a guest is (#269): gone thirty days
+        // after it last played.
+        "guest": account.guest,
         "display_name": account.display_name,
         // The two halves separately, because this is the one caller that
         // wants them apart: a settings screen shows the name in a field a
@@ -3217,7 +3364,8 @@ async fn lobby_ws(
     let account_id = store::resolve_token(&state.db, &params.token, auth::now_secs())
         .await
         .map_err(|e| db_down(&e))?
-        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
+        .account_id;
     Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
 }
 

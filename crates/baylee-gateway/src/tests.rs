@@ -201,7 +201,7 @@ fn a_proxy_entry_that_is_not_an_address_is_a_proxy_nobody_vouched_for() {
 fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
     for closed in ["off", "0", "false"] {
         assert!(
-            !registration_enabled(Some(closed)),
+            !switched_on(Some(closed)),
             "{closed:?} is one of the three that shut it"
         );
     }
@@ -217,10 +217,24 @@ fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
         Some("1"),
     ] {
         assert!(
-            registration_enabled(open),
+            switched_on(open),
             "{open:?} leaves registration open, and an operator who wrote it \
              meant the opposite"
         );
+    }
+}
+
+/// The guest cap (#269): a thousand when unset, none for `0`, and a
+/// value that is not a count stops the gateway rather than reading as either.
+#[test]
+fn the_guest_cap_is_a_thousand_unless_said_and_a_typo_stops_the_gateway() {
+    assert_eq!(guest_cap(None), Ok(Some(1000)));
+    assert_eq!(guest_cap(Some("")), Ok(Some(1000)));
+    assert_eq!(guest_cap(Some("25")), Ok(Some(25)));
+    assert_eq!(guest_cap(Some(" 25 ")), Ok(Some(25)));
+    assert_eq!(guest_cap(Some("0")), Ok(None), "no bound");
+    for typo in ["off", "-1", "1k", "1000 guests"] {
+        assert!(guest_cap(Some(typo)).is_err(), "{typo:?} was read as a cap");
     }
 }
 

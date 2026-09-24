@@ -64,6 +64,7 @@
 #![warn(missing_docs)]
 
 pub mod entity;
+pub mod guests;
 pub mod import;
 pub mod migration;
 pub mod usernames;

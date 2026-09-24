@@ -1112,6 +1112,49 @@ kept as typed, after folding.
   a handle's hex added after a `-` where that part is shorter than three
   characters or taken (`al-af03`), the older account keeping the plain name.
 
+## Playing as a guest (#269)
+
+A display name is enough to reach a table. `POST /auth/guest`
+`{display_name?, lang?}` hands out an account with **no username, no
+address and no password**, and its session, in one answer:
+`{token, expires_at, guest: true, handle}`. The name is under the
+display-name rule below, and `Guest` when none (or an empty one) was given,
+so a guest is `Guest#1a2b` to the other players.
+
+- **The session is the guest.** Nothing signs in as one, by name, handle or
+  an empty password, so the token is the only way in. It lives **thirty
+  days** and slides, renewed at most once a day (`auth::Lifetime::GUEST`;
+  an account's lives twelve hours and is renewed at its half-life), so a
+  guest lasts 29 to 30 days past the last time it played. The client keeps
+  a guest's token per gateway, which is how a guest comes back.
+- **A guest no session leads to is deleted**, with its decks, their history
+  and its preferences (`baylee_db::guests::purge`): by the gateway's sweep
+  once its session has lapsed, and **at once when it signs out**, since
+  nothing could reach it again. The client warns before that sign-out.
+  Another player's copy of one of its decks stays.
+- **A guest plays as anybody does**: opens and hosts tables, joins them,
+  plays the house AI, builds and keeps decks, keeps preferences. It **cannot
+  upload a sleeve or a mat** (`403` `guests cannot upload images`): a
+  picture from an account anybody gets by asking is one only the gateway
+  would answer for. `GET /me` says `"guest": true`.
+- **Bounded twice.** Per address by the limiter registration uses (ten in
+  five minutes), and in all by `BAYLEE_GUEST_CAP` (1000 unless set, `0` for
+  no bound, anything else not a count refuses to start the gateway): past
+  it `503` `no guest seats free, sign up or try later`. The count is read
+  before the write, so a burst at the edge may pass it by as many requests
+  as are in flight.
+- **`BAYLEE_GUESTS=off`** closes the door (`403` `this gateway takes no
+  guests`), read the way `BAYLEE_REGISTRATION` is; `GET /auth/config` says
+  `guests_enabled`, so a client offers what the gateway takes. The two
+  switches are independent.
+- The database holds a guest to all of this (migration
+  `m20260925_000007_guests`): a guest has no username, address or password,
+  and an account that is not a guest has a password and a username or,
+  until #280 ends sign-in by address, an address.
+
+Turning a guest into an account, keeping its decks, is not part of this
+(#269 leaves it to an issue of its own).
+
 ## A name is not a claim: `Alice#af03`
 
 A display name is **not** unique. Two players may both register as Alice, and
@@ -1163,7 +1206,9 @@ from a curl recipe into a contract:
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
 | send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
 | sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}` |
-| who am I | `GET /me` | `{id, email, username, display_name, tag, handle}` |
+| play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |
+| sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
+| who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, cards, sideboard, commanders, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
@@ -1175,7 +1220,7 @@ from a curl recipe into a contract:
 | what it used to be | `GET /decks/{id}/history` | `{version, updated_at, past:[{version, cards, sideboard, commanders, summary, superseded_at}]}` |
 | one earlier state | `GET /decks/{id}/versions/{v}` | that state's rows in full, plus `current` |
 | put one back | `POST /decks/{id}/versions/{v}/revert` | `{version}` — the **new** number |
-| upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}` |
+| upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}`; `403` for a guest |
 | fetch one | `GET /images/{id}` | the stored JPEG |
 | what a table wears | `GET /games/{id}/cosmetics?token=…` | `{"<seat>":{sleeve, playmat}}` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
@@ -1188,7 +1233,7 @@ from a curl recipe into a contract:
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
 
-Everything but `/info`, the two auth calls, `/auth/config`, `/pool` and
+Everything but `/info`, the three auth calls, `/auth/config`, `/pool` and
 `/printings` takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
@@ -1360,7 +1405,8 @@ back of a Magic card is somebody's trademark, and arithmetic is nobody's.
 
 Uploading is `POST /images?kind=…` with the picture as the raw body — one
 field needs no multipart parser — and it takes an account, so filling the disk
-takes an account first. What comes back is a content hash, which makes the
+takes an account first; a registered one, since a guest's upload is refused
+(§"Playing as a guest"). What comes back is a content hash, which makes the
 same picture uploaded twice one file and makes `GET /images/{id}` cacheable
 forever. An image is stored at exactly one size per kind (a sleeve at 488×680,
 the same pixels as a card face; a mat at 1024×512), re-encoded on the way in

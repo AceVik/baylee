@@ -124,10 +124,13 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         // way to collide with a later registration, because an explicit
         // value does not move the sequence.
         tag: NotSet,
-        password_hash: Set("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned()),
+        password_hash: Set(Some(
+            "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
+        )),
         created_at: Set(OffsetDateTime::now_utc()),
         confirmed_at: Set(None),
         lang: Set("de".to_owned()),
+        guest: Set(false),
     }
 }
 
@@ -911,8 +914,10 @@ async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() 
         "a second account signed in as alice"
     );
 
-    // Back past it and forward again: the names come back the same.
-    Migrator::down(&sandbox.db, Some(1))
+    // Back past it and forward again: the names come back the same. Counted
+    // from the list, so the migrations after it are stepped back too.
+    let past_it = u32::try_from(Migrator::migrations().len() - 5).expect("a handful");
+    Migrator::down(&sandbox.db, Some(past_it))
         .await
         .expect("the migration steps back");
     Migrator::up(&sandbox.db, None)
@@ -921,14 +926,231 @@ async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() 
     assert_eq!(names(sandbox.db.clone()).await, named);
 
     // And an account needs no address: two without one are no clash.
-    for _ in 0..2 {
-        let mut nameless = an_account("unused@example.com");
-        nameless.email = Set(None);
-        Account::insert(nameless)
+    for name in ["Dora", "Emil"] {
+        let mut addressless = an_account("unused@example.com");
+        addressless.email = Set(None);
+        addressless.username = Set(Some(name.into()));
+        addressless.username_key = Set(Some(name.to_lowercase()));
+        Account::insert(addressless)
             .exec(&sandbox.db)
             .await
             .expect("an account without an address");
     }
+
+    sandbox.close().await;
+}
+
+/// A guest, ready to insert (#269): a name to be seen by, and nothing to
+/// sign in with.
+fn a_guest() -> account::ActiveModel {
+    let mut guest = named("unused@example.com", "Guest");
+    guest.email = Set(None);
+    guest.password_hash = Set(None);
+    guest.guest = Set(true);
+    guest
+}
+
+/// A session of `account`'s that runs out at `expires`.
+fn a_session(account: Uuid, expires: OffsetDateTime) -> session_token::ActiveModel {
+    session_token::ActiveModel {
+        token_hash: Set(Uuid::now_v7().as_bytes().to_vec()),
+        account_id: Set(account),
+        expires_at: Set(expires),
+    }
+}
+
+/// Who holds what, in both directions (#269): a guest holds nothing to sign
+/// in with, and an account that is not a guest holds a password and a name
+/// or, until #280, an address.
+#[tokio::test]
+async fn a_guest_holds_nothing_to_sign_in_with_and_an_account_holds_something() {
+    let sandbox = Sandbox::open("guest_check").await;
+    let db = &sandbox.db;
+
+    Account::insert(a_guest())
+        .exec(db)
+        .await
+        .expect("a guest with nothing to sign in with");
+
+    let mut with_password = a_guest();
+    with_password.password_hash = Set(Some("hash".into()));
+    let mut with_name = a_guest();
+    with_name.username = Set(Some("Casper".into()));
+    with_name.username_key = Set(Some("casper".into()));
+    let mut with_address = a_guest();
+    with_address.email = Set(Some("casper@example.com".into()));
+    for (what, row) in [
+        ("a password", with_password),
+        ("a username", with_name),
+        ("an address", with_address),
+    ] {
+        assert!(
+            Account::insert(row).exec(db).await.is_err(),
+            "a guest was written holding {what}"
+        );
+    }
+
+    let mut no_password = an_account("nopass@example.com");
+    no_password.password_hash = Set(None);
+    let mut nothing_to_name = an_account("nobody@example.com");
+    nothing_to_name.email = Set(None);
+    for (what, row) in [
+        ("no password", no_password),
+        ("neither a username nor an address", nothing_to_name),
+    ] {
+        assert!(
+            Account::insert(row).exec(db).await.is_err(),
+            "an account was written with {what}"
+        );
+    }
+
+    let mut by_name = an_account("unused@example.com");
+    by_name.email = Set(None);
+    by_name.username = Set(Some("Named".into()));
+    by_name.username_key = Set(Some("named".into()));
+    Account::insert(by_name)
+        .exec(db)
+        .await
+        .expect("an account named by its username alone");
+    Account::insert(an_account("address@example.com"))
+        .exec(db)
+        .await
+        .expect("an account named by its address alone, as the importer writes it");
+
+    sandbox.close().await;
+}
+
+/// A guest goes once no live session leads to it, and its decks with it; a
+/// guest still playing stays, and an account is never touched (#269).
+#[tokio::test]
+async fn a_guest_goes_with_its_last_session_and_takes_its_decks() {
+    let sandbox = Sandbox::open("guest_purge").await;
+    let db = &sandbox.db;
+    let now = OffsetDateTime::now_utc();
+    let hour = time::Duration::hours(1);
+
+    let guest = |db: DatabaseConnection| async move {
+        Account::insert(a_guest())
+            .exec_with_returning(&db)
+            .await
+            .expect("a guest")
+            .id
+    };
+    let playing = guest(db.clone()).await;
+    SessionToken::insert(a_session(playing, now + hour))
+        .exec(db)
+        .await
+        .unwrap();
+    let lapsed = guest(db.clone()).await;
+    SessionToken::insert(a_session(lapsed, now - hour))
+        .exec(db)
+        .await
+        .unwrap();
+    let signed_out = guest(db.clone()).await;
+    let keeper = Account::insert(an_account("keeper@example.com"))
+        .exec_with_returning(db)
+        .await
+        .unwrap()
+        .id;
+
+    let guest_deck = Deck::insert(a_deck(Some(lapsed), "Guest deck"))
+        .exec_with_returning(db)
+        .await
+        .unwrap()
+        .id;
+    let mut copy = a_deck(Some(keeper), "Copied from a guest");
+    copy.copied_from = Set(Some(guest_deck));
+    copy.copied_version = Set(Some(1));
+    let copy = Deck::insert(copy).exec_with_returning(db).await.unwrap().id;
+
+    assert_eq!(
+        baylee_db::guests::purge(db, now, None).await.unwrap(),
+        2,
+        "the lapsed guest and the one signed out"
+    );
+    let left: Vec<Uuid> = Account::find()
+        .all(db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|a| a.id)
+        .collect();
+    assert!(left.contains(&playing), "a guest still playing stays");
+    assert!(left.contains(&keeper), "an account without a session stays");
+    assert!(!left.contains(&lapsed) && !left.contains(&signed_out));
+    assert!(
+        Deck::find_by_id(guest_deck)
+            .one(db)
+            .await
+            .unwrap()
+            .is_none(),
+        "the guest's deck went with it"
+    );
+    let copy = Deck::find_by_id(copy)
+        .one(db)
+        .await
+        .unwrap()
+        .expect("another player's copy stays");
+    assert_eq!(copy.copied_from, None, "pointing at nothing");
+
+    // One at a time: still playing, it stays; the same guest once its session
+    // has run out goes; and an account never does.
+    assert_eq!(
+        baylee_db::guests::purge(db, now, Some(playing))
+            .await
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        baylee_db::guests::purge(db, now + 2 * hour, Some(keeper))
+            .await
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        baylee_db::guests::purge(db, now + 2 * hour, Some(playing))
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(Account::find().count(db).await.unwrap(), 1);
+
+    sandbox.close().await;
+}
+
+/// The migration that makes guests takes a database of accounts as it finds
+/// them, and steps back only over a database without a guest: an account
+/// without a password cannot be given one back.
+#[tokio::test]
+async fn guests_come_in_over_accounts_and_step_back_only_without_one() {
+    let sandbox = Sandbox::open_at("guest_migration", Some(6)).await;
+    let db = &sandbox.db;
+    db.execute_unprepared(
+        "INSERT INTO account (email, username, username_key, display_name, password_hash, \
+                              created_at, lang) \
+         VALUES ('old@example.com', 'old', 'old', 'Old', 'hash', now(), 'de')",
+    )
+    .await
+    .expect("an account as the sixth migration left it");
+    Migrator::up(db, None).await.expect("guests come in");
+    let old = Account::find().one(db).await.unwrap().expect("the account");
+    assert!(!old.guest, "an account from before is not a guest");
+
+    let guest = Account::insert(a_guest())
+        .exec_with_returning(db)
+        .await
+        .unwrap()
+        .id;
+    let back = u32::try_from(Migrator::migrations().len() - 6).expect("a handful");
+    assert!(
+        Migrator::down(db, Some(back)).await.is_err(),
+        "stepped back over a guest"
+    );
+    Account::delete_by_id(guest).exec(db).await.unwrap();
+    Migrator::down(db, Some(back))
+        .await
+        .expect("steps back without one");
+    Migrator::up(db, None).await.expect("and forward again");
 
     sandbox.close().await;
 }

@@ -266,10 +266,12 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 // number in whatever order the file hands them over — the
                 // old store had nothing to carry in.
                 tag: NotSet,
-                password_hash: Set(a.password_hash.clone()),
+                password_hash: Set(Some(a.password_hash.clone())),
                 created_at: Set(at(a.created_at)),
                 confirmed_at: Set(a.confirmed_at.map(at)),
                 lang: Set(a.lang.clone()),
+                // The old store had none.
+                guest: Set(false),
             }
         })
         .collect();

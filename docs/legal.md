@@ -9,8 +9,11 @@ Urheber- und Medienrecht.
 2. **WotC Fan Content Policy:** the service is and stays completely free
    (no paywall, no paid features), and asks for no e-mail address, which
    the policy names beside payment as a price fan content may not charge:
-   an account is a username and a password (#269; `docs/protocol.md`
-   §"Signing in with a username"); clients show "unofficial fan content,
+   an account is a username and a password, and a guest is a display name
+   and nothing else (#269; `docs/protocol.md` §"Signing in with a
+   username", §"Playing as a guest"). A guest may not upload a sleeve or a
+   mat: an account anybody gets by asking cannot answer for a picture put on
+   the gateway, so only a registered one may; clients show "unofficial fan content,
    not affiliated with Wizards of the Coast"; no WotC logos, no
    "Magic: The Gathering" in branding; no WotC asset is shipped or fetched
    except a card image under clause 3, and the symbols a client draws are

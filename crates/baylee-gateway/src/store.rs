@@ -35,7 +35,8 @@ use baylee_db::entity::{
 };
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, TransactionTrait,
+    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    TransactionTrait,
     sea_query::{Expr, ExprTrait, Func, OnConflict},
 };
 use std::collections::HashMap;
@@ -67,6 +68,18 @@ pub struct NewAccount {
     pub lang: String,
 }
 
+/// What asking to play as a guest supplies (#269): a name to be seen by and
+/// a language, and nothing to sign in with.
+#[derive(Clone, Debug)]
+pub struct NewGuest {
+    /// Display name shown in the lobby: `Guest` unless the player chose one.
+    pub display_name: String,
+    /// Created at (unix seconds).
+    pub created_at: u64,
+    /// The language it asked in.
+    pub lang: String,
+}
+
 /// A registered account. It signs in with its username, which only its
 /// owner is ever shown; the display name is shown to other players.
 #[derive(Clone, Debug)]
@@ -81,8 +94,8 @@ pub struct Account {
     pub display_name: String,
     /// The discriminator, handed out by the database. See [`crate::handle`].
     pub tag: i32,
-    /// Argon2id PHC password hash.
-    pub password_hash: String,
+    /// Argon2id PHC password hash; `None` for a guest.
+    pub password_hash: Option<String>,
     /// When the address was confirmed, if it has been.
     ///
     /// `None` on a gateway that sends mail means the account cannot log in
@@ -93,6 +106,18 @@ pub struct Account {
     pub confirmed_at: Option<u64>,
     /// The language the account registered in, for the mail it is sent.
     pub lang: String,
+    /// A guest (#269): no username, no password, and gone with its session.
+    pub guest: bool,
+}
+
+/// Whose a live session is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Session {
+    /// The account it signs in.
+    pub account_id: String,
+    /// Whether that account is a guest's, which is what decides how long the
+    /// session lives ([`auth::Lifetime`]) and what it may do.
+    pub guest: bool,
 }
 
 /// An outstanding "confirm your address" link.
@@ -233,6 +258,7 @@ impl From<account::Model> for Account {
             password_hash: row.password_hash,
             confirmed_at: row.confirmed_at.map(secs),
             lang: row.lang,
+            guest: row.guest,
         }
     }
 }
@@ -429,16 +455,90 @@ pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<
         username_key: Set(Some(new.username_key)),
         display_name: Set(new.display_name),
         tag: NotSet,
-        password_hash: Set(new.password_hash),
+        password_hash: Set(Some(new.password_hash)),
         created_at: Set(at(new.created_at)),
         confirmed_at: Set(None),
         lang: Set(new.lang),
+        guest: Set(false),
     };
     match Accounts::insert(row).exec_with_returning(db).await {
         Ok(made) => Ok(Some(made.into())),
         Err(e) if is_taken(&e) => Ok(None),
         Err(e) => Err(e.into()),
     }
+}
+
+/// Make a guest and its one session, answering the account (#269).
+///
+/// Together, in one transaction: the session is the only way into a guest,
+/// so a guest written without one would be an account nobody can reach —
+/// which is exactly what [`purge_guests`] deletes.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn create_guest(
+    db: &DatabaseConnection,
+    new: NewGuest,
+    token_hash: Vec<u8>,
+    expires_at: u64,
+) -> Result<Account> {
+    let txn = db.begin().await?;
+    let made = Accounts::insert(account::ActiveModel {
+        id: NotSet,
+        email: Set(None),
+        username: Set(None),
+        username_key: Set(None),
+        display_name: Set(new.display_name),
+        tag: NotSet,
+        password_hash: Set(None),
+        created_at: Set(at(new.created_at)),
+        confirmed_at: Set(None),
+        lang: Set(new.lang),
+        guest: Set(true),
+    })
+    .exec_with_returning(&txn)
+    .await?;
+    Sessions::insert(session_token::ActiveModel {
+        token_hash: Set(token_hash),
+        account_id: Set(made.id),
+        expires_at: Set(at(expires_at)),
+    })
+    .exec(&txn)
+    .await?;
+    txn.commit().await?;
+    Ok(made.into())
+}
+
+/// How many guests there are, which is how many a session still leads to,
+/// give or take the ones the next sweep deletes.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn guest_count(db: &DatabaseConnection) -> Result<u64> {
+    Ok(Accounts::find()
+        .filter(account::Column::Guest.eq(true))
+        .count(db)
+        .await?)
+}
+
+/// Delete every guest no live session leads to any more, or only `only`,
+/// answering how many went (#269). The account is gone with its decks and
+/// preferences: [`baylee_db::guests::purge`].
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn purge_guests(db: &DatabaseConnection, now: u64, only: Option<&str>) -> Result<u64> {
+    let only = match only {
+        None => None,
+        Some(account_id) => match uuid(account_id) {
+            Some(account_id) => Some(account_id),
+            None => return Ok(0),
+        },
+    };
+    Ok(baylee_db::guests::purge(db, at(now), only).await?)
 }
 
 /// Whether a write failed because something unique already exists.
@@ -485,7 +585,7 @@ pub async fn put_token(db: &DatabaseConnection, token: StoredToken) -> Result<()
     Ok(())
 }
 
-/// Resolve a bearer token to its account id, sliding the expiry.
+/// Resolve a bearer token to whose session it is, sliding the expiry.
 ///
 /// # Why the renewal is not on every request
 ///
@@ -495,12 +595,16 @@ pub async fn put_token(db: &DatabaseConnection, token: StoredToken) -> Result<()
 /// every lobby poll, every settings read — to move a deadline that is twelve
 /// hours away.
 ///
-/// So it renews only once the token is past its half-life. A session is still
-/// kept alive by use, which is the whole point of a sliding expiry, and the
-/// write happens at most once per six hours per session instead of once per
-/// request. The cost is stated rather than hidden: a token that is used
-/// constantly and then abandoned lapses up to six hours earlier than it
-/// would have, which is the direction an error should go.
+/// So it renews only once [`auth::Lifetime::renew_every`] has passed since
+/// the last renewal: six hours for an account's session, a day for a
+/// guest's. A session is still kept alive by use, which is the whole point
+/// of a sliding expiry, and the write happens once per that interval instead
+/// of once per request. The cost is stated rather than hidden: a token that
+/// is used constantly and then abandoned lapses up to that interval earlier
+/// than it would have, which is the direction an error should go.
+///
+/// The account is read with the session, in the same statement, because
+/// which lifetime applies is the account's to say.
 ///
 /// # Errors
 ///
@@ -509,9 +613,13 @@ pub async fn resolve_token(
     db: &DatabaseConnection,
     token: &str,
     now: u64,
-) -> Result<Option<String>> {
+) -> Result<Option<Session>> {
     let hash = auth::token_digest(token);
-    let Some(row) = Sessions::find_by_id(hash.clone()).one(db).await? else {
+    let Some((row, owner)) = Sessions::find_by_id(hash.clone())
+        .find_also_related(Accounts)
+        .one(db)
+        .await?
+    else {
         return Ok(None);
     };
     let expires = secs(row.expires_at);
@@ -520,27 +628,37 @@ pub async fn resolve_token(
         return Ok(None);
     }
 
-    let ttl = auth::TOKEN_TTL.as_secs();
-    if expires.saturating_sub(now) < ttl / 2 {
+    let guest = owner.is_some_and(|account| account.guest);
+    let lifetime = auth::Lifetime::of(guest);
+    if lifetime.renews(expires.saturating_sub(now)) {
         Sessions::update_many()
-            .col_expr(session_token::Column::ExpiresAt, Expr::value(at(now + ttl)))
+            .col_expr(
+                session_token::Column::ExpiresAt,
+                Expr::value(at(now + lifetime.ttl.as_secs())),
+            )
             .filter(session_token::Column::TokenHash.eq(hash))
             .exec(db)
             .await?;
     }
-    Ok(Some(id(row.account_id)))
+    Ok(Some(Session {
+        account_id: id(row.account_id),
+        guest,
+    }))
 }
 
-/// Sign one session out.
+/// Sign one session out, answering whose it was.
 ///
 /// # Errors
 ///
 /// If the database refuses.
-pub async fn drop_token(db: &DatabaseConnection, token: &str) -> Result<()> {
-    Sessions::delete_by_id(auth::token_digest(token))
-        .exec(db)
-        .await?;
-    Ok(())
+pub async fn drop_token(db: &DatabaseConnection, token: &str) -> Result<Option<String>> {
+    let hash = auth::token_digest(token);
+    let owner = Sessions::find_by_id(hash.clone())
+        .one(db)
+        .await?
+        .map(|row| id(row.account_id));
+    Sessions::delete_by_id(hash).exec(db).await?;
+    Ok(owner)
 }
 
 /// Remove every lapsed session, answering how many went.

@@ -3,7 +3,8 @@
 //! - Passwords are hashed with **Argon2id** (memory-hard, PHC strings).
 //! - Bearer tokens are 256 bits from the OS CSPRNG, stored **only as
 //!   SHA-256 hashes** (the DB never holds a usable token), 12 h expiry
-//!   with sliding renewal.
+//!   with sliding renewal; 30 days for a guest's, whose session is the
+//!   whole of its account ([`Lifetime`]).
 //! - Login errors are identical for unknown users and wrong passwords,
 //!   and unknown-user attempts verify against a fixed dummy hash so
 //!   response timing doesn't leak account existence.
@@ -26,6 +27,61 @@ use uuid::Uuid;
 /// Token lifetime (sliding).
 #[allow(clippy::duration_suboptimal_units)]
 pub const TOKEN_TTL: Duration = Duration::from_secs(12 * 3600);
+
+/// A guest's token lifetime (sliding), and so a guest's: its session is the
+/// only way into it, and the account goes once no session is left (#269).
+#[allow(clippy::duration_suboptimal_units)]
+pub const GUEST_TOKEN_TTL: Duration = Duration::from_secs(30 * 24 * 3600);
+
+/// How long a session lives unused, and how often a use moves that on.
+///
+/// A use renews a session only once `renew_every` has passed since it was
+/// last renewed, so that a session in steady use costs a write per
+/// `renew_every` rather than one per request (`store::resolve_token`). The
+/// price is that a session lapses up to `renew_every` earlier than its last
+/// use plus `ttl`, which is the direction an error should go.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Lifetime {
+    /// How long a session lives from its last renewal.
+    pub ttl: Duration,
+    /// How long after a renewal a use renews it again.
+    pub renew_every: Duration,
+}
+
+impl Lifetime {
+    /// An account's: twelve hours, renewed at the half-life.
+    #[allow(clippy::duration_suboptimal_units)]
+    pub const ACCOUNT: Self = Self {
+        ttl: TOKEN_TTL,
+        renew_every: Duration::from_secs(6 * 3600),
+    };
+
+    /// A guest's: thirty days, renewed at most once a day. At the half-life,
+    /// a guest who played on day 16 would keep an account that a guest who
+    /// played on day 14 lost on day 30; renewed daily, a guest lives 29 to 30
+    /// days past the last time they played, which is what the client tells
+    /// them.
+    #[allow(clippy::duration_suboptimal_units)]
+    pub const GUEST: Self = Self {
+        ttl: GUEST_TOKEN_TTL,
+        renew_every: Duration::from_secs(24 * 3600),
+    };
+
+    /// The lifetime of a session of a guest's, or of an account's.
+    #[must_use]
+    pub const fn of(guest: bool) -> Self {
+        if guest { Self::GUEST } else { Self::ACCOUNT }
+    }
+
+    /// Whether a use renews a session that has `left` seconds to run.
+    #[must_use]
+    pub const fn renews(self, left: u64) -> bool {
+        left < self
+            .ttl
+            .as_secs()
+            .saturating_sub(self.renew_every.as_secs())
+    }
+}
 
 /// Hash a password for storage (Argon2id, random salt).
 ///
@@ -135,9 +191,15 @@ impl IssuedToken {
     /// Issue a fresh token.
     #[must_use]
     pub fn new() -> Self {
+        Self::lasting(Lifetime::ACCOUNT)
+    }
+
+    /// Issue a fresh token that lives as long as `lifetime` says.
+    #[must_use]
+    pub fn lasting(lifetime: Lifetime) -> Self {
         Self {
             token: new_token(),
-            expires_at: now_secs() + TOKEN_TTL.as_secs(),
+            expires_at: now_secs() + lifetime.ttl.as_secs(),
         }
     }
 }
@@ -349,6 +411,29 @@ mod tests {
         // Unknown e-mail: dummy-hash path returns false (and costs the
         // same work, so timing doesn't leak account existence).
         assert!(!verify_password(None, "a-very-fine-password"));
+    }
+
+    /// A session is renewed once its interval has passed since the last
+    /// renewal and not a second before: an account's at its half-life, a
+    /// guest's a day in (#269).
+    #[test]
+    fn a_session_is_renewed_once_its_interval_has_passed() {
+        let hour = 3600;
+        let day = 24 * hour;
+        let account = Lifetime::of(false);
+        assert_eq!(account, Lifetime::ACCOUNT);
+        assert!(!account.renews(12 * hour), "fresh");
+        assert!(!account.renews(6 * hour), "exactly at the half-life");
+        assert!(account.renews(6 * hour - 1));
+        let guest = Lifetime::of(true);
+        assert_eq!(guest, Lifetime::GUEST);
+        assert!(!guest.renews(30 * day), "fresh");
+        assert!(!guest.renews(29 * day), "exactly a day in");
+        assert!(guest.renews(29 * day - 1));
+        assert!(
+            guest.renews(12 * hour),
+            "half a day left is due, whatever an account's would be"
+        );
     }
 
     #[test]
