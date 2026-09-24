@@ -20,6 +20,7 @@ use crate::i18n::{Lang, Phrase};
 use crate::textbuf::{Dir, Step as Reach, TextBuffer};
 use baylee_core::ids::PlayerId;
 use baylee_engine::win::GameResult;
+use baylee_protocol::names;
 use serde::{Deserialize, Serialize};
 
 /// Which screen the lobby is showing.
@@ -51,9 +52,10 @@ impl Default for Screen {
 pub enum Field {
     /// A gateway URL, edited before account sign-in.
     Gateway,
-    /// The account's e-mail address, which is also its login name.
+    /// The name the account signs in with (#269). Until the end of 2026 an
+    /// account from before usernames may type its address here instead.
     #[default]
-    Email,
+    Username,
     /// The name other players see. Only asked for when registering.
     DisplayName,
     /// The password. A shell is expected to draw this masked.
@@ -111,8 +113,9 @@ pub enum Tab {
 pub enum FieldKind {
     /// A gateway URL; no nickname autofill.
     Url,
-    /// An e-mail address: the address keyboard, and the username to autofill.
-    Email,
+    /// The account's username: a plain keyboard, and the saved username to
+    /// fill in.
+    Username,
     /// A plain name.
     Name,
     /// The account's password, as it already is: masked, and the saved
@@ -417,8 +420,8 @@ pub enum LobbyRequest {
     Library(library::Request),
     /// `POST /auth/register`.
     Register {
-        /// The address to register.
-        email: String,
+        /// The username to sign in with, as the rule folded it.
+        username: String,
         /// The name other players will see.
         display_name: String,
         /// The password to set.
@@ -426,8 +429,8 @@ pub enum LobbyRequest {
     },
     /// `POST /auth/login`.
     LogIn {
-        /// The registered address.
-        email: String,
+        /// The username, or until the end of 2026 an account's address.
+        username: String,
         /// Its password.
         password: String,
     },
@@ -562,18 +565,15 @@ pub enum LobbyRequest {
 pub enum LobbyEvent {
     /// Account library response.
     Library(library::Reply),
-    /// The account now exists. It comes with no token, so a log-in follows
-    /// — unless the gateway sends confirmation mail, in which case the
-    /// log-in would be refused until the link is clicked and there is
-    /// nothing to do but say so.
-    Registered {
-        /// Whether the gateway wants the address confirmed first.
-        confirmation_required: bool,
-    },
+    /// The account now exists. It comes with no token, so a log-in follows.
+    Registered,
     /// Signed in.
     LoggedIn {
         /// The account bearer token, for every later call.
         token: String,
+        /// The account's username, as the gateway answered it; `None` from a
+        /// gateway older than usernames (#269).
+        username: Option<String>,
     },
     /// The account's decks.
     Decks(Vec<DeckSummary>),
@@ -667,7 +667,7 @@ pub struct Lobby {
     copied_deck: Option<String>,
     screen: Screen,
     focus: Field,
-    email: TextBuffer,
+    username: TextBuffer,
     gateway_url: TextBuffer,
     gateway_selection: GatewaySelection,
     display_name: TextBuffer,
@@ -817,7 +817,7 @@ impl Lobby {
     #[must_use]
     pub fn field_kind(&self, field: Field) -> FieldKind {
         match field {
-            Field::Email => FieldKind::Email,
+            Field::Username => FieldKind::Username,
             Field::Gateway => FieldKind::Url,
             Field::DisplayName | Field::Search => FieldKind::Name,
             Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
@@ -838,7 +838,7 @@ impl Lobby {
     pub fn buffer(&self, field: Field) -> &TextBuffer {
         match field {
             Field::Gateway => &self.gateway_url,
-            Field::Email => &self.email,
+            Field::Username => &self.username,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
             Field::PasswordAgain => &self.password_again,
@@ -1054,13 +1054,13 @@ impl Lobby {
             // drawn only for signing up, so only that ring has them.
             let ring: &[Field] = if self.registering() {
                 &[
-                    Field::Email,
+                    Field::Username,
                     Field::DisplayName,
                     Field::Password,
                     Field::PasswordAgain,
                 ]
             } else {
-                &[Field::Email, Field::Password]
+                &[Field::Username, Field::Password]
             };
             self.focus = match ring.iter().position(|field| *field == self.focus) {
                 Some(at) => {
@@ -1075,7 +1075,7 @@ impl Lobby {
                 None => match self.focus {
                     Field::RoomPassword => Field::Search,
                     Field::Search => Field::RoomPassword,
-                    _ => Field::Email,
+                    _ => Field::Username,
                 },
             };
         }
@@ -1099,7 +1099,7 @@ impl Lobby {
             // account's fields with one.
             Screen::SignIn { registering } => match self.focus {
                 Field::Gateway => !self.gateway_chosen(),
-                Field::Email | Field::Password => self.gateway_chosen(),
+                Field::Username | Field::Password => self.gateway_chosen(),
                 Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
                 Field::RoomPassword | Field::Search => false,
             },
@@ -1121,7 +1121,7 @@ impl Lobby {
     pub fn clear_room_password(&mut self) {
         self.room_password.clear();
         if self.focus == Field::RoomPassword {
-            self.focus = Field::Email;
+            self.focus = Field::Username;
         }
     }
 
@@ -1193,7 +1193,7 @@ impl Lobby {
     /// The front door shows one form at a time, and this is what picks it:
     /// the gateway form without a gateway, the account form with one. The
     /// caret goes with the form. On the account form it lands on the
-    /// password when the address is already filled in, because that is
+    /// password when the username is already filled in, because that is
     /// where the one thing still missing is.
     pub fn set_gateway_ready(&mut self, ready: bool) {
         self.gateway_selection = if ready {
@@ -1203,8 +1203,8 @@ impl Lobby {
         };
         let field = if !ready {
             Field::Gateway
-        } else if self.email.text().trim().is_empty() {
-            Field::Email
+        } else if self.username.text().trim().is_empty() {
+            Field::Username
         } else {
             Field::Password
         };
@@ -1230,10 +1230,28 @@ impl Lobby {
             self.refuse(Phrase::ChooseGatewayFirst);
             return None;
         }
-        if self.email.text().trim().is_empty() || self.password.is_empty() {
-            self.refuse(Phrase::NeedEmailAndPassword);
+        if self.username.text().trim().is_empty() || self.password.is_empty() {
+            self.refuse(Phrase::NeedUsernameAndPassword);
             return None;
         }
+        // The gateway's own rule, so that what is wrong with a name is said
+        // before anything is sent, and said in the player's language. Only
+        // for a name being chosen: signing in, a name that breaks the rule is
+        // nobody's, and the gateway says so the way it says every other
+        // wrong answer.
+        let username = if registering {
+            match names::username(self.username.text().trim()) {
+                Ok(name) => name.shown,
+                Err(fault) => {
+                    self.refuse(Phrase::username_fault(fault));
+                    self.focus_on(Field::Username);
+                    self.username.select_all();
+                    return None;
+                }
+            }
+        } else {
+            self.username.text().trim().to_string()
+        };
         if registering && self.display_name.text().trim().is_empty() {
             self.refuse(Phrase::NeedDisplayName);
             return None;
@@ -1250,14 +1268,14 @@ impl Lobby {
         if registering {
             self.note(Phrase::CreatingAccount);
             Some(LobbyRequest::Register {
-                email: self.email.text().trim().to_string(),
+                username,
                 display_name: self.display_name.text().trim().to_string(),
                 password: self.password.text().to_string(),
             })
         } else {
             self.note(Phrase::SigningIn);
             Some(LobbyRequest::LogIn {
-                email: self.email.text().trim().to_string(),
+                username,
                 password: self.password.text().to_string(),
             })
         }
@@ -1833,7 +1851,7 @@ impl Lobby {
         self.password.clear();
         self.password_again.clear();
         self.revealed = None;
-        self.focus = Field::Email;
+        self.focus = Field::Username;
         self.screen = Screen::SignIn { registering: false };
         self.note(Phrase::SignedOut);
     }
@@ -1852,32 +1870,35 @@ impl Lobby {
             LobbyEvent::Library(reply) => self.library_reply(reply),
             // Sign-up hands back no token, so the credentials that are still
             // in the form go straight into a log-in.
-            LobbyEvent::Registered {
-                confirmation_required,
-            } => {
-                if confirmation_required {
-                    self.note(Phrase::ConfirmYourEmail);
-                    self.password.clear();
-                    self.password_again.clear();
-                    // Back to the log-in form: the account exists, and what
-                    // is left to do is click a link in a mailbox and come
-                    // back.
-                    self.screen = Screen::SignIn { registering: false };
-                    return None;
-                }
+            LobbyEvent::Registered => {
                 self.note(Phrase::AccountCreated);
                 self.busy = true;
                 Some(LobbyRequest::LogIn {
-                    email: self.email.text().trim().to_string(),
+                    username: self.username.text().trim().to_string(),
                     password: self.password.text().to_string(),
                 })
             }
-            LobbyEvent::LoggedIn { token } => {
+            LobbyEvent::LoggedIn { token, username } => {
                 self.performer = Performer::Gateway(token);
                 self.password.clear();
                 self.password_again.clear();
                 self.screen = Screen::Table;
-                self.note(Phrase::SignedIn);
+                // Signed in with an address, the player is told the name the
+                // account was given, once (#269): the address stops working
+                // at the end of 2026. The field takes the name either way, so
+                // the name is what this device remembers.
+                let by_address = self.username.text().contains('@');
+                match username {
+                    Some(name) if by_address => {
+                        self.write(Phrase::YourUsernameIs.fill(self.lang, &[&name]), Tone::Note);
+                        self.set_field(Field::Username, &name);
+                    }
+                    Some(name) => {
+                        self.note(Phrase::SignedIn);
+                        self.set_field(Field::Username, &name);
+                    }
+                    None => self.note(Phrase::SignedIn),
+                }
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
@@ -2064,7 +2085,7 @@ impl Lobby {
     fn buffer_mut(&mut self, field: Field) -> &mut TextBuffer {
         match field {
             Field::Gateway => &mut self.gateway_url,
-            Field::Email => &mut self.email,
+            Field::Username => &mut self.username,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,
             Field::PasswordAgain => &mut self.password_again,

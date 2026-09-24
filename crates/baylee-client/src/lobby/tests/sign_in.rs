@@ -11,7 +11,7 @@ fn the_sign_in_screen_builds_with_its_controls() {
     assert_eq!(roots(&mut app).len(), 1, "exactly one tree");
     let found = presses(&mut app);
     for wanted in [
-        Press::Focus(Field::Email),
+        Press::Focus(Field::Username),
         Press::Focus(Field::Password),
         Press::Submit,
         Press::ToggleRegistering,
@@ -55,7 +55,7 @@ fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
     settle(&mut app);
     let found = presses(&mut app);
     for wanted in [
-        Field::Email,
+        Field::Username,
         Field::DisplayName,
         Field::Password,
         Field::PasswordAgain,
@@ -126,7 +126,7 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     }
     for elsewhere in [
         Press::Submit,
-        Press::Focus(Field::Email),
+        Press::Focus(Field::Username),
         Press::LeaveGateway,
         // Behind the gear, until it is pressed.
         Press::OpenSettings,
@@ -220,7 +220,7 @@ fn typing_reaches_the_form() {
         app.world()
             .resource::<LobbyState>()
             .lobby
-            .field(Field::Email),
+            .field(Field::Username),
         "hi"
     );
 }
@@ -243,7 +243,7 @@ fn the_caret_moves_and_typing_lands_where_it_is() {
         app.world()
             .resource::<LobbyState>()
             .lobby
-            .field(Field::Email),
+            .field(Field::Username),
         "xab"
     );
 }
@@ -272,7 +272,7 @@ fn shift_and_an_arrow_select_what_the_next_key_replaces() {
         app.world()
             .resource::<LobbyState>()
             .lobby
-            .buffer(Field::Email)
+            .buffer(Field::Username)
             .selection(),
         Some(1..3)
     );
@@ -287,7 +287,7 @@ fn shift_and_an_arrow_select_what_the_next_key_replaces() {
         app.world()
             .resource::<LobbyState>()
             .lobby
-            .field(Field::Email),
+            .field(Field::Username),
         "az"
     );
 }
@@ -323,7 +323,7 @@ fn the_caret_is_drawn_between_the_letters_it_stands_between() {
         messages.write(pressed(KeyCode::ArrowLeft, Key::ArrowLeft));
     }
     app.update();
-    assert_eq!(drawn_field(&mut app, Field::Email), ["a", "|", "b"]);
+    assert_eq!(drawn_field(&mut app, Field::Username), ["a", "|", "b"]);
     let mut carets = app.world_mut().query::<&Caret>();
     assert_eq!(
         carets.iter(app.world()).count(),
@@ -353,7 +353,7 @@ fn a_selection_is_a_run_with_a_fill_behind_it() {
         .write(pressed(KeyCode::ArrowRight, Key::ArrowRight));
     app.update();
     assert_eq!(
-        drawn_field(&mut app, Field::Email),
+        drawn_field(&mut app, Field::Username),
         ["a", "|", "b"],
         "shift and right selects the a and leaves the caret past it"
     );
@@ -446,7 +446,7 @@ fn a_field_without_the_caret_shows_no_selection() {
         app.world()
             .resource::<LobbyState>()
             .lobby
-            .buffer(Field::Email)
+            .buffer(Field::Username)
             .selection()
             .is_some(),
         "and the selection is still in the buffer, undrawn"
@@ -474,7 +474,7 @@ fn the_eye_shows_the_password_and_the_bullets_come_back() {
         "a password box carries an eye"
     );
     assert!(
-        !presses(&mut app).contains(&Press::Reveal(Field::Email)),
+        !presses(&mut app).contains(&Press::Reveal(Field::Username)),
         "and a box that is not masked does not"
     );
     app.world_mut()
@@ -500,9 +500,9 @@ fn the_eye_shows_the_password_and_the_bullets_come_back() {
 /// Through `from_settings` rather than `new`, which reads the defaults under
 /// this crate's tests on purpose — the point of the split.
 #[test]
-fn the_sign_in_box_opens_on_the_address_that_used_it_last() {
+fn the_sign_in_box_opens_on_the_name_that_used_it_last() {
     let blank = LobbyState::from_settings(crate::settings::ClientSettings::default());
-    assert_eq!(blank.lobby.field(Field::Email), "");
+    assert_eq!(blank.lobby.field(Field::Username), "");
     assert_eq!(
         blank.lobby.focus(),
         Field::Gateway,
@@ -510,10 +510,10 @@ fn the_sign_in_box_opens_on_the_address_that_used_it_last() {
     );
 
     let known = LobbyState::from_settings(crate::settings::ClientSettings {
-        last_email: "mail@acevik.de".to_string(),
+        last_username: "Alice.B".to_string(),
         ..crate::settings::ClientSettings::default()
     });
-    assert_eq!(known.lobby.field(Field::Email), "mail@acevik.de");
+    assert_eq!(known.lobby.field(Field::Username), "Alice.B");
     assert_eq!(
         known.lobby.focus(),
         Field::Gateway,
@@ -521,17 +521,17 @@ fn the_sign_in_box_opens_on_the_address_that_used_it_last() {
     );
 }
 
-/// The remembered address outlives the choice of gateway, which is the only
+/// The remembered name outlives the choice of gateway, which is the only
 /// way the sign-in form is ever reached.
 #[test]
-fn choosing_a_gateway_keeps_the_address_that_used_it_last() {
+fn choosing_a_gateway_keeps_the_name_that_used_it_last() {
     let mut known = LobbyState::from_settings(crate::settings::ClientSettings {
-        last_email: "mail@acevik.de".to_string(),
+        last_username: "Alice.B".to_string(),
         gateways: vec!["https://one.example".into()],
         ..crate::settings::ClientSettings::default()
     });
     assert!(known.select_gateway(0));
-    assert_eq!(known.lobby.field(Field::Email), "mail@acevik.de");
+    assert_eq!(known.lobby.field(Field::Username), "Alice.B");
     assert_eq!(known.lobby.focus(), Field::Password);
 
     known.leave_gateway();
@@ -539,20 +539,22 @@ fn choosing_a_gateway_keeps_the_address_that_used_it_last() {
     assert_eq!(known.lobby.focus(), Field::Gateway);
     assert!(known.select_gateway(0));
     assert_eq!(
-        known.lobby.field(Field::Email),
-        "mail@acevik.de",
+        known.lobby.field(Field::Username),
+        "Alice.B",
         "and a round trip through the gateway form"
     );
 }
 
-/// And it is written down by the sign-in that worked, not by the attempt.
+/// And it is written down by the sign-in that worked, not by the attempt:
+/// the username the gateway answered, even when an address was typed, as a
+/// player from before usernames does until the end of 2026 (#269).
 #[test]
 fn only_a_sign_in_that_worked_is_worth_remembering() {
     let mut app = headless();
     app.insert_resource(crate::settings::ClientSettings::default());
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
-        state.lobby.set_field(Field::Email, "mail@acevik.de");
+        state.lobby.set_field(Field::Username, "mail@acevik.de");
     }
 
     // A refusal leaves the stored address alone: it may well be the typo.
@@ -567,7 +569,7 @@ fn only_a_sign_in_that_worked_is_worth_remembering() {
     app.update();
     let settings = app.world().resource::<crate::settings::ClientSettings>();
     assert_eq!(
-        settings.last_email, "",
+        settings.last_username, "",
         "a refused attempt says nothing about the address"
     );
     assert_eq!(
@@ -583,11 +585,15 @@ fn only_a_sign_in_that_worked_is_worth_remembering() {
         .expect("mailbox")
         .push(Reply::Event(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
+            username: Some("Alice.B".to_string()),
         }));
     app.update();
     let gateway = app.world().resource::<LobbyState>().gateway.clone();
     let settings = app.world().resource::<crate::settings::ClientSettings>();
-    assert_eq!(settings.last_email, "mail@acevik.de");
+    assert_eq!(
+        settings.last_username, "Alice.B",
+        "the name, not the address it was reached by"
+    );
     assert_eq!(
         settings.gateway_uses.of(&gateway).count,
         1,
@@ -604,7 +610,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
     });
     state
         .lobby
-        .set_field(Field::Email, "review@example.invalid");
+        .set_field(Field::Username, "review@example.invalid");
     state
         .lobby
         .set_field(Field::Password, "temporary-test-password");
@@ -620,7 +626,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
         assert!(state.lobby.field(Field::Password).is_empty());
         state
             .lobby
-            .set_field(Field::Email, "review@example.invalid");
+            .set_field(Field::Username, "review@example.invalid");
         state
             .lobby
             .set_field(Field::Password, "temporary-test-password");
@@ -679,6 +685,7 @@ fn issue_187_sign_out_ignores_late_account_responses() {
         .lobby
         .apply(LobbyEvent::LoggedIn {
             token: "first-account".into(),
+            username: None,
         });
     app.update();
     let epoch = app.world().resource::<LobbyState>().gateway_epoch;
@@ -692,6 +699,7 @@ fn issue_187_sign_out_ignores_late_account_responses() {
             epoch,
             Box::new(Reply::Event(LobbyEvent::LoggedIn {
                 token: "stale-account".into(),
+                username: None,
             })),
         ));
     app.update();
@@ -1346,6 +1354,7 @@ fn card_art_comes_from_the_mirror_only_while_signed_in_there() {
 
     state.lobby.apply(LobbyEvent::LoggedIn {
         token: "tok".to_string(),
+        username: None,
     });
     assert_eq!(
         art_source(&state),

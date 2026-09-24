@@ -242,6 +242,7 @@ fn stocked(app: &mut App) {
     let mut state = app.world_mut().resource_mut::<LobbyState>();
     state.lobby.apply(LobbyEvent::LoggedIn {
         token: "tok".to_string(),
+        username: None,
     });
     state.lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
         id: "d1".to_string(),

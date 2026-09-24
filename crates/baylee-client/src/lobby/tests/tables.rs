@@ -10,6 +10,7 @@ fn the_table_screen_builds_once_there_is_a_deck() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
+            username: None,
         });
         state.lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
             id: "d1".to_string(),
@@ -185,6 +186,7 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
+            username: None,
         });
         state.lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
             id: "d1".to_string(),
@@ -302,6 +304,7 @@ fn a_table_that_is_full_offers_no_join() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
+            username: None,
         });
         state
             .lobby

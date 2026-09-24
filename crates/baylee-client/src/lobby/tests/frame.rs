@@ -64,6 +64,7 @@ fn a_phone_drops_what_it_has_no_room_for() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
+            username: None,
         });
         // A real address: `headless` empties it so the startup probe reaches
         // nothing, and an empty one would make the assertions below match any
@@ -171,6 +172,7 @@ fn issue_186_library_replaces_editable_ui_and_keeps_navigation_on_phone() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "test".into(),
+            username: None,
         });
         state.lobby.apply(LobbyEvent::Games(GameListing::default()));
         state.lobby.browse_house();

@@ -81,19 +81,20 @@ pub(super) fn poll(
                 }
 
                 // A sign-in that worked is the one moment this client knows
-                // an address is a real one, so it is the only moment worth
+                // a name is a real one, so it is the only moment worth
                 // writing it down. Read off the field rather than out of the
-                // request, because the field is what the player typed and the
-                // request is gone by now.
+                // request: after the sign-in the field holds the username the
+                // gateway answered, which is the name to offer next time even
+                // when an address was typed (#269).
                 let worked = matches!(event, LobbyEvent::LoggedIn { .. });
                 let next = state.lobby.apply(event);
                 if worked {
                     // The use is counted before anything is written, so
-                    // that the address and the use go out in one save.
+                    // that the name and the use go out in one save.
                     let gateway = state.gateway.clone();
                     state.uses.record(&gateway);
                     if let Some(settings) = settings.as_mut() {
-                        settings.last_email = state.lobby.field(Field::Email).to_string();
+                        settings.last_username = state.lobby.field(Field::Username).to_string();
                         keep_gateways(&state, settings);
                     }
                 }

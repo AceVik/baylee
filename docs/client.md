@@ -5298,7 +5298,7 @@ The mode lives in `ClientSettings` beside the sheet's rectangle, and its
 reader is hand-written for the reason `Keymap`'s is: the store is
 `from_str(…).ok().unwrap_or_default()`, so a view mode retired in a later
 build would refuse the whole file and take that player's sheet placement,
-their language and their remembered address with it. An unknown name reads as
+their language and their remembered username with it. An unknown name reads as
 the default instead.
 
 The footer is two buttons and both of them send what `PromptAction::Confirm`
@@ -6398,8 +6398,8 @@ browser does the typing, and the client reads the value back and draws it
 itself. Invisible, never hidden — neither `display:none` nor
 `visibility:hidden` can hold focus, and focus is the whole point. The field's
 `FieldKind` picks the input type, the `inputmode` and the `autocomplete` hint,
-so the phone raises the address keyboard for an e-mail and the password manager
-knows which box is which. The keyboard is not raised on arrival, only when a
+so the phone raises a text keyboard marked `username` for the sign-in name and
+the password manager knows which box is which. The keyboard is not raised on arrival, only when a
 field is tapped, and `Lobby::focus_epoch` counts *placements* rather than
 changes so tapping the field you are already in still opens it.
 

@@ -1214,14 +1214,14 @@ fn account_face(
         }),
         ..plain(field)
     };
-    let email = text_field(
+    let username = text_field(
         commands,
         fonts,
         metrics,
-        Phrase::Email.text(lang),
-        &plain(Field::Email),
+        Phrase::Username.text(lang),
+        &plain(Field::Username),
     );
-    commands.entity(card).add_child(email);
+    commands.entity(card).add_child(username);
     if registering {
         let name = text_field(
             commands,

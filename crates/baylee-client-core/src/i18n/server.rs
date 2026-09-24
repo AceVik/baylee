@@ -261,10 +261,6 @@ const MESSAGES: &[(&str, &str)] = &[
         "Der Kartenkatalog konnte nicht abgefragt werden.",
     ),
     ("card note too long", "Die Kartennotiz ist zu lang."),
-    (
-        "confirm your e-mail address first",
-        "Bestätige zuerst deine E-Mail-Adresse.",
-    ),
     ("deck data missing", "Die Deckdaten fehlen."),
     ("deck too large", "Das Deck ist zu groß."),
     ("empty card pool", "Der Kartenvorrat ist leer."),
@@ -285,11 +281,11 @@ const MESSAGES: &[(&str, &str)] = &[
     ("invalid card list", "Die Kartenliste ist ungültig."),
     (
         "invalid credentials",
-        "E-Mail-Adresse oder Passwort stimmen nicht.",
+        "Benutzername oder Passwort stimmen nicht.",
     ),
     ("invalid deck name", "Der Deckname ist ungültig."),
     ("invalid display name", "Der Anzeigename ist ungültig."),
-    ("invalid e-mail", "Die E-Mail-Adresse ist ungültig."),
+    ("invalid username", "Der Benutzername ist ungültig."),
     (
         "invalid or expired token",
         "Die Anmeldung ist ungültig oder abgelaufen. Bitte melde dich erneut an.",
@@ -382,6 +378,10 @@ const MESSAGES: &[(&str, &str)] = &[
         "Dieser Platz wird nicht von einer KI gesteuert.",
     ),
     ("that seat is taken", "Dieser Platz ist bereits vergeben."),
+    (
+        "that username is taken",
+        "Dieser Benutzername ist bereits vergeben.",
+    ),
     (
         "the dev board could not be dealt",
         "Der Testtisch konnte nicht aufgebaut werden.",

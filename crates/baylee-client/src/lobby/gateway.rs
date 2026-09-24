@@ -26,14 +26,14 @@ impl LobbyState {
         self.gateway_epoch = self.gateway_epoch.wrapping_add(1);
         let lang = self.lobby.lang();
         // A fresh lobby, because nothing another gateway said is true of this
-        // one. The address typed or remembered is the player's and not the
+        // one. The username typed or remembered is the player's and not the
         // gateway's, so it comes along: without it the one launch-to-launch
         // convenience the sign-in form has was gone the moment a gateway was
         // chosen, which is now always before the form is seen.
-        let email = self.lobby.field(Field::Email).to_string();
+        let username = self.lobby.field(Field::Username).to_string();
         self.lobby = Lobby::new();
         self.lobby.set_lang(lang);
-        self.lobby.set_field(Field::Email, &email);
+        self.lobby.set_field(Field::Username, &username);
         self.art_cache = false;
         self.gateway = url;
         self.gateway_selected = true;

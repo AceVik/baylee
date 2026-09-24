@@ -13,6 +13,9 @@ workspace = true
 baylee-cardtext.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
+# The username rule the gateway checks (`names`), so the sign-up form can
+# say what is wrong with a name before sending it (#269).
+baylee-protocol.workspace = true
 baylee-view.workspace = true
 glam.workspace = true
 serde.workspace = true

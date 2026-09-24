@@ -876,6 +876,7 @@ dependencies = [
  "baylee-cardtext",
  "baylee-core",
  "baylee-engine",
+ "baylee-protocol",
  "baylee-view",
  "glam",
  "serde",

@@ -8,7 +8,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
     let cases = [
         (
             LobbyRequest::LogIn {
-                email: "a@b.c".to_string(),
+                username: "alice".to_string(),
                 password: "pw".to_string(),
             },
             "POST",
@@ -16,7 +16,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
         ),
         (
             LobbyRequest::Register {
-                email: "a@b.c".to_string(),
+                username: "alice".to_string(),
                 display_name: "V".to_string(),
                 password: "pw".to_string(),
             },
@@ -114,20 +114,20 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
         None,
         "en",
         LobbyRequest::LogIn {
-            email: "a@b.c".to_string(),
+            username: "alice".to_string(),
             password: "pw".to_string(),
         },
     );
     assert_eq!(
         body(&login),
-        serde_json::json!({ "email": "a@b.c", "password": "pw" })
+        serde_json::json!({ "username": "alice", "password": "pw" })
     );
     let (register, _) = build(
         "http://gw",
         None,
         "en",
         LobbyRequest::Register {
-            email: "a@b.c".to_string(),
+            username: "alice".to_string(),
             display_name: "V".to_string(),
             password: "pw".to_string(),
         },
@@ -135,7 +135,7 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
     assert_eq!(
         body(&register),
         serde_json::json!({
-            "email": "a@b.c",
+            "username": "alice",
             "display_name": "V",
             "password": "pw",
             "lang": "en"
@@ -307,7 +307,23 @@ fn the_gateways_own_answers_decode() {
             &answer(200, r#"{"token":"tok","expires_at":123}"#)
         ),
         LobbyEvent::LoggedIn {
-            token: "tok".to_string()
+            token: "tok".to_string(),
+            username: None,
+        },
+        "a gateway from before usernames names none"
+    );
+    assert_eq!(
+        decode(
+            Lang::En,
+            Expect::LoggedIn,
+            &answer(
+                200,
+                r#"{"token":"tok","expires_at":123,"username":"Alice.B"}"#
+            )
+        ),
+        LobbyEvent::LoggedIn {
+            token: "tok".to_string(),
+            username: Some("Alice.B".to_string()),
         }
     );
     assert_eq!(
@@ -342,9 +358,7 @@ fn the_gateways_own_answers_decode() {
     );
     assert_eq!(
         decode(Lang::En, Expect::Registered, &answer(200, r#"{"ok":true}"#)),
-        LobbyEvent::Registered {
-            confirmation_required: false,
-        }
+        LobbyEvent::Registered
     );
     assert_eq!(
         decode(

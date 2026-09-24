@@ -19,13 +19,14 @@ fn a_sign_in_needs_both_fields() {
 fn registering_also_needs_a_display_name() {
     let mut lobby = Lobby::new();
     lobby.toggle_registering();
-    lobby.focus_on(Field::Email);
-    lobby.type_char('a');
+    lobby.focus_on(Field::Username);
+    lobby.insert("alice");
     lobby.focus_on(Field::Password);
     lobby.type_char('x');
     lobby.focus_on(Field::PasswordAgain);
     lobby.type_char('x');
     assert_eq!(lobby.submit(), None);
+    assert_eq!(lobby.status(), "a display name, please");
     lobby.focus_on(Field::DisplayName);
     lobby.type_char('V');
     assert!(matches!(
@@ -38,7 +39,7 @@ fn registering_also_needs_a_display_name() {
 fn registering_needs_the_password_typed_the_same_twice() {
     let mut lobby = Lobby::new();
     lobby.toggle_registering();
-    lobby.type_char('a');
+    lobby.insert("alice");
     lobby.focus_on(Field::DisplayName);
     lobby.type_char('V');
     lobby.focus_on(Field::Password);
@@ -60,7 +61,7 @@ fn registering_needs_the_password_typed_the_same_twice() {
     assert_eq!(
         lobby.submit(),
         Some(LobbyRequest::Register {
-            email: "a".to_string(),
+            username: "alice".to_string(),
             display_name: "V".to_string(),
             password: "hunter22".to_string(),
         })
@@ -74,7 +75,7 @@ fn signing_in_asks_for_the_password_once() {
     lobby.focus_on(Field::PasswordAgain);
     assert_eq!(
         lobby.focus(),
-        Field::Email,
+        Field::Username,
         "the repeat is not drawn on the sign-in form, so the caret cannot go there"
     );
     lobby.focus_on(Field::Password);
@@ -86,20 +87,21 @@ fn signing_in_asks_for_the_password_once() {
 fn a_sign_up_chains_into_a_log_in() {
     let mut lobby = Lobby::new();
     lobby.toggle_registering();
-    lobby.type_char('a');
+    lobby.insert("alice");
     lobby.focus_on(Field::DisplayName);
     lobby.type_char('V');
     lobby.focus_on(Field::Password);
     lobby.type_char('x');
     lobby.focus_on(Field::PasswordAgain);
     lobby.type_char('x');
-    lobby.submit();
+    assert!(matches!(
+        lobby.submit(),
+        Some(LobbyRequest::Register { .. })
+    ));
     assert_eq!(
-        lobby.apply(LobbyEvent::Registered {
-            confirmation_required: false,
-        }),
+        lobby.apply(LobbyEvent::Registered),
         Some(LobbyRequest::LogIn {
-            email: "a".to_string(),
+            username: "alice".to_string(),
             password: "x".to_string(),
         }),
         "the gateway hands out no token on sign-up"
@@ -107,6 +109,7 @@ fn a_sign_up_chains_into_a_log_in() {
     assert!(lobby.busy(), "the chained log-in is in flight");
     lobby.apply(LobbyEvent::LoggedIn {
         token: "tok".to_string(),
+        username: None,
     });
     assert_eq!(
         (
@@ -116,6 +119,139 @@ fn a_sign_up_chains_into_a_log_in() {
         ("", ""),
         "both copies of the password are dropped once it is spent"
     );
+}
+
+/// A name the rule refuses is refused here, before it is sent, in words
+/// that say what to fix; the gateway checks again with the same rule.
+#[test]
+fn a_username_the_rule_refuses_is_named_before_it_is_sent() {
+    for (typed, said) in [
+        ("al", "a username has 3 to 24 characters"),
+        (
+            "alice smith",
+            "a username is letters A–Z, digits and _ - . only",
+        ),
+        (
+            "_alice",
+            "a username starts and ends with a letter or a digit",
+        ),
+        ("al..ice", "a username has no two of _ - . in a row"),
+        (
+            "al\u{200b}ice",
+            "that username holds a character that cannot be seen",
+        ),
+    ] {
+        let mut lobby = Lobby::new();
+        lobby.toggle_registering();
+        lobby.insert(typed);
+        lobby.focus_on(Field::DisplayName);
+        lobby.type_char('V');
+        lobby.focus_on(Field::Password);
+        lobby.insert("hunter22");
+        lobby.focus_on(Field::PasswordAgain);
+        lobby.insert("hunter22");
+        assert_eq!(lobby.submit(), None, "{typed:?} is not sent");
+        assert_eq!(lobby.status(), said, "{typed:?}");
+        assert_eq!(lobby.tone(), Tone::Refusal);
+        assert_eq!(lobby.focus(), Field::Username, "the caret goes to the name");
+        assert!(!lobby.busy());
+    }
+}
+
+/// What is sent is the name in the form the rule keeps: a full-width name is
+/// the letters it stands for.
+#[test]
+fn a_username_is_sent_in_the_form_the_rule_keeps() {
+    let mut lobby = Lobby::new();
+    lobby.toggle_registering();
+    lobby.insert(" Ａｌｉｃｅ ");
+    lobby.focus_on(Field::DisplayName);
+    lobby.type_char('V');
+    lobby.focus_on(Field::Password);
+    lobby.insert("hunter22");
+    lobby.focus_on(Field::PasswordAgain);
+    lobby.insert("hunter22");
+    assert_eq!(
+        lobby.submit(),
+        Some(LobbyRequest::Register {
+            username: "Alice".to_string(),
+            display_name: "V".to_string(),
+            password: "hunter22".to_string(),
+        })
+    );
+}
+
+/// A sign-in is not checked against the rule: an address still signs in
+/// until the end of 2026 (#269), and the gateway answers either with the
+/// same refusal.
+#[test]
+fn a_sign_in_sends_what_was_typed() {
+    let mut lobby = Lobby::new();
+    lobby.insert(" mail@acevik.de ");
+    lobby.focus_on(Field::Password);
+    lobby.insert("hunter22");
+    assert_eq!(
+        lobby.submit(),
+        Some(LobbyRequest::LogIn {
+            username: "mail@acevik.de".to_string(),
+            password: "hunter22".to_string(),
+        })
+    );
+}
+
+/// Signed in with an address, the player is told the username the account
+/// was given, and the box takes the name, so the next sign-in is by name and
+/// hears only "signed in".
+#[test]
+fn a_sign_in_by_address_is_told_the_name_to_use_instead() {
+    let mut lobby = Lobby::new();
+    lobby.insert("mail@acevik.de");
+    lobby.focus_on(Field::Password);
+    lobby.insert("hunter22");
+    assert!(lobby.submit().is_some());
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: Some("mail".to_string()),
+    });
+    assert_eq!(
+        lobby.status(),
+        "signed in — your username is mail; the address works until the end of 2026"
+    );
+    assert_eq!(lobby.tone(), Tone::Note);
+    assert_eq!(lobby.field(Field::Username), "mail");
+
+    lobby.sign_out();
+    lobby.focus_on(Field::Password);
+    lobby.insert("hunter22");
+    assert_eq!(
+        lobby.submit(),
+        Some(LobbyRequest::LogIn {
+            username: "mail".to_string(),
+            password: "hunter22".to_string(),
+        })
+    );
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: Some("mail".to_string()),
+    });
+    assert_eq!(lobby.status(), "signed in", "told once");
+}
+
+/// Signed in by name in another case, the box takes the name as its owner
+/// wrote it, which is the spelling the device remembers.
+#[test]
+fn a_sign_in_by_name_keeps_the_spelling_the_gateway_answers() {
+    let mut lobby = Lobby::new();
+    lobby.insert("alice.b");
+    lobby.focus_on(Field::Password);
+    lobby.insert("hunter22");
+    assert!(lobby.submit().is_some());
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: Some("Alice.B".to_string()),
+    });
+    assert_eq!(lobby.status(), "signed in");
+    assert_eq!(lobby.field(Field::Username), "Alice.B");
 }
 
 #[test]

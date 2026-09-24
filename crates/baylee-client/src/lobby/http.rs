@@ -67,28 +67,27 @@ pub(super) fn build(
     let base = base.trim_end_matches('/');
     let (request, expect) = match request {
         LobbyRequest::Register {
-            email,
+            username,
             display_name,
             password,
         } => (
             json_post(
                 &format!("{base}/auth/register"),
                 &serde_json::json!({
-                    "email": email,
+                    "username": username,
                     "display_name": display_name,
                     "password": password,
-                    // What the confirmation mail is written in. The gateway
-                    // keeps it on the account, so a later resend still lands
-                    // in the language the player signed up in.
+                    // The language the gateway writes to the account in,
+                    // kept on it.
                     "lang": lang,
                 }),
             ),
             Expect::Registered,
         ),
-        LobbyRequest::LogIn { email, password } => (
+        LobbyRequest::LogIn { username, password } => (
             json_post(
                 &format!("{base}/auth/login"),
-                &serde_json::json!({ "email": email, "password": password }),
+                &serde_json::json!({ "username": username, "password": password }),
             ),
             Expect::LoggedIn,
         ),
@@ -337,6 +336,9 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
     #[derive(serde::Deserialize)]
     struct TokenBody {
         token: String,
+        /// Absent from a gateway older than usernames (#269).
+        #[serde(default)]
+        username: Option<String>,
     }
 
     /// `POST /decks`. An edit answers `204` and parses to nothing.
@@ -376,14 +378,8 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
 
     let body = response.text().unwrap_or_default();
     match expect {
-        // A gateway written before confirmation existed sends no such
-        // field, and `false` is what it meant: it never asked.
-        Expect::Registered => LobbyEvent::Registered {
-            confirmation_required: serde_json::from_str::<serde_json::Value>(body)
-                .ok()
-                .and_then(|v| v.get("confirmation_required")?.as_bool())
-                .unwrap_or(false),
-        },
+        // Nothing to read: the account exists, and signing in is next.
+        Expect::Registered => LobbyEvent::Registered,
         // An edit answers `204` with no body and needs no id: the builder
         // already holds the one it is editing.
         Expect::Library(request) => decode_library(request, body, lang),
@@ -420,7 +416,10 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         ),
         Expect::LoggedIn => serde_json::from_str::<TokenBody>(body).map_or_else(
             |_| unreadable(lang, Phrase::TheSignIn),
-            |b| LobbyEvent::LoggedIn { token: b.token },
+            |b| LobbyEvent::LoggedIn {
+                token: b.token,
+                username: b.username,
+            },
         ),
         Expect::Decks => serde_json::from_str(body)
             .map_or_else(|_| unreadable(lang, Phrase::TheDeckList), LobbyEvent::Decks),

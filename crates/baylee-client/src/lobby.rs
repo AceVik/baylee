@@ -292,8 +292,8 @@ impl LobbyState {
         // the kind of small toll that is paid a hundred times and noticed
         // once — and with it filled in the caret can start where the only
         // thing still missing actually is.
-        if !stored.last_email.is_empty() {
-            lobby.set_field(Field::Email, &stored.last_email);
+        if !stored.last_username.is_empty() {
+            lobby.set_field(Field::Username, &stored.last_username);
             lobby.focus_on(Field::Password);
         }
         lobby.set_gateway_ready(false);

@@ -1365,7 +1365,7 @@ mod tests {
         let mut offline = offline();
         assert!(matches!(
             offline.ask(LobbyRequest::LogIn {
-                email: "a@b.c".to_string(),
+                username: "alice".to_string(),
                 password: "x".to_string(),
             }),
             LobbyEvent::Failed(_)

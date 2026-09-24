@@ -58,7 +58,7 @@ fn a_refusal_reads_differently_from_a_note() {
         Tone::Refusal,
         "a form with no address in it is a form that was refused"
     );
-    lobby.set_field(Field::Email, "a@b.c");
+    lobby.set_field(Field::Username, "a@b.c");
     lobby.set_field(Field::Password, "pw");
     assert!(lobby.submit().is_some());
     assert_eq!(

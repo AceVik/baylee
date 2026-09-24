@@ -271,7 +271,9 @@ impl Inner {
             // keyboard on a phone; the type was buying the browser's own
             // validation on a form that does its own.
             FieldKind::Url => ("url", "url", "off"),
-            FieldKind::Email => ("text", "email", "username"),
+            // No address keyboard any more (#269): a username is letters,
+            // digits and three separators, which the plain one has.
+            FieldKind::Username => ("text", "text", "username"),
             FieldKind::Name => ("text", "text", "nickname"),
             FieldKind::Password => ("password", "text", "current-password"),
             // A password manager offers to *make* one here rather than

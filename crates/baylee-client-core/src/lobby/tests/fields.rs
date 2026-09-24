@@ -7,7 +7,7 @@ use super::*;
 fn placing_the_caret_is_visible_even_when_it_does_not_move() {
     let mut lobby = Lobby::new();
     let start = lobby.focus_epoch();
-    lobby.focus_on(Field::Email);
+    lobby.focus_on(Field::Username);
     assert!(
         lobby.focus_epoch() > start,
         "tapping the field you are already in still has to raise a keyboard"
@@ -27,10 +27,10 @@ fn placing_the_caret_is_visible_even_when_it_does_not_move() {
 #[test]
 fn a_field_can_be_replaced_wholesale() {
     let mut lobby = Lobby::new();
-    lobby.set_field(Field::Email, "pasted@example.com");
-    assert_eq!(lobby.field(Field::Email), "pasted@example.com");
-    lobby.set_field(Field::Email, "");
-    assert_eq!(lobby.field(Field::Email), "", "clearing works too");
+    lobby.set_field(Field::Username, "pasted@example.com");
+    assert_eq!(lobby.field(Field::Username), "pasted@example.com");
+    lobby.set_field(Field::Username, "");
+    assert_eq!(lobby.field(Field::Username), "", "clearing works too");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn the_eye_leaves_a_caret_that_is_already_in_the_box_alone() {
 fn a_shown_password_is_covered_again_by_leaving_it() {
     let mut lobby = Lobby::new();
     lobby.toggle_reveal(Field::Password);
-    lobby.focus_on(Field::Email);
+    lobby.focus_on(Field::Username);
     assert!(
         !lobby.showing(Field::Password),
         "the caret left, so the secret is a secret again"
@@ -90,7 +90,7 @@ fn a_shown_password_is_covered_again_by_leaving_it() {
 #[test]
 fn a_field_says_what_kind_of_keyboard_it_wants() {
     let lobby = Lobby::new();
-    assert_eq!(lobby.field_kind(Field::Email), FieldKind::Email);
+    assert_eq!(lobby.field_kind(Field::Username), FieldKind::Username);
     assert_eq!(lobby.field_kind(Field::DisplayName), FieldKind::Name);
     assert_eq!(lobby.field_kind(Field::Password), FieldKind::Password);
     assert_eq!(
@@ -125,7 +125,7 @@ fn the_password_box_asks_for_a_new_password_on_the_sign_up_form() {
 fn shift_tab_walks_the_sign_up_form_backwards() {
     let mut lobby = Lobby::new();
     lobby.toggle_registering();
-    assert_eq!(lobby.focus(), Field::Email);
+    assert_eq!(lobby.focus(), Field::Username);
     lobby.cycle_focus(Tab::Back);
     assert_eq!(
         lobby.focus(),
@@ -137,7 +137,7 @@ fn shift_tab_walks_the_sign_up_form_backwards() {
     lobby.cycle_focus(Tab::Back);
     assert_eq!(lobby.focus(), Field::DisplayName);
     lobby.cycle_focus(Tab::Back);
-    assert_eq!(lobby.focus(), Field::Email);
+    assert_eq!(lobby.focus(), Field::Username);
 }
 
 #[test]
@@ -152,11 +152,11 @@ fn tab_walks_the_sign_up_form_in_the_order_it_is_drawn() {
     assert_eq!(
         walked,
         [
-            Field::Email,
+            Field::Username,
             Field::DisplayName,
             Field::Password,
             Field::PasswordAgain,
-            Field::Email
+            Field::Username
         ]
     );
     assert!(lobby.typing_here());
@@ -183,7 +183,7 @@ fn shift_tab_on_the_log_in_form_is_tab() {
     lobby.cycle_focus(Tab::Back);
     assert_eq!(lobby.focus(), Field::Password);
     lobby.cycle_focus(Tab::Back);
-    assert_eq!(lobby.focus(), Field::Email);
+    assert_eq!(lobby.focus(), Field::Username);
 }
 
 /// Tabbing into a field selects it, so the next character replaces what
@@ -218,12 +218,12 @@ fn clicking_into_a_field_does_not_select_it() {
 #[test]
 fn the_platform_may_move_the_caret_without_changing_the_text() {
     let mut lobby = Lobby::new();
-    lobby.set_field(Field::Email, "mail@example.com");
-    lobby.set_field_at(Field::Email, "mail@example.com", 4, Some(0));
-    assert_eq!(lobby.buffer(Field::Email).cursor(), 4);
-    assert_eq!(lobby.buffer(Field::Email).selection(), Some(0..4));
+    lobby.set_field(Field::Username, "mail@example.com");
+    lobby.set_field_at(Field::Username, "mail@example.com", 4, Some(0));
+    assert_eq!(lobby.buffer(Field::Username).cursor(), 4);
+    assert_eq!(lobby.buffer(Field::Username).selection(), Some(0..4));
     lobby.type_char('n');
-    assert_eq!(lobby.field(Field::Email), "n@example.com");
+    assert_eq!(lobby.field(Field::Username), "n@example.com");
 }
 
 /// The caret is a caret and not an append cursor: a correction made in
@@ -231,17 +231,17 @@ fn the_platform_may_move_the_caret_without_changing_the_text() {
 #[test]
 fn typing_lands_at_the_caret_and_backspace_takes_what_is_before_it() {
     let mut lobby = Lobby::new();
-    lobby.set_field_at(Field::Email, "mailexample.com", 4, None);
+    lobby.set_field_at(Field::Username, "mailexample.com", 4, None);
     lobby.type_char('@');
-    assert_eq!(lobby.field(Field::Email), "mail@example.com");
+    assert_eq!(lobby.field(Field::Username), "mail@example.com");
     lobby.backspace();
-    assert_eq!(lobby.field(Field::Email), "mailexample.com");
+    assert_eq!(lobby.field(Field::Username), "mailexample.com");
     lobby.delete_forward();
-    assert_eq!(lobby.field(Field::Email), "mailxample.com");
+    assert_eq!(lobby.field(Field::Username), "mailxample.com");
     lobby.move_caret(Reach::Line, Dir::Left, false);
     lobby.type_char('e');
     assert_eq!(
-        lobby.field(Field::Email),
+        lobby.field(Field::Username),
         "emailxample.com",
         "Home, then type"
     );
@@ -250,11 +250,11 @@ fn typing_lands_at_the_caret_and_backspace_takes_what_is_before_it() {
 #[test]
 fn tab_skips_the_display_name_when_logging_in() {
     let mut lobby = Lobby::new();
-    assert_eq!(lobby.focus(), Field::Email);
+    assert_eq!(lobby.focus(), Field::Username);
     lobby.cycle_focus(Tab::Next);
     assert_eq!(lobby.focus(), Field::Password);
     lobby.cycle_focus(Tab::Next);
-    assert_eq!(lobby.focus(), Field::Email);
+    assert_eq!(lobby.focus(), Field::Username);
     lobby.toggle_registering();
     lobby.cycle_focus(Tab::Next);
     assert_eq!(lobby.focus(), Field::DisplayName);
@@ -275,18 +275,18 @@ fn typing_lands_in_the_focused_field_and_control_keys_do_not() {
     lobby.type_char('h');
     lobby.type_char('\n');
     lobby.type_char('i');
-    assert_eq!(lobby.field(Field::Email), "hi");
+    assert_eq!(lobby.field(Field::Username), "hi");
     lobby.backspace();
-    assert_eq!(lobby.field(Field::Email), "h");
+    assert_eq!(lobby.field(Field::Username), "h");
     lobby.backspace();
     lobby.backspace();
-    assert_eq!(lobby.field(Field::Email), "", "an empty field survives");
+    assert_eq!(lobby.field(Field::Username), "", "an empty field survives");
 }
 
 #[test]
 fn the_front_door_types_only_into_the_form_it_shows() {
     let mut lobby = Lobby::new();
-    lobby.set_field(Field::Email, "mail@example.com");
+    lobby.set_field(Field::Username, "mail@example.com");
 
     lobby.set_gateway_ready(false);
     assert!(!lobby.gateway_chosen());
@@ -313,14 +313,14 @@ fn the_front_door_types_only_into_the_form_it_shows() {
         "and the gateway form is not on screen"
     );
     lobby.cycle_focus(Tab::Next);
-    assert_eq!(lobby.focus(), Field::Email);
+    assert_eq!(lobby.focus(), Field::Username);
 
-    lobby.set_field(Field::Email, " ");
+    lobby.set_field(Field::Username, " ");
     lobby.set_gateway_ready(false);
     lobby.set_gateway_ready(true);
     assert_eq!(
         lobby.focus(),
-        Field::Email,
+        Field::Username,
         "nothing filled in: from the top"
     );
 }

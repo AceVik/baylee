@@ -86,12 +86,16 @@ pub struct ClientSettings {
     /// cannot travel with the account over `/settings`.
     ///
     /// Written on a sign-in that worked and never on one that was refused —
-    /// that is the one moment the client knows the address is a real one, and
+    /// that is the one moment the client knows the name is a real one, and
     /// a remembered typo would be handed back on every launch. The password
     /// is not kept beside it and will not be: that belongs in the platform's
     /// keychain, not in a JSON file in a config directory.
-    #[serde(default)]
-    pub last_email: String,
+    ///
+    /// A file from before usernames (#269) holds an address under
+    /// `last_email`, which is read here and still signs in until the end of
+    /// 2026; the first sign-in writes the username over it.
+    #[serde(default, alias = "last_email")]
+    pub last_username: String,
     /// Locally saved gateway addresses; selection is explicit on every launch.
     pub gateways: Vec<String>,
     /// How often each saved gateway was signed in to here, which orders the
@@ -110,7 +114,7 @@ impl Default for ClientSettings {
             prefer_text_view: false,
             zone_browser: None,
             zone_view: baylee_client_core::browser::ViewMode::default(),
-            last_email: String::new(),
+            last_username: String::new(),
             gateways: Vec::new(),
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
         }
@@ -479,7 +483,7 @@ mod tests {
                 height: 380.0,
             }),
             zone_view: baylee_client_core::browser::ViewMode::Grid,
-            last_email: "mail@acevik.de".to_string(),
+            last_username: "mail@acevik.de".to_string(),
             gateway_uses: {
                 let mut uses = baylee_client_core::lobby::gateway_use::GatewayUses::default();
                 uses.record("https://example.test");
@@ -501,9 +505,18 @@ mod tests {
             "the view the player chose has to come back, or the buttons are a setting that \
              resets every launch"
         );
-        assert_eq!(read.last_email, "mail@acevik.de");
+        assert_eq!(read.last_username, "mail@acevik.de");
         assert_eq!(read.gateway_uses, written.gateway_uses);
         assert_eq!(read.gateway_uses.of("https://example.test").count, 1);
+    }
+
+    /// A settings file written before usernames (#269) remembered an
+    /// address under `last_email`; it still opens the sign-in box on it.
+    #[test]
+    fn the_address_remembered_before_usernames_is_still_read() {
+        let settings: ClientSettings =
+            serde_json::from_str(r#"{"last_email":"mail@acevik.de"}"#).expect("still decodes");
+        assert_eq!(settings.last_username, "mail@acevik.de");
     }
 
     /// A settings file naming a view mode this build has never heard of loads
@@ -511,7 +524,7 @@ mod tests {
     ///
     /// `load` is `from_str(…).ok().unwrap_or_default()`, so a field that
     /// refused would take the sheet's rectangle, the language and the
-    /// remembered address down with it — which is exactly what one retired
+    /// remembered username down with it — which is exactly what one retired
     /// `Action` once did to every key a player had ever bound.
     #[test]
     fn a_retired_view_mode_does_not_take_the_whole_store_with_it() {

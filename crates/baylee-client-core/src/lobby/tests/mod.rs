@@ -14,12 +14,13 @@ use crate::deckbuilder::{Coverage, PoolCard, Zone};
 /// A signed-in lobby with one deck, without walking the whole flow.
 fn seated_lobby() -> Lobby {
     let mut lobby = Lobby::new();
-    lobby.set_field(Field::Email, "a@b.c");
+    lobby.set_field(Field::Username, "alice");
     lobby.set_field(Field::Password, "hunter22");
     assert!(lobby.submit().is_some());
     assert_eq!(
         lobby.apply(LobbyEvent::LoggedIn {
-            token: "tok".to_string()
+            token: "tok".to_string(),
+            username: None
         }),
         Some(LobbyRequest::ListDecks)
     );

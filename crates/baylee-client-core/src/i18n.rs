@@ -223,12 +223,13 @@ messages! {
     GatewayOlder { en: "This gateway is older than version checks. Whether its games open here shows only when one starts.", de: "Dieser Gateway ist älter als die Versionsprüfung. Ob sich seine Partien hier öffnen, zeigt erst eine Partie." },
     /// Gateway warning: a saved gateway that is down.
     GatewaySilent { en: "This gateway is not answering right now.", de: "Dieser Gateway antwortet gerade nicht." },
-    /// Server account-name rules, displayed before a registration is submitted.
-    AccountNameHint { en: "3–16 characters: A–Z, 0–9, _ or -. Start and end with a letter or number.", de: "3–16 Zeichen: A–Z, 0–9, _ oder -. Am Anfang und Ende ein Buchstabe oder eine Zahl." },
+    /// Server display-name rules, displayed before a registration is
+    /// submitted, and what the display name is for: the username is private.
+    AccountNameHint { en: "Others see it as Name#tag. 3–16 characters: A–Z, 0–9, _ or -, a letter or number at each end.", de: "Andere sehen ihn als Name#Tag. 3–16 Zeichen: A–Z, 0–9, _ oder -, an beiden Enden ein Buchstabe oder eine Zahl." },
     /// Password registration guidance.
-    AccountPasswordHint { en: "At least 8 characters. Avoid common passwords and your name or email.", de: "Mindestens 8 Zeichen. Kein häufiges Passwort und nicht dein Name oder deine E-Mail." },
+    AccountPasswordHint { en: "At least 8 characters, not a common password, and neither of your names.", de: "Mindestens 8 Zeichen, kein häufiges Passwort und keiner deiner beiden Namen." },
     /// A rejected password during registration.
-    AccountPasswordInvalid { en: "Choose a password with 8–256 characters, different from your name and email, and not a common password.", de: "Wähle ein Passwort mit 8–256 Zeichen, verschieden von Name und E-Mail und kein häufiges Passwort." },
+    AccountPasswordInvalid { en: "Choose a password with 8–256 characters, different from your username and display name, and not a common password.", de: "Wähle ein Passwort mit 8–256 Zeichen, verschieden von Benutzer- und Anzeigename und kein häufiges Passwort." },
     /// A library reply was not a valid response.
     LibraryReadFailed { en: "The library response could not be read. Please try again.", de: "Die Bibliotheksantwort konnte nicht gelesen werden. Bitte erneut versuchen." },
     /// Library and front-door interface.
@@ -309,8 +310,8 @@ messages! {
     /// The product's name. Not translated, and here so that the one place it
     /// is written stays one place.
     AppName { en: "baylee", de: "baylee" },
-    /// Caption over the address field.
-    Email { en: "E-MAIL", de: "E-MAIL" },
+    /// Caption over the username field.
+    Username { en: "USERNAME", de: "BENUTZERNAME" },
     /// Caption over the name field, when registering.
     DisplayName { en: "DISPLAY NAME", de: "ANZEIGENAME" },
     /// Caption over the password field.
@@ -501,9 +502,41 @@ messages! {
     /// Signed out.
     SignedOut { en: "signed out", de: "abgemeldet" },
     /// The form was submitted with something missing.
-    NeedEmailAndPassword {
-        en: "an e-mail and a password, please",
-        de: "bitte E-Mail und Passwort",
+    NeedUsernameAndPassword {
+        en: "a username and a password, please",
+        de: "bitte Benutzername und Passwort",
+    },
+    /// Registering, and the username has an invisible or direction-turning
+    /// character in it (`names::UsernameFault::Invisible`).
+    UsernameInvisible {
+        en: "that username holds a character that cannot be seen",
+        de: "dieser Benutzername enthält ein unsichtbares Zeichen",
+    },
+    /// Registering, and the username has a character the rule does not allow.
+    UsernameCharacters {
+        en: "a username is letters A–Z, digits and _ - . only",
+        de: "ein Benutzername besteht nur aus A–Z, Ziffern und _ - .",
+    },
+    /// Registering, and the username is too short or too long.
+    UsernameLength {
+        en: "a username has 3 to 24 characters",
+        de: "ein Benutzername hat 3 bis 24 Zeichen",
+    },
+    /// Registering, and the username begins or ends with a separator.
+    UsernameEdge {
+        en: "a username starts and ends with a letter or a digit",
+        de: "ein Benutzername beginnt und endet mit einem Buchstaben oder einer Ziffer",
+    },
+    /// Registering, and the username has two separators in a row.
+    UsernameDoubled {
+        en: "a username has no two of _ - . in a row",
+        de: "in einem Benutzernamen stehen _ - . nie zweimal hintereinander",
+    },
+    /// Signed in with an address: the name to sign in with from now on.
+    /// `{0}` is the username.
+    YourUsernameIs {
+        en: "signed in — your username is {0}; the address works until the end of 2026",
+        de: "angemeldet — dein Benutzername ist {0}; die Adresse geht noch bis Ende 2026",
     },
     /// The same, registering.
     NeedDisplayName { en: "a display name, please", de: "bitte einen Anzeigenamen" },
@@ -1759,11 +1792,6 @@ messages! {
     },
     /// The same veil offline, where there is nobody to talk to.
     VeilWorking { en: "One moment", de: "Einen Moment" },
-    /// Check your e-mail — a confirmation link is on its way.
-    ConfirmYourEmail {
-        en: "account created — check your e-mail for the confirmation link",
-        de: "Konto erstellt — prüfe deine E-Mail auf den Bestätigungslink",
-    },
     /// A chair that plays for nobody but itself.
     SeatSideNone {
         en: "no team",
@@ -2125,6 +2153,20 @@ impl Phrase {
             text = text.replace(&format!("{{{index}}}"), arg);
         }
         text
+    }
+
+    /// What to say about a username the rule refused, one sentence per
+    /// fault, so the player is told the thing to fix.
+    #[must_use]
+    pub fn username_fault(fault: baylee_protocol::names::UsernameFault) -> Self {
+        use baylee_protocol::names::UsernameFault;
+        match fault {
+            UsernameFault::Invisible => Self::UsernameInvisible,
+            UsernameFault::Character => Self::UsernameCharacters,
+            UsernameFault::Length => Self::UsernameLength,
+            UsernameFault::Edge => Self::UsernameEdge,
+            UsernameFault::Doubled => Self::UsernameDoubled,
+        }
     }
 
     /// The form of a counted sentence that `n` things ask for.
