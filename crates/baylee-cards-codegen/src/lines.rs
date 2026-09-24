@@ -66,6 +66,24 @@ pub enum LineShape {
     /// the mana, so its bounce ability fitted both and took whichever came
     /// first.
     Mana,
+    /// `Lands you control have "{T}: Add one mana of any color."` — a
+    /// sentence that grants an activated ability, which it prints in
+    /// quotation marks (CR 113.10a), on both sides.
+    ///
+    /// Its own shape so a player can be told whose sentence a granted
+    /// ability is (#212). The land under a Chromatic Lantern prints nothing
+    /// about the `{T}` it was given; the Lantern does. As [`Self::Other`]
+    /// the static had no line and the row read "Granted ability".
+    ///
+    /// Not every grant: one written inside an ability that already has a
+    /// sentence of its own shape, such as Urza's Saga's chapters or Spawning
+    /// Pool's `{1}{B}:`, is found under that shape. This is for the two
+    /// kinds of ability that were [`Self::Other`] and grant one: a static
+    /// and a copy clause (`…except it has "{T}: Add {U}."`).
+    ///
+    /// A static never uses the stack, so it is not counted in
+    /// [`Self::stackable`].
+    Grant,
     /// Anything else a card prints: a static ability, a keyword line, the
     /// body of an instant or sorcery.
     Other,
@@ -79,7 +97,7 @@ impl LineShape {
     /// about [`LineShape::Mana`] separately.
     #[must_use]
     pub fn stackable(self) -> bool {
-        !matches!(self, Self::Other | Self::Mana)
+        !matches!(self, Self::Other | Self::Mana | Self::Grant)
     }
 }
 
@@ -147,16 +165,16 @@ pub fn line_shape(line: &str) -> LineShape {
     }
     let Some(colon) = ability_colon(line) else {
         // Every colon this line prints stands inside quotation marks, so
-        // the line defines no ability of its own and no ability may claim
-        // it — see [`ability_colon`]. Refused here rather than left to fall
-        // through, because the branch below reads a *keyword* line and a
-        // short grant fits it: `Lands have "{T}: Add {C}."` is 26
-        // characters, ends in a quotation mark rather than a full stop, and
-        // carries a `{`. The pool's shortest grant is 46 characters and
-        // only that length stood between this and the same defect one
-        // branch over.
+        // the line defines no ability of its own — see [`ability_colon`] —
+        // and only the ability that *grants* the quoted one may claim it.
+        // Said here rather than left to fall through, because the branch
+        // below reads a *keyword* line and a short grant fits it: `Lands
+        // have "{T}: Add {C}."` is 26 characters, ends in a quotation mark
+        // rather than a full stop, and carries a `{`. The pool's shortest
+        // grant is 46 characters and only that length stood between this
+        // and the same defect one branch over.
         if line.contains(':') {
-            return LineShape::Other;
+            return LineShape::Grant;
         }
         // A keyword ability with a cost is a printed sentence too, and it
         // is the *right* sentence for the ability it compiles to — cycling
@@ -304,8 +322,41 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
             }
         }
         A::SagaChapter { .. } => LineShape::Chapter,
+        _ if granted_cost(ability).is_some() => LineShape::Grant,
         _ => LineShape::Other,
     }
+}
+
+/// The cost of the activated ability a static or a copy clause grants, when
+/// it grants one: the two kinds of ability [`LineShape::Grant`] is for.
+///
+/// `None` for every other ability, including one that grants through an
+/// effect it resolves (a saga chapter, Spawning Pool's `{1}{B}:`), since
+/// that one already has a sentence of its own shape.
+fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cost> {
+    use baylee_cards_dsl::{CopyMod, Modifier};
+    let cost = |modifier: &Modifier| match modifier {
+        Modifier::GrantActivated { cost, .. } => Some(*cost),
+        _ => None,
+    };
+    match ability {
+        AbilityDef::Static(rule) => cost(&rule.modifier),
+        AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
+            mods.iter().find_map(|m| match m {
+                CopyMod::Grant(modifier) => cost(modifier),
+                _ => None,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// What a sentence prints inside its first pair of quotation marks.
+///
+/// The ASCII `"` for [`ability_colon`]'s reason: it is what the pool prints.
+fn quoted(line: &str) -> Option<&str> {
+    let (_, rest) = line.split_once('"')?;
+    rest.split_once('"').map(|(inside, _)| inside)
 }
 
 /// The loyalty cost a line prints, if it prints one.
@@ -636,6 +687,14 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
         // taking the neighbouring "When this creature enters" — which is
         // exactly what Karmic Guide's table did before this line existed.
         A::Echo { .. } => line.to_lowercase().contains("echo"),
+        // A grant's cost is the one inside the quotation marks, which is the
+        // granted ability's and printed as its head (CR 113.10a).
+        A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } => {
+            match granted_cost(ability) {
+                Some(cost) => quoted(line).is_some_and(|inside| cost_fits(&cost, inside)),
+                None => true,
+            }
+        }
         // A modal trigger's text is its modes; it carries no handle the
         // code can be held against, so it makes no claim.
         _ => true,
@@ -1120,13 +1179,15 @@ mod tests {
     }
 
     /// A quoted ability belongs to whatever the sentence grants, and the
-    /// sentence itself has no shape an ability may claim.
+    /// sentence is the granting ability's, never the granted one's.
     ///
     /// CR 113.10a. Chromatic Lantern is the card that found it: its own
     /// mana ability claimed `Lands you control have "{T}: Add one mana of
     /// any color."` — the grant, one sentence before the identical line the
     /// lantern actually prints for itself — and the table said `Some(0)`
-    /// where the card says `Some(1)`.
+    /// where the card says `Some(1)`. It was `Other` then, which no ability
+    /// claims; it is [`LineShape::Grant`] now, which only a grant claims
+    /// (#212).
     ///
     /// The short grant is the second half and is the case the pool does not
     /// print yet. Length is what kept it out of the keyword branch, not
@@ -1139,12 +1200,12 @@ mod tests {
     fn a_colon_inside_quotation_marks_belongs_to_the_ability_being_granted() {
         assert_eq!(
             line_shape(r#"Lands you control have "{T}: Add one mana of any color.""#),
-            LineShape::Other,
+            LineShape::Grant,
             "the lantern's grant is a static ability, not the mana it hands out",
         );
         assert_eq!(
             line_shape(r#"Lands have "{T}: Add {C}.""#),
-            LineShape::Other,
+            LineShape::Grant,
             "a grant short enough for the keyword branch is still a grant",
         );
         // The other direction, or the assertions above are satisfied by a
@@ -1159,6 +1220,48 @@ mod tests {
             line_shape(r#"{2}, {T}: Target creature gains "flying" until end of turn."#),
             LineShape::Activated,
             "a quotation mark later in the line does not hide the cost's colon",
+        );
+    }
+
+    /// A static that grants an ability is placed on the sentence that
+    /// quotes it, and the ability it grants is not (#212).
+    ///
+    /// Chromatic Lantern's two abilities, as the card writes them: the grant,
+    /// then the Lantern's own `{T}`. Before [`LineShape::Grant`] the static
+    /// was `None`, so the land it gave a `{T}` to had no sentence to show
+    /// for it. The second half holds the placement to the cost inside the
+    /// quotation marks: a grant costing `{1}` is not the Lantern's.
+    #[test]
+    fn a_static_that_grants_an_ability_is_placed_on_the_sentence_quoting_it() {
+        use baylee_cards_dsl::{Cost, Modifier, mana_ability, static_ability};
+        use baylee_core::mana::ManaColor;
+        const ANY: [Effect; 1] = [Effect::mana(ManaColor::Blue, 1)];
+        let text = "Lands you control have \"{T}: Add one mana of any color.\"\n\
+                    {T}: Add one mana of any color.";
+        let grant = |cost| {
+            static_ability!(
+                Filter::LAND,
+                Modifier::GrantActivated {
+                    cost,
+                    effects: &ANY,
+                    mana_ability: true,
+                }
+            )
+        };
+        let own = mana_ability!(&ANY);
+        let found = map(&[grant(Cost::TAP), own], text);
+        assert_eq!(found.lines, vec![Some(0), Some(1)]);
+        assert_eq!(ability_shape(&grant(Cost::TAP)), LineShape::Grant);
+        assert!(!LineShape::Grant.stackable(), "a static is no stack entry");
+
+        let dearer = Cost {
+            mana: baylee_core::mana::ManaCost::parse("{1}"),
+            ..Cost::TAP
+        };
+        assert_eq!(
+            map(&[grant(dearer), own], text).lines,
+            vec![None, Some(1)],
+            "a grant of `{{1}}, {{T}}` is not the one quoted here"
         );
     }
 

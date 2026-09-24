@@ -43,6 +43,7 @@
 //! is worse than "+1". [`AbilityLine::of`] is what lets a client refuse
 //! the whole answer when its own split came out a different length.
 
+use baylee_cards_dsl::{AbilityDef, CopyMod, Effect, Modifier};
 use baylee_core::ids::CardIndex;
 
 /// One face's answer: how many sentences it prints, and where each of its
@@ -215,6 +216,109 @@ pub fn alternative_line(card: CardIndex, face: usize, alt: usize) -> Option<Abil
     })
 }
 
+/// Which of the three ways a card writes an activated ability it grants.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GrantDoor {
+    /// The ability is a static whose modifier is the grant: Chromatic
+    /// Lantern's lands, Great Divide Guide's.
+    Static,
+    /// An effect the ability resolves creates the grant: Urza's Saga's
+    /// chapters, Spawning Pool's `{1}{B}:`.
+    Effect,
+    /// A copy clause gives it to the copy (CR 707.9a): Machine God's
+    /// Effigy's `…except it has "{T}: Add {U}."`.
+    Copy,
+}
+
+/// Every `Modifier::GrantActivated` one ability writes, and through which
+/// door.
+///
+/// The one walk over the three doors, for the pool lint that holds a
+/// granted ability to CR 605.1 and for [`grant_home`], which a view asks
+/// whose sentence a grant is. Two walks would be a grant the lint checks
+/// and the view cannot find, or the other way round. `seen` counts the
+/// effects read, which is what makes a door that reports nought news
+/// rather than silence (`Effect::walk`).
+///
+/// Every variant is matched by name, so a new kind of ability is a compile
+/// error here and not a door this walk quietly never opens.
+pub fn grants_in(
+    ability: &'static AbilityDef,
+    seen: &mut usize,
+) -> Vec<(GrantDoor, &'static Modifier)> {
+    let is_grant = |m: &Modifier| matches!(m, Modifier::GrantActivated { .. });
+    let mut found = Vec::new();
+    let lists: Vec<&'static [Effect]> = match ability {
+        AbilityDef::Static(rule) => {
+            if is_grant(&rule.modifier) {
+                found.push((GrantDoor::Static, &rule.modifier));
+            }
+            Vec::new()
+        }
+        AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
+            for m in *mods {
+                if let CopyMod::Grant(modifier) = m
+                    && is_grant(modifier)
+                {
+                    found.push((GrantDoor::Copy, *modifier));
+                }
+            }
+            Vec::new()
+        }
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => vec![*effects],
+        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+            modes.iter().map(|m| m.effects).collect()
+        }
+        // Nothing here resolves through an effect list a card wrote: a
+        // keyword the engine synthesises, a cost, a replacement, a choice
+        // made as the permanent enters.
+        AbilityDef::Unimplemented
+        | AbilityDef::Ward { .. }
+        | AbilityDef::Prepared { .. }
+        | AbilityDef::Echo { .. }
+        | AbilityDef::Replacement(_)
+        | AbilityDef::Suspend { .. } => Vec::new(),
+    };
+    for effects in lists {
+        Effect::walk(effects, seen, &mut |effect| {
+            if let Effect::CreateContinuousEffect { modifier, .. } = effect
+                && is_grant(modifier)
+            {
+                found.push((GrantDoor::Effect, modifier));
+            }
+        });
+    }
+    found
+}
+
+/// Which of `abilities` writes `grant`: the index of the first whose
+/// [`grants_in`] holds a modifier **equal** to it.
+///
+/// By value, and never by where the modifier lives in memory: two cards
+/// that write the same grant share one constant, in release more than in
+/// debug, so an address says nothing about which card wrote it
+/// (`docs/card-identity.md`). Equal values on two cards are not a problem,
+/// because the caller asks of one grantor's own list; equal values twice on
+/// one face would be, and `every_grant_is_found_on_its_own_face` holds
+/// that the pool has none.
+///
+/// `None` where no ability of the list writes it, and that is the answer
+/// to pass on: a grant whose sentence is not found draws no sentence. It
+/// is never the nearest one.
+#[must_use]
+pub fn grant_home(abilities: &'static [AbilityDef], grant: &Modifier) -> Option<usize> {
+    abilities.iter().position(|ability| {
+        grants_in(ability, &mut 0)
+            .iter()
+            .any(|(_, found)| *found == grant)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,9 +371,18 @@ mod tests {
     /// abilities are mana and counts them separately.
     #[test]
     fn nearly_every_stack_ability_knows_its_printed_sentence() {
+        // A static or a copy clause that grants an ability is placed too
+        // (#212), and is no more a stack entry than a mana ability is: it
+        // is counted apart for the same reason.
+        let grants_on_no_stack = |ability: &'static baylee_cards_dsl::AbilityDef| {
+            grants_in(ability, &mut 0)
+                .iter()
+                .any(|(door, _)| *door != GrantDoor::Effect)
+        };
         let mut stackable = 0usize;
         let mut mapped = 0usize;
         let mut mana = 0usize;
+        let mut grants = 0usize;
         for (def, card) in crate::generated::BY_INDEX.iter().zip(ABILITY_LINES) {
             for (face, lines) in card.iter().enumerate() {
                 stackable += lines.stackable as usize;
@@ -280,6 +393,8 @@ mod tests {
                     }
                     if abilities.get(at).is_some_and(is_mana_ability) {
                         mana += 1;
+                    } else if abilities.get(at).is_some_and(grants_on_no_stack) {
+                        grants += 1;
                     } else {
                         mapped += 1;
                     }
@@ -298,6 +413,97 @@ mod tests {
             mana >= 400,
             "{mana} mana abilities know their printed sentence"
         );
+        assert!(
+            grants >= 6,
+            "{grants} statics and copy clauses know the sentence that grants \
+             their ability; six did (#212)"
+        );
+    }
+
+    /// Every grant the pool writes is found again on its own face, and the
+    /// face has a sentence for it (#212).
+    ///
+    /// A view answers "whose sentence is this granted ability" with
+    /// [`grant_home`], by value, so two things have to be true of the pool
+    /// for its answer to be the right sentence. Both are asserted for every
+    /// grant [`grants_in`] finds: `grant_home` lands on the ability that
+    /// wrote it, which fails if one face writes an equal grant twice (the
+    /// first would answer for both), and the table has a line there, which
+    /// a static or a copy clause did not before codegen's `LineShape::Grant`.
+    ///
+    /// The floor is the grantors this was written against, one card each:
+    /// Chromatic Lantern, Machine God's Effigy, Wrenn and Realmbreaker,
+    /// Urza's Saga (two chapters), Forgotten Monument, Spawning Pool,
+    /// Wandering Fumarole, Enduring Vitality, Great Divide Guide.
+    #[test]
+    fn every_grant_is_found_on_its_own_face() {
+        let mut grantors = 0usize;
+        let mut grants = 0usize;
+        let mut seen = 0usize;
+        let mut wrong = Vec::new();
+        for (def, card) in crate::generated::BY_INDEX.iter().zip(ABILITY_LINES) {
+            let Some(def) = def else { continue };
+            let before = grants;
+            for (face, lines) in card.iter().enumerate() {
+                let abilities = def.abilities_for_face(face);
+                for (at, ability) in abilities.iter().enumerate() {
+                    for (door, grant) in grants_in(ability, &mut seen) {
+                        grants += 1;
+                        let home = grant_home(abilities, grant);
+                        if home != Some(at) {
+                            wrong.push(format!(
+                                "{} face {face}: the {door:?} grant of ability {at} is found at {home:?}",
+                                def.name()
+                            ));
+                        }
+                        if lines.lines.get(at).copied().flatten().is_none() {
+                            wrong.push(format!(
+                                "{} face {face}: ability {at} grants through {door:?} and has no line",
+                                def.name()
+                            ));
+                        }
+                    }
+                }
+            }
+            grantors += usize::from(grants > before);
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        assert!(
+            grantors >= 9,
+            "{grantors} cards write {grants} grants over {seen} effects read; nine cards did"
+        );
+    }
+
+    /// The lookup is exact: a grant no ability of the list writes has no
+    /// home, even beside one that differs only in what it costs.
+    ///
+    /// The counter-test to the walk above, which could pass with a lookup
+    /// that answered the first grant of a face for anything at all.
+    #[test]
+    fn a_grant_nobody_wrote_has_no_home() {
+        let lantern = crate::all()
+            .find(|def| def.name() == "Chromatic Lantern")
+            .expect("the Lantern is in the pool");
+        let abilities = lantern.abilities_for_face(0);
+        let written = grants_in(&abilities[0], &mut 0)[0].1;
+        assert_eq!(grant_home(abilities, written), Some(0));
+        let Modifier::GrantActivated {
+            effects,
+            mana_ability,
+            ..
+        } = *written
+        else {
+            panic!("the Lantern grants an activated ability");
+        };
+        let dearer = Modifier::GrantActivated {
+            cost: baylee_cards_dsl::Cost {
+                mana: baylee_core::mana::ManaCost::parse("{1}"),
+                ..baylee_cards_dsl::Cost::TAP
+            },
+            effects,
+            mana_ability,
+        };
+        assert_eq!(grant_home(abilities, &dearer), None);
     }
 
     /// Whether an ability is one the stack never sees (CR 605.1).

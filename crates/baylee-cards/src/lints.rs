@@ -1797,7 +1797,7 @@ mod tests {
     /// [`CopyMod::Grant`]: crate::dsl::ability::CopyMod::Grant
     #[test]
     fn no_granted_ability_breaks_the_rule_a_printed_one_is_held_to() {
-        use crate::dsl::ability::CopyMod;
+        use crate::lines::GrantDoor;
         let mut wrong = Vec::new();
         let (mut by_static, mut by_effect, mut by_copy) = (0_usize, 0_usize, 0_usize);
         // What `Effect::walk` counts, kept because its own doc says why: a
@@ -1807,47 +1807,18 @@ mod tests {
         for def in crate::all() {
             let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
             for ability in def.abilities.iter().chain(faces) {
-                let mut found: Vec<(bool, &'static [Effect])> = Vec::new();
-                // The first door: the modifier is the ability.
-                let on_a_static = match ability {
-                    AbilityDef::Static(rule) => as_granted_activated(&rule.modifier),
-                    _ => None,
-                };
-                if let Some(grant) = on_a_static {
-                    by_static += 1;
-                    found.push(grant);
-                }
-                // The third: it is part of what a copy clause says the copy
-                // has (CR 707.9a).
-                let copy_mods: &[CopyMod] = match ability {
-                    AbilityDef::CopyOnEnter { mods, .. }
-                    | AbilityDef::CopyOnEnterUntilEot { mods, .. } => mods,
-                    _ => &[],
-                };
-                for m in copy_mods {
-                    if let CopyMod::Grant(modifier) = m
-                        && let Some(grant) = as_granted_activated(modifier)
-                    {
-                        by_copy += 1;
-                        found.push(grant);
+                // The three doors are `lines::grants_in`'s, the walk the view
+                // finds a grant's sentence with, so a grant this holds to
+                // CR 605.1 is one a player can be shown the source of.
+                for (door, modifier) in crate::lines::grants_in(ability, &mut effects_read) {
+                    match door {
+                        GrantDoor::Static => by_static += 1,
+                        GrantDoor::Effect => by_effect += 1,
+                        GrantDoor::Copy => by_copy += 1,
                     }
-                }
-                // The second: it is created by an effect that resolves. The
-                // branches are `branches`' to enumerate rather than this
-                // sweep's — a saga chapter is one, which is where Urza's
-                // Saga's two live.
-                for branch in branches(ability) {
-                    Effect::walk(branch.effects, &mut effects_read, &mut |effect| {
-                        let Effect::CreateContinuousEffect { modifier, .. } = effect else {
-                            return;
-                        };
-                        if let Some(grant) = as_granted_activated(modifier) {
-                            by_effect += 1;
-                            found.push(grant);
-                        }
-                    });
-                }
-                for (claimed, effects) in found {
+                    let Some((claimed, effects)) = as_granted_activated(modifier) else {
+                        continue;
+                    };
                     if let Some(fault) = mana_ability_fault_of(claimed, effects, None) {
                         wrong.push(format!("{} grants an ability that {fault}", def.name()));
                     }
