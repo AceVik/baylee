@@ -416,7 +416,7 @@ process. In a browser the same handover is `?game=…&token=…` on the page URL
 CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
 test suite **also in `--release`** (a `debug_assert!` once hid mana payment
 from every release build), `validate`, a
-`wasm32-unknown-unknown` check of the five crates that must keep compiling
+`wasm32-unknown-unknown` check of the six crates that must keep compiling
 for it, `scripts/gate-features.sh` as the `features` job, benches, an MSRV
 check against
 the `rust-version` this workspace declares, `cargo-deny`, and `cargo-audit`.
@@ -474,9 +474,17 @@ layer above:
   Both servers and `LocalHost` use it, so an in-process duel and a networked one
   exercise the same envelopes.
 - **`baylee-client`** is the only crate that needs a GPU.
+- **`baylee-cardtext`** sits under `baylee-core` and links nothing but serde:
+  the `/catalog/text` wire shape, the sentence split codegen counts with, and
+  the rule that pairs a printing's translated sentence with its Oracle one
+  (`pick`, `align`, `verify`, `split_cost`). The catalog and the client both
+  need that answer and cannot link each other, so it is written once here. Its
+  fixtures are real printings, and `cargo test -p baylee-catalog --test
+  cardtext_provenance -- --ignored` holds them against an ingested catalog.
 
-`baylee-core`, `baylee-protocol`, `baylee-view`, `baylee-client-core` and
-`baylee-client` must all keep compiling for `wasm32-unknown-unknown`.
+`baylee-cardtext`, `baylee-core`, `baylee-protocol`, `baylee-view`,
+`baylee-client-core` and `baylee-client` must all keep compiling for
+`wasm32-unknown-unknown`.
 
 ### The engine advances only through choices
 

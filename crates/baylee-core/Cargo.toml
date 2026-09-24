@@ -9,6 +9,7 @@ description = "Shared, wasm-safe foundations: ids, colors, types, mana, presets"
 workspace = true
 
 [dependencies]
+baylee-cardtext.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 uuid.workspace = true

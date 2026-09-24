@@ -53,36 +53,9 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 
-/// Text for one face of a card, already resolved to a language.
-///
-/// The localized and English forms are both carried: a client needs the
-/// English name to recognise whether the object on the table is still the card
-/// this text describes (a clone is not), and it cannot do that from a
-/// translated name.
-#[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
-pub struct FaceText {
-    /// Name in the served language.
-    pub name: String,
-    /// English name of the same face.
-    pub english_name: String,
-    /// Type line in the served language.
-    pub type_line: String,
-    /// Rules text in the served language.
-    pub oracle_text: String,
-    /// Mana cost in Scryfall notation (language-independent).
-    pub mana_cost: String,
-}
-
-/// Every face of one requested printing.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct CardTextEntry {
-    /// The printing id that was asked for.
-    pub scryfall_id: String,
-    /// The language actually served, after the fallback.
-    pub lang: String,
-    /// Faces in printed order.
-    pub faces: Vec<FaceText>,
-}
+/// What `/catalog/text` answers: the one wire shape both ends link, from
+/// the crate that also holds the rule a printing is picked by.
+pub use baylee_cardtext::{CardTextEntry, FaceText};
 
 /// One search result, for the deck builder.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -1942,29 +1915,6 @@ mod tests {
         assert!(
             !after.contains("AND"),
             "a filter was added after the keep-list stopped applying:\n{after}"
-        );
-    }
-
-    /// The mirror of `baylee_client_core::card_face`'s wire test. The client
-    /// deliberately defines its own structs — it cannot depend on this crate
-    /// without pulling an ORM and a Postgres driver into a wasm build — so the
-    /// only thing keeping the two ends together is that both pin this JSON.
-    #[test]
-    fn the_client_wire_shape_is_pinned() {
-        let entry = CardTextEntry {
-            scryfall_id: "id".to_string(),
-            lang: "de".to_string(),
-            faces: vec![FaceText {
-                name: "Wald".to_string(),
-                english_name: "Forest".to_string(),
-                type_line: "Basisland — Wald".to_string(),
-                oracle_text: "({T}: Erzeuge {G}.)".to_string(),
-                mana_cost: String::new(),
-            }],
-        };
-        assert_eq!(
-            serde_json::to_string(&entry).expect("serializes"),
-            r#"{"scryfall_id":"id","lang":"de","faces":[{"name":"Wald","english_name":"Forest","type_line":"Basisland — Wald","oracle_text":"({T}: Erzeuge {G}.)","mana_cost":""}]}"#
         );
     }
 

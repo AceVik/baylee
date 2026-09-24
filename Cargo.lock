@@ -796,10 +796,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-cardtext"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "baylee-catalog"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "baylee-cardtext",
  "clap",
  "flate2",
  "sea-orm",
@@ -860,6 +869,7 @@ name = "baylee-client-core"
 version = "0.1.0"
 dependencies = [
  "baylee-cards-dsl",
+ "baylee-cardtext",
  "baylee-core",
  "baylee-engine",
  "baylee-view",
@@ -872,6 +882,7 @@ dependencies = [
 name = "baylee-core"
 version = "0.1.0"
 dependencies = [
+ "baylee-cardtext",
  "serde",
  "thiserror 2.0.20",
  "uuid",

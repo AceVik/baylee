@@ -32,52 +32,9 @@ use baylee_core::types::{SubtypeKind, SubtypeSet, SupertypeSet, TypeSet};
 use baylee_view::PublicObject;
 use serde::{Deserialize, Serialize};
 
-/// One printing's text, as the gateway's `/catalog/text` serves it.
-///
-/// The field names are the wire contract with `baylee-catalog`. The two are
-/// deliberately not the same type: dragging the catalog's types over here
-/// would drag an ORM and a Postgres driver into a crate that has to compile
-/// for wasm. A test on each side pins the JSON so the two cannot drift.
-#[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
-pub struct CardTextEntry {
-    /// The printing id that was requested.
-    pub scryfall_id: String,
-    /// Language actually served.
-    pub lang: String,
-    /// Faces in printed order.
-    pub faces: Vec<FaceText>,
-}
-
-/// The text of one face, as it arrives on the wire.
-#[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
-pub struct FaceText {
-    /// Name in the served language.
-    pub name: String,
-    /// English name of the same face.
-    pub english_name: String,
-    /// Type line in the served language.
-    pub type_line: String,
-    /// Rules text in the served language.
-    pub oracle_text: String,
-    /// Mana cost in Scryfall notation.
-    pub mana_cost: String,
-}
-
-impl CardTextEntry {
-    /// Turns one face into the model the renderer consumes.
-    #[must_use]
-    pub fn face(&self, index: usize) -> Option<CardText> {
-        let face = self.faces.get(index)?;
-        Some(CardText {
-            lang: self.lang.clone(),
-            name: face.name.clone(),
-            type_line: face.type_line.clone(),
-            oracle_text: face.oracle_text.clone(),
-            mana_cost: face.mana_cost.clone(),
-            english_name: face.english_name.clone(),
-        })
-    }
-}
+/// One printing's text, as the gateway's `/catalog/text` serves it — the
+/// wire shape `baylee-cardtext` holds for both ends.
+pub use baylee_cardtext::{CardTextEntry, FaceText};
 
 /// Printed card text for one face, resolved to a language.
 ///
@@ -103,6 +60,22 @@ pub struct CardText {
     /// copied name in its view, and printing the original's text over it would
     /// be a lie. Comparing against the English name is what detects that.
     pub english_name: String,
+}
+
+impl CardText {
+    /// One face of a wire entry, as the model the renderer consumes.
+    #[must_use]
+    pub fn of(entry: &CardTextEntry, index: usize) -> Option<Self> {
+        let face = entry.faces.get(index)?;
+        Some(Self {
+            lang: entry.lang.clone(),
+            name: face.name.clone(),
+            type_line: face.type_line.clone(),
+            oracle_text: face.oracle_text.clone(),
+            mana_cost: face.mana_cost.clone(),
+            english_name: face.english_name.clone(),
+        })
+    }
 }
 
 /// One block of rules text.
@@ -877,29 +850,6 @@ mod tests {
         assert_eq!(face.stats, Some(Stats::Loyalty(4)));
     }
 
-    /// The wire shape between the gateway catalog and this crate is two
-    /// independent structs that must serialize identically. `baylee-catalog`
-    /// has the mirror of this test; together they turn a rename on either side
-    /// into a failure instead of a card that silently loses its text.
-    #[test]
-    fn the_catalog_wire_shape_is_pinned() {
-        let entry = CardTextEntry {
-            scryfall_id: "id".to_string(),
-            lang: "de".to_string(),
-            faces: vec![FaceText {
-                name: "Wald".to_string(),
-                english_name: "Forest".to_string(),
-                type_line: "Basisland — Wald".to_string(),
-                oracle_text: "({T}: Erzeuge {G}.)".to_string(),
-                mana_cost: String::new(),
-            }],
-        };
-        assert_eq!(
-            serde_json::to_string(&entry).expect("serializes"),
-            r#"{"scryfall_id":"id","lang":"de","faces":[{"name":"Wald","english_name":"Forest","type_line":"Basisland — Wald","oracle_text":"({T}: Erzeuge {G}.)","mana_cost":""}]}"#
-        );
-    }
-
     #[test]
     fn a_wire_entry_becomes_the_model_the_renderer_uses() {
         let entry = CardTextEntry {
@@ -913,10 +863,10 @@ mod tests {
                 mana_cost: String::new(),
             }],
         };
-        let text = entry.face(0).expect("face 0 exists");
+        let text = CardText::of(&entry, 0).expect("face 0 exists");
         assert_eq!(text.name, "Forest");
         assert_eq!(text.lang, "en");
-        assert!(entry.face(1).is_none());
+        assert!(CardText::of(&entry, 1).is_none());
     }
 
     /// The localized line is kept only while it still describes the object.

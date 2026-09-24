@@ -115,7 +115,7 @@ impl CardTexts {
     /// The text for a printing's face, if it has arrived.
     #[must_use]
     pub fn get(&self, print: PrintRef, face: u8) -> Option<CardText> {
-        self.by_print.get(&print)?.face(face as usize)
+        CardText::of(self.by_print.get(&print)?, face as usize)
     }
 
     /// Whether any text is available at all.

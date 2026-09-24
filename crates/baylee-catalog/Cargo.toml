@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 anyhow.workspace = true
+baylee-cardtext.workspace = true
 # `env` so DATABASE_URL works the same way for the CLI and the gateway.
 clap = { workspace = true, features = ["env"] }
 flate2.workspace = true

@@ -10,6 +10,7 @@ description = "Renderer-agnostic client brain: table layout, board model, intera
 workspace = true
 
 [dependencies]
+baylee-cardtext.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-view.workspace = true

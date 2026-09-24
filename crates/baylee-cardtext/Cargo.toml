@@ -1,0 +1,16 @@
+[package]
+name = "baylee-cardtext"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Printed card text: the catalog's wire shape and the rule that pairs a translated sentence with its Oracle one"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

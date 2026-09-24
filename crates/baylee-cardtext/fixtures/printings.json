@@ -1,0 +1,1245 @@
+{
+ "read": "2026-09-24",
+ "catalog": "local catalog ingested from Scryfall all_cards; newest cards.updated_at 2026-09-15 08:07 UTC",
+ "cards": [
+  {
+   "name": "Bonesplitter",
+   "lang": "de",
+   "oracle_id": "452e3f5f-ce17-4682-966b-5cc100210aee",
+   "oracle": [
+    "Equipped creature gets +2/+0.\nEquip {1}"
+   ],
+   "printings": [
+    {
+     "scryfall_id": "f5798cfe-e252-43ed-8e3f-d4fd9f58feb5",
+     "set": "cmr",
+     "collector_number": "458",
+     "released_at": "2020-11-20",
+     "layout": "normal",
+     "printed": [
+      "Die ausgerüstete Kreatur erhält +2/+0.\nAusrüsten {1} ({1}: Lege diese Karte an eine Kreatur deiner Wahl an, die du kontrollierst. Spiele Ausrüsten wie eine Hexerei.)"
+     ]
+    },
+    {
+     "scryfall_id": "e0571af4-2146-4a6a-af7f-e46b2137514a",
+     "set": "mrd",
+     "collector_number": "146",
+     "released_at": "2003-10-02",
+     "layout": "normal",
+     "printed": [
+      "Die ausgerüstete Kreatur erhält +2/+0.\nAusrüsten {1} ({1}: Lege diese Karte an eine Kreatur deiner Wahl, die du kontrollierst, an. Spiele Ausrüsten wie eine Hexerei. Diese Karte kommt gelöst ins Spiel und bleibt im Spiel, falls die Kreatur das Spiel verlässt.)"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Brazen Borrower",
+   "lang": "de",
+   "oracle_id": "c7b044c3-3cfa-407e-bf20-2875e8e04b7b",
+   "oracle": [
+    "Flash\nFlying\nThis creature can block only creatures with flying.",
+    "Return target nonland permanent an opponent controls to its owner's hand."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "a67f6814-5a8e-484a-8c00-af97782b96ef",
+     "set": "soc",
+     "collector_number": "190",
+     "released_at": "2026-04-24",
+     "layout": "adventure",
+     "printed": [
+      "Aufblitzen\nFliegend\nDiese Kreatur kann nur fliegende Kreaturen blocken.",
+      null
+     ]
+    },
+    {
+     "scryfall_id": "d4629780-48a9-4008-9844-8cd8b71cc1c4",
+     "set": "spg",
+     "collector_number": "30",
+     "released_at": "2024-04-19",
+     "layout": "adventure",
+     "printed": [
+      "Aufblitzen\nFliegend\nDer Dreiste Langfinger kann nur fliegende Kreaturen blocken.\n//ADV//\nGemeiner Diebstahl\n{1}{U}\nSpontanzauber — Abenteuer\nBringe ein Nichtland-Permanent deiner Wahl, das ein Gegner kontrolliert, auf die Hand seines Besitzers zurück.",
+      null
+     ]
+    },
+    {
+     "scryfall_id": "3936523f-3d5a-4cbe-9d45-91a568e0911b",
+     "set": "woc",
+     "collector_number": "85",
+     "released_at": "2023-09-08",
+     "layout": "adventure",
+     "printed": [
+      "Aufblitzen\nFliegend\nDer Dreiste Langfinger kann nur fliegende Kreaturen blocken.",
+      "Bringe eine bleibende Karte deiner Wahl, die kein Land ist und die ein Gegner kontrolliert, auf die Hand ihres Besitzers zurück."
+     ]
+    },
+    {
+     "scryfall_id": "968e6ad9-0a09-4b48-9564-5aac0bc48fbe",
+     "set": "eld",
+     "collector_number": "39",
+     "released_at": "2019-10-04",
+     "layout": "adventure",
+     "printed": [
+      "Aufblitzen\nFliegend\nDer Dreiste Langfinger kann nur fliegende Kreaturen blocken.",
+      "Bringe eine bleibende Karte deiner Wahl, die kein Land ist und die ein Gegner kontrolliert, auf die Hand ihres Besitzers zurück."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Cascade Bluffs",
+   "lang": "de",
+   "oracle_id": "f1603384-4361-49c9-98aa-7785fc3504c4",
+   "oracle": [
+    "{T}: Add {C}.\n{U/R}, {T}: Add {U}{U}, {U}{R}, or {R}{R}."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "909c4c70-451b-417e-b5ea-767d1c05e96d",
+     "set": "eoc",
+     "collector_number": "153",
+     "released_at": "2025-08-01",
+     "layout": "normal",
+     "printed": [
+      "{T}: Add {C}.\n{(u/r)}, {T}: Add {UU}, {UR}, or {RR}."
+     ]
+    },
+    {
+     "scryfall_id": "abd3740e-c1b7-4816-b85a-9ded8554b73c",
+     "set": "tdc",
+     "collector_number": "345",
+     "released_at": "2025-04-11",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{U/R}, {T}: Erzeuge {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    },
+    {
+     "scryfall_id": "56a950f9-d01e-4097-8bee-f840535e8e08",
+     "set": "blc",
+     "collector_number": "297",
+     "released_at": "2024-08-02",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{U/R}, {T}: Erzeuge {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    },
+    {
+     "scryfall_id": "dc2c7fa1-75c6-4b0b-8de8-084bc218a662",
+     "set": "otc",
+     "collector_number": "276",
+     "released_at": "2024-04-19",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{U/R}, {T}: Erzeuge {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    },
+    {
+     "scryfall_id": "9be6464c-cd9e-4564-86f4-01bb1b9b9ea5",
+     "set": "cmm",
+     "collector_number": "990",
+     "released_at": "2023-08-04",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{U/R}, {T}: Erzeuge {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    },
+    {
+     "scryfall_id": "de2d500b-e546-440e-b23b-c6b1dea2979a",
+     "set": "ncc",
+     "collector_number": "390",
+     "released_at": "2022-04-29",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{U/R}, {T}: Erzeuge {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    },
+    {
+     "scryfall_id": "42d8b7a3-bc8f-4a71-bce5-515e875f8e98",
+     "set": "2xm",
+     "collector_number": "313",
+     "released_at": "2020-08-07",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{U/R}, {T}: Erzeuge {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    },
+    {
+     "scryfall_id": "1f2b653a-20a0-4a77-b9e7-557095c35029",
+     "set": "eve",
+     "collector_number": "175",
+     "released_at": "2008-07-25",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe deinen Manavorrat um {1}.\n{U/R}, {T}: Erhöhe deinen Manavorrat um {U}{U}, {U}{R} oder {R}{R}."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Chromatic Lantern",
+   "lang": "de",
+   "oracle_id": "539f5396-d99a-417d-a84c-dff7930b5900",
+   "oracle": [
+    "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "924aebdc-e6c1-4918-b9f9-9aa17bfa4a6a",
+     "set": "msc",
+     "collector_number": "195",
+     "released_at": "2026-06-26",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontrollierst, haben „{T}: Erzeuge ein Mana beliebiger Farbe.\"\n{T}: Erzeuge ein Mana beliebiger Farbe."
+     ]
+    },
+    {
+     "scryfall_id": "3d5fcd4d-7ae3-4cd4-be63-62f3add876ff",
+     "set": "msc",
+     "collector_number": "428",
+     "released_at": "2026-06-26",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontrollierst, haben „{T}: Erzeuge ein Mana beliebiger Farbe.\"\n{T}: Erzeuge ein Mana beliebiger Farbe."
+     ]
+    },
+    {
+     "scryfall_id": "5a720462-9893-4b63-83c1-859dff9dd5b1",
+     "set": "drc",
+     "collector_number": "53",
+     "released_at": "2025-02-14",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontrollierst, haben „{T}: Erzeuge ein Mana einer beliebigen Farbe.\"\n{T}: Erzeuge ein Mana einer beliebigen Farbe."
+     ]
+    },
+    {
+     "scryfall_id": "d4ae0e30-8349-4ffb-8fe0-cc2d95db9602",
+     "set": "j25",
+     "collector_number": "151",
+     "released_at": "2024-11-15",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontrollierst, haben „{T}: Erzeuge ein Mana einer beliebigen Farbe.\"\n{T}: Erzeuge ein Mana einer beliebigen Farbe."
+     ]
+    },
+    {
+     "scryfall_id": "23c69b7b-1110-453b-817e-0014901f79fc",
+     "set": "grn",
+     "collector_number": "233",
+     "released_at": "2018-10-05",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontollierst, haben „{T}: Erzeuge ein Mana einer beliebigen Farbe.\"\n{T}: Erzeuge ein Mana einer beliebigen Farbe."
+     ]
+    },
+    {
+     "scryfall_id": "3ff90ff0-e2cc-4791-b01f-2c4f75b7567f",
+     "set": "c16",
+     "collector_number": "247",
+     "released_at": "2016-11-11",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontollierst, haben „{T}: Erhöhe deinen Manavorrat um ein Mana einer beliebigen Farbe.\"\n{T}: Erhöhe deinen Manavorrat um ein Mana einer beliebigen Farbe."
+     ]
+    },
+    {
+     "scryfall_id": "b179b831-beb5-4ad6-8fb7-cc50ed171d8a",
+     "set": "rtr",
+     "collector_number": "226",
+     "released_at": "2012-10-05",
+     "layout": "normal",
+     "printed": [
+      "Länder, die du kontollierst, haben „{T}: Erhöhe deinen Manavorrat um ein Mana einer beliebigen Farbe.\"\n{T}: Erhöhe deinen Manavorrat um ein Mana einer beliebigen Farbe."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Clearwater Pathway",
+   "lang": "de",
+   "oracle_id": "144119bc-7fd1-45c5-9e29-f742e7c255ac",
+   "oracle": [
+    "{T}: Add {U}.",
+    "{T}: Add {B}."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "bead582f-b44f-4978-9daa-8b3c0d5b5e06",
+     "set": "znr",
+     "collector_number": "260",
+     "released_at": "2020-09-25",
+     "layout": "modal_dfc",
+     "printed": [
+      "{T}: Erzeuge {U}.\nLand\n{T}: Erzeuge {B}.",
+      "{T}: Erzeuge {B}.\nLand\n{T}: Erzeuge {U}."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Elven Palisade",
+   "lang": "de",
+   "oracle_id": "0fb94fa4-2aff-4636-ac1b-ed39dc9451a6",
+   "oracle": [
+    "Sacrifice a Forest: Target attacking creature gets -3/-0 until end of turn."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "41b5a595-9aeb-4b3f-b7b1-8171e69aab09",
+     "set": "exo",
+     "collector_number": "109",
+     "released_at": "1998-06-15",
+     "layout": "normal",
+     "printed": [
+      null
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Fetid Heath",
+   "lang": "de",
+   "oracle_id": "42bf259d-4bb9-49c3-b4ec-223dca62f4d6",
+   "oracle": [
+    "{T}: Add {C}.\n{W/B}, {T}: Add {W}{W}, {W}{B}, or {B}{B}."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "81f24256-1d96-4522-ad91-a13b7447d399",
+     "set": "fic",
+     "collector_number": "391",
+     "released_at": "2025-06-13",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{(}w/b)}, {T}: Erzeuge {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    },
+    {
+     "scryfall_id": "7da59905-1bca-4647-aab5-7f04933c1a1c",
+     "set": "tdc",
+     "collector_number": "362",
+     "released_at": "2025-04-11",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{W/B}, {T}: Erzeuge {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    },
+    {
+     "scryfall_id": "d5614c07-2c85-451f-8a50-949838445b9b",
+     "set": "otc",
+     "collector_number": "295",
+     "released_at": "2024-04-19",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{W/B}, {T}: Erzeuge {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    },
+    {
+     "scryfall_id": "cefa09eb-e1b9-4e49-ad70-9ab189f20a3e",
+     "set": "moc",
+     "collector_number": "399",
+     "released_at": "2023-04-21",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{W/B}, {T}: Erzeuge {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    },
+    {
+     "scryfall_id": "536b092a-e1e3-491b-89ed-25666f351842",
+     "set": "ncc",
+     "collector_number": "401",
+     "released_at": "2022-04-29",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{W/B}, {T}: Erzeuge {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    },
+    {
+     "scryfall_id": "2c614585-9433-49c0-94b8-bbeecb868c24",
+     "set": "2xm",
+     "collector_number": "316",
+     "released_at": "2020-08-07",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{W/B}, {T}: Erzeuge {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    },
+    {
+     "scryfall_id": "ee0802e2-df6b-499b-836a-19adda9a3f6c",
+     "set": "eve",
+     "collector_number": "176",
+     "released_at": "2008-07-25",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe deinen Manavorrat um {1}.\n{W/B}, {T}: Erhöhe deinen Manavorrat um {W}{W}, {W}{B} oder {B}{B}."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Flame Spirit",
+   "lang": "de",
+   "oracle_id": "123bfa86-4265-448f-97cd-2c0614212862",
+   "oracle": [
+    "{R}: This creature gets +1/+0 until end of turn."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "4ceadedd-9fb6-4617-b178-f17f231411a8",
+     "set": "6ed",
+     "collector_number": "179",
+     "released_at": "1999-04-21",
+     "layout": "normal",
+     "printed": [
+      "{R}:Der Flammengeist erhält +1/+0 bis zum Ende des Zuges."
+     ]
+    },
+    {
+     "scryfall_id": "a0c4c7c0-8736-4476-afca-c495f1a535d3",
+     "set": "5ed",
+     "collector_number": "229",
+     "released_at": "1997-03-24",
+     "layout": "normal",
+     "printed": [
+      "{R}: +1/+0 bis zum Ende des Zuges."
+     ]
+    },
+    {
+     "scryfall_id": "ed44387c-3dcf-4979-b175-9e1d158884e3",
+     "set": "ice",
+     "collector_number": "184",
+     "released_at": "1995-06-03",
+     "layout": "normal",
+     "printed": [
+      "{R}:+1/+0 bis zum Ende des Zuges"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Flowstone Wall",
+   "lang": "de",
+   "oracle_id": "5fa86b45-1d5b-42df-8811-6a10903f3039",
+   "oracle": [
+    "Defender (This creature can't attack.)\n{R}: This creature gets +1/-1 until end of turn."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "782a8f41-828a-45c6-976a-7cc4af1f934c",
+     "set": "nem",
+     "collector_number": "86",
+     "released_at": "2000-02-14",
+     "layout": "normal",
+     "printed": [
+      "(Mauern können nicht angreifen)\n{R}: Die Schmelzsteinmauer erhält +1/-1 bis zum Ende des Zuges."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Gemstone Mine",
+   "lang": "de",
+   "oracle_id": "0c828f10-4775-492f-9224-1e2814ad2cad",
+   "oracle": [
+    "This land enters with three mining counters on it.\n{T}, Remove a mining counter from this land: Add one mana of any color. If there are no mining counters on this land, sacrifice it."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "b2c03f71-378e-4dd0-8512-673ebd429b71",
+     "set": "dmr",
+     "collector_number": "247",
+     "released_at": "2023-01-13",
+     "layout": "normal",
+     "printed": [
+      "Die Edelsteinmine kommt mit drei Minenmarken ins Spiel.\n{T}, entferne eine Minenmarke von der Edelsteinmine: Erzeuge ein Mana einer beliebigen Farbe. Falls dann keine Minenmarken auf der Edelsteinmine liegen, opfere sie."
+     ]
+    },
+    {
+     "scryfall_id": "1e26e954-f154-4c34-929e-a3c29d2d1469",
+     "set": "dmr",
+     "collector_number": "395",
+     "released_at": "2023-01-13",
+     "layout": "normal",
+     "printed": [
+      "Die Edelsteinmine kommt mit drei Minenmarken ins Spiel.\n{T}, entferne eine Minenmarke von der Edelsteinmine: Erzeuge ein Mana einer beliebigen Farbe. Falls dann keine Minenmarken auf der Edelsteinmine liegen, opfere sie."
+     ]
+    },
+    {
+     "scryfall_id": "d174fff0-cd87-49e8-ba8d-c73d214fd447",
+     "set": "dmr",
+     "collector_number": "455",
+     "released_at": "2023-01-13",
+     "layout": "normal",
+     "printed": [
+      "Die Edelsteinmine kommt mit drei Minenmarken ins Spiel.\n{T}, entferne eine Minenmarke von der Edelsteinmine: Erzeuge ein Mana einer beliebigen Farbe. Falls dann keine Minenmarken auf der Edelsteinmine liegen, opfere sie."
+     ]
+    },
+    {
+     "scryfall_id": "90c47c19-70c2-4b9c-a553-6b03f6191e4d",
+     "set": "tsb",
+     "collector_number": "119",
+     "released_at": "2006-10-06",
+     "layout": "normal",
+     "printed": [
+      "Die Edelsteinmine kommt mit drei Minenmarken ins Spiel.\n{T}, entferne eine Minenmarke von der Edelsteinmine: Erhöhe deinen Manavorrat um ein Mana einer beliebigen Farbe. Falls keine Minenmarken mehr auf der Edelsteinmine liegen, opfere sie."
+     ]
+    },
+    {
+     "scryfall_id": "0e69566e-260c-4326-a9af-29a5da90376b",
+     "set": "wth",
+     "collector_number": "164",
+     "released_at": "1997-06-09",
+     "layout": "normal",
+     "printed": [
+      "Lege drei Minenmarken auf die Edelsteinmine, wenn sie ins Spiel kommt.\n{T}, entferne eine Minenmarke von der Edelsteinmine: Erhöhe Deinen Manavorrat um ein Mana einer beliebigen Farbe. Begrabe die Edelsteinmine, wenn keine Minenmarken auf ihr liegen."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Granger Guildmage",
+   "lang": "de",
+   "oracle_id": "0230fdda-d916-457e-9dfd-61783fcf4652",
+   "oracle": [
+    "{R}, {T}: This creature deals 1 damage to any target and 1 damage to you.\n{W}, {T}: Target creature gains first strike until end of turn."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "51ff507d-281b-401a-b717-0bc9cab0aa44",
+     "set": "mir",
+     "collector_number": "220",
+     "released_at": "1996-10-08",
+     "layout": "normal",
+     "printed": [
+      "{W}, {T}: Eine Kreatur Deiner Wahl erhält Erstschlag bis zum Ende des Zuges.\n{R}, {T}: Der Magier der Bauerngilde fügt sowohl einer Kreatur oder einem Spieler Deiner Wahl als auch Dir 1 Schadenspunkt zu."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ifnir Deadlands",
+   "lang": "de",
+   "oracle_id": "af698bd5-5f56-4d2a-9f02-8c3e781210cd",
+   "oracle": [
+    "{T}: Add {C}.\n{T}, Pay 1 life: Add {B}.\n{2}{B}{B}, {T}, Sacrifice a Desert: Put two -1/-1 counters on target creature an opponent controls. Activate only as a sorcery."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "51547605-1619-44c5-b932-305cd0126744",
+     "set": "ecc",
+     "collector_number": "153",
+     "released_at": "2026-01-23",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{T}, bezahle 1 Lebenspunkt: Erzeuge {B}.\n{2BB}, {T}, opfere eine Wüste: Lege zwei -1/-1-Marken auf eine Kreatur deiner Wahl, die ein Gegner kontrolliert. Aktiviere diese Fähigkeit wie eine Hexerei."
+     ]
+    },
+    {
+     "scryfall_id": "9b69eb2d-9dad-46ba-b26f-26b9ede6ebb7",
+     "set": "hou",
+     "collector_number": "179",
+     "released_at": "2017-07-14",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe deinen Manavorrat um {C}.\n{T}, bezahle 1 Lebenspunkt: Erhöhe deinen Manavorrat um {B}.\n{2}{B}{B}, {T}, opfere eine Wüste: Lege zwei -1/-1-Marken auf eine Kreatur deiner Wahl, die ein Gegner kontrolliert. Aktiviere diese Fähigkeit nur zu einem Zeitpunkt, zu dem du auch eine Hexerei wirken könntest."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Jace, the Mind Sculptor",
+   "lang": "de",
+   "oracle_id": "7f77a84e-5a4b-4834-aefa-3cecc175ae8e",
+   "oracle": [
+    "+2: Look at the top card of target player's library. You may put that card on the bottom of that player's library.\n0: Draw three cards, then put two cards from your hand on top of your library in any order.\n−1: Return target creature to its owner's hand.\n−12: Exile all cards from target player's library, then that player shuffles their hand into their library."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "8e1d7746-55fa-4a5b-93ba-cbc932b3ae8c",
+     "set": "blc",
+     "collector_number": "75",
+     "released_at": "2024-08-02",
+     "layout": "normal",
+     "printed": [
+      "+2: Schaue dir die oberste Karte der Bibliothek eines Spielers deiner Wahl an. Du kannst sie unter die Bibliothek des Spielers legen.\n0: Ziehe drei Karten und lege dann zwei Karten aus deiner Hand in beliebiger Reihenfolge oben auf deine Bibliothek.\n−1: Bringe eine Kreatur deiner Wahl auf die Hand ihres Besitzers zurück.\n−12: Schicke alle Karten aus der Bibliothek eines Spielers deiner Wahl ins Exil, dann mischt der Spieler seine Hand in seine Bibliothek."
+     ]
+    },
+    {
+     "scryfall_id": "3e8617c9-4159-477c-b5d7-6fa746051f6b",
+     "set": "2xm",
+     "collector_number": "334",
+     "released_at": "2020-08-07",
+     "layout": "normal",
+     "printed": [
+      "+2: Schaue dir die oberste Karte der Bibliothek eines Spielers deiner Wahl an. Du kannst sie unter die Bibliothek des Spielers legen.\n0: Ziehe drei Karten und lege dann zwei Karten aus deiner Hand in beliebiger Reihenfolge oben auf deine Bibliothek.\n−1: Bringe eine Kreatur deiner Wahl auf die Hand ihres Besitzers zurück.\n−12: Schicke alle Karten aus der Bibliothek eines Spielers deiner Wahl ins Exil, dann mischt der Spieler die Karten auf seiner Hand in seine Bibliothek."
+     ]
+    },
+    {
+     "scryfall_id": "0e9b24d2-385f-4ab9-b202-dd1aedf2a683",
+     "set": "2xm",
+     "collector_number": "56",
+     "released_at": "2020-08-07",
+     "layout": "normal",
+     "printed": [
+      "+2: Schaue dir die oberste Karte der Bibliothek eines Spielers deiner Wahl an. Du kannst sie unter die Bibliothek des Spielers legen.\n0: Ziehe drei Karten und lege dann zwei Karten aus deiner Hand in beliebiger Reihenfolge oben auf deine Bibliothek.\n−1: Bringe eine Kreatur deiner Wahl auf die Hand ihres Besitzers zurück.\n−12: Schicke alle Karten aus der Bibliothek eines Spielers deiner Wahl ins Exil, dann mischt der Spieler die Karten auf seiner Hand in seine Bibliothek."
+     ]
+    },
+    {
+     "scryfall_id": "5f187dc1-8d89-407c-a6e2-3c9212afc6f6",
+     "set": "wwk",
+     "collector_number": "31",
+     "released_at": "2010-02-05",
+     "layout": "normal",
+     "printed": [
+      "+2: Schaue dir die oberste Karte der Bibliothek eines Spielers deiner Wahl an. Du kannst diese Karte unter die Bibliothek dieses Spielers legen.\n0: Ziehe drei Karten und lege dann zwei Karten aus deiner Hand in beliebiger Reihenfolge oben auf deine Bibliothek.\n-1: Bringe eine Kreatur deiner Wahl auf die Hand ihres Besitzers zurück.\n-12: Schicke alle Karten der Bibliothek eines Spielers deiner Wahl ins Exil, anschließend mischt dieser Spieler die Karten auf seiner Hand in seine Bibliothek."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Jace, the Mind Sculptor",
+   "lang": "ja",
+   "oracle_id": "7f77a84e-5a4b-4834-aefa-3cecc175ae8e",
+   "oracle": [
+    "+2: Look at the top card of target player's library. You may put that card on the bottom of that player's library.\n0: Draw three cards, then put two cards from your hand on top of your library in any order.\n−1: Return target creature to its owner's hand.\n−12: Exile all cards from target player's library, then that player shuffles their hand into their library."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "1e1d197a-3fa9-40c6-b22b-68700206e332",
+     "set": "blc",
+     "collector_number": "75",
+     "released_at": "2024-08-02",
+     "layout": "normal",
+     "printed": [
+      "+2：プレイヤー１人を対象とする。そのプレイヤーのライブラリーの一番上にあるカード１枚を見る。そのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n0：カード３枚を引く。その後、あなたの手札にあるカード２枚をあなたのライブラリーの一番上に望む順番で置く。\n-1：クリーチャー１体を対象とする。それをオーナーの手札に戻す。\n-12：プレイヤー１人を対象とする。そのプレイヤーのライブラリーにあるすべてのカードを追放する。その後、そのプレイヤーは、自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    },
+    {
+     "scryfall_id": "da0ba14e-8bbe-4e6c-a6d9-b6a15de112b9",
+     "set": "blc",
+     "collector_number": "93",
+     "released_at": "2024-08-02",
+     "layout": "normal",
+     "printed": [
+      "+2：プレイヤー１人を対象とする。そのプレイヤーのライブラリーの一番上にあるカード１枚を見る。そのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n0：カード３枚を引く。その後、あなたの手札にあるカード２枚をあなたのライブラリーの一番上に望む順番で置く。\n-1：クリーチャー１体を対象とする。それをオーナーの手札に戻す。\n-12：プレイヤー１人を対象とする。そのプレイヤーのライブラリーにあるすべてのカードを追放する。その後、そのプレイヤーは、自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    },
+    {
+     "scryfall_id": "5bb86c4c-d4bc-47ee-9b24-78b4d4749aa2",
+     "set": "2xm",
+     "collector_number": "334",
+     "released_at": "2020-08-07",
+     "layout": "normal",
+     "printed": [
+      "+2：プレイヤー１人を対象とする。そのプレイヤーのライブラリーの一番上のカードを見る。あなたはそのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n0：カードを３枚引く。その後、あなたの手札からカード２枚をあなたのライブラリーの一番上に望む順番で置く。\n-1：クリーチャー１体を対象とする。それをオーナーの手札に戻す。\n-12：プレイヤー１人を対象とする。そのプレイヤーのライブラリーからカードをすべて追放する。その後そのプレイヤーは、自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    },
+    {
+     "scryfall_id": "845f5d17-04fd-46a1-9347-a7b448667de6",
+     "set": "2xm",
+     "collector_number": "56",
+     "released_at": "2020-08-07",
+     "layout": "normal",
+     "printed": [
+      "+2：プレイヤー１人を対象とする。そのプレイヤーのライブラリーの一番上のカードを見る。あなたはそのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n0：カードを３枚引く。その後、あなたの手札からカード２枚をあなたのライブラリーの一番上に望む順番で置く。\n-1：クリーチャー１体を対象とする。それをオーナーの手札に戻す。\n-12：プレイヤー１人を対象とする。そのプレイヤーのライブラリーからカードをすべて追放する。その後そのプレイヤーは、自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    },
+    {
+     "scryfall_id": "85a54589-6d35-4eb2-992c-a0df9c8b2748",
+     "set": "a25",
+     "collector_number": "62",
+     "released_at": "2018-03-16",
+     "layout": "normal",
+     "printed": [
+      "+2：プレイヤー１人を対象とし、そのプレイヤーのライブラリーの一番上のカードを見る。あなたはそのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n0：カードを３枚引き、その後あなたの手札からカード２枚をあなたのライブラリーの一番上に望む順番で置く。\n-1：クリーチャー１体を対象とし、それをオーナーの手札に戻す。\n-12：プレイヤー１人を対象とし、そのプレイヤーのライブラリーからカードをすべて追放する。その後そのプレイヤーは、自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    },
+    {
+     "scryfall_id": "b962a15b-6ae7-4d14-a1a8-f7f4e8a348f9",
+     "set": "ema",
+     "collector_number": "57",
+     "released_at": "2016-06-10",
+     "layout": "normal",
+     "printed": [
+      "＋２：プレイヤー１人を対象とし、そのプレイヤーのライブラリーの一番上のカードを見る。あなたはそのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n０：カードを３枚引き、その後あなたの手札からカード２枚をあなたのライブラリーの一番上に望む順番で置く。\n－１：クリーチャー１体を対象とし、それをオーナーの手札に戻す。\n－12：プレイヤー１人を対象とし、そのプレイヤーのライブラリーからすべてのカードを追放する。その後そのプレイヤーは、自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    },
+    {
+     "scryfall_id": "28a86f6c-0ce3-4f0c-a3c1-d346bcb04121",
+     "set": "wwk",
+     "collector_number": "31",
+     "released_at": "2010-02-05",
+     "layout": "normal",
+     "printed": [
+      "+2: プレイヤー１人を対象とし、そのプレイヤーのライブラリーの一番上のカードを見る。 あなたはそのカードをそのプレイヤーのライブラリーの一番下に置いてもよい。\n0: カードを３枚引き、その後あなたの手札にあるカードを２枚、あなたのライブラリーの一番上に望む順番で置く。\n-1: クリーチャー１体を対象とし、それをオーナーの手札に戻す。\n-12: プレイヤー１人を対象とする。そのプレイヤーのライブラリーのカードをすべて追放し、その後そのプレイヤーは自分の手札を自分のライブラリーに加えて切り直す。"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Kavaron, Memorial World",
+   "lang": "de",
+   "oracle_id": "4fa826ca-d361-4391-ad0d-989ebcfa4a91",
+   "oracle": [
+    "This land enters tapped.\n{T}: Add {R}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12+ | {1}{R}, {T}, Sacrifice a land: Create a 2/2 colorless Robot artifact creature token, then creatures you control get +1/+0 and gain haste until end of turn."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "1cef239d-c77f-425d-b195-33ba4dca4633",
+     "set": "eoe",
+     "collector_number": "255",
+     "released_at": "2025-08-01",
+     "layout": "normal",
+     "printed": [
+      "This land enters tapped.\n{T}: Add {R}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12+ | {1R}, {T}, Sacrifice a land: Create a 2/2 colorless Robot artifact creature token, then creatures you control get +1/+0 and gain haste until end of turn."
+     ]
+    },
+    {
+     "scryfall_id": "0c8e2d05-936f-4db9-afa8-08228d3873fd",
+     "set": "eoe",
+     "collector_number": "281",
+     "released_at": "2025-08-01",
+     "layout": "normal",
+     "printed": [
+      "This land enters tapped.\n{T}: Add {R}.\nStation\n12+ | {1R}, {T}, Sacrifice a land: Create a 2/2 colorless Robot artifact creature token, then creatures you control get +1/+0 and gain haste until end of turn."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Lush Portico",
+   "lang": "de",
+   "oracle_id": "d51831b1-7394-456e-a1de-6787a59f5932",
+   "oracle": [
+    "({T}: Add {G} or {W}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)"
+   ],
+   "printings": [
+    {
+     "scryfall_id": "5dc981f4-402b-4632-8480-02bf5df799f3",
+     "set": "mkm",
+     "collector_number": "263",
+     "released_at": "2024-02-09",
+     "layout": "normal",
+     "printed": [
+      "({T}: Erzeuge {G} oder {W}.)\nDie Üppige Säulenhalle kommt getappt ins Spiel.\nWenn die Üppige Säulenhalle ins Spiel kommt, wende Überwachen 1 an. (Schaue dir die oberste Karte deiner Bibliothek an. Du kannst sie auf deinen Friedhof legen.)"
+     ]
+    },
+    {
+     "scryfall_id": "3ef2fc61-84a1-484b-a2ff-33aac9763c82",
+     "set": "mkm",
+     "collector_number": "327",
+     "released_at": "2024-02-09",
+     "layout": "normal",
+     "printed": [
+      "Die Üppige Säulenhalle kommt getappt ins Spiel.\nWenn die Üppige Säulenhalle ins Spiel kommt, wende Überwachen 1 an."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Mind Stone",
+   "lang": "de",
+   "oracle_id": "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
+   "oracle": [
+    "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "b50fd971-3dd1-4878-889f-81e38970408c",
+     "set": "fic",
+     "collector_number": "353",
+     "released_at": "2025-06-13",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte."
+     ]
+    },
+    {
+     "scryfall_id": "acc6ef5a-e427-4847-9712-74bb59a93cd1",
+     "set": "dsc",
+     "collector_number": "248",
+     "released_at": "2024-09-27",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte."
+     ]
+    },
+    {
+     "scryfall_id": "d355555a-6d2c-4d74-92a2-e6c90c8fb5b0",
+     "set": "blc",
+     "collector_number": "280",
+     "released_at": "2024-08-02",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erzeuge {C}.\n{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte."
+     ]
+    },
+    {
+     "scryfall_id": "55dd0691-e394-4460-a896-26415db0d9f9",
+     "set": "c15",
+     "collector_number": "259",
+     "released_at": "2015-11-13",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe deinen Manavorrat um {1}.{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte."
+     ]
+    },
+    {
+     "scryfall_id": "bea161ec-ae17-4e12-8d49-4f737ac1ecf7",
+     "set": "c14",
+     "collector_number": "250",
+     "released_at": "2014-11-07",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe deinen Manavorrat um {1}.\n{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte."
+     ]
+    },
+    {
+     "scryfall_id": "320be531-dc3e-4dfe-862d-7186fd3cb4c1",
+     "set": "10e",
+     "collector_number": "335",
+     "released_at": "2007-07-13",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe deinen Manavorrat um {1}.\n{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte."
+     ]
+    },
+    {
+     "scryfall_id": "4e3faae4-84d4-4902-a8d6-ad71af66b0d3",
+     "set": "wth",
+     "collector_number": "153",
+     "released_at": "1997-06-09",
+     "layout": "normal",
+     "printed": [
+      "{T}: Erhöhe Deinen Manavorrat um ein farbloses Mana. Spiele diese Fähigkeit wie eine Manaquelle.\n1, {T}, opfere den Gedankenstein: Ziehe eine Karte."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Mind Stone",
+   "lang": "ja",
+   "oracle_id": "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
+   "oracle": [
+    "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "71191e80-061e-493e-9bff-237b847467a3",
+     "set": "fic",
+     "collector_number": "353",
+     "released_at": "2025-06-13",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1}, {T}, このアーティファクトを生け贄に捧げる：カード１枚を引く。"
+     ]
+    },
+    {
+     "scryfall_id": "ce2448bd-efab-487b-9245-dce7d53f6c8e",
+     "set": "dsc",
+     "collector_number": "248",
+     "released_at": "2024-09-27",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カード１枚を引く。"
+     ]
+    },
+    {
+     "scryfall_id": "b228e820-005f-4204-b925-c08224249d17",
+     "set": "blc",
+     "collector_number": "280",
+     "released_at": "2024-08-02",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カード１枚を引く。"
+     ]
+    },
+    {
+     "scryfall_id": "515dd0a3-610e-487f-a3fd-18697707d8c6",
+     "set": "brc",
+     "collector_number": "148",
+     "released_at": "2022-11-18",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1},{T},精神石を生け贄に捧げる：カード１枚を引く。"
+     ]
+    },
+    {
+     "scryfall_id": "d8bbc695-0912-4b0e-a4b7-a103fd8589c5",
+     "set": "clb",
+     "collector_number": "325",
+     "released_at": "2022-06-10",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1},{T},精神石を生け贄に捧げる：カード１枚を引く。"
+     ]
+    },
+    {
+     "scryfall_id": "8c6b9bf1-f4bf-42b4-924b-938b0fd8f7b8",
+     "set": "znc",
+     "collector_number": "114",
+     "released_at": "2020-09-25",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "b875630d-a3aa-445d-99c0-154e7b724648",
+     "set": "c18",
+     "collector_number": "210",
+     "released_at": "2018-08-10",
+     "layout": "normal",
+     "printed": [
+      "{T}：{C}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "8dd1bf6a-8440-4a21-aaf6-c4e50530954e",
+     "set": "ima",
+     "collector_number": "219",
+     "released_at": "2017-11-17",
+     "layout": "normal",
+     "printed": [
+      "{T}：あなたのマナ・プールに{C}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "0573ab33-429b-437a-b4bb-0dcd86cd7b7b",
+     "set": "c15",
+     "collector_number": "259",
+     "released_at": "2015-11-13",
+     "layout": "normal",
+     "printed": [
+      "{T}：あなたのマナ・プールに{1}を加える。{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "3e9f9b74-6a16-4718-bbb1-1fe5ea88b832",
+     "set": "ddp",
+     "collector_number": "65",
+     "released_at": "2015-08-28",
+     "layout": "normal",
+     "printed": [
+      "{T}：あなたのマナ・プールに{1}を加える。{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "95c4f424-0981-4070-8e4d-b74e37bbbbf8",
+     "set": "c14",
+     "collector_number": "250",
+     "released_at": "2014-11-07",
+     "layout": "normal",
+     "printed": [
+      "{T}：あなたのマナ・プールに{1}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "20b30f19-0783-4680-9992-7a7d4c6fee33",
+     "set": "dd2",
+     "collector_number": "22",
+     "released_at": "2008-11-07",
+     "layout": "normal",
+     "printed": [
+      "{T}：あなたのマナ・プールに{1}を加える。\n{1}, {T}, 精神石を生け贄に捧げる：カードを１枚引く。"
+     ]
+    },
+    {
+     "scryfall_id": "ab43c08f-817a-49a2-a7ba-afd327788675",
+     "set": "wth",
+     "collector_number": "153",
+     "released_at": "1997-06-09",
+     "layout": "normal",
+     "printed": [
+      null
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Obelisk of Undoing",
+   "lang": "de",
+   "oracle_id": "299ea6dd-79eb-4c25-a05d-ff6fcad663cf",
+   "oracle": [
+    "{6}, {T}: Return target permanent you both own and control to your hand."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "12f5ec94-0659-4dde-affe-eed087494946",
+     "set": "5ed",
+     "collector_number": "392",
+     "released_at": "1997-03-24",
+     "layout": "normal",
+     "printed": [
+      "6, {T}: Bringe eine bleibende Karte Deiner Wahl, die Du besitzt und kontrollierst, zurück auf Deine Hand."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Overgrown Tomb",
+   "lang": "de",
+   "oracle_id": "975ec9a3-6f20-4177-8211-82526e092538",
+   "oracle": [
+    "({T}: Add {B} or {G}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "08a8adff-aca2-4ae7-a504-48b4176a43d5",
+     "set": "rvr",
+     "collector_number": "283",
+     "released_at": "2024-01-12",
+     "layout": "normal",
+     "printed": [
+      "({T}: Erzeuge {B} oder {G}.)\nSowie die Überwachsene Grabstätte ins Spiel kommt, kannst du 2 Lebenspunkte bezahlen. Falls du dies nicht tust, kommt sie getappt ins Spiel."
+     ]
+    },
+    {
+     "scryfall_id": "3087b012-eb95-48b2-8911-64517921318a",
+     "set": "rvr",
+     "collector_number": "407",
+     "released_at": "2024-01-12",
+     "layout": "normal",
+     "printed": [
+      "Sowie die Überwachsene Grabstätte ins Spiel kommt, kannst du 2 Lebenspunkte bezahlen. Falls du dies nicht tust, kommt sie getappt ins Spiel."
+     ]
+    },
+    {
+     "scryfall_id": "2f5c554b-fcd4-4d86-9b6c-29fa7277b6e2",
+     "set": "grn",
+     "collector_number": "253",
+     "released_at": "2018-10-05",
+     "layout": "normal",
+     "printed": [
+      "({T}: Erzeuge {B} oder {G}.)\nSowie die Überwachsene Grabstätte ins Spiel kommt, kannst du 2 Lebenspunkte bezahlen. Falls du dies nicht tust, kommt sie getappt ins Spiel."
+     ]
+    },
+    {
+     "scryfall_id": "60f1f90e-eb12-4387-b0c8-d1e787edd0f4",
+     "set": "rtr",
+     "collector_number": "243",
+     "released_at": "2012-10-05",
+     "layout": "normal",
+     "printed": [
+      "({T}: Erhöhe deinen Manavorrat um {B} oder {G}.)\nSowie die Überwachsene Grabstätte ins Spiel kommt, kannst du 2 Lebenspunkte bezahlen. Falls du dies nicht tust, kommt die Überwachsene Grabstätte getappt ins Spiel."
+     ]
+    },
+    {
+     "scryfall_id": "8a714ace-83c2-4c9c-b659-7556fd6bae9c",
+     "set": "rav",
+     "collector_number": "279",
+     "released_at": "2005-10-07",
+     "layout": "normal",
+     "printed": [
+      "({T}: Erhöhe deinen Manavorrat um {B} oder {G}.)\nSowie die Überwachsene Grabstätte ins Spiel kommt, kannst du 2 Lebenspunkte bezahlen. Falls du dies nicht tust, kommt die Überwachsene Grabstätte stattdessen getappt ins Spiel."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Skullclamp",
+   "lang": "en",
+   "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a",
+   "oracle": [
+    "Equipped creature gets +1/-1.\nWhenever equipped creature dies, draw two cards.\nEquip {1}"
+   ],
+   "printings": [
+    {
+     "scryfall_id": "5c06cf8d-cade-4b94-bc8e-11a5fca29bf5",
+     "set": "slz",
+     "collector_number": "113",
+     "released_at": "2026-09-02",
+     "layout": "normal",
+     "printed": [
+      "Equipped creature gets +1/-1. Whenever equipped creature dies, draw two cards.\nEquip 1"
+     ]
+    },
+    {
+     "scryfall_id": "70f67886-4b98-48c1-a14e-722ec65b5773",
+     "set": "slz",
+     "collector_number": "234",
+     "released_at": "2026-09-02",
+     "layout": "normal",
+     "printed": [
+      "Equipped creature gets +1/-1. Whenever equipped creature dies, draw two cards.\nEquip 1"
+     ]
+    },
+    {
+     "scryfall_id": "cb3d9604-ed75-49b6-be67-bd66cddaa971",
+     "set": "plst",
+     "collector_number": "MOC-379",
+     "released_at": "2026-08-10",
+     "layout": "normal",
+     "printed": [
+      null
+     ]
+    },
+    {
+     "scryfall_id": "1d8b007b-3169-4ee3-80c7-781fc096fc7a",
+     "set": "msc",
+     "collector_number": "210",
+     "released_at": "2026-06-26",
+     "layout": "normal",
+     "printed": [
+      null
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Spawning Pool",
+   "lang": "de",
+   "oracle_id": "f3bf22cf-0a6f-4fb6-ba82-63ce290308d6",
+   "oracle": [
+    "This land enters tapped.\n{T}: Add {B}.\n{1}{B}: This land becomes a 1/1 black Skeleton creature with \"{B}: Regenerate this creature\" until end of turn. It's still a land. (If it regenerates, the next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)"
+   ],
+   "printings": [
+    {
+     "scryfall_id": "1b8b9d34-3430-47aa-a5b3-0422fef60328",
+     "set": "10e",
+     "collector_number": "358",
+     "released_at": "2007-07-13",
+     "layout": "normal",
+     "printed": [
+      "Das Dunkle Laichbecken kommt getappt ins Spiel.{T}: Erhöhe deinen Manavorrat um {B}.\n{1}{B}: Das Dunkle Laichbecken wird bis zum Ende des Zuges zu einer 1/1 schwarzen Skelettkreatur mit „{B}: Regeneriere diese Kreatur\". Es ist immer noch ein Land. (Wenn es regeneriert, wird es beim nächsten Mal, dass es in diesem Zug zerstört würde, nicht zerstört. Tappe es stattdessen, entferne allen Schaden von ihm und entferne es aus dem Kampf.)"
+     ]
+    },
+    {
+     "scryfall_id": "f786d6fa-760d-4469-811a-ac333434b0a4",
+     "set": "ulg",
+     "collector_number": "142",
+     "released_at": "1999-02-15",
+     "layout": "normal",
+     "printed": [
+      "Das Dunkle Laichbecken kommt getappt ins Spiel.\n{T}: Erhöhe Deinen Manavorrat um ein schwarzes Mana.\n{1}{B}: Das Dunkle Laichbecken wird bis zum Ende des Zuges zu einer schwarzen 1/1 Kreatur mit der Fähigkeit „{B}: Regeneriere diese Kreatur.\" Diese Kreatur zählt immer noch als Land."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Thornscape Apprentice",
+   "lang": "de",
+   "oracle_id": "ebb68e03-b2a5-4c5c-8e3b-968cd241d1f0",
+   "oracle": [
+    "{R}, {T}: Target creature gains first strike until end of turn.\n{W}, {T}: Tap target creature."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "d6eb7448-ff7d-49bd-9d9f-788c5a6787d7",
+     "set": "inv",
+     "collector_number": "215",
+     "released_at": "2000-10-02",
+     "layout": "normal",
+     "printed": [
+      "{W}, {T}: Tappe eine Kreatur Deiner Wahl.\n{R}, {T}: Eine Kreatur Deiner Wahl erhält Erstschlag bis zum Ende des Zuges."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Thornscape Apprentice",
+   "lang": "fr",
+   "oracle_id": "ebb68e03-b2a5-4c5c-8e3b-968cd241d1f0",
+   "oracle": [
+    "{R}, {T}: Target creature gains first strike until end of turn.\n{W}, {T}: Tap target creature."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "4110cce0-6661-49e7-b190-c28b0a497a0d",
+     "set": "inv",
+     "collector_number": "215",
+     "released_at": "2000-10-02",
+     "layout": "normal",
+     "printed": [
+      "{W}, {T} : Engagez la créature ciblée.\n{R}, {T}: La créature ciblée acquiert l'initiative jusqu'à la fin du tour."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Urza's Saga",
+   "lang": "de",
+   "oracle_id": "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
+   "oracle": [
+    "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — This Saga gains \"{T}: Add {C}.\"\nII — This Saga gains \"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'\"\nIII — Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "efbbf682-35af-4e0a-9f41-a02cf07f015e",
+     "set": "mh2",
+     "collector_number": "259",
+     "released_at": "2021-06-18",
+     "layout": "saga",
+     "printed": [
+      "(Je eine Sagenmarke beim Ins-Spiel-Kommen und nach deinem Ziehsegment. Opfern nach III.)\nI — Urzas Sage erhält „{T}: Erzeuge {C}.\"\nII — Urzas Sage erhält „{2}, {T}: Erzeuge einen 0/0 farblosen Konstrukt-Artefaktkreaturenspielstein mit ‚Diese Kreatur erhält +1/+1 für jedes Artefakt, das du kontrollierst.'\"\nIII — Durchsuche deine Bibliothek nach einer Artefaktkarte mit Manakosten {0} oder {1}, bringe sie ins Spiel und mische danach."
+     ]
+    },
+    {
+     "scryfall_id": "43da1a0d-2502-4947-898c-f65b4b2561e9",
+     "set": "mh2",
+     "collector_number": "380",
+     "released_at": "2021-06-18",
+     "layout": "saga",
+     "printed": [
+      "(Je eine Sagenmarke beim Ins-Spiel-Kommen und nach deinem Ziehsegment. Opfern nach III.)\nI — Urzas Sage erhält „{T}: Erzeuge {C}.\"\nII — Urzas Sage erhält „{2}, {T}: Erzeuge einen 0/0 farblosen Konstrukt-Artefaktkreaturenspielstein mit ‚Diese Kreatur erhält +1/+1 für jedes Artefakt, das du kontrollierst.'\"\nIII — Durchsuche deine Bibliothek nach einer Artefaktkarte mit Manakosten {0} oder {1}, bringe sie ins Spiel und mische danach."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Witch Enchanter",
+   "lang": "de",
+   "oracle_id": "0355249a-8e4e-41db-9cea-1b901faffbe6",
+   "oracle": [
+    "When this creature enters, destroy target artifact or enchantment an opponent controls.",
+    "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {W}."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "f620e5af-10cb-493d-ba46-4473ab306877",
+     "set": "mh3",
+     "collector_number": "239",
+     "released_at": "2024-06-14",
+     "layout": "modal_dfc",
+     "printed": [
+      "Wenn die Bezaubernde Hexe ins Spiel kommt, zerstöre ein Artefakt oder eine Verzauberung deiner Wahl, das bzw. die ein Gegner kontrolliert.\nLand\n{T}: Erzeuge {W}.",
+      "Sowie die Hexengesegnete Weide ins Spiel kommt, kannst du 3 Lebenspunkte bezahlen. Falls du dies nicht tust, kommt sie getappt ins Spiel.\n{T}: Erzeuge {W}.\nMensch\n{3}{W}"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Wizard Class",
+   "lang": "de",
+   "oracle_id": "36f68aa3-9955-46f1-bc87-497f16ef5222",
+   "oracle": [
+    "(Gain the next level as a sorcery to add its ability.)\nYou have no maximum hand size.\n{2}{U}: Level 2\nWhen this Class becomes level 2, draw two cards.\n{4}{U}: Level 3\nWhenever you draw a card, put a +1/+1 counter on target creature you control."
+   ],
+   "printings": [
+    {
+     "scryfall_id": "a3d027b0-41b4-4d0c-85f5-a929a65a3355",
+     "set": "blc",
+     "collector_number": "112",
+     "released_at": "2024-08-02",
+     "layout": "class",
+     "printed": [
+      "(Erhöhe die Stufe wie eine Hexerei, um ihre Fähigkeit freizuschalten.)\nDu hast keine maximale Handkartenzahl.\n{2}{U}: Stufe 2\n//Level_2//\nWenn diese Klasse Stufe 2 erreicht, ziehe zwei Karten.\n{4}{U}: Stufe 3\n//Level_3//\nImmer wenn du eine Karte ziehst, lege eine +1/+1-Marke auf eine Kreatur deiner Wahl, die du kontrollierst."
+     ]
+    },
+    {
+     "scryfall_id": "6553a434-ed7b-4847-817d-405d7c14ba91",
+     "set": "afr",
+     "collector_number": "81",
+     "released_at": "2021-07-23",
+     "layout": "class",
+     "printed": [
+      "(Erhöhe die Stufe wie eine Hexerei, um ihre Fähigkeit freizuschalten.)\nDu hast keine maximale Handkartenzahl.\n{2}{U}: Stufe 2\n//Level_2//\nWenn diese Klasse Stufe 2 erreicht, ziehe zwei Karten.\n{4}{U}: Stufe 3\n//Level_3//\nImmer wenn du eine Karte ziehst, lege eine +1/+1-Marke auf eine Kreatur deiner Wahl, die du kontrollierst."
+     ]
+    }
+   ]
+  }
+ ]
+}
