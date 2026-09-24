@@ -444,6 +444,11 @@ impl HeuristicAgent {
         max: u8,
         context: &DecisionContext<'_>,
     ) -> Option<PlayerAction> {
+        // A clone's choice is not answered by a sign either: the copy is
+        // this seat's whoever controls the original — see `copying`.
+        if let Some(action) = crate::copying::copy_target(view, objects, context) {
+            return Some(action);
+        }
         // A fight's two questions are answered by what the fight would do,
         // and never by the spell's overall sign — see `fight`.
         if let Some(action) = self.fight_targets(view, objects, min, max, context) {

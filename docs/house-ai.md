@@ -319,6 +319,21 @@ affordable coloured mana and the number of distinct legal targets; life-X
 weighs friendly casualties and preserves the player's last life. Miracle
 checks the actual coloured cost.
 
+**A clone copies what is worth having twice, whoever controls it.** Its choice
+arrives as a target question with no effect behind it, because copying is an
+ability and not an effect, so `decision_context` used to explain it as nothing
+at all and the fallback took an opponent's permanent first: Phyrexian
+Metamorph copied the opponent's Llanowar Elves over its own controller's Serra
+Angel (#227). `DecisionContext::copying` now names the question and the copy's
+modifications, and `copying::copy_target` ranks every candidate by its
+copiable values (CR 707.2: the printed size, not a pump or a counter) and
+always names one, since most clones that copy nothing are a 0/0. A legendary
+permanent this seat already controls is ranked last unless the copy stops
+being legendary (Spark Double), because the legend rule keeps only one
+(CR 704.5j). Open: lands tie on this value, so Vesuva and Echoing Deeps still
+take the lowest id; and Sakashima, whose own static switches the legend rule
+off for its controller, is ranked as if it did not.
+
 ### Authorized AI scouting
 
 House AIs now have an intentional advantage. The host's private

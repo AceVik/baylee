@@ -496,9 +496,12 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             "Transformation and alternate zones (flashback granted to another card)",
             count_reaching(|effect| matches!(effect, Effect::GrantFlashback)),
         ),
-        // `CopyOnEnter` is a permanent entering *as* a copy — the ten
-        // clones, Phyrexian Metamorph through Surgical Metamorph — and not
+        // `CopyOnEnter` is a permanent entering *as* a copy — the thirteen
+        // clones (24.09.2026), Phyrexian Metamorph through Vesuva — and not
         // an ability copied off another card.
+        //
+        // Answered for what is copied, #227:
+        // `a_clone_copies_what_is_worth_having_twice`.
         (
             "Transformation and alternate zones (enters as a copy)",
             count(|def| {

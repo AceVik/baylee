@@ -1343,3 +1343,88 @@ fn combat_after_expert_blocks(
     assert!(blocked, "the fixture must reach the blocking choice");
     engine
 }
+
+/// What seat 0's `clone` entered as, when the agent plays turn 1 with it in
+/// hand beside `board`, against `theirs`.
+fn cloned(profile: AIProfile, clone: &str, board: &[&str], theirs: &[&str]) -> Option<String> {
+    let mut preset = position(&[clone], board);
+    preset.seats[1].starting_battlefield = theirs.iter().map(|name| entry(name)).collect();
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(profile);
+    for seq in 0..200 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("nobody has lost on turn 1");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.turn > 1 {
+            break;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("every planned action is legal");
+    }
+    let view = asked_view(engine.state(), PlayerId::new(0), 999, engine.pending());
+    let copy = view
+        .battlefield_of(PlayerId::new(0))
+        .find(|o| o.card.is_some_and(|c| c.index == entry(clone).card))?;
+    Some(baylee_cards::by_index(copy.rules?.card)?.name().to_owned())
+}
+
+/// #227. A clone copies what is worth having twice, whoever controls it.
+///
+/// The engine asked the clone's choice with no source and no effects, so the
+/// agent answered it as it answers a removal spell — an opponent's permanent
+/// first — and a Phyrexian Metamorph copied the opponent's Llanowar Elves
+/// over its own controller's Serra Angel. Both directions are played: a
+/// rule that preferred this seat's own permanents would pass the first
+/// board and fail the second.
+///
+/// The legend rule (CR 704.5j) is the exception. A copy of a legendary
+/// creature this seat already controls keeps one of the two, so the
+/// Metamorph takes the Elves over Emry. Spark Double's copy is not
+/// legendary, so it takes Emry over the Elves.
+#[test]
+fn a_clone_copies_what_is_worth_having_twice() {
+    let islands = ["Island", "Island", "Island", "Island"];
+    let with =
+        |mine: &'static str| -> Vec<&'static str> { [mine].into_iter().chain(islands).collect() };
+    for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+        let cases: [(&str, Vec<&str>, &[&str], &str); 4] = [
+            (
+                "Phyrexian Metamorph",
+                with("Serra Angel"),
+                &["Llanowar Elves"],
+                "Serra Angel",
+            ),
+            (
+                "Phyrexian Metamorph",
+                with("Llanowar Elves"),
+                &["Serra Angel"],
+                "Serra Angel",
+            ),
+            (
+                "Phyrexian Metamorph",
+                with("Emry, Lurker of the Loch"),
+                &["Llanowar Elves"],
+                "Llanowar Elves",
+            ),
+            (
+                "Spark Double",
+                [&with("Emry, Lurker of the Loch")[..], &["Llanowar Elves"]].concat(),
+                &[],
+                "Emry, Lurker of the Loch",
+            ),
+        ];
+        for (clone, mine, theirs, wanted) in cases {
+            assert_eq!(
+                cloned(profile, clone, &mine, theirs).as_deref(),
+                Some(wanted),
+                "{profile:?}: {clone} beside {mine:?}, against {theirs:?}"
+            );
+        }
+    }
+}

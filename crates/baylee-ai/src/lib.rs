@@ -11,6 +11,7 @@
 
 mod activate;
 pub mod combat;
+mod copying;
 mod fight;
 mod filter;
 pub mod intelligence;
