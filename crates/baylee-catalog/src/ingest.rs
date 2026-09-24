@@ -22,11 +22,10 @@ const USER_AGENT: &str = concat!("baylee/", env!("CARGO_PKG_VERSION"));
 /// Pause between single-card API calls — well inside the published limit.
 const RATE_LIMIT_PAUSE: Duration = Duration::from_millis(120);
 
-/// How many printings are upserted per statement.
+/// How many printings are handed to one [`Catalog::upsert`].
 ///
-/// Postgres caps a statement at 65535 parameters; a face row binds twelve, so
-/// this leaves a wide margin even for cards with several faces while still
-/// making the round trip worth taking.
+/// Only a round-trip size: the upsert splits its own statements at Postgres'
+/// bind-parameter cap, however many faces the batch's cards have.
 const BATCH: usize = 400;
 
 /// Which bulk feed to ingest.
@@ -187,15 +186,5 @@ mod tests {
     #[test]
     fn an_ingest_nobody_configured_speaks_every_language() {
         assert_eq!(Feed::default(), Feed::AllLanguages);
-    }
-
-    /// The batch size has to stay inside Postgres' parameter cap with room for
-    /// multi-face cards, which bind twelve parameters per face.
-    #[test]
-    fn a_batch_cannot_overflow_the_postgres_parameter_limit() {
-        // Worst realistic case: every card in the batch has three faces.
-        let faces_per_card = 3;
-        let params = BATCH * faces_per_card * 12;
-        assert!(params < 65535, "{params} parameters is over the cap");
     }
 }

@@ -352,7 +352,188 @@ const CARD_INSERT_COLUMNS: &str = "scryfall_id, oracle_id, lang, set_code, colle
      digital, games";
 
 /// How many columns that is.
-const CARD_COLUMNS: usize = 17;
+const CARD_COLUMNS: usize = column_count(CARD_INSERT_COLUMNS);
+
+/// The columns one face binds in `upsert_faces`, in bind order.
+const FACE_INSERT_COLUMNS: &str = "scryfall_id, face_index, name, printed_name, flavor_name, \
+     type_line, printed_type_line, oracle_text, printed_text, mana_cost, power, toughness, loyalty";
+
+/// How many columns that is.
+const FACE_COLUMNS: usize = column_count(FACE_INSERT_COLUMNS);
+
+/// The columns one card binds in `upsert_legalities`, in bind order.
+const LEGALITY_INSERT_COLUMNS: &str = "oracle_id, legalities";
+
+/// How many columns that is.
+const LEGALITY_COLUMNS: usize = column_count(LEGALITY_INSERT_COLUMNS);
+
+/// The most parameters one statement may bind: the extended protocol's Bind
+/// message counts them in 16 bits.
+///
+/// Every upsert splits its rows at this cap itself rather than trusting a
+/// caller's batch size. The guard this replaced multiplied a batch by a
+/// per-face column count written as a literal, and the literal stayed at
+/// twelve when `flavor_name` made the face insert bind thirteen (#174); it
+/// also had to assume at most three faces a card, where Scryfall prints
+/// five on one.
+const MAX_BIND_PARAMS: usize = 65_535;
+
+/// How many rows of a table with `columns` columns fit in one statement.
+const fn rows_per_statement(columns: usize) -> usize {
+    MAX_BIND_PARAMS / columns
+}
+
+/// How many columns a comma-separated column list names.
+///
+/// Counted from the list itself, so a column added to the list moves every
+/// count derived from it.
+const fn column_count(list: &str) -> usize {
+    let bytes = list.as_bytes();
+    let mut count = 1;
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b',' {
+            count += 1;
+        }
+        at += 1;
+    }
+    count
+}
+
+/// Writes one row's placeholders, `($1::uuid,$2,…)`, for a column list.
+///
+/// The casts Postgres cannot infer from the column are named here rather
+/// than counted to, so adding a column ahead of one of them cannot move it.
+fn push_row(sql: &mut String, columns: &str, base: usize) {
+    sql.push('(');
+    for (k, column) in columns.split(',').map(str::trim).enumerate() {
+        if k > 0 {
+            sql.push(',');
+        }
+        let at = base + k + 1;
+        let _ = match column {
+            "scryfall_id" | "oracle_id" => write!(sql, "${at}::uuid"),
+            // An omitted `released_at` binds as null and the cast is what
+            // tells Postgres which kind of null; an *empty* one would be
+            // `''::date`, which is an error and not a null.
+            "released_at" => write!(sql, "nullif(${at}, '')::date"),
+            "legalities" => write!(sql, "${at}::jsonb"),
+            _ => write!(sql, "${at}"),
+        };
+    }
+    sql.push(')');
+}
+
+/// The `INSERT` for one chunk of printings.
+fn cards_statement(cards: &[&scryfall::Card]) -> (String, Vec<Value>) {
+    let mut sql = format!("INSERT INTO cards ({CARD_INSERT_COLUMNS}) VALUES ");
+    let mut values: Vec<Value> = Vec::with_capacity(cards.len() * CARD_COLUMNS);
+    for (i, card) in cards.iter().enumerate() {
+        if i > 0 {
+            sql.push(',');
+        }
+        push_row(&mut sql, CARD_INSERT_COLUMNS, i * CARD_COLUMNS);
+        values.push(Value::from(card.id.clone()));
+        values.push(Value::from(card.oracle_identity().map(str::to_string)));
+        values.push(Value::from(card.lang.clone()));
+        values.push(Value::from(card.set.clone()));
+        values.push(Value::from(card.collector_number.clone()));
+        values.push(Value::from(card.rarity.clone()));
+        values.push(Value::from(card.layout.clone()));
+        values.push(Value::from(card.released_at.clone()));
+        values.push(Value::from(card.set_name.clone()));
+        values.push(Value::from(card.artist.clone()));
+        values.push(Value::from(card.finish_list().join(",")));
+        values.push(Value::from(card.frame_effects.join(",")));
+        values.push(Value::from(card.border_color.clone()));
+        values.push(Value::from(card.promo));
+        values.push(Value::from(card.set_type.clone()));
+        values.push(Value::from(card.digital));
+        values.push(Value::from(card.games.join(",")));
+    }
+    sql.push_str(
+        " ON CONFLICT (scryfall_id) DO UPDATE SET \
+         oracle_id = EXCLUDED.oracle_id, lang = EXCLUDED.lang, \
+         set_code = EXCLUDED.set_code, collector_number = EXCLUDED.collector_number, \
+         rarity = EXCLUDED.rarity, layout = EXCLUDED.layout, \
+         released_at = EXCLUDED.released_at, set_name = EXCLUDED.set_name, \
+         artist = EXCLUDED.artist, finishes = EXCLUDED.finishes, \
+         frame_effects = EXCLUDED.frame_effects, border_color = EXCLUDED.border_color, \
+         promo = EXCLUDED.promo, set_type = EXCLUDED.set_type, \
+         digital = EXCLUDED.digital, games = EXCLUDED.games, \
+         updated_at = now()",
+    );
+    (sql, values)
+}
+
+/// One `card_faces` row: the printing it belongs to, its index, the face.
+type FaceRow<'c> = (&'c str, i16, scryfall::Face);
+
+/// Every face row a batch of printings writes, in printing then face order.
+fn face_rows<'c>(cards: &[&'c scryfall::Card]) -> Vec<FaceRow<'c>> {
+    cards
+        .iter()
+        .flat_map(|card| {
+            card.faces()
+                .into_iter()
+                .enumerate()
+                .map(move |(index, face)| (card.id.as_str(), index as i16, face))
+        })
+        .collect()
+}
+
+/// The `INSERT` for one chunk of face rows.
+fn faces_statement(rows: &[FaceRow<'_>]) -> (String, Vec<Value>) {
+    let mut sql = format!("INSERT INTO card_faces ({FACE_INSERT_COLUMNS}) VALUES ");
+    let mut values: Vec<Value> = Vec::with_capacity(rows.len() * FACE_COLUMNS);
+    for (n, (id, index, face)) in rows.iter().enumerate() {
+        if n > 0 {
+            sql.push(',');
+        }
+        push_row(&mut sql, FACE_INSERT_COLUMNS, n * FACE_COLUMNS);
+        values.push(Value::from((*id).to_string()));
+        values.push(Value::from(*index));
+        values.push(Value::from(face.name.clone()));
+        values.push(Value::from(face.printed_name.clone()));
+        values.push(Value::from(face.flavor_name.clone()));
+        values.push(Value::from(face.type_line.clone()));
+        values.push(Value::from(face.printed_type_line.clone()));
+        values.push(Value::from(face.oracle_text.clone()));
+        values.push(Value::from(face.printed_text.clone()));
+        values.push(Value::from(face.mana_cost.clone()));
+        values.push(Value::from(face.power.clone()));
+        values.push(Value::from(face.toughness.clone()));
+        values.push(Value::from(face.loyalty.clone()));
+    }
+    sql.push_str(
+        " ON CONFLICT (scryfall_id, face_index) DO UPDATE SET \
+         name = EXCLUDED.name, printed_name = EXCLUDED.printed_name, \
+         flavor_name = EXCLUDED.flavor_name, \
+         type_line = EXCLUDED.type_line, printed_type_line = EXCLUDED.printed_type_line, \
+         oracle_text = EXCLUDED.oracle_text, printed_text = EXCLUDED.printed_text, \
+         mana_cost = EXCLUDED.mana_cost, power = EXCLUDED.power, \
+         toughness = EXCLUDED.toughness, loyalty = EXCLUDED.loyalty",
+    );
+    (sql, values)
+}
+
+/// The `INSERT` for one chunk of `(oracle_id, card)` legality rows.
+fn legalities_statement(rows: &[(&str, &scryfall::Card)]) -> (String, Vec<Value>) {
+    let mut sql = format!("INSERT INTO card_legalities ({LEGALITY_INSERT_COLUMNS}) VALUES ");
+    let mut values: Vec<Value> = Vec::with_capacity(rows.len() * LEGALITY_COLUMNS);
+    for (n, (oracle_id, card)) in rows.iter().enumerate() {
+        if n > 0 {
+            sql.push(',');
+        }
+        push_row(&mut sql, LEGALITY_INSERT_COLUMNS, n * LEGALITY_COLUMNS);
+        values.push(Value::from((*oracle_id).to_string()));
+        values.push(Value::from(
+            serde_json::to_string(&card.legalities).unwrap_or_else(|_| "{}".to_string()),
+        ));
+    }
+    sql.push_str(" ON CONFLICT (oracle_id) DO UPDATE SET legalities = EXCLUDED.legalities");
+    (sql, values)
+}
 
 impl Catalog {
     /// Connects to Postgres.
@@ -866,164 +1047,42 @@ impl Catalog {
                 seen.entry(oracle_id).or_insert(card);
             }
         }
-        if seen.is_empty() {
-            return Ok(());
+        let rows: Vec<(&str, &scryfall::Card)> = seen.into_iter().collect();
+        for chunk in rows.chunks(rows_per_statement(LEGALITY_COLUMNS)) {
+            self.execute_chunk(legalities_statement(chunk), "upserting legalities")
+                .await?;
         }
-        let mut sql = String::from("INSERT INTO card_legalities (oracle_id, legalities) VALUES ");
-        let mut values: Vec<Value> = Vec::with_capacity(seen.len() * 2);
-        for (n, (oracle_id, card)) in seen.iter().enumerate() {
-            if n > 0 {
-                sql.push(',');
-            }
-            let _ = write!(sql, "(${}::uuid,${}::jsonb)", n * 2 + 1, n * 2 + 2);
-            values.push(Value::from((*oracle_id).to_string()));
-            values.push(Value::from(
-                serde_json::to_string(&card.legalities).unwrap_or_else(|_| "{}".to_string()),
-            ));
-        }
-        sql.push_str(" ON CONFLICT (oracle_id) DO UPDATE SET legalities = EXCLUDED.legalities");
-        self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                &sql,
-                values,
-            ))
-            .await
-            .context("upserting legalities")?;
         Ok(())
     }
 
     /// The `cards` half of a batch upsert.
     async fn upsert_cards(&self, cards: &[&scryfall::Card]) -> Result<()> {
-        let mut sql = format!("INSERT INTO cards ({CARD_INSERT_COLUMNS}) VALUES ");
-        let mut values: Vec<Value> = Vec::with_capacity(cards.len() * CARD_COLUMNS);
-        for (i, card) in cards.iter().enumerate() {
-            let base = i * CARD_COLUMNS;
-            if i > 0 {
-                sql.push(',');
-            }
-            sql.push('(');
-            for (k, column) in CARD_INSERT_COLUMNS.split(", ").enumerate() {
-                if k > 0 {
-                    sql.push(',');
-                }
-                let at = base + k + 1;
-                // Everything a `scryfall::Card` carries is a `String` or a
-                // `bool` and Postgres infers most of them from the column.
-                // The three it cannot are named here rather than counted to,
-                // so adding a column ahead of one of them cannot move it.
-                let _ = match column {
-                    "scryfall_id" | "oracle_id" => write!(sql, "${at}::uuid"),
-                    // An omitted `released_at` binds as null and the cast is
-                    // what tells Postgres which kind of null; an *empty* one
-                    // would be `''::date`, which is an error and not a null.
-                    "released_at" => write!(sql, "nullif(${at}, '')::date"),
-                    _ => write!(sql, "${at}"),
-                };
-            }
-            sql.push(')');
-            values.push(Value::from(card.id.clone()));
-            values.push(Value::from(card.oracle_identity().map(str::to_string)));
-            values.push(Value::from(card.lang.clone()));
-            values.push(Value::from(card.set.clone()));
-            values.push(Value::from(card.collector_number.clone()));
-            values.push(Value::from(card.rarity.clone()));
-            values.push(Value::from(card.layout.clone()));
-            values.push(Value::from(card.released_at.clone()));
-            values.push(Value::from(card.set_name.clone()));
-            values.push(Value::from(card.artist.clone()));
-            values.push(Value::from(card.finish_list().join(",")));
-            values.push(Value::from(card.frame_effects.join(",")));
-            values.push(Value::from(card.border_color.clone()));
-            values.push(Value::from(card.promo));
-            values.push(Value::from(card.set_type.clone()));
-            values.push(Value::from(card.digital));
-            values.push(Value::from(card.games.join(",")));
+        for chunk in cards.chunks(rows_per_statement(CARD_COLUMNS)) {
+            self.execute_chunk(cards_statement(chunk), "upserting printings")
+                .await?;
         }
-        sql.push_str(
-            " ON CONFLICT (scryfall_id) DO UPDATE SET \
-             oracle_id = EXCLUDED.oracle_id, lang = EXCLUDED.lang, \
-             set_code = EXCLUDED.set_code, collector_number = EXCLUDED.collector_number, \
-             rarity = EXCLUDED.rarity, layout = EXCLUDED.layout, \
-             released_at = EXCLUDED.released_at, set_name = EXCLUDED.set_name, \
-             artist = EXCLUDED.artist, finishes = EXCLUDED.finishes, \
-             frame_effects = EXCLUDED.frame_effects, border_color = EXCLUDED.border_color, \
-             promo = EXCLUDED.promo, set_type = EXCLUDED.set_type, \
-             digital = EXCLUDED.digital, games = EXCLUDED.games, \
-             updated_at = now()",
-        );
-        self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                &sql,
-                values,
-            ))
-            .await
-            .context("upserting printings")?;
         Ok(())
     }
 
     /// The `card_faces` half of a batch upsert.
+    ///
+    /// Split by face rows rather than by cards, because how many faces a
+    /// card has is Scryfall's to say.
     async fn upsert_faces(&self, cards: &[&scryfall::Card]) -> Result<()> {
-        let mut sql = String::from(
-            "INSERT INTO card_faces \
-             (scryfall_id, face_index, name, printed_name, flavor_name, \
-              type_line, printed_type_line, \
-              oracle_text, printed_text, mana_cost, power, toughness, loyalty) VALUES ",
-        );
-        let mut values: Vec<Value> = Vec::new();
-        let mut n = 0usize;
-        for card in cards {
-            for (index, face) in card.faces().into_iter().enumerate() {
-                let base = n * 13;
-                if n > 0 {
-                    sql.push(',');
-                }
-                let _ = write!(
-                    sql,
-                    "(${}::uuid,${},${},${},${},${},${},${},${},${},${},${},${})",
-                    base + 1,
-                    base + 2,
-                    base + 3,
-                    base + 4,
-                    base + 5,
-                    base + 6,
-                    base + 7,
-                    base + 8,
-                    base + 9,
-                    base + 10,
-                    base + 11,
-                    base + 12,
-                    base + 13
-                );
-                values.push(Value::from(card.id.clone()));
-                values.push(Value::from(index as i16));
-                values.push(Value::from(face.name));
-                values.push(Value::from(face.printed_name));
-                values.push(Value::from(face.flavor_name));
-                values.push(Value::from(face.type_line));
-                values.push(Value::from(face.printed_type_line));
-                values.push(Value::from(face.oracle_text));
-                values.push(Value::from(face.printed_text));
-                values.push(Value::from(face.mana_cost));
-                values.push(Value::from(face.power));
-                values.push(Value::from(face.toughness));
-                values.push(Value::from(face.loyalty));
-                n += 1;
-            }
+        let rows = face_rows(cards);
+        for chunk in rows.chunks(rows_per_statement(FACE_COLUMNS)) {
+            self.execute_chunk(faces_statement(chunk), "upserting faces")
+                .await?;
         }
-        if n == 0 {
-            return Ok(());
-        }
-        sql.push_str(
-            " ON CONFLICT (scryfall_id, face_index) DO UPDATE SET \
-             name = EXCLUDED.name, printed_name = EXCLUDED.printed_name, \
-             flavor_name = EXCLUDED.flavor_name, \
-             type_line = EXCLUDED.type_line, printed_type_line = EXCLUDED.printed_type_line, \
-             oracle_text = EXCLUDED.oracle_text, printed_text = EXCLUDED.printed_text, \
-             mana_cost = EXCLUDED.mana_cost, power = EXCLUDED.power, \
-             toughness = EXCLUDED.toughness, loyalty = EXCLUDED.loyalty",
-        );
+        Ok(())
+    }
+
+    /// Runs one statement an upsert built.
+    async fn execute_chunk(
+        &self,
+        (sql, values): (String, Vec<Value>),
+        what: &'static str,
+    ) -> Result<()> {
         self.db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
@@ -1031,7 +1090,7 @@ impl Catalog {
                 values,
             ))
             .await
-            .context("upserting faces")?;
+            .context(what)?;
         Ok(())
     }
 
@@ -1998,12 +2057,91 @@ mod tests {
         }
     }
 
-    /// The insert binds one placeholder per column, and the count is written
-    /// separately from the list. Postgres would reject the batch, but only
-    /// against a live database — and nothing in CI has one.
+    /// The placeholders a statement writes, in order: `$1`, `$2`, ….
+    fn placeholders(sql: &str) -> Vec<usize> {
+        sql.split('$')
+            .skip(1)
+            .map(|rest| {
+                let digits =
+                    rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+                rest[..digits].parse().expect("a numbered placeholder")
+            })
+            .collect()
+    }
+
+    /// Two printings, the second with two faces.
+    fn two_printings() -> Vec<scryfall::Card> {
+        serde_json::from_str(
+            r#"[{"id":"00000000-0000-0000-0000-000000000001","oracle_id":"00000000-0000-0000-0000-0000000000a1",
+                 "lang":"de","set":"m10","collector_number":"1","name":"One",
+                 "legalities":{"modern":"legal"}},
+                {"id":"00000000-0000-0000-0000-000000000002","oracle_id":"00000000-0000-0000-0000-0000000000a2",
+                 "lang":"en","set":"mid","collector_number":"2","name":"Front // Back",
+                 "layout":"transform","legalities":{"modern":"legal"},
+                 "card_faces":[{"name":"Front"},{"name":"Back"}]}]"#,
+        )
+        .expect("decodes")
+    }
+
+    /// Every statement numbers its placeholders `$1` to `$n` once each and
+    /// binds exactly `n` values, `columns` of them a row. The count used to
+    /// be written apart from the column list, and the face insert bound
+    /// thirteen where the batch guard counted twelve (#174). Postgres
+    /// rejects a mismatch, but only against a live database.
     #[test]
-    fn the_insert_binds_exactly_as_many_columns_as_it_names() {
-        assert_eq!(CARD_INSERT_COLUMNS.split(',').count(), CARD_COLUMNS);
+    fn every_statement_binds_exactly_the_placeholders_it_writes() {
+        let cards = two_printings();
+        let cards: Vec<&scryfall::Card> = cards.iter().collect();
+        let faces = face_rows(&cards);
+        assert_eq!(faces.len(), 3, "one face and two");
+        let legalities: Vec<(&str, &scryfall::Card)> = cards
+            .iter()
+            .map(|c| (c.oracle_identity().expect("an oracle id"), *c))
+            .collect();
+
+        for (what, (sql, values), rows, columns) in [
+            ("cards", cards_statement(&cards), cards.len(), CARD_COLUMNS),
+            ("faces", faces_statement(&faces), faces.len(), FACE_COLUMNS),
+            (
+                "legalities",
+                legalities_statement(&legalities),
+                legalities.len(),
+                LEGALITY_COLUMNS,
+            ),
+        ] {
+            let written = placeholders(&sql);
+            assert_eq!(
+                written,
+                (1..=values.len()).collect::<Vec<_>>(),
+                "{what}: placeholders against {} bound values",
+                values.len()
+            );
+            assert_eq!(values.len(), rows * columns, "{what}: values per row");
+        }
+    }
+
+    /// A full chunk is as big as a statement may be and one row more would
+    /// not be, measured on the statement that is built rather than on the
+    /// arithmetic that sizes it.
+    #[test]
+    fn a_full_chunk_binds_at_most_the_protocol_s_cap() {
+        let cards = two_printings();
+        let face = cards[1].faces().remove(0);
+        let id = cards[1].id.as_str();
+        let per = rows_per_statement(FACE_COLUMNS);
+        let full: Vec<FaceRow<'_>> = (0..per).map(|_| (id, 0, face.clone())).collect();
+        let (_, values) = faces_statement(&full);
+        assert!(values.len() <= MAX_BIND_PARAMS, "{} bound", values.len());
+        assert!(
+            values.len() + FACE_COLUMNS > MAX_BIND_PARAMS,
+            "the chunk could carry another row"
+        );
+        let card: &scryfall::Card = &cards[0];
+        let full: Vec<&scryfall::Card> = (0..rows_per_statement(CARD_COLUMNS))
+            .map(|_| card)
+            .collect();
+        let (_, values) = cards_statement(&full);
+        assert!(values.len() <= MAX_BIND_PARAMS, "{} bound", values.len());
     }
 
     /// A column added to the insert but not to the table, or added to the
@@ -2045,6 +2183,29 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The same for the face insert: `flavor_name` arrived after the table
+    /// did, so it is the one an older catalog gains by `ALTER`.
+    #[test]
+    fn every_inserted_face_column_exists_and_can_be_added_to_an_older_catalog() {
+        let statements = schema_statements();
+        let create = statements
+            .iter()
+            .find(|s| s.contains("CREATE TABLE IF NOT EXISTS card_faces"))
+            .expect("the faces table is part of the schema");
+        for column in FACE_INSERT_COLUMNS.split(',').map(str::trim) {
+            assert!(
+                create.contains(&format!("{column} ")),
+                "{column} is inserted but not declared"
+            );
+        }
+        assert!(
+            statements
+                .iter()
+                .any(|s| s == "ALTER TABLE card_faces ADD COLUMN IF NOT EXISTS flavor_name text"),
+            "an existing catalog cannot gain flavor_name"
+        );
     }
 
     /// Scryfall omits `finishes` on some records rather than writing the
