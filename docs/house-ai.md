@@ -120,7 +120,12 @@ look like a reading. A mode that reaches something beats
 one that reaches nothing, an unreadable mode sits between them, and the
 printed order breaks every tie, so a table the agent cannot read is answered
 exactly as before. A card that also offers a normal cast keeps it: overload
-prints a mode that costs more than the card does.
+prints a mode that costs more than the card does. The exception is an
+alternative cost that costs nothing at all, such as Deadly Rollick while you
+control your commander. The engine offers `Normal` only when the pool already
+covers it, so taking `Normal` there spent floating mana on a free spell. A pitch
+(Force of Will) or an evoke (Mulldrifter) still costs a card or the creature,
+so it keeps the printed cost when that can be paid.
 
 **What a card says includes what it says behind a price.** Every reader here
 that walks an effect list — `tactics::meaning`, `activate::gains`,

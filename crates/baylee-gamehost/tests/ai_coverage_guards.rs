@@ -417,6 +417,8 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
                 )
             }),
         ),
+        // Taken when free, #223: `a_free_alternative_cost_is_taken_over_the_\
+        // printed_one`; a pitch or an evoke keeps the printed cost.
         (
             "Alternate resource engines (an alternative cost)",
             count(|def| {

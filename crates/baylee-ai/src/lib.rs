@@ -3155,6 +3155,60 @@ mod tests {
         }
     }
 
+    /// #223. A spell that is free while its caster controls a commander is
+    /// cast free, even when the printed cost is already floating.
+    ///
+    /// The engine offers `Normal` only when the pool covers it, and the agent
+    /// took `Normal` whenever it was offered — so a Deadly Rollick beside four
+    /// floating mana spent all four on a spell that cost nothing. Free means
+    /// no mana and no other part, and the spell is the same spell either way.
+    /// The other two are pins, not fixes: Force of Will's alternative costs a
+    /// life and a blue card, and Mulldrifter's evoke gets the creature
+    /// sacrificed, so each keeps its printed cost when it can be paid.
+    #[test]
+    fn a_free_alternative_cost_is_taken_over_the_printed_one() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let mut v = view(0, &[20, 20], vec![permanent(obj(30), PlayerId::new(1), 2)]);
+        v.hand = vec![
+            hand_card(1, "Deadly Rollick"),
+            hand_card(2, "Force of Will"),
+            hand_card(3, "Mulldrifter"),
+        ];
+        for (slot, name, answer) in [
+            (1, "Deadly Rollick", 1),
+            (2, "Force of Will", 0),
+            (3, "Mulldrifter", 0),
+        ] {
+            // Priced the way the engine prices them: the face's own costs.
+            let face = &baylee_cards::by_index(baylee_cards::decks::by_name(name).unwrap())
+                .unwrap()
+                .faces[0];
+            let pending = Pending::ChooseCastMode {
+                player: v.seat,
+                object: obj(slot),
+                options: vec![
+                    CastModeDesc {
+                        index: 0,
+                        kind: CastModeKind::Normal,
+                        cost: face.mana_cost,
+                    },
+                    CastModeDesc {
+                        index: 1,
+                        kind: CastModeKind::Alternative(0),
+                        cost: face.alternative_costs[0].cost.mana,
+                    },
+                ],
+            };
+            for (profile_name, profile) in PROFILES {
+                assert_eq!(
+                    HeuristicAgent::new(profile).act(&v, &pending),
+                    PlayerAction::ChooseMode(answer),
+                    "{profile_name}: {name}",
+                );
+            }
+        }
+    }
+
     #[test]
     fn the_search_finds_a_menace_gang_block() {
         let mut attacker = permanent(obj(1), PlayerId::new(1), 4);

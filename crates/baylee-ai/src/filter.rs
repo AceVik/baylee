@@ -69,6 +69,7 @@
 
 use baylee_cards_dsl::{AbilityDef, Effect, Filter, PlayerRel, SpellMode, ZoneRef};
 use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::mana::ManaCost;
 use baylee_engine::choice::{CastModeDesc, CastModeKind};
 use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace};
 
@@ -201,10 +202,13 @@ impl HeuristicAgent {
     /// Which cast option to take.
     ///
     /// The old answer was "the `Normal` option, else the first one", and for
-    /// a card that has a normal cast it stays exactly that — overload and its
+    /// a card that has a normal cast it stays that — overload and its
     /// friends print a mode that costs more than the card does, and choosing
     /// it because it is a mode would be a worse answer than the one this
-    /// replaces. What is decided here is the case where choosing a mode is
+    /// replaces. The one exception is an alternative cost that costs nothing
+    /// at all (Deadly Rollick while you control your commander): the same
+    /// spell, free. A pitch or an evoke costs a card or the creature, and
+    /// keeps the printed cost when it can be paid. What is decided here is the case where choosing a mode is
     /// the only way to cast the spell (CR 700.2a) or the ability is a modal
     /// trigger (CR 603.3c): there is no `Normal` option, and the first
     /// printed mode was taken whatever the table looked like.
@@ -222,6 +226,17 @@ impl HeuristicAgent {
         object: ObjectId,
         options: &[CastModeDesc],
     ) -> usize {
+        // A free alternative beats paying for the same spell. The engine
+        // offers `Normal` only when the pool already covers it, so taking it
+        // spent floating mana on a Deadly Rollick that was free.
+        if let Some(free) = options.iter().position(|option| match option.kind {
+            CastModeKind::Alternative(i) => {
+                option.cost == ManaCost::ZERO && Self::no_other_part(view, object, i)
+            }
+            _ => false,
+        }) {
+            return free;
+        }
         if let Some(normal) = options
             .iter()
             .position(|option| matches!(option.kind, CastModeKind::Normal))
@@ -247,6 +262,19 @@ impl HeuristicAgent {
                 (reach, std::cmp::Reverse(*position))
             })
             .map_or(0, |(position, _)| position)
+    }
+
+    /// Whether the card's alternative cost `index` asks for nothing beside
+    /// its mana: no life, no card, no sacrifice.
+    fn no_other_part(view: &PlayerView, object: ObjectId, index: usize) -> bool {
+        view.hand
+            .iter()
+            .find(|c| c.id == object)
+            .map(|c| c.card)
+            .or_else(|| view.object(object).and_then(|o| o.card))
+            .and_then(crate::policy::face)
+            .and_then(|face| face.alternative_costs.get(index))
+            .is_some_and(|alt| alt.cost.parts.is_empty())
     }
 
     /// The printed modes the question is about, or `None` when they cannot be
