@@ -585,14 +585,13 @@ pub fn poll_scryfall(mut texts: ResMut<CardTexts>) {
 ///
 /// Two doors ask it: the game's while the gateway does not answer
 /// ([`Door`](super::Door)), and the deck builder's (`lobby::localization`)
-/// when the gateway has no translated catalog. Both send [`search`]. The
-/// game reads the answer with [`entry`], which is the gateway's own rule
-/// ([`baylee_cardtext::card_entry`]) over Scryfall's rows; the deck builder
-/// still reads it with [`parse`] and a rule of its own, until #239 teaches
-/// `card_entry` the case that rule exists for.
+/// when the gateway has no translated catalog. Both send [`search`] and read
+/// the answer with [`entry`], which is the gateway's own rule
+/// ([`baylee_cardtext::card_entry`]) over Scryfall's rows, so the lobby, the
+/// game and the gateway pick a printing by one rule.
 pub(crate) mod scryfall {
     use baylee_cardtext::{TextFace, TextPrinting};
-    use baylee_client_core::card_face::{CardTextEntry, FaceText};
+    use baylee_client_core::card_face::CardTextEntry;
 
     /// Who is asking, which Scryfall asks every client to say.
     const AGENT: &str = concat!("baylee-client/", env!("CARGO_PKG_VERSION"));
@@ -661,29 +660,7 @@ pub(crate) mod scryfall {
         baylee_cardtext::card_entry(lang, &printings(body))
     }
 
-    /// Scryfall's answer, as the entries the catalog would have sent.
-    ///
-    /// A list envelope (`{"data": […]}`), which both `/cards/search` and
-    /// `/cards/collection` answer with. Each entry keeps the printing's own
-    /// id; the deck builder files it under the id it asked about.
-    #[must_use]
-    pub fn parse(body: &str) -> Vec<CardTextEntry> {
-        let Ok(list) = serde_json::from_str::<Collection>(body) else {
-            return Vec::new();
-        };
-        list.data
-            .into_iter()
-            .map(|card| CardTextEntry {
-                oracle_id: String::new(),
-                layout: String::new(),
-                lang: card.lang.clone(),
-                faces: card.faces(),
-                scryfall_id: card.id,
-            })
-            .collect()
-    }
-
-    /// The `/cards/collection` envelope.
+    /// A Scryfall list envelope (`{"data": […]}`).
     #[derive(serde::Deserialize)]
     struct Collection {
         #[serde(default)]
@@ -758,15 +735,6 @@ pub(crate) mod scryfall {
                 faces,
             }
         }
-
-        /// This printing's faces, one code path for one face or two.
-        fn faces(&self) -> Vec<FaceText> {
-            if self.card_faces.is_empty() {
-                vec![self.top.text()]
-            } else {
-                self.card_faces.iter().map(Face::text).collect()
-            }
-        }
     }
 
     impl Face {
@@ -780,34 +748,6 @@ pub(crate) mod scryfall {
                 oracle_text: self.oracle_text.clone(),
                 printed_text: self.printed_text.clone(),
                 mana_cost: self.mana_cost.clone(),
-            }
-        }
-
-        /// Field by field, the printed form where there is one.
-        ///
-        /// A printing may be translated and still carry no translated rules
-        /// text — 6489 of 59 465 German faces, by the catalog's own count —
-        /// so half a card is taken rather than none, exactly as
-        /// `Catalog::text` does it.
-        fn text(&self) -> FaceText {
-            FaceText {
-                printed: None,
-                name: self
-                    .printed_name
-                    .clone()
-                    .unwrap_or_else(|| self.name.clone()),
-                english_name: self.name.clone(),
-                type_line: self
-                    .printed_type_line
-                    .clone()
-                    .or_else(|| self.type_line.clone())
-                    .unwrap_or_default(),
-                oracle_text: self
-                    .printed_text
-                    .clone()
-                    .or_else(|| self.oracle_text.clone())
-                    .unwrap_or_default(),
-                mana_cost: self.mana_cost.clone().unwrap_or_default(),
             }
         }
     }
@@ -1281,62 +1221,13 @@ mod tests {
         assert_eq!(asked, both);
     }
 
-    /// The deck builder's door: the printed sentence comes back under the
-    /// printing's own id, which is the id the deck builder asked about.
-    #[test]
-    fn scryfall_answers_the_printed_text_of_one_face() {
-        let entries = scryfall::parse(
-            r#"{"object":"list","data":[{"id":"aaa","lang":"en","name":"Chromatic Sphere",
-            "type_line":"Artifact","mana_cost":"{1}",
-            "oracle_text":"{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card."}],
-            "not_found":[]}"#,
-        );
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].scryfall_id, "aaa");
-        assert_eq!(entries[0].lang, "en");
-        assert_eq!(entries[0].faces.len(), 1);
-        assert!(entries[0].faces[0].oracle_text.contains("Add one mana"));
-        assert_eq!(entries[0].faces[0].english_name, "Chromatic Sphere");
-    }
-
-    /// A translated printing writes its rules text in `printed_text` and
-    /// keeps the English in `oracle_text`, and the player reads the first.
-    /// This is the same field-by-field choice `Catalog::text` makes, and the
-    /// two must not disagree about which one a player sees.
-    #[test]
-    fn a_translated_printing_is_read_the_way_the_catalog_reads_it() {
-        let entries = scryfall::parse(
-            r#"{"data":[{"id":"bbb","lang":"de","name":"Forest","printed_name":"Wald",
-            "type_line":"Basic Land — Forest","printed_type_line":"Basisland — Wald",
-            "oracle_text":"({T}: Add {G}.)","printed_text":"({T}: Erzeuge {G}.)"}]}"#,
-        );
-        let face = &entries[0].faces[0];
-        assert_eq!(face.name, "Wald");
-        assert_eq!(face.english_name, "Forest");
-        assert_eq!(face.type_line, "Basisland — Wald");
-        assert_eq!(face.oracle_text, "({T}: Erzeuge {G}.)");
-    }
-
-    /// Half a card is better than none: a printing may be translated and
-    /// carry no translated rules text at all.
-    #[test]
-    fn a_translated_name_with_untranslated_rules_keeps_both() {
-        let entries = scryfall::parse(
-            r#"{"data":[{"id":"ccc","lang":"de","name":"Shock","printed_name":"Schock",
-            "oracle_text":"Shock deals 2 damage to any target."}]}"#,
-        );
-        let face = &entries[0].faces[0];
-        assert_eq!(face.name, "Schock");
-        assert_eq!(face.oracle_text, "Shock deals 2 damage to any target.");
-    }
-
     /// A two-faced printing writes its faces in `card_faces` and *also*
-    /// carries a joined top level, so the faces have to win — a client that
+    /// carries a joined top level, so the faces have to win: a client that
     /// read the top level would draw one face's text on both sides.
     #[test]
     fn a_two_faced_printing_is_read_off_its_faces() {
-        let entries = scryfall::parse(
-            r#"{"data":[{"id":"ddd","lang":"en","name":"Delver of Secrets // Insectile Aberration",
+        let printings = scryfall::printings(
+            r#"{"data":[{"id":"ddd","lang":"de","name":"Delver of Secrets // Insectile Aberration",
             "type_line":"Creature — Human Wizard // Creature — Human Insect",
             "card_faces":[
               {"name":"Delver of Secrets","type_line":"Creature — Human Wizard",
@@ -1344,26 +1235,24 @@ mod tests {
               {"name":"Insectile Aberration","type_line":"Creature — Human Insect",
                "mana_cost":"","oracle_text":"Flying"}]}]}"#,
         );
-        assert_eq!(entries[0].faces.len(), 2);
-        assert_eq!(entries[0].faces[1].name, "Insectile Aberration");
-        assert_eq!(entries[0].faces[1].oracle_text, "Flying");
+        assert_eq!(printings[0].faces.len(), 2);
+        assert_eq!(printings[0].faces[1].name, "Insectile Aberration");
+        assert_eq!(printings[0].faces[1].oracle_text.as_deref(), Some("Flying"));
     }
 
     /// Everything about the answer is somebody else's to change, so nothing
-    /// in it may be able to take the game down: a body that is not JSON, a
-    /// record with no id and a card with no text all answer quietly.
+    /// in it may be able to take the game down: a body that is not JSON, an
+    /// empty envelope and a record with no id or text all answer quietly.
     #[test]
     fn an_answer_that_makes_no_sense_costs_no_more_than_the_text() {
-        assert!(scryfall::parse("not json at all").is_empty());
-        assert!(scryfall::parse("{}").is_empty());
-        let entries = scryfall::parse(r#"{"data":[{"lang":"en"}]}"#);
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].scryfall_id, "");
-        assert_eq!(entries[0].faces[0].oracle_text, "");
-        // …and a record with no `lang` is English, which is what every
-        // record Scryfall has ever written without one is.
-        let entries = scryfall::parse(r#"{"data":[{"id":"eee","name":"Forest"}]}"#);
-        assert_eq!(entries[0].lang, "en");
+        assert!(scryfall::printings("not json at all").is_empty());
+        assert!(scryfall::printings("{}").is_empty());
+        assert!(scryfall::entry("de", "{}").is_none());
+        let printings = scryfall::printings(r#"{"data":[{"lang":"de"}]}"#);
+        assert_eq!(printings.len(), 1);
+        assert_eq!(printings[0].scryfall_id, "");
+        assert_eq!(printings[0].faces[0].oracle_text, None);
+        let _quietly = scryfall::entry("de", r#"{"data":[{"lang":"de"}]}"#);
     }
 
     /// Mind Stone, with one German printing's text filed for it.

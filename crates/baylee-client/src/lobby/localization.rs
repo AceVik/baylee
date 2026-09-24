@@ -96,13 +96,19 @@ pub(super) fn update(
     let callback = Arc::clone(&answer);
     local.pending = Some(answer);
     local.next_request = time.elapsed_secs_f64() + 0.3;
+    let lang = lang.to_string();
     ehttp::fetch(request, move |response| {
-        let mut entries = response
+        // The gateway's own rule over Scryfall's rows, as the game's door
+        // reads them, filed under the printing the deck builder asked about.
+        let mut entries: Vec<CardTextEntry> = response
             .ok()
             .filter(|r| r.ok)
-            .and_then(|r| r.text().map(best_translation))
-            .unwrap_or_default();
-        entries.truncate(1);
+            .and_then(|r| {
+                r.text()
+                    .and_then(|body| crate::cardtext::scryfall::entry(&lang, body))
+            })
+            .into_iter()
+            .collect();
         for entry in &mut entries {
             entry.scryfall_id.clone_from(&id);
         }
@@ -112,41 +118,18 @@ pub(super) fn update(
     });
 }
 
-/// Prefer a complete translated printing over a recent promo lacking its type line.
-fn best_translation(body: &str) -> Vec<CardTextEntry> {
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(body) else {
-        return Vec::new();
-    };
-    let Some(cards) = value.get("data").and_then(serde_json::Value::as_array) else {
-        return Vec::new();
-    };
-    let quality = |card: &serde_json::Value| {
-        let face = card
-            .get("card_faces")
-            .and_then(|f| f.get(0))
-            .unwrap_or(card);
-        ["printed_name", "printed_type_line", "printed_text"]
-            .iter()
-            .filter(|key| {
-                face.get(**key)
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|s| !s.is_empty())
-            })
-            .count()
-    };
-    let Some(best) = cards.iter().max_by_key(|card| quality(card)) else {
-        return Vec::new();
-    };
-    crate::cardtext::scryfall::parse(&serde_json::json!({"data": [best]}).to_string())
-}
-
 #[cfg(test)]
 mod tests {
+    /// The deck builder reads Scryfall through the game's door, so a
+    /// name-only promo no longer hides an older printing's translated type
+    /// line (#239, `card_entry`'s most complete local printing).
     #[test]
     fn translated_types_win_over_a_name_only_promo() {
-        let entries = super::best_translation(
-            r#"{"data":[{"id":"new","lang":"de","name":"Forest","printed_name":"Wald","type_line":"Basic Land — Forest"},{"id":"older","lang":"de","name":"Forest","printed_name":"Wald","type_line":"Basic Land — Forest","printed_type_line":"Basisland — Wald"}]}"#,
-        );
-        assert_eq!(entries[0].faces[0].type_line, "Basisland — Wald");
+        let entry = crate::cardtext::scryfall::entry(
+            "de",
+            r#"{"data":[{"id":"new","lang":"de","released_at":"2024-01-01","name":"Forest","printed_name":"Wald","type_line":"Basic Land — Forest"},{"id":"older","lang":"de","released_at":"2020-01-01","name":"Forest","printed_name":"Wald","type_line":"Basic Land — Forest","printed_type_line":"Basisland — Wald"}]}"#,
+        )
+        .expect("an entry");
+        assert_eq!(entry.faces[0].type_line, "Basisland — Wald");
     }
 }
