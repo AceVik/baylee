@@ -8,14 +8,16 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-# A push supersedes the run before it, and four runs of the same branch were
-# not four verdicts — they were four jobs queueing for the same macOS pool and
-# four `codegen` processes fetching from Scryfall on the same runner IP range,
-# which is what earned the rate limiting. The last commit's verdict is the one
-# that matters; the superseded run is cancelled rather than raced.
+# One run per ref at a time: four overlapping runs of one branch were four
+# jobs queueing for the same macOS pool, not four verdicts. On a pull request
+# a push supersedes the run before it. On main a running run is never
+# cancelled: on 24.09.2026 eleven heads in a row were cancelled by the next
+# integration and main went two hours without a verdict. GitHub keeps one
+# pending run per group, so a burst of pushes still costs one run in progress
+# plus the newest queued, and every run that starts finishes.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   fmt:
