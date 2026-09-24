@@ -48,9 +48,6 @@ struct CardParams {
     /// Which of the five zone-change doors this sweep draws, or `DOOR_NONE`
     /// for the plain arrival. `cardmat::door` numbers them.
     sweep_door: u32,
-    /// How many permanents this card stands for; below two, no count is
-    /// drawn. `cardplate::count_word`.
-    count: u32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -140,7 +137,6 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         params.plate,
         params.chips_a,
         params.chips_b,
-        params.count,
         t,
         m,
         globals.time,

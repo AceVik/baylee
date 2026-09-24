@@ -720,23 +720,52 @@ accident, and arithmetic borrows nothing.
 
 ## Grouping and the token summary
 
-Identical permanents draw as one card saying `×N` on a pill in its top-right
-corner, over the printed cost (`cardplate::count_word`, `count_layer` in
-`card_common.wgsl`). It is the plate's register — same body, ink, rim and
-figure height — in the one corner nothing else uses, and it rotates with a
-tapped card. The `×` is load-bearing: a bare `12` over a cost slot reads as
-twelve generic mana. It grows sideways with its digits (`count_width`): at
-`×999` its left edge sits 0.67 card widths across, right of the centred name
-a token frame prints (measured on a Treasure at `×28`, whose pill starts at
-0.73), and `the_widest_count_leaves_the_name_half_the_title_bar` holds it
-to the right half of the title bar. Until #210 the sentence above was true
-of a function (`table::stack_badge`) that nothing called: 54 Goblins drew as
-one Goblin, the slab under the card was the only cue, and a pile's depth is
-capped. A pile never wears a count (`Placement::stands_for`); its size is
-the deck under it and the seat bar's number. The hover preview wears the
-same pill (`card_ui.wgsl`), because it is the table card held up larger and
-the count is the one thing its art cannot say; `BoardModel::group` is how
-it and `/state` find the card a pointer is on.
+Identical permanents draw as one card with a **count badge** hanging off its
+top-left corner, `×N` (#261; `cardplate::count_word` and `badge_rect`,
+`badgemat.rs`, `badge.wgsl` and `badge_ui.wgsl`, drawn by
+`card_common.wgsl`'s `count_badge`). It was a pill painted over the printed
+cost until #274 took everything of ours off the print; the owner's placement
+is "ganz oben links an der Ecke, leicht überragend mit elevation shadow". So
+it is an object lying on the card, as the keyword strip is: a pill of the
+plate's dark body 0.12 card widths tall, with the strip's slate edge, the
+plate's figures and a shadow dropped down and a little left (`BADGE_DROP`,
+`BADGE_BLUR`); one quad per merged card, a child of the card, not pickable
+and not a `CardShadow`; one material per distinct count on the table. The
+`×` is load-bearing: a bare `12` in a corner reads as twelve generic mana.
+
+- Its right end stands at 0.045, short of the print's window by the shadow's
+  reach (`nothing_of_the_badge_reaches_the_print`), and it grows **left**
+  with its digits, off the card.
+- Its top stands 0.008 under the card's top edge, not over it: a ring's rows
+  stand 0.019 apart, so a badge proud of the edge would lie on the next
+  row's plate (`nothing_of_the_badge_stands_above_the_card`).
+- It grows to `×99` (`BADGE_W`) and no further; three digits are set smaller
+  to fit (`badge_cap`). A tapped card's left edge is its side facing the next
+  row, a ring leaves it 0.217 of the lane there, and a `×999` at full size
+  reached 0.240 with its shadow (`a_tapped_card_s_badge_stays_off_the_next_row`,
+  over every seated layout from two to eight chairs at four aspects).
+- It lies at the strip's height, half a row step over its card's face, which
+  also lays its overhang over the card before it in a fanned row, a whole
+  step lower (`a_badge_lies_on_its_card_and_under_the_next_one`). In a
+  fanned lane that overhang lies on the end of the exposed name of the card
+  before it.
+- **Accepted:** a tapped card in a fanned lane turns its badge towards the
+  card laid over it, which hides it — the pill hid there too — and the
+  preview names the count.
+
+Until #210 the count was the job of a function (`table::stack_badge`) that
+nothing called: 54 Goblins drew as one Goblin, the slab under the card was
+the only cue, and a pile's depth is capped. A pile never wears a count
+(`Placement::badge` is zero for it); its size is the deck under it and the
+seat bar's number. The hover preview wears the same badge, because it is the
+table card held up larger and the count is the one thing its art cannot say:
+a UI node hanging off the card's turning frame rather than off the face,
+whose node clips to the card, so it turns with the front and hides at the
+quarter turn. The panel is placed as though it were the badge's reach wider,
+so a preview opened at the window's left edge keeps its count on the screen,
+and the bubble's clip lets it out as far
+(`a_preview_keeps_its_count_badge_on_the_screen`). `BoardModel::group` is
+how it and `/state` find the card a pointer is on.
 
 When they merge depends on what they are (`board::group_objects`). Tokens
 merge from two, on any row: a token is made to be one of many, and a fan of
@@ -775,7 +804,7 @@ row once (one card becoming two moved the `×29` from x 864 to 828 on a
 duel's row), so the second click lands where the card now is, and every
 later one where the second did. A declared card draws one arrow, from its
 first member (`combatlines::wanted_lines` finds no card for the others);
-its pill says how many it carries. `⇧`-click and `⇧E`
+its badge says how many it carries. `⇧`-click and `⇧E`
 (`Action::ActivateGroup`, `input::activate` with `whole`) take the whole card:
 `toggle_all` adds members until the choice refuses one (a full answer, a
 blocker the focus cannot take), and on a card with nothing left to add it
@@ -1736,6 +1765,8 @@ window, and the paper around the window is ours. One object of ours
 overlaps the print, by the owner's decision: the keyword strip, lying on the
 card over the art's bottom edge and never over the name, the cost, the type
 line or the artist (below, "The strip says what the card does in combat").
+A second lies on the card beside the print and never on it: the count badge
+off a merged card's top-left corner ("Grouping and the token summary").
 
 - The quad keeps its size, 1 × 1.397 card widths, so no lane, pile, hit test
   or shadow moved. The print is scaled into it at `cardframe::PRINT_SCALE`

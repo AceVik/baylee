@@ -255,7 +255,6 @@ fn frame_layer(
     plate: u32,
     chips_a: u32,
     chips_b: u32,
-    count: u32,
     t: f32,
     m: f32,
     now: f32,
@@ -335,7 +334,6 @@ fn frame_layer(
     let night = (glow & GLOW_SUMMONING_SICK) != 0u;
     out = plate_layer(uv, plate, chips_a, chips_b, night, out, marks, marks_s);
     out = crest_layer(uv, glow, out, marks, marks_s);
-    out = count_layer(uv, count, out, marks, marks_s);
     return out;
 }
 
@@ -1185,10 +1183,6 @@ const PLATE_H: f32 = 0.099;
 const CHIP_GAP: f32 = 0.010;
 const CHIP_W: f32 = 0.100;
 
-/// Where the count pill sits from the top and right edges.
-/// `cardplate::COUNT_INSET`.
-const COUNT_INSET: f32 = 0.052;
-
 /// How the packed word is read: three ten-bit numbers, two kind bits on top.
 const PLATE_KIND_SHIFT: u32 = 30u;
 const PLATE_SLOT_BITS: u32 = 10u;
@@ -1770,50 +1764,67 @@ fn plate_layer(
 const COUNT_MIN: u32 = 2u;
 const COUNT_MAX: u32 = 999u;
 
-/// Draws how many permanents a merged card stands for: `×54` on a pill in
-/// the top-right corner, over the printed cost.
+/// The count badge's geometry, in card widths (#261): its height, where its
+/// right end and its top stand on the card, its corner, where its shadow
+/// falls and how soft it is, and the widest it grows. `cardplate::BADGE_H`,
+/// `BADGE_RIGHT`, `BADGE_TOP`, `BADGE_CORNER`, `BADGE_DROP`, `BADGE_BLUR` and
+/// `BADGE_W`.
+const BADGE_H: f32 = 0.12;
+const BADGE_RIGHT: f32 = 0.045;
+const BADGE_TOP: f32 = 0.008;
+const BADGE_CORNER: f32 = 0.034;
+const BADGE_DROP_X: f32 = -0.006;
+const BADGE_DROP_Y: f32 = 0.012;
+const BADGE_BLUR: f32 = 0.02;
+const BADGE_W: f32 = 0.2006886;
+
+/// How many permanents a merged card stands for, `×54`, on a badge of its own
+/// hanging off the card's top-left corner (#261): the body over its drop
+/// shadow, as one colour and one coverage for the blend. `p` is the point in
+/// card widths from the card's top-left corner, `y` down the card, and lies
+/// off the card left of its edge, where the badge overhangs.
 ///
-/// The plate's register exactly — its body, its ink, its rim, its figure
-/// height — because it is one of this client's numbers and not something
-/// printed; and the corner the plate does not use, because a creature token
-/// is exactly the card that merges most and its plate is full. It grows
-/// leftwards with its digits (`cardplate::count_width` is the same
-/// arithmetic) and rotates with the face, so a tapped pile reads it from the
-/// near edge. `count` is a uniform, so the early return keeps the derivative
-/// below in uniform control flow.
-fn count_layer(
-    uv: vec2<f32>,
+/// The plate's register — its body, its ink, its figure height — because it
+/// is one of this client's numbers and not something printed, and the
+/// strip's edge, because it is an object lying on the card as the strip is.
+/// It grows leftwards with its digits (`cardplate::badge_rect`), off the card
+/// and away from the print, up to `×99`; three digits are set smaller to fit
+/// (`cardplate::badge_cap`). `count` is a uniform, so the early return keeps
+/// what follows in uniform control flow.
+fn count_badge(
+    p: vec2<f32>,
     count: u32,
-    color: vec3<f32>,
+    aa: f32,
     marks: texture_2d<f32>,
     marks_s: sampler,
-) -> vec3<f32> {
+) -> vec4<f32> {
     if count < COUNT_MIN {
-        return color;
+        return vec4<f32>(0.0);
     }
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let aa = max(fwidth(p.x), 0.0015);
-
     var line = text_push(vec2<u32>(0u, 0u), GLYPH_TIMES);
     line = text_number(line, min(count, COUNT_MAX));
-    let cap = PLATE_CAP;
-    let w = text_width(line) * cap / TEXT_CAP + 2.0 * PLATE_PAD;
+    let wants = text_width(line) * PLATE_CAP / TEXT_CAP;
+    let cap = PLATE_CAP * min((BADGE_W - 2.0 * PLATE_PAD) / wants, 1.0);
+    let w = max(min(wants + 2.0 * PLATE_PAD, BADGE_W), BADGE_H);
 
-    let x1 = 1.0 - COUNT_INSET;
-    let x0 = x1 - w;
-    let y0 = COUNT_INSET;
-    let y1 = y0 + PLATE_H;
-    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
-    let half = vec2<f32>(w * 0.5, PLATE_H * 0.5);
+    let half = vec2<f32>(0.5 * w, 0.5 * BADGE_H);
+    let mid = vec2<f32>(BADGE_RIGHT - half.x, BADGE_TOP + half.y);
+    let body = sd_round_box(p - mid, half, BADGE_CORNER);
+    let cover = 1.0 - smoothstep(-aa, aa, body);
 
-    let d = sd_round_box(p - mid, half, PLATE_H * 0.28);
-    let inside = 1.0 - smoothstep(-aa, aa, d);
-    if inside <= 0.0 {
-        return color;
-    }
-    var out = mix(color, PLATE, inside * 0.88);
-    let rim = 1.0 - smoothstep(-aa, aa, abs(d) - 0.0045);
-    out = mix(out, INK, rim * 0.55);
+    // The shadow of a thing standing proud of the card rather than lying
+    // flat on it: the body itself, dropped down and a little left, away from
+    // the print, and softened by `BADGE_BLUR`.
+    let drop = vec2<f32>(BADGE_DROP_X, BADGE_DROP_Y);
+    let dropped = sd_round_box(p - mid - drop, half, BADGE_CORNER);
+    let fall = 1.0 - smoothstep(0.0, BADGE_BLUR, max(dropped, 0.0));
+    let shade = SHADOW_DEPTH * fall * fall;
+
+    // The strip's edge, so the badge keeps an outline on a dark card and on
+    // the felt it overhangs.
+    let edge = 1.0 - smoothstep(0.0, 1.5 * aa, -body);
+    var out = mix(PLATE, STRIP_RIM, edge);
     let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
-    return mix(out, INK, hit.x);
+    out = mix(out, INK, hit.x);
+    return strip_over_shadow(out, cover, shade);
 }

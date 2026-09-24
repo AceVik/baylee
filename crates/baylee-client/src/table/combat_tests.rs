@@ -168,17 +168,12 @@ fn a_card_standing_for_several_wears_their_count_and_a_pile_does_not() {
             .find(|p| p.object == id)
             .unwrap_or_else(|| panic!("{id:?} is on the table"))
     };
-    assert_eq!(at(obj(1)).stands_for, 54, "the Goblins do not say 54");
-    assert_eq!(at(obj(60)).stands_for, 1);
+    // The badge's word is what `sync_badge` puts on the card: a count on the
+    // merged card, none on the lone one or the pile.
+    assert_eq!(at(obj(1)).badge, 54, "the Goblins do not say 54");
+    assert_eq!(at(obj(60)).badge, 0, "a lone card wears a count");
     assert_eq!(at(obj(100)).count, 10, "the pile lost its deck");
-    assert_eq!(at(obj(100)).stands_for, 1, "the pile wears a count");
-
-    // And the look is what the shader is given: a count on the merged card,
-    // none on the lone one or the pile.
-    let look = |p: &Placement| CardLook::back(FinishTreatment::Plain, 0).with_count(p.stands_for);
-    assert_eq!(look(at(obj(1))).count, 54);
-    assert_eq!(look(at(obj(60))).count, 0);
-    assert_eq!(look(at(obj(100))).count, 0);
+    assert_eq!(at(obj(100)).badge, 0, "the pile wears a count");
 }
 
 /// The same rule outside combat, where `selected()` *is* the answer being
@@ -441,14 +436,14 @@ fn two_clicks_on_a_stack_send_two_and_the_table_splits_them_off() {
         .object;
     let placed = click(&mut app);
 
-    let mut drawn: Vec<(usize, bool)> = placed.iter().map(|p| (p.stands_for, p.selected)).collect();
+    let mut drawn: Vec<(usize, bool)> = placed.iter().map(|p| (p.count, p.selected)).collect();
     drawn.sort_unstable();
     assert_eq!(
         drawn,
         vec![(2, true), (10, false)],
         "two declared, drawn apart and chosen; ten at home"
     );
-    let home = placed.iter().find(|p| p.stands_for == 10).expect("the ten");
+    let home = placed.iter().find(|p| p.count == 10).expect("the ten");
     assert_eq!(
         home.object, clicked,
         "the card under the pointer stayed put"

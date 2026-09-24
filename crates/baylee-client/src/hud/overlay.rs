@@ -41,6 +41,38 @@ pub(super) const ANSWER_PT: f32 = 13.0;
 /// feet a caption apart.
 const CAPTION_H: f32 = 13.0;
 
+/// The preview bubble's padding, in logical pixels: the gap its shadow needs
+/// to read as a shadow rather than as a rim.
+const PREVIEW_PAD: f32 = 6.0;
+
+/// How far past the bubble's padding the count badge reaches, in logical
+/// pixels, for a card `img_w` wide: what the bubble's clip has to be let out
+/// by so the badge's overhang and its shadow are not cut off, and how much
+/// wider than the bubble the panel is placed as (#261).
+///
+/// Only the left: the badge's quad starts at the card's top edge and ends
+/// short of the print (`cardplate::badge_quad_rect`). The margin is the same
+/// on all four sides, which lets nothing else out, since the bubble is sized
+/// by what it holds.
+pub(super) fn badge_reach(img_w: f32) -> f32 {
+    let over = -baylee_client_core::cardplate::badge_quad_rect()[0] * img_w;
+    (over - PREVIEW_PAD).max(0.0)
+}
+
+/// Where the preview panel's top-left corner goes when a badge reaches
+/// `reach` past its left edge: placed as a panel that much wider, so the
+/// badge lands on the screen wherever the panel does.
+pub(super) fn place_with_badge(
+    at: super::hand::PreviewAt,
+    panel: Vec2,
+    window: Vec2,
+    keep_out: Option<Rect>,
+    reach: f32,
+) -> Vec2 {
+    let shift = Vec2::new(reach, 0.0);
+    preview_place(at, panel + shift, window, keep_out) + shift
+}
+
 /// Removes the overlay when the duel hands the screen back.
 ///
 /// The 3D stage has always been torn down on `Close`; the overlay was not,
@@ -55,6 +87,7 @@ pub fn despawn_overlay(
     mut ledge: ResMut<ledge::LedgeRevision>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     strips: Option<ResMut<crate::marksmat::UiMarksMaterials>>,
+    badges: Option<ResMut<crate::badgemat::UiBadgeMaterials>>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -71,6 +104,9 @@ pub fn despawn_overlay(
     }
     if let Some(mut strips) = strips {
         strips.clear();
+    }
+    if let Some(mut badges) = badges {
+        badges.clear();
     }
 }
 
@@ -108,6 +144,11 @@ pub struct Surfaces<'w> {
     strips: Option<ResMut<'w, crate::marksmat::UiMarksMaterials>>,
     /// Where they are minted.
     strip_assets: Option<ResMut<'w, Assets<crate::marksmat::MarksUiMaterial>>>,
+    /// The preview's count badge materials (#261), one per count. Optional
+    /// for the cloth's reason: `BadgeMaterialPlugin` puts them there.
+    badges: Option<ResMut<'w, crate::badgemat::UiBadgeMaterials>>,
+    /// Where they are minted.
+    badge_assets: Option<ResMut<'w, Assets<crate::badgemat::BadgeUiMaterial>>>,
 }
 
 impl Surfaces<'_> {
@@ -128,6 +169,13 @@ impl Surfaces<'_> {
     fn strip(&mut self, bits: u32) -> Option<Handle<crate::marksmat::MarksUiMaterial>> {
         let assets = self.strip_assets.as_deref_mut()?;
         Some(self.strips.as_mut()?.get(bits, assets))
+    }
+
+    /// The count badge saying `count`, or `None` when there is nowhere to
+    /// draw it.
+    fn badge(&mut self, count: u32) -> Option<Handle<crate::badgemat::BadgeUiMaterial>> {
+        let assets = self.badge_assets.as_deref_mut()?;
+        Some(self.badges.as_mut()?.get(count, assets))
     }
 }
 
@@ -513,7 +561,28 @@ pub fn sync_overlay(
                 let centre = at.translation * computed.inverse_scale_factor;
                 Rect::from_center_size(centre, size)
             });
-            let place = preview_place(anchor, panel, window, keep_out);
+            // And the same count: the ×12 on the table is the one thing the
+            // art under it cannot say. A badge hanging off the card's corner
+            // as it hangs off it on the felt (#261), so the panel is placed
+            // with the badge's reach beside it — a preview at the window's
+            // left edge would hang its count off the screen — and the
+            // bubble's clip lets it out as far.
+            let count = baylee_client_core::cardplate::count_word(
+                hovered
+                    .and_then(|id| board.group(id))
+                    .map_or(1, baylee_client_core::board::CardGroup::count),
+            );
+            let badge = if count == 0 {
+                None
+            } else {
+                surfaces.badge(count)
+            };
+            let reach = if badge.is_some() {
+                badge_reach(img_w)
+            } else {
+                0.0
+            };
+            let place = place_with_badge(anchor, panel, window, keep_out, reach);
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
                 ..art
@@ -593,11 +662,6 @@ pub fn sync_overlay(
                     // player looking at it.
                     let sweep =
                         hovered.and_then(|id| motion.sheen.of(id, crate::sheen::Surface::Preview));
-                    // And the same count: the ×12 on the table is the one
-                    // thing the art under it cannot say.
-                    let stands_for = hovered
-                        .and_then(|id| board.group(id))
-                        .map_or(1, baylee_client_core::board::CardGroup::count);
                     match shown {
                         Some(shown) => CardLook::art(
                             shown,
@@ -605,12 +669,10 @@ pub fn sync_overlay(
                             crate::cardmat::glow_of(object, crate::cardmat::Offer::NONE),
                         )
                         .with_corner(corner)
-                        .with_sweep(sweep)
-                        .with_count(stands_for),
+                        .with_sweep(sweep),
                         None => CardLook::back(FinishTreatment::Plain, 0)
                             .with_corner(corner)
-                            .with_sweep(sweep)
-                            .with_count(stands_for),
+                            .with_sweep(sweep),
                     }
                 },
                 cards.as_mut(),
@@ -650,12 +712,13 @@ pub fn sync_overlay(
                         position_type: PositionType::Absolute,
                         top: px(place.y),
                         left: px(place.x),
-                        padding: UiRect::all(px(6)),
+                        padding: UiRect::all(px(PREVIEW_PAD)),
                         // A column, because the bubble is a card and — when
                         // the pointer is on the stack — a sheet under it.
                         flex_direction: FlexDirection::Column,
                         border_radius: preview_radius(img_w),
                         overflow: Overflow::clip(),
+                        overflow_clip_margin: OverflowClipMargin::padding_box().with_margin(reach),
                         ..default()
                     },
                     // Transparent, like the hand zone under it and for the
@@ -749,6 +812,29 @@ pub fn sync_overlay(
                 face_node(img_w, img_h),
             ));
             commands.entity(frame).add_child(far);
+            // The badge hangs off the frame and not off the face, whose node
+            // clips to the card: it is one side's, so it turns with the front
+            // and is hidden with it at the quarter turn.
+            if let Some(material) = badge {
+                let [x0, y0, x1, y1] = baylee_client_core::cardplate::badge_quad_rect();
+                let down = img_h / baylee_client_core::cardframe::CARD_TALL;
+                let node = commands
+                    .spawn((
+                        MaterialNode(material),
+                        crate::flip::Side::Front,
+                        Visibility::Inherited,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px(x0 * img_w),
+                            top: px(y0 * down),
+                            width: px((x1 - x0) * img_w),
+                            height: px((y1 - y0) * down),
+                            ..default()
+                        },
+                    ))
+                    .id();
+                commands.entity(frame).add_child(node);
+            }
             commands.entity(tooltip).add_child(frame);
             // The preview is a *description of* the hovered card, so it must
             // never take the pointer from it. The frame above already ignores

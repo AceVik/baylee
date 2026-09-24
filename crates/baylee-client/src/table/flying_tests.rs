@@ -19,7 +19,7 @@ fn card(slot: u32, flying: bool) -> Placement {
         tapped: false,
         flying,
         count: 1,
-        stands_for: 1,
+        badge: 0,
         art: None,
         offer: crate::cardmat::Offer::default(),
         corner: baylee_client_core::cardplate::Corner::default(),

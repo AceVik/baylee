@@ -656,28 +656,27 @@ pub const COUNT_MIN: u32 = 2;
 /// than anybody counts.
 pub const COUNT_MAX: u32 = 999;
 
-/// What the count pill says for a card standing for `members` permanents:
+/// What the count badge says for a card standing for `members` permanents:
 /// `0` for none, else the count, clamped to [`COUNT_MAX`].
 ///
 /// The #210 measurement is why this exists: 54 Goblins drew as one Goblin
 /// and 16 Plains as one Plains, because a merged card's only cue was the
-/// thickness of the slab under it. The pill sits in the top-right corner,
-/// [`COUNT_INSET`] in, over the printed cost — the one corner that is dead on the battlefield,
-/// and empty on the tokens and lands that merge most — written in the
-/// plate's own numerals on the plate's own dark body, so it reads as one of
-/// this client's numbers rather than as something printed.
+/// thickness of the slab under it. The badge ([`badge_rect`]) hangs off the
+/// card's top-left corner, written in the plate's own numerals on the
+/// plate's own dark body, so it reads as one of this client's numbers
+/// rather than as something printed.
 #[must_use]
 pub fn count_word(members: usize) -> u32 {
     let n = u32::try_from(members).unwrap_or(u32::MAX);
     if n < COUNT_MIN { 0 } else { n.min(COUNT_MAX) }
 }
 
-/// How wide the count pill is for `count`, in card widths — the shader's own
-/// arithmetic, mirrored so the widest one can be held to the title bar.
+/// How wide `×count` is at the plate's figure height, padded by the plate's
+/// padding on either side, in card widths: `×` and up to three tabular
+/// digits.
 ///
-/// The figures are the plate's height, so the pill is as tall as the plate
-/// and grows sideways with its digits: `×` and up to three tabular digits,
-/// padded by the plate's padding on either side.
+/// What the badge would need for its words. Two digits is all it is given
+/// ([`BADGE_W`]); [`badge_cap`] sets a third smaller to fit.
 #[must_use]
 pub fn count_width(count: u32) -> f32 {
     let digits = match count {
@@ -689,9 +688,94 @@ pub fn count_width(count: u32) -> f32 {
     cells * PLATE_CAP / TEXT_CAP + 2.0 * PLATE_PAD
 }
 
-/// How far in from the card's top and right edges the count pill sits, in
-/// card widths.
-pub const COUNT_INSET: f32 = 0.052;
+/// The count badge's height, in card widths (#261).
+///
+/// The badge is an object of its own lying on the card, not paint in the
+/// frame: a pill of the plate's body with its own drop shadow, hanging off
+/// the top-left corner. Taller than the plate ([`PLATE_H`]) by the air a
+/// thing standing proud of the card wants round its figures.
+pub const BADGE_H: f32 = 0.12;
+
+/// Where the badge's right end stands, in card widths from the card's left
+/// edge.
+///
+/// Short of the print's window ([`crate::cardframe::FRAME_SIDE`]) by the
+/// shadow's reach and a hair of air, so nothing of the badge — body or
+/// shadow — reaches the print. Its words grow **left** from here, off the
+/// card, which is the overhang the owner asked for (#261: "ganz oben links
+/// an der Ecke, leicht überragend").
+pub const BADGE_RIGHT: f32 = 0.045;
+
+/// How far below the card's top edge the badge's top stands, in card widths.
+///
+/// Flush with the edge, not over it. A lane's rows stand
+/// `lane_height − CARD_HEIGHT` apart, 0.019 at a ring table, so a badge
+/// standing proud of the top edge would lie on the next row's ledge — its
+/// power and toughness. Down by the shadow's own rise, so the shadow stays on
+/// the card too.
+pub const BADGE_TOP: f32 = 0.008;
+// The body sits on the card, not on its edge.
+const _: () = assert!(BADGE_TOP > 0.0);
+
+/// The badge's corner radius: the plate's own proportion of its height.
+pub const BADGE_CORNER: f32 = 0.034;
+
+/// Where the badge's shadow falls, `[x, y]` in card widths, `y` down the
+/// card: down and a little left, away from the print.
+pub const BADGE_DROP: [f32; 2] = [-0.006, 0.012];
+
+/// How soft the badge's shadow is: how far past the dropped body it fades
+/// out, in card widths.
+pub const BADGE_BLUR: f32 = 0.02;
+
+/// The widest the badge grows: `×99`.
+///
+/// Held there so the overhang is bounded whatever the count. A tapped card's
+/// left edge is its side facing the next row, and a ring table leaves a
+/// tapped card 0.217 of its lane to that side; a `×999` at the plate's
+/// figure height would reach 0.240 with its shadow and lie on the next row's
+/// ledge. So three digits are set smaller instead ([`badge_cap`]), which is
+/// still the true count, and a count that rare is read up close anyway.
+pub const BADGE_W: f32 = {
+    let cells = TEXT_ADV[GLYPH_TIMES] + 2.0 * TEXT_ADV[0];
+    cells * PLATE_CAP / TEXT_CAP + 2.0 * PLATE_PAD
+};
+// `badge_rect` clamps between the two, and a clamp with its bounds crossed
+// panics.
+const _: () = assert!(BADGE_H < BADGE_W);
+
+/// The figure height `×count` is set at on the badge: the plate's, or less
+/// where that would not fit [`BADGE_W`].
+#[must_use]
+pub fn badge_cap(count: u32) -> f32 {
+    let wants = count_width(count) - 2.0 * PLATE_PAD;
+    let room = BADGE_W - 2.0 * PLATE_PAD;
+    PLATE_CAP * (room / wants).min(1.0)
+}
+
+/// The badge's body for `count`: `[x0, y0, x1, y1]` in card widths from
+/// the card's top-left corner, `y` growing down the card. `x0` is negative:
+/// the body hangs off the card's left edge.
+#[must_use]
+pub fn badge_rect(count: u32) -> [f32; 4] {
+    let w = count_width(count).clamp(BADGE_H, BADGE_W);
+    [BADGE_RIGHT - w, BADGE_TOP, BADGE_RIGHT, BADGE_TOP + BADGE_H]
+}
+
+/// The quad every badge is drawn in, the same way round as [`badge_rect`]:
+/// the widest body and all of its shadow, so one mesh serves every count and
+/// the shader lays the body out from the quad's right and bottom edges.
+#[must_use]
+pub fn badge_quad_rect() -> [f32; 4] {
+    let [x0, y0, x1, y1] = badge_rect(COUNT_MAX);
+    let [dx, dy] = BADGE_DROP;
+    [
+        (x0 + dx - BADGE_BLUR).min(x0),
+        (y0 + dy - BADGE_BLUR).min(y0),
+        (x1 + dx + BADGE_BLUR).max(x1),
+        (y1 + dy + BADGE_BLUR).max(y1),
+    ]
+}
 
 #[cfg(test)]
 mod tests {
@@ -1064,18 +1148,109 @@ mod tests {
         assert_eq!(count_word(4000), COUNT_MAX, "clamped, not wrapped");
     }
 
-    /// The pill grows leftwards from the right edge and must never leave the
-    /// printed name less than half the title bar, however many digits it
-    /// writes.
+    /// Nothing of the badge, body or shadow, reaches the print (#261): its
+    /// whole quad ends left of the window, for every count, so the rule
+    /// `docs/legal.md` §3 keeps for the card's own print holds by geometry
+    /// rather than by what the shader happens to draw.
     #[test]
-    fn the_widest_count_leaves_the_name_half_the_title_bar() {
-        let widest = count_width(COUNT_MAX);
+    fn nothing_of_the_badge_reaches_the_print() {
+        let [.., x1, _] = badge_quad_rect();
+        let [window_x0, ..] = crate::cardframe::window();
         assert!(
-            widest < 0.5 * (1.0 - 2.0 * COUNT_INSET),
-            "a ×999 pill takes {widest} of the title bar"
+            x1 < window_x0,
+            "the badge's quad reaches {x1}, and the print starts at {window_x0}"
         );
-        // And it is wider with every digit, so a count that grows past ten
-        // is not drawn in the same box as one below it.
-        assert!(count_width(9) < count_width(10) && count_width(99) < count_width(100));
+        for count in COUNT_MIN..=COUNT_MAX {
+            let [.., right, _] = badge_rect(count);
+            assert!(right <= x1, "×{count} ends past its quad");
+        }
+    }
+
+    /// And nothing of it stands above the card's top edge, where a ring
+    /// table's next row starts 0.019 later with its power and toughness.
+    #[test]
+    fn nothing_of_the_badge_stands_above_the_card() {
+        let [_, y0, ..] = badge_quad_rect();
+        assert!(y0 >= 0.0, "the badge's quad starts {y0} above the card");
+    }
+
+    /// Every count fits its badge, and every badge its quad.
+    ///
+    /// The words are `×` and the digits at [`badge_cap`] with the plate's
+    /// padding either side, and the badge is at least as wide as they are:
+    /// a count that spilled out of its body would be ink on the felt. Up to
+    /// two digits they are the plate's own figures; three are set smaller,
+    /// but never so small that a count is a smudge.
+    #[test]
+    fn every_count_fits_its_badge_and_every_badge_its_quad() {
+        let [qx0, qy0, qx1, qy1] = badge_quad_rect();
+        let mut last = 0.0;
+        for count in COUNT_MIN..=COUNT_MAX {
+            let [x0, y0, x1, y1] = badge_rect(count);
+            let words = (count_width(count) - 2.0 * PLATE_PAD) * badge_cap(count) / PLATE_CAP
+                + 2.0 * PLATE_PAD;
+            assert!(
+                words <= x1 - x0 + 1e-5,
+                "×{count} needs {words} and its badge is {}",
+                x1 - x0
+            );
+            assert!(
+                x0 >= qx0 && y0 >= qy0 && x1 <= qx1 && y1 <= qy1,
+                "×{count} leaves its quad"
+            );
+            assert!(x1 - x0 >= last, "×{count} is narrower than a smaller count");
+            last = x1 - x0;
+            let cap = badge_cap(count);
+            if count < 100 {
+                assert!(
+                    (cap - PLATE_CAP).abs() < 1e-6,
+                    "×{count} is not the plate's figures"
+                );
+            }
+            assert!(cap >= 0.7 * PLATE_CAP, "×{count} is set at {cap}");
+        }
+        assert!(
+            x0_of(COUNT_MIN) < 0.0,
+            "the badge hangs off the card's left edge"
+        );
+    }
+
+    fn x0_of(count: u32) -> f32 {
+        badge_rect(count)[0]
+    }
+
+    /// A tapped card turns its top-left corner a quarter clockwise, so the
+    /// badge's overhang points at the next row: a tapped card has
+    /// `(lane_height − CARD_WIDTH) / 2` of its lane to that side, and the
+    /// next row's card stands `(lane_height − CARD_HEIGHT) / 2` beyond. The
+    /// widest badge and its shadow stay inside both, at the tightest lane
+    /// any table from two to eight seats is laid out with.
+    #[test]
+    fn a_tapped_card_s_badge_stays_off_the_next_row() {
+        use crate::layout::{CARD_HEIGHT, CARD_WIDTH, Seat, TableLayout};
+        use baylee_core::ids::PlayerId;
+        let lane = (2..=8u8)
+            .flat_map(|n| {
+                [0.45_f32, 1.0, 1.78, 2.8].map(|aspect| {
+                    let seats: Vec<Seat> = (0..n).map(|p| Seat::alone(PlayerId::new(p))).collect();
+                    TableLayout::seated(&seats, aspect, None)
+                        .slots
+                        .iter()
+                        .map(crate::layout::SeatSlot::lane_height)
+                        .fold(f32::INFINITY, f32::min)
+                })
+            })
+            .fold(f32::INFINITY, f32::min);
+        assert!(
+            lane > CARD_HEIGHT,
+            "the premise: a card fits its lane ({lane})"
+        );
+        let room = (lane - CARD_WIDTH) * 0.5 + (lane - CARD_HEIGHT) * 0.5;
+        let [qx0, ..] = badge_quad_rect();
+        assert!(
+            -qx0 < room,
+            "the badge reaches {} past a tapped card and the next row is {room} away",
+            -qx0
+        );
     }
 }

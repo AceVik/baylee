@@ -21,6 +21,7 @@
 //! table at frame rate on a phone.
 
 use crate::Duel;
+use crate::badgemat::BadgeMaterial;
 use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
 use crate::feltmat::FeltMaterial;
@@ -28,6 +29,7 @@ use crate::marksmat::MarksMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
+use baylee_client_core::cardplate;
 use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
@@ -1531,6 +1533,15 @@ pub struct SceneIndex {
     /// The quad every strip is drawn on: [`cardrail::quad_rect`], one mesh
     /// for the whole table, since the shader sizes the strip inside it.
     marks_quad: Option<Handle<Mesh>>,
+    /// The count badge hanging off each merged card (#261): the count and
+    /// the row step it was put on for, and the badge itself. Held for the
+    /// strip's reason.
+    badges: HashMap<ObjectId, (u32, f32, Entity)>,
+    /// One badge material per count, shared by every card saying it.
+    badge_materials: HashMap<u32, Handle<BadgeMaterial>>,
+    /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
+    /// mesh for the whole table, since the shader sizes the body inside it.
+    badge_quad: Option<Handle<Mesh>>,
     /// What stood in a pile's hover fan on the **previous** frame, and which
     /// pile each card came out of.
     ///
@@ -1909,6 +1920,11 @@ pub fn spawn_stage(
     index.marks_quad = Some(meshes.add(Rectangle::new(
         strip.x * CARD_WIDTH,
         strip.y * DOWN_THE_CARD,
+    )));
+    let badge = crate::badgemat::quad_size();
+    index.badge_quad = Some(meshes.add(Rectangle::new(
+        badge.x * CARD_WIDTH,
+        badge.y * DOWN_THE_CARD,
     )));
 
     // The contact shadow: a quad a little larger than a card, carrying a
@@ -2793,6 +2809,8 @@ pub fn despawn_stage(
     index.faces.clear();
     index.marks.clear();
     index.marks_materials.clear();
+    index.badges.clear();
+    index.badge_materials.clear();
     watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
     // it; what is left is the bookkeeping that would otherwise point at
@@ -2922,6 +2940,85 @@ fn sync_strip(
         .insert(placement.object, (placement.marks, placement.rung, strip));
 }
 
+/// The count badge hanging off a merged card (#261): a marker, so a badge can
+/// be found and counted without being taken for the card or its strip.
+#[derive(Component)]
+pub struct CountBadge;
+
+/// Where a card's count badge lies, in the card's own space: at
+/// [`cardplate::badge_quad_rect`], off the card's left edge, at the strip's
+/// share of its row's step over the face.
+///
+/// The strip's height and for the strip's reason: a badge lifted further
+/// would stand over the card laid on this one. It is also what puts the
+/// overhang over the card *before* this one in a fanned row, which lies a
+/// whole step lower.
+fn badge_transform(rung: f32) -> Transform {
+    let [x0, y0, x1, y1] = cardplate::badge_quad_rect();
+    Transform::from_xyz(
+        (f32::midpoint(x0, x1) - 0.5) * CARD_WIDTH,
+        CARD_HEIGHT * 0.5 - f32::midpoint(y0, y1) * DOWN_THE_CARD,
+        CARD_THICKNESS + rung * STRIP_STEP_SHARE,
+    )
+}
+
+/// Puts the count badge on a card, changes it, or takes it off (#261).
+///
+/// [`sync_strip`]'s diff, for [`sync_strip`]'s reasons: a child of the card,
+/// so it follows every glide and tap and goes with the card; not a
+/// [`CardShadow`]; not pickable, since a click on the count is a click on
+/// the card.
+fn sync_badge(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<BadgeMaterial>,
+    card: Entity,
+    placement: &Placement,
+) {
+    let current = index.badges.get(&placement.object).copied();
+    if current.is_some_and(|(count, rung, _)| {
+        count == placement.badge && rung.to_bits() == placement.rung.to_bits()
+    }) {
+        return;
+    }
+    if placement.badge == 0 {
+        if let Some((_, _, badge)) = index.badges.remove(&placement.object) {
+            commands.entity(badge).despawn();
+        }
+        return;
+    }
+    let Some(quad) = index.badge_quad.clone() else {
+        return;
+    };
+    let material = index
+        .badge_materials
+        .entry(placement.badge)
+        .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge)))
+        .clone();
+    let transform = badge_transform(placement.rung);
+    let badge = if let Some((_, _, badge)) = current {
+        commands
+            .entity(badge)
+            .try_insert((MeshMaterial3d(material), transform));
+        badge
+    } else {
+        let badge = commands
+            .spawn((
+                CountBadge,
+                Mesh3d(quad),
+                MeshMaterial3d(material),
+                transform,
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(card).add_child(badge);
+        badge
+    };
+    index
+        .badges
+        .insert(placement.object, (placement.badge, placement.rung, badge));
+}
+
 /// How one card of a pile's hover fan is turned.
 ///
 /// A rotation of its own rather than two more arguments to
@@ -2956,11 +3053,11 @@ struct Placement {
     /// corner are — this is where the group's members are.
     flying: bool,
     count: usize,
-    /// How many permanents this card stands for when it is a merged group on
-    /// the battlefield, which is what the count pill writes
-    /// ([`CardLook::with_count`]). One for a pile and a fanned card: a
+    /// What the count badge says ([`cardplate::count_word`]): how many
+    /// permanents this card stands for when it is a merged group on the
+    /// battlefield, and zero for a lone card, a pile and a fanned card — a
     /// pile's size is `count` above and is drawn as the deck under it.
-    stands_for: usize,
+    badge: u32,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
     corner: baylee_client_core::cardplate::Corner,
@@ -3084,7 +3181,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // flying are two groups.
                     flying: group.badges.contains(&KeywordBadge::Flying),
                     count: group.count(),
-                    stands_for: group.count(),
+                    badge: cardplate::count_word(group.count()),
                     art: group.art,
                     // Resolved here rather than in the sync loop, because
                     // here is where the group's *members* are: a plan taps
@@ -3161,7 +3258,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         } else {
                             1
                         },
-                        stands_for: 1,
+                        badge: 0,
                         art: card.art,
                         offer: pile_offer(duel, card.object),
                         corner: baylee_client_core::cardplate::Corner::default(),
@@ -3196,7 +3293,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 tapped: false,
                 flying: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
-                stands_for: 1,
+                badge: 0,
                 art: pile.art,
                 offer: pile_offer(duel, top),
                 corner: baylee_client_core::cardplate::Corner::default(),
@@ -3240,7 +3337,11 @@ pub fn sync_scene(
     mut watch: ResMut<ZoneWatch>,
     mut textures: Option<ResMut<CardTextures>>,
     mut card_materials: ResMut<Assets<CardMaterial>>,
-    mut strip_materials: ResMut<Assets<MarksMaterial>>,
+    // One parameter for both objects lying on a card: a system takes sixteen.
+    (mut strip_materials, mut badge_materials): (
+        ResMut<Assets<MarksMaterial>>,
+        ResMut<Assets<BadgeMaterial>>,
+    ),
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
@@ -3369,9 +3470,7 @@ pub fn sync_scene(
             // material however many creatures are on it.
             let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
             let tint = face::table_color(colors);
-            let look = CardLook::flat(tint, finish, glow)
-                .with_corner(placement.corner)
-                .with_count(placement.stands_for);
+            let look = CardLook::flat(tint, finish, glow).with_corner(placement.corner);
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
@@ -3385,7 +3484,6 @@ pub fn sync_scene(
                 Some(key) => {
                     let look = CardLook::art(key, finish, glow)
                         .with_corner(placement.corner)
-                        .with_count(placement.stands_for)
                         .with_sweep(sheen.of(placement.object, crate::sheen::Surface::Table));
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
@@ -3596,6 +3694,13 @@ pub fn sync_scene(
             placement,
             motion,
         );
+        sync_badge(
+            &mut commands,
+            &mut index,
+            &mut badge_materials,
+            entity,
+            placement,
+        );
 
         // The text children follow the same decision as the material, and are
         // rebuilt when the snapshot they were made from is no longer current:
@@ -3634,10 +3739,11 @@ pub fn sync_scene(
             // Despawning a card takes its text children with it, so the map
             // only has to forget them — and it keeps them for as long as the
             // card is still leaving, which is what makes a named card sink
-            // into the graveyard rather than a blank one. The strip is a child
-            // in the same way.
+            // into the graveyard rather than a blank one. The strip and the
+            // badge are children in the same way.
             index.faces.remove(&id);
             index.marks.remove(&id);
+            index.badges.remove(&id);
             // A stale id with no move behind it did not leave anywhere: it is
             // a graveyard's old top card, covered by the one that landed on
             // it this frame, or a group that re-keyed when its lowest-id
@@ -3781,6 +3887,8 @@ mod offer_tests;
 #[cfg(test)]
 mod framing_tests;
 
+#[cfg(test)]
+mod badge_tests;
 /// What flying does to a card on the table, and to the shadow under it.
 ///
 /// The height itself is [`baylee_client_core::airborne`]'s and is tested

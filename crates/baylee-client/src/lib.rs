@@ -40,6 +40,7 @@ pub mod ambience;
 pub mod arrowmat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod artreader;
+pub mod badgemat;
 pub mod buildui;
 mod card_loading;
 pub mod cardart;
@@ -1520,6 +1521,7 @@ impl Plugin for DuelPlugin {
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(markatlas::MarkAtlasPlugin)
             .add_plugins(marksmat::MarksMaterialPlugin)
+            .add_plugins(badgemat::BadgeMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
             .add_plugins(frontal::FrontalPlugin)
             .add_plugins(matmat::MatMaterialPlugin)

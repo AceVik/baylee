@@ -413,10 +413,6 @@ pub struct CardParams {
     /// through Rust to be looked at once. The two halves are paired by a test
     /// that reads the WGSL, the way the rail's are.
     pub sweep_door: u32,
-    /// How many permanents this card stands for, from
-    /// [`baylee_client_core::cardplate::count_word`]: `0` draws no count, and
-    /// from two up the top-right corner says `×N`.
-    pub count: u32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
 }
@@ -768,7 +764,6 @@ impl UiCardMaterials {
                 sweep_at: 0.0,
                 sweep_rate: 0.0,
                 sweep_door: door::NONE,
-                count: 0,
                 tint: Vec4::ONE,
             },
             marks: crate::markatlas::MARKS,
@@ -844,10 +839,6 @@ pub struct CardLook {
     pub plate: u32,
     /// Its counter chips, packed, for the same reason and with the same cost.
     pub chips: [u32; 2],
-    /// How many permanents it stands for
-    /// ([`baylee_client_core::cardplate::count_word`]), in the key for the
-    /// plate's reason: a `×4` and a `×12` of one token are two materials.
-    pub count: u32,
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
@@ -871,7 +862,6 @@ impl CardLook {
             glow,
             plate: 0,
             chips: [0; 2],
-            count: 0,
             tint: 0,
             sweep: None,
         }
@@ -886,7 +876,6 @@ impl CardLook {
             glow,
             plate: 0,
             chips: [0; 2],
-            count: 0,
             tint: quantise(color),
             sweep: None,
         }
@@ -902,14 +891,6 @@ impl CardLook {
         let [plate, a, b] = corner.packed();
         self.plate = plate;
         self.chips = [a, b];
-        self
-    }
-
-    /// The same look standing for `members` permanents, which only a merged
-    /// card on the table ever does.
-    #[must_use]
-    pub fn with_count(mut self, members: usize) -> Self {
-        self.count = baylee_client_core::cardplate::count_word(members);
         self
     }
 
@@ -943,7 +924,6 @@ impl CardLook {
             glow,
             plate: 0,
             chips: [0; 2],
-            count: 0,
             tint: 0,
             sweep: None,
         }
@@ -1017,7 +997,6 @@ pub fn material(
             sweep_at: 0.0,
             sweep_rate: 0.0,
             sweep_door: door::NONE,
-            count: look.count,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
         marks: crate::markatlas::MARKS,
@@ -1590,7 +1569,6 @@ pub(crate) mod tests {
             "sweep_at",
             "sweep_rate",
             "sweep_door",
-            "count",
             "tint",
         ];
         for (which, src) in [
@@ -1981,12 +1959,7 @@ pub(crate) mod tests {
             }
 
             // And the frame's inputs reach nothing but the frame.
-            for field in [
-                "params.glow",
-                "params.plate",
-                "params.chips_a",
-                "params.count",
-            ] {
+            for field in ["params.glow", "params.plate", "params.chips_a"] {
                 assert_eq!(
                     body.matches(field).count(),
                     1,
@@ -2430,7 +2403,14 @@ struct Globals { time: f32 };
             ("PLATE_CAP", plate::PLATE_CAP),
             ("CHIP_GAP", plate::CHIP_GAP),
             ("CHIP_W", plate::CHIP_W),
-            ("COUNT_INSET", plate::COUNT_INSET),
+            ("BADGE_H", plate::BADGE_H),
+            ("BADGE_RIGHT", plate::BADGE_RIGHT),
+            ("BADGE_TOP", plate::BADGE_TOP),
+            ("BADGE_CORNER", plate::BADGE_CORNER),
+            ("BADGE_DROP_X", plate::BADGE_DROP[0]),
+            ("BADGE_DROP_Y", plate::BADGE_DROP[1]),
+            ("BADGE_BLUR", plate::BADGE_BLUR),
+            ("BADGE_W", plate::BADGE_W),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
