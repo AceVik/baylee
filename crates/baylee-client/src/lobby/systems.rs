@@ -1421,7 +1421,11 @@ pub(super) fn came_back(
     // since what they assert on is what this function does. An embedder with
     // its own duel is the same case in production.
     match ended_as(duel.as_deref()) {
-        Some((result, seat, team)) => state.lobby.stand_up_after(&result, seat, team),
+        Some((result, seat, team, own)) => {
+            state
+                .lobby
+                .stand_up_after(&result, seat, team, own.as_ref());
+        }
         None => state.lobby.stand_up(Phrase::GameEnded, &[]),
     }
     // The host that has just been dropped *was* the offline table, so this is
@@ -1446,11 +1450,23 @@ pub(super) fn came_back(
 /// this player. That is the same refusal `hud::finish::spawn_finish` makes
 /// for the same reason — a game that never really started says nothing
 /// rather than telling a player who never sat down that they lost.
-fn ended_as(duel: Option<&crate::Duel>) -> Option<(GameResult, PlayerId, Option<u8>)> {
+fn ended_as(
+    duel: Option<&crate::Duel>,
+) -> Option<(
+    GameResult,
+    PlayerId,
+    Option<u8>,
+    Option<baylee_view::SeatView>,
+)> {
     let duel = duel?;
     let result = *duel.ending()?;
     let statics = duel.statics.as_ref()?;
-    Some((result, statics.your_seat, duel.my_team()))
+    let own = duel
+        .view
+        .as_ref()
+        .and_then(|view| view.seat(statics.your_seat))
+        .cloned();
+    Some((result, statics.your_seat, duel.my_team(), own))
 }
 
 /// A component whose click means something.

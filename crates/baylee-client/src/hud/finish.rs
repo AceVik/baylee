@@ -51,7 +51,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use baylee_client_core::interaction::{ending_reason, verdict};
+use baylee_client_core::interaction::{ending_reason, table_losses, verdict};
 use bevy::text::LineHeight;
 
 /// How wide the sheet is drawn, at a window with room for it.
@@ -96,6 +96,16 @@ const REASON_PT: f32 = 18.0;
 
 /// The air between the verdict and the reason.
 const REASON_GAP: f32 = 10.0;
+
+/// Why each seat that is out lost, one line apiece under the reason (#83).
+///
+/// Below the reason and smaller than it, upright where it is italic: the
+/// reason is the table's one sentence about how the game was decided, and
+/// these are facts about single seats, several of them at a table of four.
+const LOSS_PT: f32 = 15.0;
+
+/// The air above each loss line.
+const LOSS_GAP: f32 = 4.0;
 
 /// The air between the sheet's prose and the way out of it.
 const EXITS_GAP: f32 = 28.0;
@@ -300,6 +310,11 @@ pub(crate) fn spawn_finish(
             result,
             seat,
             team,
+            losses: duel
+                .view
+                .as_ref()
+                .map(|view| table_losses(lang, view, Some(statics), seat))
+                .unwrap_or_default(),
         },
     );
 
@@ -333,6 +348,9 @@ struct Said<'a> {
     result: &'a baylee_engine::win::GameResult,
     seat: baylee_core::ids::PlayerId,
     team: Option<u8>,
+    /// [`table_losses`]: the reader's own loss first, then each other
+    /// seat's that is out.
+    losses: Vec<String>,
 }
 
 /// The verdict, and the line under it when there is one.
@@ -342,6 +360,7 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
         result,
         seat,
         team,
+        losses,
     } = said;
     let headline = commands
         .spawn((
@@ -381,7 +400,33 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
             .id();
         commands.entity(sheet).add_child(line);
     }
+
+    // Why each seat went out, and who answered its last decision (#83). The
+    // first gap is the reason's, so a draw, which has no reason line, still
+    // sets its losses apart from the verdict.
+    for (at, loss) in losses.into_iter().enumerate() {
+        let line = commands
+            .spawn((
+                FinishLoss,
+                Text::new(loss),
+                tf(fonts, LOSS_PT),
+                TextColor(palette::SLIP_SOFT.with_alpha(0.0)),
+                Settling::ink(palette::SLIP_SOFT),
+                TextLayout::justify(Justify::Center),
+                Node {
+                    margin: UiRect::top(px(if at == 0 { REASON_GAP } else { LOSS_GAP })),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(sheet).add_child(line);
+    }
 }
+
+/// One line of [`table_losses`] on the sheet.
+#[derive(Component)]
+pub(crate) struct FinishLoss;
 
 /// Every colour channel a settling node might carry.
 ///
@@ -564,6 +609,51 @@ mod tests {
             vec![Phrase::TheGameIsADraw.text(Lang::En).to_string()],
             "a draw gets a verdict and nothing under it"
         );
+    }
+
+    /// A duel lost to the clock says so, under the table's reason and in
+    /// the sheet's own order: the verdict, how the game was decided, why
+    /// this seat went out, and that the house answered its last decision.
+    /// The winner's seat, still in, gets no line.
+    #[test]
+    fn a_duel_lost_to_the_clock_says_so_under_the_verdict() {
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.seats[0].loss = Some(baylee_view::LossCause::Life);
+        view.seats[0].house_answered = Some(baylee_view::HouseAnswer::Clock);
+        view.seats[1].house_answered = Some(baylee_view::HouseAnswer::Clock);
+        let mut app = app_at(crate::Duel {
+            view: Some(view),
+            ..ended(
+                GameResult {
+                    winner: Some(Victor::Player(PlayerId::new(1))),
+                    reason: EndReason::LastPlayerStanding,
+                },
+                None,
+            )
+        });
+        let mut sheets = app
+            .world_mut()
+            .query_filtered::<&Children, With<FinishSheet>>();
+        let children: Vec<Entity> = sheets
+            .single(app.world())
+            .expect("one sheet")
+            .iter()
+            .collect();
+        let said: Vec<String> = children
+            .iter()
+            .filter_map(|child| app.world().get::<Text>(*child).map(|t| t.0.clone()))
+            .collect();
+        assert_eq!(
+            said,
+            vec![
+                Phrase::YouLost.text(Lang::En).to_string(),
+                Phrase::EndedLastPlayer.text(Lang::En).to_string(),
+                Phrase::LostLifeYou.text(Lang::En).to_string(),
+                Phrase::HouseClockYou.text(Lang::En).to_string(),
+            ]
+        );
+        let mut losses = app.world_mut().query_filtered::<Entity, With<FinishLoss>>();
+        assert_eq!(losses.iter(app.world()).count(), 2);
     }
 
     /// A game with no roster cannot say whose win it is, so it says nothing.

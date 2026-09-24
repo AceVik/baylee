@@ -324,7 +324,7 @@ fn the_lobby_says_how_the_game_ended_and_not_that_it_ended() {
     ] {
         let mut lobby = seated_lobby();
         lobby.set_lang(lang);
-        lobby.stand_up_after(&lost, PlayerId::new(0), None);
+        lobby.stand_up_after(&lost, PlayerId::new(0), None, None);
         assert_eq!(lobby.status(), want, "{lang:?}");
     }
 
@@ -336,7 +336,7 @@ fn the_lobby_says_how_the_game_ended_and_not_that_it_ended() {
         reason: EndReason::Draw,
     };
     let mut lobby = seated_lobby();
-    lobby.stand_up_after(&drawn, PlayerId::new(0), None);
+    lobby.stand_up_after(&drawn, PlayerId::new(0), None, None);
     assert_eq!(lobby.status(), "The game is a draw");
 
     // And the join is a full stop rather than the em dash this repository
@@ -349,10 +349,54 @@ fn the_lobby_says_how_the_game_ended_and_not_that_it_ended() {
         reason: EndReason::LastTeamStanding,
     };
     let mut lobby = seated_lobby();
-    lobby.stand_up_after(&team_won, PlayerId::new(0), Some(2));
+    lobby.stand_up_after(&team_won, PlayerId::new(0), Some(2), None);
     assert_eq!(
         lobby.status(),
         "Team 2 wins — yours. Only one team left in the game"
+    );
+}
+
+/// The note also says why this seat went out, and that the clock answered
+/// its last decision where it did (#83): the lobby is the one place a player
+/// who closed the end screen can still read it.
+#[test]
+fn the_lobby_says_why_this_seat_lost_and_who_answered_for_it() {
+    let lost = GameResult {
+        winner: Some(Victor::Player(PlayerId::new(1))),
+        reason: EndReason::LastPlayerStanding,
+    };
+    let mut own = crate::test_support::ViewBuilder::new(2).build().seats[0].clone();
+    own.loss = Some(baylee_view::LossCause::Life);
+    own.house_answered = Some(baylee_view::HouseAnswer::Clock);
+    for (lang, want) in [
+        (
+            Lang::En,
+            "You lost. Only one player left in the game. Your life fell to 0 or less. \
+             Your time ran out, and the house answered your last decision",
+        ),
+        (
+            Lang::De,
+            "Du hast verloren. Nur noch ein Spieler im Spiel. Deine Lebenspunkte fielen auf \
+             0 oder weniger. Deine Zeit lief ab, und das Haus traf deine letzte Entscheidung",
+        ),
+    ] {
+        let mut lobby = seated_lobby();
+        lobby.set_lang(lang);
+        lobby.stand_up_after(&lost, PlayerId::new(0), None, Some(&own));
+        assert_eq!(lobby.status(), want, "{lang:?}");
+    }
+
+    // A draw has no reason line, and the loss still follows the verdict.
+    let drawn = GameResult {
+        winner: None,
+        reason: EndReason::Draw,
+    };
+    own.house_answered = None;
+    let mut lobby = seated_lobby();
+    lobby.stand_up_after(&drawn, PlayerId::new(0), None, Some(&own));
+    assert_eq!(
+        lobby.status(),
+        "The game is a draw. Your life fell to 0 or less"
     );
 }
 

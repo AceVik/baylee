@@ -1763,6 +1763,99 @@ messages! {
         en: "An effect decided it",
         de: "Ein Effekt hat entschieden",
     },
+    /// Why the reading seat lost: its life total (`LossCause::Life`,
+    /// CR 104.3b).
+    ///
+    /// Every loss line is in the past tense and says only what
+    /// `SeatView::loss` records: the rule that took the seat out, never how
+    /// it got there.
+    LostLifeYou {
+        en: "Your life fell to 0 or less",
+        de: "Deine Lebenspunkte fielen auf 0 oder weniger",
+    },
+    /// Why another seat lost: its life total. `{0}` is the seat's name.
+    LostLifeOther {
+        en: "{0}'s life fell to 0 or less",
+        de: "Die Lebenspunkte von {0} fielen auf 0 oder weniger",
+    },
+    /// Why the reading seat lost: a draw from an empty library
+    /// (`LossCause::EmptyDraw`, CR 104.3c).
+    LostEmptyDrawYou {
+        en: "You tried to draw from an empty library",
+        de: "Du wolltest aus einer leeren Bibliothek ziehen",
+    },
+    /// Why another seat lost: a draw from an empty library.
+    LostEmptyDrawOther {
+        en: "{0} tried to draw from an empty library",
+        de: "{0} wollte aus einer leeren Bibliothek ziehen",
+    },
+    /// Why the reading seat lost: poison (`LossCause::Poison`, CR 104.3d).
+    LostPoisonYou {
+        en: "You had ten or more poison counters",
+        de: "Du hattest zehn oder mehr Giftmarken",
+    },
+    /// Why another seat lost: poison.
+    LostPoisonOther {
+        en: "{0} had ten or more poison counters",
+        de: "{0} hatte zehn oder mehr Giftmarken",
+    },
+    /// Why the reading seat lost: one commander's combat damage
+    /// (`LossCause::CommanderDamage`, CR 903.10a).
+    LostCommanderDamageYou {
+        en: "You took 21 or more combat damage from one commander",
+        de: "Du hast 21 oder mehr Kampfschaden von einem Kommandeur erhalten",
+    },
+    /// Why another seat lost: one commander's combat damage.
+    LostCommanderDamageOther {
+        en: "{0} took 21 or more combat damage from one commander",
+        de: "{0} hat 21 oder mehr Kampfschaden von einem Kommandeur erhalten",
+    },
+    /// Why the reading seat lost: it conceded (`LossCause::Conceded`,
+    /// CR 104.3a).
+    LostConcededYou {
+        en: "You conceded",
+        de: "Du hast aufgegeben",
+    },
+    /// Why another seat lost: it conceded.
+    LostConcededOther {
+        en: "{0} conceded",
+        de: "{0} hat aufgegeben",
+    },
+    /// Why the reading seat lost: an effect said so (`LossCause::Effect`,
+    /// CR 104.3e), such as a pact left unpaid.
+    LostEffectYou {
+        en: "An effect made you lose",
+        de: "Ein Effekt ließ dich verlieren",
+    },
+    /// Why another seat lost: an effect said so.
+    LostEffectOther {
+        en: "An effect made {0} lose",
+        de: "Ein Effekt ließ {0} verlieren",
+    },
+    /// The reading seat's clock answered its last decision
+    /// (`HouseAnswer::Clock`): the socket was there and the time ran out.
+    /// Beside a loss, this is a game lost to the clock.
+    HouseClockYou {
+        en: "Your time ran out, and the house answered your last decision",
+        de: "Deine Zeit lief ab, und das Haus traf deine letzte Entscheidung",
+    },
+    /// Another seat's clock answered its last decision.
+    HouseClockOther {
+        en: "{0}'s time ran out, and the house answered their last decision",
+        de: "Die Zeit von {0} lief ab, und das Haus traf die letzte Entscheidung",
+    },
+    /// The house answered the reading seat's last decision while it had no
+    /// socket (`HouseAnswer::StandIn`).
+    HouseStandInYou {
+        en: "You were not connected, and the house answered your last decision",
+        de: "Du warst nicht verbunden, und das Haus traf deine letzte Entscheidung",
+    },
+    /// The house answered another seat's last decision while it had no
+    /// socket.
+    HouseStandInOther {
+        en: "{0} was not connected, and the house answered their last decision",
+        de: "{0} war nicht verbunden, und das Haus traf die letzte Entscheidung",
+    },
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",

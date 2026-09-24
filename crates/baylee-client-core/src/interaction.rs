@@ -38,7 +38,7 @@ use baylee_engine::choice::{
     PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
-use baylee_view::GameStatic;
+use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -461,8 +461,8 @@ pub fn outcome(result: &GameResult, seat: PlayerId, team: Option<u8>) -> Outcome
 ///
 /// What a player actually wants after a loss — zero life, an empty library,
 /// ten poison — is not here because it is one seat's and not the table's: the
-/// view carries it per seat as `SeatView::loss` (#83), which nothing draws
-/// yet. Inventing it from the life totals would be the client deciding a
+/// view carries it per seat as `SeatView::loss` (#83), and [`loss_lines`]
+/// says it. Inventing it from the life totals would be the client deciding a
 /// rules fact.
 #[must_use]
 pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
@@ -473,6 +473,79 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
         EndReason::Draw => return None,
     };
     Some(phrase.text(lang).to_string())
+}
+
+/// Why one seat lost, and who answered its last decision, as the lines the
+/// end screen writes under the verdict (#83).
+///
+/// `name` is `None` for the reading seat, which is told in the second
+/// person, and the seat's name for any other. Nothing for a seat still in
+/// the game: the house answering a decision of a seat that plays on is not
+/// what this screen is for.
+///
+/// The house line follows the loss only where the view records one
+/// (`SeatView::house_answered`), and together they are a game lost to the
+/// clock: `loss.is_some() && house_answered == Some(HouseAnswer::Clock)`,
+/// the reading `docs/protocol.md` §"Why a seat lost, and who answered for
+/// it (#83)" gives. The field freezes at the loss, so it is the last
+/// decision *before* the seat went out.
+#[must_use]
+pub fn loss_lines(lang: Lang, seat: &SeatView, name: Option<&str>) -> Vec<String> {
+    let Some(loss) = seat.loss else {
+        return Vec::new();
+    };
+    let (you, other) = match loss {
+        LossCause::Life => (Phrase::LostLifeYou, Phrase::LostLifeOther),
+        LossCause::EmptyDraw => (Phrase::LostEmptyDrawYou, Phrase::LostEmptyDrawOther),
+        LossCause::Poison => (Phrase::LostPoisonYou, Phrase::LostPoisonOther),
+        LossCause::CommanderDamage => (
+            Phrase::LostCommanderDamageYou,
+            Phrase::LostCommanderDamageOther,
+        ),
+        LossCause::Conceded => (Phrase::LostConcededYou, Phrase::LostConcededOther),
+        LossCause::Effect => (Phrase::LostEffectYou, Phrase::LostEffectOther),
+    };
+    let house = seat.house_answered.map(|answer| match answer {
+        HouseAnswer::Clock => (Phrase::HouseClockYou, Phrase::HouseClockOther),
+        HouseAnswer::StandIn => (Phrase::HouseStandInYou, Phrase::HouseStandInOther),
+    });
+    std::iter::once((you, other))
+        .chain(house)
+        .map(|(you, other)| match name {
+            None => you.text(lang).to_string(),
+            Some(name) => other.fill(lang, &[name]),
+        })
+        .collect()
+}
+
+/// [`loss_lines`] for every seat that is out: the reading seat's first,
+/// then the others' in seat order, each named as the rest of the interface
+/// names it ([`seat_name`]).
+///
+/// Every seat's and not only the reader's, because a loss is public (a seat
+/// going out is announced at a real table, and so is why), and the winner
+/// of a duel has as much reason to read "Bob conceded" as the loser has to
+/// read their own line.
+#[must_use]
+pub fn table_losses(
+    lang: Lang,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    reader: PlayerId,
+) -> Vec<String> {
+    let own = view
+        .seat(reader)
+        .map(|seat| loss_lines(lang, seat, None))
+        .unwrap_or_default();
+    let others = view
+        .seats
+        .iter()
+        .filter(|seat| seat.player != reader)
+        .flat_map(|seat| {
+            let name = seat_name(lang, statics, seat.player);
+            loss_lines(lang, seat, Some(&name))
+        });
+    own.into_iter().chain(others).collect()
 }
 
 /// What a card choice is *for*, as the noun it counts — both forms.

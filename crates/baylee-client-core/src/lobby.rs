@@ -1709,12 +1709,28 @@ impl Lobby {
     /// contains one: `Phrase::YourTeamWon` is "Team {0} gewinnt \u{2014} deins",
     /// and a dash joiner would render "Team 2 gewinnt \u{2014} deins \u{2014} Nur noch
     /// ein Team im Spiel". A full stop cannot collide with any of the five.
-    pub fn stand_up_after(&mut self, result: &GameResult, seat: PlayerId, team: Option<u8>) {
+    ///
+    /// `own` is the reading seat as the last view had it, and its
+    /// [`crate::interaction::loss_lines`] follow (#83): why this seat went
+    /// out, and that the house answered its last decision where it did. The
+    /// other seats' reasons stay on the end screen, which has a line apiece
+    /// for them; this is one line of status.
+    pub fn stand_up_after(
+        &mut self,
+        result: &GameResult,
+        seat: PlayerId,
+        team: Option<u8>,
+        own: Option<&baylee_view::SeatView>,
+    ) {
         let verdict = crate::interaction::verdict(self.lang, result, seat, team);
-        let why = match crate::interaction::ending_reason(self.lang, result) {
-            Some(reason) => format!("{verdict}. {reason}"),
-            None => verdict,
-        };
+        let why = crate::interaction::ending_reason(self.lang, result)
+            .into_iter()
+            .chain(
+                own.map(|own| crate::interaction::loss_lines(self.lang, own, None))
+                    .into_iter()
+                    .flatten(),
+            )
+            .fold(verdict, |said, more| format!("{said}. {more}"));
         self.leave_the_seat(why, Tone::Note);
     }
 

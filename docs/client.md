@@ -4657,12 +4657,40 @@ chair at the table and false from the others; the reason is a fact about the
 table.
 
 What a player actually wants after a loss — zero life, an empty library, ten
-poison — is **not here**, because it is not about the table: it is one
-seat's, and the view now carries it per seat (`SeatView::loss`, with
+poison — is **not in that line**, because it is not about the table: it is
+one seat's, and the view carries it per seat (`SeatView::loss`, with
 `SeatView::house_answered` telling a loss to the clock from one played out;
 #83). Deriving it from the last view's life totals instead would be the
-client deciding a rules fact, which is the line `CLAUDE.md` draws. Nothing
-draws it yet.
+client deciding a rules fact, which is the line `CLAUDE.md` draws.
+
+### Under both, why each seat went out (#83)
+
+`interaction::loss_lines` says one seat's loss: a line per `LossCause`, in
+the second person to the seat that lost ("Your life fell to 0 or less") and
+naming it to anyone else ("Bob#1a2b conceded"). Where the view records that
+the house answered the seat's last decision it adds a second line: "Your
+time ran out, and the house answered your last decision" for
+`HouseAnswer::Clock`, "You were not connected, …" for `StandIn`. Together
+the two are a game lost to the clock, the reading `docs/protocol.md` §"Why a
+seat lost, and who answered for it (#83)" gives: `house_answered` freezes at
+the loss, so it names the last decision before the seat went out. A seat
+still in the game gets nothing, whoever answered for it.
+
+Every line is in the past tense and claims only what the view records: the
+rule that took the seat out, and who answered its last decision. Not how
+the life was lost, not how many decisions the clock took, not whether the
+player was really away (`StandIn` is a missing socket, so it says "not
+connected").
+
+`interaction::table_losses` puts the reading seat's lines first and then
+every other seat's that is out, in seat order, named through `seat_name`.
+Every seat's and not only the reader's, because a loss is public: the winner
+of a duel has as much reason to read "Bob#1a2b conceded" as the loser has to
+read their own line. The sheet sets them under the reason, upright at
+`LOSS_PT` (15) in the reason's soft ink, and a draw, which has no reason
+line, still gets them. The lobby's note after the game (#155) appends the
+reading seat's own lines to the verdict and the reason; the others' stay on
+the sheet, which has a line apiece for them.
 
 ### Two plugins, one composition
 
