@@ -26,6 +26,10 @@
 //! A gateway that does not answer, or refuses `oracle_ids` because it
 //! predates them, is not asked again until the language or the game changes:
 //! a retry per card drawn against a dead endpoint is noise, not a recovery.
+//! Until then Scryfall is asked instead ([`scryfall::search`]), one card at a
+//! time and three a second at most, and its printings go through the
+//! gateway's own rule ([`baylee_cardtext::card_entry`]), so an offline game
+//! in German reads the German the gateway would have served.
 //!
 //! # Under all of it, the English Oracle
 //!
@@ -93,6 +97,29 @@ pub struct CardTexts {
     down: bool,
     /// The one request out, if any, and the cards it names.
     waiting: Option<(Slot, Vec<CardIndex>)>,
+    /// The second door, asked while this one is [`Self::down`].
+    scryfall: Door,
+}
+
+/// Scryfall, asked about one card at a time while the gateway does not
+/// answer — a game offline, a gateway that is not running.
+///
+/// One card a request, because Scryfall's search answers one query and the
+/// query is the card (`oracleid:… lang:…`); every printing of it in the
+/// language comes back, and [`baylee_cardtext::card_entry`] picks from them
+/// exactly as the gateway would have.
+#[derive(Default)]
+struct Door {
+    /// Cards asked about in this language, answered or not.
+    tried: HashSet<CardIndex>,
+    /// The one request out, if any, and its card.
+    waiting: Option<(Slot, CardIndex)>,
+    /// When the next request may go, on the real clock.
+    next_at: f64,
+    /// The view last walked and found nothing new in, by its `seq`.
+    walked: Option<u64>,
+    /// Scryfall did not answer in this language and game.
+    down: bool,
 }
 
 impl CardTexts {
@@ -188,6 +215,7 @@ impl CardTexts {
         self.walked = None;
         self.down = false;
         self.waiting = None;
+        self.scryfall = Door::default();
         self.lang = lang.to_string();
         if lang != "en" {
             self.absorb(cache::load(lang));
@@ -208,6 +236,40 @@ impl CardTexts {
                     self.asked.remove(card);
                 }
                 self.down = true;
+                false
+            }
+        }
+    }
+
+    /// The card the Scryfall door asks about next, if it may ask now: the
+    /// gateway is down, Scryfall is not, nothing is out, the pace allows,
+    /// and the view names a card with no text that has not been tried —
+    /// the lowest index, so the same view asks in the same order.
+    fn next_for_scryfall(&self, view: &PlayerView, now: f64) -> Option<CardIndex> {
+        let door = &self.scryfall;
+        if self.lang == "en"
+            || !self.down
+            || door.down
+            || door.waiting.is_some()
+            || now < door.next_at
+            || door.walked == Some(view.seq)
+        {
+            return None;
+        }
+        view.cards()
+            .filter(|card| !self.by_card.contains_key(card) && !door.tried.contains(card))
+            .min()
+    }
+
+    /// Takes the Scryfall door's reply for `card`, and answers whether
+    /// anything was filed. A failed request gives the card back, as the
+    /// gateway's does, and closes the door until the next game.
+    fn receive_scryfall(&mut self, reply: Reply, card: CardIndex) -> bool {
+        match reply {
+            Reply::Answered(entries) => self.absorb(entries) > 0,
+            Reply::Failed => {
+                self.scryfall.tried.remove(&card);
+                self.scryfall.down = true;
                 false
             }
         }
@@ -307,6 +369,7 @@ pub fn request(
     mut texts: ResMut<CardTexts>,
     duel: Res<crate::Duel>,
     settings: Res<crate::settings::ClientSettings>,
+    time: Res<Time<Real>>,
 ) {
     if texts.lang != settings.lang {
         texts.relang(&settings.lang);
@@ -319,9 +382,14 @@ pub fn request(
         texts.game.clone_from(&statics.game_id);
         texts.down = false;
         texts.walked = None;
+        texts.scryfall.down = false;
+        texts.scryfall.walked = None;
     }
-    if texts.lang == "en" || texts.down || texts.waiting.is_some() || texts.walked == Some(view.seq)
-    {
+    if texts.down {
+        ask_scryfall(&mut texts, view, time.elapsed_secs_f64());
+        return;
+    }
+    if texts.lang == "en" || texts.waiting.is_some() || texts.walked == Some(view.seq) {
         return;
     }
     texts.walked = Some(view.seq);
@@ -402,15 +470,160 @@ pub fn poll(mut texts: ResMut<CardTexts>) {
     }
 }
 
-/// Scryfall's answer about one printing, read the way the catalog reads it.
+/// How long the Scryfall door waits between two requests, in seconds.
 ///
-/// The deck builder's door (`lobby::localization`), which asks Scryfall for a
-/// card's printings in a language when the gateway has no translated
-/// catalog. A game no longer asks Scryfall by printing: text is keyed by
-/// card, and what a printing id could fetch was the deck's own English
-/// printing, which the compiled Oracle already is.
+/// Scryfall asks clients for no more than ten a second. A game asking while
+/// it is being played is a guest there, and a hand of seven is two seconds
+/// of it at this pace.
+const PACE: f64 = 0.3;
+
+/// Asks Scryfall about the next card the view names without text, if the
+/// door is open; see [`Door`].
+fn ask_scryfall(texts: &mut CardTexts, view: &PlayerView, now: f64) {
+    if texts.scryfall.waiting.is_some() || now < texts.scryfall.next_at {
+        return;
+    }
+    let Some(card) = texts.next_for_scryfall(view, now) else {
+        texts.scryfall.walked = Some(view.seq);
+        return;
+    };
+    texts.scryfall.tried.insert(card);
+    texts.scryfall.next_at = now + PACE;
+    let Some(request) =
+        baylee_cards::by_index(card).and_then(|def| scryfall::search(def.oracle_id, &texts.lang))
+    else {
+        return;
+    };
+    let lang = texts.lang.clone();
+    let slot: Slot = Arc::default();
+    let target = Arc::clone(&slot);
+    ehttp::fetch(request, move |result| {
+        let reply = match result {
+            Ok(response) if response.ok => Reply::Answered(
+                response
+                    .text()
+                    .and_then(|body| scryfall::entry(&lang, body))
+                    .into_iter()
+                    .collect(),
+            ),
+            // A search that finds nothing is a 404: a card never printed in
+            // this language. That is an answer, not an outage.
+            Ok(response) if response.status == 404 => Reply::Answered(Vec::new()),
+            Ok(response) => {
+                bevy::log::warn!(status = response.status, "Scryfall refused a card search");
+                Reply::Failed
+            }
+            Err(err) => {
+                bevy::log::info!("Scryfall unavailable: {err}");
+                Reply::Failed
+            }
+        };
+        if let Ok(mut slot) = target.lock() {
+            *slot = Some(reply);
+        }
+    });
+    texts.scryfall.waiting = Some((slot, card));
+}
+
+/// Files the Scryfall door's answer when it arrives.
+pub fn poll_scryfall(mut texts: ResMut<CardTexts>) {
+    let Some(reply) = texts
+        .scryfall
+        .waiting
+        .as_ref()
+        .and_then(|(slot, _)| slot.lock().ok()?.take())
+    else {
+        return;
+    };
+    let Some((_, card)) = texts.scryfall.waiting.take() else {
+        return;
+    };
+    texts.scryfall.walked = None;
+    if texts.receive_scryfall(reply, card) {
+        cache::store(&texts.lang, &texts.filed_entries());
+        bevy::log::info!(cards = texts.len(), "card text filed from Scryfall");
+    }
+}
+
+/// Scryfall, asked about one card's printings in one language.
+///
+/// Two doors ask it: the game's while the gateway does not answer
+/// ([`Door`](super::Door)), and the deck builder's (`lobby::localization`)
+/// when the gateway has no translated catalog. Both send [`search`]. The
+/// game reads the answer with [`entry`], which is the gateway's own rule
+/// ([`baylee_cardtext::card_entry`]) over Scryfall's rows; the deck builder
+/// still reads it with [`parse`] and a rule of its own, until #239 teaches
+/// `card_entry` the case that rule exists for.
 pub(crate) mod scryfall {
+    use baylee_cardtext::{TextFace, TextPrinting};
     use baylee_client_core::card_face::{CardTextEntry, FaceText};
+
+    /// Who is asking, which Scryfall asks every client to say.
+    const AGENT: &str = concat!("baylee-client/", env!("CARGO_PKG_VERSION"));
+
+    /// The search for every printing of one card in one language.
+    ///
+    /// `None` for an id that is not a plain UUID, or a language with no
+    /// letters: neither is pasted into a URL. What is pasted needs no
+    /// escaping, since a UUID is hex and dashes and the language is kept to
+    /// letters and digits (`zhs`, `ph`).
+    ///
+    /// `Accept` is said once, in the constructor: `ehttp::Headers::insert`
+    /// appends, and `Request::get` has already written `*/*`.
+    #[must_use]
+    pub fn search(oracle_id: &str, lang: &str) -> Option<ehttp::Request> {
+        let plain =
+            !oracle_id.is_empty() && oracle_id.chars().all(|c| c.is_ascii_hexdigit() || c == '-');
+        let lang: String = lang.chars().filter(char::is_ascii_alphanumeric).collect();
+        if !plain || lang.is_empty() {
+            return None;
+        }
+        let url = format!(
+            "https://api.scryfall.com/cards/search?unique=prints&order=released\
+             &include_multilingual=true&q=oracleid%3A{oracle_id}%20lang%3A{lang}"
+        );
+        Some(ehttp::Request::new(
+            ehttp::Method::GET,
+            url,
+            &[("Accept", "application/json"), ("User-Agent", AGENT)],
+        ))
+    }
+
+    /// The printings in a Scryfall list answer, in the order
+    /// [`baylee_cardtext::card_entry`] reads them: the catalog's `ORDER BY`.
+    ///
+    /// Newest first with an undated one last, then the shortest collector
+    /// number, then the number, then the id. The last two compare bytes
+    /// where Postgres compares by its collation, which can differ only
+    /// between two printings of one day whose numbers are one length.
+    #[must_use]
+    pub fn printings(body: &str) -> Vec<TextPrinting> {
+        let Ok(list) = serde_json::from_str::<Collection>(body) else {
+            return Vec::new();
+        };
+        let mut printings: Vec<TextPrinting> =
+            list.data.into_iter().map(Payload::printing).collect();
+        printings.sort_by(|a, b| {
+            b.released_at
+                .cmp(&a.released_at)
+                .then_with(|| {
+                    a.collector_number
+                        .chars()
+                        .count()
+                        .cmp(&b.collector_number.chars().count())
+                })
+                .then_with(|| a.collector_number.cmp(&b.collector_number))
+                .then_with(|| a.scryfall_id.cmp(&b.scryfall_id))
+        });
+        printings
+    }
+
+    /// The entry the gateway would have served for the card this answer is
+    /// about, in `lang`.
+    #[must_use]
+    pub fn entry(lang: &str, body: &str) -> Option<CardTextEntry> {
+        baylee_cardtext::card_entry(lang, &printings(body))
+    }
 
     /// Scryfall's answer, as the entries the catalog would have sent.
     ///
@@ -451,6 +664,14 @@ pub(crate) mod scryfall {
     struct Payload {
         #[serde(default)]
         id: String,
+        #[serde(default)]
+        oracle_id: String,
+        #[serde(default)]
+        released_at: String,
+        #[serde(default)]
+        collector_number: String,
+        #[serde(default)]
+        layout: String,
         #[serde(default = "english")]
         lang: String,
         #[serde(flatten)]
@@ -484,6 +705,24 @@ pub(crate) mod scryfall {
     }
 
     impl Payload {
+        /// This printing as [`baylee_cardtext::card_entry`] reads one.
+        fn printing(self) -> TextPrinting {
+            let faces = if self.card_faces.is_empty() {
+                vec![self.top.fields()]
+            } else {
+                self.card_faces.iter().map(Face::fields).collect()
+            };
+            TextPrinting {
+                scryfall_id: self.id,
+                oracle_id: self.oracle_id,
+                lang: self.lang,
+                released_at: self.released_at,
+                collector_number: self.collector_number,
+                layout: self.layout,
+                faces,
+            }
+        }
+
         /// This printing's faces, one code path for one face or two.
         fn faces(&self) -> Vec<FaceText> {
             if self.card_faces.is_empty() {
@@ -495,6 +734,19 @@ pub(crate) mod scryfall {
     }
 
     impl Face {
+        /// The face as Scryfall wrote it, for [`Payload::printing`].
+        fn fields(&self) -> TextFace {
+            TextFace {
+                name: self.name.clone(),
+                printed_name: self.printed_name.clone(),
+                type_line: self.type_line.clone(),
+                printed_type_line: self.printed_type_line.clone(),
+                oracle_text: self.oracle_text.clone(),
+                printed_text: self.printed_text.clone(),
+                mana_cost: self.mana_cost.clone(),
+            }
+        }
+
         /// Field by field, the printed form where there is one.
         ///
         /// A printing may be translated and still carry no translated rules
@@ -799,6 +1051,156 @@ mod tests {
         let answered = Reply::Answered(vec![entry(oracle_id, "Gedankenstein")]);
         assert!(texts.receive(answered, &[card, other]));
         assert!(texts.asked.contains(&card) && texts.asked.contains(&other));
+    }
+
+    /// The search names the card and the language and nothing else, says
+    /// `Accept` once and who is asking, and refuses what it would have to
+    /// escape.
+    #[test]
+    fn a_scryfall_search_names_one_card_in_one_language() {
+        let (_, oracle_id) = mind_stone_card();
+        let request = scryfall::search(oracle_id, "de").expect("a plain id");
+        assert!(
+            request
+                .url
+                .ends_with(&format!("q=oracleid%3A{oracle_id}%20lang%3Ade")),
+            "{}",
+            request.url
+        );
+        assert!(request.url.contains("unique=prints"), "{}", request.url);
+        assert_eq!(
+            request.headers.get_all("accept").collect::<Vec<_>>(),
+            vec!["application/json"]
+        );
+        assert!(
+            request
+                .headers
+                .get("user-agent")
+                .is_some_and(|agent| agent.starts_with("baylee-client/"))
+        );
+        assert!(scryfall::search("c97361b5 or lang:en", "de").is_none());
+        assert!(scryfall::search("", "de").is_none());
+        assert!(scryfall::search(oracle_id, "").is_none());
+        let odd = scryfall::search(oracle_id, "d e&x=1").expect("letters remain");
+        assert!(odd.url.ends_with("lang%3Adex1"), "{}", odd.url);
+    }
+
+    /// The printings come back in the catalog's order, which `card_entry`
+    /// reads: newest first, an undated one last, then the shorter number,
+    /// then the number, then the id.
+    #[test]
+    fn scryfall_printings_are_read_in_the_catalog_s_order() {
+        let row = |id: &str, date: Option<&str>, number: &str| {
+            let mut row = serde_json::json!({"id": id, "lang": "de", "collector_number": number,
+                "name": "Mind Stone", "oracle_id": "c97361b5-af16-4a7b-af85-a429dbaf4ad2"});
+            if let Some(date) = date {
+                row["released_at"] = date.into();
+            }
+            row
+        };
+        let body = serde_json::json!({"data": [
+            row("a", Some("2024-01-01"), "100"),
+            row("bbb", Some("2024-01-01"), "20"),
+            row("c", None, "1"),
+            row("d", Some("2025-01-01"), "300"),
+            row("aaa", Some("2024-01-01"), "20"),
+        ]})
+        .to_string();
+        let printings = scryfall::printings(&body);
+        let order: Vec<&str> = printings.iter().map(|p| p.scryfall_id.as_str()).collect();
+        assert_eq!(order, ["d", "aaa", "bbb", "a", "c"]);
+        assert_eq!(
+            printings[0].oracle_id,
+            "c97361b5-af16-4a7b-af85-a429dbaf4ad2"
+        );
+        assert_eq!(printings[0].faces.len(), 1);
+    }
+
+    /// The whole door on data: Scryfall's German printings of Mind Stone go
+    /// through the gateway's own rule, and the entry it builds is filed and
+    /// drawn. The glued c15 printing is newer; `pick` still takes the fic
+    /// one, because its lines pair and the c15's do not.
+    #[test]
+    fn a_scryfall_answer_is_served_the_way_the_gateway_serves_it() {
+        let (card, oracle_id) = mind_stone_card();
+        let oracle = baylee_cards::oracle::face(card, 0).expect("an Oracle");
+        let row = |id: &str, date: &str, printed: &str| {
+            serde_json::json!({"id": id, "oracle_id": oracle_id, "lang": "de",
+                "released_at": date, "collector_number": "1", "layout": "normal",
+                "name": "Mind Stone", "printed_name": "Gedankenstein",
+                "type_line": "Artifact", "mana_cost": "{2}",
+                "oracle_text": oracle, "printed_text": printed})
+        };
+        let body = serde_json::json!({"object": "list", "data": [
+            row("c15", "2025-12-01", C15),
+            row("fic", "2025-06-13", FIC),
+        ]})
+        .to_string();
+        let entry = scryfall::entry("de", &body).expect("an entry");
+        assert_eq!(entry.scryfall_id, "fic");
+        assert_eq!(entry.oracle_id, oracle_id);
+        assert_eq!(entry.faces[0].printed.as_deref(), Some(FIC));
+
+        let mut texts = CardTexts::default();
+        assert_eq!(texts.absorb(vec![entry]), 1);
+        assert_eq!(
+            words(sentence(Some(&texts), card, DRAW)).as_deref(),
+            Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.")
+        );
+        assert!(scryfall::entry("de", "not json").is_none());
+    }
+
+    /// The door opens only where the gateway is down and the language is not
+    /// English, asks one card at a time at its pace, skips cards that have
+    /// text or were tried, and closes when Scryfall does not answer.
+    #[test]
+    fn the_scryfall_door_asks_only_while_the_gateway_is_down() {
+        let (stone, oracle_id) = mind_stone_card();
+        let view = ViewBuilder::new(2)
+            .with_hand(vec![("Seven", 1, 7), ("Nine", 1, 9)])
+            .with_battlefield(0, [printed(20, 0, "Mind Stone", 0)])
+            .build();
+        let mut view = view;
+        view.battlefield[0] = crate::cardtext::fixture::showing(view.battlefield[0].clone(), stone);
+        let mut texts = CardTexts::filed(entry(oracle_id, "Gedankenstein"));
+        texts.lang = "de".to_string();
+
+        assert_eq!(
+            texts.next_for_scryfall(&view, 0.0),
+            None,
+            "the gateway is up"
+        );
+        texts.down = true;
+        assert_eq!(texts.next_for_scryfall(&view, 0.0), Some(CardIndex::new(7)));
+        texts.scryfall.tried.insert(CardIndex::new(7));
+        assert_eq!(
+            texts.next_for_scryfall(&view, 0.0),
+            Some(CardIndex::new(9)),
+            "Mind Stone has text, so it is not asked about"
+        );
+        texts.scryfall.next_at = 5.0;
+        assert_eq!(texts.next_for_scryfall(&view, 4.9), None, "the pace");
+
+        // A 404 is an answer: the card stays tried. A failure gives it back
+        // and closes the door.
+        texts.scryfall.tried.insert(CardIndex::new(9));
+        assert!(!texts.receive_scryfall(Reply::Answered(Vec::new()), CardIndex::new(9)));
+        assert!(texts.scryfall.tried.contains(&CardIndex::new(9)));
+        assert!(!texts.receive_scryfall(Reply::Failed, CardIndex::new(9)));
+        assert!(!texts.scryfall.tried.contains(&CardIndex::new(9)));
+        assert_eq!(
+            texts.next_for_scryfall(&view, 9.0),
+            None,
+            "Scryfall is down"
+        );
+
+        texts.scryfall.down = false;
+        texts.lang = "en".to_string();
+        assert_eq!(
+            texts.next_for_scryfall(&view, 9.0),
+            None,
+            "English is compiled in"
+        );
     }
 
     /// What is asked is a set: a card the view names twice is asked about

@@ -87,19 +87,15 @@ pub(super) fn update(
         return;
     };
     let id = card.scryfall_id.clone();
-    let query = format!("oracleid:{} lang:{lang}", card.oracle_id);
-    let url = format!(
-        "https://api.scryfall.com/cards/search?unique=prints&order=released&include_multilingual=true&q={}",
-        super::http::escape(&query)
-    );
+    local.tried.insert(id.clone());
+    // The game's Scryfall door sends the same search.
+    let Some(request) = crate::cardtext::scryfall::search(&card.oracle_id, lang) else {
+        return;
+    };
     let answer: Answer = default();
     let callback = Arc::clone(&answer);
-    local.tried.insert(id.clone());
     local.pending = Some(answer);
     local.next_request = time.elapsed_secs_f64() + 0.3;
-    let mut request = ehttp::Request::get(url);
-    request.headers.insert("Accept", "application/json");
-    request.headers.insert("User-Agent", "baylee-client/0.1");
     ehttp::fetch(request, move |response| {
         let mut entries = response
             .ok()

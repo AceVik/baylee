@@ -1503,6 +1503,7 @@ impl Plugin for DuelPlugin {
                     flush_outbox,
                     cardtext::request,
                     cardtext::poll,
+                    cardtext::poll_scryfall,
                 )
                     .chain()
                     .in_set(DuelSet::Sync),

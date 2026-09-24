@@ -942,9 +942,20 @@ that card its German and not its words — "Fallback ist immer englisch".
 
 The Scryfall door this replaced (`POST /cards/collection`, by printing id) is
 gone: a deck names English printings, so all it could fetch was the English
-the Oracle now compiles in. A gateway with no translated catalog leaves a
-non-English client on English. The cache is one document per language, keyed
-by card and written from the whole table; an entry written before the rekey
+the Oracle now compiles in. Its successor asks by card and language. While
+the gateway does not answer (offline, or not running) and the language is
+not English, `cardtext::ask_scryfall` searches `oracleid:… lang:…` for one
+card the view names without text, then waits `PACE` (0.3 s: Scryfall asks
+for ten a second at most, and a game is a guest there) before the next.
+`scryfall::printings` sorts the answer in the catalog's `ORDER BY` and
+`baylee_cardtext::card_entry` builds the entry, so it is the entry the
+gateway would have served. A 404 is an answer (no printing in the
+language); a failure closes this door until the next game as well. A gateway
+that answers from an English-only catalog is not second-guessed. The deck
+builder sends the same search (`scryfall::search`) but still picks with its
+own `best_translation` until #239 teaches `card_entry` to prefer the most
+complete printing when none translates the rules text. The cache is one
+document per language, keyed by card and written from the whole table; an entry written before the rekey
 names a printing and no `oracle_id`, and is dropped when read. Panels redraw
 on `CardTexts::generation`, which moves on every filing — a count of cards
 does not, since a fresher entry replaces a cached one.
