@@ -1024,6 +1024,7 @@ fn view_envelope(seq: u64, view: &baylee_view::PlayerView) -> Envelope {
             game_id: String::new(),
             seq,
             view_json: serde_json::to_vec(view).unwrap_or_default(),
+            log_json: Vec::new(),
         })),
     }
 }

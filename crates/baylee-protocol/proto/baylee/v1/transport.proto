@@ -176,8 +176,15 @@ message GameStaticMsg {
 message StateDelta {
   string game_id = 1;
   uint64 seq = 2;
-  // serde_json-encoded compact view (turn, phase, zones counts, log tail).
+  // serde_json-encoded baylee_view::PlayerView. Empty in a frame that only
+  // carries more of the log (see log_json).
   bytes view_json = 3;
+  // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+  // last tail it was sent, beside the view and never inside it (#262). Empty
+  // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
+  // entries; what is left goes out in frames before the one with the view,
+  // each with an empty view_json. docs/protocol.md, "The game log".
+  bytes log_json = 4;
 }
 
 // ------------------------------------------------- control and engine planes

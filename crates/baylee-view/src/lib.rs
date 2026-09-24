@@ -100,7 +100,11 @@ use serde::{Deserialize, Serialize};
 /// empty, [`PlayerView::awaiting`] is per seat: this seat while it has a
 /// question open, `None` once it has kept. So a seat that has kept is told no
 /// remainder.
-pub const VIEW_VERSION: u32 = 32;
+/// 33 adds the game log (#262): [`LogTail`] and what it carries. It is not a
+/// field of [`PlayerView`], which stays a snapshot; it travels beside the
+/// view in the same envelope, and an agent answering from a view never sees
+/// it.
+pub const VIEW_VERSION: u32 = 33;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1667,6 +1671,447 @@ impl PlayerView {
     }
 }
 
+// ----------------------------------------------------------------------- log
+
+/// The most entries one [`LogTail`] carries, so a long automated loop never
+/// makes one giant frame. A host with more to send splits it over several
+/// frames in one go.
+pub const LOG_TAIL_CAP: usize = 256;
+
+/// The part of a seat's game log it has not been sent yet (#262).
+///
+/// A log is a history, and [`PlayerView`] is a snapshot, so the two travel
+/// side by side in one envelope and never inside each other: a full log in
+/// every view would grow with the square of the game, and an agent answering
+/// from a view has no business reading one.
+///
+/// `from` is the index in this seat's log of the first entry here. A client
+/// appends when `from` is the length of what it holds, skips the overlap when
+/// it is less, and marks a gap it cannot fill when it is more. A socket's
+/// first tail starts at 0, so a client that reconnects is sent the whole log
+/// again.
+#[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub struct LogTail {
+    /// Index of the first entry in this seat's log.
+    pub from: u32,
+    /// The entries, oldest first.
+    pub entries: Vec<LogEntry>,
+}
+
+impl LogTail {
+    /// Every printing these entries name, so a host can send the print table
+    /// a seat needs before the log that points into it.
+    pub fn prints(&self) -> impl Iterator<Item = PrintRef> + '_ {
+        self.entries
+            .iter()
+            .flat_map(|entry| entry.event.objects())
+            .filter_map(|object| match object {
+                LogObject::Known {
+                    card: Some(card), ..
+                } => Some(card.print),
+                _ => None,
+            })
+    }
+}
+
+/// One line of the game log.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct LogEntry {
+    /// The turn it happened in. The opening mulligans are turn 1 too, before
+    /// its [`LogEvent::TurnStarted`].
+    pub turn: u32,
+    /// How many times in a row it happened, at least 1. Consecutive identical
+    /// lines fold into one, so a long automated loop is one line and not
+    /// thousands.
+    pub repeat: u32,
+    /// What happened.
+    pub event: LogEvent,
+}
+
+/// An object as the log may name it to one seat: exactly as that seat's view
+/// would have shown it when it happened, and never more.
+///
+/// The three shapes are the view's own. An object the view shows with its
+/// card is `Known`. A face-down one the seat may not look at is `FaceDown`,
+/// with the handle the view also shows, so a line can point at it on the
+/// table. One the view does not show this seat at all, in a library or
+/// another player's hand, is `Hidden` and carries **no handle**, so a card
+/// cannot be followed from the draw that hid it to the cast that shows it.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum LogObject {
+    /// The seat may know what it is.
+    Known {
+        /// Engine object handle, as the view names it.
+        id: ObjectId,
+        /// The card, when it is one. `None` for a token, which `name` names.
+        card: Option<CardIdentity>,
+        /// Its name as it was then.
+        name: String,
+    },
+    /// Face down, and the seat may not look (CR 708.5).
+    FaceDown {
+        /// Engine object handle, as the view names it.
+        id: ObjectId,
+    },
+    /// A card the seat may not see: "a card".
+    Hidden,
+}
+
+/// A zone, as a log line names where something went.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum LogZone {
+    /// A library.
+    Library,
+    /// A hand.
+    Hand,
+    /// The battlefield.
+    Battlefield,
+    /// A graveyard.
+    Graveyard,
+    /// Exile.
+    Exile,
+    /// The command zone.
+    Command,
+}
+
+/// What a damage line dealt damage to.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum LogTarget {
+    /// A player.
+    Player(PlayerId),
+    /// A permanent.
+    Object(LogObject),
+}
+
+/// The ability a line names, when the seat may know its source.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct LogAbility {
+    /// Which ability of which card, as [`StackItem::Ability::ability`].
+    pub ability: Option<AbilityRef>,
+    /// Where its printed sentence is, as [`StackItem::Ability::text`].
+    pub text: Option<StackText>,
+    /// The card it is printed on, as [`StackItem::Ability::rules`].
+    pub rules: Option<RulesFace>,
+}
+
+/// What a seat's decision clock answered when it ran out, which is the
+/// answer that does nothing wherever there is one.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum ClockAnswer {
+    /// Passed priority.
+    Passed,
+    /// Kept the opening hand.
+    Kept,
+    /// Declared no attackers.
+    NoAttackers,
+    /// Declared no blockers.
+    NoBlockers,
+    /// Declined an optional choice.
+    Declined,
+    /// A choice with no answer that does nothing, made by the house.
+    ChosenForThem,
+}
+
+/// What happened, for one line of the log.
+///
+/// Players and cards only, never text: a client writes the sentence in its
+/// own language and takes card names from its card text.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum LogEvent {
+    /// A turn began.
+    TurnStarted {
+        /// Whose turn it is.
+        active: PlayerId,
+    },
+    /// A seat took a mulligan.
+    Mulliganed {
+        /// The seat.
+        player: PlayerId,
+    },
+    /// A seat kept its opening hand, of this many cards.
+    Kept {
+        /// The seat.
+        player: PlayerId,
+        /// How many cards it kept.
+        cards: u8,
+    },
+    /// A seat's decision clock ran out, and this is what it answered.
+    TimedOut {
+        /// The seat.
+        player: PlayerId,
+        /// The answer.
+        answer: ClockAnswer,
+    },
+    /// A seat's player is gone, and the house answers for them from here.
+    StandIn {
+        /// The seat.
+        player: PlayerId,
+    },
+    /// A seat's player is back in their chair.
+    Returned {
+        /// The seat.
+        player: PlayerId,
+    },
+    /// A land was played.
+    LandPlayed {
+        /// Who played it.
+        player: PlayerId,
+        /// The land.
+        land: LogObject,
+    },
+    /// A spell was cast.
+    Cast {
+        /// Who cast it.
+        player: PlayerId,
+        /// The spell.
+        spell: LogObject,
+    },
+    /// An activated or triggered ability was put on the stack.
+    Ability {
+        /// Who controls it.
+        controller: PlayerId,
+        /// What it came from.
+        source: LogObject,
+        /// Which ability, when the seat may know its source.
+        ability: Option<LogAbility>,
+    },
+    /// A spell was countered.
+    Countered {
+        /// The spell.
+        spell: LogObject,
+    },
+    /// A spell or ability left the stack without resolving.
+    DidNotResolve {
+        /// What it was.
+        object: LogObject,
+    },
+    /// A player drew cards.
+    Drew {
+        /// Who drew.
+        player: PlayerId,
+        /// What they drew, one per card.
+        cards: Vec<LogObject>,
+    },
+    /// A player discarded a card.
+    Discarded {
+        /// Who discarded it.
+        player: PlayerId,
+        /// The card.
+        card: LogObject,
+    },
+    /// An object went from one zone to another.
+    Moved {
+        /// The object.
+        object: LogObject,
+        /// Whose zones: its owner.
+        owner: PlayerId,
+        /// Where from.
+        from: LogZone,
+        /// Where to.
+        to: LogZone,
+    },
+    /// A token was created.
+    Created {
+        /// The token.
+        object: LogObject,
+        /// Who controls it.
+        controller: PlayerId,
+    },
+    /// Damage was dealt.
+    Damage {
+        /// What dealt it, when anything did.
+        source: Option<LogObject>,
+        /// What it was dealt to.
+        target: LogTarget,
+        /// How much.
+        amount: u16,
+        /// Whether it was combat damage.
+        combat: bool,
+    },
+    /// A player's life total changed.
+    Life {
+        /// The player.
+        player: PlayerId,
+        /// Before.
+        old: i32,
+        /// After.
+        new: i32,
+    },
+    /// Counters on an object changed.
+    Counters {
+        /// The object.
+        object: LogObject,
+        /// Which counters.
+        kind: CounterKind,
+        /// Before.
+        old: u16,
+        /// After.
+        new: u16,
+    },
+    /// A creature attacked.
+    Attacked {
+        /// The creature.
+        attacker: LogObject,
+        /// What it attacks.
+        defending: Defender,
+    },
+    /// A creature blocked.
+    Blocked {
+        /// The blocker.
+        blocker: LogObject,
+        /// What it blocks.
+        attacker: LogObject,
+    },
+    /// Control of a permanent changed.
+    ControlChanged {
+        /// The permanent.
+        object: LogObject,
+        /// Who controlled it.
+        old: PlayerId,
+        /// Who does now.
+        new: PlayerId,
+    },
+    /// A permanent turned over (CR 701.27).
+    Transformed {
+        /// The permanent, as it is now.
+        object: LogObject,
+    },
+    /// Cards were shown to every player.
+    Revealed {
+        /// Who revealed them.
+        player: PlayerId,
+        /// The cards.
+        cards: Vec<LogObject>,
+    },
+    /// A player's library was shuffled.
+    Shuffled {
+        /// Whose.
+        player: PlayerId,
+    },
+    /// A die was rolled.
+    DiceRolled {
+        /// Who rolled it.
+        player: PlayerId,
+        /// Its sides.
+        sides: u32,
+        /// The result.
+        result: u32,
+    },
+    /// A player lost the game.
+    Lost {
+        /// The player.
+        player: PlayerId,
+        /// Why.
+        cause: LossCause,
+    },
+    /// The game ended.
+    GameOver {
+        /// The seats that won: one seat, a whole team, or none for a draw.
+        winners: SeatSet,
+    },
+    /// A decision-free segment repeated itself (a house rule).
+    LoopDetected {
+        /// `true` when the loop was broken and play went on, `false` when
+        /// the game ended in a draw (CR 104.4b).
+        broken: bool,
+    },
+    /// It became day or night (CR 730.1).
+    DayNight {
+        /// Which it is now.
+        now: DayNight,
+    },
+}
+
+impl LogEvent {
+    /// Every object the line names, in a fixed order.
+    pub fn objects(&self) -> impl Iterator<Item = &LogObject> {
+        let mut out: Vec<&LogObject> = Vec::new();
+        match self {
+            Self::TurnStarted { .. }
+            | Self::Mulliganed { .. }
+            | Self::Kept { .. }
+            | Self::TimedOut { .. }
+            | Self::StandIn { .. }
+            | Self::Returned { .. }
+            | Self::Life { .. }
+            | Self::Shuffled { .. }
+            | Self::DiceRolled { .. }
+            | Self::Lost { .. }
+            | Self::GameOver { .. }
+            | Self::LoopDetected { .. }
+            | Self::DayNight { .. } => {}
+            Self::LandPlayed { land: o, .. }
+            | Self::Cast { spell: o, .. }
+            | Self::Ability { source: o, .. }
+            | Self::Countered { spell: o }
+            | Self::DidNotResolve { object: o }
+            | Self::Discarded { card: o, .. }
+            | Self::Moved { object: o, .. }
+            | Self::Created { object: o, .. }
+            | Self::Counters { object: o, .. }
+            | Self::Attacked { attacker: o, .. }
+            | Self::ControlChanged { object: o, .. }
+            | Self::Transformed { object: o } => out.push(o),
+            Self::Drew { cards, .. } | Self::Revealed { cards, .. } => out.extend(cards),
+            Self::Damage { source, target, .. } => {
+                out.extend(source);
+                if let LogTarget::Object(o) = target {
+                    out.push(o);
+                }
+            }
+            Self::Blocked { blocker, attacker } => {
+                out.push(blocker);
+                out.push(attacker);
+            }
+        }
+        out.into_iter()
+    }
+
+    /// Every object the line names, in the same order as [`Self::objects`].
+    pub fn objects_mut(&mut self) -> impl Iterator<Item = &mut LogObject> {
+        let mut out: Vec<&mut LogObject> = Vec::new();
+        match self {
+            Self::TurnStarted { .. }
+            | Self::Mulliganed { .. }
+            | Self::Kept { .. }
+            | Self::TimedOut { .. }
+            | Self::StandIn { .. }
+            | Self::Returned { .. }
+            | Self::Life { .. }
+            | Self::Shuffled { .. }
+            | Self::DiceRolled { .. }
+            | Self::Lost { .. }
+            | Self::GameOver { .. }
+            | Self::LoopDetected { .. }
+            | Self::DayNight { .. } => {}
+            Self::LandPlayed { land: o, .. }
+            | Self::Cast { spell: o, .. }
+            | Self::Ability { source: o, .. }
+            | Self::Countered { spell: o }
+            | Self::DidNotResolve { object: o }
+            | Self::Discarded { card: o, .. }
+            | Self::Moved { object: o, .. }
+            | Self::Created { object: o, .. }
+            | Self::Counters { object: o, .. }
+            | Self::Attacked { attacker: o, .. }
+            | Self::ControlChanged { object: o, .. }
+            | Self::Transformed { object: o } => out.push(o),
+            Self::Drew { cards, .. } | Self::Revealed { cards, .. } => out.extend(cards),
+            Self::Damage { source, target, .. } => {
+                out.extend(source);
+                if let LogTarget::Object(o) = target {
+                    out.push(o);
+                }
+            }
+            Self::Blocked { blocker, attacker } => {
+                out.push(blocker);
+                out.push(attacker);
+            }
+        }
+        out.into_iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2411,7 +2856,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (32, 0x9b27_d7db_32e5_91cc);
+        const RECORDED: (u32, u64) = (33, 0x8593_c4e9_b1e2_8288);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

@@ -826,6 +826,73 @@ printed card to index into, CR 111.1 and CR 114.2), for one a continuous
 effect granted, and for a keyword ability that is printed as a word rather
 than as a sentence of its own.
 
+## The game log (view version 33, #262)
+
+Each seat gets its own game log: what happened, as far as that seat may know
+it. It travels in `StateDelta.log_json` as a `baylee_view::LogTail`, **beside**
+the view and never inside it. `PlayerView` stays a snapshot, and an agent that
+answers from a view never sees a log line (`gamehost` pins that).
+
+- **Built by the host, from the journal.** `Session` reads the engine journal
+  after every action it applies and turns it into log lines. A line carries
+  players and cards, never text: the client writes the sentence in its own
+  language, with card names from its card text.
+- **`from` is an index into the seat's log.** A client appends a tail whose
+  `from` equals the length of what it holds, skips the overlap when `from` is
+  less, and marks a gap when `from` is more (and does not guess what was in
+  it). A socket's first tail starts at 0, so a client that reconnects gets the
+  whole log again.
+- **At most `LOG_TAIL_CAP` entries in one tail.** When there are more, the
+  host sends them in several `StateDelta` frames in one go. Every frame but
+  the last has an empty `view_json` and carries only log. A client reads
+  `log_json` whether or not the frame has a view in it.
+- **Consecutive identical lines fold** into one with `repeat` counting them,
+  so an automated loop is one line.
+
+### What a line may say to a seat
+
+A log line names an object exactly as that seat's view would have shown it at
+the moment it happened, and never more. `LogObject` has the view's three
+shapes:
+
+- `Known { id, card, name }`: the seat may know what it is.
+- `FaceDown { id }`: a face-down object the seat may not look at (CR 708.5).
+  It keeps the handle the view shows, so a line can point at it on the table.
+- `Hidden`: a card the view does not show this seat at all (a library,
+  another player's hand). It has **no handle**, so nobody can follow a card
+  from the draw that hid it to the cast that shows it. How many cards were
+  drawn is still public.
+
+Whether a seat may know is decided once, when the line is built, and a line
+is only ever made *less* specific for a seat, never more. A face-down card's
+entitlement is the view's own `may_know_card`. `gamehost/src/view.rs` tests
+each rule.
+
+### What gets a line
+
+Turns (a header per turn), lands, spells, abilities put on the stack,
+counters and spells that did not resolve, draws, discards, zone changes
+(mill, dies, exile, bounce, entering), tokens created, damage, life, counters,
+attackers and blockers, control changes, transforms, reveals, shuffles, dice,
+losses and their reason, the end of the game, loops, and day/night.
+
+The host adds what the journal does not know: a seat taking a mulligan and
+keeping (counts only, which are public), what a seat's decision clock
+answered when it ran out, and a seat's player leaving the house to answer for
+them and coming back.
+
+Left out as noise: mana produced, tapping and untapping, steps, phasing, and a
+spell moving to the graveyard as it resolves.
+
+### What a line cannot name yet
+
+The host reads identities just after each action. A token or spell copy that
+was created and gone within that one action has no identity left, and is
+named "a token". An object the log has named once is remembered, so a token
+that dies later is still named. How often the fallback happens is measured,
+and the engine only records a dying token's identity if it turns out to
+matter.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who
