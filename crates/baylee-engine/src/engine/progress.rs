@@ -1662,6 +1662,30 @@ impl<L: CardLookup> Engine<L> {
         });
     }
 
+    /// Whether `seat` is one of the `passes` players who have passed in
+    /// succession ahead of `holder` in this priority round. Those are the
+    /// players still in the game just before `holder` in turn order, because
+    /// every pass hands priority to [`Engine::next_alive_after`] the passer.
+    pub(crate) fn passed_before(&self, seat: PlayerId, holder: PlayerId) -> bool {
+        let n = self.state.players.len() as u8;
+        let mut at = holder.get();
+        let mut counted = 0;
+        while counted < self.passes {
+            at = (at + n - 1) % n;
+            if at == holder.get() {
+                return false;
+            }
+            if self.state.players[usize::from(at)].has_lost() {
+                continue;
+            }
+            if at == seat.get() {
+                return true;
+            }
+            counted += 1;
+        }
+        false
+    }
+
     pub(crate) fn next_alive_after(&self, player: PlayerId) -> PlayerId {
         let n = self.state.players.len() as u8;
         let start = player.get();

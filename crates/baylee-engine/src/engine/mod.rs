@@ -103,7 +103,9 @@ pub struct Engine<L: CardLookup> {
     /// All players passed with a non-empty stack: resolve the top.
     resolve_next: bool,
     /// The player who just took a non-pass action and is owed priority back
-    /// (CR 117.3c) — once the machine has finished with what they did.
+    /// (CR 117.3c) — once the machine has finished with what they did. Also
+    /// the priority holder when another player leaves the game, who keeps
+    /// it (CR 800.4a) and is asked again about the board the leaver left.
     ///
     /// A flag rather than a published `Pending`, and that is the whole of
     /// the difference. [`Engine::after_action`] used to build the question
@@ -812,7 +814,25 @@ impl<L: CardLookup> Engine<L> {
             return self.apply_in_mulligans(player, action);
         }
         // Concession is always legal for any seated player (CR 104.3a).
+        // The machine runs after every one: the game may be over, and the
+        // board the leaver's objects left behind is owed its state-based
+        // actions before anybody is asked anything (CR 117.5).
         if let PlayerAction::Concede = action {
+            // A priority the leaver held passes to the next player still in
+            // the game, which the round does on its own (CR 800.4a). One held
+            // by anybody else stays with them (#275): it is asked again, with
+            // what is legal now. A pass the leaver had already made is no
+            // longer one of the passes in succession the round waits for,
+            // because it is not a pass by a player still in the game
+            // (CR 117.4).
+            if let Pending::Priority { player: holder, .. } = self.pending
+                && holder != player
+            {
+                if self.passed_before(player, holder) {
+                    self.passes -= 1;
+                }
+                self.regrant_priority = Some(holder);
+            }
             sba::eliminate_player(&mut self.state, player, LossReason::Conceded);
             self.awaiting_answer = false;
             self.run_until_choice();
@@ -885,6 +905,8 @@ mod combat_choice_tests;
 mod combo_tests;
 #[cfg(test)]
 mod commander_tests;
+#[cfg(test)]
+mod concession_tests;
 #[cfg(test)]
 mod condition_tests;
 #[cfg(test)]
