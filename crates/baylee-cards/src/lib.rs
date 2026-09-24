@@ -639,14 +639,14 @@ mod tests {
                     let (AbilityDef::Activated {
                         cost,
                         effects,
-                        target,
+                        targets,
                         timing,
                         ..
                     }
                     | AbilityDef::ActivatedConditional {
                         cost,
                         effects,
-                        target,
+                        targets,
                         timing,
                         ..
                     }) = ability
@@ -666,8 +666,13 @@ mod tests {
                     if cost.parts.contains(&CostPart::TapSelf) {
                         offenders.push(format!("{name}: equip taps the Equipment"));
                     }
-                    if !format!("{target:?}").contains("ControlledByYou") {
+                    if !format!("{targets:?}").contains("ControlledByYou") {
                         offenders.push(format!("{name}: equip targets any creature"));
+                    }
+                    // "Attach this permanent to target creature you control"
+                    // is one target, never "up to one" and never X.
+                    if !targets.is_some_and(|req| req.min == 1 && req.max == 1 && !req.count_is_x) {
+                        offenders.push(format!("{name}: equip does not target exactly one"));
                     }
                 }
             }

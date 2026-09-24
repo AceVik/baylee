@@ -11612,8 +11612,8 @@ fn yawgmoth_thran_physician() -> CardIndex {
 /// library. Everything else on the board is the control for those four: the
 /// Elf across the table is not this seat's to sacrifice and keeps no counter,
 /// and the Cleric is the ability's own source and so cannot be the creature it
-/// eats. The printed "up to one" arrives as a forced single target, which the
-/// question's `(min, max)` records.
+/// eats. The printed "up to one" is none or one, which the question's
+/// `(min, max)` records. Naming none is played in `activation_target_tests`.
 #[allow(clippy::too_many_lines)] // a three-part cost, the counter it places and the card it draws
 #[test]
 fn yawgmoth_pays_a_life_and_another_creature_for_a_minus_counter_and_a_card() {
@@ -11677,8 +11677,8 @@ fn yawgmoth_pays_a_life_and_another_creature_for_a_minus_counter_and_a_card() {
                 assert_eq!(player, p0, "the activating seat aims its own ability");
                 assert_eq!(
                     (min, max),
-                    (1, 1),
-                    "\"up to one\" is one here: this target cannot be optional"
+                    (0, 1),
+                    "\"up to one\" may name none, and this activation names one"
                 );
                 assert!(
                     options.contains(&victim),

@@ -9559,8 +9559,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Wintermoon Mesa
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -34646,8 +34646,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Bretagard Stronghold
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

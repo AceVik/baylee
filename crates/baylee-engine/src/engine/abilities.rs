@@ -234,7 +234,7 @@ impl<L: CardLookup> Engine<L> {
                         cost,
                         timing,
                         zone,
-                        target,
+                        targets,
                         second_targets,
                         limit,
                         ..
@@ -248,11 +248,8 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(id, i as u32, *limit) {
                             continue;
                         }
-                        if !self.ability_has_a_target(
-                            player,
-                            id,
-                            target.map(baylee_cards_dsl::TargetReq::one),
-                        ) || !self.ability_has_a_target(player, id, *second_targets)
+                        if !self.ability_has_a_target(player, id, *targets)
+                            || !self.ability_has_a_target(player, id, *second_targets)
                         {
                             continue;
                         }
@@ -265,7 +262,7 @@ impl<L: CardLookup> Engine<L> {
                         timing,
                         zone,
                         condition,
-                        target,
+                        targets,
                         second_targets,
                         limit,
                         ..
@@ -282,11 +279,8 @@ impl<L: CardLookup> Engine<L> {
                         if !crate::eval::condition_holds(&self.state, player, id, *condition) {
                             continue;
                         }
-                        if !self.ability_has_a_target(
-                            player,
-                            id,
-                            target.map(baylee_cards_dsl::TargetReq::one),
-                        ) || !self.ability_has_a_target(player, id, *second_targets)
+                        if !self.ability_has_a_target(player, id, *targets)
+                            || !self.ability_has_a_target(player, id, *second_targets)
                         {
                             continue;
                         }
@@ -401,6 +395,8 @@ impl<L: CardLookup> Engine<L> {
                         cost,
                         timing,
                         zone,
+                        targets,
+                        second_targets,
                         limit,
                         ..
                     } => {
@@ -413,6 +409,18 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(card, i as u32, *limit) {
                             continue;
                         }
+                        // The same probe as the battlefield arms, for the
+                        // reason `ability_has_a_target` gives. This arm once
+                        // asked only about the turn and the price, so
+                        // Rustic Clachan's reinforce was offered on a board
+                        // with no creature and then refused with "no legal
+                        // targets". The source is the card in hand, so a
+                        // filter saying "another" still reads it right.
+                        if !self.ability_has_a_target(player, card, *targets)
+                            || !self.ability_has_a_target(player, card, *second_targets)
+                        {
+                            continue;
+                        }
                         if self.can_afford(player, card, cost) {
                             legal.abilities.push((card, i as u32));
                         }
@@ -422,6 +430,8 @@ impl<L: CardLookup> Engine<L> {
                         timing,
                         zone,
                         condition,
+                        targets,
+                        second_targets,
                         limit,
                         ..
                     } => {
@@ -442,6 +452,11 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         if !crate::eval::condition_holds(&self.state, player, card, *condition) {
+                            continue;
+                        }
+                        if !self.ability_has_a_target(player, card, *targets)
+                            || !self.ability_has_a_target(player, card, *second_targets)
+                        {
                             continue;
                         }
                         if self.can_afford(player, card, cost) {
@@ -1064,7 +1079,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
         }
-        let (cost, effects, (target, second), mana_ability, zone, limit) = {
+        let (cost, effects, (first, second), mana_ability, zone, limit) = {
             let obj = self
                 .state
                 .object(source)
@@ -1092,7 +1107,7 @@ impl<L: CardLookup> Engine<L> {
                 AbilityDef::Activated {
                     cost,
                     effects,
-                    target,
+                    targets: first,
                     second_targets,
                     mana_ability,
                     zone,
@@ -1101,7 +1116,7 @@ impl<L: CardLookup> Engine<L> {
                 } => (
                     *cost,
                     *effects,
-                    (*target, *second_targets),
+                    (*first, *second_targets),
                     *mana_ability,
                     *zone,
                     *limit,
@@ -1109,7 +1124,7 @@ impl<L: CardLookup> Engine<L> {
                 AbilityDef::ActivatedConditional {
                     cost,
                     effects,
-                    target,
+                    targets: first,
                     second_targets,
                     mana_ability,
                     zone,
@@ -1123,7 +1138,7 @@ impl<L: CardLookup> Engine<L> {
                     (
                         *cost,
                         *effects,
-                        (*target, *second_targets),
+                        (*first, *second_targets),
                         *mana_ability,
                         *zone,
                         *limit,
@@ -1228,11 +1243,13 @@ impl<L: CardLookup> Engine<L> {
             self.awaiting_answer = true;
             return Ok(());
         }
-        // Targets, unless the answer is already in hand — and it is in hand
-        // when *either* half of it is. Asking only about the objects sent an
-        // ability whose targets are all players straight back to the same
-        // question: `apply` re-enters here with an empty object list, which
-        // read as "nothing chosen yet".
+        // Targets, unless this activation has already answered them. That is
+        // a flag and not a look at the lists, because an empty list is an
+        // answer too: "up to one" answered with nothing re-enters here with
+        // no objects and no players (CR 115.6). Reading the lists asked the
+        // same question again forever. Before that it sent an ability whose
+        // targets are all players back to the same question, because only
+        // the objects were read.
         //
         // This used to be written twice — once here and once after the cost
         // was paid, identically — and the second copy was unreachable:
@@ -1241,11 +1258,15 @@ impl<L: CardLookup> Engine<L> {
         // paying, which is neither what it does nor what the rules say
         // (CR 601.2c chooses targets, CR 601.2h pays; an activation follows
         // the same order by CR 602.2b).
-        if targets.is_empty()
-            && chosen_players.is_empty()
-            && let Some(spec) = target
+        if !self.activation_targets_answered
+            && let Some(req) = first
         {
-            let options = eval::target_options(&spec, &self.state, player, source);
+            // The count is read, and is no longer assumed to be one: "tap
+            // two target lands" is two, and "up to one" is none or one
+            // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
+            // comes first), so an X count is a number here.
+            let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+            let options = eval::target_options(&req.spec, &self.state, player, source);
             // Players are the other half of the same choice, and asking for
             // objects alone made three implemented lands dead: Nephalia
             // Drownyard, Duskmantle and Orzhova all say "target player",
@@ -1253,27 +1274,34 @@ impl<L: CardLookup> Engine<L> {
             // offered in `LegalActions` (which does add the two counts) and
             // then refused here with "no legal targets", the two-probes
             // disagreement this engine treats as the worst kind.
-            let player_options = eval::target_player_options(&self.state, &spec, player);
-            if options.is_empty() && player_options.is_empty() {
+            let player_options = eval::target_player_options(&self.state, &req.spec, player);
+            if options.len() + player_options.len() < min as usize {
                 // The number was answered before this question was asked, so
                 // an activation that dies here has one to throw away.
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
-            self.pending_plan = Some(PlanKind::ActivateAbility {
-                source,
-                ability_index,
-            });
-            self.pending = Pending::ChooseTargets {
-                player,
-                options,
-                player_options,
-                min: 1,
-                max: 1,
-                reason: TargetPrompt::Targets,
-            };
-            self.awaiting_answer = true;
-            return Ok(());
+            if max == 0 || (options.is_empty() && player_options.is_empty()) {
+                // The only answer is none at all, which is a legal one
+                // (CR 115.6), so nobody is asked for it. The cast wizard
+                // skips the same question the same way.
+                self.activation_targets_answered = true;
+            } else {
+                self.pending_plan = Some(PlanKind::ActivateAbility {
+                    source,
+                    ability_index,
+                });
+                self.pending = Pending::ChooseTargets {
+                    player,
+                    options,
+                    player_options,
+                    min,
+                    max,
+                    reason: TargetPrompt::Targets,
+                };
+                self.awaiting_answer = true;
+                return Ok(());
+            }
         }
         // The second instance of the word "target" (Contested Cliffs), asked
         // once the first has its answer and before anything is paid — both
@@ -1367,6 +1395,7 @@ impl<L: CardLookup> Engine<L> {
         // Taken rather than read, for `activation_cost_choices`' reason one
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
+        self.activation_targets_answered = false;
         self.pay_cost(player, source, &cost, &answers, x)?;
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes

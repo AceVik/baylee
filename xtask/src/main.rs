@@ -2134,9 +2134,10 @@ fn check_set_line_matches_the_printing(
 /// That is coarse: a card with two targeted abilities where only one prints
 /// "up to" passes on the other's count. It is still worth having, because the
 /// failure it is written for is a card that says "up to" in its header and
-/// nowhere in its code, and because the shapes that *cannot* say it —
-/// `Activated`, `ActivatedConditional`, `SagaChapter`, whose `target` is a
-/// bare spec — have no way to pass except by being reported.
+/// nowhere in its code. Every ability shape can say a count now. The last two
+/// that could not were `Activated` and `ActivatedConditional`, whose target
+/// was a bare spec until it became a `TargetReq`. Such a card could pass only
+/// by marking itself `Partial`.
 fn check_target_counts_match_the_printing(
     slug: &str,
     content: &str,

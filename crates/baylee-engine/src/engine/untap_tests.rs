@@ -41,7 +41,7 @@ static BASIN_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Activated {
         cost: Cost::TAP,
         effects: MANA,
-        target: None,
+        targets: None,
         second_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,
@@ -64,7 +64,7 @@ static FROZEN_ABILITIES: &[AbilityDef] = &[
     AbilityDef::Activated {
         cost: Cost::TAP,
         effects: MANA,
-        target: None,
+        targets: None,
         second_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,
@@ -258,7 +258,7 @@ static SLOW_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
             Duration::UntilYourNextUntapStep,
         ),
     ],
-    target: None,
+    targets: None,
     second_targets: None,
     timing: ActivationTiming::InstantSpeed,
     mana_ability: true,

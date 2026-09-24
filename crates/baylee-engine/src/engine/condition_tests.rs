@@ -59,7 +59,7 @@ static MANA: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 const TAP_FOR_MANA: AbilityDef = AbilityDef::Activated {
     cost: Cost::TAP,
     effects: MANA,
-    target: None,
+    targets: None,
     second_targets: None,
     timing: ActivationTiming::InstantSpeed,
     mana_ability: true,

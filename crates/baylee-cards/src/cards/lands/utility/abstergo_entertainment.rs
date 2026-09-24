@@ -3,9 +3,6 @@
 //! Oracle: {1}, {T}: Add one mana of any color.
 //! Oracle: {3}, {T}, Exile Abstergo Entertainment: Return up to one target historic card from your graveyard to your hand, then exile all graveyards. (Artifacts, legendaries, and Sagas are historic.)
 //! Set: ACR #79 — Assassin's Creed | Scryfall ID: 4d197866-7633-493c-80dd-ec3a09165934 | Oracle ID: d06a8026-1657-4404-8dff-64e44f1a14f8
-// PARTIAL — {T}: Add {C}; {1}, {T}: Add one mana of any color; and the {3}
-// ability (exile the land as a cost, return a historic card, then exile every
-// graveyard), written with the one target it needs.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::enchantment;
@@ -26,19 +23,12 @@ card!(
         types = TypeSet::LAND,
         supertypes = SupertypeSet::LEGENDARY,
     ),],
-    coverage = Coverage::Partial(
-        "AbilityDef::Activated carries a bare TargetSpec, which the engine \
-         reads as exactly one target, so \"return up to one target historic \
-         card from your graveyard\" is offered only while a historic card is \
-         there",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(cost!("{1}", TapSelf), &[Effect::mana_of_any_color()]),
-        // NOT SUPPORTED: "up to one target" — an activated ability's target
-        // is exactly one (a minimum of zero needs a `TargetReq`, which only
-        // spells, triggers and loyalty abilities take), so this ability
-        // cannot be activated on an empty graveyard.
+        // "Up to one": on a graveyard with no historic card the ability is
+        // still offered, and it still exiles every graveyard (CR 115.6).
         activated!(
             cost!("{3}", TapSelf, ExileSelf),
             &[
@@ -49,7 +39,10 @@ card!(
                     player: PlayerRel::EachPlayer,
                 },
             ],
-            target = Some(TargetSpec::CardInGraveyard(&HISTORIC, PlayerRel::You)),
+            targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+                &HISTORIC,
+                PlayerRel::You,
+            ))),
         ),
     ],
 );

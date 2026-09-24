@@ -83,17 +83,17 @@ fn activated(def: &'static AbilityDef) -> Option<(&'static Cost, &'static [Effec
         AbilityDef::Activated {
             cost,
             effects,
-            target,
+            targets,
             mana_ability,
             ..
         }
         | AbilityDef::ActivatedConditional {
             cost,
             effects,
-            target,
+            targets,
             mana_ability,
             ..
-        } => (!*mana_ability).then_some((cost, *effects, target.is_some())),
+        } => (!*mana_ability).then_some((cost, *effects, targets.is_some())),
         _ => None,
     }
 }

@@ -571,11 +571,7 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
-                let (mut min, mut max) = (req.min, req.max);
-                if req.count_is_x {
-                    min = wizard.x as u8;
-                    max = wizard.x as u8;
-                }
+                let (min, max) = req.bounds(wizard.x);
                 let spec = req.spec;
                 if matches!(spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
                     let mut wizard = wizard;

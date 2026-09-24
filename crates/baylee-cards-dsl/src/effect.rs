@@ -450,6 +450,32 @@ impl TargetReq {
         }
     }
 
+    /// Exactly `n` targets ("tap two target lands").
+    pub const fn exactly(spec: TargetSpec, n: u8) -> Self {
+        Self {
+            spec,
+            min: n,
+            max: n,
+            count_is_x: false,
+        }
+    }
+
+    /// How many targets may be chosen, once `x` has been announced.
+    ///
+    /// "X target creatures" is exactly X, and every other requirement is its
+    /// own bounds. This is the one reading of "how many" that both the cast
+    /// wizard and an activation use. X above 255 is capped there, since no
+    /// board holds more objects than that.
+    #[must_use]
+    pub const fn bounds(self, x: u32) -> (u8, u8) {
+        if self.count_is_x {
+            let n = if x > 255 { 255 } else { x as u8 };
+            (n, n)
+        } else {
+            (self.min, self.max)
+        }
+    }
+
     /// Up to one target.
     pub const fn up_to_one(spec: TargetSpec) -> Self {
         Self {
@@ -2195,8 +2221,38 @@ mod amount_and_target_tests {
             (0, 255, true),
             "an X count is unbounded until X is announced"
         );
-        for req in [one, maybe, two, x] {
+        let pair = TargetReq::exactly(WHAT, 2);
+        assert_eq!((pair.min, pair.max), (2, 2), "'two target lands' is two");
+        assert_eq!(
+            TargetReq::exactly(WHAT, 1),
+            one,
+            "'one' is 'exactly' with a one in it"
+        );
+
+        for req in [one, maybe, two, x, pair] {
             assert_eq!(req.spec, WHAT, "each of them targets what it was given");
         }
+    }
+
+    /// `bounds` is the one reading of "how many" a cast and an activation
+    /// share: a fixed count is its own bounds, and an X count is X once X has
+    /// been announced.
+    #[test]
+    fn bounds_read_x_only_where_the_count_is_x() {
+        const WHAT: TargetSpec = TargetSpec::Object(&Filter::CREATURE);
+        assert_eq!(
+            TargetReq::up_to(WHAT, 2).bounds(7),
+            (0, 2),
+            "X is not this count"
+        );
+        assert_eq!(TargetReq::exactly(WHAT, 2).bounds(0), (2, 2));
+        let x = TargetReq::x_targets(WHAT);
+        assert_eq!(x.bounds(0), (0, 0), "X = 0 targets nothing");
+        assert_eq!(x.bounds(3), (3, 3), "X targets is exactly X");
+        assert_eq!(
+            x.bounds(300),
+            (255, 255),
+            "a count past the field's width saturates rather than wrapping to 44"
+        );
     }
 }

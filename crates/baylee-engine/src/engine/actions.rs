@@ -417,6 +417,7 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
                 self.activation_second_targets = None;
+                self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
             (Pending::Priority { player: p, legal }, PlayerAction::Suspend { card })
@@ -596,6 +597,7 @@ impl<L: CardLookup> Engine<L> {
                             // field for one would leave it standing for
                             // whichever activation came next.
                             self.activation_target_players.clone_from(&players);
+                            self.activation_targets_answered = true;
                             self.start_activation(player, source, ability_index, targets)?;
                         }
                     }

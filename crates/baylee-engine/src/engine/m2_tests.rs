@@ -169,7 +169,7 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
         parts: &[baylee_cards_dsl::CostPart::DiscardSelf],
     },
     effects: CYCLER_EFFECTS,
-    target: None,
+    targets: None,
     second_targets: None,
     timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
     mana_ability: false,
@@ -190,7 +190,7 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
 static FONT_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     cost: baylee_cards_dsl::Cost::FREE,
     effects: CYCLER_EFFECTS,
-    target: None,
+    targets: None,
     second_targets: None,
     timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
     mana_ability: false,

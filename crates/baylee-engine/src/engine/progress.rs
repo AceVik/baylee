@@ -2176,9 +2176,9 @@ impl<L: CardLookup> Engine<L> {
                 .map_or(&[][..], |o| o.abilities(&self.lookup))
         });
         match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { target, .. }
-            | AbilityDef::ActivatedConditional { target, .. } => target.map(TargetReq::one),
-            AbilityDef::Loyalty { targets, .. }
+            AbilityDef::Activated { targets, .. }
+            | AbilityDef::ActivatedConditional { targets, .. }
+            | AbilityDef::Loyalty { targets, .. }
             | AbilityDef::Triggered { targets, .. }
             | AbilityDef::SagaChapter { targets, .. } => *targets,
             AbilityDef::ModalTriggered { modes, .. } => {

@@ -475,14 +475,14 @@ has built.
 ### Ability kinds
 
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`
-- `AbilityDef::Activated { cost, effects, target, timing, mana_ability, zone }`
+- `AbilityDef::Activated { cost, effects, targets: Option<TargetReq>, timing, mana_ability, zone }`
 - `AbilityDef::Triggered { trigger, effects, targets, once_per_turn }`
 - `AbilityDef::Static(StaticAbility { layer, filter, modifier })` — written
   `static_ability!(filter, modifier)`, which takes no layer: CR 613.1 makes it
   a function of the modifier and `Modifier::layer` is that function
 - `AbilityDef::Replacement(ReplacementRule)` — trigger multipliers/suppressors,
   token/counter doubling
-- `AbilityDef::Loyalty { cost: i8, effects, target }`
+- `AbilityDef::Loyalty { cost: i8, effects, targets }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
   card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
   and entry counters are all sayable, and so is "except it has its **other**
@@ -524,6 +524,8 @@ nothing more:
 mana_ability!(&[Effect::mana(ManaColor::Green, 1)])   // {T}: Add {G}
 mana_ability!(SAC_COST, ANY_COLOR_MANA)               // any other cost
 activated!(Cost::TAP, EFFECTS)                        // {T}: …
+activated!(COST, EFFECTS, target = Some(TargetSpec::Object(&Filter::CREATURE)))  // target creature
+activated!(COST, EFFECTS, targets = Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::CREATURE))))
 activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 mana_ability!(COST, EFFECTS, limit = ActivationLimit::PerTurn(1))  // "only once each turn"
 triggered!(Trigger::ETB, EFFECTS)                     // when this enters
@@ -542,6 +544,17 @@ mode!(DRAW_EFFECTS)                                   // one arm of a modal
 `&Filter` — a target is an object, a player, a spell or a card in a
 graveyard, and the filter is only how an *object* target is picked.
 
+An activated ability takes its target two ways, and a card writes one of
+them. `target = Some(spec)` is the printed singular, "target creature",
+which is exactly one (CR 115.1c) and is how nearly every activated ability
+in the pool prints it. `targets = Some(TargetReq::…)` is a printed count:
+`up_to_one` for "up to one target", `up_to(spec, n)` for "up to n",
+`exactly(spec, 2)` for Wintermoon Mesa's "two target lands". Writing both
+fails to compile. An "up to" is offered on a board with nothing to name, and
+answered with nothing it still resolves (CR 115.6). An effect that reads
+the target then reaches nobody, and a counter does not fall back onto the
+source the way an untargeted "put a counter on it" does.
+
 The required arguments come first and positionally, because they are the
 ones an ability cannot be written without; everything after them is
 `field = value` in any order, and anything left out takes its rules default:
@@ -551,7 +564,7 @@ ones an ability cannot be written without; everything after them is
 | `timing` | `InstantSpeed` | CR 117.1b — unless the card restricts it |
 | `mana_ability` | `false` | CR 605.1 makes it the exception |
 | `zone` | `Battlefield` | CR 113.6 |
-| `target` / `targets` | `None` | an ability targets only when it says "target" |
+| `target` / `targets` | `None` | an ability targets only when it says "target"; `target` is exactly one, `targets` is a printed count |
 | `once_per_turn` | `false` | a trigger fires on every occurrence |
 | `condition` | `None` | most triggers print no intervening `if` |
 

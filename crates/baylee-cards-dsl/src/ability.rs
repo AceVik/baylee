@@ -273,8 +273,12 @@ pub enum AbilityDef {
         cost: Cost,
         /// Effect operations.
         effects: &'static [Effect],
-        /// Target requirement.
-        target: Option<TargetSpec>,
+        /// Target requirement: a count as well as a spec, as `Spell`,
+        /// `Triggered`, `Loyalty` and `SagaChapter` carry. "Tap two target
+        /// lands" is min 2 max 2, and "up to one target" is min 0
+        /// (CR 601.2c, CR 115.6). A bare spec could only say exactly one,
+        /// and four lands in the pool print something else.
+        targets: Option<crate::effect::TargetReq>,
         /// A second instance of the word "target", as on
         /// [`AbilityDef::Spell::second_targets`] (Contested Cliffs).
         second_targets: Option<crate::effect::TargetReq>,
@@ -323,8 +327,8 @@ pub enum AbilityDef {
         cost: crate::cost::Cost,
         /// Effect operations.
         effects: &'static [crate::effect::Effect],
-        /// Target requirement.
-        target: Option<crate::effect::TargetSpec>,
+        /// Target requirement, with its count, as on the unconditional twin.
+        targets: Option<crate::effect::TargetReq>,
         /// A second instance of the word "target", as on the unconditional
         /// twin.
         second_targets: Option<crate::effect::TargetReq>,
@@ -577,7 +581,7 @@ mod tests {
         AbilityDef::Activated {
             cost: crate::cost::Cost::TAP,
             effects: NOTHING,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability,
@@ -590,7 +594,7 @@ mod tests {
         AbilityDef::ActivatedConditional {
             cost: crate::cost::Cost::TAP,
             effects: NOTHING,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability,

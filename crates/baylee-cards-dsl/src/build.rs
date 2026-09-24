@@ -64,8 +64,15 @@ pub struct ActivatedParts {
     pub cost: Cost,
     /// What it does.
     pub effects: &'static [Effect],
-    /// What it targets, if anything.
+    /// What it targets, if anything: the printed singular, "target
+    /// [something]", which is exactly one (CR 115.1c). That is how almost
+    /// every activated ability prints it, and so how the macros spell it.
     pub target: Option<TargetSpec>,
+    /// What it targets when the card prints a count: "up to one target",
+    /// "two target", "any number of target". It is never written together
+    /// with [`target`](Self::target). [`build`](Self::build) folds the two
+    /// into the one field the ability carries.
+    pub targets: Option<TargetReq>,
     /// A second instance of the word "target", if the card prints one —
     /// see [`AbilityDef::Activated::second_targets`].
     pub second_targets: Option<TargetReq>,
@@ -104,6 +111,7 @@ impl ActivatedParts {
             cost,
             effects,
             target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
@@ -123,13 +131,26 @@ impl ActivatedParts {
 
     /// Turns the parts into the ability — conditional exactly when the card
     /// named a [`condition`](Self::condition).
+    ///
+    /// # Panics
+    ///
+    /// When both [`target`](Self::target) and [`targets`](Self::targets)
+    /// are written. A card builds its abilities inside a `static`, so there
+    /// the panic is a compile error.
     #[must_use]
     pub const fn build(self) -> AbilityDef {
+        let targets = match (self.target, self.targets) {
+            (Some(spec), None) => Some(TargetReq::one(spec)),
+            (None, counted) => counted,
+            (Some(_), Some(_)) => {
+                panic!("an activated ability says `target` or `targets`, never both")
+            }
+        };
         match self.condition {
             None => AbilityDef::Activated {
                 cost: self.cost,
                 effects: self.effects,
-                target: self.target,
+                targets,
                 second_targets: self.second_targets,
                 timing: self.timing,
                 mana_ability: self.mana_ability,
@@ -139,7 +160,7 @@ impl ActivatedParts {
             Some(condition) => AbilityDef::ActivatedConditional {
                 cost: self.cost,
                 effects: self.effects,
-                target: self.target,
+                targets,
                 second_targets: self.second_targets,
                 timing: self.timing,
                 mana_ability: self.mana_ability,
@@ -612,6 +633,7 @@ macro_rules! cost {
 /// ```ignore
 /// activated!(Cost::TAP, EFFECTS)
 /// activated!(Cost::TAP, EFFECTS, target = Some(TargetSpec::Object(&ANY_CREATURE)))
+/// activated!(COST, EFFECTS, targets = Some(TargetReq::exactly(TargetSpec::Object(&Filter::LAND), 2)))
 /// activated!(EQUIP_COST, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 /// activated!(Cost::TAP, EFFECTS, condition = Some(Condition::ControlCount(&Filter::ARTIFACT, 3)))
 /// ```
@@ -619,6 +641,10 @@ macro_rules! cost {
 /// `condition =` is what makes an [`AbilityDef::ActivatedConditional`], so a
 /// metalcraft ability is this macro plus one line rather than a
 /// seven-field literal of its own.
+///
+/// `target =` is the printed singular, "target creature", and `targets =` is
+/// a printed count: "up to one target", "two target lands". A card writes
+/// one of them and never both.
 #[macro_export]
 macro_rules! activated {
     ($cost:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
@@ -931,7 +957,7 @@ mod tests {
             AbilityDef::Activated {
                 cost: Cost::TAP,
                 effects: EFFECTS,
-                target: None,
+                targets: None,
                 second_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
@@ -945,7 +971,7 @@ mod tests {
             AbilityDef::ActivatedConditional {
                 cost: Cost::TAP,
                 effects: EFFECTS,
-                target: None,
+                targets: None,
                 second_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
@@ -986,6 +1012,49 @@ mod tests {
     /// `equip!` is the eight-line literal the four Equipment in the pool
     /// each wrote by hand.
     ///
+    /// `target =` is the printed singular and `targets =` a printed count,
+    /// and both fold into the one field the ability carries.
+    ///
+    /// The singular is exactly one (CR 115.1c). That is how nearly every
+    /// activated ability in the pool spells its target, so a card written with
+    /// it is the same data it was before the field became a count.
+    #[test]
+    fn target_is_exactly_one_and_targets_is_the_count_written() {
+        const EFFECTS: &[Effect] = &[Effect::TapTarget];
+        const LAND: TargetSpec = TargetSpec::Object(&Filter::LAND);
+        let targets_of = |ability: AbilityDef| match ability {
+            AbilityDef::Activated { targets, .. } => targets,
+            other => panic!("not an activated ability: {other:?}"),
+        };
+        assert_eq!(
+            targets_of(activated!(Cost::TAP, EFFECTS, target = Some(LAND))),
+            Some(TargetReq::one(LAND))
+        );
+        assert_eq!(
+            targets_of(activated!(
+                Cost::TAP,
+                EFFECTS,
+                targets = Some(TargetReq::exactly(LAND, 2))
+            )),
+            Some(TargetReq::exactly(LAND, 2))
+        );
+        assert_eq!(targets_of(activated!(Cost::TAP, EFFECTS)), None);
+    }
+
+    /// Writing both is refused. In a card's `static` the panic is a compile
+    /// error, and this is the same `build` run where a panic can be caught.
+    #[test]
+    #[should_panic(expected = "never both")]
+    fn an_activated_ability_says_target_or_targets_never_both() {
+        const LAND: TargetSpec = TargetSpec::Object(&Filter::LAND);
+        let _ = activated!(
+            Cost::TAP,
+            &[Effect::TapTarget],
+            target = Some(LAND),
+            targets = Some(TargetReq::up_to_one(LAND)),
+        );
+    }
+
     /// This is the equivalence the migration rests on, asserted before a
     /// single card is touched: the macro's expansion and the spelling it
     /// replaces are the same `AbilityDef`, not merely the same meaning.
@@ -1003,7 +1072,7 @@ mod tests {
             effects: &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],
-            target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
+            targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_YOU_CONTROL))),
             second_targets: None,
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,

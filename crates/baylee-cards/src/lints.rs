@@ -138,12 +138,12 @@ fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
             effects,
         }],
         AbilityDef::Activated {
-            effects, target, ..
+            effects, targets, ..
         }
         | AbilityDef::ActivatedConditional {
-            effects, target, ..
+            effects, targets, ..
         } => vec![Branch {
-            target: *target,
+            target: targets.map(|t| t.spec),
             effects,
         }],
         AbilityDef::SagaChapter {
@@ -609,14 +609,14 @@ fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
         AbilityDef::Activated {
             mana_ability,
             effects,
-            target,
+            targets,
             second_targets,
             ..
         }
         | AbilityDef::ActivatedConditional {
             mana_ability,
             effects,
-            target,
+            targets,
             second_targets,
             ..
         } => (
@@ -625,7 +625,11 @@ fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
             // Whether it targets at all, through either instance of the
             // word: CR 605.1a asks "doesn't target", not "has no first
             // target", and a second requirement is a target like the first.
-            target.or(second_targets.map(|req| req.spec)),
+            // "Up to one" requires a target all the same (CR 115.6), so the
+            // count plays no part.
+            targets
+                .map(|req| req.spec)
+                .or(second_targets.map(|req| req.spec)),
         ),
         _ => return None,
     };
@@ -1043,8 +1047,8 @@ fn announced_number_beside_a_target(
     ability: &AbilityDef,
 ) -> Option<(crate::dsl::CounterKind, TargetSpec)> {
     let (cost, target) = match ability {
-        AbilityDef::Activated { cost, target, .. }
-        | AbilityDef::ActivatedConditional { cost, target, .. } => (cost, (*target)?),
+        AbilityDef::Activated { cost, targets, .. }
+        | AbilityDef::ActivatedConditional { cost, targets, .. } => (cost, (*targets)?.spec),
         _ => return None,
     };
     cost.parts.iter().find_map(|part| match part {
@@ -1854,7 +1858,7 @@ mod tests {
         let unmarked = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &MANA,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
@@ -1871,7 +1875,7 @@ mod tests {
         let with_a_rider = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &MANA_AND_DRAW,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
@@ -1886,7 +1890,7 @@ mod tests {
         let lying = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &DRAW,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -1904,7 +1908,7 @@ mod tests {
         let second_only = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &MANA,
-            target: None,
+            targets: None,
             second_targets: Some(A_CREATURE),
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -1932,7 +1936,7 @@ mod tests {
         static TAPS_FOR_BLUE: [AbilityDef; 1] = [AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &BLUE,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -1986,7 +1990,7 @@ mod tests {
         static TAPS_FOR_GREEN: [AbilityDef; 1] = [AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &GREEN,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -2008,7 +2012,7 @@ mod tests {
                 parts: &[],
             },
             effects: &A_DRAW,
-            target: None,
+            targets: None,
             second_targets: None,
             timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
             mana_ability: false,
@@ -2317,7 +2321,7 @@ mod tests {
                     parts,
                 },
                 effects: &[],
-                target,
+                targets: target.map(TargetReq::one),
                 second_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,

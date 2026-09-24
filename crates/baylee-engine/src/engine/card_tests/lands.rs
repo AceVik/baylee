@@ -11537,7 +11537,7 @@ fn vault_of_the_archangel_grants_deathtouch_and_lifelink_to_creatures() {
 }
 
 /// Wintermoon Mesa: "This land enters tapped." / "{T}: Add {C}." / "{2}, {T}, Sacrifice this land: Tap two target lands."
-/// Under `Coverage::Partial`, the two-target sacrifice ability is omitted.
+/// The two-target sacrifice ability is played in `activation_target_tests`.
 /// Playing the land from hand verifies that it enters tapped, and on the next turn it untaps and taps for {C}.
 #[test]
 fn wintermoon_mesa_enters_tapped_and_taps_for_colorless() {
@@ -27676,13 +27676,14 @@ fn zanarkand_ancient_metropolis() -> CardIndex {
 /// any color.`, and `{{3}}, {{T}}, Exile Abstergo Entertainment: Return up to one target
 /// historic card from your graveyard to your hand, then exile all graveyards.`
 ///
-/// Under `Coverage::Partial`, an activated ability carries a bare `TargetSpec` reading
-/// exactly one target, so ability 2 requires a historic card in the graveyard. With
-/// three green mana floating and Abstergo untapped, ability 2 is withheld on an empty
-/// graveyard. Activating ability 1 spends one floating green mana, prompts for a color
-/// choice via `Pending::ChooseColor`, adds one black mana, and leaves the land tapped.
+/// "Up to one target" may name nothing (CR 115.6), so ability 2 is offered on an
+/// empty graveyard. It was withheld there while an activated ability's target was a
+/// bare spec, which reads as exactly one. With three green mana floating and Abstergo
+/// untapped, ability 2 is offered with no historic card anywhere. Activating ability 1
+/// spends one floating green mana, prompts for a color choice via `Pending::ChooseColor`,
+/// adds one black mana, and leaves the land tapped.
 #[test]
-fn abstergo_entertainment_filters_mana_and_withholds_ability_without_historic_target() {
+fn abstergo_entertainment_filters_mana_and_offers_its_exile_on_an_empty_graveyard() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[abstergo_entertainment(), forest(), forest(), forest()])
@@ -27702,8 +27703,9 @@ fn abstergo_entertainment_filters_mana_and_withholds_ability_without_historic_ta
         panic!("expected priority, got {:?}", engine.pending());
     };
     assert!(
-        !legal.abilities.contains(&(abstergo, 2)),
-        "with {{3}} floating and {{T}} available, ability 2 is withheld because graveyard has no historic card"
+        legal.abilities.contains(&(abstergo, 2)),
+        "with {{3}} floating and {{T}} available, ability 2 is offered: up to one target \
+         may be none"
     );
     assert!(legal.abilities.contains(&(abstergo, 1)));
 
@@ -27720,6 +27722,346 @@ fn abstergo_entertainment_filters_mana_and_withholds_ability_without_historic_ta
     assert_eq!(pool.available(ManaColor::Green), 2);
     assert_eq!(pool.total(), 3);
     assert!(is_tapped(&engine, abstergo));
+}
+
+/// Abstergo Entertainment is a legendary land printing three abilities —
+/// "{T}: Add {C}", "{1}, {T}: Add one mana of any color", and "{3}, {T}, Exile
+/// Abstergo Entertainment: Return up to one target historic card from your
+/// graveyard to your hand, then exile all graveyards." — and all three are
+/// played, one per turn of p0's, because the first two spend the single `{T}`
+/// the third then needs.
+///
+/// The filler deck is Sol Ring, an artifact and so historic (CR 700.6), which
+/// is what `seed_graveyard` puts into *both* graveyards: the target filter is
+/// `PlayerRel::You`, so only my own graveyard may be named, and the sentence
+/// after the return has to empty the opponent's graveyard as well.
+#[test]
+#[allow(clippy::too_many_lines)] // three printed abilities, each wanting the {T} the others spend
+fn abstergo_entertainment_makes_mana_and_trades_itself_for_a_historic_card() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, quiet_artifact())
+        .battlefield(0, &[abstergo_entertainment(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land =
+        on_battlefield(&engine, p0, abstergo_entertainment()).expect("the land is on the table");
+    assert!(!is_tapped(&engine, land), "a land enters untapped");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing floats before anything has been activated"
+    );
+
+    // ---- "{T}: Add {C}" -------------------------------------------------
+    //
+    // `LegalActions::abilities` is filtered through `can_afford`, which reads
+    // the pool and not the untapped lands — so the two printed mana lines can
+    // be told apart on an empty pool: the tap is payable and the {1} is not.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "an untapped land is a paid {{T}}, so \"{{T}}: Add {{C}}\" is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "and \"{{1}}, {{T}}: Add one mana of any color\" is not, because the \
+         pool is empty: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, abstergo_entertainment(), 0);
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so the mana is already here"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "\"{{T}}: Add {{C}}\" — one colourless, and colourless is what the card prints"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "the tap symbol was the whole price"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == land),
+        "a tapped land has no {{T}} left to pay either printed line with: {:?}",
+        legal.abilities
+    );
+
+    // ---- "{1}, {T}: Add one mana of any color" ---------------------------
+    //
+    // One turn later the `{T}` is free again and the pool emptied with the
+    // step that ended (CR 500.5), which is what makes the {1} a real price.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, abstergo_entertainment()).is_some(),
+        "the land survived its own untap step"
+    );
+    assert!(
+        !is_tapped(&engine, land),
+        "and the untap step stood it back up"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "last turn's colourless mana is gone with the step that ended (CR 500.5)"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "still no {{1}} to pay with, so the coloured line is absent from the \
+         offer rather than refused: {:?}",
+        legal.abilities
+    );
+
+    // Three Forests pay the {1}; the land itself is named as the printing kept
+    // back, since `tap_all_mana` would spend the very `{T}` under test (#159).
+    tap_all_mana_but(&mut engine, p0, Some(abstergo_entertainment()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Forests, three green, and nothing off the land itself"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.abilities.contains(&(land, 1)),
+        "with the {{1}} already floating the coloured line is offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, abstergo_entertainment(), 1);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("\"any color\" is a question, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colours of the game, and colourless is no colour at all \
+         (CR 105.4): {options:?}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colours it offered");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        2,
+        "and the {{1}} ate one of the three green the Forests made"
+    );
+    assert_eq!(
+        pool.total(),
+        3,
+        "three mana, and nothing else came with them"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "the {{T}} is the other half of that price"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack"
+    );
+
+    // ---- "{3}, {T}, Exile this land: return a historic card" -------------
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "the land is up again");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the pool emptied with the step that ended"
+    );
+
+    // A historic card in each graveyard. Sol Ring is an artifact (CR 700.6),
+    // so both are legal *for the card's own filter* — and only mine is
+    // `PlayerRel::You`.
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 1);
+    let mine = in_graveyard(&engine, p0, quiet_artifact()).expect("p0's graveyard was seeded");
+    let theirs = in_graveyard(&engine, p1, quiet_artifact()).expect("p1's graveyard was seeded");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(source, index)| *source == land && *index == 2),
+        "{{3}} is not three: with an empty pool the historic line is absent \
+         from the offer: {:?}",
+        legal.abilities
+    );
+
+    tap_all_mana_but(&mut engine, p0, Some(abstergo_entertainment()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Forests in the pool, and the land kept back"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .any(|(source, index)| *source == land && *index == 2),
+        "with its {{3}} floating and its {{T}} spare, the third line is \
+         offered: {:?}",
+        legal.abilities
+    );
+
+    activate(&mut engine, p0, abstergo_entertainment(), 2);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target historic card from your graveyard\" is a target choice, \
+             got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0, "the activating seat names the target");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "\"up to one target\": naming nothing is a legal answer (CR 115.6)"
+    );
+    assert!(
+        player_options.is_empty(),
+        "no part of this choice is a player target: {player_options:?}"
+    );
+    assert!(
+        options.contains(&mine),
+        "a historic card in *my* graveyard is on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "`PlayerRel::You` is what declines the Sol Ring across the table: {options:?}"
+    );
+    // CR 601.2c before CR 601.2h: while the question stands the land is still
+    // on the battlefield, still untapped, and the {3} is still in the pool.
+    assert!(
+        on_battlefield(&engine, p0, abstergo_entertainment()).is_some(),
+        "the target is named before the cost is paid"
+    );
+    assert!(
+        !is_tapped(&engine, land),
+        "and the {{T}} has not been paid yet either"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "nor has the {{3}} left the pool"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .expect("the historic card the question offered was chosen");
+
+    assert!(
+        on_battlefield(&engine, p0, abstergo_entertainment()).is_none(),
+        "\"Exile Abstergo Entertainment\" is part of the cost, so the land is \
+         gone before the ability resolves"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .contains(&land),
+        "and it is in exile rather than in anybody's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{3}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "returning a card is no mana ability, so the ability is on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&mine),
+        "\"return up to one target historic card from your graveyard to your \
+         hand\": the very card that was named"
+    );
+    assert_eq!(
+        engine.state().object(mine).map(|o| o.zone),
+        Some(Zone::Hand),
+        "and it is in a hand, not merely missing from a graveyard"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty(),
+        "\"then exile all graveyards\": the opponent's graveyard is emptied \
+         too, which is the half a card reading only its controller would lose"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .is_empty(),
+        "and mine is empty as well — the returned card left it for the hand"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .contains(&theirs),
+        "the opponent's historic card was exiled, and it is still the same \
+         object it was in the graveyard"
+    );
 }
 
 /// Base Camp prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `{{T}}: Add
@@ -28301,72 +28643,219 @@ fn avishkar_raceway_taps_for_colorless_and_omits_discard_draw_ability() {
     assert!(is_tapped(&engine, raceway));
 }
 
-/// Bretagard Stronghold prints `This land enters tapped.`, `{{T}}: Add {{G}}.`, and
-/// `{{G}}{{W}}{{W}}, {{T}}, Sacrifice this land: Put a +1/+1 counter on each of up to two target
-/// creatures you control. They gain vigilance and lifelink until end of turn. Activate only as a sorcery.`
+/// Bretagard Stronghold is a land that enters tapped, taps for `{G}`, and can
+/// spend itself — `{G}{W}{W}`, its own tap and the card — to put a +1/+1
+/// counter on each of up to two creatures its controller controls and give
+/// them vigilance and lifelink until end of turn.
 ///
-/// Under `Coverage::Partial`, `EnterModifier::Tapped` and `{{T}}: Add {{G}}` are built; the sacrifice
-/// ability is omitted because an activated ability carries a bare `TargetSpec` without count and
-/// `Effect::AddCounter` reaches only the first target. Playing this land enters tapped. After advancing
-/// to the next turn, it untaps, withholds ability index 1 despite floating `{{G}}{{W}}{{W}}` from
-/// a `forest()` and two `plains()` with two controlled creatures (`young_wolf()`), and taps for green.
+/// The land is *played* rather than seated, because `starting_battlefield`
+/// places a permanent with `Cause::Setup`, which no entry modifier looks at:
+/// the printed "This land enters tapped" is only readable off a real land drop,
+/// and the same placement is what would leave the `{T}` payable a turn early.
+/// The pump then runs in the next main phase, where the target menu is the
+/// whole claim — both of this seat's Lotleth Trolls are on it, the identical
+/// card across the table is not, and `(min, max)` says "up to" in the only
+/// place a client reads it. The price is asserted *after* the target question,
+/// because CR 601.2h pays last.
 #[test]
-fn bretagard_stronghold_enters_tapped_and_omits_sacrifice_ability() {
-    let p0 = PlayerId::new(0);
+#[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
+fn bretagard_stronghold_enters_tapped_and_sacrifices_itself_for_two_counters() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[bretagard_stronghold()])
         .battlefield(
             0,
-            &[forest(), plains(), plains(), young_wolf(), young_wolf()],
+            &[
+                plains(),
+                plains(),
+                forest(),
+                lotleth_troll(),
+                lotleth_troll(),
+            ],
         )
+        .battlefield(1, &[lotleth_troll()])
+        .hand(0, &[bretagard_stronghold()])
         .start();
     keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches a main phase of its own"
+    );
 
+    // The card's own entry, and it has to come from a land drop for the printed
+    // modifier to be the thing that taps it.
     let land = play_land(&mut engine, p0, bretagard_stronghold());
     assert!(
         entered_tapped(&engine, land),
-        "Bretagard Stronghold enters tapped"
+        "\"This land enters tapped\" is an entry modifier and not a placement"
     );
 
-    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    // A land that arrives tapped offers no {{T}} until its controller's untap
+    // step (CR 502.3), and the tap symbol is half of what the ability charges.
+    reach_their_main_phase(&mut engine, p1);
     reach_their_main_phase(&mut engine, p0);
-    assert!(!is_tapped(&engine, land));
+    assert!(
+        !is_tapped(&engine, land),
+        "the untap step stood the Stronghold back up"
+    );
 
-    // Float {G}{W}{W} while keeping Bretagard Stronghold untapped.
-    tap_mana_except(&mut engine, p0, land);
+    let trolls = all_on_battlefield(&engine, p0, lotleth_troll());
+    assert_eq!(trolls.len(), 2, "two creatures of this seat's to name");
+    let (host, bystander) = (trolls[0], trolls[1]);
+    let theirs = on_battlefield(&engine, p1, lotleth_troll()).expect("their Troll is out");
+    let before = (pt(&engine, host), pt(&engine, bystander));
+
+    // Mana before the claim: `legal.abilities` is filtered through
+    // `can_afford`, which reads the pool rather than the untapped lands.
+    tap_all_mana_but(&mut engine, p0, Some(bretagard_stronghold()));
     assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Green),
-        1
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "two Plains and one Forest, and the Stronghold kept back for its own {{T}}"
     );
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::White),
-        2
+    assert!(
+        !is_tapped(&engine, land),
+        "the one route kept back is the one the ability charges"
     );
-    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+        panic!("expected priority, got {:?}", engine.pending())
     };
     assert!(
         legal.abilities.contains(&(land, 0)),
-        "ability 0 ({{T}}: Add {{G}}) is offered"
+        "the printed {{T}}: Add {{G}} is offered: {:?}",
+        legal.abilities
     );
     assert!(
-        !legal.abilities.contains(&(land, 1)),
-        "under `Coverage::Partial`, the sacrifice ability is omitted despite floating {{G}}{{W}}{{W}} and two targets"
+        legal.abilities.contains(&(land, 1)),
+        "and the pump, whose {{G}}{{W}}{{W}} are floating: {:?}",
+        legal.abilities
     );
 
-    activate(&mut engine, p0, bretagard_stronghold(), 0);
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Green), 2);
-    assert_eq!(pool.available(ManaColor::White), 2);
-    assert_eq!(pool.total(), 4);
-    assert!(is_tapped(&engine, land));
+    activate(&mut engine, p0, bretagard_stronghold(), 1);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the pump asks for up to two creatures you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that aims it");
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "\"up to two targets\": none is a legal answer and two is the ceiling"
+    );
+    assert_eq!(
+        options.len(),
+        2,
+        "and the menu is exactly the creatures this seat controls: {options:?}"
+    );
+    assert!(
+        options.contains(&host) && options.contains(&bystander),
+        "both of this seat's creatures may be named: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"creatures *you* control\" declines the same card across the table: {options:?}"
+    );
+
+    // CR 601.2c names the targets and CR 601.2h pays afterwards, so while the
+    // question stands the Stronghold is still on the battlefield and the
+    // {{G}}{{W}}{{W}} are still in the pool.
+    assert!(
+        on_battlefield(&engine, p0, bretagard_stronghold()).is_some(),
+        "the sacrifice is the last step of the activation, not the first"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "and so is the mana"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host, bystander],
+            },
+        )
+        .expect("both creatures the question offered");
+
+    assert!(
+        on_battlefield(&engine, p0, bretagard_stronghold()).is_none(),
+        "\"Sacrifice this land\" took the card that carried the ability"
+    );
+    assert!(
+        in_graveyard(&engine, p0, bretagard_stronghold()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{G}}{{W}}{{W}} came out of the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "putting counters on creatures is no mana ability, so the ability is waiting"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    for (id, was) in [(host, before.0), (bystander, before.1)] {
+        assert_eq!(
+            counters_on(&engine, id, CounterKind::P1P1),
+            1,
+            "one +1/+1 counter per creature named, and a counter is not a pump"
+        );
+        assert_eq!(
+            pt(&engine, id),
+            (was.0 + 1, was.1 + 1),
+            "the body grew by exactly the counter it was given"
+        );
+        let granted = keywords(&engine, id);
+        assert!(
+            granted.contains(KeywordSet::VIGILANCE),
+            "and the named creature gained vigilance: {granted:?}"
+        );
+        assert!(
+            granted.contains(KeywordSet::LIFELINK),
+            "and lifelink: {granted:?}"
+        );
+    }
+    assert_eq!(
+        counters_on(&engine, theirs, CounterKind::P1P1),
+        0,
+        "the creature the ability did not name was given no counter"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::VIGILANCE),
+        "and none of the keywords: the effect targets, it does not sweep the board"
+    );
+
+    // "until end of turn" is half the sentence, so the same creatures are read
+    // again past the end step: the counters are permanent, the keywords are not.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        counters_on(&engine, host, CounterKind::P1P1),
+        1,
+        "the +1/+1 counter is not a duration"
+    );
+    let after = keywords(&engine, host);
+    assert!(
+        !after.contains(KeywordSet::VIGILANCE) && !after.contains(KeywordSet::LIFELINK),
+        "the vigilance and lifelink lasted the turn they were granted in and no \
+         longer: {after:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p0, lotleth_troll()).is_some(),
+        "and the creature is still standing, so the grant left rather than the creature"
+    );
 }
 
 /// Castle Doom prints `{{T}}: Add {{C}}.`, `{{T}}: Add one mana of any color. Spend this mana
@@ -31087,7 +31576,7 @@ fn skemfar_elderhall() -> CardIndex {
 
 /// `Skemfar Elderhall` prints `This land enters tapped.`, `{{T}}: Add {{G}}.`, and `{{2}}{{B}}{{B}}{{G}}, {{T}}, Sacrifice this land: Up to one target creature you don't control gets -2/-2 until end of turn. Create two 1/1 green Elf Warrior creature tokens. Activate only as a sorcery.`
 ///
-/// Under `Coverage::Partial`, `EnterModifier::Tapped`, the green mana ability, and token creation are implemented while the target -2/-2 effect is omitted.
+/// With no creature it does not control on the board, the "up to one target" -2/-2 names nothing and nobody is asked (CR 115.6); `activation_target_tests` plays it with a target.
 /// Playing this land from hand puts it onto the battlefield tapped; after untapping on the next turn, floating `{{2}}{{B}}{{B}}{{G}}` allows activating ability 1 at sorcery speed, which sacrifices `Skemfar Elderhall` and creates two 1/1 green Elf Warrior creature tokens.
 #[test]
 fn skemfar_elderhall_enters_tapped_sacrifices_and_creates_two_elf_warrior_tokens() {

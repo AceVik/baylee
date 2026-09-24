@@ -198,6 +198,15 @@ pub struct Engine<L: CardLookup> {
     /// taken where the ability reaches the stack, so an activation refused
     /// in between cannot hand it to the next one.
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    /// Whether a pending activation's **first** "target" question has its
+    /// answer, which may be none at all for an "up to" (CR 115.6).
+    ///
+    /// A flag and not a look at the answer, because `start_activation` is
+    /// re-entered through the cost question and the second instance with the
+    /// chosen list in hand, and an empty list cannot tell "answered with
+    /// nothing" from "not asked yet". Cleared where a fresh activation begins
+    /// and where its cost is paid, for `activation_second_targets`' reason.
+    activation_targets_answered: bool,
     /// The number a pending activation's counter cost was given (CR 601.2b).
     ///
     /// The third field in this family and the one asked *first*: a cost that
@@ -528,6 +537,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_player_choice: None,
             activation_target_players: Vec::new(),
             activation_second_targets: None,
+            activation_targets_answered: false,
             activation_cost_choices: Vec::new(),
             activation_x: None,
             activating_abilities: None,
@@ -828,6 +838,8 @@ mod cast_wizard;
 pub(crate) mod cost_wizard;
 mod progress;
 
+#[cfg(test)]
+mod activation_target_tests;
 #[cfg(test)]
 mod amount_sign_tests;
 #[cfg(test)]
