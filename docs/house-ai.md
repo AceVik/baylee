@@ -190,6 +190,19 @@ commander damage and poison, are not modelled here. SHARP and EXPERT still
 part on a swing back that does not kill, which EXPERT prices and SHARP does
 not look at.
 
+**A walker is blocked for when the attack would kill it.** Only attackers
+aimed at the seat count toward its life (CR 508.1b); the shallow path used to
+sum every attacker in combat, so a 5/5 at its walker, or at another seat, made
+a 3/3 read as lethal and the only 2/2 was thrown away. Damage aimed at one of
+its walkers is kept per walker against loyalty (CR 120.3c, CR 704.5i). A
+creature worth less than the walker chumps when that block brings the damage
+below the loyalty; a walker that survives the hit or dies anyway is not worth
+one, and the seat's own life comes first. The search prices the same thing:
+each counter on the creature scale, the whole walker once the damage reaches
+its loyalty, including damage from attackers nothing can block. The shallow
+path saves a walker with one block at a time and sends the whole attack at
+one defender; the search sees multi-blocker rescues.
+
 **One illegal pair costs the whole declaration, so legality is checked
 against the finished answer.** Menace is two blockers or none (CR 702.111b),
 and the shallow path pairs one blocker with one attacker by construction — so

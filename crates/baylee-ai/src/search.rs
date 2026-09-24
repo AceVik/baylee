@@ -15,6 +15,12 @@ use baylee_view::{ObjectStatus, PlayerView};
 
 const MAX: usize = 16;
 const WIN: i64 = 1_000_000;
+/// The defender's planeswalkers a blocking search keeps apart; any beyond
+/// these are not protected.
+const WALKERS: usize = 4;
+/// What one loyalty counter is worth, the scale [`worth`] prices a point of
+/// power or toughness on.
+const LOYALTY: i64 = 30;
 
 #[derive(Clone, Copy, Default)]
 struct Result {
@@ -27,6 +33,9 @@ struct Result {
     dead: u32,
     attacker_dead: bool,
     commander_lethal: bool,
+    /// The defender's walker this attacker is aimed at, and what reaches it.
+    walker: Option<u8>,
+    walker_damage: i32,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -269,6 +278,13 @@ struct Position {
     retaliation: Vec<Counterattack>,
     exchanges: Vec<Result>,
     player_damage: u32,
+    /// The defender's walkers under attack, as (loyalty, worth); which of
+    /// them each attacker is aimed at; and what attackers nothing can block
+    /// deal to each. Empty when the search attacks, and read only at a leaf,
+    /// so the attacking search pays nothing for them.
+    walkers: Vec<(i32, i64)>,
+    walker_of: Vec<Option<u8>>,
+    walker_base: [i32; WALKERS],
     commander_remaining: Vec<i32>,
     can_block: Vec<u32>,
     life: i32,
@@ -306,6 +322,10 @@ impl Position {
         // The defending player and commander history are fixed for the whole
         // decision. Cache these along with the exchange, not at every node.
         if self.player_damage & (1 << attacker) == 0 {
+            if let Some(w) = self.walker_of.get(attacker).copied().flatten() {
+                result.walker = Some(w);
+                result.walker_damage = result.damage;
+            }
             result.damage = 0;
             result.first_damage = 0;
         }
@@ -317,7 +337,13 @@ impl Position {
         if balance.kills(self.enemy_life) {
             return WIN + balance.material;
         }
+        let walkers = if self.walkers.is_empty() {
+            0
+        } else {
+            self.walker_losses(outcomes)
+        };
         let mut value = balance.material
+            + walkers
             + i64::from(balance.damage) * 45
             + i64::from(balance.gain - balance.enemy_gain) * 35;
         if self.horizon < 2 {
@@ -329,6 +355,28 @@ impl Position {
         }
         value -= i64::from(incoming) * 50 + losses / 2;
         value
+    }
+
+    /// A walker the damage reaches loyalty 0 on is lost whole (CR 120.3c,
+    /// CR 704.5i); short of that each counter is a point on the scale.
+    fn walker_losses(&self, outcomes: &[Result; MAX]) -> i64 {
+        let mut damage = self.walker_base;
+        for result in &outcomes[..self.attackers.len()] {
+            if let Some(w) = result.walker {
+                damage[usize::from(w)] += result.walker_damage;
+            }
+        }
+        self.walkers
+            .iter()
+            .zip(damage)
+            .map(|(&(loyalty, worth), damage)| {
+                if damage >= loyalty {
+                    worth
+                } else {
+                    i64::from(damage.max(0)) * LOYALTY
+                }
+            })
+            .sum()
     }
 
     /// A conservative continuation: enemies may decline exchanges that would
@@ -524,6 +572,9 @@ fn attack_position(
     Some(
         Position {
             player_damage: (1 << fighters.len()) - 1,
+            walkers: Vec::new(),
+            walker_of: Vec::new(),
+            walker_base: [0; WALKERS],
             commander_remaining: squad
                 .iter()
                 .map(|&id| commander_remaining(view, victim, id))
@@ -649,6 +700,65 @@ pub fn attackers(
     result
 }
 
+/// What a blocking search needs beyond the pairings: this seat's walkers
+/// under attack, as (loyalty, worth on the creature scale); which of them
+/// each of `ids` is aimed at; and what the attackers nothing can block bring
+/// before any block, to each of those walkers and to this seat.
+type Defended = (Vec<(i32, i64)>, Vec<Option<u8>>, [i32; WALKERS], Balance);
+fn defended(view: &PlayerView, ids: &[ObjectId]) -> Defended {
+    let mut walker_ids: Vec<ObjectId> = Vec::new();
+    let mut walkers: Vec<(i32, i64)> = Vec::new();
+    let mut walker_of = |id: ObjectId| -> Option<u8> {
+        let defending = view
+            .combat
+            .attackers
+            .iter()
+            .find(|a| a.creature == id)?
+            .defending;
+        let baylee_core::ids::Defender::Planeswalker(walker) = defending else {
+            return None;
+        };
+        let object = view.object(walker).filter(|o| o.controller == view.seat)?;
+        if let Some(i) = walker_ids.iter().position(|w| *w == walker) {
+            return u8::try_from(i).ok();
+        }
+        if walkers.len() == WALKERS {
+            return None;
+        }
+        let loyalty = i32::from(object.counter_count(baylee_view::CounterKind::Loyalty));
+        walker_ids.push(walker);
+        walkers.push((
+            loyalty,
+            100 + i64::from(object.mana_value) * 120 + i64::from(loyalty.max(0)) * LOYALTY,
+        ));
+        u8::try_from(walkers.len() - 1).ok()
+    };
+    let aimed: Vec<Option<u8>> = ids.iter().map(|&id| walker_of(id)).collect();
+    let mut base = [0; WALKERS];
+    let unblockable = view
+        .combat
+        .attackers
+        .iter()
+        .filter(|a| !ids.contains(&a.creature))
+        .filter_map(|a| {
+            let at_me = a.defending == baylee_core::ids::Defender::Player(view.seat);
+            let walker = walker_of(a.creature);
+            (at_me || walker.is_some())
+                .then(|| Fighter::of(view, a.creature).map(|f| (a.creature, f, walker)))
+                .flatten()
+        })
+        .fold(Balance::default(), |balance, (id, f, walker)| {
+            let mut result = fight(f, &[], 0);
+            if let Some(w) = walker {
+                base[usize::from(w)] += result.damage;
+                return balance;
+            }
+            result.commander_lethal = result.damage >= commander_remaining(view, view.seat, id);
+            balance.replacing(Result::default(), result)
+        });
+    (walkers, aimed, base, unblockable)
+}
+
 /// Search legal blocking assignments, including gang blocks and menace.
 #[must_use]
 pub fn blockers(
@@ -686,21 +796,11 @@ pub fn blockers(
     {
         return crate::combat::choose_blocks(view, options, life);
     }
-    let unblockable = view
-        .combat
-        .attackers
-        .iter()
-        .filter(|a| {
-            !ids.contains(&a.creature)
-                && a.defending == baylee_core::ids::Defender::Player(view.seat)
-        })
-        .filter_map(|a| Fighter::of(view, a.creature).map(|f| (a.creature, f)))
-        .fold(Balance::default(), |balance, (id, f)| {
-            let mut result = fight(f, &[], 0);
-            result.commander_lethal = result.damage >= commander_remaining(view, view.seat, id);
-            balance.replacing(Result::default(), result)
-        });
+    let (walkers, aimed, walker_base, unblockable) = defended(view, &ids);
     let position = Position {
+        walkers,
+        walker_of: aimed,
+        walker_base,
         commander_remaining: ids
             .iter()
             .map(|&id| commander_remaining(view, view.seat, id))

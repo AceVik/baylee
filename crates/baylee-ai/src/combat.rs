@@ -15,7 +15,7 @@
 //! [`BlockOption::attackers`].
 
 use baylee_cards_dsl::KeywordSet;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::BlockOption;
 use baylee_view::{ObjectStatus, PlayerView, PublicObject};
@@ -150,12 +150,19 @@ fn attacking(view: &PlayerView, options: &[BlockOption]) -> Vec<ObjectId> {
 ///
 /// Three rules, in the order a player applies them:
 ///
-/// 1. **Do not die.** If the unblocked attackers add up to this seat's life
-///    total, blocks are made until they do not — with whatever is left,
-///    including a creature that only chumps. A creature kept back is worth
-///    nothing after the game is over. An attacker the view cannot describe
-///    counts here as well: the engine offered a pairing against it, so it
-///    exists, and what it will deal is unknown rather than nought.
+/// 1. **Do not die.** If the unblocked attackers aimed at this seat add up
+///    to its life total, blocks are made until they do not — with whatever
+///    is left, including a creature that only chumps. A creature kept back is
+///    worth nothing after the game is over. An attacker the view cannot
+///    describe counts here as well: the engine offered a pairing against it,
+///    so it exists, and what it will deal is unknown rather than nought.
+///    One aimed at a walker or at another seat does not (CR 508.1b).
+///
+///    **1b. Keep a walker that would die.** When what is aimed at one of
+///    this seat's planeswalkers reaches its loyalty (CR 120.3c, CR 704.5i),
+///    a creature worth less than the walker chumps if that block alone
+///    brings the damage below the loyalty. A walker that dies either way, or
+///    one that survives the hit, is not worth a creature.
 /// 2. **Take the good exchanges.** A block where the attacker dies and the
 ///    blocker lives is free; one where both die is worth making when the
 ///    attacker is worth at least as much.
@@ -175,11 +182,15 @@ pub fn choose_blocks(
     life: i32,
 ) -> Vec<(ObjectId, ObjectId)> {
     let attacking = attacking(view, options);
+    let me = Defender::Player(view.seat);
+    let aimed = |id: ObjectId| aimed(view, id);
     let incoming: i32 = attacking
         .iter()
+        .filter(|id| aimed(**id) == me)
         .filter_map(|id| Fighter::of(view, *id))
         .map(|f| f.power)
         .sum();
+    let mut walkers = walkers_under_attack(view, &attacking);
     // Every attacker the engine offered a pairing against that the view
     // cannot describe. `Fighter::of` is three `?` in a row — the object, its
     // power, its toughness — and each of them reads to a caller as "no such
@@ -231,11 +242,18 @@ pub fn choose_blocks(
             .filter_map(|id| Fighter::of(view, *id).map(|f| (*id, f)))
             .max_by_key(|(id, attacker)| {
                 let e = exchange(*attacker, blocker);
-                // `false < true`, so this reads as a preference order: our
-                // creature surviving first, then theirs dying, then the
-                // hardest hitter, then the lowest slot to break ties without
-                // consulting a clock.
+                let saved = attacker.power - spillover(*attacker, blocker);
+                // `false < true`, so this reads as a preference order: the
+                // block the seat needs (its life while it is dying, else a
+                // walker it can keep), then our creature surviving, then
+                // theirs dying, then the hardest hitter, then the lowest slot
+                // to break ties without consulting a clock.
                 (
+                    if lethal {
+                        aimed(*id) == me
+                    } else {
+                        rescues(&walkers, aimed(*id), saved, blocker)
+                    },
                     !e.blocker_dies,
                     e.attacker_dies,
                     attacker.power,
@@ -263,10 +281,14 @@ pub fn choose_blocks(
         // What the block actually saves: the attacker's damage, less
         // whatever tramples through anyway.
         let saved = attacker.power - spillover(attacker, blocker);
-        let worth_it = if lethal {
+        let at_me = aimed(attacker_id) == me;
+        let worth_it = if lethal && at_me {
             // Rule 1. Any block that stops damage is worth making, and a
             // creature that dies for it has done its job.
             saved > 0
+        } else if !lethal && rescues(&walkers, aimed(attacker_id), saved, blocker) {
+            // Rule 1b.
+            true
         } else if !e.blocker_dies {
             // Rule 2a. Free: nothing of ours dies.
             e.attacker_dies || saved > 0
@@ -277,11 +299,74 @@ pub fn choose_blocks(
         if worth_it {
             pairs.push((option.blocker, attacker_id));
             taken.push(attacker_id);
-            still_coming -= saved;
+            if at_me {
+                still_coming -= saved;
+            } else if let Defender::Planeswalker(walker) = aimed(attacker_id)
+                && let Some(entry) = walkers.iter_mut().find(|w| w.id == walker)
+            {
+                entry.coming -= saved;
+            }
         }
     }
     enforce_menace(view, options, &mut pairs);
     pairs
+}
+
+/// What an attacker is aimed at (CR 508.1b). One the view does not describe
+/// is taken to be aimed at this seat, the reading that cannot cost the game.
+fn aimed(view: &PlayerView, id: ObjectId) -> Defender {
+    view.combat
+        .attackers
+        .iter()
+        .find(|a| a.creature == id)
+        .map_or(Defender::Player(view.seat), |a| a.defending)
+}
+
+/// One of this seat's planeswalkers under attack.
+struct Besieged {
+    id: ObjectId,
+    /// Unblocked power aimed at it.
+    coming: i32,
+    loyalty: i32,
+    mana_value: u32,
+}
+
+fn walkers_under_attack(view: &PlayerView, attacking: &[ObjectId]) -> Vec<Besieged> {
+    let mut walkers: Vec<Besieged> = Vec::new();
+    for id in attacking {
+        let Defender::Planeswalker(walker) = aimed(view, *id) else {
+            continue;
+        };
+        let Some(object) = view.object(walker).filter(|o| o.controller == view.seat) else {
+            continue;
+        };
+        let power = Fighter::of(view, *id).map_or(0, |f| f.power.max(0));
+        match walkers.iter_mut().find(|w| w.id == walker) {
+            Some(entry) => entry.coming += power,
+            None => walkers.push(Besieged {
+                id: walker,
+                coming: power,
+                loyalty: i32::from(object.counter_count(baylee_view::CounterKind::Loyalty)),
+                mana_value: object.mana_value,
+            }),
+        }
+    }
+    walkers
+}
+
+/// Whether a block that stops `saved` of an attacker aimed at `target`
+/// keeps that walker: it dies unblocked, lives blocked, and is worth more
+/// than the blocker.
+fn rescues(walkers: &[Besieged], target: Defender, saved: i32, blocker: Fighter) -> bool {
+    let Defender::Planeswalker(walker) = target else {
+        return false;
+    };
+    walkers.iter().any(|w| {
+        w.id == walker
+            && w.coming >= w.loyalty
+            && w.coming - saved < w.loyalty
+            && blocker.worth < w.mana_value
+    })
 }
 
 /// Menace (CR 702.111b): two blockers or none, never one.

@@ -1981,6 +1981,152 @@ mod tests {
         }
     }
 
+    /// A combat where seat 1 attacks with `attackers` — each `(slot, size,
+    /// defending)`, an `n/n` — and seat 0 has one `blocker`-sized creature
+    /// in slot 3 that may block any of those aimed at seat 0 or its walker in
+    /// slot 4, which is on `loyalty` and costs four.
+    fn walker_combat(
+        lives: &[i32],
+        attackers: &[(u32, i16, Defender)],
+        blocker: i16,
+        loyalty: u16,
+    ) -> (PlayerView, Pending) {
+        let mut battlefield: Vec<PublicObject> = attackers
+            .iter()
+            .map(|&(slot, size, _)| permanent(obj(slot), PlayerId::new(1), size))
+            .collect();
+        battlefield.push(permanent(obj(3), PlayerId::new(0), blocker));
+        let mut planeswalker = walker(obj(4), PlayerId::new(0), loyalty);
+        planeswalker.mana_value = 4;
+        battlefield.push(planeswalker);
+        let mut v = view(0, lives, battlefield);
+        v.active = PlayerId::new(1);
+        v.step = baylee_view::Step::DeclareBlockers;
+        v.combat.attackers = attackers
+            .iter()
+            .map(|&(slot, _, defending)| baylee_view::AttackerView {
+                creature: obj(slot),
+                defending,
+                blocked: false,
+            })
+            .collect();
+        let ours = |d: Defender| {
+            d == Defender::Player(PlayerId::new(0)) || d == Defender::Planeswalker(obj(4))
+        };
+        let pending = Pending::ChooseBlockers {
+            player: v.seat,
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(3),
+                attackers: attackers
+                    .iter()
+                    .filter(|a| ours(a.2))
+                    .map(|a| obj(a.0))
+                    .collect(),
+            }],
+        };
+        (v, pending)
+    }
+
+    /// #75. Only what attacks this seat threatens its life (CR 508.1b names
+    /// one player, planeswalker or battle per attacker). A 3/3 at a seat on
+    /// four is not lethal, whatever else is attacking: a 5/5 at its walker on
+    /// nine, or one at another seat. The shallow path summed every attacker in
+    /// combat, read eight as lethal and chumped the 5/5 with its only 2/2.
+    #[test]
+    fn only_what_attacks_the_seat_counts_toward_its_life() {
+        let me = Defender::Player(PlayerId::new(0));
+        let boards = [
+            walker_combat(
+                &[4, 20],
+                &[(1, 3, me), (2, 5, Defender::Planeswalker(obj(4)))],
+                2,
+                9,
+            ),
+            walker_combat(
+                &[4, 20, 20],
+                &[(1, 3, me), (2, 5, Defender::Player(PlayerId::new(2)))],
+                2,
+                9,
+            ),
+        ];
+        for (board, (v, pending)) in boards.iter().enumerate() {
+            for (name, profile) in PROFILES {
+                assert_eq!(
+                    HeuristicAgent::new(profile).act(v, pending),
+                    PlayerAction::DeclareBlockers { blockers: vec![] },
+                    "{name} spent its 2/2 on board {board}"
+                );
+            }
+        }
+    }
+
+    /// #75, the walker half: a creature worth less than the walker chumps
+    /// when that block is what keeps it (CR 120.3c, CR 704.5i). The same
+    /// chump is wrong when the walker survives the hit, when it dies anyway,
+    /// and when the seat's own life needs the creature.
+    #[test]
+    fn a_walker_that_would_die_is_chumped_for_and_one_that_would_not_is_not() {
+        let walker = Defender::Planeswalker(obj(4));
+        let me = Defender::Player(PlayerId::new(0));
+        let chump = PlayerAction::DeclareBlockers {
+            blockers: vec![(obj(3), obj(1))],
+        };
+        let none = PlayerAction::DeclareBlockers { blockers: vec![] };
+        let trample = |blocker: i16| {
+            let (mut v, pending) = walker_combat(&[20, 20], &[(1, 4, walker)], blocker, 3);
+            v.battlefield[0].keywords = baylee_cards_dsl::KeywordSet::TRAMPLE.bits();
+            (v, pending)
+        };
+        let cases = [
+            (
+                "a 3/3 at a walker on three",
+                walker_combat(&[20, 20], &[(1, 3, walker)], 2, 3),
+                &chump,
+            ),
+            (
+                "a 3/3 at a walker on nine",
+                walker_combat(&[20, 20], &[(1, 3, walker)], 2, 9),
+                &none,
+            ),
+            (
+                "a 3/3 and a 4/4 at a walker on three",
+                walker_combat(&[20, 20], &[(1, 3, walker), (2, 4, walker)], 2, 3),
+                &none,
+            ),
+            (
+                "a 3/3 at a seat on three beside a 5/5 at its walker",
+                walker_combat(&[3, 20], &[(1, 3, me), (2, 5, walker)], 2, 3),
+                &chump,
+            ),
+            // Trample puts the excess on the walker (CR 702.19b).
+            ("a 4/4 trampler held to two by a 2/2", trample(2), &chump),
+            ("a 4/4 trampler held to three by a 1/1", trample(1), &none),
+            // Only the sum with a 2/2 nothing here can block reaches four.
+            (
+                "a 3/3 beside an unblockable 2/2 at a walker on four",
+                {
+                    let (v, mut pending) =
+                        walker_combat(&[20, 20], &[(1, 3, walker), (2, 2, walker)], 2, 4);
+                    if let Pending::ChooseBlockers { blockers, .. } = &mut pending {
+                        blockers[0].attackers.retain(|a| *a == obj(1));
+                    }
+                    (v, pending)
+                },
+                &chump,
+            ),
+        ];
+        for (case, (v, pending), expected) in &cases {
+            for (name, profile) in PROFILES {
+                assert_eq!(
+                    &HeuristicAgent::new(profile).act(v, pending),
+                    *expected,
+                    "{name}: {case}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn combat_blocks_lethal_player_damage_before_protecting_a_planeswalker() {
         let mut v = view(
@@ -2013,12 +2159,13 @@ mod tests {
                 attackers: vec![obj(1), obj(2)],
             }],
         };
-        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+        for (name, profile) in PROFILES {
             assert_eq!(
                 HeuristicAgent::new(profile).act(&v, &pending),
                 PlayerAction::DeclareBlockers {
                     blockers: vec![(obj(3), obj(1))]
-                }
+                },
+                "{name} kept the walker and lost the game"
             );
         }
     }

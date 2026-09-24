@@ -946,6 +946,107 @@ fn the_swing_back_finds_a_creature_home_to_block_it() {
     }
 }
 
+/// #75 through the engine: their 3/3 attacks our planeswalker on turn 2 and
+/// our one 2/2 may block it. On three loyalty the block is what keeps the
+/// walker (CR 120.3c, CR 704.5i); on nine it survives the hit and the 2/2
+/// stays out. The walker prints no ability, so nothing the seat does on turn
+/// 1 moves its loyalty.
+#[test]
+fn a_creature_blocks_to_keep_a_walker_the_attack_would_kill() {
+    use baylee_cards_dsl::KeywordSet;
+    use baylee_core::ids::{CardIndex, Defender, PrintRef};
+    use baylee_core::types::TypeSet;
+    let walker = |index: u32, loyalty: u16| -> &'static baylee_cards_dsl::CardDef {
+        use baylee_cards_dsl::{CardDef, FaceDef};
+        Box::leak(Box::new(CardDef {
+            index: CardIndex::new(index),
+            faces: Box::leak(Box::new([FaceDef {
+                name: "Walker fixture",
+                mana_cost: baylee_core::mana::ManaCost::from_symbol_generic(4),
+                types: TypeSet::PLANESWALKER,
+                loyalty: Some(loyalty),
+                ..FaceDef::DEFAULT
+            }])),
+            ..CardDef::DEFAULT
+        }))
+    };
+    let cards = vec![
+        combat_card(90_000, 2, 2, KeywordSet::EMPTY),
+        combat_card(90_001, 3, 3, KeywordSet::EMPTY),
+        walker(90_002, 3),
+        walker(90_003, 9),
+    ];
+    let object = |index| DeckEntry {
+        card: CardIndex::new(index),
+        print: PrintRef::new(0),
+    };
+    for (walker_index, loyalty, blocks) in [(90_002, 3, true), (90_003, 9, false)] {
+        for (name, profile) in [
+            ("NOVICE", AIProfile::NOVICE),
+            ("CASUAL", AIProfile::CASUAL),
+            ("STEADY", AIProfile::STEADY),
+            ("SHARP", AIProfile::SHARP),
+            ("EXPERT", AIProfile::EXPERT),
+        ] {
+            let mut preset = position(&[], &[]);
+            preset.seats[0].starting_battlefield = vec![object(90_000), object(walker_index)];
+            preset.seats[1].starting_battlefield = vec![object(90_001)];
+            let mut engine = Engine::new(&preset, CombatCards(cards.clone())).unwrap();
+            let agent = HeuristicAgent::new(profile);
+            let me = PlayerId::new(0);
+            let mut blocked = None;
+            for seq in 0..1_000 {
+                let Some(seat) = pending_player(engine.pending()) else {
+                    break;
+                };
+                let view = asked_view(engine.state(), seat, seq, engine.pending());
+                if view.turn > 2 {
+                    break;
+                }
+                let target = view
+                    .battlefield_of(me)
+                    .find(|o| o.types.contains(TypeSet::PLANESWALKER))
+                    .map(|o| o.id);
+                let action = match engine.pending() {
+                    Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                    _ if seat == me => agent.act(&view, engine.pending()),
+                    Pending::Priority { .. } => PlayerAction::PassPriority,
+                    Pending::ChooseAttackers { attackers, .. } => PlayerAction::DeclareAttackers {
+                        attackers: attackers
+                            .iter()
+                            .map(|id| (*id, Defender::Planeswalker(target.expect("a walker"))))
+                            .collect(),
+                    },
+                    Pending::ChooseBlockers { .. } => {
+                        PlayerAction::DeclareBlockers { blockers: vec![] }
+                    }
+                    other => panic!("{name}: unexpected question for their seat: {other:?}"),
+                };
+                if seat == me
+                    && let (
+                        Pending::ChooseBlockers { .. },
+                        PlayerAction::DeclareBlockers { blockers },
+                    ) = (engine.pending(), &action)
+                {
+                    blocked = Some(!blockers.is_empty());
+                }
+                engine.apply(seat, action).expect("a legal answer");
+            }
+            assert_eq!(
+                blocked,
+                Some(blocks),
+                "{name}, walker on {loyalty}: blocked {blocked:?}"
+            );
+            let view = player_view(engine.state(), me, 0, None, &SeatContext::default());
+            assert!(
+                view.battlefield_of(me)
+                    .any(|o| o.types.contains(TypeSet::PLANESWALKER)),
+                "{name}: the walker on {loyalty} did not survive"
+            );
+        }
+    }
+}
+
 #[test]
 fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine() {
     use baylee_cards_dsl::{

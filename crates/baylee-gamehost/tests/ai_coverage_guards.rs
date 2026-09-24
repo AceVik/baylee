@@ -200,6 +200,8 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             count(|def| matches!(def.partner, PartnerKind::Partner)),
         ),
         (
+            // Blocking to keep one paid, #75: `a_walker_that_would_die_is_\
+            // chumped_for_and_one_that_would_not_is_not` in `baylee-ai`.
             "Planeswalker survival",
             count(|def| def.faces.iter().any(|face| face.loyalty.is_some())),
         ),
