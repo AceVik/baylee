@@ -716,8 +716,13 @@ messages! {
     /// Hide the board overlay
     /// Read card text instead of art
     ActToggleTextView { en: "Read card text instead of art", de: "Kartentext statt Bild lesen" },
-    /// Open the zone browser
-    ActToggleBrowser { en: "Open the zone browser", de: "Zonenbrowser öffnen" },
+    /// Open the zone browser. The clause is the settings row's help: a tap on
+    /// a pile whose top card is lit arms that card's cast rather than opening
+    /// the pile (#242), and this key is the way in that is left.
+    ActToggleBrowser {
+        en: "Open the zone browser, also when a graveyard's top card is lit",
+        de: "Zonenbrowser öffnen, auch wenn die oberste Karte eines Friedhofs leuchtet",
+    },
     /// Let the stack resolve
     ActHoldForStack { en: "Let the stack resolve", de: "Stack auflösen lassen" },
     /// Nothing more this turn
