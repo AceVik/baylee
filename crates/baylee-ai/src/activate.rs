@@ -25,7 +25,7 @@ use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::LegalActions;
-use baylee_view::{Phase, PlayerView};
+use baylee_view::{Phase, PlayerView, PublicObject};
 
 /// The ability to activate now, as one of the offered `(source, index)`
 /// handles — or `None`, which is most of the time.
@@ -68,10 +68,27 @@ pub(crate) fn printed(
     object: ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    let card = view.object(object)?.card?;
-    let def = baylee_cards::by_index(card.index)?;
-    def.abilities_for_face(card.face as usize)
-        .get(usize::try_from(index).ok()?)
+    printed_list(view.object(object)?).get(usize::try_from(index).ok()?)
+}
+
+/// The list an object's abilities are printed on, which is what an offered
+/// index counts into.
+///
+/// Read from `rules` and not from `card`, because the two part for a copy:
+/// a Glasspool Mimic that entered as a Werefox Bodyguard is still a Mimic
+/// underneath and has the Fox's abilities (CR 707.2), and the engine offers
+/// them as indices into the Fox's list (#214). A token copy has no card at
+/// all and a `rules` all the same, so its abilities are read here too; a
+/// registry token and a face-down permanent the seat may not look at have
+/// neither, and read as printing nothing.
+pub(crate) fn printed_list(object: &PublicObject) -> &'static [AbilityDef] {
+    object
+        .rules
+        .and_then(|rules| {
+            baylee_cards::by_index(rules.card)
+                .map(|def| def.abilities_for_face(usize::from(rules.face)))
+        })
+        .unwrap_or(&[])
 }
 
 /// The activation cost and effects of an ability, for the two shapes that
@@ -314,24 +331,16 @@ fn loyalty(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
         };
         // Is this the walker's own ultimate — the most expensive thing it
         // prints, whether or not anything else is on offer today?
-        let ultimate = view
-            .object(source)
-            .and_then(|o| o.card)
-            .and_then(|c| baylee_cards::by_index(c.index))
-            .is_some_and(|def| {
-                def.abilities_for_face(
-                    view.object(source)
-                        .and_then(|o| o.card)
-                        .map_or(0, |c| c.face) as usize,
-                )
+        let ultimate = view.object(source).is_some_and(|o| {
+            printed_list(o)
                 .iter()
                 .filter_map(|a| match a {
                     AbilityDef::Loyalty { cost, .. } => Some(*cost),
                     _ => None,
                 })
                 .min()
-                    == Some(*cost)
-            });
+                == Some(*cost)
+        });
         if ultimate {
             return Some((source, index));
         }

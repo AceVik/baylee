@@ -308,9 +308,11 @@ impl HeuristicAgent {
         context: &DecisionContext<'_>,
         score: i64,
     ) -> i64 {
+        // `rules`, because a copy of a warded creature has the ward it
+        // copied (CR 707.2) and the card underneath may print none.
         let ward = object
-            .card
-            .and_then(|c| baylee_cards::by_index(c.index))
+            .rules
+            .and_then(|r| baylee_cards::by_index(r.card))
             .and_then(|def| {
                 def.abilities
                     .iter()
@@ -362,7 +364,9 @@ impl HeuristicAgent {
     }
     /// What a counter with no sign of its own is worth on one candidate.
     ///
-    /// The sign comes off the card underneath. A lore counter advances the
+    /// The sign comes off the card the counter lands on, read as the card its
+    /// abilities are printed on (`rules`), which for a copy is the copied
+    /// one (CR 707.2). A lore counter advances the
     /// Saga it lands on, which is what that Saga's controller wants; a time
     /// counter is one more upkeep before a suspended card casts itself for
     /// nothing, which is what its owner does not. Positive means "aim here",
@@ -380,7 +384,7 @@ impl HeuristicAgent {
     /// vanishing, so the case is left unscored instead of modelled blind.
     fn clock_score(&self, view: &PlayerView, object: &PublicObject, kind: CounterKind) -> i64 {
         let friendly = !self.hostile(object.controller, view.seat);
-        let def = object.card.and_then(|c| baylee_cards::by_index(c.index));
+        let def = object.rules.and_then(|r| baylee_cards::by_index(r.card));
         let mut abilities = def.into_iter().flat_map(|d| {
             d.abilities
                 .iter()

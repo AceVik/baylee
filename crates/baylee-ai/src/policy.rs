@@ -933,27 +933,22 @@ fn remaining_sources(view: &PlayerView) -> Vec<Source> {
                 baylee_engine::choice::granted_ability(grant.slot),
             ));
         }
-        if let Some(card) = object.card
-            && let Some(def) = baylee_cards::by_index(card.index)
-        {
-            for (index, ability) in def
-                .abilities_for_face(usize::from(card.face))
-                .iter()
-                .enumerate()
-            {
-                // Conditional activations need an offer to certify them. The
-                // colour estimate can omit a source but must not rely on one.
-                if matches!(
-                    ability,
-                    AbilityDef::Activated {
-                        mana_ability: true,
-                        ..
-                    }
-                ) {
-                    estimate
-                        .abilities
-                        .push((object.id, u32::try_from(index).unwrap_or(u32::MAX)));
+        // What the object can tap for, which for a copy is what the copied
+        // card prints (CR 707.2) — the index is into that list, as the
+        // engine's offer is.
+        for (index, ability) in crate::activate::printed_list(object).iter().enumerate() {
+            // Conditional activations need an offer to certify them. The
+            // colour estimate can omit a source but must not rely on one.
+            if matches!(
+                ability,
+                AbilityDef::Activated {
+                    mana_ability: true,
+                    ..
                 }
+            ) {
+                estimate
+                    .abilities
+                    .push((object.id, u32::try_from(index).unwrap_or(u32::MAX)));
             }
         }
     }

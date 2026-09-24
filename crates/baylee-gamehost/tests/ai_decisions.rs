@@ -1,7 +1,7 @@
 //! Decisions tested across the real engine/view boundary.
 
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::preset::{DeckEntry, GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
@@ -442,6 +442,159 @@ fn a_permanent_with_a_free_and_a_priced_tap_is_ranked_by_what_it_costs() {
              is for that permanent"
         );
     }
+}
+
+/// Answers everything a hand-driven fixture does not ask about and stops at
+/// seat 0's own main phase with the stack empty. A target question is
+/// answered with whichever of `aim` is among its options.
+fn settle(engine: &mut Engine<RegistryLookup>, aim: &[ObjectId]) {
+    let me = PlayerId::new(0);
+    for _ in 0..100 {
+        let pending = engine.pending().clone();
+        let Some(seat) = pending_player(&pending) else {
+            panic!("the game ended");
+        };
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+            Pending::Priority { .. } => {
+                let view = asked_view(engine.state(), me, 0, engine.pending());
+                if view.stack.is_empty()
+                    && view.active == me
+                    && view.phase == baylee_view::Phase::FirstMain
+                {
+                    return;
+                }
+                PlayerAction::PassPriority
+            }
+            Pending::ChooseTargets { options, .. } => PlayerAction::ChooseObjects {
+                objects: options.into_iter().filter(|o| aim.contains(o)).collect(),
+            },
+            Pending::YesNo { .. } => PlayerAction::YesNo(true),
+            other => panic!("unexpected question: {other:?}"),
+        };
+        engine.apply(seat, action).expect("a legal answer");
+    }
+    panic!("the table never came back to seat 0's main phase");
+}
+
+/// Seat 0's untapped permanents whose card is `name`.
+fn untapped(view: &PlayerView, name: &str) -> Vec<ObjectId> {
+    view.battlefield_of(PlayerId::new(0))
+        .filter(|o| o.card.is_some_and(|c| c.index == entry(name).card))
+        .filter(|o| !o.status.contains(baylee_view::ObjectStatus::TAPPED))
+        .map(|o| o.id)
+        .collect()
+}
+
+/// Taps each of seat 0's `sources` for mana, which then floats.
+fn float(engine: &mut Engine<RegistryLookup>, sources: &[ObjectId]) {
+    for &source in sources {
+        engine
+            .apply(
+                PlayerId::new(0),
+                PlayerAction::ActivateManaAbility { source },
+            )
+            .expect("a basic land taps for mana");
+    }
+}
+
+/// #214. A copy uses the abilities of the card it copied (CR 707.2).
+///
+/// The engine offers a copy's ability as an index into the copied card's
+/// list, and the agent looked that index up on the card underneath: a
+/// Glasspool Mimic that entered as a Werefox Bodyguard prints one ability of
+/// its own, so the Fox's second came back as nothing and the copy was never
+/// used. The view names the copied card in `rules` since `VIEW_VERSION` 28,
+/// and this board is the one `combo_tests/printed_faces.rs` plays.
+///
+/// Two things are arranged by hand so the question is the only one on the
+/// table. The original Fox is sacrificed first, because `activate::useful`
+/// takes the first offer it recognises and the original, recognised either
+/// way, comes first. And the `{1}{W}` is floated before the agent is asked,
+/// because the engine offers an activation only against mana already in the
+/// pool — without it the Mimic's ability is not on offer at all, and a pass
+/// would say nothing about the agent.
+///
+/// Sacrificing a 2/2 for 2 life is the whitelist's answer, not a judgement
+/// this test defends. If `activate::useful` stops taking it, this goes red
+/// for a reason that is not #214; the two `a_copy_*` tests in `baylee-ai`
+/// are the ones that carry the lookup.
+#[test]
+fn a_copy_uses_the_ability_of_the_card_it_copied() {
+    let me = PlayerId::new(0);
+    let preset = position(
+        &["Glasspool Mimic"],
+        &[
+            "Werefox Bodyguard",
+            "Island",
+            "Island",
+            "Island",
+            "Plains",
+            "Plains",
+            "Plains",
+            "Plains",
+        ],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+
+    settle(&mut engine, &[]);
+    let view = asked_view(engine.state(), me, 1, engine.pending());
+    let fox = untapped(&view, "Werefox Bodyguard")[0];
+    let mimic = view
+        .hand
+        .iter()
+        .find(|c| c.card.index == entry("Glasspool Mimic").card)
+        .expect("the Mimic in hand")
+        .id;
+    float(&mut engine, &untapped(&view, "Island"));
+    engine
+        .apply(me, PlayerAction::CastSpell { card: mimic })
+        .expect("three Islands pay for the Mimic");
+    // The Fox for the Mimic's copy, and nothing for the copied enters
+    // trigger, which may exile only a creature that is not a Fox.
+    settle(&mut engine, &[fox]);
+
+    let view = asked_view(engine.state(), me, 2, engine.pending());
+    let copy = untapped(&view, "Glasspool Mimic")[0];
+    assert_eq!(
+        view.object(copy).and_then(|o| o.rules).map(|r| r.card),
+        Some(entry("Werefox Bodyguard").card),
+        "the Mimic did not arrive as a copy of the Fox, so there is no copy \
+         for the agent to read"
+    );
+    float(&mut engine, &untapped(&view, "Plains")[..2]);
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: fox,
+                ability_index: 1,
+            },
+        )
+        .expect("the original Fox sacrifices itself");
+    settle(&mut engine, &[]);
+
+    let view = asked_view(engine.state(), me, 3, engine.pending());
+    float(&mut engine, &untapped(&view, "Plains")[..2]);
+    let view = asked_view(engine.state(), me, 4, engine.pending());
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        legal.abilities,
+        vec![(copy, 1)],
+        "the engine must offer the copy the Fox's sacrifice and nothing else, \
+         or what follows is not this question"
+    );
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act(&view, engine.pending()),
+        PlayerAction::ActivateAbility {
+            source: copy,
+            ability_index: 1,
+        },
+        "the agent looked the Fox's ability up on the Mimic underneath"
+    );
 }
 
 #[test]

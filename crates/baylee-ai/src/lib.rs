@@ -945,6 +945,29 @@ mod tests {
              Throne is a card thrown away and the bear is a creature exiled"
         );
 
+        // #214: ward is an ability, so it is the copied card's (CR 707.2) —
+        // an Elf that became the Throne has it, and the Throne's own card
+        // that became an Elf does not.
+        let elf = carded(
+            permanent(obj(1), PlayerId::new(1), 4),
+            "Llanowar Elves",
+            TypeSet::CREATURE,
+        );
+        for (copy, bear_it_is) in [
+            (copying(elf, "Roaming Throne"), true),
+            (copying(throne.clone(), "Llanowar Elves"), false),
+        ] {
+            let v = view(0, &[20, 20], vec![copy, bear.clone(), plains(obj(3))]);
+            assert_eq!(
+                agent().act_with_context(&v, &pending, &swords),
+                PlayerAction::ChooseTargets {
+                    objects: vec![if bear_it_is { obj(2) } else { obj(1) }],
+                    players: vec![]
+                },
+                "ward was read off the card underneath the copy"
+            );
+        }
+
         let three = view(
             0,
             &[20, 20],
@@ -3233,14 +3256,30 @@ mod tests {
     /// rather than over this pool, so the literal that was Arid Mesa is now
     /// some other card — and a test that reads the abilities off whatever
     /// landed there fails for a reason that has nothing to do with the agent.
+    ///
+    /// Its abilities are printed on the same card, as the view says of every
+    /// object that is not a copy; [`copying`] is the one that is.
     fn carded(mut object: PublicObject, name: &str, types: TypeSet) -> PublicObject {
         object.card = Some(baylee_view::CardIdentity {
             index: baylee_cards::decks::by_name(name).expect("a card of that name in the pool"),
             print: baylee_core::ids::PrintRef::new(0),
             face: 0,
         });
+        object.rules = object.card.map(baylee_view::RulesFace::from);
         object.types = types;
         object
+    }
+
+    /// A carded object that has become a copy of `original` (CR 707.2): the
+    /// card underneath is still its own, and the abilities are the other's.
+    fn copying(object: PublicObject, original: &str) -> PublicObject {
+        PublicObject {
+            rules: Some(baylee_view::RulesFace {
+                card: baylee_cards::decks::by_name(original).expect("a card of that name"),
+                face: 0,
+            }),
+            ..object
+        }
     }
 
     /// Priority with exactly these abilities on offer and nothing else.
@@ -3292,6 +3331,65 @@ mod tests {
         assert_eq!(
             agent().act(&v, &offering(vec![(obj(1), 0)])),
             PlayerAction::PassPriority
+        );
+    }
+
+    /// #214. An offered index counts into the list the object's abilities
+    /// are printed on, and for a copy that is the card it copied (CR 707.2).
+    /// A Glasspool Mimic that is a Werefox Bodyguard prints one ability of
+    /// its own and is offered the Fox's second, so reading the Mimic finds
+    /// nothing there and the agent never uses anything a copy has.
+    #[test]
+    fn a_copy_is_offered_what_it_copied_and_the_agent_reads_that() {
+        let mimic = copying(
+            carded(
+                permanent(obj(1), PlayerId::new(0), 2),
+                "Glasspool Mimic",
+                TypeSet::CREATURE,
+            ),
+            "Werefox Bodyguard",
+        );
+        let v = view(0, &[20, 20], vec![mimic]);
+
+        assert_eq!(
+            agent().act(&v, &offering(vec![(obj(1), 1)])),
+            PlayerAction::ActivateAbility {
+                source: obj(1),
+                ability_index: 1,
+            },
+            "the Fox's `{{1}}{{W}}, Sacrifice: gain 2 life` was looked up on \
+             the Mimic, which has no second ability"
+        );
+    }
+
+    /// The same misreading the other way round, and the worse one: the
+    /// physical card has something at that index too, so the agent weighs
+    /// one ability and presses another. A Sakura-Tribe Elder that has become
+    /// an Electric Eel reads as a sacrifice that finds a land, and the button
+    /// it presses is `{R}{R}: +2/+0 and 1 damage to you`.
+    #[test]
+    fn a_copy_is_not_weighed_by_the_ability_its_own_card_prints_there() {
+        let elder = carded(
+            permanent(obj(1), PlayerId::new(0), 1),
+            "Sakura-Tribe Elder",
+            TypeSet::CREATURE,
+        );
+        let v = view(0, &[20, 20], vec![elder.clone()]);
+        assert_eq!(
+            agent().act(&v, &offering(vec![(obj(1), 0)])),
+            PlayerAction::ActivateAbility {
+                source: obj(1),
+                ability_index: 0,
+            },
+            "the control: an Elder that is itself is sacrificed for its land, \
+             so the pass below is the copy and not a refusal of the Elder"
+        );
+
+        let v = view(0, &[20, 20], vec![copying(elder, "Electric Eel")]);
+        assert_eq!(
+            agent().act(&v, &offering(vec![(obj(1), 0)])),
+            PlayerAction::PassPriority,
+            "the Eel's pump was pressed on the strength of the Elder's search"
         );
     }
 

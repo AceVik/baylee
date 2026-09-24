@@ -70,7 +70,7 @@
 use baylee_cards_dsl::{AbilityDef, Effect, Filter, PlayerRel, SpellMode, ZoneRef};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{CastModeDesc, CastModeKind};
-use baylee_view::{ObjectStatus, PlayerView, PublicObject};
+use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace};
 
 use crate::HeuristicAgent;
 
@@ -274,14 +274,16 @@ impl HeuristicAgent {
     /// build one with either. The day that lint goes red is the day this
     /// branch starts running, and the lint is the test that says so.
     fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
-        let card = view
+        // A card in hand is only ever itself; an object anywhere else may be
+        // a copy, whose modes are the copied card's (CR 707.2).
+        let rules = view
             .hand
             .iter()
             .find(|held| held.id == object)
-            .map(|held| held.card)
-            .or_else(|| view.object(object).and_then(|seen| seen.card))?;
-        let mut found = baylee_cards::by_index(card.index)?
-            .abilities_for_face(usize::from(card.face))
+            .map(|held| RulesFace::from(held.card))
+            .or_else(|| view.object(object).and_then(|seen| seen.rules))?;
+        let mut found = baylee_cards::by_index(rules.card)?
+            .abilities_for_face(usize::from(rules.face))
             .iter()
             .filter_map(|ability| match ability {
                 AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {

@@ -110,6 +110,22 @@ both halves of a two-branch effect although only one of them runs, which is
 wrong in the one direction it is allowed to be wrong in: over-counting
 refuses a safe draw, under-counting decks the seat out (CR 704.5b).
 
+**What an object can do is printed on `rules`, and which card it is on
+`card`.** The two part for a copy (CR 707.2), and an offered ability is a
+`(source, index)` whose index counts into the copied card's list. Reading
+`card` made a Glasspool Mimic that entered as a Werefox Bodyguard look the
+Fox's second ability up on a Mimic that prints one, so the copy was never
+used, and where the card underneath did print something at that index the
+agent weighed one ability and pressed another (#214). So every reader asking
+what an object does — `activate::printed_list`, and through it the whitelist,
+the loyalty ultimate and the mana estimate; `filter`'s modal modes;
+`tactics`' ward and counter clock — reads `PublicObject::rules`, and `card`
+stays where the question is the card itself: a spell cast from hand, a
+commander's colours, `IsToken`. A token copy has `rules` and no `card`, so
+the agent now reads its abilities too. That is not a leak: the view gates
+`rules` on the same entitlement as `card`, and a face-down permanent the seat
+may not look at names neither.
+
 **An attacker the view cannot describe is unknown, not absent.** `Fighter::of`
 is three `?` in a row — the object, its power, its toughness — and every
 `None` used to reach the decision as "no such attacker". It reached it twice:
