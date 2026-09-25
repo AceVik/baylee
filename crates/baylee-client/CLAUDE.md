@@ -68,7 +68,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - Mat: from `SeatSlot`, three lanes, rim gilt for the viewer else pie order, opacity = `Mood`. Turn rim reads `Mood.on_turn`, not `Standing` (`TURN_BASE`, swell 11 s, pulse 7 s).
 - `SeatRole::Away` dashes the rim (`rim_dash`, mean gain 1), never dims (§"The rim says it…").
 - `MAT_MARGIN` only in `client-core::tabletop`. `LEDGE_FRAC` + `COMBAT_FRAC` + 3·`LANE_FRAC` + `MARGIN_FRAC` = 1 (const assert); `ledge_corners` returns the ledge band; `the_mat_fences_its_bands_where_the_layout_put_them` reads the texture, `/state.shelves` vs screenshot live.
-- `MAT_LEDGE` (1.00) is bounded by `layout::MAX_RING_Y` (11.2), which a 2v2 ring reaches at ~1.01; depth is free for a duel, three+ seats pay.
+- From three seats every seat gets `layout::standard_board`, a duel's width on the same canvas (#264); `MAX_RING_X`/`MAX_RING_Y` 92/35 seat eight at it, `CameraRig::MAX_DISTANCE` 300; the round ring is offered at three only. `MAT_LEDGE` (1.00) is bounded by `< 0.75·CARD_HEIGHT` (1.048), no longer by the ring ceiling.
 - `OwnBoardOverlay` is gone on purpose: no flat second own board, no full-canvas opaque panel over the table.
 
 ## Camera and layout
