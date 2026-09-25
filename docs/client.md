@@ -3068,6 +3068,44 @@ flicker was. There is deliberately no minimum time to leave the veil up once
 it is raised, because that would be the same lie in the other direction; a
 duel taking the screen still drops it on the frame it does (`teardown`).
 
+### The front door stands in a scene
+
+The gateway and sign-in faces are drawn in front of a landscape in depth
+(#295): `vista.rs` schedules it and `shaders/vista.wgsl` paints it, one
+full-screen `UiMaterial` on uniforms only, so it stays inside the GL budget.
+Back to front: the lobby's blue-hour sky (the same warped noise as
+`ambience.rs`), a ridge of crystal fins, the table's epoxy river of light
+running towards the viewer, and a cleft of two broken mineral jambs framing
+the panel on screen (`vista::Framed`), with a bevel, a violet glow that never
+reaches into the panel and a few sparks on its edge. Each layer leans with the
+pointer by its own amount, which is where the depth comes from. The light
+behind the panel is capped (`RING_CAP`), so a form is read against the scene
+and not through it.
+
+**Choosing a gateway is walking through it.** `FrontMotion::progress` says
+how far the viewer has come, 0 on the gateway's side and 1 arrived, and
+`vista::passage` turns that into a frame of the scene: the rim brightens, the
+viewer walks through the first gate, a haze rises over the moment the panels
+change, and they arrive inside a second gate, an hour later and on the other
+side of the ridge. It takes a second (`PASSAGE_IN`), 0.8 s back
+(`PASSAGE_OUT`); the panels keep their own 0.48 s film from 0.20 s in, and
+the carousel between the account form's tabs keeps its own time and does not
+touch the scene. The haze peaks at 0.35 going in and 0.25 coming back and is
+never white.
+
+**A wait is the passage held open.** The veil (`loading.rs`) raises the same
+scene around its card (`Vista::Wait`, `vista::waiting`): the gate stands wide,
+the haze and the rim rise a little over 0.4 s, and the hour turns slowly for
+as long as the wait lasts, so a long wait is seen to be going on without a
+spinner being the only thing that moves.
+
+Under `reduce_motion` nothing moves: the scene ignores time and the pointer,
+and the passage is a quarter-second change of colour to the far side's hour.
+A phone draws it without the fine skyline and the river's sparkle
+(`vista::QUALITY`). On the Mac (M1 Max, 3456×2104, debug build) the scene
+against a flat fill measured 109–113 fps against 107–111, which is noise: the
+lobby is CPU-bound there.
+
 ## The deck builder
 
 A screen of its own (`Screen::Build`), and the same split again: every

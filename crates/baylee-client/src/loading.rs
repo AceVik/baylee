@@ -26,8 +26,9 @@
 use bevy::prelude::*;
 use bevy::ui::UiTransform;
 
-use crate::ambience::{self, AmbienceMaterial};
+use crate::ambience;
 use crate::hud::{UiFonts, palette, tf};
+use crate::vista::{self, Framed, Vista, VistaMaterial};
 
 /// The colour the veil dims what is behind it to.
 ///
@@ -104,6 +105,7 @@ pub struct LoadingPlugin;
 impl Plugin for LoadingPlugin {
     fn build(&self, app: &mut App) {
         ambience::install(app);
+        crate::vista::install(app);
         app.init_resource::<Loading>()
             .add_systems(Update, (raise, pulse));
     }
@@ -129,7 +131,7 @@ fn raise(
     loading: Res<Loading>,
     fonts: Option<Res<UiFonts>>,
     veil: Query<Entity, With<Veil>>,
-    ambience: Option<ResMut<Assets<AmbienceMaterial>>>,
+    scene: Option<ResMut<Assets<VistaMaterial>>>,
     mut shown: Local<Option<String>>,
     mut asked: Local<f32>,
 ) {
@@ -187,18 +189,14 @@ fn raise(
             GlobalZIndex(400),
         ))
         .id();
-    // A different seed from the lobby's ground, so the two surfaces do not
-    // repeat each other pixel for pixel where they overlap.
-    if let Some(mut ambience) = ambience {
-        let surface = ambience::backdrop(
-            &mut commands,
-            &mut ambience,
-            Color::srgba(0.03, 0.05, 0.07, 0.55),
-            palette::ACCENT,
-            1.0,
-            7.3,
-        );
-        commands.entity(root).add_child(surface);
+    // The wait's own scene (#295): the front door's passage held open. It
+    // dims what is behind it by itself, so the plain veil gives way to it.
+    if let Some(mut scene) = scene {
+        let surface = vista::surface(&mut commands, &mut scene, Vista::Wait);
+        commands
+            .entity(root)
+            .insert(BackgroundColor(Color::NONE))
+            .add_child(surface);
     }
 
     // A panel of its own rather than text straight onto the veil: the screen
@@ -215,6 +213,7 @@ fn raise(
                 ..default()
             },
             BackgroundColor(palette::PANEL),
+            Framed(Vista::Wait),
             Pickable::IGNORE,
         ))
         .id();

@@ -92,6 +92,7 @@ pub mod targeting;
 pub mod textures;
 pub mod tokenart;
 pub mod touch;
+pub mod vista;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;

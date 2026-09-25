@@ -260,6 +260,19 @@ Urheber- und Medienrecht.
    network still has to show a player what an ability does, and the owner's
    rule is that what it shows is the card's own English, never a sentence
    the client made up.
+10. **A front door after someone else's (#295).** The gateway and sign-in
+    faces stand in a scene (`crates/baylee-client/src/vista.rs`,
+    `shaders/vista.wgsl`) that the owner asked to have the depth of the
+    login screen of Blizzard's *World of Warcraft: Midnight*. What came
+    from it is a mood and nothing else: a blue-hour key, depth told in
+    parallax layers, and joining told as passing a threshold. No image,
+    texture, logo, font, frame, ornament, layout or motif of Blizzard's is
+    in the repository or the build, nothing was traced or sampled, and no
+    screenshot of it was kept. The scene is arithmetic, like clause 5's
+    music and the table's felt: a noise sky, a ridge of crystal fins, the
+    table's epoxy river of light, and a cleft between two broken mineral
+    jambs rather than a ring or a gate of stone. It has no city, tree, elf
+    or other figure and no Magic art, and its colours are the lobby's own.
 
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet

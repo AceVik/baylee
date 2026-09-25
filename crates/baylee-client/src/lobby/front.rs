@@ -8,11 +8,14 @@
 //!
 //! # The two motions
 //!
-//! Choosing a gateway goes *into* it: the gateway panel grows past the
-//! viewer from the chosen row and fades, while the account panel comes up
-//! out of the depth, from nine tenths of its size and nothing. Back, or
-//! Escape, is the same film run backwards: the account panel sinks away and
-//! the gateway panel comes back from in front.
+//! Choosing a gateway goes *into* it, and through the cleft the scene
+//! behind the panels frames it (#295, [`crate::vista`]): the rim brightens,
+//! the viewer walks through, and arrives inside another gate an hour later.
+//! The panels ride that passage: the gateway panel grows past the viewer
+//! from the chosen row and fades, while the account panel comes up out of
+//! the depth, from nine tenths of its size and nothing. Back, or Escape, is
+//! the same film run backwards, a little faster: the account panel sinks
+//! away and the gateway panel comes back from in front.
 //!
 //! The account form's two tabs sit on one carousel, a quarter turn apart,
 //! turning about an upright axis. Both panels are in sight while it turns:
@@ -21,9 +24,11 @@
 //! perspective, so each panel is foreshortened as a whole (narrowed by the
 //! angle, and scaled by its distance) and not as a trapezoid.
 //!
-//! Both take [`MOVE_SECONDS`], eased at both ends. Under `reduce_motion`
-//! the panel changes at once and nothing moves. Nothing answers a press
-//! while a panel moves.
+//! The passage takes [`PASSAGE_IN`] (back, [`PASSAGE_OUT`]), the panels
+//! moving over [`MOVE_SECONDS`] of it from [`FILM_START`]; the carousel
+//! takes [`MOVE_SECONDS`]. Both are eased at both ends. Under
+//! `reduce_motion` the panel changes at once and nothing moves. Nothing
+//! answers a press while either runs.
 //!
 //! The tree is rebuilt from state, so a motion cannot live in it:
 //! [`FrontMotion`] holds it, [`FrontCast`] says which panels the tree draws
@@ -31,14 +36,23 @@
 //! motion starts or ends), and [`pose_front`] and [`fade_front`] write each
 //! frame's pose onto whatever panels stand.
 
-use super::ui::{Masked, status_ink};
+use super::ui::{Masked, music_toggle, status_ink};
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use crate::frontal::FrontalMaterial;
 use bevy::ui::{UiTransform, Val2};
 
-/// How long either motion takes.
+/// How long the panels take to move, in either motion.
 const MOVE_SECONDS: f32 = 0.48;
+
+/// How long walking through the cleft takes, and walking back.
+const PASSAGE_IN: f32 = 1.0;
+/// See [`PASSAGE_IN`].
+const PASSAGE_OUT: f32 = 0.8;
+
+/// When in the passage the panels start to move, in seconds of the way in:
+/// after the rim has brightened, with the gate passing the viewer.
+const FILM_START: f32 = 0.20;
 
 /// How much bigger the gateway panel is when it has been gone through: it
 /// passes the viewer, so it ends larger than the screen's middle.
@@ -171,6 +185,36 @@ impl FrontMotion {
         self.from != self.to
     }
 
+    /// Whether this is the passage through the cleft, rather than the
+    /// carousel of the account form's tabs.
+    fn through_the_door(&self) -> bool {
+        self.from == Panel::Gateway || self.to == Panel::Gateway
+    }
+
+    /// How long this motion takes.
+    fn seconds(&self) -> f32 {
+        if !self.through_the_door() {
+            MOVE_SECONDS
+        } else if self.to == Panel::Gateway {
+            PASSAGE_OUT
+        } else {
+            PASSAGE_IN
+        }
+    }
+
+    /// How far through the cleft the viewer is: 0 before it, on the
+    /// gateway's side, 1 arrived. The carousel turns on the far side.
+    pub(crate) fn progress(&self) -> f32 {
+        if !self.moving() || !self.through_the_door() {
+            return if self.to == Panel::Gateway { 0.0 } else { 1.0 };
+        }
+        if self.to == Panel::Gateway {
+            1.0 - self.t
+        } else {
+            self.t
+        }
+    }
+
     /// Lands on the panel the lobby asks for, without moving.
     #[cfg(test)]
     pub(crate) fn settle(&mut self, state: &LobbyState) {
@@ -248,7 +292,7 @@ pub(super) fn move_front(
             next = start(next.to);
         }
         if next.moving() {
-            next.t += time.delta_secs() / MOVE_SECONDS;
+            next.t += time.delta_secs() / next.seconds();
             if next.t >= 1.0 {
                 next = FrontMotion::at_rest(next.to);
             }
@@ -258,6 +302,24 @@ pub(super) fn move_front(
     cast.set_if_neq(FrontCast {
         shown: next.to,
         going: next.moving().then_some(next.from),
+    });
+}
+
+/// Tells the scene behind the front door where the passage is, and whether
+/// the front door is on screen at all.
+pub(super) fn show_scene(
+    state: Res<LobbyState>,
+    motion: Res<FrontMotion>,
+    mut scene: ResMut<crate::vista::FrontScene>,
+) {
+    let peak = if motion.to == Panel::Gateway {
+        crate::vista::HAZE_OUT
+    } else {
+        crate::vista::HAZE_IN
+    };
+    scene.set_if_neq(crate::vista::FrontScene {
+        stage: crate::vista::passage(motion.progress(), peak),
+        shown: matches!(state.lobby.screen(), Screen::SignIn { .. }),
     });
 }
 
@@ -296,14 +358,11 @@ fn pose(motion: &FrontMotion, panel: Panel, width: f32) -> Pose {
         return Pose::REST;
     }
     let eased = ease(motion.t);
-    if motion.from == Panel::Gateway || motion.to == Panel::Gateway {
-        // 0 with the gateway form up, 1 with the account form up.
-        let into = if motion.to == Panel::Gateway {
-            1.0 - eased
-        } else {
-            eased
-        };
-        door_pose(panel, into, motion.anchor)
+    if motion.through_the_door() {
+        // 0 with the gateway form up, 1 with the account form up: the
+        // panels' share of the passage, which is the same frames either way.
+        let film = (motion.progress() * PASSAGE_IN - FILM_START) / MOVE_SECONDS;
+        door_pose(panel, ease(film), motion.anchor)
     } else {
         // 0 with signing in up, 1 with creating an account up.
         let round = if motion.to == Panel::Create {
@@ -570,6 +629,9 @@ pub(super) fn stage(
                 grid_template_rows: vec![GridTrack::flex(1.0)],
                 ..default()
             },
+            // What the scene behind is framed around: the stage keeps its
+            // place while the panels on it move.
+            crate::vista::Framed(crate::vista::Vista::Front),
             Pickable::IGNORE,
         ))
         .id();
@@ -747,7 +809,8 @@ fn header(
         Phrase::LanguageAndSettings.text(lang),
         state.front_menu,
     );
-    commands.entity(header).add_children(&[words, gear]);
+    let music = music_toggle(commands, fonts, metrics, lang);
+    commands.entity(header).add_children(&[words, music, gear]);
     header
 }
 

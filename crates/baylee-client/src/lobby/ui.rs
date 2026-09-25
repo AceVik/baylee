@@ -147,6 +147,7 @@ const AMBIENT_ENERGY: f32 = 0.35;
 pub(super) fn spawn_camera(
     mut commands: Commands,
     ambience: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
+    vista: Option<ResMut<Assets<crate::vista::VistaMaterial>>>,
 ) {
     commands.spawn((
         LobbyScreen,
@@ -180,6 +181,15 @@ pub(super) fn spawn_camera(
         // loading veil spawns the same surface *inside* itself and must not.
         commands
             .entity(backdrop)
+            .insert((LobbyScreen, GlobalZIndex(-2)));
+    }
+    // The front door's scene (#295), over the field and under the screen. It
+    // hides itself once the front door has gone, and the field is the lobby's
+    // ground again.
+    if let Some(mut vista) = vista {
+        let scene = crate::vista::surface(&mut commands, &mut vista, crate::vista::Vista::Front);
+        commands
+            .entity(scene)
             .insert((LobbyScreen, GlobalZIndex(-1)));
     }
 }

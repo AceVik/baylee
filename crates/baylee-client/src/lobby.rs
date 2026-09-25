@@ -72,6 +72,7 @@ impl Plugin for LobbyPlugin {
         }
         crate::prefs::install(app);
         crate::ambience::install(app);
+        crate::vista::install(app);
         // The music before the table (#296): heard on every face of the
         // lobby, the builder's included, and faded out when a table opens.
         crate::music::install(app);
@@ -107,6 +108,7 @@ impl Plugin for LobbyPlugin {
                     (
                         source::keep_the_code,
                         front::move_front,
+                        front::show_scene,
                         ui,
                         front::pose_front,
                     )

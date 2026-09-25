@@ -1084,11 +1084,19 @@ fn ink_on(app: &mut App, panel: Panel, label: &str) -> Option<f32> {
     None
 }
 
-/// A fifth of a motion per frame.
+/// A tenth of the passage through the cleft per frame, about a fifth of the
+/// panels' own film and of the carousel.
 fn frames_of_a_fifth(app: &mut App) {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_millis(100),
     ));
+}
+
+/// Runs `frames` frames.
+fn run(app: &mut App, frames: usize) {
+    for _ in 0..frames {
+        app.update();
+    }
 }
 
 /// Runs frames until the front door stands still, and says how many it took.
@@ -1124,7 +1132,10 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
             .resource_mut::<LobbyState>()
             .select_gateway(0)
     );
-    app.update();
+    // The passage through the cleft (#295) takes a second, ten of these
+    // frames; the rim brightens for the first two, and the panels move from
+    // the third.
+    run(&mut app, 3);
     let poses = card_poses(&mut app);
     let [
         (Panel::Gateway, list, list_z),
@@ -1157,7 +1168,7 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     assert!(!app.world().resource::<LobbyState>().front_menu);
 
     let landed = frames_to_land(&mut app);
-    assert!(landed <= 4, "landed in {landed} more frames");
+    assert!(landed <= 7, "landed in {landed} more frames");
     assert_eq!(card_poses(&mut app), [(Panel::SignIn, 1.0, 1)]);
     let found = presses(&mut app);
     assert!(found.contains(&Press::Submit) && found.contains(&Press::LeaveGateway));
@@ -1175,7 +1186,8 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     // Back is the same film the other way: the list comes back from past
     // the viewer, in front, and the form sinks away behind it.
     app.world_mut().resource_mut::<LobbyState>().leave_gateway();
-    app.update();
+    // Back takes 0.8 s over the same curves: the far gate leaves first.
+    run(&mut app, 3);
     let poses = card_poses(&mut app);
     let [
         (Panel::Gateway, list, list_z),
@@ -1204,7 +1216,7 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     );
     let landed = frames_to_land(&mut app);
     assert!(
-        landed <= 2,
+        landed <= 4,
         "and has only what it came back to go: {landed}"
     );
     assert_eq!(card_poses(&mut app), [(Panel::SignIn, 1.0, 1)]);

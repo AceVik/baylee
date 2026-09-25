@@ -72,7 +72,10 @@ own row in the deck (`DeckBuilder::commander_row`), even while the sideboard
 is on screen; a click on the rest of the line reads the card. A commander
 moved out of the deck keeps its line with the pool's picture and no picker.
 
-The blue-hour ambient field is procedural. Shared HUD buttons use the same
+The blue-hour ambient field is procedural. The gateway and sign-in faces
+stand in front of a deeper scene in the same key (#295, `vista.rs`,
+`docs/client.md` §"The front door stands in a scene"), and choosing a gateway
+walks through it. Shared HUD buttons use the same
 borders, bevels and interaction treatment as the table's draw/concede controls.
 Statistics expand on demand. Card list row geometry stays mounted, while only
 visible controls plus a small overscan are mounted; scrolling does not rebuild
