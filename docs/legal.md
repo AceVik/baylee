@@ -207,6 +207,11 @@ Urheber- und Medienrecht.
      sweep), and so do the shadows a standing dome and the wall cast on
      the felt, which also carry the mask and are gone before a hover
      lifts them to a face (`a_shadow_lies_on_the_felt_outside_its_card`).
+     The hover preview wears the same shells, standing, and holds the same
+     rule: its rim and wall are exactly transparent over the preview's
+     print, the mask being the card's own outline seen from straight over
+     it, and only its dome lies over it
+     (`shellui::tests::every_colour_but_the_domes_carries_the_mask`).
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival

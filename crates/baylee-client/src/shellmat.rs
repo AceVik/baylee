@@ -76,6 +76,7 @@
 //! writes in moon-grey. With motion off it holds still, crest and all.
 
 use baylee_client_core::airborne;
+use baylee_client_core::board::KeywordBadge;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
 use bevy::asset::{RenderAssetUsages, embedded_asset};
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -331,6 +332,54 @@ impl Dome {
         } else {
             None
         }
+    }
+}
+
+/// The shells a permanent wears, from its keywords: the one door the
+/// table's rows and the preview both ask ([`crate::shellui`]), so the two
+/// never disagree about what a card is protected by.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Shells {
+    /// Indestructible's darksteel rim.
+    pub steel: bool,
+    /// Hexproof's or shroud's dome, the stronger one.
+    pub dome: Option<Dome>,
+    /// Defender's wall.
+    pub wall: bool,
+}
+
+impl Shells {
+    /// What a permanent with these keywords wears.
+    #[must_use]
+    pub fn of(badges: &[KeywordBadge]) -> Self {
+        let has = |badge| badges.contains(&badge);
+        Self {
+            steel: has(KeywordBadge::Indestructible),
+            dome: Dome::of(has(KeywordBadge::Hexproof), has(KeywordBadge::Shroud)),
+            wall: has(KeywordBadge::Defender),
+        }
+    }
+
+    /// What the preview draws, standing, as two runs in the order each is
+    /// painted: those under the card's own objects (the strip, the plate and
+    /// the count badge), which lie under them on the table too, and those
+    /// over them, a dome being glass over the whole card ([`DOME_RUNG`]).
+    /// A new shell is a look here and an arm in `shell_ui.wgsl`.
+    #[must_use]
+    pub fn standing(self) -> [Vec<ShellLook>; 2] {
+        let under = [
+            self.wall.then_some(ShellLook::steel(ShellKind::Wall)),
+            self.steel.then_some(ShellLook::steel(ShellKind::Rim)),
+        ];
+        let over = [self.dome.map(|dome| ShellLook {
+            kind: ShellKind::Dome,
+            dome: Some(dome),
+            band: Band::Whole,
+        })];
+        [
+            under.into_iter().flatten().collect(),
+            over.into_iter().flatten().collect(),
+        ]
     }
 }
 
@@ -705,10 +754,10 @@ fn outline(centre: Vec2, angle: f32, d: f32) -> (Vec2, Vec2) {
 }
 
 /// The smallest corner a ring of a dome keeps: its crown's.
-const CAP_ROUND: f32 = 0.03;
+pub(crate) const CAP_ROUND: f32 = 0.03;
 /// How much rounder a dome's ring's corners are for each unit it stands
 /// inside the card's edge.
-const DOME_ROUNDING: f32 = 1.5;
+pub(crate) const DOME_ROUNDING: f32 = 1.5;
 
 /// The four corners a card's outline turns round, and the angle each turn
 /// starts at, anticlockwise seen from above.

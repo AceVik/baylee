@@ -893,7 +893,7 @@ pub fn frame_table(
 const CAMERA_LEAN: f32 = 0.36;
 
 /// About 32° off vertical for a wide duel; rings retain [`CAMERA_LEAN`].
-const DUEL_LEAN: f32 = 0.62;
+pub(crate) const DUEL_LEAN: f32 = 0.62;
 
 /// The camera's vertical field of view, in radians.
 ///
@@ -4568,6 +4568,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 let lift = LANE_RISE * i as f32 / steps;
                 let turned = tapped[i];
                 let shown = window.shown.contains(&i);
+                let shells = shellmat::Shells::of(&group.badges);
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
@@ -4588,12 +4589,9 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // carries them, so two Serra Angels of which one has lost
                     // flying are two groups.
                     flying: group.badges.contains(&KeywordBadge::Flying),
-                    indestructible: group.badges.contains(&KeywordBadge::Indestructible),
-                    dome: shellmat::Dome::of(
-                        group.badges.contains(&KeywordBadge::Hexproof),
-                        group.badges.contains(&KeywordBadge::Shroud),
-                    ),
-                    defender: group.badges.contains(&KeywordBadge::Defender),
+                    indestructible: shells.steel,
+                    dome: shells.dome,
+                    defender: shells.wall,
                     count: group.count(),
                     badge: cardplate::count_word(group.count()),
                     art: group.art,

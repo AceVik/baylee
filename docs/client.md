@@ -2174,6 +2174,32 @@ on objects of its own:
   A card leaving the battlefield loses its shell at once; indestructible
   means nothing anywhere else, and a rim flying off with its card would
   no longer be fitted to anything on the way.
+  **The preview wears them too** (the PM, 25.09): the card held up larger
+  is the card on the felt, so its shells are the table's
+  (`shellmat::Shells::of`, the one door both read a card's badges
+  through). They are UI nodes hanging off the card's turning frame, as its
+  badge and plate are (`shellui.rs`, `shell_ui.wgsl`), sharing with the
+  table's shader what they draw with (`shell_common.wgsl`: the card's
+  outline, `rim_steel`, `dome_glass`, `brick`), so the steel, the glass
+  and the brick are one material in two places. The preview has air round
+  it, so its shells always stand as a duel's full step does: nothing lies
+  down as a ring or a band, and there is no felt for a shadow.
+  `Shells::standing` says which stand under the print (the wall, then the
+  rim) and which over it (the dome), and is where a new shell joins both
+  the preview and its order. There is no camera to follow a ray from, so
+  each shell is drawn as it stands seen from straight over the card, which
+  is what lines it up with the flat print, and lit as a duel's seat sees a
+  card of its own (`DUEL_LEAN`). From straight over the card a point's ray
+  meets the face right under it, so the mask is the card's own outline:
+  the rim and the wall are exactly transparent over the print and the
+  dome is glass over it, as on the table
+  (`shellui::tests::every_colour_but_the_domes_carries_the_mask`; taking
+  the mask off the rim's return turned it red). The node is the card
+  grown by a dome's foot on its sides and foot and by the wall's reach on
+  its top (`shellui::PREVIEW_QUAD`), and the panel is placed as one that
+  much bigger all round (`overlay::place_around`), so a preview opened at
+  any edge of the window keeps its shells on the screen, and the bubble's
+  clip lets them out as far (`a_preview_keeps_its_shells_on_the_screen`).
 
 - Drawn on the print: its own **finish** (`print_finish`), because a foil is
   what that printing *is* — the one exception the owner accepted — and

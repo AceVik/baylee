@@ -71,6 +71,81 @@ pub(super) fn plate_reach(img_w: f32) -> f32 {
     ((quad[2] - 1.0) * img_w - PREVIEW_PAD).max(0.0)
 }
 
+/// Lays one of the preview's shells over its card: a node of the frame's,
+/// one side's like the badge and the plate, so it turns with the front and
+/// is hidden with it at the quarter turn, over
+/// [`crate::shellui::PREVIEW_QUAD`], where `shell_ui.wgsl` lays each shell
+/// out.
+fn spawn_shell(
+    commands: &mut Commands,
+    surfaces: &mut Surfaces<'_>,
+    frame: Entity,
+    look: crate::shellmat::ShellLook,
+    img_w: f32,
+    img_h: f32,
+) {
+    let Some(material) = surfaces.shell(look) else {
+        return;
+    };
+    let [x0, y0, x1, y1] = crate::shellui::PREVIEW_QUAD;
+    let down = img_h / baylee_client_core::cardrail::CARD_TALL;
+    let node = commands
+        .spawn((
+            crate::shellui::PreviewShell,
+            MaterialNode(material),
+            crate::flip::Side::Front,
+            Visibility::Inherited,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(x0 * img_w),
+                top: px(y0 * down),
+                width: px((x1 - x0) * img_w),
+                height: px((y1 - y0) * down),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(frame).add_child(node);
+}
+
+/// How far past the bubble's padding the shells a card wears reach off it,
+/// in logical pixels, for a card `img_w` wide: `[side, top]`, the first off
+/// its sides and its foot, the second over its top edge. Nothing for a card
+/// that wears none. Their node reaches the same way round every look
+/// ([`crate::shellui::PREVIEW_QUAD`]), and over the top only a wall reaches
+/// further than a dome's foot does off the sides.
+pub(super) fn shell_reach(img_w: f32, shells: crate::shellmat::Shells) -> [f32; 2] {
+    use crate::shellui::{PREVIEW_SIDE, PREVIEW_TOP};
+    if shells == crate::shellmat::Shells::default() {
+        return [0.0; 2];
+    }
+    let top = if shells.wall {
+        PREVIEW_TOP
+    } else {
+        PREVIEW_SIDE
+    };
+    [PREVIEW_SIDE, top].map(|past| (past * img_w - PREVIEW_PAD).max(0.0))
+}
+
+/// Where the preview panel's top-left corner goes with everything that
+/// hangs off its card: the badge `hang[0]` over its top edge, the plate
+/// `hang[1]` off its right one, and the shells `shell` off its sides, its
+/// foot and its top ([`shell_reach`]). Placed as a panel that much bigger
+/// all round, so each lands on the screen wherever the panel does.
+pub(super) fn place_around(
+    at: super::hand::PreviewAt,
+    panel: Vec2,
+    window: Vec2,
+    keep_out: Option<Rect>,
+    hang: [f32; 2],
+    shell: [f32; 2],
+) -> Vec2 {
+    let ([badge, plate], [side, top]) = (hang, shell);
+    let grown = panel + Vec2::new(side + plate.max(side), side);
+    place_with_badge(at, grown, window, keep_out, badge.max(top)) + Vec2::new(side, 0.0)
+}
+
 /// Where the preview panel's top-left corner goes when a badge reaches
 /// `reach` over its top edge: placed as a panel that much taller, so the
 /// badge lands on the screen wherever the panel does.
@@ -85,12 +160,13 @@ pub(super) fn place_with_badge(
     preview_place(at, panel + shift, window, keep_out) + shift
 }
 
-/// The preview's objects' material caches: its strip's, its count badge's
-/// and its plate's. Each is there only once its plugin is.
+/// The preview's objects' material caches: its strip's, its count badge's,
+/// its plate's and its shells'. Each is there only once its plugin is.
 type PreviewObjects<'w> = (
     Option<ResMut<'w, crate::marksmat::UiMarksMaterials>>,
     Option<ResMut<'w, crate::badgemat::UiBadgeMaterials>>,
     Option<ResMut<'w, crate::platemat::UiPlateMaterials>>,
+    Option<ResMut<'w, crate::shellui::UiShellMaterials>>,
 );
 
 /// Removes the overlay when the duel hands the screen back.
@@ -106,7 +182,7 @@ pub fn despawn_overlay(
     mut revision: ResMut<HudRevision>,
     mut ledge: ResMut<ledge::LedgeRevision>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
-    (strips, badges, plates): PreviewObjects<'_>,
+    (strips, badges, plates, shells): PreviewObjects<'_>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -129,6 +205,9 @@ pub fn despawn_overlay(
     }
     if let Some(mut plates) = plates {
         plates.clear();
+    }
+    if let Some(mut shells) = shells {
+        shells.clear();
     }
 }
 
@@ -176,6 +255,11 @@ pub struct Surfaces<'w> {
     plates: Option<ResMut<'w, crate::platemat::UiPlateMaterials>>,
     /// Where they are minted.
     plate_assets: Option<ResMut<'w, Assets<crate::platemat::PlateUiMaterial>>>,
+    /// The preview's shell materials, one per look. Optional for the cloth's
+    /// reason: `ShellUiPlugin` puts them there.
+    shells: Option<ResMut<'w, crate::shellui::UiShellMaterials>>,
+    /// Where they are minted.
+    shell_assets: Option<ResMut<'w, Assets<crate::shellui::ShellUiMaterial>>>,
 }
 
 impl Surfaces<'_> {
@@ -216,6 +300,15 @@ impl Surfaces<'_> {
     ) -> Option<Handle<crate::platemat::PlateUiMaterial>> {
         let assets = self.plate_assets.as_deref_mut()?;
         Some(self.plates.as_mut()?.get(words, assets))
+    }
+
+    /// The shell `look`, or `None` when there is nowhere to draw it.
+    fn shell(
+        &mut self,
+        look: crate::shellmat::ShellLook,
+    ) -> Option<Handle<crate::shellui::ShellUiMaterial>> {
+        let assets = self.shell_assets.as_deref_mut()?;
+        Some(self.shells.as_mut()?.get(look, assets))
     }
 }
 
@@ -667,13 +760,18 @@ pub fn sync_overlay(
             } else {
                 0.0
             };
-            let place = place_with_badge(
-                anchor,
-                panel + Vec2::new(plate_over, 0.0),
-                window,
-                keep_out,
-                reach,
-            );
+            // And the shells it wears on the felt (the PM, 25.09), from the
+            // door the table asks: a dome's foot off its sides and its foot,
+            // a wall over its top. The panel is placed as one that much
+            // bigger all round, and the clip lets them out as far.
+            let shells = hovered
+                .and_then(|id| board.group(id))
+                .map(|group| crate::shellmat::Shells::of(&group.badges))
+                .unwrap_or_default();
+            let shell = shell_reach(img_w, shells);
+            let [shell_side, shell_top] = shell;
+            let place = place_around(anchor, panel, window, keep_out, [reach, plate_over], shell);
+            let [under, over] = shells.standing();
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
                 ..art
@@ -800,7 +898,7 @@ pub fn sync_overlay(
                         border_radius: preview_radius(img_w),
                         overflow: Overflow::clip(),
                         overflow_clip_margin: OverflowClipMargin::padding_box()
-                            .with_margin(reach.max(plate_over)),
+                            .with_margin(reach.max(plate_over).max(shell_side).max(shell_top)),
                         ..default()
                     },
                     // Transparent, like the hand zone under it and for the
@@ -892,6 +990,13 @@ pub fn sync_overlay(
                 face_node(img_w, img_h),
             ));
             commands.entity(frame).add_child(far);
+            // The shells under the card's own objects, the wall and the rim,
+            // hang off the frame for the badge's reason below, and are laid
+            // before them: on the table they lie under the strip, the plate
+            // and the badge too.
+            for look in under {
+                spawn_shell(&mut commands, &mut surfaces, frame, look, img_w, img_h);
+            }
             // The badge hangs off the frame and not off the face, whose node
             // clips to the card: it is one side's, so it turns with the front
             // and is hidden with it at the quarter turn.
@@ -941,6 +1046,11 @@ pub fn sync_overlay(
                     ))
                     .id();
                 commands.entity(frame).add_child(node);
+            }
+            // A dome last, over everything the card says: it is glass over
+            // the whole card, as on the table.
+            for look in over {
+                spawn_shell(&mut commands, &mut surfaces, frame, look, img_w, img_h);
             }
             commands.entity(tooltip).add_child(frame);
             // The preview is a *description of* the hovered card, so it must

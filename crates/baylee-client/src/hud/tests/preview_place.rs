@@ -569,3 +569,72 @@ fn a_preview_keeps_its_plate_on_the_screen() {
         }
     }
 }
+
+/// A preview wears its card's shells as the table does (the PM, 25.09): a
+/// dome's foot off its sides and its foot, a wall over its top. The panel is
+/// placed as one that much bigger all round, so every shell lands on the
+/// screen at the window's edges, and the bubble's clip lets each out as far
+/// as it reaches.
+#[test]
+fn a_preview_keeps_its_shells_on_the_screen() {
+    use crate::hud::overlay::{place_around, shell_reach};
+    use crate::shellmat::{DOME_MARGIN, Dome, Shells, WALL_THICK, wall_arc};
+    use baylee_client_core::cardrail::CARD_TALL;
+    use baylee_client_core::layout::CARD_HEIGHT;
+    let (middle, out, _) = wall_arc(0.5);
+    let wall = middle.y + out.y * WALL_THICK / 2.0 - CARD_HEIGHT / 2.0;
+    let all = Shells {
+        steel: true,
+        dome: Some(Dome::Shroud),
+        wall: true,
+    };
+    assert!(
+        shell_reach(308.0, Shells::default())
+            .iter()
+            .all(|r| r.abs() < 1e-6),
+        "no shells, no reach"
+    );
+    for img_w in [154.0_f32, 308.0, 539.0] {
+        let img_h = img_w * CARD_TALL;
+        let [side, top] = shell_reach(img_w, all);
+        assert!(
+            side + 6.0 >= DOME_MARGIN * img_w - 1e-3 && top + 6.0 >= wall * img_w - 1e-3,
+            "a card {img_w} wide: the clip lets out {side} and {top} past the padding"
+        );
+        let panel = Vec2::new(img_w + 12.0, img_h + 12.0);
+        for at in [
+            PreviewAt::Pointer(Vec2::new(4.0, 300.0)),
+            PreviewAt::Pointer(Vec2::new(1724.0, 300.0)),
+            PreviewAt::Pointer(Vec2::new(860.0, 2.0)),
+            PreviewAt::Card(Rect::from_corners(
+                Vec2::new(0.0, 200.0),
+                Vec2::new(40.0, 256.0),
+            )),
+            PreviewAt::Card(Rect::from_corners(
+                Vec2::new(1688.0, 200.0),
+                Vec2::new(1728.0, 256.0),
+            )),
+            PreviewAt::Card(Rect::from_corners(
+                Vec2::new(800.0, 0.0),
+                Vec2::new(840.0, 56.0),
+            )),
+            PreviewAt::Hand(20.0),
+        ] {
+            let place = place_around(at, panel, WINDOW, None, [0.0; 2], [side, top]);
+            let card = place + Vec2::splat(6.0);
+            let edges = [
+                card.x - DOME_MARGIN * img_w,
+                card.y - wall * img_w,
+                card.x + img_w + DOME_MARGIN * img_w,
+                card.y + img_h + DOME_MARGIN * img_w,
+            ];
+            assert!(
+                edges[0] >= -1e-3
+                    && edges[1] >= -1e-3
+                    && edges[2] <= WINDOW.x + 1e-3
+                    && edges[3] <= WINDOW.y + 1e-3,
+                "{at:?}, a card {img_w} wide: its shells reach {edges:?}, off the screen"
+            );
+        }
+    }
+}

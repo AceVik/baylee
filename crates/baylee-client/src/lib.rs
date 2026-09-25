@@ -85,6 +85,7 @@ pub mod settings;
 pub mod settingsui;
 pub mod sheen;
 pub mod shellmat;
+pub mod shellui;
 pub mod sky;
 pub mod softkeys;
 pub mod sound;
@@ -1600,6 +1601,7 @@ impl Plugin for DuelPlugin {
             .add_plugins(platemat::PlateMaterialPlugin)
             .add_plugins(floormat::FloorMaterialPlugin)
             .add_plugins(shellmat::ShellMaterialPlugin)
+            .add_plugins(shellui::ShellUiPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
             .add_plugins(frontal::FrontalPlugin)
             .add_plugins(matmat::MatMaterialPlugin)
