@@ -10,7 +10,8 @@
 //
 // The steel is darksteel, Magic's own indestructible metal (the owner,
 // 25.09): nearly black, darker than the felt it stands on, and read by the
-// pale light along its crest and the silver band going round it.
+// pale light along its crest and the silver band going round it. The domes
+// are light in the lobby's blue-hour key, their colour in `params.tint`.
 
 #import bevy_pbr::mesh_functions::{get_world_from_local, get_local_from_world, mesh_position_local_to_world, mesh_normal_local_to_world}
 #import bevy_pbr::view_transformations::position_world_to_clip
@@ -18,19 +19,25 @@
 #import "embedded://baylee_client/shaders/card_common.wgsl"::perimeter
 
 struct ShellParams {
+    /// A dome's colour, linear; the steel ignores it.
+    tint: vec4<f32>,
     /// `shellmat::ShellKind`.
     kind: u32,
     /// The clock every animated term runs on: 1 normally, 0 for
     /// `Preferences::reduce_motion`.
     motion: f32,
-    /// Sixteen-byte rows under the GL backend's `std140`.
-    pad: vec2<u32>,
+    /// Where a ring's band, or a dome's foot line, starts and ends past the
+    /// card's edge.
+    inner: f32,
+    outer: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: ShellParams;
 
 const SHELL_RIM: u32 = 1u;
 const SHELL_RING: u32 = 2u;
+const SHELL_DOME: u32 = 3u;
+const SHELL_DOME_RING: u32 = 4u;
 
 /// The card, in its own space: half its width and height, and its corner.
 /// `shellmat` holds these to `CARD_WIDTH`, `CARD_HEIGHT` and `CARD_CORNER`.
@@ -42,9 +49,8 @@ const MASK_FEATHER: f32 = 0.012;
 /// The rim's top edge over the face, and its foot under it.
 const RIM_RISE: f32 = 0.01;
 const RIM_DROP: f32 = 0.083;
-/// Where the ring on the felt starts and ends, past the card's edge.
-const RING_INNER: f32 = 0.10;
-const RING_OUTER: f32 = 0.16;
+/// How far a ring's edges and a dome's foot line take to fade in.
+const SOFT: f32 = 0.012;
 
 /// Darksteel, linear: the metal, and the light it gives back, a cool
 /// silver.
@@ -127,13 +133,30 @@ fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
     // How far down the rim's slope this is: 0 at its top edge, 1 at its foot.
     let down = clamp((RIM_RISE - in.local_pos.z) / (RIM_RISE + RIM_DROP), 0.0, 1.0);
 
-    if params.kind == SHELL_RING {
-        let colour = steel(n, v, band, 0.0);
+    // How far past the card's edge this point is.
+    let d = card_sdf(in.local_pos.xy);
+    // A dome's light breathes between 1 and 1.1 once every six seconds; with
+    // motion off, its mean.
+    let breath = 1.05 + 0.05 * m * sin(globals.time * 1.047);
+    if params.kind == SHELL_RING || params.kind == SHELL_DOME_RING {
         // Soft at both edges, so it lies on the felt rather than cut into it.
-        let d = card_sdf(in.local_pos.xy);
-        let body = smoothstep(RING_INNER, RING_INNER + 0.012, d)
-            * (1.0 - smoothstep(RING_OUTER - 0.012, RING_OUTER, d));
+        let body = smoothstep(params.inner, params.inner + SOFT, d)
+            * (1.0 - smoothstep(params.outer - SOFT, params.outer, d));
+        if params.kind == SHELL_DOME_RING {
+            return vec4<f32>(params.tint.rgb, 0.8 * breath * body * clear);
+        }
+        let colour = steel(n, v, band, 0.0);
         return vec4<f32>(colour, 0.9 * body * clear);
+    }
+    if params.kind == SHELL_DOME {
+        // Light on a surface of glass: faint where it faces the camera,
+        // bright where it turns away (from the view alone; there are no
+        // lights), a base of it everywhere, and a line along its foot.
+        let fresnel = pow(1.0 - abs(dot(n, v)), 2.0);
+        let foot = smoothstep(params.inner, params.outer, d)
+            * (1.0 - smoothstep(params.outer - 0.3 * SOFT, params.outer, d));
+        let glow = (0.05 + 0.55 * fresnel + 0.35 * foot) * breath;
+        return vec4<f32>(params.tint.rgb, min(glow, 1.0) * clear);
     }
     // The rim: a lip of light along its crest, darker towards its foot,
     // where it meets the felt.

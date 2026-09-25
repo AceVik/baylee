@@ -1837,8 +1837,20 @@ on objects of its own:
   than the felt, read by a pale lip along its crest. It stands round the
   card from `RIM_RISE` (0.010) above its face down to the felt,
   `RIM_MARGIN` (0.04) out, with a silver band of light going round it once
-  every seven seconds (its mean, when motion is off). Domes for hexproof and shroud and a wall for
-  defender are the next slices. Two rules hold every shell:
+  every seven seconds (its mean, when motion is off). Hexproof's is a
+  dome of light, blue, and shroud's the same dome in violet, which
+  swallows hexproof as the strip's marks do: one dome, never two colours
+  in one (`shellmat::Dome`, a row of margin, height and colour, so ward
+  and protection (#302) will be rows). It is a pillow over the card, its
+  plateau `DOME_HEIGHT` (0.20) over the face, `DOME_INSET` (0.25) in from
+  a skirt that meets the felt `DOME_MARGIN` (0.10) past the card's edge,
+  down a quarter ellipse; light from the view angle alone (fresnel, no
+  lights), a faint base of it and a line along its foot, breathing
+  between 1 and 1.1 every six seconds. It is blended, not added: Bevy
+  draws `Add` premultiplied, where a colour with alpha zero is still
+  added, and the mask below is an alpha. Its back faces are drawn, since
+  the half of it the mask leaves is the far side, seen from within. A
+  wall for defender is the next slice. Two rules hold every shell:
   - **Exactly nothing over its own print.** Its vertex stage hands the
     fragment the camera in the shell's own space (`get_local_from_world`),
     the fragment follows its ray to the card's face, and where that meets
@@ -1863,12 +1875,30 @@ on objects of its own:
     held flat under its card the way a flier's shadow is. A ring stands up
     again only if the rim would fit `STAND_AGAIN` (a flier's whole bob)
     higher, so a flier at the edge does not swap on every bob.
-    `a_standing_rim_never_lands_on_another_cards_print` follows the real
-    camera's ray through every point of every standing rim onto every
-    card below it, on duels at three windows and rings of three, four and
-    eight, comfortable and fanned, with and without hovers, from the
-    home shot and every seat's framing: none lands on a print, and both
-    halves of the choice are taken hundreds of times.
+    The dome is the same guard over a taller profile
+    (`shellmat::shell_stands`, `profile_reach`: the furthest landing along
+    the mesh's own straight runs is at a point of the profile or where a
+    run goes under the face). It is tried at each of `DOME_STEPS` (full,
+    0.7, 0.5, 0.3 of its height) from the tallest down
+    (`shellmat::dome_step`), so a dome with a little air stands lower,
+    and one with none lies down as a ring in its colour; a taller step,
+    or standing up from lying, needs `STAND_AGAIN` of headroom. What a
+    dome's plateau throws lands inside its own card's edge, and can still
+    land on a card lying across that edge (a flier over its neighbour), so
+    a card that overlaps it refuses any shell standing above its face.
+    Where the steel and the dome both lie, they share the band inside
+    out, as they stand: steel `RING_INNER`..`RING_SPLIT` (0.10–0.13), the
+    dome `RING_SPLIT`..`RING_OUTER` (0.13–0.16) (the PM, 25.09); alone,
+    each takes the whole band.
+    `a_standing_rim_never_lands_on_another_cards_print` and
+    `a_standing_dome_never_lands_on_another_cards_print` follow the real
+    camera's ray through every point of every standing rim or dome onto
+    every card below it, on duels at three windows and rings of three,
+    four and eight, sparse, comfortable and fanned, with and without
+    hovers, from the home shot, every seat's framing and every other
+    seat's side of the table: none lands on a print, both halves of each
+    choice are taken hundreds of times, and domes stand at every step.
+    Taking the guard away turns both red by the million.
   A card leaving the battlefield loses its shell at once; indestructible
   means nothing anywhere else, and a rim flying off with its card would
   no longer be fitted to anything on the way.

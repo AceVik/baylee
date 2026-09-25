@@ -1,11 +1,11 @@
-//! The shell round an indestructible permanent, on real tables (#298): a rim
-//! that stands never lands on another card's print, seen from the real
-//! camera; the mask still leaves a rim to see; and both halves of the choice
-//! are taken, so neither test above is true of nothing.
+//! The shells round a protected permanent, on real tables (#298): a rim or a
+//! dome that stands never lands on another card's print, seen from the real
+//! camera of every seat; the mask still leaves a rim to see; and both halves
+//! of each choice are taken, so neither test is true of nothing.
 
 use super::flying_tests::creature;
 use super::*;
-use crate::shellmat::{self, Footprint};
+use crate::shellmat::{self, Dome, Footprint};
 use baylee_client_core::board::{BoardModel, Lane, SeatPod};
 use baylee_client_core::layout::LaneKind;
 
@@ -119,17 +119,23 @@ fn pose(placement: &Placement, hovered: bool) -> Transform {
 }
 
 /// Every shot a player gets of `duel`: the whole table, and each seat
-/// framed on its own.
+/// framed on its own; and the whole table from every other seat's side, as
+/// that player's own client shows it, turned round the table's middle.
 fn eyes(duel: &Duel, window: Vec2) -> Vec<Vec3> {
     let layout = duel.layout.as_ref().expect("a layout");
-    let mut out = vec![
-        CameraRig::home(layout, Canvas::hud(window))
-            .eye()
-            .translation,
-    ];
+    let home = CameraRig::home(layout, Canvas::hud(window))
+        .eye()
+        .translation;
+    let mut out = vec![home];
     for slot in &layout.slots {
         let world = Vec2::new(slot.center.x, -slot.center.y);
         out.push(CameraRig::framing(slot, world).eye().translation);
+    }
+    let seats = layout.slots.len();
+    for seat in 1..seats {
+        #[expect(clippy::cast_precision_loss)] // a handful of seats
+        let turn = std::f32::consts::TAU * seat as f32 / seats as f32;
+        out.push(Quat::from_rotation_y(turn) * home);
     }
     out
 }
@@ -163,6 +169,8 @@ fn rim_points() -> Vec<(Vec3, bool)> {
 struct Sweep {
     standing: usize,
     lying: usize,
+    /// For domes: how many stood at each step.
+    steps: [usize; shellmat::DOME_STEPS.len()],
     /// Rim points drawn over another card's print: where, and on what.
     trespass: Vec<String>,
     /// Of the standing rims' points, how many the mask leaves more than
@@ -205,36 +213,106 @@ fn sweep(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
             if clear == 0.0 {
                 continue;
             }
-            let world = rim.transform_point3(p);
-            for (j, other) in poses.iter().enumerate() {
-                if j == i || other.translation.distance(at.translation) > 2.5 {
-                    continue;
-                }
-                let face = other.translation.y + CARD_THICKNESS * other.scale.y;
-                if world.y <= face {
-                    continue;
-                }
-                let landing = eye + (world - eye) * ((eye.y - face) / (eye.y - world.y));
-                let on = other.to_matrix().inverse().transform_point3(landing);
-                if shellmat::card_sdf(on.truncate()) < -1e-4 {
-                    found.trespass.push(format!(
-                        "rim of {:?} at {world} lands {:.4} inside {:?}",
-                        placed[i].object,
-                        -shellmat::card_sdf(on.truncate()),
-                        placed[j].object
-                    ));
-                }
+            land(rim.transform_point3(p), i, placed, &poses, eye, found);
+        }
+    }
+}
+
+/// Follows the ray from `eye` through `world`, a point of card `i`'s shell,
+/// down to the face of every other card it stands above, and records it if
+/// it lands on that card's print.
+fn land(
+    world: Vec3,
+    i: usize,
+    placed: &[Placement],
+    poses: &[Transform],
+    eye: Vec3,
+    found: &mut Sweep,
+) {
+    for (j, other) in poses.iter().enumerate() {
+        if j == i || other.translation.distance(poses[i].translation) > 3.0 {
+            continue;
+        }
+        let face = other.translation.y + CARD_THICKNESS * other.scale.y;
+        if world.y <= face {
+            continue;
+        }
+        let landing = eye + (world - eye) * ((eye.y - face) / (eye.y - world.y));
+        let on = other.to_matrix().inverse().transform_point3(landing);
+        if shellmat::card_sdf(on.truncate()) < -1e-4 {
+            found.trespass.push(format!(
+                "shell of {:?} at {world} lands {:.4} inside {:?}",
+                placed[i].object,
+                -shellmat::card_sdf(on.truncate()),
+                placed[j].object
+            ));
+        }
+    }
+}
+
+/// A dome's points at `step`, in its own space: every vertex of its mesh,
+/// and the middle of every run between two rings.
+fn dome_points(row: shellmat::DomeRow, step: f32) -> Vec<Vec3> {
+    let mesh = shellmat::dome_mesh(row, step);
+    let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        panic!("a dome has positions");
+    };
+    let at: Vec<Vec3> = at.iter().map(|p| Vec3::from_array(*p)).collect();
+    let around = (at.len() - 1) / shellmat::DOME_RINGS;
+    let mut out = at.clone();
+    for k in 0..(shellmat::DOME_RINGS - 1) * around {
+        out.push(at[k].lerp(at[k + around], 0.5));
+    }
+    out
+}
+
+/// Stands every card's dome as `fit_the_shells` would at its most
+/// permissive, already standing at full height, and follows the ray from
+/// `eye` through every point of every standing dome down to every card's
+/// face below it.
+fn sweep_domes(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
+    let row = Dome::Hexproof.row();
+    let points: Vec<Vec<Vec3>> = shellmat::DOME_STEPS
+        .iter()
+        .map(|&step| dome_points(row, step))
+        .collect();
+    let poses: Vec<Transform> = placed
+        .iter()
+        .zip(hovered)
+        .map(|(p, &h)| pose(p, h))
+        .collect();
+    let faces: Vec<Footprint> = poses.iter().map(Footprint::of).collect();
+    for (i, at) in poses.iter().enumerate() {
+        let others = faces
+            .iter()
+            .enumerate()
+            .filter(move |(j, _)| *j != i)
+            .map(|(_, f)| *f);
+        let Some(step) = shellmat::dome_step(row, Some(0), &faces[i], others, eye) else {
+            found.lying += 1;
+            continue;
+        };
+        found.standing += 1;
+        found.steps[step] += 1;
+        let dome = at.to_matrix() * Mat4::from_translation(Vec3::Z * CARD_THICKNESS);
+        let cam = dome.inverse().transform_point3(eye);
+        for &p in &points[step] {
+            if shellmat::clear_over_print(cam, p) == 0.0 {
+                continue;
             }
+            land(dome.transform_point3(p), i, placed, &poses, eye, found);
         }
     }
 }
 
 /// The tables the sweeps are taken on: a duel at three windows, including
 /// the wide one that leans the camera furthest, and rings of three, four and
-/// eight, each with comfortable rows and with fanned ones.
+/// eight, each with sparse rows, comfortable ones and fanned ones.
 fn tables() -> Vec<(u8, [usize; 3], Vec2)> {
     let mut out = Vec::new();
-    for row in [[5, 4, 6], [14, 11, 16]] {
+    for row in [[2, 1, 3], [5, 4, 6], [14, 11, 16]] {
         for window in [
             Vec2::new(800.0, 600.0),
             Vec2::new(1280.0, 800.0),
@@ -337,5 +415,47 @@ fn a_rim_lies_down_for_a_neighbour_and_stands_up_without_one() {
     assert!(
         !shellmat::rim_stands(&me, [near], eye, shellmat::STAND_AGAIN),
         "stood up again at the edge"
+    );
+}
+
+/// A standing dome never lands on another card's print: from every shot the
+/// table is seen from, every seat's side included, with and without cards
+/// lifted under a hover. And the sweep is not true of nothing: domes stand,
+/// at more than one height, and domes lie down.
+#[test]
+fn a_standing_dome_never_lands_on_another_cards_print() {
+    let mut found = Sweep::default();
+    for (seats, row, window) in tables() {
+        let duel = table(seats, row, window);
+        let placed = placements(&duel);
+        for hovered in [
+            vec![false; placed.len()],
+            (0..placed.len()).map(|i| i % 5 == 2).collect(),
+        ] {
+            for eye in eyes(&duel, window) {
+                sweep_domes(&placed, &hovered, eye, &mut found);
+            }
+        }
+    }
+    assert!(
+        found.trespass.is_empty(),
+        "{} dome points land on a print, the first: {:?}",
+        found.trespass.len(),
+        &found.trespass[..found.trespass.len().min(5)]
+    );
+    assert!(
+        found.standing >= 100 && found.lying >= 100,
+        "the sweep takes one side only: {} standing, {} lying",
+        found.standing,
+        found.lying
+    );
+    assert!(
+        found.steps.iter().filter(|&&n| n > 0).count() >= 2,
+        "domes stood at one height only: {:?}",
+        found.steps
+    );
+    eprintln!(
+        "{} standing {:?}, {} lying",
+        found.standing, found.steps, found.lying
     );
 }

@@ -29,6 +29,18 @@
 //! past the edge. That is about 0.013 of a card width. A rim level to its
 //! own foot, as first planned, reached 0.055, and two untapped cards in
 //! neighbouring rows of a ring are 0.0185 apart.
+//!
+//! The second is a dome of light for hexproof (blue) or shroud (violet,
+//! which swallows hexproof): a pillow over the card, its plateau
+//! [`DOME_HEIGHT`] over the face and its skirt on the felt [`DOME_MARGIN`]
+//! past the card's edge. It is the same argument with a taller profile, so it
+//! is the same guard ([`shell_stands`] over [`dome_profile`]), tried at each
+//! of [`DOME_STEPS`] from the tallest down: a dome with a little air stands
+//! lower, and one with none lies down as a ring in its colour. Where the
+//! steel and the dome both lie, they share the ring's band inside out, as
+//! they stand: steel [`RING_INNER`]..[`RING_SPLIT`], the dome
+//! [`RING_SPLIT`]..[`RING_OUTER`] (the PM, 25.09). Which dome is a row
+//! ([`Dome::row`]), so ward and protection (#302) are rows too.
 
 use baylee_client_core::airborne;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
@@ -68,10 +80,37 @@ pub const RIM_RUNG: f32 = STRIP_RUNG - 0.001;
 /// with it, a ring stands up only if its rim would fit at the top of the bob.
 pub const STAND_AGAIN: f32 = 2.0 * airborne::SWAY;
 
+/// Where the band a ring lies in is cut in two when the steel and a dome
+/// both lie down: the steel inside, the dome outside.
+pub const RING_SPLIT: f32 = 0.13;
+/// How far past the card's edge a dome's skirt meets the felt: outside the
+/// steel rim's foot, inside the band its ring lies in.
+pub const DOME_MARGIN: f32 = 0.10;
+/// How high a dome's plateau stands over the card's face at full height.
+pub const DOME_HEIGHT: f32 = 0.20;
+/// How far in from its skirt a dome's plateau begins: the run of the quarter
+/// ellipse from the one to the other.
+pub const DOME_INSET: f32 = 0.25;
+/// How wide the brighter line along a dome's foot is.
+pub const DOME_FOOT: f32 = 0.03;
+/// The heights a dome may stand at, as shares of its row's full height,
+/// tallest first. Below the last it lies down as a ring.
+pub const DOME_STEPS: [f32; 4] = [1.0, 0.7, 0.5, 0.3];
+/// How many rings a dome's profile is drawn and measured with, from its
+/// plateau's edge down to its skirt.
+pub const DOME_RINGS: usize = 8;
+/// Where a dome sits in the transparent pass: over the rim it stands
+/// outside of, under the strip and the count badge.
+pub const DOME_RUNG: f32 = RIM_RUNG + 0.0005;
+
 const _: () = assert!(RING_INNER >= crate::floormat::REACH && RING_OUTER > RING_INNER);
+const _: () = assert!(RING_SPLIT > RING_INNER && RING_SPLIT < RING_OUTER);
 // Over the offer's light by a rung of the ladder, and under every card.
 const _: () = assert!(RING_RUNG >= FLOOR_RUNG + 0.0005 && RING_RUNG < CARD_LIFT);
 const _: () = assert!(RIM_RISE > 0.0 && RIM_MARGIN > 0.0);
+// A dome stands outside the rim and inside its own ring's band.
+const _: () = assert!(DOME_MARGIN > RIM_MARGIN && DOME_MARGIN <= RING_INNER);
+const _: () = assert!(DOME_RUNG > RIM_RUNG && DOME_RUNG < STRIP_RUNG);
 
 /// Which shell a material draws, as `shell.wgsl` reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -81,50 +120,194 @@ pub enum ShellKind {
     Rim = 1,
     /// The same steel as a ring on the felt, where the rim has no room.
     Ring = 2,
+    /// A dome of light over the card: hexproof's or shroud's.
+    Dome = 3,
+    /// A dome lying down as a ring on the felt, in its colour.
+    DomeRing = 4,
+}
+
+/// A protection that stands over its card as a dome of light (#298).
+///
+/// Only a permanent's strongest one is drawn: shroud swallows hexproof, as
+/// the strip's own marks do. Ward and protection from a colour (#302) will
+/// be rows here, not code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Dome {
+    /// Blue: only its controller's spells and abilities may target it.
+    Hexproof,
+    /// Violet: nothing may target it.
+    Shroud,
+}
+
+/// One dome's shape and colour.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DomeRow {
+    /// How far past the card's edge its skirt meets the felt.
+    pub margin: f32,
+    /// How high its plateau stands over the card's face, at full height.
+    pub height: f32,
+    /// Its colour, linear, in the lobby's blue-hour key.
+    pub tint: [f32; 3],
+}
+
+impl Dome {
+    /// Every dome, for building their meshes up front.
+    pub const ALL: [Self; 2] = [Self::Hexproof, Self::Shroud];
+
+    /// The dome's row.
+    #[must_use]
+    pub const fn row(self) -> DomeRow {
+        let tint = match self {
+            Self::Hexproof => [0.25, 0.55, 1.0],
+            Self::Shroud => [0.55, 0.25, 0.95],
+        };
+        DomeRow {
+            margin: DOME_MARGIN,
+            height: DOME_HEIGHT,
+            tint,
+        }
+    }
+
+    /// The dome a permanent with these keywords wears, if any.
+    #[must_use]
+    pub const fn of(hexproof: bool, shroud: bool) -> Option<Self> {
+        if shroud {
+            Some(Self::Shroud)
+        } else if hexproof {
+            Some(Self::Hexproof)
+        } else {
+            None
+        }
+    }
+}
+
+/// Which part of the ring's band a ring lies in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Band {
+    /// All of it: the only ring lying round its card.
+    Whole,
+    /// Its inner half, for the steel under a dome's ring.
+    Inner,
+    /// Its outer half, for a dome's ring round the steel's.
+    Outer,
+}
+
+impl Band {
+    /// Every band, for building their meshes up front.
+    pub const ALL: [Self; 3] = [Self::Whole, Self::Inner, Self::Outer];
+
+    /// Where the band starts and ends past the card's edge.
+    #[must_use]
+    pub const fn edges(self) -> [(f32, f32); 2] {
+        match self {
+            Self::Whole => [(RING_INNER, 0.0), (RING_OUTER, 0.0)],
+            Self::Inner => [(RING_INNER, 0.0), (RING_SPLIT, 0.0)],
+            Self::Outer => [(RING_SPLIT, 0.0), (RING_OUTER, 0.0)],
+        }
+    }
+}
+
+/// Everything a shell's material is told: one material per look, however
+/// many cards wear it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ShellLook {
+    /// What is drawn.
+    pub kind: ShellKind,
+    /// Whose colour, for a dome and its ring.
+    pub dome: Option<Dome>,
+    /// Which part of the band, for a ring.
+    pub band: Band,
+}
+
+impl ShellLook {
+    /// A look with no dome, over the whole band.
+    #[must_use]
+    pub const fn steel(kind: ShellKind) -> Self {
+        Self {
+            kind,
+            dome: None,
+            band: Band::Whole,
+        }
+    }
 }
 
 /// What the shell's shader reads.
 ///
-/// Sixteen bytes, for the reason [`FloorParams`](crate::floormat::FloorParams)
-/// is.
+/// Two whole `std140` rows, for the reason
+/// [`FloorParams`](crate::floormat::FloorParams) is one.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct ShellParams {
+    /// A dome's colour, linear; the steel ignores it.
+    pub tint: Vec4,
     /// A [`ShellKind`].
     pub kind: u32,
     /// The clock: [`MOVING`](crate::cardmat::MOVING) or
     /// [`STILL`](crate::cardmat::STILL).
     pub motion: f32,
-    /// The block's last eight bytes.
-    pub pad: UVec2,
+    /// Where a ring's band, or a dome's foot line, starts and ends past the
+    /// card's edge.
+    pub inner: f32,
+    /// See [`Self::inner`].
+    pub outer: f32,
 }
 
-/// One shell's material. The key is the kind and nothing else, so a table
-/// has one material per kind of shell however many cards wear it.
+/// One shell's material.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+#[bind_group_data(ShellKey)]
 pub struct ShellMaterial {
-    /// The kind and the clock.
+    /// The look and the clock.
     #[uniform(0)]
     pub params: ShellParams,
 }
 
+/// What a shell's pipeline is specialised on: whether its back faces are
+/// drawn.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ShellKey {
+    /// A dome is light on a surface of glass: from the camera its far side is
+    /// seen from within, and that is the half that stands past the card's
+    /// far edge, where the mask lets it be seen.
+    double_sided: bool,
+}
+
+impl From<&ShellMaterial> for ShellKey {
+    fn from(material: &ShellMaterial) -> Self {
+        Self {
+            double_sided: material.kind() == ShellKind::Dome,
+        }
+    }
+}
+
 impl ShellMaterial {
-    /// The material for `kind` on the clock `motion`.
+    /// The material for `look` on the clock `motion`.
     #[must_use]
-    pub fn new(kind: ShellKind, motion: f32) -> Self {
+    pub fn new(look: ShellLook, motion: f32) -> Self {
+        let tint = look.dome.map_or([0.0; 3], |dome| dome.row().tint);
+        let (inner, outer) = if let (ShellKind::Dome, Some(dome)) = (look.kind, look.dome) {
+            let margin = dome.row().margin;
+            (margin - DOME_FOOT, margin)
+        } else {
+            let [(inner, _), (outer, _)] = look.band.edges();
+            (inner, outer)
+        };
         Self {
             params: ShellParams {
-                kind: kind as u32,
+                tint: Vec3::from_array(tint).extend(1.0),
+                kind: look.kind as u32,
                 motion,
-                pad: UVec2::ZERO,
+                inner,
+                outer,
             },
         }
     }
 
     fn kind(&self) -> ShellKind {
-        if self.params.kind == ShellKind::Ring as u32 {
-            ShellKind::Ring
-        } else {
-            ShellKind::Rim
+        match self.params.kind {
+            2 => ShellKind::Ring,
+            3 => ShellKind::Dome,
+            4 => ShellKind::DomeRing,
+            _ => ShellKind::Rim,
         }
     }
 }
@@ -140,17 +323,32 @@ impl Material for ShellMaterial {
         "embedded://baylee_client/shaders/shell.wgsl".into()
     }
 
-    /// Blended, so the mask's zero is nothing at all.
+    /// Blended, so the mask's zero is nothing at all. Not `Add`, which a
+    /// dome's light would suggest: Bevy draws `Add` premultiplied, where a
+    /// colour with alpha zero is still added, and the mask is an alpha.
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
     }
 
-    /// See [`RIM_RUNG`] and [`RING_RUNG`].
+    /// See [`RIM_RUNG`], [`RING_RUNG`] and [`DOME_RUNG`].
     fn depth_bias(&self) -> f32 {
         crate::table::sort_bias(match self.kind() {
             ShellKind::Rim => RIM_RUNG,
-            ShellKind::Ring => RING_RUNG,
+            ShellKind::Ring | ShellKind::DomeRing => RING_RUNG,
+            ShellKind::Dome => DOME_RUNG,
         })
+    }
+
+    fn specialize(
+        _pipeline: &bevy::pbr::MaterialPipeline,
+        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
+        _layout: &bevy::mesh::MeshVertexBufferLayoutRef,
+        key: bevy::pbr::MaterialPipelineKey<Self>,
+    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
+        if key.bind_group_data.double_sided {
+            descriptor.primitive.cull_mode = None;
+        }
+        Ok(())
     }
 }
 
@@ -295,6 +493,139 @@ pub const RIM_EDGES: [(f32, f32); 2] = [(0.0, RIM_RISE), (RIM_MARGIN, -RIM_DROP)
 /// The ring's two edges, flat.
 pub const RING_EDGES: [(f32, f32); 2] = [(RING_INNER, 0.0), (RING_OUTER, 0.0)];
 
+/// A dome's profile standing at `step` of its row's full height: from its
+/// plateau's edge down a quarter ellipse to its skirt on the felt, as
+/// `(distance past the card's edge, height over its face)`.
+#[must_use]
+pub fn dome_profile(row: DomeRow, step: f32) -> [(f32, f32); DOME_RINGS] {
+    let (run, rise) = (DOME_INSET, row.height * step + RIM_DROP);
+    std::array::from_fn(|k| {
+        #[expect(clippy::cast_precision_loss)] // eight rings
+        let t = k as f32 / (DOME_RINGS - 1) as f32 * std::f32::consts::FRAC_PI_2;
+        (row.margin - run + run * t.sin(), -RIM_DROP + rise * t.cos())
+    })
+}
+
+/// The point `d` past the card's edge in the direction `angle` (degrees) out
+/// of the corner `centre` stands on, and that direction.
+///
+/// Inside the card's edge a corner cannot keep a negative radius: it keeps
+/// [`CAP_ROUND`] instead, which lies inside the true inset, so no point of a
+/// dome is further past the edge than its profile says.
+fn outline(centre: Vec2, angle: f32, d: f32) -> (Vec2, Vec2) {
+    let round = (CARD_CORNER + d).max(CAP_ROUND);
+    let pull = CARD_CORNER + d - round;
+    let dir = Vec2::from_angle(angle.to_radians());
+    (centre + centre.signum() * pull + dir * round, dir)
+}
+
+/// The smallest corner a dome's plateau keeps.
+const CAP_ROUND: f32 = 0.03;
+
+/// The four corners a card's outline turns round, and the angle each turn
+/// starts at, anticlockwise seen from above.
+fn corners() -> [(Vec2, f32); 4] {
+    let (hw, hh, r) = (CARD_WIDTH / 2.0, CARD_HEIGHT / 2.0, CARD_CORNER);
+    [
+        (Vec2::new(hw - r, hh - r), 0.0),
+        (Vec2::new(-hw + r, hh - r), 90.0),
+        (Vec2::new(-hw + r, -hh + r), 180.0),
+        (Vec2::new(hw - r, -hh + r), 270.0),
+    ]
+}
+
+/// A dome as a mesh: a ring of the card's outline at each point of its
+/// profile, joined, and its plateau closed over the card by a fan.
+///
+/// # Panics
+///
+/// Never: a dome has a few hundred vertices.
+#[must_use]
+pub fn dome_mesh(row: DomeRow, step: f32) -> Mesh {
+    let profile = dome_profile(row, step);
+    let mut at = Vec::new();
+    let mut normals = Vec::new();
+    let mut uvs = Vec::new();
+    let uv = |p: Vec2| [p.x / CARD_WIDTH + 0.5, 0.5 - p.y / CARD_HEIGHT];
+    for (k, &(d, z)) in profile.iter().enumerate() {
+        // The slope's normal, from its neighbours on the profile: straight
+        // up at the plateau's edge, straight out at the skirt.
+        let (d0, z0) = profile[k.saturating_sub(1)];
+        let (d1, z1) = profile[(k + 1).min(DOME_RINGS - 1)];
+        for (centre, start) in corners() {
+            for i in 0..=BAND_SEGMENTS {
+                #[expect(clippy::cast_precision_loss)] // a handful of segments
+                let angle = start + 90.0 * i as f32 / BAND_SEGMENTS as f32;
+                let (p, dir) = outline(centre, angle, d);
+                at.push(p.extend(z).to_array());
+                normals.push(
+                    (dir.extend(0.0) * (z0 - z1) + Vec3::Z * (d1 - d0))
+                        .normalize_or(Vec3::Z)
+                        .to_array(),
+                );
+                uvs.push(uv(p));
+            }
+        }
+    }
+    let around = u32::try_from(4 * (BAND_SEGMENTS + 1)).expect("a few dozen");
+    let mut indices = Vec::new();
+    for ring in 0..u32::try_from(DOME_RINGS - 1).expect("eight rings") {
+        for i in 0..around {
+            let next = (i + 1) % around;
+            let (inner, outer) = (ring * around + i, (ring + 1) * around + i);
+            let (inner_next, outer_next) = (ring * around + next, (ring + 1) * around + next);
+            indices.extend_from_slice(&[inner, outer, outer_next, inner, outer_next, inner_next]);
+        }
+    }
+    // The plateau: a fan from the middle of the card over the first ring.
+    let middle = u32::try_from(at.len()).expect("a few hundred");
+    at.push([0.0, 0.0, profile[0].1]);
+    normals.push([0.0, 0.0, 1.0]);
+    uvs.push([0.5, 0.5]);
+    for i in 0..around {
+        indices.extend_from_slice(&[middle, i, (i + 1) % around]);
+    }
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
+}
+
+/// Which of [`DOME_STEPS`] a dome of `row` stands at round the card at `me`,
+/// or `None` for its ring on the felt: the tallest that lands on no other
+/// card's print ([`shell_stands`]).
+///
+/// `standing` is the step it stands at now. A step taller than that, or any
+/// step at all for a dome lying down, must fit [`STAND_AGAIN`] higher than it
+/// is, for the reason a ring stands up again only with that headroom.
+#[must_use]
+pub fn dome_step(
+    row: DomeRow,
+    standing: Option<usize>,
+    me: &Footprint,
+    others: impl Iterator<Item = Footprint> + Clone,
+    eye: Vec3,
+) -> Option<usize> {
+    (0..DOME_STEPS.len()).find(|&step| {
+        let headroom = if standing.is_some_and(|now| now <= step) {
+            0.0
+        } else {
+            STAND_AGAIN
+        };
+        shell_stands(
+            &dome_profile(row, DOME_STEPS[step]),
+            me,
+            others.clone(),
+            eye,
+            headroom,
+        )
+    })
+}
+
 /// A card's face this frame, as the other cards and the camera see it: its
 /// corners laid flat on the table (`x`, `z`), the lowest and the highest any
 /// of them stands, and how much the card has grown.
@@ -352,17 +683,43 @@ impl Footprint {
 /// where the profile goes under the face (or the foot, if it never does).
 #[must_use]
 pub fn rim_reach(over: f32, scale: f32, tangent: f32) -> f32 {
-    if over <= 0.0 {
-        return 0.0;
+    profile_reach(&RIM_EDGES, over - RIM_RISE * scale, scale, tangent).max(0.0)
+}
+
+/// How far past its card's edge a shell of this profile throws itself onto a
+/// face that the card's own face stands `lift` above, seen along rays of
+/// tangent `tangent`, on a card grown by `scale`.
+///
+/// The profile is a run of `(distance past the card's edge, height over its
+/// face)` points, joined by straight lines as its mesh joins them. A face
+/// hides every part of the shell below it, and a point above it lands its
+/// height over it × the tangent further out. Along a straight line that
+/// landing is straight too, so the furthest one is at a point of the profile
+/// or where a line goes under the face.
+///
+/// Negative when everything above the face lands inside the card's own
+/// edge, as a dome's plateau does; `f32::NEG_INFINITY` when nothing of the
+/// shell stands above the face at all.
+#[must_use]
+pub fn profile_reach(profile: &[(f32, f32)], lift: f32, scale: f32, tangent: f32) -> f32 {
+    let mut reach = f32::NEG_INFINITY;
+    let mut take = |d: f32, h: f32| reach = reach.max(d + h * tangent);
+    let at = |(d, z): (f32, f32)| (d * scale, lift + z * scale);
+    for (i, &point) in profile.iter().enumerate() {
+        let (d, h) = at(point);
+        if h >= 0.0 {
+            take(d, h);
+        }
+        if let Some(&next) = profile.get(i + 1) {
+            let (d1, h1) = at(next);
+            // One above the face and one not: never level, so never a
+            // division by zero.
+            if (h > 0.0) != (h1 > 0.0) {
+                take(d + (d1 - d) * h / (h - h1), 0.0);
+            }
+        }
     }
-    let (margin, fall) = (RIM_MARGIN * scale, (RIM_RISE + RIM_DROP) * scale);
-    let under = if over >= fall {
-        margin
-    } else {
-        margin * over / fall
-    };
-    let foot = under + (over - fall * under / margin).max(0.0) * tangent;
-    (over * tangent).max(foot)
+    reach
 }
 
 /// Whether a rim can stand round the card at `me` without landing on the
@@ -381,7 +738,24 @@ pub fn rim_stands(
     eye: Vec3,
     headroom: f32,
 ) -> bool {
-    let top = me.high + RIM_RISE * me.scale + headroom;
+    shell_stands(&RIM_EDGES, me, others, eye, headroom)
+}
+
+/// [`rim_stands`] for a shell of any profile ([`profile_reach`]): whether it
+/// can stand round the card at `me` without landing on another card's print.
+#[must_use]
+pub fn shell_stands(
+    profile: &[(f32, f32)],
+    me: &Footprint,
+    others: impl IntoIterator<Item = Footprint>,
+    eye: Vec3,
+    headroom: f32,
+) -> bool {
+    let crest = profile
+        .iter()
+        .map(|&(_, z)| z)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let top = me.high + crest * me.scale + headroom;
     let tangent = me
         .corners
         .iter()
@@ -389,10 +763,15 @@ pub fn rim_stands(
         .fold(0.0, f32::max);
     let (centre, radius) = (me.centre(), me.radius());
     others.into_iter().all(|other| {
-        let reach = rim_reach(top - other.low, me.scale, tangent);
-        if reach <= 0.0 {
+        let reach = profile_reach(profile, me.high + headroom - other.low, me.scale, tangent);
+        // All of it under that face, which hides it wherever the two meet.
+        if reach == f32::NEG_INFINITY {
             return true;
         }
+        // What lands inside the card's own edge can still land on a card
+        // lying across that edge: a flier over its neighbour, under a dome's
+        // plateau. So a card that overlaps this one takes any reach at all.
+        let reach = reach.max(0.0);
         // Too far off to be reached at all: no need to measure closer.
         if centre.distance(other.centre()) - radius - other.radius() > reach {
             return true;
@@ -483,10 +862,10 @@ struct VertexOutput {
         );
     }
 
-    /// One whole `std140` block.
+    /// Two whole `std140` rows.
     #[test]
-    fn the_shell_uniform_is_one_block() {
-        assert_eq!(ShellParams::min_size().get(), 16);
+    fn the_shell_uniform_is_two_whole_rows() {
+        assert_eq!(ShellParams::min_size().get(), 32);
     }
 
     /// The shader declares the uniform in the order Rust lays it out.
@@ -501,7 +880,13 @@ struct VertexOutput {
             .collect();
         assert_eq!(
             fields,
-            ["kind: u32,", "motion: f32,", "pad: vec2<u32>,"],
+            [
+                "tint: vec4<f32>,",
+                "kind: u32,",
+                "motion: f32,",
+                "inner: f32,",
+                "outer: f32,"
+            ],
             "shell.wgsl lays the uniform out differently from `ShellParams`"
         );
     }
@@ -516,8 +901,6 @@ struct VertexOutput {
             ("CARD_HALF_H", CARD_HEIGHT / 2.0),
             ("CARD_ROUND", CARD_CORNER),
             ("MASK_FEATHER", MASK_FEATHER),
-            ("RING_INNER", RING_INNER),
-            ("RING_OUTER", RING_OUTER),
             ("RIM_RISE", RIM_RISE),
             ("RIM_DROP", RIM_DROP),
         ] {
@@ -530,6 +913,8 @@ struct VertexOutput {
         for (name, kind) in [
             ("SHELL_RIM", ShellKind::Rim),
             ("SHELL_RING", ShellKind::Ring),
+            ("SHELL_DOME", ShellKind::Dome),
+            ("SHELL_DOME_RING", ShellKind::DomeRing),
         ] {
             #[expect(clippy::cast_precision_loss)] // a small enum
             let ours = kind as u32 as f32;
@@ -637,5 +1022,113 @@ struct VertexOutput {
         assert!((gap(&square(0.0, 0.0), &square(1.25, 0.0)) - 0.25).abs() < 1e-6);
         assert!(gap(&square(0.0, 0.0), &square(0.5, 0.5)) < 0.0);
         assert!((gap(&square(0.0, 0.0), &square(1.3, 1.4)) - 0.5).abs() < 1e-6);
+    }
+
+    /// Every point of a dome's mesh is where its profile says or further in:
+    /// no ring stands further past the card's edge than its point of the
+    /// profile, which is the distance the guard measures its throw from, and
+    /// each stands at that point's height.
+    #[test]
+    fn a_domes_mesh_stands_no_further_out_than_its_profile() {
+        let row = Dome::Hexproof.row();
+        for step in DOME_STEPS {
+            let profile = dome_profile(row, step);
+            assert!((profile[0].1 - row.height * step).abs() < 1e-6, "plateau");
+            assert!(
+                (profile[DOME_RINGS - 1].0 - row.margin).abs() < 1e-6,
+                "skirt"
+            );
+            assert!(
+                (profile[DOME_RINGS - 1].1 + RIM_DROP).abs() < 1e-6,
+                "on the felt"
+            );
+            let mesh = dome_mesh(row, step);
+            let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+            else {
+                panic!("a dome has positions");
+            };
+            let around = 4 * (BAND_SEGMENTS + 1);
+            assert_eq!(at.len(), DOME_RINGS * around + 1, "rings and the middle");
+            for (i, p) in at.iter().enumerate().take(DOME_RINGS * around) {
+                let (d, z) = profile[i / around];
+                let past = card_sdf(Vec2::new(p[0], p[1]));
+                assert!(
+                    past <= d + 1e-4,
+                    "ring {} at {past}, profile {d}",
+                    i / around
+                );
+                assert!((p[2] - z).abs() < 1e-6);
+            }
+            // At and outside the card's edge the rings are the true outline.
+            for (i, p) in at.iter().enumerate().skip(4 * around).take(4 * around) {
+                let d = profile[i / around].0;
+                if d >= 0.0 {
+                    assert!((card_sdf(Vec2::new(p[0], p[1])) - d).abs() < 1e-4);
+                }
+            }
+        }
+    }
+
+    /// Shroud swallows hexproof: one dome, never two colours.
+    #[test]
+    fn shroud_swallows_hexproof() {
+        assert_eq!(Dome::of(true, true), Some(Dome::Shroud));
+        assert_eq!(Dome::of(false, true), Some(Dome::Shroud));
+        assert_eq!(Dome::of(true, false), Some(Dome::Hexproof));
+        assert_eq!(Dome::of(false, false), None);
+    }
+
+    /// A card lying flat at `(x, z)`, its face `y` over the table.
+    fn flat(x: f32, z: f32, y: f32) -> Footprint {
+        let (hw, hh) = (CARD_WIDTH / 2.0, CARD_HEIGHT / 2.0);
+        Footprint {
+            corners: [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]
+                .map(|(dx, dz)| Vec2::new(x + dx, z + dz)),
+            low: y,
+            high: y,
+            scale: 1.0,
+        }
+    }
+
+    /// A dome stands as tall as its air allows: at full height alone, lower
+    /// with a neighbour a little way off, lying down beside one a ring's row
+    /// away; and a dome lying down, or standing lower, rises only with a
+    /// flier's bob of headroom.
+    #[test]
+    fn a_dome_stands_as_tall_as_its_air_allows() {
+        let row = Dome::Shroud.row();
+        let eye = Vec3::new(0.0, 20.0, 8.0);
+        let me = flat(0.0, 0.0, 0.083);
+        let step = |standing, others: &[Footprint]| {
+            dome_step(row, standing, &me, others.iter().copied(), eye)
+        };
+        assert_eq!(step(Some(0), &[]), Some(0), "alone, at full height");
+        assert_eq!(step(None, &[]), Some(0), "alone, a lying dome stands up");
+        let tight = [flat(1.0185, 0.0, 0.083)];
+        assert_eq!(step(Some(0), &tight), None, "a ring's row away");
+        // Somewhere between, a lower step fits where the full one does not.
+        let lower = (0..200).map(|i| 1.0 + 0.002 * i as f32).find_map(|x| {
+            let beside = [flat(x, 0.0, 0.083)];
+            match step(Some(0), &beside) {
+                Some(s) if s > 0 => Some((x, s)),
+                _ => None,
+            }
+        });
+        let (x, s) = lower.expect("some gap stands a dome lower than full height");
+        // Hysteresis: from lying down, or from lower, it needs more air.
+        let beside = [flat(x, 0.0, 0.083)];
+        assert!(
+            step(None, &beside).is_none_or(|up| up >= s),
+            "a lying dome stood up taller than a standing one would"
+        );
+        let at_edge = (0..400)
+            .map(|i| 1.0 + 0.001 * i as f32)
+            .find(|&x| step(Some(DOME_STEPS.len() - 1), &[flat(x, 0.0, 0.083)]).is_some())
+            .expect("the lowest step fits somewhere");
+        assert!(
+            step(None, &[flat(at_edge, 0.0, 0.083)]).is_none(),
+            "a ring at the edge of fitting stood up without headroom"
+        );
     }
 }
