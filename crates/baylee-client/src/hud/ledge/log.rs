@@ -586,6 +586,24 @@ fn at_rest(node: &mut EntityCommands, paint: Paint) {
     };
 }
 
+/// What a line's sentence tells the list about its height: its own box, and
+/// nothing past it.
+///
+/// Bevy reports the sentence's content as the text set at its narrowest, one
+/// word to a line, and taffy carries a child's content up into its parent's
+/// scroll range wherever the child's overflow is visible. Measured on the
+/// panel: a row 19 pixels high reported 75, a two-line row 37.5 reported 206,
+/// and the list's range came to 776 against 620 of rows and gaps, so the
+/// list scrolled past its last line into blank space. A clip on the text's
+/// own node stops that at the row and clips nothing it draws: a node's
+/// overflow clips its children, and a text's glyphs are its own.
+///
+/// A turn's heading carries none, because it reports its height truly,
+/// wrapped or not (`the_list_ends_at_its_last_line`). The sentence grows into
+/// its row from nothing (`min_width: 0`); the heading is set at its own
+/// width.
+const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
+
 /// One line of the log, as a row.
 ///
 /// A turn's heading is a quieter line under a rule. Any other line is the
@@ -625,6 +643,7 @@ pub(in crate::hud) fn spawn_line(
         Node {
             flex_grow: 1.0,
             min_width: px(0),
+            overflow: TEXT_OWN_HEIGHT,
             ..default()
         },
         Pickable::IGNORE,
@@ -1025,6 +1044,73 @@ mod tests {
             rows(&mut app).len(),
             2,
             "the empty log's sentence stayed under the lines that ended it"
+        );
+    }
+
+    /// The list's scroll range ends at its last line, measured by Bevy's own
+    /// layout with the shipped fonts: lines that wrap, lines that do not, a
+    /// turn's heading, in a list narrower than most of them.
+    ///
+    /// Bounded both ways, so a range that stops short of the last line fails
+    /// as well as one that runs past it into blank space.
+    #[test]
+    fn the_list_ends_at_its_last_line() {
+        let (mut app, fonts) = crate::face::tests::layout_app();
+        // A turn's heading last, as a turn that has only just begun leaves
+        // it: the one row whose own reach nothing under it covers. Its seat
+        // has a long name, so that it wraps and its wrapped height is the one
+        // held to account.
+        let said = [
+            "Lightning Bolt deals 3 damage to Ana",
+            "You draw a card",
+            "steady 1 puts an ability of Charming Prince on the stack",
+            "You are at 37 life (was 40)",
+            "Esper Sentinel moves from the battlefield into exile, and then from exile back onto the battlefield under its owner's control",
+            "Turn 14 · Maximiliane von Hohenzollern-Sigmaringen's turn",
+        ];
+        let list = {
+            let mut commands = app.world_mut().commands();
+            let list = commands
+                .spawn(Node {
+                    width: px(260),
+                    height: px(120),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(LOG_ROW_GAP),
+                    overflow: Overflow::scroll_y(),
+                    ..default()
+                })
+                .id();
+            for (at, text) in said.iter().enumerate() {
+                let mut line = line(text, &[], 1);
+                line.header = at == said.len() - 1;
+                let row = spawn_line(&mut commands, &fonts, Lang::En, &line, &PANEL_INKS);
+                commands.entity(list).add_child(row);
+            }
+            list
+        };
+        app.world_mut().flush();
+        app.update();
+        app.update();
+        let world = app.world();
+        let kids: Vec<Entity> = world.get::<Children>(list).expect("rows").iter().collect();
+        let rows: f32 = kids
+            .iter()
+            .map(|row| world.get::<ComputedNode>(*row).expect("laid out").size().y)
+            .sum();
+        // The heading's margin is part of the column too.
+        let spaced = rows + LOG_ROW_GAP * (kids.len() - 1) as f32 + LOG_TURN_GAP;
+        let range = world
+            .get::<ComputedNode>(list)
+            .expect("laid out")
+            .content_size()
+            .y;
+        assert!(
+            rows > 6.0 * LOG_LINE_PT,
+            "the rows were never laid out, so the range proves nothing: {rows}"
+        );
+        assert!(
+            (range - spaced).abs() < 1.0,
+            "the list scrolls to {range}, and its lines end at {spaced}"
         );
     }
 

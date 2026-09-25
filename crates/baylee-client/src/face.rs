@@ -1168,7 +1168,7 @@ fn world_stats(stats: Option<Stats>, plate: u32) -> Option<Stats> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use baylee_core::mana::ManaCost;
     use baylee_core::types::{SubtypeSet, TypeSet};
@@ -1609,7 +1609,7 @@ mod tests {
     /// An app that lays the interface out as the client does, with the
     /// shipped fonts in it: bevy's own layout, headless, and the scrollbars
     /// shown or hidden by what it measured.
-    fn layout_app() -> (App, UiFonts) {
+    pub(crate) fn layout_app() -> (App, UiFonts) {
         let mut app = App::new();
         app.add_plugins((
             MinimalPlugins,

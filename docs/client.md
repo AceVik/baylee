@@ -6611,6 +6611,11 @@ each new one would write the whole log once per action. The list follows
 its newest line until the player scrolls up (`LogFollow`), and lines that
 arrive under a list scrolled up light a pill at its bottom that takes it
 back. The scrollbar is Bevy's own (`ScrollbarPlugin`), so its thumb drags.
+A line's sentence clips y on its own node (`TEXT_OWN_HEIGHT`). Bevy reports
+a text's content as the text set one word to a line, and taffy carries that
+into the list's scroll range: measured, the panel's range came to 776 pixels
+against 620 of lines, and the list scrolled past its last line into blank
+space. The clip stops the report at the row and clips none of the glyphs.
 
 A turn's heading is a quieter line under a rule. Every other line is the
 seat swatch, then the sentence with each name set one weight up and
