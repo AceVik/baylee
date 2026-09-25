@@ -21,7 +21,7 @@
 //! Cropping happens in the client, which has the picture on screen and the
 //! player's hands on it. What arrives here is the rectangle they chose.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -105,9 +105,10 @@ impl Kind {
 pub struct Store {
     /// The directory, or `None` when uploads are switched off.
     dir: Option<PathBuf>,
-    /// Held by an upload from recording its owner to writing its file, and
-    /// by an account's deletion from its delete to removing the pictures
-    /// nobody claims any more (#292).
+    /// Held by an upload from recording its owner to writing its file, by
+    /// an account's deletion from its delete to removing the pictures
+    /// nobody claims any more (#292), and by the sweep as the gateway starts
+    /// (#301).
     ///
     /// A picture is one file however many players upload it, so a deletion
     /// that found no owner left and an upload of the same bytes must not
@@ -229,6 +230,44 @@ impl Store {
         }
     }
 
+    /// Removes every stored picture that is not in `claimed` (#301),
+    /// answering how many went and how many would not.
+    ///
+    /// Only files this store could have written are looked at, `{id}.jpg`
+    /// with a [`well_formed`] id; anything else in the directory is not
+    /// ours to judge. No directory, or none yet, is nothing to sweep. The
+    /// caller holds [`Self::hold`] from reading what is claimed until this
+    /// answers.
+    ///
+    /// # Errors
+    /// When the directory is there and cannot be read.
+    pub fn sweep(&self, claimed: &BTreeSet<String>) -> std::io::Result<Swept> {
+        let mut swept = Swept::default();
+        let Some(dir) = &self.dir else {
+            return Ok(swept);
+        };
+        let entries = match std::fs::read_dir(dir) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(swept),
+            listed => listed?,
+        };
+        for entry in entries {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(id) = name.to_str().and_then(|n| n.strip_suffix(".jpg")) else {
+                continue;
+            };
+            if !well_formed(id) || claimed.contains(id) {
+                continue;
+            }
+            match std::fs::remove_file(entry.path()) {
+                Ok(()) => swept.removed += 1,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => swept.failed += 1,
+            }
+        }
+        Ok(swept)
+    }
+
     /// Reads one back, or `None` when it is not there.
     #[must_use]
     pub fn get(&self, id: &str) -> Option<Vec<u8>> {
@@ -237,6 +276,15 @@ impl Store {
         }
         std::fs::read(self.path(id)?).ok()
     }
+}
+
+/// What [`Store::sweep`] did.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct Swept {
+    /// Files removed.
+    pub removed: usize,
+    /// Files that were to go and would not.
+    pub failed: usize,
 }
 
 /// A picture normalised for storing: [`Store::prepare`], then [`Store::keep`].
@@ -554,6 +602,51 @@ mod tests {
         // centred crop, so the tool's decision is kept rather than re-taken.
         assert_eq!(centred_crop(976, 1360, 488, 680), (976, 1360));
         assert_eq!(centred_crop(488, 680, 488, 680), (488, 680));
+    }
+
+    /// The sweep (#301) takes the stored pictures nothing claims and only
+    /// those: a claimed one stays, a file the store never wrote stays, and a
+    /// second sweep has nothing left to do.
+    #[test]
+    fn a_sweep_takes_only_the_pictures_nothing_claims_and_only_once() {
+        let store = temp_store("sweep");
+        let kept = store
+            .put(Kind::Sleeve, &a_picture(400, 400))
+            .expect("stored");
+        let loose = store
+            .put(Kind::Playmat, &a_picture(300, 200))
+            .expect("stored");
+        let dir = store.dir.clone().expect("a directory");
+        let stranger = dir.join("notes.txt");
+        std::fs::write(&stranger, b"not a picture").expect("written");
+        let claimed = BTreeSet::from([kept.clone()]);
+
+        let first = store.sweep(&claimed).expect("swept");
+        assert_eq!(
+            first,
+            Swept {
+                removed: 1,
+                failed: 0
+            }
+        );
+        assert!(store.get(&kept).is_some(), "a claimed picture stays");
+        assert!(store.get(&loose).is_none(), "one nothing claims goes");
+        assert!(stranger.exists(), "a file the store never wrote is not its");
+        assert_eq!(
+            store.sweep(&claimed).expect("swept"),
+            Swept::default(),
+            "a second sweep finds nothing to do"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_store_with_no_directory_has_nothing_to_sweep() {
+        let none = BTreeSet::new();
+        let unmade = temp_store("sweep-unmade");
+        assert_eq!(unmade.sweep(&none).expect("swept"), Swept::default());
+        let off = Store::at(None);
+        assert_eq!(off.sweep(&none).expect("swept"), Swept::default());
     }
 
     #[test]

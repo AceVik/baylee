@@ -69,6 +69,7 @@ pub mod entity;
 pub mod guests;
 pub mod import;
 pub mod migration;
+pub mod pictures;
 pub mod usernames;
 
 use anyhow::{Context, Result};

@@ -809,6 +809,47 @@ async fn a_deletion_says_which_pictures_its_account_claimed() {
     sandbox.close().await;
 }
 
+/// What the gateway's sweep keeps (#301): a picture with an owner, and a
+/// picture a deck shows as its sleeve or its playmat whether or not anybody
+/// owns it. Only a picture with neither is left out, and so swept.
+#[tokio::test]
+async fn a_picture_a_deck_shows_is_claimed_without_an_owner() {
+    let sandbox = Sandbox::open("claimed_pictures").await;
+    let account = an_account("keeper@example.com");
+    let Set(player) = account.id else {
+        unreachable!()
+    };
+    Account::insert(account).exec(&sandbox.db).await.unwrap();
+    let (owned, sleeve, mat) = ("aa".repeat(32), "bb".repeat(32), "cc".repeat(32));
+    Upload::insert(upload::ActiveModel {
+        image_id: Set(owned.clone()),
+        account_id: Set(player),
+        kind: Set("sleeve".to_owned()),
+        created_at: Set(OffsetDateTime::now_utc()),
+    })
+    .exec(&sandbox.db)
+    .await
+    .unwrap();
+    // Neither of these has an owner row.
+    let mut shown = a_deck(Some(player), "shown");
+    shown.sleeve = Set(Some(sleeve.clone()));
+    Deck::insert(shown).exec(&sandbox.db).await.unwrap();
+    let mut laid = a_deck(None, "laid");
+    laid.kind = Set(deck::KIND_HOUSE.to_owned());
+    laid.playmat = Set(Some(mat.clone()));
+    Deck::insert(laid).exec(&sandbox.db).await.unwrap();
+
+    let claimed = baylee_db::pictures::claimed(&sandbox.db)
+        .await
+        .expect("the claims");
+    assert!(claimed.contains(&sleeve), "a deck's sleeve is claimed");
+    assert!(claimed.contains(&mat), "a deck's playmat is claimed");
+    assert!(claimed.contains(&owned), "an owned picture is claimed");
+    assert_eq!(claimed.len(), 3, "and nothing else: {claimed:?}");
+
+    sandbox.close().await;
+}
+
 /// The pictures uploaded before anybody recorded who uploaded them (#292)
 /// belong to every account with a deck that shows them: the uploader, or a
 /// player who copied the uploader's deck. A deck of nobody's gives nobody a

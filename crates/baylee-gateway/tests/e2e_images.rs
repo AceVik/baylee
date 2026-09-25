@@ -311,3 +311,65 @@ fn a_deck_wears_only_its_players_pictures() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// #301: as a gateway starts, it removes the file of every picture nothing
+/// claims, and only those. A picture a deck shows stays though nobody owns
+/// it any more, an owned one stays, and one with neither goes; the next
+/// start finds nothing to do.
+///
+/// The claims are cut by hand between two starts, the second gateway on the
+/// first one's schema and image directory, because the sweep runs before a
+/// gateway serves and nothing a route does leaves such a picture behind.
+#[test]
+fn a_start_sweeps_only_the_pictures_nothing_claims() {
+    let dir = std::env::temp_dir().join(format!("baylee-sweep-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let images = ("BAYLEE_DECK_IMAGE_PATH", dir.to_string_lossy().into_owned());
+    let gw = spawn_gateway_with("image-sweep", std::slice::from_ref(&images));
+    let painter = login(gw.port, "painter", "Painter");
+    let upload = |kind: &str, picture: &[u8]| {
+        let (status, body) = http_bytes(
+            gw.port,
+            "POST",
+            &format!("/images?kind={kind}"),
+            Some(&painter),
+            "image/jpeg",
+            picture,
+        );
+        let body = String::from_utf8_lossy(&body).to_string();
+        assert_eq!(status, 200, "upload: {body}");
+        json_field(&body, "id").to_string()
+    };
+    let shown = upload("sleeve", &a_picture(600, 800));
+    let owned = upload("playmat", &a_picture(900, 500));
+    let loose = upload("sleeve", &a_picture(700, 700));
+    let (status, body) = http(
+        gw.port,
+        "POST",
+        "/decks",
+        Some(&painter),
+        &format!("{{\"name\":\"Sleeved\",\"cards\":[\"60 Forest\"],\"sleeve\":\"{shown}\"}}"),
+    );
+    assert_eq!(status, 200, "a deck wearing the sleeve: {body}");
+    gw.sql(&format!(
+        "DELETE FROM upload WHERE image_id IN ('{shown}', '{loose}')"
+    ));
+    let on_disk = |id: &str| dir.join(format!("{id}.jpg")).exists();
+    assert!(on_disk(&shown) && on_disk(&owned) && on_disk(&loose));
+
+    let same_store = [images.clone(), ("DATABASE_URL", gw.database_url())];
+    let again = spawn_gateway_with("image-sweep-again", &same_store);
+    assert!(on_disk(&shown), "a picture a deck shows is never swept");
+    assert!(on_disk(&owned), "an owned picture stays");
+    assert!(!on_disk(&loose), "a picture nothing claims goes");
+    drop(again);
+
+    let once_more = spawn_gateway_with("image-sweep-once-more", &same_store);
+    assert!(
+        on_disk(&shown) && on_disk(&owned),
+        "the next start takes nothing"
+    );
+    drop(once_more);
+    drop(gw);
+    let _ = std::fs::remove_dir_all(&dir);
+}

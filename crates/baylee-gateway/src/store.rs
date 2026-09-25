@@ -40,7 +40,7 @@ use sea_orm::{
     TransactionTrait,
     sea_query::{Expr, ExprTrait, Func, OnConflict},
 };
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -602,6 +602,16 @@ pub async fn let_go(db: &DatabaseConnection, image_id: &str) -> Result<bool> {
             .await?;
     }
     Ok(true)
+}
+
+/// Every stored picture something still claims (#301): an owner, or a deck
+/// that shows it ([`baylee_db::pictures::claimed`]).
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn claimed_pictures(db: &DatabaseConnection) -> Result<BTreeSet<String>> {
+    Ok(baylee_db::pictures::claimed(db).await?)
 }
 
 /// Records that `account_id` owns the stored picture `image_id` (#292).

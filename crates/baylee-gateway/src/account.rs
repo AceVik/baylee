@@ -9,6 +9,11 @@
 //!
 //! A guest leaves the same way when its last session lapses or it signs out
 //! ([`crate::store::purge_guests`]), so both paths go through [`depart`].
+//!
+//! And as the gateway starts, [`sweep_pictures`] removes the file of every
+//! picture nothing claims (#301): the ones uploaded before owners were
+//! recorded that no deck showed, and the ones a deletion let go of when the
+//! gateway stopped before their files were gone.
 
 use crate::{ErrorBody, Shared, auth, db_down, err, store};
 use axum::extract::State;
@@ -120,6 +125,39 @@ pub async fn forget_pictures(
             Err(e) => tracing::error!("{e:#}"),
         }
     }
+}
+
+/// Removes the file of every stored picture nothing claims (#301): no
+/// owner, and no deck that shows it ([`store::claimed_pictures`]). Run once
+/// as the gateway starts; a second run finds nothing to do.
+///
+/// Under the image store's lock from reading the claims until the files are
+/// gone, like an upload and a deletion, so a picture whose owner is being
+/// recorded is never swept. What went is logged as a count, not by id.
+pub async fn sweep_pictures(state: &Shared) {
+    if !state.deck_images.enabled() {
+        return;
+    }
+    let held = state.deck_images.hold().await;
+    let claimed = match store::claimed_pictures(&state.db).await {
+        Ok(claimed) => claimed,
+        Err(e) => {
+            tracing::error!("the pictures nothing claims were not swept: {e:#}");
+            return;
+        }
+    };
+    let images = std::sync::Arc::clone(&state.deck_images);
+    match tokio::task::spawn_blocking(move || images.sweep(&claimed)).await {
+        Ok(Ok(swept)) => {
+            tracing::info!(removed = swept.removed, "pictures nothing claims swept");
+            if swept.failed > 0 {
+                tracing::error!(failed = swept.failed, "pictures nothing claims stayed");
+            }
+        }
+        Ok(Err(e)) => tracing::error!("the pictures nothing claims were not swept: {e}"),
+        Err(e) => tracing::error!("the pictures nothing claims were not swept: {e}"),
+    }
+    drop(held);
 }
 
 /// Takes deleted accounts out of everything the gateway holds in memory:

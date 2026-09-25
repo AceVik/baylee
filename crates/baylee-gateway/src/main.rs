@@ -220,6 +220,8 @@ async fn main() {
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
     });
+    // Before serving, so it is done by the time anybody can upload (#301).
+    account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
 
     let app = Router::new()

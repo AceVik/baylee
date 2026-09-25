@@ -18,7 +18,7 @@ the pointers, because line numbers move.
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
-| Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it | the deletion of the last account that does |
+| Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
@@ -163,17 +163,22 @@ the pointers, because line numbers move.
   Two players uploading the same picture share one file. Who uploaded it is
   recorded, one row per player: `upload(image_id, account_id, kind,
   created_at)` (#292). The pictures uploaded before that were given to every
-  account with a deck that showed them. A picture no deck showed has no
-  owner.
+  account with a deck that showed them. A picture no deck showed had no
+  owner, and the sweep below removed it.
 - **Who may upload:** a registered session only, since guests are refused.
   Uploads are capped at 8 MiB.
 - **Who may read:** anyone who has the id. `GET /images/{id}` asks for no
   session and is cached `public` for a year. A deck's images reach the other
   seats at its table through `GET /games/{id}/cosmetics`.
-- **Removed:** when the last account claiming it is deleted
-  (`account::forget_pictures`): the file, and any deck's mention of it.
-  Deleting a deck leaves the file. A picture uploaded before #292 that no
-  deck showed has no owner and is never removed.
+- **Removed:**
+  - when the last account claiming it is deleted
+    (`account::forget_pictures`): the file, and any deck's mention of it.
+    Deleting a deck leaves the file to the account that uploaded it;
+  - as the gateway starts, every picture with no owner that no deck shows
+    (`account::sweep_pictures`, #301), under the same lock as an upload and
+    a deletion. That takes the ones uploaded before #292 that no deck
+    showed, and the files of a deletion the gateway stopped in the middle
+    of. It logs how many went, not which.
 
 ## Lobby tables (memory)
 
@@ -306,11 +311,9 @@ to weigh, not conclusions.
 1. **Uploaded images:**
    - they are readable by anyone with the id, without a session, and cached
      `public` for a year, so a copy can outlive the file's removal;
-   - the ones uploaded before #292 that no deck showed have no owner, so
-     no account's deletion can take them;
    - a gateway that stops between an account's deletion and the removal of
-     its pictures leaves those files behind with no owner: the deletion
-     commits first.
+     its pictures leaves those files behind with no owner until it starts
+     again: the deletion commits first, and the start's sweep takes them.
 2. **The legacy import file** stays on disk after import, with e-mails and
    password hashes in it.
 3. **Tokens in query strings** (listed under Logs) are exposed to whatever
