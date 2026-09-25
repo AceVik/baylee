@@ -1,7 +1,7 @@
 // The shells round a permanent on its preview (the PM, 25.09): the table
 // shader's twin, as `plate_ui.wgsl` is `plate.wgsl`'s. A card held up to the
 // light wears what it wears on the felt: indestructible's darksteel rim,
-// hexproof's or shroud's dome, defender's wall.
+// hexproof's or shroud's dome, defender's wall, summoning sickness's wave.
 //
 // The preview is the card laid flat on the screen, so there is no camera to
 // follow a ray from. Each shell is drawn as it stands, seen from straight
@@ -12,15 +12,16 @@
 // `shell_common.wgsl`'s, so the steel, the glass and the brick are the
 // table's.
 //
-// Nothing but a dome is drawn over the print. From straight over the card a
-// point's ray meets the face right under it, so the mask is the card's own
-// outline (`clear`), and every colour returned but the dome's carries it; a
-// test reads every `return` below to make sure it still does.
+// Nothing but a dome and the wave is drawn over the print. From straight
+// over the card a point's ray meets the face right under it, so the mask is
+// the card's own outline (`clear`), and every colour returned but the dome's
+// and the wave's carries it; a test reads every `return` below to make sure
+// it still does.
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 #import "embedded://baylee_client/shaders/card_common.wgsl"::{perimeter, CARD_ASPECT}
-#import "embedded://baylee_client/shaders/shell_common.wgsl"::{SHELL_DOME, SHELL_WALL, CARD_HALF_W, CARD_HALF_H, CARD_ROUND, MASK_FEATHER, RIM_DROP, WALL_COURSE, WALL_HEIGHT, KEY, card_sdf, card_out, rim_steel, dome_glass, brick}
+#import "embedded://baylee_client/shaders/shell_common.wgsl"::{SHELL_DOME, SHELL_WALL, SHELL_WAVE, WAVE_PERIOD, MOONLIGHT, CARD_HALF_W, CARD_HALF_H, CARD_ROUND, MASK_FEATHER, RIM_DROP, WALL_COURSE, WALL_HEIGHT, KEY, card_sdf, card_out, rim_steel, dome_glass, brick, wave_along, wave_glow}
 
 struct ShellUiParams {
     /// A dome's colour, linear; the steel and the wall ignore it.
@@ -137,6 +138,13 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let band = mix(1.0 / 7.0, pow(lap, 6.0), m);
     let breath = 1.05 + 0.05 * m * sin(globals.time * 1.047);
 
+    if params.kind == SHELL_WAVE {
+        // The table's wave over the print, seen from straight over it, at
+        // the preview's own moment: its sheet is the card's face, which is
+        // where `p` already lies.
+        let glow = wave_glow(p, wave_along(globals.time * m / WAVE_PERIOD, m), v, key);
+        return vec4<f32>(MOONLIGHT, glow);
+    }
     if params.kind == SHELL_DOME {
         // Standing full: a quarter ellipse from its crown, a ridge down the
         // card's middle, to its foot on the felt past the card's edge

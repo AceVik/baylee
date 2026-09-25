@@ -2180,20 +2180,24 @@ on objects of its own:
   through). They are UI nodes hanging off the card's turning frame, as its
   badge and plate are (`shellui.rs`, `shell_ui.wgsl`), sharing with the
   table's shader what they draw with (`shell_common.wgsl`: the card's
-  outline, `rim_steel`, `dome_glass`, `brick`), so the steel, the glass
-  and the brick are one material in two places. The preview has air round
+  outline, `rim_steel`, `dome_glass`, `brick`, and the wave's `crest_at`,
+  `wave_along` and `wave_glow`), so the steel, the glass, the brick and the
+  moonlight are one material in two places. The preview has air round
   it, so its shells always stand as a duel's full step does: nothing lies
   down as a ring or a band, and there is no felt for a shadow.
-  `Shells::standing` says which stand under the print (the wall, then the
-  rim) and which over it (the dome), and is where a new shell joins both
-  the preview and its order. There is no camera to follow a ray from, so
+  `Shells::standing` says which stand under the card's own objects (the
+  wall, the wave, then the rim, the table's order) and which over them
+  (the dome), and is where a new shell joins both the preview and its
+  order. `Shells::of` takes the card's group, so summoning sickness comes
+  through the same door as the keywords. There is no camera to follow a ray from, so
   each shell is drawn as it stands seen from straight over the card, which
   is what lines it up with the flat print, and lit as a duel's seat sees a
   card of its own (`DUEL_LEAN`). From straight over the card a point's ray
   meets the face right under it, so the mask is the card's own outline:
-  the rim and the wall are exactly transparent over the print and the
-  dome is glass over it, as on the table
-  (`shellui::tests::every_colour_but_the_domes_carries_the_mask`; taking
+  the rim and the wall are exactly transparent over the print, the dome is
+  glass over it and the wave runs over it at the preview's own moment, as
+  on the table
+  (`shellui::tests::every_colour_but_the_domes_and_the_waves_carries_the_mask`; taking
   the mask off the rim's return turned it red). The node is the card
   grown by a dome's foot on its sides and foot and by the wall's reach on
   its top (`shellui::PREVIEW_QUAD`), and the panel is placed as one that

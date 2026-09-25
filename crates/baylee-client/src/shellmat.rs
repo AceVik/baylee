@@ -76,7 +76,7 @@
 //! writes in moon-grey. With motion off it holds still, crest and all.
 
 use baylee_client_core::airborne;
-use baylee_client_core::board::KeywordBadge;
+use baylee_client_core::board::{CardGroup, KeywordBadge};
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
 use bevy::asset::{RenderAssetUsages, embedded_asset};
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -336,9 +336,9 @@ impl Dome {
     }
 }
 
-/// The shells a permanent wears, from its keywords: the one door the
-/// table's rows and the preview both ask ([`crate::shellui`]), so the two
-/// never disagree about what a card is protected by.
+/// The shells a permanent wears, from its keywords and its summoning
+/// sickness: the one door the table's rows and the preview both ask
+/// ([`crate::shellui`]), so the two never disagree about what a card wears.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Shells {
     /// Indestructible's darksteel rim.
@@ -347,18 +347,29 @@ pub struct Shells {
     pub dome: Option<Dome>,
     /// Defender's wall.
     pub wall: bool,
+    /// Summoning sickness's wave, over the card's own face.
+    pub wave: bool,
 }
 
 impl Shells {
-    /// What a permanent with these keywords wears.
+    /// What the permanents of `group` wear. Only a creature is ever
+    /// modelled asleep ([`baylee_client_core::board::asleep`]).
     #[must_use]
-    pub fn of(badges: &[KeywordBadge]) -> Self {
-        let has = |badge| badges.contains(&badge);
+    pub fn of(group: &CardGroup) -> Self {
+        let has = |badge| group.badges.contains(&badge);
         Self {
             steel: has(KeywordBadge::Indestructible),
             dome: Dome::of(has(KeywordBadge::Hexproof), has(KeywordBadge::Shroud)),
             wall: has(KeywordBadge::Defender),
+            wave: group.summoning_sick,
         }
+    }
+
+    /// Whether any of them reaches past the card's edge, as every shell but
+    /// the wave does.
+    #[must_use]
+    pub fn reach_off_the_card(self) -> bool {
+        self.steel || self.dome.is_some() || self.wall
     }
 
     /// What the preview draws, standing, as two runs in the order each is
@@ -368,8 +379,11 @@ impl Shells {
     /// A new shell is a look here and an arm in `shell_ui.wgsl`.
     #[must_use]
     pub fn standing(self) -> [Vec<ShellLook>; 2] {
+        // In the table's order: the wall first, then the wave, under the
+        // rim ([`WAVE_RUNG`]).
         let under = [
             self.wall.then_some(ShellLook::steel(ShellKind::Wall)),
+            self.wave.then_some(ShellLook::steel(ShellKind::Wave)),
             self.steel.then_some(ShellLook::steel(ShellKind::Rim)),
         ];
         let over = [self.dome.map(|dome| ShellLook {
@@ -1509,11 +1523,11 @@ struct VertexOutput {
             (COMMON, "WALL_BRICK", WALL_BRICK),
             (COMMON, "WALL_HEIGHT", WALL_HEIGHT),
             (SHADER, "SHADE_FLOOR", crate::table::TABLE_Y + SHADE_RUNG),
-            (SHADER, "WAVE_LIFT", WAVE_LIFT),
-            (SHADER, "WAVE_CREST", WAVE_CREST),
-            (SHADER, "WAVE_INSET", WAVE_INSET),
-            (SHADER, "WAVE_TRAVEL", WAVE_TRAVEL),
-            (SHADER, "WAVE_PERIOD", WAVE_PERIOD),
+            (COMMON, "WAVE_LIFT", WAVE_LIFT),
+            (COMMON, "WAVE_CREST", WAVE_CREST),
+            (COMMON, "WAVE_INSET", WAVE_INSET),
+            (COMMON, "WAVE_TRAVEL", WAVE_TRAVEL),
+            (COMMON, "WAVE_PERIOD", WAVE_PERIOD),
         ] {
             let theirs = wgsl_const(source, name);
             assert!(

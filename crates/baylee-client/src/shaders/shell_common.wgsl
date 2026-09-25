@@ -43,6 +43,22 @@ const WALL_COURSE: f32 = 0.028;
 const WALL_BRICK: f32 = 0.07;
 const WALL_MORTAR: f32 = 0.01;
 const WALL_HEIGHT: f32 = 0.08;
+/// Summoning sickness's wave (`shellmat::WAVE_*`): how far over the face its
+/// sheet lies, how high its crest rises over that, where the sheet stops
+/// inside the card's edge, and its timing in seconds.
+const WAVE_LIFT: f32 = 0.003;
+const WAVE_CREST: f32 = 0.009;
+const WAVE_INSET: f32 = 0.05;
+const WAVE_TRAVEL: f32 = 3.6;
+const WAVE_PERIOD: f32 = 6.0;
+/// How wide the crest is, in shares of the way from the middle to the edge,
+/// and how far in from the sheet's edge it settles to it.
+const CREST_WIDTH: f32 = 0.07;
+const EDGE_SETTLE: f32 = 0.06;
+/// Where the wave is held with motion off: most of the way out.
+const WAVE_STILL: f32 = 0.55;
+/// The wave's moonlight, linear.
+const MOONLIGHT: vec3<f32> = vec3<f32>(0.55, 0.63, 0.92);
 
 /// Darksteel, linear: the metal, and the light it gives back, a cool
 /// silver.
@@ -165,4 +181,51 @@ fn brick(along: f32, h: f32, n: vec3<f32>, aa: f32) -> vec3<f32> {
     let up = max(n.y, 0.0);
     let lit = 0.3 + 0.8 * max(dot(n, KEY), 0.0);
     return mix(stone, MORTAR, mortar) * lit * crenel + DUSK * (1.0 - up);
+}
+
+/// A wave's crest at `p`, its front `along` its way out: 1 on the front,
+/// falling away either side, swelling in as it starts and out as it reaches
+/// the edge, and settled at the sheet's own edge.
+fn crest_at(p: vec2<f32>, along: f32) -> f32 {
+    // 0 on the card's middle line, 1 at its edge.
+    let s = 1.0 + card_sdf(p) / CARD_HALF_W;
+    let reach = 1.0 - WAVE_INSET / CARD_HALF_W;
+    let out = clamp(along, 0.0, 1.0);
+    let front = (1.0 - (1.0 - out) * (1.0 - out)) * reach;
+    let across = (s - front) / CREST_WIDTH;
+    let swell = sin(3.14159265 * out);
+    let settle = smoothstep(0.0, EDGE_SETTLE, -card_sdf(p) - WAVE_INSET);
+    return exp(-across * across) * swell * settle;
+}
+
+/// How a wave's sheet leans at `p`: its crest's rise per unit across the
+/// card, each way.
+fn crest_lean(p: vec2<f32>, along: f32) -> vec2<f32> {
+    let e = 0.004;
+    return WAVE_CREST / (2.0 * e) * vec2<f32>(
+        crest_at(p + vec2<f32>(e, 0.0), along) - crest_at(p - vec2<f32>(e, 0.0), along),
+        crest_at(p + vec2<f32>(0.0, e), along) - crest_at(p - vec2<f32>(0.0, e), along),
+    );
+}
+
+/// How far out a wave's front is at `clock` (in periods, any phase added),
+/// 0 at the card's middle line, 1 at its sheet's edge and past 1 while it
+/// rests before the next; held still most of the way out with motion off.
+fn wave_along(clock: f32, motion: f32) -> f32 {
+    return select(WAVE_STILL, fract(clock) * WAVE_PERIOD / WAVE_TRAVEL, motion > 0.5);
+}
+
+/// How much moonlight a wave gives back at `p`, its front `along` its way
+/// out, seen from `v` and lit by `key` (both in the card's space): on the
+/// crest's slopes, more where they turn from the eye, a breath of it on its
+/// top and the key mirrored along it; nothing where there is no crest, so
+/// the wave passes and leaves the print as it was.
+fn wave_glow(p: vec2<f32>, along: f32, v: vec3<f32>, key: vec3<f32>) -> f32 {
+    let c = crest_at(p, along);
+    let lean = crest_lean(p, along);
+    let ln = normalize(vec3<f32>(-lean, 1.0));
+    let away = 1.0 - abs(dot(ln, v));
+    let mirrored = max(dot(reflect(-v, ln), key), 0.0);
+    let glint = smoothstep(0.97, 0.995, mirrored) * c;
+    return min(0.07 * c + length(lean) * (0.6 + 1.2 * away) + 0.4 * glint, 0.35);
 }

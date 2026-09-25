@@ -210,8 +210,8 @@ Urheber- und Medienrecht.
      The hover preview wears the same shells, standing, and holds the same
      rule: its rim and wall are exactly transparent over the preview's
      print, the mask being the card's own outline seen from straight over
-     it, and only its dome lies over it
-     (`shellui::tests::every_colour_but_the_domes_carries_the_mask`).
+     it, and only its dome and the wave lie over it
+     (`shellui::tests::every_colour_but_the_domes_and_the_waves_carries_the_mask`).
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival

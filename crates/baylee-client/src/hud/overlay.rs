@@ -112,12 +112,12 @@ fn spawn_shell(
 /// How far past the bubble's padding the shells a card wears reach off it,
 /// in logical pixels, for a card `img_w` wide: `[side, top]`, the first off
 /// its sides and its foot, the second over its top edge. Nothing for a card
-/// that wears none. Their node reaches the same way round every look
-/// ([`crate::shellui::PREVIEW_QUAD`]), and over the top only a wall reaches
-/// further than a dome's foot does off the sides.
+/// that wears none past its edge, as a wave does not. Their node reaches the
+/// same way round every look ([`crate::shellui::PREVIEW_QUAD`]), and over the
+/// top only a wall reaches further than a dome's foot does off the sides.
 pub(super) fn shell_reach(img_w: f32, shells: crate::shellmat::Shells) -> [f32; 2] {
     use crate::shellui::{PREVIEW_SIDE, PREVIEW_TOP};
-    if shells == crate::shellmat::Shells::default() {
+    if !shells.reach_off_the_card() {
         return [0.0; 2];
     }
     let top = if shells.wall {
@@ -766,7 +766,7 @@ pub fn sync_overlay(
             // bigger all round, and the clip lets them out as far.
             let shells = hovered
                 .and_then(|id| board.group(id))
-                .map(|group| crate::shellmat::Shells::of(&group.badges))
+                .map(crate::shellmat::Shells::of)
                 .unwrap_or_default();
             let shell = shell_reach(img_w, shells);
             let [shell_side, shell_top] = shell;

@@ -587,13 +587,21 @@ fn a_preview_keeps_its_shells_on_the_screen() {
         steel: true,
         dome: Some(Dome::Shroud),
         wall: true,
+        wave: true,
     };
-    assert!(
-        shell_reach(308.0, Shells::default())
-            .iter()
-            .all(|r| r.abs() < 1e-6),
-        "no shells, no reach"
-    );
+    let wave = Shells {
+        wave: true,
+        ..Shells::default()
+    };
+    for (none, why) in [
+        (Shells::default(), "no shells, no reach"),
+        (wave, "a wave lies on its card"),
+    ] {
+        assert!(
+            shell_reach(308.0, none).iter().all(|r| r.abs() < 1e-6),
+            "{why}"
+        );
+    }
     for img_w in [154.0_f32, 308.0, 539.0] {
         let img_h = img_w * CARD_TALL;
         let [side, top] = shell_reach(img_w, all);

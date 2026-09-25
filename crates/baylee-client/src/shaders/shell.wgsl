@@ -33,7 +33,7 @@
 #import bevy_pbr::view_transformations::position_world_to_clip
 #import bevy_pbr::mesh_view_bindings::{view, globals}
 #import "embedded://baylee_client/shaders/card_common.wgsl"::perimeter
-#import "embedded://baylee_client/shaders/shell_common.wgsl"::{SHELL_RING, SHELL_DOME, SHELL_DOME_RING, SHELL_WALL, SHELL_SHADE, SHELL_WAVE, CARD_HALF_W, MASK_FEATHER, RIM_RISE, RIM_DROP, KEY, card_sdf, card_out, steel, tipped, rim_steel, dome_glass, brick}
+#import "embedded://baylee_client/shaders/shell_common.wgsl"::{SHELL_RING, SHELL_DOME, SHELL_DOME_RING, SHELL_WALL, SHELL_SHADE, SHELL_WAVE, CARD_HALF_W, MASK_FEATHER, RIM_RISE, RIM_DROP, KEY, WAVE_LIFT, WAVE_CREST, WAVE_PERIOD, MOONLIGHT, card_sdf, card_out, steel, tipped, rim_steel, dome_glass, brick, crest_at, crest_lean, wave_along, wave_glow}
 
 struct ShellParams {
     /// A dome's colour, linear; the steel ignores it.
@@ -61,22 +61,6 @@ const SHADE_GONE: f32 = 0.04;
 /// card, and along each long one.
 const PLATES_SHORT: f32 = 6.0;
 const PLATES_LONG: f32 = 8.0;
-/// Summoning sickness's wave (`shellmat::WAVE_*`): how far over the face its
-/// sheet lies, how high its crest rises over that, where the sheet stops
-/// inside the card's edge, and its timing in seconds.
-const WAVE_LIFT: f32 = 0.003;
-const WAVE_CREST: f32 = 0.009;
-const WAVE_INSET: f32 = 0.05;
-const WAVE_TRAVEL: f32 = 3.6;
-const WAVE_PERIOD: f32 = 6.0;
-/// How wide the crest is, in shares of the way from the middle to the edge,
-/// and how far in from the sheet's edge it settles to it.
-const CREST_WIDTH: f32 = 0.07;
-const EDGE_SETTLE: f32 = 0.06;
-/// Where the wave is held with motion off: most of the way out.
-const WAVE_STILL: f32 = 0.55;
-/// The wave's moonlight, linear.
-const MOONLIGHT: vec3<f32> = vec3<f32>(0.55, 0.63, 0.92);
 
 /// A shadow on the felt, the blue hour's darkest.
 const SHADE: vec3<f32> = vec3<f32>(0.0, 0.002, 0.008);
@@ -108,31 +92,6 @@ struct ShellOut {
     @location(7) along: f32,
 };
 
-/// A wave's crest at `p`, its front `along` its way out: 1 on the front,
-/// falling away either side, swelling in as it starts and out as it reaches
-/// the edge, and settled at the sheet's own edge.
-fn crest_at(p: vec2<f32>, along: f32) -> f32 {
-    // 0 on the card's middle line, 1 at its edge.
-    let s = 1.0 + card_sdf(p) / CARD_HALF_W;
-    let reach = 1.0 - WAVE_INSET / CARD_HALF_W;
-    let out = clamp(along, 0.0, 1.0);
-    let front = (1.0 - (1.0 - out) * (1.0 - out)) * reach;
-    let across = (s - front) / CREST_WIDTH;
-    let swell = sin(3.14159265 * out);
-    let settle = smoothstep(0.0, EDGE_SETTLE, -card_sdf(p) - WAVE_INSET);
-    return exp(-across * across) * swell * settle;
-}
-
-/// How a wave's sheet leans at `p`: its crest's rise per unit across the
-/// card, each way.
-fn crest_lean(p: vec2<f32>, along: f32) -> vec2<f32> {
-    let e = 0.004;
-    return WAVE_CREST / (2.0 * e) * vec2<f32>(
-        crest_at(p + vec2<f32>(e, 0.0), along) - crest_at(p - vec2<f32>(e, 0.0), along),
-        crest_at(p + vec2<f32>(0.0, e), along) - crest_at(p - vec2<f32>(0.0, e), along),
-    );
-}
-
 @vertex
 fn vertex(v: ShellVertex) -> ShellOut {
     var out: ShellOut;
@@ -145,8 +104,7 @@ fn vertex(v: ShellVertex) -> ShellOut {
         // board of new creatures does not pulse as one; with motion off,
         // one wave held still most of the way out.
         let phase = fract(dot(world_from_local[3].xz, vec2<f32>(0.37, 0.61)));
-        let t = fract(globals.time * params.motion / WAVE_PERIOD + phase);
-        out.along = select(WAVE_STILL, t * WAVE_PERIOD / WAVE_TRAVEL, params.motion > 0.5);
+        out.along = wave_along(globals.time * params.motion / WAVE_PERIOD + phase, params.motion);
         local = vec3<f32>(v.position.xy, WAVE_LIFT + WAVE_CREST * crest_at(v.position.xy, out.along));
         normal = normalize(vec3<f32>(-crest_lean(v.position.xy, out.along), 1.0));
     }
@@ -237,18 +195,9 @@ fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
     let out = card_out(in.local_pos.xy);
     let lv = normalize(in.local_cam - in.local_pos);
     if params.kind == SHELL_WAVE {
-        // Moonlight on the crest's slopes, more where they turn from the
-        // camera, a breath of it on its top and the key mirrored along it;
-        // nothing where there is no crest, so the wave passes and leaves the
-        // print as it was. Shaded here rather than from the mesh, which is
-        // coarser than the crest.
-        let c = crest_at(in.local_pos.xy, in.along);
-        let lean = crest_lean(in.local_pos.xy, in.along);
-        let ln = normalize(vec3<f32>(-lean, 1.0));
-        let away = 1.0 - abs(dot(ln, lv));
-        let mirrored = max(dot(reflect(-lv, ln), in.local_key), 0.0);
-        let glint = smoothstep(0.97, 0.995, mirrored) * c;
-        let glow = min(0.07 * c + length(lean) * (0.6 + 1.2 * away) + 0.4 * glint, 0.35);
+        // Shaded here rather than from the mesh, which is coarser than the
+        // crest.
+        let glow = wave_glow(in.local_pos.xy, in.along, lv, in.local_key);
         return vec4<f32>(MOONLIGHT, glow);
     }
     if params.kind == SHELL_RING {

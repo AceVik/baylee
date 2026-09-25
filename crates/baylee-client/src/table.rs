@@ -4568,14 +4568,14 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 let lift = LANE_RISE * i as f32 / steps;
                 let turned = tapped[i];
                 let shown = window.shown.contains(&i);
-                let shells = shellmat::Shells::of(&group.badges);
+                let shells = shellmat::Shells::of(group);
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
                     position,
                     lift,
                     marks: cardrail::badge_bits(&group.badges),
-                    sick: group.summoning_sick,
+                    sick: shells.wave,
                     crests: cardcrest::marks(group.provenance, group.commander),
                     // The last card shown has nothing laid over it, and
                     // nothing lies over a merged card's cell.

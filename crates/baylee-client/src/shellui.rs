@@ -1,6 +1,7 @@
 //! The shells round a permanent on its preview (the PM, 25.09): a card held
 //! up to the light wears what it wears on the felt, indestructible's
-//! darksteel rim, hexproof's or shroud's dome and defender's wall.
+//! darksteel rim, hexproof's or shroud's dome, defender's wall and summoning
+//! sickness's wave.
 //!
 //! The table's shells are meshes with a vertex stage of their own, which
 //! follows the real camera's ray to the card's face ([`crate::shellmat`]);
@@ -17,10 +18,11 @@
 //! look. **A new shell is a look there and an arm in `shell_ui.wgsl`**, and
 //! the preview asks nothing else.
 //!
-//! **Nothing but a dome lies on the print** (`docs/legal.md` §3): from
-//! straight over the card a point's ray meets the face right under it, so
-//! the mask is the card's own outline, and every colour the shader returns
-//! but the dome's carries it (`every_colour_but_the_domes_carries_the_mask`).
+//! **Nothing but a dome and the wave lies on the print** (`docs/legal.md`
+//! §3): from straight over the card a point's ray meets the face right under
+//! it, so the mask is the card's own outline, and every colour the shader
+//! returns but the dome's and the wave's carries it
+//! (`every_colour_but_the_domes_and_the_waves_carries_the_mask`).
 
 use baylee_client_core::cardrail::CARD_TALL;
 use bevy::asset::embedded_asset;
@@ -274,30 +276,45 @@ struct Globals { time: f32 };
         assert!((wgsl_const(SHADER, "WALL_MERLONS") - merlons).abs() < f32::EPSILON);
     }
 
-    /// Every colour the shader returns but the dome's has the mask as the
-    /// last factor of its alpha: a `return` that forgot it would be the rim
-    /// or the wall drawn over the preview's print.
+    /// Every colour the shader returns but the dome's and the wave's has the
+    /// mask as the last factor of its alpha: a `return` that forgot it would
+    /// be the rim or the wall drawn over the preview's print.
     #[test]
-    fn every_colour_but_the_domes_carries_the_mask() {
+    fn every_colour_but_the_domes_and_the_waves_carries_the_mask() {
         let open = SHADER.find("fn fragment(").expect("the fragment stage");
         let body = &SHADER[open..];
-        let dome = body
-            .find("if params.kind == SHELL_DOME {")
-            .expect("the dome's branch");
-        let dome_end = dome + body[dome..].find("\n    }").expect("it closes");
-        let glass = &body[dome..dome_end];
-        assert_eq!(
-            glass.matches("return").count(),
-            1,
-            "the dome's branch returns once"
-        );
-        assert!(glass.contains("return vec4<f32>(colour, glass);"));
-        let returns: Vec<&str> = body[..dome]
-            .lines()
-            .chain(body[dome_end..].lines())
-            .map(str::trim)
-            .filter(|l| l.starts_with("return"))
-            .collect();
+        // The two branches the owner let lie over the print (25.09), each
+        // returning once.
+        let mut exempt = Vec::new();
+        for (branch, colour) in [
+            (
+                "if params.kind == SHELL_DOME {",
+                "return vec4<f32>(colour, glass);",
+            ),
+            (
+                "if params.kind == SHELL_WAVE {",
+                "return vec4<f32>(MOONLIGHT, glow);",
+            ),
+        ] {
+            let start = body.find(branch).expect("the branch");
+            let end = start + body[start..].find("\n    }").expect("it closes");
+            let own = &body[start..end];
+            assert_eq!(own.matches("return").count(), 1, "`{branch}` returns once");
+            assert!(own.contains(colour), "`{branch}` returns `{colour}`");
+            exempt.push(start..end);
+        }
+        let mut at = 0;
+        let mut returns = Vec::new();
+        for line in body.split_inclusive('\n') {
+            let here = at;
+            at += line.len();
+            if !exempt.iter().any(|range| range.contains(&here)) {
+                let line = line.trim();
+                if line.starts_with("return") {
+                    returns.push(line);
+                }
+            }
+        }
         assert!(returns.len() >= 2, "the fragment stage returns too little");
         for line in returns {
             let alpha = line
