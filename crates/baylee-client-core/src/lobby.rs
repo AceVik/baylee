@@ -18,6 +18,7 @@ pub mod library;
 use crate::deckbuilder::DeckBuilder;
 use crate::i18n::{Lang, Phrase};
 use crate::textbuf::{Dir, Step as Reach, TextBuffer};
+use baylee_core::deckdigest::Leader;
 use baylee_core::ids::PlayerId;
 use baylee_engine::win::GameResult;
 use baylee_protocol::names;
@@ -165,16 +166,34 @@ pub struct DeckSummary {
     pub id: String,
     /// The name the owner gave it.
     pub name: String,
+    /// What the deck plays, in the store's spelling (`commander`,
+    /// `freeform`, …).
+    #[serde(default)]
+    pub format: String,
     /// Number of stored *lines* ("4 Llanowar Elves" is one), not cards.
     #[serde(default)]
     pub cards: usize,
     /// Number of stored sideboard lines.
     #[serde(default)]
     pub sideboard: usize,
+    /// Cards in the deck, counting copies: what a player means by "cards".
+    #[serde(default)]
+    pub copies: u32,
+    /// Cards in the sideboard, counting copies.
+    #[serde(default)]
+    pub side_copies: u32,
+    /// The deck's colour identity as `WUBRG` letters; see
+    /// [`baylee_core::deckdigest::Digest::identity`] for which cards it is
+    /// read off.
+    #[serde(default)]
+    pub identity: String,
     /// The commanders, for the deck formats that name one — or two, under
     /// the partner rule.
     #[serde(default)]
     pub commanders: Vec<String>,
+    /// The same commanders, each with the printing to picture it by.
+    #[serde(default)]
+    pub leaders: Vec<Leader>,
 }
 
 /// The fewest chairs a table may have.

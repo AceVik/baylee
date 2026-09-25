@@ -429,6 +429,21 @@ pub fn leader_of(index: CardIndex) -> Option<Leader> {
     })
 }
 
+/// What a stored deck plays when nobody said, in the store's spelling.
+///
+/// The sentence [`format_for`] reads off loaded decks, said about a deck
+/// that is only rows so far: one that named a commander is playing
+/// `commander`, anything else `freeform`. The gateway stores it when a save
+/// names no format, and the client's offline lobby lists it the same way.
+#[must_use]
+pub fn format_of(commanders: &[String]) -> &'static str {
+    if commanders.is_empty() {
+        "freeform"
+    } else {
+        "commander"
+    }
+}
+
 /// The format a table of these decks is playing.
 ///
 /// A deck that named a commander is playing Commander; anything else is

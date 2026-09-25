@@ -80,6 +80,7 @@ fn editing_a_deck_asks_for_its_rows() {
         cards: 2,
         sideboard: 0,
         commanders: Vec::new(),
+        ..Default::default()
     }]));
     lobby.apply(LobbyEvent::Games(GameListing::default()));
     assert_eq!(
@@ -204,6 +205,7 @@ fn deleting_a_deck_re_reads_the_list() {
         cards: 2,
         sideboard: 0,
         commanders: Vec::new(),
+        ..Default::default()
     }]));
     lobby.apply(LobbyEvent::Games(GameListing::default()));
     assert_eq!(
@@ -325,7 +327,8 @@ fn issue_186_house_copy_gets_its_own_identity_and_history_membership() {
             name: "House".into(),
             cards: 1,
             sideboard: 1,
-            commanders: vec![]
+            commanders: vec![],
+            ..Default::default()
         }])),
         Some(LobbyRequest::LoadDeck {
             deck_id: "private-copy".into()

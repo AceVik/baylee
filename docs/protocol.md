@@ -1560,7 +1560,7 @@ from a curl recipe into a contract:
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
-| decks | `GET /decks` | `[{id, name, cards, sideboard, commanders, sleeve, playmat}]` |
+| decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?}` | `{deck_id}` |
 | edit one | `PUT /decks/{id}` — same body | `204` |
@@ -1643,6 +1643,21 @@ gateway checks it: at most two, each one a card the rules may seat, and the
 pair itself legal under `baylee_cards::decks::may_lead_together`. A `/pool`
 row carries `commander` as *eligibility* and no `PartnerKind`, so the
 builder can still only name one — the pool row is the thing to widen.
+
+**`GET /decks` says what a player picks a deck by (#254).** `cards` and
+`sideboard` count stored *lines*, which is what the store holds: `4 Lightning
+Bolt` is one. `copies` and `side_copies` count cards. `identity` is the
+deck's colour identity as `WUBRG` letters, empty for colourless: its
+commanders' together (CR 903.4) when it has any, else every main-deck card's
+it can name, which is the colours the deck plays. `leaders` pictures each
+commander, in the order of `commanders`, as `{name, scryfall_id, lang,
+finish, has_back_image?}`: the printing its own row names, else the one the
+registry references, and `has_back_image` is left out when false. All of it
+is read from the rows by `baylee_cards::digest`, which the client's offline
+lobby answers the same request with. A row this build cannot parse or name
+counts where it can and is skipped otherwise, rather than refusing the list.
+An older gateway sends none of these fields, and the client reads their
+absence as empty.
 
 **`POST /lobby/games/{id}/seat` is the way back to a chair you are already
 in**, and it is not a join. It names no deck, moves nobody, and changes

@@ -63,6 +63,16 @@ fn a_deck_survives_a_round_trip_with_its_sideboard() {
     assert_eq!(status, 200, "{list}");
     assert!(list.contains("\"cards\":2"), "two lines, not 24: {list}");
     assert!(list.contains("\"sideboard\":1"), "{list}");
+    // And, since #254, what a player asks of a deck: how many cards, in
+    // which colours. A four-of is four.
+    assert!(list.contains("\"copies\":24"), "{list}");
+    assert!(list.contains("\"side_copies\":2"), "{list}");
+    let identity = json_field(&list, "identity");
+    assert!(
+        identity.contains('U') && identity.contains('B'),
+        "Baleful Strix is blue and black: {list}"
+    );
+    assert!(list.contains("\"leaders\":[]"), "no commander: {list}");
 
     // The deck itself comes back row for row — this is what the builder
     // re-opens, and a lost row would be silently dropped on the next save.
@@ -118,6 +128,60 @@ fn a_deck_survives_a_round_trip_with_its_sideboard() {
         "",
     );
     assert_eq!(status, 404, "and it is really gone");
+}
+
+/// #254: a commander deck is listed with its commander, pictured by the
+/// printing its own row names, and with the commander's colour identity
+/// (CR 903.4) rather than the colours of whatever else the rows hold. This
+/// pool has no partner pair `POST /decks` would accept, so the pair's
+/// combined identity is `baylee_cards::digest`'s own test.
+#[test]
+fn the_deck_list_pictures_a_deck_by_its_commander() {
+    let pool = baylee_cards::pool::rows();
+    let leader = pool
+        .iter()
+        .find(|c| c.commander && c.identity == "G")
+        .expect("this pool has a green commander");
+    let stray = pool
+        .iter()
+        .find(|c| !c.commander && !c.basic_land && c.identity == "R")
+        .expect("this pool has a red card");
+    let gateway = spawn_gateway("deck_leaders");
+    let token = login(gateway.port, "leader", "Leader");
+    let body = serde_json::json!({
+        "name": "Green",
+        "cards": [
+            format!("1 {} *F*", leader.english_name),
+            format!("3 {}", stray.english_name),
+        ],
+        "sideboard": [],
+        "commanders": [leader.english_name],
+    })
+    .to_string();
+    let (status, saved) = http(gateway.port, "POST", "/decks", Some(&token), &body);
+    assert_eq!(status, 200, "{saved}");
+
+    let (status, list) = http(gateway.port, "GET", "/decks", Some(&token), "");
+    assert_eq!(status, 200, "{list}");
+    let list: serde_json::Value = serde_json::from_str(&list).expect("json");
+    let deck = &list[0];
+    assert_eq!(deck["format"], "commander", "{deck}");
+    assert_eq!(deck["copies"], 4, "{deck}");
+    assert_eq!(
+        deck["identity"], "G",
+        "the commander's, not the red card's: {deck}"
+    );
+    let leaders = deck["leaders"].as_array().expect("leaders");
+    assert_eq!(leaders.len(), 1, "{deck}");
+    assert_eq!(leaders[0]["name"], leader.english_name.as_str());
+    assert_eq!(leaders[0]["scryfall_id"], leader.scryfall_id, "{deck}");
+    assert_eq!(leaders[0]["lang"], "en", "{deck}");
+    assert_eq!(leaders[0]["finish"], "Foil", "the row's finish: {deck}");
+    assert_eq!(
+        leaders[0].get("has_back_image").is_some(),
+        leader.has_back_image,
+        "the flag is sent when true and left out when false: {deck}"
+    );
 }
 
 /// What the builder greys the save button for, the gateway refuses. The two

@@ -32,6 +32,7 @@ fn seated_lobby() -> Lobby {
             name: "Allytifact".to_string(),
             cards: 60,
             commanders: Vec::new(),
+            ..Default::default()
         }])),
         Some(LobbyRequest::ListGames(lobby.query()))
     );
@@ -50,6 +51,7 @@ fn offline_lobby() -> Lobby {
             name: "Allytifact".to_string(),
             cards: 60,
             commanders: Vec::new(),
+            ..Default::default()
         }])),
         Some(LobbyRequest::ListGames(lobby.query()))
     );

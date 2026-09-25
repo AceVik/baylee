@@ -237,12 +237,23 @@ impl Offline {
             LobbyRequest::ListDecks => LobbyEvent::Decks(
                 self.decks
                     .iter()
-                    .map(|d| DeckSummary {
-                        id: d.id.clone(),
-                        name: d.name.clone(),
-                        cards: d.cards.len(),
-                        sideboard: d.sideboard.len(),
-                        commanders: d.commanders.clone(),
+                    .map(|d| {
+                        // The same reading the gateway lists, so a deck says
+                        // the same thing here as it would there.
+                        let digest =
+                            baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
+                        DeckSummary {
+                            id: d.id.clone(),
+                            name: d.name.clone(),
+                            format: baylee_cards::decks::format_of(&d.commanders).to_string(),
+                            cards: d.cards.len(),
+                            sideboard: d.sideboard.len(),
+                            copies: digest.copies,
+                            side_copies: digest.side_copies,
+                            identity: digest.identity,
+                            commanders: d.commanders.clone(),
+                            leaders: digest.leaders,
+                        }
                     })
                     .collect(),
             ),
@@ -992,6 +1003,49 @@ mod tests {
         };
         assert_eq!(name, "Mine");
         assert_eq!(cards, vec!["4 Island".to_string()]);
+    }
+
+    /// The deck list offline says what a gateway's says (#254): cards
+    /// counted in copies, the commander's colours, and the commander
+    /// pictured by the printing its row names. The same reading as
+    /// `GET /decks`, so a deck does not change when the gateway goes away.
+    #[test]
+    fn the_offline_deck_list_counts_copies_and_pictures_the_commander() {
+        let leader = baylee_cards::pool::rows()
+            .iter()
+            .find(|c| c.commander && c.identity == "G")
+            .expect("the pool has a green commander");
+        let chosen = "11111111-2222-3333-4444-555555555555";
+        let mut offline = offline();
+        let LobbyEvent::DeckSaved { deck_id } = offline.ask(LobbyRequest::SaveDeck {
+            deck_id: None,
+            name: "Green".to_string(),
+            cards: vec![
+                format!("1 {} scryfall={chosen}", leader.english_name),
+                "30 Forest".to_string(),
+            ],
+            sideboard: vec!["2 Forest".to_string()],
+            commanders: vec![leader.english_name.clone()],
+        }) else {
+            panic!("saving answers a save")
+        };
+        let id = deck_id.expect("a new deck is given an id");
+        let LobbyEvent::Decks(decks) = offline.ask(LobbyRequest::ListDecks) else {
+            panic!("listing decks answers decks")
+        };
+        let listed = decks
+            .iter()
+            .find(|d| d.id == id)
+            .expect("the saved deck is listed");
+        assert_eq!((listed.cards, listed.sideboard), (2, 1), "lines");
+        assert_eq!((listed.copies, listed.side_copies), (31, 2), "cards");
+        assert_eq!(listed.format, "commander");
+        assert_eq!(listed.identity, "G", "{listed:?}");
+        let [pictured] = listed.leaders.as_slice() else {
+            panic!("one commander, one picture: {listed:?}")
+        };
+        assert_eq!(pictured.name, leader.english_name);
+        assert_eq!(pictured.scryfall_id, chosen, "the row's printing");
     }
 
     /// Editing a built-in makes a copy rather than overwriting it.

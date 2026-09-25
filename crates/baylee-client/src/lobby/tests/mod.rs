@@ -251,6 +251,7 @@ fn stocked(app: &mut App) {
         cards: 96,
         sideboard: 0,
         commanders: Vec::new(),
+        ..Default::default()
     }]));
     state.lobby.apply(LobbyEvent::Pool {
         cards: pool_cards(),

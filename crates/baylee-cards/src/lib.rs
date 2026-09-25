@@ -13,6 +13,9 @@ pub mod cards;
 /// Deck parsing and name resolution against the registry (acceptance
 /// deck format, `"N Card Name"` lines, preset assembly).
 pub mod decks;
+/// What the lobby's deck list says about a deck: copies, colours,
+/// commanders (#254).
+pub mod digest;
 /// Filters shared by more than one card file.
 pub mod filters;
 /// Generated: registry tables.

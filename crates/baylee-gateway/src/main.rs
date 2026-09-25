@@ -1563,7 +1563,7 @@ struct DeckBody {
     commander: Option<String>,
     /// What the deck plays. A body that does not say keeps what the deck
     /// already said, and a new deck that does not say is read off its
-    /// commander — the same sentence `baylee_cards::decks::format_of` reads.
+    /// commander ([`baylee_cards::decks::format_of`]).
     #[serde(default)]
     format: Option<String>,
     /// What the deck is for, in its owner's words. Absent leaves it alone;
@@ -1819,12 +1819,18 @@ async fn list_decks(
         .map_err(|e| db_down(&e))?
         .iter()
         .map(|d| {
+            let digest = baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
             serde_json::json!({
                 "id": d.id,
                 "name": d.name,
+                "format": d.format,
                 "cards": d.cards.len(),
                 "sideboard": d.sideboard.len(),
+                "copies": digest.copies,
+                "side_copies": digest.side_copies,
+                "identity": digest.identity,
                 "commanders": d.commanders,
+                "leaders": digest.leaders,
                 "sleeve": d.sleeve,
                 "playmat": d.playmat,
             })
@@ -1868,7 +1874,7 @@ async fn create_deck(
     let format = body
         .format
         .clone()
-        .unwrap_or_else(|| format_of(&commanders));
+        .unwrap_or_else(|| baylee_cards::decks::format_of(&commanders).to_string());
     let id = store::create_deck(
         &state.db,
         store::NewDeck {
@@ -1955,19 +1961,6 @@ fn deck_routes() -> Router<Shared> {
         .route("/decks/{id}/history", get(deck_history))
         .route("/decks/{id}/versions/{version}", get(deck_version))
         .route("/decks/{id}/versions/{version}/revert", post(revert_deck))
-}
-
-/// What a deck plays, when nobody said.
-///
-/// A deck that named a commander is playing Commander — the same sentence
-/// `baylee_cards::decks::format_of` reads off a loaded deck, said here about
-/// a deck that is only a list of rows so far.
-fn format_of(commanders: &[String]) -> String {
-    if commanders.is_empty() {
-        "freeform".to_string()
-    } else {
-        "commander".to_string()
-    }
 }
 
 /// The decks anybody may play: what this project publishes and what came in

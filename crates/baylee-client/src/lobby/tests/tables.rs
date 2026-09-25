@@ -18,6 +18,7 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             cards: 96,
             sideboard: 0,
             commanders: Vec::new(),
+            ..Default::default()
         }]));
         state
             .lobby
@@ -194,6 +195,7 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
             cards: 96,
             sideboard: 0,
             commanders: Vec::new(),
+            ..Default::default()
         }]));
         state.lobby.apply(LobbyEvent::Games(GameListing::default()));
         state.lobby.host(GameMode::Open);

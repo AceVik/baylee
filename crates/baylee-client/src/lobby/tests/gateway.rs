@@ -2,6 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
+use baylee_core::deckdigest::Leader;
+use baylee_core::preset::Finish;
 
 #[test]
 fn every_request_hits_the_route_the_gateway_serves() {
@@ -329,23 +331,6 @@ fn the_gateways_own_answers_decode() {
     assert_eq!(
         decode(
             Lang::En,
-            Expect::Decks,
-            &answer(
-                200,
-                r#"[{"id":"d1","name":"Allytifact","cards":96,"commanders":[]}]"#
-            )
-        ),
-        LobbyEvent::Decks(vec![DeckSummary {
-            id: "d1".to_string(),
-            name: "Allytifact".to_string(),
-            cards: 96,
-            sideboard: 0,
-            commanders: Vec::new(),
-        }])
-    );
-    assert_eq!(
-        decode(
-            Lang::En,
             Expect::Seat,
             &answer(200, r#"{"game_id":"g1","seat":1,"seat_token":"st"}"#)
         ),
@@ -369,6 +354,76 @@ fn the_gateways_own_answers_decode() {
         LobbyEvent::DeckSaved {
             deck_id: Some("d1".to_string())
         }
+    );
+}
+
+/// `GET /decks` from a gateway before #254 and from one after it: the
+/// fields an older gateway does not send read as empty, and every field a
+/// newer one sends lands where the lobby reads it.
+#[test]
+fn a_deck_row_decodes_from_a_gateway_before_and_after_254() {
+    assert_eq!(
+        decode(
+            Lang::En,
+            Expect::Decks,
+            &answer(
+                200,
+                r#"[{"id":"d1","name":"Allytifact","cards":96,"commanders":[]}]"#
+            )
+        ),
+        // A row from a gateway older than #254: what it does not say is
+        // empty, not a refusal.
+        LobbyEvent::Decks(vec![DeckSummary {
+            id: "d1".to_string(),
+            name: "Allytifact".to_string(),
+            format: String::new(),
+            cards: 96,
+            sideboard: 0,
+            copies: 0,
+            side_copies: 0,
+            identity: String::new(),
+            commanders: Vec::new(),
+            leaders: Vec::new(),
+        }])
+    );
+    // A row as `GET /decks` writes it since #254. The second leader has no
+    // back: the gateway leaves that flag out rather than send `false`.
+    assert_eq!(
+        decode(
+            Lang::En,
+            Expect::Decks,
+            &answer(
+                200,
+                r#"[{"id":"d2","name":"Pair","format":"commander","cards":98,"sideboard":2,"copies":100,"side_copies":3,"identity":"WB","commanders":["First","Second"],"leaders":[{"name":"First","scryfall_id":"11111111-2222-3333-4444-555555555555","lang":"de","finish":"Foil","has_back_image":true},{"name":"Second","scryfall_id":"66666666-7777-8888-9999-000000000000","lang":"en","finish":"Normal"}],"sleeve":null,"playmat":null}]"#
+            )
+        ),
+        LobbyEvent::Decks(vec![DeckSummary {
+            id: "d2".to_string(),
+            name: "Pair".to_string(),
+            format: "commander".to_string(),
+            cards: 98,
+            sideboard: 2,
+            copies: 100,
+            side_copies: 3,
+            identity: "WB".to_string(),
+            commanders: vec!["First".to_string(), "Second".to_string()],
+            leaders: vec![
+                Leader {
+                    name: "First".to_string(),
+                    scryfall_id: "11111111-2222-3333-4444-555555555555".to_string(),
+                    lang: "de".to_string(),
+                    finish: Finish::Foil,
+                    has_back_image: true,
+                },
+                Leader {
+                    name: "Second".to_string(),
+                    scryfall_id: "66666666-7777-8888-9999-000000000000".to_string(),
+                    lang: "en".to_string(),
+                    finish: Finish::Normal,
+                    has_back_image: false,
+                },
+            ],
+        }])
     );
 }
 
