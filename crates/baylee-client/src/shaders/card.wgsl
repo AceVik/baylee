@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, print_uv, print_cover, frame_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, print_uv, print_cover, frame_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
@@ -48,6 +48,9 @@ struct CardParams {
     /// Which of the five zone-change doors this sweep draws, or `DOOR_NONE`
     /// for the plain arrival. `cardmat::door` numbers them.
     sweep_door: u32,
+    /// The text face a card with no art draws in its window, or 0 for its
+    /// flat `tint` — a back, a slab. `textface::face_word`.
+    face: u32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -127,7 +130,10 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // block writes to `print`.
     let at = print_uv(uv);
     let sampled = textureSample(art, art_sampler, at);
-    var print = mix(params.tint, sampled, params.has_art);
+    // A card with no art stands its text face in the window where it has
+    // one (#259): drawn only where there is no print to cover.
+    let flat = select(params.tint, vec4<f32>(text_face(uv, params.face), 1.0), (params.face & FACE_ON) != 0u);
+    var print = mix(flat, sampled, params.has_art);
     print = print_finish(print, at, facing, t, params.finish, params.strength);
 
     // ---- the frame, where everything this client says about the card lives

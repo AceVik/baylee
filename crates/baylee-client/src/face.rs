@@ -30,6 +30,7 @@
 use baylee_client_core::card_face::{CardFace, Stats, TextBlock};
 use baylee_client_core::cardplate::Plate;
 use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::textface;
 use baylee_core::color::{Color as MagicColor, ColorSet};
 use baylee_core::mana::{ManaSymbol, Variable};
 use bevy::prelude::*;
@@ -516,7 +517,7 @@ pub fn spawn_ui(
                 children![(
                     Text::new(stats_label(stats)),
                     text_font(fonts, title_size),
-                    TextColor(stats_color(stats)),
+                    TextColor(stats_color(stats, PANEL_INKS)),
                 )],
             ))
             .id();
@@ -575,13 +576,18 @@ fn stats_label(stats: Stats) -> String {
     }
 }
 
-/// Red once damage has made the toughness matter.
-fn stats_color(stats: Stats) -> Color {
+/// The overlay's inks for the body's numbers on its dark panel: plain, and
+/// lethal.
+const PANEL_INKS: (Color, Color) = (INK, Color::srgb(0.91, 0.47, 0.42));
+
+/// Red once damage has made the toughness matter, out of a face's pair of
+/// inks: light on the overlay's dark panel, dark on the table's paper.
+fn stats_color(stats: Stats, (ink, lethal): (Color, Color)) -> Color {
     match stats {
         Stats::PowerToughness {
             toughness, damage, ..
-        } if toughness - damage as i16 <= 0 => Color::srgb(0.91, 0.47, 0.42),
-        _ => INK,
+        } if toughness - damage as i16 <= 0 => lethal,
+        _ => ink,
     }
 }
 
@@ -611,15 +617,19 @@ const PX_PER_UNIT: f32 = 100.0;
 /// plate does not already say them ([`world_stats`]).
 const STATS_EM: f32 = 0.14;
 
-/// The cost's ink on the table's face.
-const COST_INK: Color = Color::srgb(0.85, 0.82, 0.72);
+/// The table face's ink, and its red for lethal damage: dark, because the
+/// material draws its bars and its paper light ([`textface::INK`]).
+const FACE_INKS: (Color, Color) = (
+    Color::srgb_from_array(textface::INK),
+    Color::srgb_from_array(textface::LETHAL_INK),
+);
 
 /// How wide a line of text is before anything has laid it out (#259).
 ///
-/// The table's face fits a name and a type line to its bars
-/// ([`baylee_client_core::textface`]), and a two-line name bar is a different
-/// face, so the width has to be known when the face is chosen — not a frame
-/// later, when bevy has laid the text out. So it is read off the font the
+/// The table's face fits a name and a type line to its bars ([`textface`]),
+/// and a two-line name bar is a different face, so the width has to be known
+/// when the face is chosen — not a frame later, when bevy has laid the text
+/// out. So it is read off the font the
 /// face is set in: the shipped Alegreya Sans Regular's own advances, summed.
 /// Kerning is left out, which makes a width a hair long and never short: a
 /// name the sum says fits, fits. A character the font does not have is taken
@@ -627,10 +637,9 @@ const COST_INK: Color = Color::srgb(0.85, 0.82, 0.72);
 /// roughly spend.
 ///
 /// Until the font has arrived — on the web it is an HTTP fetch — there is
-/// nothing to read, and the width is
-/// [`baylee_client_core::textface::average_width`]'s. Nothing is drawn in
-/// the font until it arrives either, and a face fitted by the average is
-/// fitted again then ([`Self::measured`]).
+/// nothing to read, and the width is [`textface::average_width`]'s. Nothing
+/// is drawn in the font until it arrives either, and a face fitted by the
+/// average is fitted again then ([`Self::measured`]).
 pub struct Widths<'a> {
     font: Option<swash::FontRef<'a>>,
 }
@@ -654,7 +663,7 @@ impl<'a> Widths<'a> {
     #[must_use]
     pub fn width(&self, text: &str) -> f32 {
         let Some(font) = self.font else {
-            return baylee_client_core::textface::average_width(text);
+            return textface::average_width(text);
         };
         let charmap = font.charmap();
         let metrics = font.glyph_metrics(&[]).scale(1.0);
@@ -676,9 +685,9 @@ impl<'a> Widths<'a> {
 #[derive(Clone, PartialEq, Debug)]
 pub struct WorldFit {
     /// The name: one line or two.
-    pub name: baylee_client_core::textface::Fitted,
+    pub name: textface::Fitted,
     /// The type line: always one.
-    pub kind: baylee_client_core::textface::Fitted,
+    pub kind: textface::Fitted,
     /// Whether the widths were the font's ([`Widths::measured`]).
     pub measured: bool,
 }
@@ -687,7 +696,7 @@ impl WorldFit {
     /// `face`'s name and type line, fitted by `widths`.
     #[must_use]
     pub fn of(face: &CardFace, widths: &Widths<'_>) -> Self {
-        use baylee_client_core::textface::{fit_name, fit_type};
+        use textface::{fit_name, fit_type};
         Self {
             name: fit_name(&face.name, |s| widths.width(s)),
             kind: fit_type(&face.type_line, |s| widths.width(s)),
@@ -714,23 +723,27 @@ fn on_the_card(x: f32, y: f32) -> Vec2 {
 
 /// Attaches the compact face to a card quad on the table.
 ///
-/// Laid out by [`baylee_client_core::textface`], in the parts of a card the
+/// Laid out by [`textface`], in the parts of a card the
 /// shader draws in the print's window (#259): the name in the name bar, the
 /// cost on the art box's first line, the type line in the type bar, each as
-/// `fit` set it. Children inherit the parent's rotation, so a tapped card's
-/// face turns with it and needs no special case. `plate` is what the card's
-/// ledge already says, so the face does not say it twice ([`world_stats`]).
+/// `fit` set it, in the dark ink the bars and the paper are drawn for. The
+/// cost's ink is the one its art box lets it ([`textface::cost_ink`] of
+/// `word`, the card's [`textface::face_word`]). Children inherit the
+/// parent's rotation, so a tapped card's face turns with it and needs no
+/// special case. `plate` is what the card's ledge already says, so the face
+/// does not say it twice ([`world_stats`]).
 pub fn spawn_world(
     commands: &mut Commands,
     card: Entity,
     face: &CardFace,
     fit: &WorldFit,
+    word: u32,
     plate: Plate,
     fonts: &UiFonts,
 ) -> Vec<Entity> {
-    use baylee_client_core::textface::{self, BAR_PAD, LINE_BOX, Regions, TEXT_INSET};
     use bevy::sprite::Anchor;
     use bevy::text::LineBreak;
+    use textface::{BAR_PAD, LINE_BOX, Regions, TEXT_INSET};
 
     let WorldFit { name, kind, .. } = fit;
     let regions = Regions::table(fit.lines());
@@ -766,7 +779,7 @@ pub fn spawn_world(
         line(
             name.lines.join("\n"),
             name.em,
-            INK,
+            FACE_INKS.0,
             on_the_card(x0 + TEXT_INSET, y0 + BAR_PAD),
             Anchor::TOP_LEFT,
         );
@@ -781,7 +794,7 @@ pub fn spawn_world(
             line(
                 cost,
                 textface::SMALL_EM,
-                COST_INK,
+                Color::srgb_from_array(textface::cost_ink(word).srgb()),
                 on_the_card(x1 - TEXT_INSET, top + BAR_PAD),
                 Anchor::TOP_RIGHT,
             );
@@ -792,7 +805,7 @@ pub fn spawn_world(
         line(
             kind.lines.concat(),
             kind.em,
-            MUTED,
+            FACE_INKS.0,
             on_the_card(
                 x0 + TEXT_INSET,
                 top + (bottom - top - LINE_BOX * kind.em) * 0.5,
@@ -806,7 +819,7 @@ pub fn spawn_world(
             line(
                 stats_label(stats),
                 STATS_EM,
-                stats_color(stats),
+                stats_color(stats, FACE_INKS),
                 on_the_card(right - TEXT_INSET, bottom - BAR_PAD),
                 Anchor::BOTTOM_RIGHT,
             );
@@ -835,6 +848,7 @@ fn world_stats(stats: Option<Stats>, plate: Plate) -> Option<Stats> {
 mod tests {
     use super::*;
     use baylee_core::mana::ManaCost;
+    use baylee_core::types::{SubtypeSet, TypeSet};
 
     /// The shipped Regular cut, read the way the client reads it.
     fn regular() -> Font {
@@ -898,9 +912,7 @@ mod tests {
         let average = Widths::of(None);
         assert!(!average.measured());
         assert!(
-            (average.width("Llanowar Elves")
-                - baylee_client_core::textface::average_width("Llanowar Elves"))
-            .abs()
+            (average.width("Llanowar Elves") - textface::average_width("Llanowar Elves")).abs()
                 < 1e-6
         );
     }
@@ -910,11 +922,11 @@ mod tests {
     /// face fitted by it is fitted again when the font arrives.
     #[test]
     fn the_average_and_the_font_can_disagree_about_a_name_s_lines() {
-        use baylee_client_core::textface::fit_name;
+        use textface::fit_name;
         let font = regular();
         let widths = Widths::of(Some(&font));
         let name = "Abandoned Outpost";
-        let guessed = fit_name(name, baylee_client_core::textface::average_width);
+        let guessed = fit_name(name, textface::average_width);
         let measured = fit_name(name, |s| widths.width(s));
         assert_eq!(guessed.lines.len(), 1);
         assert_eq!(measured.lines.len(), 2, "{measured:?}");
@@ -926,15 +938,22 @@ mod tests {
     /// bar its two-line height.
     #[test]
     fn the_table_face_stands_in_its_bars() {
-        use baylee_client_core::textface::{LINE_BOX, Regions};
         use bevy::ecs::world::CommandQueue;
         use bevy::sprite::Anchor;
+        use textface::{LINE_BOX, Regions};
 
         let font = regular();
         let widths = Widths::of(Some(&font));
-        for (name, lines) in [
-            ("Llanowar Elves", 1),
-            ("Okina, Temple to the Grandfathers", 2),
+        // The word is the material's: a green card's art box is light enough
+        // for the dark ink under its cost, a black one's only for the light.
+        for (name, lines, color, cost_ink) in [
+            ("Llanowar Elves", 1, MagicColor::Green, textface::INK),
+            (
+                "Okina, Temple to the Grandfathers",
+                2,
+                MagicColor::Black,
+                textface::LIGHT_INK,
+            ),
         ] {
             let mut world = World::new();
             let card = world.spawn_empty().id();
@@ -942,11 +961,18 @@ mod tests {
             let mut queue = CommandQueue::default();
             let mut commands = Commands::new(&mut queue, &world);
             let fit = WorldFit::of(&face, &widths);
+            let word = textface::face_word(
+                ColorSet::from_slice(&[color]),
+                TypeSet::CREATURE,
+                SubtypeSet::EMPTY,
+                textface::Depths::table(fit.lines()),
+            );
             let texts = spawn_world(
                 &mut commands,
                 card,
                 &face,
                 &fit,
+                word,
                 // What the ledge shows for this 2/2.
                 Plate::Fight {
                     power: 2,
@@ -1005,6 +1031,19 @@ mod tests {
             within(&fit.kind.lines[0], regions.type_bar);
             // The plate says the body, so the face does not.
             assert_eq!(boxes.len(), 3, "{name}: {boxes:?}");
+
+            // Dark on the light bars; the cost in the ink its art box lets it.
+            for &text in &texts {
+                let entity = world.entity(text);
+                let words = &entity.get::<Text2d>().expect("a Text2d").0;
+                let ink = entity.get::<TextColor>().expect("an ink").0;
+                let want = if words.contains("1 G") {
+                    Color::srgb_from_array(cost_ink)
+                } else {
+                    FACE_INKS.0
+                };
+                assert_eq!(ink, want, "{name}: {words:?}");
+            }
         }
     }
 
@@ -1075,15 +1114,21 @@ mod tests {
             toughness: 2,
             damage: 2,
         };
-        assert_ne!(stats_color(lethal), INK);
-        assert_eq!(
-            stats_color(Stats::PowerToughness {
-                power: 1,
-                toughness: 2,
-                damage: 1
-            }),
-            INK
-        );
+        for inks in [PANEL_INKS, FACE_INKS] {
+            assert_eq!(stats_color(lethal, inks), inks.1);
+            assert_ne!(inks.1, inks.0);
+            assert_eq!(
+                stats_color(
+                    Stats::PowerToughness {
+                        power: 1,
+                        toughness: 2,
+                        damage: 1
+                    },
+                    inks
+                ),
+                inks.0
+            );
+        }
     }
 
     /// The five independent reasons to draw the face. Each one alone is

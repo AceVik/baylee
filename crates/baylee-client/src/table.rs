@@ -29,6 +29,7 @@ use crate::marksmat::MarksMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
+use baylee_client_core::card_face::CardFace;
 use baylee_client_core::cardplate;
 use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
@@ -37,10 +38,12 @@ use baylee_client_core::layout::{
     CARD_HEIGHT, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout, pack_lane,
 };
 use baylee_client_core::tabletop;
+use baylee_client_core::textface;
 use baylee_client_core::zones::{self, Place, Tracker};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
 use baylee_core::ids::PlayerId;
+use baylee_core::types::{SubtypeSet, TypeSet};
 use bevy::asset::RenderAssetUsages;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -1518,6 +1521,9 @@ struct ShownFace {
     /// Whether its lines were fitted by the font's widths and not the
     /// average's ([`face::Widths`]).
     measured: bool,
+    /// How many lines its name took: its name bar's depth, which its
+    /// material draws.
+    lines: usize,
     /// The `Text2d` children.
     texts: Vec<Entity>,
 }
@@ -1528,6 +1534,73 @@ impl ShownFace {
     fn is(&self, seq: u64, measured: bool) -> bool {
         self.seq == seq && self.measured == measured
     }
+}
+
+/// What a card's text face is this frame (#259).
+enum FaceNow {
+    /// The face on the card is still the one to show; its name is on this
+    /// many lines.
+    Kept(usize),
+    /// A face fitted afresh: the old one's text comes off and this one's
+    /// goes on.
+    Fitted(Box<(CardFace, face::WorldFit)>),
+    /// None shown, and nothing yet to build one from.
+    Unbuilt,
+}
+
+impl FaceNow {
+    /// How many lines its name takes: its name bar's depth.
+    fn lines(&self) -> usize {
+        match self {
+            Self::Kept(lines) => *lines,
+            Self::Fitted(fitted) => fitted.1.lines(),
+            Self::Unbuilt => 1,
+        }
+    }
+}
+
+/// Whether the face `shown` on a card is still the one to show, and if not,
+/// the one to put there instead, built by `build` and fitted by `widths`.
+fn face_now(
+    shown: Option<&ShownFace>,
+    seq: u64,
+    widths: &face::Widths<'_>,
+    build: impl FnOnce() -> Option<CardFace>,
+) -> FaceNow {
+    if let Some(shown) = shown.filter(|shown| shown.is(seq, widths.measured())) {
+        return FaceNow::Kept(shown.lines);
+    }
+    build().map_or(FaceNow::Unbuilt, |built| {
+        let fit = face::WorldFit::of(&built, widths);
+        FaceNow::Fitted(Box::new((built, fit)))
+    })
+}
+
+/// The look of a card standing its text face in the window: its colours,
+/// what it is, and how deep its name bar is ([`textface::face_word`]), over
+/// the flat colour its identity used to be drawn in.
+fn face_look(
+    object: Option<&baylee_view::PublicObject>,
+    lines: usize,
+    finish: FinishTreatment,
+    glow: u32,
+    corner: cardplate::Corner,
+) -> CardLook {
+    let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
+    CardLook::flat(face::table_color(colors), finish, glow)
+        .with_face(face_word(object, lines))
+        .with_corner(corner)
+}
+
+/// The face word of `object` with its name on `lines` lines: what the
+/// material draws, and what the text standing on it is inked for.
+fn face_word(object: Option<&baylee_view::PublicObject>, lines: usize) -> u32 {
+    textface::face_word(
+        object.map_or(ColorSet::EMPTY, |o| o.colors),
+        object.map_or(TypeSet::EMPTY, |o| o.types),
+        object.map_or(SubtypeSet::EMPTY, |o| o.subtypes),
+        textface::Depths::table(lines),
+    )
 }
 
 /// Entities currently drawn, keyed by the object they represent.
@@ -3651,15 +3724,29 @@ pub fn sync_scene(
         // second pass — and stops being one the moment priority moves on.
         let glow = crate::cardmat::glow_of(object, placement.offer);
 
+        // The face is fitted before the material is chosen: its name's lines
+        // are the name bar's depth, which the material draws (#259), so the
+        // two come out of one fitting. A face fitted before the font arrived
+        // is fitted again when it does — the average's widths are a
+        // stand-in, and the font's may put the same name on the other number
+        // of lines.
+        let face_now = if show_face {
+            face_now(index.faces.get(&placement.object), seq, &widths, || {
+                object.map(|object| face::of_object(object, None, &texts))
+            })
+        } else {
+            FaceNow::Unbuilt
+        };
+
         let material = if show_face {
-            // One material per colour identity, so a mono-green board is one
-            // material however many creatures are on it.
-            let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
-            let tint = face::table_color(colors);
-            let look = CardLook::flat(tint, finish, glow).with_corner(placement.corner);
+            // One material per colour identity and name depth, so a
+            // mono-green board is one material however many creatures are on
+            // it.
+            let look = face_look(object, face_now.lines(), finish, glow, placement.corner);
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
+                let tint = face::table_color(object.map_or(ColorSet::EMPTY, |o| o.colors));
                 let handle = card_materials.add(material(look, None, tint, motion));
                 index.face_materials.insert(look, handle.clone());
                 handle
@@ -3854,11 +3941,7 @@ pub fn sync_scene(
         // The text children follow the same decision as the material, and are
         // rebuilt when the snapshot they were made from is no longer current:
         // an anthem, a counter or a clone all change what the face should say.
-        // A face fitted before the font arrived is fitted again when it
-        // does: the average's widths are a stand-in, and the font's may put
-        // the same name on the other number of lines (#259).
-        let current = index.faces.get(&placement.object);
-        if show_face && current.is_some_and(|shown| shown.is(seq, widths.measured())) {
+        if let FaceNow::Kept(_) = face_now {
             continue;
         }
         if let Some(previous) = index.faces.remove(&placement.object) {
@@ -3866,19 +3949,16 @@ pub fn sync_scene(
                 commands.entity(text).despawn();
             }
         }
-        if !show_face {
-            continue;
-        }
-        let Some((object, fonts)) = object.zip(fonts.as_deref()) else {
+        let (FaceNow::Fitted(fitted), Some(fonts)) = (face_now, fonts.as_deref()) else {
             continue;
         };
-        let built = face::of_object(object, None, &texts);
-        let fit = face::WorldFit::of(&built, &widths);
+        let (built, fit) = *fitted;
         let spawned = face::spawn_world(
             &mut commands,
             entity,
             &built,
             &fit,
+            face_word(object, fit.lines()),
             placement.corner.plate,
             fonts,
         );
@@ -3887,6 +3967,7 @@ pub fn sync_scene(
             ShownFace {
                 seq,
                 measured: fit.measured,
+                lines: fit.lines(),
                 texts: spawned,
             },
         );

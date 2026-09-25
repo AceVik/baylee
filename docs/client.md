@@ -1826,11 +1826,13 @@ off a merged card's top-left corner ("Grouping and the token summary").
 ### The text face
 
 A token has no print, a printing's art can still be on its way, and a player
-can ask for text over art (`face::wants_face`). The shader then draws the
-window as a flat dark tint under the card's metal light — the owner's "dunkle
-Metall-Platte" — and a lane of text tokens reads as a row of holes. #259 lays
-the window out as a card is: `baylee_client_core::textface` is the geometry,
-and the table's `Text2d` lines are placed by it.
+can ask for text over art (`face::wants_face`). Until #259 the shader drew
+that window as a flat dark tint under the card's metal light — the owner's
+"dunkle Metall-Platte" — and a lane of text tokens read as a row of holes.
+Now the window is laid out and drawn as a card is:
+`baylee_client_core::textface` is the geometry, the shader's `text_face`
+(`card_common.wgsl`) draws its parts, and the table's `Text2d` lines stand
+on them.
 
 - A dark border (`BORDER`, 0.040 card widths) inside the window, then a name
   bar, a pinline, an art box, a type bar and a text box, in a card's order.
@@ -1891,6 +1893,46 @@ one-line-or-two question as the font does for all but 179 of them. A face
 fitted by the average is fitted again when the font arrives
 (`table::ShownFace::is`,
 `a_face_fitted_by_the_average_is_fitted_again_when_the_font_arrives`).
+
+**The material draws the parts, keyed by one word.** `textface::face_word`
+packs what the shader needs into `CardParams::face`: the face is on, three
+hues — the bars' and the art box's two halves — and the depths of the two
+bars, a byte each in 512ths of a card width (`textface::Depths`). The depth
+is the one number both halves read: `Regions` places the text by it and the
+shader draws the bar by it, rounded up so a bar always holds its lines. The
+overlay sizes its bars by its own em, so its depths are not the table's two;
+the word carries whatever they are. The material and the text come from one
+fit (`table::face_now`), so when the font's arrival moves a name onto its
+other number of lines the material is keyed again with it
+(`the_font_s_arrival_re_keys_the_material_with_the_text`). One material per
+word and state: a mono-green board is still one material.
+
+- **Colour is the card's colours now**, as the rules have it. One colour is
+  that colour; two have gold bars and an art box running from one to the
+  other, left to right in the order the colours are written; three or more
+  are gold; none is grey.
+- **A land's bars are grey** whatever it makes, as on a printed land, and its
+  art box takes the colour of its one basic land type — the type is what taps
+  for the colour (CR 305.6) — or grey with none or several.
+- **The bars are light and the text box lighter**: the bars' colour mixed
+  0.65 of the way to a warm white, as a printed text box is, so a row of text
+  tokens beside prints is not a row of holes. The art box is the same hue
+  dark (0.35 at its top, 0.20 at its foot) with a faint cloth over it, the
+  same weave on every card. The bars are bevelled into raised plates; there
+  is no ornament, no frame art and no symbol, only geometry (`docs/legal.md`
+  §2).
+- **The text is dark ink** (`textface::INK`, sRGB 0.09 0.10 0.12): at least
+  4.7:1 on every bar (black's, which was lifted three hundredths for it) and
+  11:1 on every paper (`the_ink_reads_on_every_bar_and_every_paper`). A
+  lethal number is a dark red for the same paper. The cost stands on the art
+  box, which is too dark for the dark ink on a black card and too light for a
+  light one on a white card (2.3:1), so it takes whichever stands further off
+  the colour under it (`textface::cost_ink`). On the mid-tones the better ink
+  stands between 3.4:1 (grey) and 3.9:1 (gold): over WCAG's 3:1 for large
+  text, under its 4.5:1 for body text, and the cost is 10 px.
+- `the_text_face_is_the_same_face_in_both_languages` holds the shader's
+  numbers to `textface`'s, the hues to `Hue::tone`, and the word's shifts to
+  `face_word`'s.
 
 Foil and etched finishes share `print_finish` in `card_common.wgsl` (#198).
 The existing artwork sample supplies luminance, pigment and screen-space

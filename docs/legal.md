@@ -26,6 +26,10 @@ Urheber- und Medienrecht.
    light are exactly the three things a renderer normally reaches for a
    downloaded sprite sheet to draw — so there is no `textures/` directory to
    audit, in the same way clause 5 leaves no `sounds/` one.
+   A card drawn from its text (#259) is the same case: its name bar, type
+   bar, text box and P/T box are a card's functional layout, drawn by our
+   own shader in flat colours with no frame art, ornament or symbol, so it
+   borrows nothing from a printed frame and is not a grey area.
 2a. **The symbols, and the one clause this project does not satisfy.**
    This used to read "mana symbols drawn by the client itself, or the
    open-licensed `mana` font — never WotC assets", and that sentence was

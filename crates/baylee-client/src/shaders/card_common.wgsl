@@ -113,6 +113,129 @@ fn print_cover(uv: vec2<f32>) -> f32 {
     return 1.0 - smoothstep(-aa, aa, window_sdf(uv));
 }
 
+// ---- the text face (#259)
+//
+// What stands in the window for a card with no print: a token, a printing
+// whose art has not arrived, a card the player asked to read as text. It is
+// laid out the way a card is — a border, a name bar, an art box, a type bar
+// on the keyword strip's seam, a text box — so a text card's bars line up
+// with its printed neighbours' in a lane, and it is light where a card is
+// light, so a row of text tokens is not a row of holes. The text is not
+// drawn here: the table's `Text2d` lines and the overlay's nodes stand on
+// these bars. No power and toughness in here, and no state: the ledge's
+// plate is the P/T box, and the frame says the rest, as it does for a print.
+// `textface` in client-core is the Rust half of every number here.
+
+/// The dark border inside the window, in card widths.
+const TEXT_BORDER: f32 = 0.04;
+/// Where the type bar's top stands: the keyword strip's seam
+/// (`cardrail::strip_bottom`).
+const TEXT_SEAM: f32 = 0.7267412;
+/// The step the word carries a bar's depth in (`textface::DEPTH_STEP`).
+const DEPTH_STEP: f32 = 1.0 / 512.0;
+const TEXT_PINLINE: f32 = 0.006;
+const TEXT_BOX_GAP: f32 = 0.012;
+/// Where the text box ends; under it the foot is the border's colour.
+const TEXT_FOOT: f32 = 1.155;
+const BAR_CORNER: f32 = 0.012;
+
+/// The bars' colours, in linear light, in `textface::Hue`'s order.
+const FACE_WHITE: vec3<f32> = vec3<f32>(0.7874, 0.7293, 0.5705);
+const FACE_BLUE: vec3<f32> = vec3<f32>(0.2633, 0.448, 0.7106);
+const FACE_BLACK: vec3<f32> = vec3<f32>(0.2429, 0.2234, 0.2633);
+const FACE_RED: vec3<f32> = vec3<f32>(0.7484, 0.2957, 0.196);
+const FACE_GREEN: vec3<f32> = vec3<f32>(0.2957, 0.5382, 0.2957);
+const FACE_GOLD: vec3<f32> = vec3<f32>(0.7106, 0.5071, 0.1473);
+const FACE_GREY: vec3<f32> = vec3<f32>(0.448, 0.448, 0.42);
+/// The text box is the bars' colour mixed this far towards a warm white.
+const PAPER_WHITE: vec3<f32> = vec3<f32>(0.8481, 0.8276, 0.7484);
+const PAPER_MIX: f32 = 0.65;
+/// The art box: the bars' colour this dark at its top and at its foot.
+const ART_TOP: f32 = 0.35;
+const ART_FOOT: f32 = 0.2;
+/// How far the art box's cloth lifts and sinks it.
+const CLOTH: f32 = 0.04;
+const BORDER_INK: vec3<f32> = vec3<f32>(0.0049, 0.0049, 0.006);
+/// What a bar's top edge gains and its bottom edge loses.
+const BEVEL: f32 = 0.06;
+
+/// `textface::face_word`'s bits.
+const FACE_ON: u32 = 1u;
+const FACE_BARS_SHIFT: u32 = 4u;
+const FACE_NAME_SHIFT: u32 = 16u;
+const FACE_TYPE_SHIFT: u32 = 24u;
+
+/// A hue code's colour.
+fn face_hue(code: u32) -> vec3<f32> {
+    switch code {
+        case 0u: { return FACE_WHITE; }
+        case 1u: { return FACE_BLUE; }
+        case 2u: { return FACE_BLACK; }
+        case 3u: { return FACE_RED; }
+        case 4u: { return FACE_GREEN; }
+        case 5u: { return FACE_GOLD; }
+        default: { return FACE_GREY; }
+    }
+}
+
+/// Signed distance to a rounded part `[x0, y0, x1, y1]` of the face.
+fn face_part_sdf(p: vec2<f32>, r: vec4<f32>) -> f32 {
+    let half = (r.zw - r.xy) * 0.5;
+    return sd_round_box(p - r.xy - half, half, BAR_CORNER);
+}
+
+/// How much of this fragment is the part: antialiased across its edge.
+fn face_part(p: vec2<f32>, r: vec4<f32>, aa: f32) -> f32 {
+    return 1.0 - smoothstep(-aa, aa, face_part_sdf(p, r));
+}
+
+/// A bar in its colour, lit along its top edge and shaded along its foot, so
+/// it reads as a raised plate.
+fn face_bar(p: vec2<f32>, r: vec4<f32>, color: vec3<f32>, aa: f32) -> vec3<f32> {
+    let lit = 1.0 - smoothstep(0.0, 1.5 * aa, p.y - r.y);
+    let shaded = 1.0 - smoothstep(0.0, 1.5 * aa, r.w - p.y);
+    return max(color + vec3<f32>(BEVEL * (lit - shaded)), vec3<f32>(0.0));
+}
+
+/// The face at `uv`, in linear light: the whole window, border included.
+/// `word` is `textface::face_word`.
+fn text_face(uv: vec2<f32>, word: u32) -> vec3<f32> {
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let aa = max(fwidth(p.x), 0.0015);
+    let x0 = FRAME_SIDE + TEXT_BORDER;
+    let x1 = FRAME_SIDE + PRINT_SCALE - TEXT_BORDER;
+    let top = FRAME_TOP + TEXT_BORDER;
+    let name_end = top + f32((word >> FACE_NAME_SHIFT) & 0xffu) * DEPTH_STEP;
+    let type_end = TEXT_SEAM + f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;
+    let bars = face_hue((word >> FACE_BARS_SHIFT) & 0xfu);
+
+    var out = BORDER_INK;
+
+    // The art box: the colour dark where a print has its picture, running
+    // from one colour to the other on a two-colour card, with a cloth over
+    // it — the same pattern on every card, so a lane of tokens is one weave.
+    let art_box = vec4<f32>(x0, name_end + TEXT_PINLINE, x1, TEXT_SEAM);
+    let across = clamp((p.x - x0) / (x1 - x0), 0.0, 1.0);
+    let down = clamp((p.y - art_box.y) / (art_box.w - art_box.y), 0.0, 1.0);
+    let hue = mix(
+        face_hue((word >> (FACE_BARS_SHIFT + 4u)) & 0xfu),
+        face_hue((word >> (FACE_BARS_SHIFT + 8u)) & 0xfu),
+        smoothstep(0.25, 0.75, across),
+    );
+    let weave = (noise(p * 3.0) - 0.5) * 1.333 + (noise(p * 9.0) - 0.5) * 0.667;
+    let art = max(hue * mix(ART_TOP, ART_FOOT, down) + vec3<f32>(weave * CLOTH), vec3<f32>(0.0));
+    out = mix(out, art, face_part(p, art_box, aa));
+
+    let name_bar = vec4<f32>(x0, top, x1, name_end);
+    out = mix(out, face_bar(p, name_bar, bars, aa), face_part(p, name_bar, aa));
+    let type_bar = vec4<f32>(x0, TEXT_SEAM, x1, type_end);
+    out = mix(out, face_bar(p, type_bar, bars, aa), face_part(p, type_bar, aa));
+
+    let text_box = vec4<f32>(x0, type_end + TEXT_BOX_GAP, x1, TEXT_FOOT);
+    out = mix(out, mix(bars, PAPER_WHITE, PAPER_MIX), face_part(p, text_box, aa));
+    return out;
+}
+
 // ---- what the frame says
 //
 // Three registers, all on paper that is ours:

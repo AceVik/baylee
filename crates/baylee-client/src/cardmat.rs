@@ -420,6 +420,10 @@ pub struct CardParams {
     /// through Rust to be looked at once. The two halves are paired by a test
     /// that reads the WGSL, the way the rail's are.
     pub sweep_door: u32,
+    /// The text face a card with no artwork stands in its window, packed by
+    /// [`baylee_client_core::textface::face_word`], or `0` for one drawn as
+    /// its flat `tint` — a back, or a slab under a pile (#259).
+    pub face: u32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
 }
@@ -771,6 +775,8 @@ impl UiCardMaterials {
                 sweep_at: 0.0,
                 sweep_rate: 0.0,
                 sweep_door: door::NONE,
+                // A printing in the picker is a print: it has art to show.
+                face: 0,
                 tint: Vec4::ONE,
             },
             marks: crate::markatlas::MARKS,
@@ -849,6 +855,9 @@ pub struct CardLook {
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
+    /// The text face it stands in its window instead of the flat colour,
+    /// [`CardParams::face`]; `0` for none.
+    pub face: u32,
     /// The one-shot sheen this card is in the middle of, if any.
     ///
     /// In the key because it is in the material, like the plate — but unlike
@@ -870,6 +879,7 @@ impl CardLook {
             plate: 0,
             chips: [0; 2],
             tint: 0,
+            face: 0,
             sweep: None,
         }
     }
@@ -884,8 +894,17 @@ impl CardLook {
             plate: 0,
             chips: [0; 2],
             tint: quantise(color),
+            face: 0,
             sweep: None,
         }
+    }
+
+    /// The same look standing its text face in the window (#259): the word
+    /// is [`baylee_client_core::textface::face_word`]'s.
+    #[must_use]
+    pub fn with_face(mut self, face: u32) -> Self {
+        self.face = face;
+        self
     }
 
     /// The same look with its reserved corner filled in.
@@ -932,6 +951,7 @@ impl CardLook {
             plate: 0,
             chips: [0; 2],
             tint: 0,
+            face: 0,
             sweep: None,
         }
     }
@@ -1004,6 +1024,7 @@ pub fn material(
             sweep_at: 0.0,
             sweep_rate: 0.0,
             sweep_door: door::NONE,
+            face: look.face,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
         marks: crate::markatlas::MARKS,
@@ -1576,6 +1597,7 @@ pub(crate) mod tests {
             "sweep_at",
             "sweep_rate",
             "sweep_door",
+            "face",
             "tint",
         ];
         for (which, src) in [
@@ -1913,7 +1935,7 @@ pub(crate) mod tests {
             assert_eq!(
                 writes,
                 [
-                    "var print = mix(params.tint, sampled, params.has_art);",
+                    "var print = mix(flat, sampled, params.has_art);",
                     "print = print_finish(print, at, facing, t, params.finish, params.strength);"
                         .replace(
                             "facing",
@@ -1930,6 +1952,21 @@ pub(crate) mod tests {
             assert!(
                 lines.contains(&"let sampled = textureSample(art, art_sampler, at);"),
                 "{which} samples its art somewhere other than through the window"
+            );
+            // What stands in for a print where there is none (#259): the flat
+            // colour, or the text face. It is weighed by `1 - has_art` above,
+            // so it never lies on a print.
+            let flats: Vec<&str> = lines
+                .iter()
+                .copied()
+                .filter(|l| l.starts_with("let flat") || l.starts_with("flat ="))
+                .collect();
+            assert_eq!(
+                flats,
+                [
+                    "let flat = select(params.tint, vec4<f32>(text_face(uv, params.face), 1.0), (params.face & FACE_ON) != 0u);"
+                ],
+                "{which} stands something else in for a print"
             );
 
             // The merge, once, and after it only light and the corner.
@@ -2709,6 +2746,117 @@ struct Globals { time: f32 };
             row >= 3.0,
             "the tallest ruled creature has rows {row} pixels apart"
         );
+    }
+
+    /// The text face is the same face in both languages (#259).
+    ///
+    /// The shader draws the bars and the table's `Text2d` lines stand on
+    /// them, placed by `textface`: a bar that drifted a hundredth in either
+    /// file puts a name half off its bar, on a machine where nothing fails.
+    /// The hues are read out of `face_hue`'s switch by their code, so a
+    /// shader that swapped two draws no blue card red.
+    #[test]
+    fn the_text_face_is_the_same_face_in_both_languages() {
+        use baylee_client_core::textface::{self as face, Hue};
+        let src = include_str!("shaders/card_common.wgsl");
+        for (name, ours) in [
+            ("TEXT_BORDER", face::BORDER),
+            ("TEXT_SEAM", face::seam()),
+            ("DEPTH_STEP", face::DEPTH_STEP),
+            ("TEXT_PINLINE", face::PINLINE),
+            ("TEXT_BOX_GAP", face::BOX_GAP),
+            ("TEXT_FOOT", face::TEXT_FOOT),
+            ("BAR_CORNER", face::BAR_CORNER),
+            ("PAPER_MIX", face::PAPER_MIX),
+            ("ART_TOP", face::ART_TOP),
+            ("ART_FOOT", face::ART_FOOT),
+            ("CLOTH", face::CLOTH),
+            ("BEVEL", face::BEVEL),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours).abs() < 1e-6,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        #[allow(clippy::cast_precision_loss)] // four small words
+        for (name, ours) in [
+            ("FACE_ON", face::FACE_ON),
+            ("FACE_BARS_SHIFT", face::FACE_BARS_SHIFT),
+            ("FACE_NAME_SHIFT", face::FACE_NAME_SHIFT),
+            ("FACE_TYPE_SHIFT", face::FACE_TYPE_SHIFT),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours as f32).abs() < 1e-6,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        let hues = [
+            (Hue::White, "FACE_WHITE"),
+            (Hue::Blue, "FACE_BLUE"),
+            (Hue::Black, "FACE_BLACK"),
+            (Hue::Red, "FACE_RED"),
+            (Hue::Green, "FACE_GREEN"),
+            (Hue::Gold, "FACE_GOLD"),
+            (Hue::Grey, "FACE_GREY"),
+        ];
+        let tones = hues.iter().map(|(hue, name)| (*name, hue.tone())).chain([
+            ("PAPER_WHITE", face::PAPER_WHITE),
+            ("BORDER_INK", face::BORDER_INK),
+        ]);
+        for (name, ours) in tones {
+            let theirs = wgsl_vec3(src, name);
+            for c in 0..3 {
+                assert!(
+                    (theirs[c] - ours[c]).abs() < 1e-5,
+                    "{name}: {ours:?} here, {theirs:?} in the shader"
+                );
+            }
+        }
+        // Each bar is drawn as deep as its own byte says, the byte the text
+        // was placed by.
+        for line in [
+            "let name_end = top + f32((word >> FACE_NAME_SHIFT) & 0xffu) * DEPTH_STEP;",
+            "let type_end = TEXT_SEAM + f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;",
+        ] {
+            assert!(src.contains(line), "`text_face` no longer says `{line}`");
+        }
+        // Grey is the switch's default, so a code the table does not know
+        // is drawn as no colour rather than as white.
+        for (hue, name) in hues {
+            let arm = if hue == Hue::Grey {
+                format!("default: {{ return {name}; }}")
+            } else {
+                format!("case {}u: {{ return {name}; }}", hue as u32)
+            };
+            assert!(src.contains(&arm), "`face_hue` has no `{arm}`");
+        }
+    }
+
+    /// The face word a look carries reaches the shader's uniform, and only a
+    /// look that asked for the face carries one: a print and a back leave
+    /// the window to their picture (#259).
+    #[test]
+    fn a_face_look_carries_its_word_to_the_uniform() {
+        use baylee_client_core::images::ArtSize;
+        use baylee_client_core::textface::{FACE_NAME_SHIFT, FACE_ON};
+        use baylee_core::ids::PrintRef;
+
+        let tint = Color::srgb(0.2, 0.3, 0.4);
+        let word = FACE_ON | 5 << 4 | 133 << FACE_NAME_SHIFT;
+        let face = CardLook::flat(tint, FinishTreatment::Plain, 0).with_face(word);
+        assert_eq!(material(face, None, tint, 1.0).params.face, word);
+        assert_ne!(face, CardLook::flat(tint, FinishTreatment::Plain, 0));
+
+        let key = ImageKey::new(PrintRef(0), 0, ArtSize::Normal);
+        for look in [
+            CardLook::flat(tint, FinishTreatment::Plain, 0),
+            CardLook::art(key, FinishTreatment::Plain, 0),
+            CardLook::back(FinishTreatment::Plain, 0),
+        ] {
+            assert_eq!(material(look, None, tint, 1.0).params.face, 0, "{look:?}");
+        }
     }
 
     /// The frame is the same frame in both languages (#274).
