@@ -83,12 +83,14 @@ const GLOW_LIFT: f32 = 0.001;
 /// The gain only has to be large enough that the smallest rung of the ladder
 /// beats the widest table: the rungs are half a thousandth apart and the
 /// eight-seat ring reaches about forty units across, so 0.0005 × 400 000 =
-/// 200 is a comfortable margin. `the_ladder_decides_what_covers_what` holds
-/// both halves of that.
+/// 200 is a comfortable margin. `the_ladder_decides_what_covers_what` held
+/// both halves of that until it went with the air (d368cb56); nothing but
+/// this arithmetic holds it now.
 ///
 /// It touches nothing but the sort. Depth *writing* is off for every blended
-/// surface here, so none of them was ever occluding another; what this fixes
-/// is purely which one is painted last.
+/// surface here but defender's wall, which is solid and goes first
+/// ([`shellmat::WALL_RUNG`]), so none of the rest ever occludes another; what
+/// this fixes is purely which one is painted last.
 pub(crate) fn sort_bias(lift: f32) -> f32 {
     lift * SORT_GAIN
 }
@@ -2125,10 +2127,10 @@ pub fn spawn_stage(
             .insert(band, meshes.add(shellmat::band_mesh(inner, outer)));
     }
     for dome in shellmat::Dome::ALL {
-        for (step, share) in shellmat::DOME_STEPS.into_iter().enumerate() {
+        for (step, shape) in shellmat::DOME_STEPS.into_iter().enumerate() {
             index.dome_meshes.insert(
                 (dome, step),
-                meshes.add(shellmat::dome_mesh(dome.row(), share)),
+                meshes.add(shellmat::dome_mesh(dome.row(), shape)),
             );
         }
     }

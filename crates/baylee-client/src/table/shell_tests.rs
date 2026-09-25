@@ -185,6 +185,7 @@ fn sweep(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
         .map(|(p, &h)| pose(p, h))
         .collect();
     let faces: Vec<Footprint> = poses.iter().map(Footprint::of).collect();
+    let table = posed(&poses);
     let points = rim_points();
     for (i, at) in poses.iter().enumerate() {
         let others = faces
@@ -210,32 +211,61 @@ fn sweep(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
             if clear == 0.0 {
                 continue;
             }
-            land(rim.transform_point3(p), i, placed, &poses, eye, found);
+            land(rim.transform_point3(p), i, placed, &table, eye, found);
         }
     }
 }
 
+/// A card as it stands for a sweep: its pose, its face's height, and the
+/// way into its own space, worked out once a table rather than once a ray.
+struct Posed {
+    face: f32,
+    into: Mat4,
+    /// The other cards within reach of anything this card's shells throw.
+    near: Vec<usize>,
+}
+
+fn posed(poses: &[Transform]) -> Vec<Posed> {
+    poses
+        .iter()
+        .enumerate()
+        .map(|(i, at)| Posed {
+            face: at.translation.y + CARD_THICKNESS * at.scale.y,
+            into: at.to_matrix().inverse(),
+            near: (0..poses.len())
+                .filter(|&j| j != i && poses[j].translation.distance(at.translation) <= 3.0)
+                .collect(),
+        })
+        .collect()
+}
+
 /// Follows the ray from `eye` through `world`, a point of card `i`'s shell,
 /// down to the face of every other card it stands above, and records it if
-/// it lands on that card's print.
+/// it lands on that card's print. Card `i`'s own print, where the ray
+/// crosses it, hides the point if it is in front of it, and whatever lies
+/// under it if it is behind.
 fn land(
     world: Vec3,
     i: usize,
     placed: &[Placement],
-    poses: &[Transform],
+    table: &[Posed],
     eye: Vec3,
     found: &mut Sweep,
 ) {
-    for (j, other) in poses.iter().enumerate() {
-        if j == i || other.translation.distance(poses[i].translation) > 3.0 {
-            continue;
-        }
-        let face = other.translation.y + CARD_THICKNESS * other.scale.y;
-        if world.y <= face {
+    let own = &table[i];
+    let crossing = eye + (world - eye) * ((eye.y - own.face) / (eye.y - world.y));
+    let through_own = shellmat::card_sdf(own.into.transform_point3(crossing).truncate()) < 0.0;
+    if through_own && world.y < own.face {
+        return;
+    }
+    for &j in &own.near {
+        let other = &table[j];
+        let face = other.face;
+        if world.y <= face || (through_own && face < own.face) {
             continue;
         }
         let landing = eye + (world - eye) * ((eye.y - face) / (eye.y - world.y));
-        let on = other.to_matrix().inverse().transform_point3(landing);
+        let on = other.into.transform_point3(landing);
         if shellmat::card_sdf(on.truncate()) < -1e-4 {
             found.trespass.push(format!(
                 "shell of {:?} at {world} lands {:.4} inside {:?}",
@@ -249,7 +279,7 @@ fn land(
 
 /// A dome's points at `step`, in its own space: every vertex of its mesh,
 /// and the middle of every run between two rings.
-fn dome_points(row: shellmat::DomeRow, step: f32) -> Vec<Vec3> {
+fn dome_points(row: shellmat::DomeRow, step: shellmat::DomeStep) -> Vec<Vec3> {
     let mesh = shellmat::dome_mesh(row, step);
     let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
         mesh.attribute(Mesh::ATTRIBUTE_POSITION)
@@ -268,7 +298,7 @@ fn dome_points(row: shellmat::DomeRow, step: f32) -> Vec<Vec3> {
 /// Stands every card's dome as `fit_the_shells` would at its most
 /// permissive, already standing at full height, and follows the ray from
 /// `eye` through every point of every standing dome down to every card's
-/// face below it.
+/// face below it. A dome has no mask: all of it counts.
 fn sweep_domes(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
     let row = Dome::Hexproof.row();
     let points: Vec<Vec<Vec3>> = shellmat::DOME_STEPS
@@ -281,6 +311,7 @@ fn sweep_domes(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sw
         .map(|(p, &h)| pose(p, h))
         .collect();
     let faces: Vec<Footprint> = poses.iter().map(Footprint::of).collect();
+    let table = posed(&poses);
     for (i, at) in poses.iter().enumerate() {
         let others = faces
             .iter()
@@ -294,22 +325,19 @@ fn sweep_domes(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sw
         found.standing += 1;
         found.steps[step] += 1;
         let dome = at.to_matrix() * Mat4::from_translation(Vec3::Z * CARD_THICKNESS);
-        let cam = dome.inverse().transform_point3(eye);
         for &p in &points[step] {
-            if shellmat::clear_over_print(cam, p) == 0.0 {
-                continue;
-            }
-            land(dome.transform_point3(p), i, placed, &poses, eye, found);
+            land(dome.transform_point3(p), i, placed, &table, eye, found);
         }
     }
 }
 
 /// The tables the sweeps are taken on: a duel at three windows, including
-/// the wide one that leans the camera furthest, and rings of three, four and
-/// eight, each with sparse rows, comfortable ones and fanned ones.
+/// the wide one that leans the camera furthest, with sparse rows,
+/// comfortable ones, full ones and fanned ones, and rings of three, four and
+/// eight with all but the fanned.
 fn tables() -> Vec<(u8, [usize; 3], Vec2)> {
     let mut out = Vec::new();
-    for row in [[2, 1, 3], [5, 4, 6], [14, 11, 16]] {
+    for row in [[2, 1, 3], [5, 4, 6], [14, 11, 16], [30, 27, 32]] {
         for window in [
             Vec2::new(800.0, 600.0),
             Vec2::new(1280.0, 800.0),
@@ -317,8 +345,14 @@ fn tables() -> Vec<(u8, [usize; 3], Vec2)> {
         ] {
             out.push((2, row, window));
         }
-        for seats in [3, 4, 8] {
-            out.push((seats, row, Vec2::new(1920.0, 1080.0)));
+        // Every seat at a ring has a duel's board since #264, so its rows
+        // fan where a duel's do; the longest rows are a duel's alone, where
+        // thirty cards fan at every window and none is scrolled away
+        // (measured 25.09.2026: sixteen no longer fan at all).
+        if row[0] < 30 {
+            for seats in [3, 4, 8] {
+                out.push((seats, row, Vec2::new(1920.0, 1080.0)));
+            }
         }
     }
     out
@@ -555,7 +589,8 @@ fn sweep_walls(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Wa
 /// 0.55 of the points behind some print, 0.010 behind their own card's.
 /// Then 0.14 and 0.008, once every seat at a ring was handed a duel's board
 /// (#264): the rows at three, four and eight seats stopped overlapping, and
-/// a print stands in front of a wall only where a row does.
+/// a print stands in front of a wall only where a row does. Then 0.17 and
+/// 0.008, once the duels were given rows long enough to fan.
 #[test]
 fn a_wall_never_draws_over_a_print() {
     let mut found = WallSweep::default();

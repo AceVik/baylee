@@ -1978,22 +1978,36 @@ on objects of its own:
   the atlas cell), and a **shell** round the card is its glance
   (`shellmat.rs`, `shell.wgsl`). Indestructible's is a rim of darksteel,
   Magic's own indestructible metal (the owner, 25.09): nearly black, darker
-  than the felt, read by a pale lip along its crest. It stands round the
-  card from `RIM_RISE` (0.010) above its face down to the felt,
-  `RIM_MARGIN` (0.04) out, with a silver band of light going round it once
-  every seven seconds (its mean, when motion is off). Hexproof's is a
-  dome of light, blue, and shroud's the same dome in violet, which
-  swallows hexproof as the strip's marks do: one dome, never two colours
-  in one (`shellmat::Dome`, a row of margin, height and colour, so ward
-  and protection (#302) will be rows). It is a pillow over the card, its
-  plateau `DOME_HEIGHT` (0.20) over the face, `DOME_INSET` (0.25) in from
-  a skirt that meets the felt `DOME_MARGIN` (0.10) past the card's edge,
-  down a quarter ellipse; light from the view angle alone (fresnel, no
-  lights), a faint base of it and a line along its foot, breathing
-  between 1 and 1.1 every six seconds. It is blended, not added: Bevy
-  draws `Add` premultiplied, where a colour with alpha zero is still
-  added, and the mask below is an alpha. Its back faces are drawn, since
-  the half of it the mask leaves is the far side, seen from within.
+  than the felt, and read as metal by what it mirrors. Its section is a
+  quarter round from crest to foot (the shader's normal, which the mesh is
+  too coarse to carry), so its crest mirrors the dim blue hour over the
+  table and its foot the felt, with the crisp line between them that tells
+  metal from paint, and it catches a glint of the key light
+  (`shell.wgsl`'s `steel`). It stands round the card from `RIM_RISE`
+  (0.010) above its face down to the felt, `RIM_MARGIN` (0.04) out, with a
+  silver band of light going round it once every seven seconds (its mean,
+  when motion is off). Hexproof's is a dome of glass, blue, and shroud's
+  the same dome in violet, which swallows hexproof as the strip's marks
+  do: one dome, never two colours in one (`shellmat::Dome`, a row of
+  margin, height and colour, so ward and protection (#302) will be rows).
+  It is a real, tall dome (the owner, 25.09): its crown `DOME_HEIGHT`
+  (0.32) over the face, a ridge `DOME_CROWN` in from the card's edge, and
+  a quarter ellipse across the whole card down to its foot on the felt
+  `DOME_MARGIN` (0.10) past the edge. A flat top on a steep skirt, as
+  first built, read from a duel's nearly overhead shot as a frame: a wall
+  seen edge-on glows all the way round. The glass is nearly clear where it
+  faces the camera and glows towards its silhouette (fresnel), more on the
+  side turned to the light; the key light is mirrored in it as a crisp
+  window of moonlight on its near slope, in a broad sheen, which is what
+  shows its height from overhead; its foot is a band of its colour, the
+  same width seen from above at every step, so a dome drawn low and narrow
+  still shows (the mesh's `uv.x` says how far out from the crown a point
+  is). It breathes between 1 and 1.1 every six seconds. It may lie over
+  its own print, name and artist line included (the owner, 25.09;
+  `docs/legal.md` §3). It is blended, not added: Bevy draws `Add`
+  premultiplied, where a colour with alpha zero is still added. Its back
+  faces are drawn, the inside of its far side seen through its near side,
+  and it comes last in the pass (`DOME_RUNG`), over the strip.
   Defender's is a low wall of brick on the felt past the card's top edge,
   towards the table's middle: two courses and a row of `WALL_MERLONS` (5)
   merlons, `WALL_HEIGHT` (0.08) high, along a shallow arc
@@ -2004,55 +2018,70 @@ on objects of its own:
   stands, on the felt whatever the card does (`table::wall_pose`: never
   lifted or grown with a hover or a flier's bob). It is solid, so it
   writes depth, and it comes first in the pass (`WALL_RUNG`). Two rules
-  hold every shell:
-  - **Exactly nothing over its own print.** Its vertex stage hands the
-    fragment the camera in the shell's own space (`get_local_from_world`),
-    the fragment follows its ray to the card's face, and where that meets
-    the print its alpha is zero, opening over `MASK_FEATHER` (0.012) off
-    it (`clear_over_print`, mirrored in Rust and read against the shader
-    by `the_shader_measures_the_card_this_file_does`). Every `return` of
-    the fragment carries it (`every_colour_a_shell_returns_carries_the_mask`).
-    It is the real camera, so it holds at every yaw, hover and tap. From
-    the table's real shots it leaves 0.65 of a standing rim's width to see.
+  hold the shells:
+  - **Exactly nothing of the rim, a ring or the wall over its own print.**
+    Its vertex stage hands the fragment the camera in the shell's own
+    space (`get_local_from_world`), the fragment follows its ray to the
+    card's face, and where that meets the print its alpha is zero, opening
+    over `MASK_FEATHER` (0.012) off it (`clear_over_print`, mirrored in
+    Rust and read against the shader by
+    `the_shader_measures_the_card_this_file_does`). Every `return` of the
+    fragment but the dome's one carries it
+    (`every_colour_but_the_domes_carries_the_mask`). It is the real
+    camera, so it holds at every yaw, hover and tap. From the table's real
+    shots it leaves 0.65 of a standing rim's width to see. The dome is
+    glass over its whole card, by the owner's choice (25.09).
   - **Never on another card's print.** The mask cannot see a neighbour, so
     `table::fit_the_shells` asks, after the glide and from where every card
-    and the camera are this frame, how far the rim would throw itself onto
-    each card whose face is below its top edge (`shellmat::rim_stands`).
-    The rim falls to the felt, so a card beside it hides all of it below
-    that card's face, and what reaches it is only the top edge's throw:
-    height over that face × the steepest ray's tangent, about 0.013 at
-    rest. Two untapped cards in neighbouring rows of a ring are 0.0185
-    apart, so a resting rim stands there. Where it does not fit (a fanned
-    row, a flier over a neighbour, a hover in a tight row), the rim lies
-    down as a ring on the felt, `RING_INNER`..`RING_OUTER` (0.10–0.16)
-    out, just outside the offer's light, at `RING_RUNG` under every card,
-    held flat under its card the way a flier's shadow is. A ring stands up
-    again only if the rim would fit `STAND_AGAIN` (a flier's whole bob)
-    higher, so a flier at the edge does not swap on every bob.
-    The dome is the same guard over a taller profile
-    (`shellmat::shell_stands`, `profile_reach`: the furthest landing along
-    the mesh's own straight runs is at a point of the profile or where a
-    run goes under the face). It is tried at each of `DOME_STEPS` (full,
-    0.7, 0.5, 0.3 of its height) from the tallest down
-    (`shellmat::dome_step`), so a dome with a little air stands lower,
-    and one with none lies down as a ring in its colour; a taller step,
-    or standing up from lying, needs `STAND_AGAIN` of headroom. What a
-    dome's plateau throws lands inside its own card's edge, and can still
-    land on a card lying across that edge (a flier over its neighbour), so
-    a card that overlaps it refuses any shell standing above its face.
-    Where the steel and the dome both lie, they share the band inside
-    out, as they stand: steel `RING_INNER`..`RING_SPLIT` (0.10–0.13), the
-    dome `RING_SPLIT`..`RING_OUTER` (0.13–0.16) (the PM, 25.09); alone,
-    each takes the whole band.
+    and the camera are this frame, whether a shell standing round its card
+    would land on any other card's print (`shellmat::shell_stands`, one
+    guard over a shell's profile). A point of the shell above another
+    card's face lands on that face further along the camera's ray, away
+    from the camera, by its height over it × the ray's tangent. So each
+    run of the profile, clipped to the part above that face, lands inside
+    the hull of its own card grown by the run's ends and carried away from
+    the camera by the least and the most any of its rays carries it; the
+    shell stands if no hull meets another card's face. A face above the
+    shell's top hides it, and the shell's own print hides what lies under
+    it: a run whose every ray crosses the card's own face inside its edge
+    is measured only against faces above that face. The rim falls to the
+    felt, so a card beside it hides all of it below that card's face, and
+    what reaches it is only the top edge's throw, about 0.013 at rest; two
+    untapped cards in neighbouring rows of a ring are 0.0185 apart, so a
+    resting rim stands there. Where it does not fit (a fanned row, a flier
+    over a neighbour, a hover in a tight row), the rim lies down as a ring
+    on the felt, `RING_INNER`..`RING_OUTER` (0.10–0.16) out, just outside
+    the offer's light, at `RING_RUNG` under every card, held flat under
+    its card the way a flier's shadow is: a rod of darksteel, round
+    across. A ring stands up again only if the rim would fit `STAND_AGAIN`
+    (a flier's whole bob) higher, so a flier at the edge does not swap on
+    every bob.
+    A dome is tried at each of `DOME_STEPS` in turn
+    (`shellmat::dome_step`): full, 0.7 of its height, then 0.6 with its
+    foot drawn in to the card's edge, 0.45 and 0.3 with it drawn 0.1 and
+    0.2 onto the card; with no air at all it lies down as a band of plates
+    in its colour, six along each short side and eight along each long
+    one, crisp-edged with a bright line along both edges, which the
+    offer's soft light is never taken for. A taller step, or standing up
+    from lying, needs `STAND_AGAIN` of headroom. Where the steel and the
+    dome both lie, they share the band inside out, as they stand: steel
+    `RING_INNER`..`RING_SPLIT` (0.10–0.13), the dome
+    `RING_SPLIT`..`RING_OUTER` (0.13–0.16) (the PM, 25.09); alone, each
+    takes the whole band.
     `a_standing_rim_never_lands_on_another_cards_print` and
     `a_standing_dome_never_lands_on_another_cards_print` follow the real
-    camera's ray through every point of every standing rim or dome onto
-    every card below it, on duels at three windows and rings of three,
-    four and eight, sparse, comfortable and fanned, with and without
-    hovers, from the home shot, every seat's framing and every other
-    seat's side of the table: none lands on a print, both halves of each
-    choice are taken hundreds of times, and domes stand at every step.
-    Taking the guard away turns both red by the million.
+    camera's ray through every point of every standing rim or dome, down
+    to its own card's face where it crosses its print, and onto every card
+    below it, on duels at three windows, sparse, comfortable, full and
+    fanned, and rings of three, four and eight with all but the fanned
+    rows, with and without hovers, from the home
+    shot, every seat's framing and every other seat's side of the table:
+    none lands on a print, and both halves of each choice are taken
+    hundreds of times. Domes stand in 28296 of 29320 cases, 14758 of them
+    at full height, and at every step; they lie in a duel's fanned rows,
+    which since every seat at a ring has a duel's board (#264) are the
+    only rows that fan. Taking the first guard away turned
+    both red by the million.
     The wall needs no guard: it is lower than every face (0.08 against a
     resting card's 0.083, a const assert), so past any point of it the
     camera's ray only goes lower, and every print the ray crosses is in

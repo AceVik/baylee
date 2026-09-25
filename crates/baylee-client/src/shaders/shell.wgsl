@@ -5,13 +5,17 @@
 // camera in the shell's own space, whose `z = 0` is the card's face. With it
 // the fragment follows its own ray down to the face, and where that ray
 // meets the print the shell is not drawn at all (`clear_over_print`). Every
-// colour this file returns is multiplied by that, and a test reads every
-// `return` below to make sure it still is.
+// colour this file returns is multiplied by that but a dome's, which is
+// glass over its whole card by the owner's choice (25.09); a test reads
+// every `return` below to make sure it still is.
 //
 // The steel is darksteel, Magic's own indestructible metal (the owner,
-// 25.09): nearly black, darker than the felt it stands on, and read by the
-// pale light along its crest and the silver band going round it. The domes
-// are light in the lobby's blue-hour key, their colour in `params.tint`.
+// 25.09): nearly black, darker than the felt it stands on, and read as
+// metal by what it mirrors, the room's dim sky over a crisp horizon, by a
+// glint and by the silver sheen going round it. The domes are glass in the
+// lobby's blue-hour key, their colour in `params.tint`, and a dome lying
+// down is a band of plates in that colour, crisp-edged, never the offer's
+// soft light.
 // Defender's wall is brick at dusk, standing on the felt under every face,
 // so the prints in front of it hide it by depth (it writes depth, being
 // solid); the mask is there all the same.
@@ -29,8 +33,7 @@ struct ShellParams {
     /// The clock every animated term runs on: 1 normally, 0 for
     /// `Preferences::reduce_motion`.
     motion: f32,
-    /// Where a ring's band, or a dome's foot line, starts and ends past the
-    /// card's edge.
+    /// Where a ring's band starts and ends past the card's edge.
     inner: f32,
     outer: f32,
 }
@@ -53,8 +56,12 @@ const MASK_FEATHER: f32 = 0.012;
 /// The rim's top edge over the face, and its foot under it.
 const RIM_RISE: f32 = 0.01;
 const RIM_DROP: f32 = 0.083;
-/// How far a ring's edges and a dome's foot line take to fade in.
+/// How far a ring's edges take to fade in.
 const SOFT: f32 = 0.012;
+/// How many plates a lying dome's band has along each short side of the
+/// card, and along each long one.
+const PLATES_SHORT: f32 = 6.0;
+const PLATES_LONG: f32 = 8.0;
 /// One course of the wall's brick, one brick along it, and the mortar
 /// between them.
 const WALL_COURSE: f32 = 0.028;
@@ -65,6 +72,10 @@ const WALL_MORTAR: f32 = 0.005;
 /// silver.
 const STEEL: vec3<f32> = vec3<f32>(0.006, 0.0065, 0.0078);
 const SHEEN: vec3<f32> = vec3<f32>(0.58, 0.60, 0.64);
+/// The light every shell catches, from over the player's shoulder, in the
+/// world; and its colour on glass, the moon's.
+const KEY: vec3<f32> = vec3<f32>(-0.293, 0.838, 0.461);
+const MOON: vec3<f32> = vec3<f32>(0.80, 0.86, 1.0);
 /// Brick and mortar, linear, and the blue hour in the wall's shade.
 const BRICK: vec3<f32> = vec3<f32>(0.30, 0.075, 0.04);
 const MORTAR: vec3<f32> = vec3<f32>(0.11, 0.11, 0.12);
@@ -84,8 +95,12 @@ struct ShellOut {
     @location(1) local_cam: vec3<f32>,
     @location(2) world_position: vec3<f32>,
     @location(3) world_normal: vec3<f32>,
-    /// The card's own UV at this point, running on past its edges.
+    /// The card's own UV at this point, running on past its edges; on a
+    /// dome, `x` is how far out from its crown to its foot it is, seen from
+    /// above (`shellmat::dome_mesh`).
     @location(4) uv: vec2<f32>,
+    /// [`KEY`] in the shell's own space.
+    @location(5) local_key: vec3<f32>,
 };
 
 @vertex
@@ -99,6 +114,7 @@ fn vertex(v: ShellVertex) -> ShellOut {
     out.local_pos = v.position;
     // One camera for the whole shell, so interpolating it is exact.
     out.local_cam = (get_local_from_world(v.instance_index) * vec4<f32>(view.world_position, 1.0)).xyz;
+    out.local_key = normalize((get_local_from_world(v.instance_index) * vec4<f32>(KEY, 0.0)).xyz);
     out.uv = v.uv;
     return out;
 }
@@ -118,17 +134,58 @@ fn clear_over_print(cam: vec3<f32>, p: vec3<f32>) -> f32 {
     return smoothstep(0.0, MASK_FEATHER, card_sdf(hit));
 }
 
-/// Darksteel under a light from over the player's shoulder: the metal, a
-/// pale edge where the surface turns away, a glint, a lip of light along its
-/// crest (`lip`, 1 at the top edge), and a silver band of light going round
-/// the card (`band`, at its mean when still).
-fn steel(n: vec3<f32>, v: vec3<f32>, band: f32, lip: f32) -> vec3<f32> {
-    let key = normalize(vec3<f32>(-0.35, 1.0, 0.55));
-    let lambert = max(dot(n, key), 0.0);
-    let glint = pow(max(dot(reflect(-key, n), v), 0.0), 28.0);
-    let edge = pow(1.0 - abs(dot(n, v)), 3.0);
-    return STEEL * (0.7 + 0.9 * lambert)
-        + SHEEN * (0.04 * edge + 0.5 * glint + 0.25 * lip + 0.08 * band);
+/// Which way is out from the card at `p`, in its own plane.
+fn card_out(p: vec2<f32>) -> vec2<f32> {
+    let q = abs(p) - (vec2<f32>(CARD_HALF_W, CARD_HALF_H) - vec2<f32>(CARD_ROUND));
+    return sign(p) * normalize(max(q, vec2<f32>(1e-5)));
+}
+
+/// Darksteel, all in the shell's own space, where `z` is up off the face:
+/// the metal, nearly black, and what it mirrors of the room round the table,
+/// the dim blue hour over the horizon and the dark felt under it, with the
+/// crisp line between them that tells metal from paint; a glint of [`KEY`];
+/// and a silver band of light going round the card (`band`, at its mean
+/// when still). `n` is the surface's shape, not its mesh's: a rounded bevel
+/// the mesh is too coarse to carry.
+fn steel(n: vec3<f32>, v: vec3<f32>, key: vec3<f32>, band: f32) -> vec3<f32> {
+    let r = reflect(-v, n);
+    let sky = smoothstep(-0.02, 0.02, r.z) * (0.06 + 0.14 * max(r.z, 0.0));
+    let glint = pow(max(dot(r, key), 0.0), 40.0);
+    return STEEL + SHEEN * (sky + glint + 0.45 * band);
+}
+
+/// A surface tipped `tilt` (radians) from facing straight up towards `out`.
+fn tipped(out: vec2<f32>, tilt: f32) -> vec3<f32> {
+    return vec3<f32>(out * sin(tilt), cos(tilt));
+}
+
+/// Where along a lying dome's band of plates `uv` is: how far into its
+/// plate (0..1), from the plate counts per side.
+fn plate_at(uv: vec2<f32>) -> f32 {
+    let round = perimeter(uv) * 4.0;
+    let side = floor(round);
+    let count = select(PLATES_SHORT, PLATES_LONG, side == 1.0 || side == 3.0);
+    return fract(fract(round) * count);
+}
+
+/// How much of a lying dome's band is here: plates with gaps between, and
+/// crisp edges where the offer's light is soft.
+fn plate_alpha(uv: vec2<f32>, d: f32, aa: f32) -> f32 {
+    let f = plate_at(uv);
+    let w = max(aa, 1e-4);
+    let across = smoothstep(params.inner - w, params.inner + w, d)
+        * (1.0 - smoothstep(params.outer - w, params.outer + w, d));
+    let along = smoothstep(0.06, 0.12, f) * (1.0 - smoothstep(0.88, 0.94, f));
+    return across * along;
+}
+
+/// A lying dome's plate: its colour, a darker fill and a bright line along
+/// both edges of the band (a double line), breathing as the dome does.
+fn plates(uv: vec2<f32>, d: f32, breath: f32) -> vec3<f32> {
+    let width = params.outer - params.inner;
+    let t = clamp((d - params.inner) / max(width, 1e-4), 0.0, 1.0);
+    let lines = max(1.0 - smoothstep(0.0, 0.3, t), smoothstep(0.7, 1.0, t));
+    return params.tint.rgb * (0.45 + 0.9 * lines) * breath;
 }
 
 /// Defender's wall in running bond: `along` is the distance along its arc,
@@ -158,10 +215,11 @@ fn brick(along: f32, h: f32, n: vec3<f32>, aa: f32) -> vec3<f32> {
 
 @fragment
 fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
-    // Nothing of a shell over its own print.
+    // Nothing of the rim, the rings or the wall over its own print.
     let clear = clear_over_print(in.local_cam, in.local_pos);
     // Taken before any branch, where every pixel of the quad still runs.
     let aa = max(fwidth(in.uv.x), fwidth(in.local_pos.z));
+    let aa_d = fwidth(card_sdf(in.local_pos.xy));
 
     let m = params.motion;
     let n = normalize(in.world_normal);
@@ -178,31 +236,47 @@ fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
     // A dome's light breathes between 1 and 1.1 once every six seconds; with
     // motion off, its mean.
     let breath = 1.05 + 0.05 * m * sin(globals.time * 1.047);
-    if params.kind == SHELL_RING || params.kind == SHELL_DOME_RING {
-        // Soft at both edges, so it lies on the felt rather than cut into it.
+    if params.kind == SHELL_DOME_RING {
+        return vec4<f32>(plates(in.uv, d, breath), plate_alpha(in.uv, d, aa_d) * clear);
+    }
+    let out = card_out(in.local_pos.xy);
+    let lv = normalize(in.local_cam - in.local_pos);
+    if params.kind == SHELL_RING {
+        // A rod of darksteel lying on the felt, round across: its band
+        // tipped inward at its inner edge, outward at its outer, and soft at
+        // both, so it lies on the felt rather than cut into it.
         let body = smoothstep(params.inner, params.inner + SOFT, d)
             * (1.0 - smoothstep(params.outer - SOFT, params.outer, d));
-        if params.kind == SHELL_DOME_RING {
-            return vec4<f32>(params.tint.rgb, 0.8 * breath * body * clear);
-        }
-        let colour = steel(n, v, band, 0.0);
+        let across = clamp(2.0 * (d - params.inner) / max(params.outer - params.inner, 1e-4) - 1.0, -1.0, 1.0);
+        let colour = steel(tipped(out, 1.3 * asin(across) / 1.5708), lv, in.local_key, band);
         return vec4<f32>(colour, 0.9 * body * clear);
     }
     if params.kind == SHELL_DOME {
-        // Light on a surface of glass: faint where it faces the camera,
-        // bright where it turns away (from the view alone; there are no
-        // lights), a base of it everywhere, and a line along its foot.
-        let fresnel = pow(1.0 - abs(dot(n, v)), 2.0);
-        let foot = smoothstep(params.inner, params.outer, d)
-            * (1.0 - smoothstep(params.outer - 0.3 * SOFT, params.outer, d));
-        let glow = (0.05 + 0.55 * fresnel + 0.35 * foot) * breath;
-        return vec4<f32>(params.tint.rgb, min(glow, 1.0) * clear);
+        // Glass: nearly clear where it faces the camera, glowing towards
+        // its silhouette, more on the side turned to the light than away
+        // from it, and the moon mirrored in it, a sharp streak in a broad
+        // sheen, where it curves towards the light. Its inside seen through
+        // it faces the camera too. Seen from nearly overhead, as a duel is,
+        // the light is what shows how tall it stands. Its foot is glass seen
+        // through its thickness, a band of its colour the same width at
+        // every step, so a dome drawn low and narrow still shows.
+        let facing = select(-n, n, dot(n, v) >= 0.0);
+        let fresnel = pow(1.0 - dot(facing, v), 3.0);
+        let mirrored = max(dot(reflect(-v, facing), KEY), 0.0);
+        let streak = smoothstep(0.87, 0.96, mirrored);
+        let sheen = pow(mirrored, 6.0);
+        let lit = 0.55 + 0.45 * dot(facing.xz, normalize(KEY.xz));
+        let foot = smoothstep(0.84, 0.9, in.uv.x);
+        let glass = min((0.02 + 0.6 * fresnel * lit + 0.1 * sheen + 0.3 * foot) * breath + 0.3 * streak, 0.92);
+        let colour = mix(params.tint.rgb, MOON, min(streak + 0.3 * fresnel, 1.0));
+        return vec4<f32>(colour, glass);
     }
     if params.kind == SHELL_WALL {
         return vec4<f32>(brick(in.uv.x, in.local_pos.z + RIM_DROP, n, aa), clear);
     }
-    // The rim: a lip of light along its crest, darker towards its foot,
-    // where it meets the felt.
-    let colour = steel(n, v, band, 1.0 - smoothstep(0.0, 0.15, down));
-    return vec4<f32>(colour * (1.0 - 0.45 * down), clear);
+    // The rim: rounded from its crest, facing up, to its foot, facing out,
+    // as a quarter round is, so its crest mirrors the sky and its foot the
+    // felt; darker towards its foot, where it meets the felt.
+    let colour = steel(tipped(out, acos(1.0 - down)), lv, in.local_key, band);
+    return vec4<f32>(colour * (1.0 - 0.3 * down), clear);
 }

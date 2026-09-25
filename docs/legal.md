@@ -164,17 +164,23 @@ Urheber- und Medienrecht.
      that it shows only on the felt there.
    - the **shell** of a protected permanent: indestructible's steel rim,
      which stands round the card from just above its face down to the
-     felt, hexproof's or shroud's dome of light over it, and defender's
+     felt, hexproof's or shroud's dome of glass over it, and defender's
      brick wall on the felt past its top edge, lower than every card's
-     face. Two rules
-     hold them, by the owner's and the PM's decisions under
-     #298. Over its own print it is exactly transparent: a mask follows the
-     real camera's ray through each of its points to the card's face
+     face. Two rules hold them, by the owner's and the PM's decisions
+     under #298. Over its own print the rim, a ring lying on the felt and
+     the wall are exactly transparent: a mask follows the real camera's
+     ray through each of their points to the card's face
      (`shellmat::the_mask_is_exactly_zero_over_the_print`, and
-     `every_colour_a_shell_returns_carries_the_mask` holds every return
-     to it). It never lands on another card's print: where the rim's throw
-     would reach another card's face this frame, it lies down on the felt
-     as a ring under every card instead, and a dome stands lower first
+     `every_colour_but_the_domes_carries_the_mask` holds every other
+     return to it). **A dome is the one exception, by the owner's okay of
+     25.09:** a real, tall dome of glass, nearly clear at its centre and
+     glowing towards its silhouette, may lie over its own card's whole
+     print, the name and the artist and © line included; the test holds
+     that the dome's branch returns exactly once and that nothing else
+     goes unmasked. No shell ever lands on another card's print: where a
+     shell standing round its card would reach another card's face this
+     frame, a dome stands lower, then narrower, and lies down on the felt
+     as a band of plates only last, and the rim lies down as a ring
      (`table::shell_tests::a_standing_rim_never_lands_on_another_cards_print`
      and `a_standing_dome_never_lands_on_another_cards_print`, swept over
      duels and rings, fanned rows, fliers, hovers and every seat's
