@@ -2184,6 +2184,339 @@ messages! {
     /// than being part of it. It is also the one thing the deleted pile chips
     /// said that nothing else on the sheet did.
     BrowseTabCount { en: "{0} ({1})", de: "{0} ({1})" },
+
+    // ---- the game log (#262) ---------------------------------------------
+    //
+    // One line per `baylee_view::LogEvent`, written by `crate::gamelog`. A
+    // line about a player is written twice, once for the reading seat in the
+    // second person and once for any other seat by name, because the verb
+    // agrees with its subject in both languages. No line ends in a full stop:
+    // the log reuses the loss sentences (`LostLifeYou` …), which have none.
+    // `{0}` is always the player a line is about, even where the reading
+    // seat's form does not say it.
+
+    /// A card a seat may not see.
+    LogACard { en: "a card", de: "eine Karte" },
+    /// A face-down card a seat may not look at (CR 708.5).
+    LogAFaceDownCard { en: "a face-down card", de: "eine verdeckte Karte" },
+    /// A planeswalker attacked that the reading seat's view no longer shows.
+    LogAPlaneswalker { en: "a planeswalker", de: "einen Planeswalker" },
+    /// The last two names of a list, joined.
+    LogAnd { en: "{0} and {1}", de: "{0} und {1}" },
+    /// The reading seat inside a list of winners, never first.
+    LogYouInList { en: "you", de: "du" },
+    /// A line that happened more than once in a row. `{0}` is the line, `{1}`
+    /// how many times.
+    LogRepeated { en: "{0} (×{1})", de: "{0} (×{1})" },
+    /// The heading of the reading seat's own turn. `{1}` is the turn number.
+    LogTurnYou { en: "Turn {1} · your turn", de: "Zug {1} · dein Zug" },
+    /// The heading of another seat's turn.
+    LogTurn { en: "Turn {1} · {0}", de: "Zug {1} · {0}" },
+    /// The reading seat took a mulligan.
+    LogMulliganYou { en: "You take a mulligan", de: "Du nimmst einen Mulligan" },
+    /// Another seat took a mulligan.
+    LogMulligan { en: "{0} takes a mulligan", de: "{0} nimmt einen Mulligan" },
+    /// The reading seat kept one card. `{1}` is the count.
+    LogKeptCardYou { en: "You keep {1} card", de: "Du behältst {1} Karte" },
+    /// The reading seat kept its hand. `{1}` is the count.
+    LogKeptCardsYou { en: "You keep {1} cards", de: "Du behältst {1} Karten" },
+    /// Another seat kept one card.
+    LogKeptCard { en: "{0} keeps {1} card", de: "{0} behält {1} Karte" },
+    /// Another seat kept its hand.
+    LogKeptCards { en: "{0} keeps {1} cards", de: "{0} behält {1} Karten" },
+    /// The decision clock passed priority for the reading seat.
+    LogTimedPassedYou {
+        en: "You ran out of time and passed",
+        de: "Du hattest keine Zeit mehr und hast gepasst",
+    },
+    /// The decision clock passed priority for another seat.
+    LogTimedPassed {
+        en: "{0} ran out of time and passed",
+        de: "{0} hatte keine Zeit mehr und hat gepasst",
+    },
+    /// The decision clock kept the reading seat's opening hand.
+    LogTimedKeptYou {
+        en: "You ran out of time and kept your hand",
+        de: "Du hattest keine Zeit mehr und hast deine Hand behalten",
+    },
+    /// The decision clock kept another seat's opening hand.
+    LogTimedKept {
+        en: "{0} ran out of time and kept their hand",
+        de: "{0} hatte keine Zeit mehr und hat die Hand behalten",
+    },
+    /// The decision clock declared no attackers for the reading seat.
+    LogTimedNoAttackersYou {
+        en: "You ran out of time and did not attack",
+        de: "Du hattest keine Zeit mehr und hast nicht angegriffen",
+    },
+    /// The decision clock declared no attackers for another seat.
+    LogTimedNoAttackers {
+        en: "{0} ran out of time and did not attack",
+        de: "{0} hatte keine Zeit mehr und hat nicht angegriffen",
+    },
+    /// The decision clock declared no blockers for the reading seat.
+    LogTimedNoBlockersYou {
+        en: "You ran out of time and did not block",
+        de: "Du hattest keine Zeit mehr und hast nicht geblockt",
+    },
+    /// The decision clock declared no blockers for another seat.
+    LogTimedNoBlockers {
+        en: "{0} ran out of time and did not block",
+        de: "{0} hatte keine Zeit mehr und hat nicht geblockt",
+    },
+    /// The decision clock said no for the reading seat.
+    LogTimedDeclinedYou {
+        en: "You ran out of time and declined",
+        de: "Du hattest keine Zeit mehr und hast abgelehnt",
+    },
+    /// The decision clock said no for another seat.
+    LogTimedDeclined {
+        en: "{0} ran out of time and declined",
+        de: "{0} hatte keine Zeit mehr und hat abgelehnt",
+    },
+    /// The house chose for the reading seat when its clock ran out.
+    LogTimedChosenYou {
+        en: "You ran out of time and the house chose for you",
+        de: "Du hattest keine Zeit mehr, und das Haus hat für dich gewählt",
+    },
+    /// The house chose for another seat when its clock ran out.
+    LogTimedChosen {
+        en: "{0} ran out of time and the house chose for them",
+        de: "{0} hatte keine Zeit mehr, und das Haus hat gewählt",
+    },
+    /// The house sat down at the reading seat's chair.
+    LogStandInYou {
+        en: "You are away and the house plays your seat",
+        de: "Du bist abwesend, und das Haus spielt deinen Platz",
+    },
+    /// The house sat down at another seat's chair.
+    LogStandIn {
+        en: "{0} is away and the house plays their seat",
+        de: "{0} ist abwesend, und das Haus spielt den Platz",
+    },
+    /// The reading seat is back at its chair.
+    LogReturnedYou { en: "You are back", de: "Du bist zurück" },
+    /// Another seat is back at its chair.
+    LogReturned { en: "{0} is back", de: "{0} ist zurück" },
+    /// The reading seat played a land. `{1}` is the land.
+    LogLandPlayedYou { en: "You play {1}", de: "Du spielst {1}" },
+    /// Another seat played a land.
+    LogLandPlayed { en: "{0} plays {1}", de: "{0} spielt {1}" },
+    /// The reading seat cast a spell. `{1}` is the spell.
+    LogCastYou { en: "You cast {1}", de: "Du wirkst {1}" },
+    /// Another seat cast a spell.
+    LogCast { en: "{0} casts {1}", de: "{0} wirkt {1}" },
+    /// An ability the reading seat controls went on the stack. `{1}` is its
+    /// source. Activated or triggered, which the line cannot tell: its
+    /// controller puts either on the stack (CR 602.2a, CR 603.3).
+    LogAbilityYou {
+        en: "You put an ability of {1} on the stack",
+        de: "Du legst eine Fähigkeit auf den Stapel: {1}",
+    },
+    /// An ability another seat controls went on the stack.
+    LogAbility {
+        en: "{0} puts an ability of {1} on the stack",
+        de: "{0} legt eine Fähigkeit auf den Stapel: {1}",
+    },
+    /// A spell was countered. `{1}` is the spell.
+    LogCountered { en: "{1} is countered", de: "{1} wird neutralisiert" },
+    /// A spell or ability left the stack without resolving. `{1}` is it.
+    LogDidNotResolve { en: "{1} does not resolve", de: "{1} wird nicht verrechnet" },
+    /// The reading seat drew cards it may name. `{1}` is the list.
+    LogDrewYou { en: "You draw {1}", de: "Du ziehst {1}" },
+    /// Another seat drew cards the reading seat may name.
+    LogDrew { en: "{0} draws {1}", de: "{0} zieht {1}" },
+    /// The reading seat drew one card it may not name. `{1}` is the count.
+    LogDrewCardYou { en: "You draw {1} card", de: "Du ziehst {1} Karte" },
+    /// The reading seat drew cards it may not name.
+    LogDrewCardsYou { en: "You draw {1} cards", de: "Du ziehst {1} Karten" },
+    /// Another seat drew one card.
+    LogDrewCard { en: "{0} draws {1} card", de: "{0} zieht {1} Karte" },
+    /// Another seat drew cards.
+    LogDrewCards { en: "{0} draws {1} cards", de: "{0} zieht {1} Karten" },
+    /// The reading seat discarded a card. `{1}` is the card.
+    LogDiscardedYou { en: "You discard {1}", de: "Du wirfst {1} ab" },
+    /// Another seat discarded a card.
+    LogDiscarded { en: "{0} discards {1}", de: "{0} wirft {1} ab" },
+    /// An object changed zones. `{1}` is the object, `{2}` where it came
+    /// from and `{3}` where it went, each one of the `LogFrom…`/`LogInto…`
+    /// phrases.
+    LogMoved { en: "{1} moves {2} {3}", de: "{1} kommt {2} {3}" },
+    /// Out of the reading seat's library.
+    LogFromLibraryYou { en: "from your library", de: "aus deiner Bibliothek" },
+    /// Out of another seat's library. `{0}` is the seat.
+    LogFromLibrary { en: "from {0}'s library", de: "aus der Bibliothek von {0}" },
+    /// Out of the reading seat's hand.
+    LogFromHandYou { en: "from your hand", de: "aus deiner Hand" },
+    /// Out of another seat's hand.
+    LogFromHand { en: "from {0}'s hand", de: "aus der Hand von {0}" },
+    /// Out of the reading seat's graveyard.
+    LogFromGraveyardYou { en: "from your graveyard", de: "aus deinem Friedhof" },
+    /// Out of another seat's graveyard.
+    LogFromGraveyard { en: "from {0}'s graveyard", de: "aus dem Friedhof von {0}" },
+    /// Off the battlefield.
+    LogFromBattlefield { en: "from the battlefield", de: "vom Spielfeld" },
+    /// Out of exile.
+    LogFromExile { en: "from exile", de: "aus dem Exil" },
+    /// Out of the command zone.
+    LogFromCommand { en: "from the command zone", de: "aus der Kommandozone" },
+    /// Into the reading seat's library.
+    LogIntoLibraryYou { en: "into your library", de: "in deine Bibliothek" },
+    /// Into another seat's library.
+    LogIntoLibrary { en: "into {0}'s library", de: "in die Bibliothek von {0}" },
+    /// Into the reading seat's hand.
+    LogIntoHandYou { en: "into your hand", de: "auf deine Hand" },
+    /// Into another seat's hand.
+    LogIntoHand { en: "into {0}'s hand", de: "auf die Hand von {0}" },
+    /// Into the reading seat's graveyard.
+    LogIntoGraveyardYou { en: "into your graveyard", de: "in deinen Friedhof" },
+    /// Into another seat's graveyard.
+    LogIntoGraveyard { en: "into {0}'s graveyard", de: "in den Friedhof von {0}" },
+    /// Onto the battlefield.
+    LogIntoBattlefield { en: "onto the battlefield", de: "aufs Spielfeld" },
+    /// Into exile.
+    LogIntoExile { en: "into exile", de: "ins Exil" },
+    /// Into the command zone.
+    LogIntoCommand { en: "into the command zone", de: "in die Kommandozone" },
+    /// The reading seat created a token. `{1}` is the token.
+    LogCreatedYou { en: "You create {1}", de: "Du erschaffst {1}" },
+    /// Another seat created a token.
+    LogCreated { en: "{0} creates {1}", de: "{0} erschafft {1}" },
+    /// Combat damage to the reading seat. `{1}` is the amount, `{2}` the
+    /// source.
+    LogCombatDamageYou {
+        en: "{2} deals {1} combat damage to you",
+        de: "{2} fügt dir {1} Kampfschaden zu",
+    },
+    /// Damage to the reading seat.
+    LogDamageYou { en: "{2} deals {1} damage to you", de: "{2} fügt dir {1} Schaden zu" },
+    /// Combat damage to another seat or a permanent, `{0}`.
+    LogCombatDamage {
+        en: "{2} deals {1} combat damage to {0}",
+        de: "{0} erleidet {1} Kampfschaden durch {2}",
+    },
+    /// Damage to another seat or a permanent, `{0}`.
+    LogDamage { en: "{2} deals {1} damage to {0}", de: "{0} erleidet {1} Schaden durch {2}" },
+    /// Damage to the reading seat from a source the line cannot name.
+    LogDamageUnsourcedYou { en: "You are dealt {1} damage", de: "Du erleidest {1} Schaden" },
+    /// Damage to another seat or a permanent from a source the line cannot
+    /// name.
+    LogDamageUnsourced { en: "{0} is dealt {1} damage", de: "{0} erleidet {1} Schaden" },
+    /// The reading seat's life total is 1. `{2}` is it, `{1}` what it was.
+    LogLifePointYou {
+        en: "You are at {2} life (was {1})",
+        de: "Du hast jetzt {2} Lebenspunkt (vorher {1})",
+    },
+    /// The reading seat's life total changed.
+    LogLifePointsYou {
+        en: "You are at {2} life (was {1})",
+        de: "Du hast jetzt {2} Lebenspunkte (vorher {1})",
+    },
+    /// Another seat's life total is 1.
+    LogLifePoint {
+        en: "{0} is at {2} life (was {1})",
+        de: "{0} hat jetzt {2} Lebenspunkt (vorher {1})",
+    },
+    /// Another seat's life total changed.
+    LogLifePoints {
+        en: "{0} is at {2} life (was {1})",
+        de: "{0} hat jetzt {2} Lebenspunkte (vorher {1})",
+    },
+    /// Counters on a permanent changed. `{1}` is the permanent, `{2}` how
+    /// many there are now, `{3}` the counter noun for that many, `{4}` how
+    /// many there were.
+    LogCounters { en: "{1} has {2} {3} (was {4})", de: "{1} hat jetzt {2} {3} (vorher {4})" },
+    /// One +X/+Y counter. `{0}` is X and `{1}` is Y.
+    LogCounterPlus { en: "+{0}/+{1} counter", de: "+{0}/+{1}-Marke" },
+    /// +X/+Y counters.
+    LogCountersPlus { en: "+{0}/+{1} counters", de: "+{0}/+{1}-Marken" },
+    /// One -X/-Y counter.
+    LogCounterMinus { en: "-{0}/-{1} counter", de: "-{0}/-{1}-Marke" },
+    /// -X/-Y counters.
+    LogCountersMinus { en: "-{0}/-{1} counters", de: "-{0}/-{1}-Marken" },
+    /// One loyalty counter.
+    LogCounterLoyalty { en: "loyalty counter", de: "Loyalitätsmarke" },
+    /// Loyalty counters.
+    LogCountersLoyalty { en: "loyalty counters", de: "Loyalitätsmarken" },
+    /// One lore counter (CR 714.3).
+    LogCounterLore { en: "lore counter", de: "Kapitelmarke" },
+    /// Lore counters.
+    LogCountersLore { en: "lore counters", de: "Kapitelmarken" },
+    /// One time counter.
+    LogCounterTime { en: "time counter", de: "Zeitmarke" },
+    /// Time counters.
+    LogCountersTime { en: "time counters", de: "Zeitmarken" },
+    /// One charge counter.
+    LogCounterCharge { en: "charge counter", de: "Ladungsmarke" },
+    /// Charge counters.
+    LogCountersCharge { en: "charge counters", de: "Ladungsmarken" },
+    /// One poison counter.
+    LogCounterPoison { en: "poison counter", de: "Giftmarke" },
+    /// Poison counters.
+    LogCountersPoison { en: "poison counters", de: "Giftmarken" },
+    /// One energy counter.
+    LogCounterEnergy { en: "energy counter", de: "Energiemarke" },
+    /// Energy counters.
+    LogCountersEnergy { en: "energy counters", de: "Energiemarken" },
+    /// One rad counter.
+    LogCounterRad { en: "rad counter", de: "Strahlungsmarke" },
+    /// Rad counters.
+    LogCountersRad { en: "rad counters", de: "Strahlungsmarken" },
+    /// One lifelink counter.
+    LogCounterLifelink { en: "lifelink counter", de: "Lebensverknüpfungsmarke" },
+    /// Lifelink counters.
+    LogCountersLifelink { en: "lifelink counters", de: "Lebensverknüpfungsmarken" },
+    /// One level counter.
+    LogCounterLevel { en: "level counter", de: "Stufenmarke" },
+    /// Level counters.
+    LogCountersLevel { en: "level counters", de: "Stufenmarken" },
+    /// One counter of a kind this client has no name for.
+    LogCounterOther { en: "counter", de: "Marke" },
+    /// Counters of a kind this client has no name for.
+    LogCountersOther { en: "counters", de: "Marken" },
+    /// A creature attacks the reading seat. `{1}` is the attacker.
+    LogAttackedYou { en: "{1} attacks you", de: "{1} greift dich an" },
+    /// A creature attacks another seat or a planeswalker, `{0}`.
+    LogAttacked { en: "{1} attacks {0}", de: "{1} greift {0} an" },
+    /// A creature blocks. `{1}` is the blocker, `{2}` the attacker.
+    LogBlocked { en: "{1} blocks {2}", de: "{1} blockt {2}" },
+    /// The reading seat gained control of a permanent. `{1}` is it.
+    LogControlYou { en: "You gain control of {1}", de: "Du übernimmst die Kontrolle über {1}" },
+    /// Another seat gained control of a permanent.
+    LogControl { en: "{0} gains control of {1}", de: "{0} übernimmt die Kontrolle über {1}" },
+    /// A permanent transformed. `{1}` is it.
+    LogTransformed { en: "{1} transforms", de: "{1} verwandelt sich" },
+    /// The reading seat revealed cards. `{1}` is the list.
+    LogRevealedYou { en: "You reveal {1}", de: "Du zeigst {1} offen vor" },
+    /// Another seat revealed cards.
+    LogRevealed { en: "{0} reveals {1}", de: "{0} zeigt {1} offen vor" },
+    /// The reading seat shuffled its library.
+    LogShuffledYou { en: "You shuffle your library", de: "Du mischst deine Bibliothek" },
+    /// Another seat shuffled its library.
+    LogShuffled { en: "{0} shuffles their library", de: "{0} mischt die eigene Bibliothek" },
+    /// The reading seat rolled a die. `{1}` is its sides, `{2}` the result.
+    LogRolledYou { en: "You roll a d{1} and get {2}", de: "Du würfelst mit einem W{1} eine {2}" },
+    /// Another seat rolled a die.
+    LogRolled { en: "{0} rolls a d{1} and gets {2}", de: "{0} würfelt mit einem W{1} eine {2}" },
+    /// The reading seat won.
+    LogWonYou { en: "You win the game", de: "Du gewinnst das Spiel" },
+    /// One other seat won. `{0}` is it.
+    LogWonOne { en: "{0} wins the game", de: "{0} gewinnt das Spiel" },
+    /// A team won. `{0}` is the list of its seats.
+    LogWonMany { en: "{0} win the game", de: "{0} gewinnen das Spiel" },
+    /// Nobody won.
+    LogDrawn { en: "The game is a draw", de: "Das Spiel endet unentschieden" },
+    /// The host found a loop and broke it.
+    LogLoopBroken {
+        en: "A loop was found and broken",
+        de: "Eine Endlosschleife wurde erkannt und beendet",
+    },
+    /// The host found a loop.
+    LogLoop { en: "A loop was found", de: "Eine Endlosschleife wurde erkannt" },
+    /// It became day (CR 730).
+    LogDay { en: "It becomes day", de: "Es wird Tag" },
+    /// It became night (CR 730).
+    LogNight { en: "It becomes night", de: "Es wird Nacht" },
 }
 
 impl Phrase {
@@ -2454,6 +2787,24 @@ mod tests {
                 Phrase::NounPermanentsToLeaveTapped,
             ),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
+            (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
+            (Phrase::LogKeptCard, Phrase::LogKeptCards),
+            (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),
+            (Phrase::LogDrewCard, Phrase::LogDrewCards),
+            (Phrase::LogLifePointYou, Phrase::LogLifePointsYou),
+            (Phrase::LogLifePoint, Phrase::LogLifePoints),
+            (Phrase::LogCounterPlus, Phrase::LogCountersPlus),
+            (Phrase::LogCounterMinus, Phrase::LogCountersMinus),
+            (Phrase::LogCounterLoyalty, Phrase::LogCountersLoyalty),
+            (Phrase::LogCounterLore, Phrase::LogCountersLore),
+            (Phrase::LogCounterTime, Phrase::LogCountersTime),
+            (Phrase::LogCounterCharge, Phrase::LogCountersCharge),
+            (Phrase::LogCounterPoison, Phrase::LogCountersPoison),
+            (Phrase::LogCounterEnergy, Phrase::LogCountersEnergy),
+            (Phrase::LogCounterRad, Phrase::LogCountersRad),
+            (Phrase::LogCounterLifelink, Phrase::LogCountersLifelink),
+            (Phrase::LogCounterLevel, Phrase::LogCountersLevel),
+            (Phrase::LogCounterOther, Phrase::LogCountersOther),
         ];
         for (one, many) in pairs {
             for lang in Lang::ALL {

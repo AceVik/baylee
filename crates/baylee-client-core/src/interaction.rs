@@ -506,6 +506,26 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
     Some(phrase.text(lang).to_string())
 }
 
+/// The sentence for a seat that lost for `cause`: the reading seat's, then
+/// any other seat's, whose `{0}` is its name.
+///
+/// One table for the end screen ([`loss_lines`]) and the game log
+/// (`crate::gamelog`), so a loss is told in the same words in both.
+#[must_use]
+pub const fn loss_phrases(cause: LossCause) -> (Phrase, Phrase) {
+    match cause {
+        LossCause::Life => (Phrase::LostLifeYou, Phrase::LostLifeOther),
+        LossCause::EmptyDraw => (Phrase::LostEmptyDrawYou, Phrase::LostEmptyDrawOther),
+        LossCause::Poison => (Phrase::LostPoisonYou, Phrase::LostPoisonOther),
+        LossCause::CommanderDamage => (
+            Phrase::LostCommanderDamageYou,
+            Phrase::LostCommanderDamageOther,
+        ),
+        LossCause::Conceded => (Phrase::LostConcededYou, Phrase::LostConcededOther),
+        LossCause::Effect => (Phrase::LostEffectYou, Phrase::LostEffectOther),
+    }
+}
+
 /// Why one seat lost, and who answered its last decision, as the lines the
 /// end screen writes under the verdict (#83).
 ///
@@ -525,17 +545,7 @@ pub fn loss_lines(lang: Lang, seat: &SeatView, name: Option<&str>) -> Vec<String
     let Some(loss) = seat.loss else {
         return Vec::new();
     };
-    let (you, other) = match loss {
-        LossCause::Life => (Phrase::LostLifeYou, Phrase::LostLifeOther),
-        LossCause::EmptyDraw => (Phrase::LostEmptyDrawYou, Phrase::LostEmptyDrawOther),
-        LossCause::Poison => (Phrase::LostPoisonYou, Phrase::LostPoisonOther),
-        LossCause::CommanderDamage => (
-            Phrase::LostCommanderDamageYou,
-            Phrase::LostCommanderDamageOther,
-        ),
-        LossCause::Conceded => (Phrase::LostConcededYou, Phrase::LostConcededOther),
-        LossCause::Effect => (Phrase::LostEffectYou, Phrase::LostEffectOther),
-    };
+    let (you, other) = loss_phrases(loss);
     let house = seat.house_answered.map(|answer| match answer {
         HouseAnswer::Clock => (Phrase::HouseClockYou, Phrase::HouseClockOther),
         HouseAnswer::StandIn => (Phrase::HouseStandInYou, Phrase::HouseStandInOther),

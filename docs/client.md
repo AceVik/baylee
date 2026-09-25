@@ -6360,6 +6360,72 @@ nothing_changed_the_types` asserted the **name** and never the line, so it was
 green throughout — a reminder that a test's title is not one of its
 assertions.
 
+## The game log (#262)
+
+The host sends a seat its log beside the view, never inside it. Every
+`StateDelta` carries a `LogTail`, the lines this socket has not been sent
+(`docs/protocol.md` §"The game log (view version 33, #262)").
+`baylee-client-core/src/gamelog.rs` is the client's half and needs no
+renderer. `LogBook` keeps the lines and writes them in the reader's language;
+the panel and the end screen draw what it writes.
+
+**Every frame's tail goes into the book, with that frame's view**
+(`LogBook::append`). A seat with more lines waiting than one frame carries is
+sent several frames with the same view and `seq`. A client that reads the log
+only from the frames whose view it takes misses lines. Empty `log_json` bytes
+mean nothing new and are not a tail to decode. The book appends by `from` and
+skips what it already holds, so a chunk sent twice, a snapshot that tells the
+log from the start and a reconnect that tells it all again add only what is
+missing. An empty tail changes nothing, wherever it says it starts: a question
+asked again carries `{from: 0, entries: []}`, and a book that reset on
+`from == 0` would empty itself on every refusal. A tail that starts past the
+end is refused whole and counted (`gaps`); the next tail from 0 fills the gap.
+A tail that disagrees with what the book holds is another game's log, because
+the host never changes a line it has sent. It replaces the book from where the
+two part, and the book counts it (`rewrites`). The fix for that is a fresh
+`LogBook` per game, which is the renderer's to make.
+
+**The book keeps entries, never sentences.** A line is written each time it is
+read (`line`, `lines`, `lines_since`, `take_unread`), because two things under
+it change mid-game: the language, and the card text, which arrives from the
+catalog after the line that names the card. A card is named by
+`card_face::shown_name` over the text the renderer's lookup returns
+(`CardTextLookup`; a closure over `CardTexts::face` is one). That is the
+catalog's name in the reader's language, else the English name the line
+carries, so a copy keeps the name it shows. No name is empty: an empty catalog
+name falls back to the line's, and an object with no name at all is "a card".
+A card the seat may not see is "a card" and carries no handle. A face-down one
+is "a face-down card" and points at its object on the table, as the view
+already lets it. No line prints a handle.
+
+**The reading seat is "you"**, in the verb's own form. Every sentence about a
+player is written twice, the `…You` phrase and the other with the seat's name
+as `{0}` (`i18n::seat_name`), because the verb agrees with its subject in both
+languages. A loss is told in the end screen's pair
+(`interaction::loss_phrases`), which is why those lines are in the past tense.
+No line ends in a full stop, as the loss lines never did. A line that opens
+with our own words ("a card") capitalizes them, and a seat's name keeps the
+case its player gave it.
+
+A `LogLine` carries:
+
+- the sentence;
+- its `NameSpan`s, as byte range, object and card, for hover and preview;
+- whether it opens a turn (`header`);
+- the ability an ability line names, as the stack names it, so a panel can show
+  the printed sentence;
+- `times`, how often a folded line happened. A life total or counters folded
+  into one line say 1, because their "was" already spans every change.
+  `plain()` adds "(×N)" for a reader that draws plain text.
+
+Known limits, each a later view version:
+
+- `Defender::Planeswalker` names the planeswalker by handle only. The book
+  remembers each one's name from the view that arrived with the attack, and
+  says "a planeswalker" for one it never saw.
+- An ability line cannot tell activated from triggered.
+- `CounterKind::badge` is English, so the counter nouns are written here.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
