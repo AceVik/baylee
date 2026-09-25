@@ -18,7 +18,8 @@
 // soft light.
 // Defender's wall is brick at dusk, standing on the felt under every face,
 // so the prints in front of it hide it by depth (it writes depth, being
-// solid); the mask is there all the same.
+// solid); the mask is there all the same, and on the shadows a standing
+// dome and the wall cast on the felt.
 
 #import bevy_pbr::mesh_functions::{get_world_from_local, get_local_from_world, mesh_position_local_to_world, mesh_normal_local_to_world}
 #import bevy_pbr::view_transformations::position_world_to_clip
@@ -45,6 +46,7 @@ const SHELL_RING: u32 = 2u;
 const SHELL_DOME: u32 = 3u;
 const SHELL_DOME_RING: u32 = 4u;
 const SHELL_WALL: u32 = 5u;
+const SHELL_SHADE: u32 = 6u;
 
 /// The card, in its own space: half its width and height, and its corner.
 /// `shellmat` holds these to `CARD_WIDTH`, `CARD_HEIGHT` and `CARD_CORNER`.
@@ -58,28 +60,49 @@ const RIM_RISE: f32 = 0.01;
 const RIM_DROP: f32 = 0.083;
 /// How far a ring's edges take to fade in.
 const SOFT: f32 = 0.012;
+/// The share of the rim's slope that is its flat lip, along its crest.
+const RIM_LIP: f32 = 0.25;
+/// How steeply a dome's glass deepens from its crown to its foot.
+const DOME_RAMP: f32 = 3.0;
+/// Where the moon's arc lies on a dome, from its crown (0) to its foot (1),
+/// how far it reaches either side of that, and how bright it is.
+const ARC_AT: f32 = 0.9;
+const ARC_HALF: f32 = 0.06;
+const ARC_GLOW: f32 = 0.85;
+/// How high over the felt a shadow on it lies, in the world:
+/// `shellmat::SHADE_RUNG`, the felt being at `table::TABLE_Y`, 0; and how
+/// far over that it is gone, which is under every card's face.
+const SHADE_FLOOR: f32 = 0.0168;
+const SHADE_GONE: f32 = 0.04;
 /// How many plates a lying dome's band has along each short side of the
 /// card, and along each long one.
 const PLATES_SHORT: f32 = 6.0;
 const PLATES_LONG: f32 = 8.0;
-/// One course of the wall's brick, one brick along it, and the mortar
-/// between them.
+/// One course of the wall's brick, one brick along it, the mortar between
+/// them, and the wall's height over the felt, its merlons' tops.
 const WALL_COURSE: f32 = 0.028;
 const WALL_BRICK: f32 = 0.07;
-const WALL_MORTAR: f32 = 0.005;
+const WALL_MORTAR: f32 = 0.01;
+const WALL_HEIGHT: f32 = 0.08;
 
 /// Darksteel, linear: the metal, and the light it gives back, a cool
 /// silver.
 const STEEL: vec3<f32> = vec3<f32>(0.006, 0.0065, 0.0078);
 const SHEEN: vec3<f32> = vec3<f32>(0.58, 0.60, 0.64);
+/// What the steel mirrors of the felt under the horizon: dim, not black.
+const FELT_MIRROR: f32 = 0.03;
 /// The light every shell catches, from over the player's shoulder, in the
 /// world; and its colour on glass, the moon's.
 const KEY: vec3<f32> = vec3<f32>(-0.293, 0.838, 0.461);
 const MOON: vec3<f32> = vec3<f32>(0.80, 0.86, 1.0);
-/// Brick and mortar, linear, and the blue hour in the wall's shade.
+/// Brick, pale mortar, the stone coping its merlons, linear, and the blue
+/// hour in the wall's shade.
 const BRICK: vec3<f32> = vec3<f32>(0.30, 0.075, 0.04);
-const MORTAR: vec3<f32> = vec3<f32>(0.11, 0.11, 0.12);
+const MORTAR: vec3<f32> = vec3<f32>(0.30, 0.30, 0.32);
+const COPING: vec3<f32> = vec3<f32>(0.42, 0.38, 0.33);
 const DUSK: vec3<f32> = vec3<f32>(0.006, 0.01, 0.025);
+/// A shadow on the felt, the blue hour's darkest.
+const SHADE: vec3<f32> = vec3<f32>(0.0, 0.002, 0.008);
 
 struct ShellVertex {
     @builtin(instance_index) instance_index: u32,
@@ -101,6 +124,8 @@ struct ShellOut {
     @location(4) uv: vec2<f32>,
     /// [`KEY`] in the shell's own space.
     @location(5) local_key: vec3<f32>,
+    /// The mesh's normal, in the shell's own space.
+    @location(6) local_normal: vec3<f32>,
 };
 
 @vertex
@@ -115,6 +140,7 @@ fn vertex(v: ShellVertex) -> ShellOut {
     // One camera for the whole shell, so interpolating it is exact.
     out.local_cam = (get_local_from_world(v.instance_index) * vec4<f32>(view.world_position, 1.0)).xyz;
     out.local_key = normalize((get_local_from_world(v.instance_index) * vec4<f32>(KEY, 0.0)).xyz);
+    out.local_normal = v.normal;
     out.uv = v.uv;
     return out;
 }
@@ -149,9 +175,9 @@ fn card_out(p: vec2<f32>) -> vec2<f32> {
 /// the mesh is too coarse to carry.
 fn steel(n: vec3<f32>, v: vec3<f32>, key: vec3<f32>, band: f32) -> vec3<f32> {
     let r = reflect(-v, n);
-    let sky = smoothstep(-0.02, 0.02, r.z) * (0.06 + 0.14 * max(r.z, 0.0));
-    let glint = pow(max(dot(r, key), 0.0), 40.0);
-    return STEEL + SHEEN * (sky + glint + 0.45 * band);
+    let sky = mix(FELT_MIRROR, 0.1 + 0.25 * max(r.z, 0.0), smoothstep(-0.02, 0.02, r.z));
+    let glint = pow(max(dot(r, key), 0.0), 12.0);
+    return STEEL + SHEEN * (sky + 0.6 * glint + 0.45 * band);
 }
 
 /// A surface tipped `tilt` (radians) from facing straight up towards `out`.
@@ -190,27 +216,32 @@ fn plates(uv: vec2<f32>, d: f32, breath: f32) -> vec3<f32> {
 
 /// Defender's wall in running bond: `along` is the distance along its arc,
 /// `h` the height off the felt, `aa` how far either moves across a pixel.
-/// Warm where it faces up, the blue hour where it turns away; a top face
-/// shows only the joints across it.
+/// Lit by [`KEY`], the blue hour where it turns away; its courses in pale
+/// mortar, which a duel's camera reads on the face leaning back towards it.
+/// A top shows only the joints across it: pale stone coping on the merlons,
+/// brick in their shade between them.
 fn brick(along: f32, h: f32, n: vec3<f32>, aa: f32) -> vec3<f32> {
     let row = floor(h / WALL_COURSE);
     let x = along / WALL_BRICK + 0.5 * (row % 2.0);
     let cell = floor(x);
     let fy = fract(h / WALL_COURSE);
     var joint = min(fract(x), 1.0 - fract(x)) * WALL_BRICK;
-    if n.y < 0.5 {
+    let top = n.y > 0.95;
+    if !top {
         joint = min(joint, min(fy, 1.0 - fy) * WALL_COURSE);
     }
-    // Where a pixel is wider than a course, the joints blur into the share
-    // of the face they take, about a quarter, rather than into grey.
+    // Where a pixel is nearly as wide as a course, the joints blur into the
+    // share of the face they take, about a third, rather than into grey.
     let sharp = 1.0 - smoothstep(0.5 * WALL_MORTAR - aa, 0.5 * WALL_MORTAR + aa, joint);
-    let mortar = mix(0.25, sharp, clamp(1.0 - aa / (0.5 * WALL_COURSE), 0.0, 1.0));
+    let mortar = mix(0.3, sharp, 1.0 - smoothstep(0.35 * WALL_COURSE, WALL_COURSE, aa));
     // Every brick a shade of its own, from where it lies.
     let shade = 0.85 + 0.3 * fract(sin(dot(vec2<f32>(cell, row), vec2<f32>(12.9898, 78.233))) * 43758.5453);
+    let coping = top && h > WALL_HEIGHT - 0.002;
+    let stone = select(BRICK * shade, COPING * (0.9 + 0.2 * shade), coping);
+    let crenel = select(1.0, 0.55, top && !coping);
     let up = max(n.y, 0.0);
-    let side = 0.5 + 0.5 * dot(n, normalize(vec3<f32>(-0.35, 0.0, 0.55)));
-    let lit = 0.62 + 0.25 * side + 0.3 * up;
-    return mix(BRICK * shade, MORTAR, mortar) * lit + DUSK * (1.0 - up);
+    let lit = 0.3 + 0.8 * max(dot(n, KEY), 0.0);
+    return mix(stone, MORTAR, mortar) * lit * crenel + DUSK * (1.0 - up);
 }
 
 @fragment
@@ -239,6 +270,14 @@ fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
     if params.kind == SHELL_DOME_RING {
         return vec4<f32>(plates(in.uv, d, breath), plate_alpha(in.uv, d, aa_d) * clear);
     }
+    if params.kind == SHELL_SHADE {
+        // A shadow on the felt: darkest where it is cast (`uv.y`), soft to
+        // nothing by its far edge, and gone as its card lifts it off the
+        // felt.
+        let fade = 1.0 - smoothstep(0.0, 1.0, in.uv.x);
+        let grounded = 1.0 - smoothstep(SHADE_FLOOR + 0.004, SHADE_FLOOR + SHADE_GONE, in.world_position.y);
+        return vec4<f32>(SHADE, in.uv.y * fade * grounded * clear);
+    }
     let out = card_out(in.local_pos.xy);
     let lv = normalize(in.local_cam - in.local_pos);
     if params.kind == SHELL_RING {
@@ -252,31 +291,36 @@ fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
         return vec4<f32>(colour, 0.9 * body * clear);
     }
     if params.kind == SHELL_DOME {
-        // Glass: nearly clear where it faces the camera, glowing towards
-        // its silhouette, more on the side turned to the light than away
-        // from it, and the moon mirrored in it, a sharp streak in a broad
-        // sheen, where it curves towards the light. Its inside seen through
-        // it faces the camera too. Seen from nearly overhead, as a duel is,
-        // the light is what shows how tall it stands. Its foot is glass seen
-        // through its thickness, a band of its colour the same width at
-        // every step, so a dome drawn low and narrow still shows.
-        let facing = select(-n, n, dot(n, v) >= 0.0);
-        let fresnel = pow(1.0 - dot(facing, v), 3.0);
-        let mirrored = max(dot(reflect(-v, facing), KEY), 0.0);
-        let streak = smoothstep(0.87, 0.96, mirrored);
-        let sheen = pow(mirrored, 6.0);
-        let lit = 0.55 + 0.45 * dot(facing.xz, normalize(KEY.xz));
-        let foot = smoothstep(0.84, 0.9, in.uv.x);
-        let glass = min((0.02 + 0.6 * fresnel * lit + 0.1 * sheen + 0.3 * foot) * breath + 0.3 * streak, 0.92);
-        let colour = mix(params.tint.rgb, MOON, min(streak + 0.3 * fresnel, 1.0));
+        // Glass, seen from nearly over it as a duel sees it: the more of it
+        // a ray crosses, the deeper its colour, which from above is how far
+        // out from its crown towards its foot the point lies (`uv.x`). So
+        // nearly clear at the crown, deepening smoothly to its foot with no
+        // edge on the way, a little brighter on the side turned to the
+        // light. And the moon mirrored in it: one arc on its shoulder, round
+        // the side that faces halfway between the light and the camera, as
+        // far round as it faces them.
+        let deep = pow(in.uv.x, DOME_RAMP);
+        let toward = dot(n.xz, normalize(KEY.xz));
+        let lit = 0.55 + 0.45 * toward;
+        let body = (0.03 + 0.55 * deep * lit) * breath;
+        let half = normalize(lv + in.local_key);
+        let slope = in.local_normal.xy / max(length(in.local_normal.xy), 1e-4);
+        let round = smoothstep(0.35, 0.9, dot(slope, half.xy / max(length(half.xy), 1e-4)));
+        let across = 1.0 - smoothstep(0.0, ARC_HALF, abs(in.uv.x - ARC_AT));
+        let arc = ARC_GLOW * round * across * across;
+        let glass = min(body + arc, 0.92);
+        let pale = mix(params.tint.rgb, MOON, 0.3 * max(toward, 0.0) * deep);
+        let colour = mix(pale, MOON, arc / max(body + arc, 1e-4));
         return vec4<f32>(colour, glass);
     }
     if params.kind == SHELL_WALL {
         return vec4<f32>(brick(in.uv.x, in.local_pos.z + RIM_DROP, n, aa), clear);
     }
-    // The rim: rounded from its crest, facing up, to its foot, facing out,
-    // as a quarter round is, so its crest mirrors the sky and its foot the
-    // felt; darker towards its foot, where it meets the felt.
-    let colour = steel(tipped(out, acos(1.0 - down)), lv, in.local_key, band);
+    // The rim: a flat lip along its crest, facing up, mirroring the sky and
+    // the brightest of it; then rounded to its foot, facing out, as a
+    // quarter round is, so it mirrors the felt; darker towards its foot,
+    // where it meets the felt.
+    let bevel = max(down - RIM_LIP, 0.0) / (1.0 - RIM_LIP);
+    let colour = steel(tipped(out, acos(1.0 - bevel)), lv, in.local_key, band);
     return vec4<f32>(colour * (1.0 - 0.3 * down), clear);
 }

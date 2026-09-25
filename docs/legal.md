@@ -186,8 +186,8 @@ Urheber- und Medienrecht.
      (`shellmat::the_mask_is_exactly_zero_over_the_print`, and
      `every_colour_but_the_domes_carries_the_mask` holds every other
      return to it). **A dome is the one exception, by the owner's okay of
-     25.09:** a real, tall dome of glass, nearly clear at its centre and
-     glowing towards its silhouette, may lie over its own card's whole
+     25.09:** a real, tall dome of glass, nearly clear at its crown and
+     deepening to its colour at its foot, may lie over its own card's whole
      print, the name and the artist and © line included; the test holds
      that the dome's branch returns exactly once and that nothing else
      goes unmasked. No shell ever lands on another card's print: where a
@@ -199,7 +199,9 @@ Urheber- und Medienrecht.
      duels and rings, fanned rows, fliers, hovers and every seat's
      camera); the wall stands under every face, so every print in front
      of it hides it by depth (`a_wall_never_draws_over_a_print`, the same
-     sweep).
+     sweep), and so do the shadows a standing dome and the wall cast on
+     the felt, which also carry the mask and are gone before a hover
+     lifts them to a face (`a_shadow_lies_on_the_felt_outside_its_card`).
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival

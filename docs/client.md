@@ -1983,12 +1983,13 @@ on objects of its own:
   (`shellmat.rs`, `shell.wgsl`). Indestructible's is a rim of darksteel,
   Magic's own indestructible metal (the owner, 25.09): nearly black, darker
   than the felt, and read as metal by what it mirrors. Its section is a
-  quarter round from crest to foot (the shader's normal, which the mesh is
-  too coarse to carry), so its crest mirrors the dim blue hour over the
-  table and its foot the felt, with the crisp line between them that tells
-  metal from paint, and it catches a glint of the key light
+  flat lip along its crest, then a quarter round to its foot (the shader's
+  normal, which the mesh is too coarse to carry), so its lip mirrors the
+  blue hour over the table, the brightest of it, and its foot the felt,
+  dim and not black, with the crisp line between them that tells metal
+  from paint, and it catches a broad glint of the key light
   (`shell.wgsl`'s `steel`). It stands round the card from `RIM_RISE`
-  (0.010) above its face down to the felt, `RIM_MARGIN` (0.04) out, with a
+  (0.010) above its face down to the felt, `RIM_MARGIN` (0.06) out, with a
   silver band of light going round it once every seven seconds (its mean,
   when motion is off). Hexproof's is a dome of glass, blue, and shroud's
   the same dome in violet, which swallows hexproof as the strip's marks
@@ -1999,14 +2000,22 @@ on objects of its own:
   a quarter ellipse across the whole card down to its foot on the felt
   `DOME_MARGIN` (0.10) past the edge. A flat top on a steep skirt, as
   first built, read from a duel's nearly overhead shot as a frame: a wall
-  seen edge-on glows all the way round. The glass is nearly clear where it
-  faces the camera and glows towards its silhouette (fresnel), more on the
-  side turned to the light; the key light is mirrored in it as a crisp
-  window of moonlight on its near slope, in a broad sheen, which is what
-  shows its height from overhead; its foot is a band of its colour, the
-  same width seen from above at every step, so a dome drawn low and narrow
-  still shows (the mesh's `uv.x` says how far out from the crown a point
-  is). It breathes between 1 and 1.1 every six seconds. It may lie over
+  seen edge-on glows all the way round. So did a band of colour at its
+  foot with an edge on the inside (the owner: "eher einfach nur ein Rand";
+  the PM's second review). From above, the more glass a ray crosses, the
+  deeper its colour, and that is how far out from its crown the point
+  lies (the mesh's `uv.x`): the glass deepens from nearly clear at the
+  crown to its colour at the foot as a smooth ramp with no edge on the
+  way, brighter and paler on the side turned to the key light and faint
+  on the side away from it, which is what reads as a lit volume from a
+  duel's nearly overhead shot. The moon is one arc mirrored low on its lit
+  side, as far round as it faces the light and the camera. Inside the
+  card's edge its rings round their corners the more the further in they
+  stand (`DOME_ROUNDING`), so its crown is a ridge with round ends and the
+  arc bends round a corner instead of turning it. Where its foot stands on
+  the felt (the first two steps) it casts a soft shadow on the felt,
+  `DOME_SHADE` (0.12) out from its foot (`shellmat::dome_shade_mesh`). It
+  breathes between 1 and 1.1 every six seconds. It may lie over
   its own print, name and artist line included (the owner, 25.09;
   `docs/legal.md` §3). It is blended, not added: Bevy draws `Add`
   premultiplied, where a colour with alpha zero is still added. Its back
@@ -2014,11 +2023,17 @@ on objects of its own:
   and it comes last in the pass (`DOME_RUNG`), over the strip.
   Defender's is a low wall of brick on the felt past the card's top edge,
   towards the table's middle: two courses and a row of `WALL_MERLONS` (5)
-  merlons, `WALL_HEIGHT` (0.08) high, along a shallow arc
+  merlons, `WALL_HEIGHT` (0.08) high, along a shallow arc, its foot
   `WALL_NEAR` (0.12) past the edge at its ends and `WALL_BULGE` (0.04)
   further at its middle, `WALL_OVERHANG` (0.06) wider than the card each
-  side (`shellmat::wall_mesh`). Brick at dusk, the blue hour in its shade,
-  running bond laid along the arc. It turns with its card and always
+  side (`shellmat::wall_mesh`). A duel's camera, nearly over it, sees a
+  wall's top and little of its face, so the courses' face towards the card
+  leans back `WALL_BATTER` (0.06), and its top is `WALL_THICK` (0.04)
+  across. Brick at dusk in running bond laid along the arc, the joints in
+  pale mortar, lit by the key light and the blue hour in its shade; the
+  merlons capped with pale stone, brick in their shade between them. It
+  casts a shadow on the felt behind it, `WALL_SHADE` (0.12) deep, and a
+  shade at its foot (`shellmat::wall_shade_mesh`). It turns with its card and always
   stands, on the felt whatever the card does (`table::wall_pose`: never
   lifted or grown with a hover or a flier's bob). It is solid, so it
   writes depth, and it comes first in the pass (`WALL_RUNG`). Two rules
@@ -2033,7 +2048,7 @@ on objects of its own:
     fragment but the dome's one carries it
     (`every_colour_but_the_domes_carries_the_mask`). It is the real
     camera, so it holds at every yaw, hover and tap. From the table's real
-    shots it leaves 0.65 of a standing rim's width to see. The dome is
+    shots it leaves 0.93 of a standing rim's width to see. The dome is
     glass over its whole card, by the owner's choice (25.09).
   - **Never on another card's print.** The mask cannot see a neighbour, so
     `table::fit_the_shells` asks, after the glide and from where every card
@@ -2094,7 +2109,12 @@ on objects of its own:
     of the same tables, from the same shots, and follows the ray through
     every corner of it to every card's face nearby, its own card's
     included: none lies past the point on a print, and prints stand in
-    front of walls millions of times.
+    front of walls millions of times. The shadows a standing dome and the
+    wall cast lie on the felt at `SHADE_RUNG`, under every face, the same
+    way, and carry the mask; a dome's is lifted with its card by a hover
+    or a flier's bob, and the shader has faded it out `SHADE_GONE` (0.04)
+    over where it lies, below any card's face
+    (`a_shadow_lies_on_the_felt_outside_its_card`).
   A card leaving the battlefield loses its shell at once; indestructible
   means nothing anywhere else, and a rim flying off with its card would
   no longer be fitted to anything on the way.

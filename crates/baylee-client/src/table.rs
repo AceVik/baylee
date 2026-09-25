@@ -1735,8 +1735,11 @@ pub struct SceneIndex {
     ring_meshes: HashMap<Band, Handle<Mesh>>,
     /// Each dome's mesh at each of its steps.
     dome_meshes: HashMap<(shellmat::Dome, usize), Handle<Mesh>>,
-    /// Defender's wall, one for the whole table.
+    /// Each dome's shadow on the felt at each step it stands on the felt at.
+    dome_shades: HashMap<(shellmat::Dome, usize), Handle<Mesh>>,
+    /// Defender's wall, one for the whole table, and its shadow.
     wall_mesh: Option<Handle<Mesh>>,
+    wall_shade: Option<Handle<Mesh>>,
     /// What stands under each card on the table: the slabs of its deck and
     /// its contact shadow, with the count they were built for (#261). Held for the strip's reason, and because a group grows under
     /// the same top card: a deck built once at spawn kept one slab under a
@@ -2138,9 +2141,13 @@ pub fn spawn_stage(
                 (dome, step),
                 meshes.add(shellmat::dome_mesh(dome.row(), shape)),
             );
+            if let Some(shade) = shellmat::dome_shade_mesh(dome.row(), shape) {
+                index.dome_shades.insert((dome, step), meshes.add(shade));
+            }
         }
     }
     index.wall_mesh = Some(meshes.add(shellmat::wall_mesh()));
+    index.wall_shade = Some(meshes.add(shellmat::wall_shade_mesh()));
 
     // The contact shadow: a quad a little larger than a card, carrying a
     // painted halo that is dense under the card and gone by its own edge.
@@ -3504,16 +3511,20 @@ pub enum ShellPart {
     DomeRing,
     /// Defender's wall, on the felt past the card's top edge.
     Wall,
+    /// A standing dome's shadow on the felt, or the wall's.
+    Shade,
 }
 
 /// One shell round a card: what stands, the ring it lies down to, and how
 /// it stands as [`fit_the_shells`] last found: its step of
 /// [`shellmat::DOME_STEPS`] (a rim has only the first), or `None` lying.
+/// A dome's shadow on the felt is a child of what stands.
 #[derive(Clone, Copy, Debug)]
 struct Layer {
     stand: Entity,
     lie: Entity,
     step: Option<usize>,
+    shade: Option<Entity>,
 }
 
 /// The shells round one card, inside out: see [`SceneIndex::shells`].
@@ -3592,7 +3603,38 @@ fn spawn_layer(
             .id()
     });
     commands.entity(card).add_children(&[stand, lie]);
-    Layer { stand, lie, step }
+    Layer {
+        stand,
+        lie,
+        step,
+        shade: None,
+    }
+}
+
+/// Spawns a shadow on the felt under `parent`, hidden or not as `shown`:
+/// it lies in `parent`'s own space.
+fn spawn_shade(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<ShellMaterial>,
+    parent: Entity,
+    mesh: Handle<Mesh>,
+    motion: f32,
+    shown: Visibility,
+) -> Entity {
+    let material = shell_material(index, materials, ShellLook::steel(ShellKind::Shade), motion);
+    let shade = commands
+        .spawn((
+            ShellPart::Shade,
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            Transform::default(),
+            shown,
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(parent).add_child(shade);
+    shade
 }
 
 /// Puts a protected permanent's shells round it, or takes them away:
@@ -3664,39 +3706,9 @@ fn sync_shell(
             }
             .despawn(commands);
         }
-        if let Some(which) = dome {
-            let look = |kind, band| ShellLook {
-                kind,
-                dome: Some(which),
-                band,
-            };
-            let standing =
-                shell_material(index, materials, look(ShellKind::Dome, Band::Whole), motion);
-            let lying = shell_material(
-                index,
-                materials,
-                look(ShellKind::DomeRing, Band::Whole),
-                motion,
-            );
-            shell_material(
-                index,
-                materials,
-                look(ShellKind::DomeRing, Band::Outer),
-                motion,
-            );
-            if let Some(mesh) = index.dome_meshes.get(&(which, 0)).cloned() {
-                shell.dome = Some((
-                    which,
-                    spawn_layer(
-                        commands,
-                        card,
-                        (ShellPart::Dome, mesh, standing),
-                        (ShellPart::DomeRing, ring_mesh, lying),
-                        None,
-                    ),
-                ));
-            }
-        }
+        shell.dome = dome.and_then(|which| {
+            spawn_dome(commands, index, materials, card, which, ring_mesh, motion)
+        });
     }
     if shell.wall.is_some() != wall {
         shell.wall = sync_wall(commands, index, materials, card, shell.wall, motion);
@@ -3706,6 +3718,57 @@ fn sync_shell(
     } else {
         index.shells.insert(placement.object, shell);
     }
+}
+
+/// Builds hexproof's or shroud's dome round `card`, hidden: what stands,
+/// the ring it lies down to, the materials of both bands that ring may lie
+/// in, and its shadow on the felt. [`fit_the_shells`] shows them.
+fn spawn_dome(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<ShellMaterial>,
+    card: Entity,
+    which: shellmat::Dome,
+    ring_mesh: Handle<Mesh>,
+    motion: f32,
+) -> Option<(shellmat::Dome, Layer)> {
+    let look = |kind, band| ShellLook {
+        kind,
+        dome: Some(which),
+        band,
+    };
+    let standing = shell_material(index, materials, look(ShellKind::Dome, Band::Whole), motion);
+    let lying = shell_material(
+        index,
+        materials,
+        look(ShellKind::DomeRing, Band::Whole),
+        motion,
+    );
+    shell_material(
+        index,
+        materials,
+        look(ShellKind::DomeRing, Band::Outer),
+        motion,
+    );
+    let mesh = index.dome_meshes.get(&(which, 0)).cloned()?;
+    let shade = index.dome_shades.get(&(which, 0)).cloned()?;
+    let mut layer = spawn_layer(
+        commands,
+        card,
+        (ShellPart::Dome, mesh, standing),
+        (ShellPart::DomeRing, ring_mesh, lying),
+        None,
+    );
+    layer.shade = Some(spawn_shade(
+        commands,
+        index,
+        materials,
+        layer.stand,
+        shade,
+        motion,
+        Visibility::Hidden,
+    ));
+    Some((which, layer))
 }
 
 /// Takes defender's wall away if `had` one, or builds one, hidden, as a
@@ -3723,6 +3786,7 @@ fn sync_wall(
         return None;
     }
     let mesh = index.wall_mesh.clone()?;
+    let shade = index.wall_shade.clone()?;
     let material = shell_material(index, materials, ShellLook::steel(ShellKind::Wall), motion);
     let wall = commands
         .spawn((
@@ -3735,6 +3799,15 @@ fn sync_wall(
         ))
         .id();
     commands.entity(card).add_child(wall);
+    spawn_shade(
+        commands,
+        index,
+        materials,
+        wall,
+        shade,
+        motion,
+        Visibility::Inherited,
+    );
     Some(wall)
 }
 
@@ -3826,6 +3899,7 @@ pub fn fit_the_shells(
         cards: drawn,
         ring_meshes,
         dome_meshes,
+        dome_shades,
         shell_materials,
         ..
     } = &mut *index;
@@ -3911,6 +3985,24 @@ pub fn fit_the_shells(
                 .step
                 .and_then(|step| dome_meshes.get(&(dome, step)).cloned());
             show(layer, mesh, ring);
+            // Its shadow, at the steps it stands on the felt at.
+            let shade = layer
+                .step
+                .and_then(|step| dome_shades.get(&(dome, step)).cloned());
+            if let Some(entity) = layer.shade
+                && let Ok((mut shown, _, mut mesh, _)) = parts.get_mut(entity)
+            {
+                shown.set_if_neq(if shade.is_some() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                });
+                if let Some(wanted) = shade
+                    && mesh.0 != wanted
+                {
+                    mesh.0 = wanted;
+                }
+            }
         }
     }
 }

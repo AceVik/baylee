@@ -33,8 +33,8 @@
 //! neighbouring rows of a ring are 0.0185 apart.
 //!
 //! The second is a dome of glass for hexproof (blue) or shroud (violet,
-//! which swallows hexproof): tall over the card, nearly clear where it faces
-//! the camera and glowing towards its silhouette, its crown [`DOME_HEIGHT`]
+//! which swallows hexproof): tall over the card, nearly clear at its crown
+//! and deepening to its colour at its foot, its crown [`DOME_HEIGHT`]
 //! over the face and its foot on the felt [`DOME_MARGIN`] past the card's
 //! edge, a quarter ellipse across the whole card between them. A flat top on
 //! a steep skirt, as first built, read from above as a frame: a wall seen
@@ -56,7 +56,14 @@
 //! the face of every card lying there ([`RIM_DROP`], 0.083), so wherever it
 //! meets a print on screen that print is in front of it and hides it. It
 //! stands on the felt whatever its card does: a hover or a flier's lift
-//! would carry it over its neighbours' faces.
+//! would carry it over its neighbours' faces. Its courses' face towards the
+//! card leans back ([`WALL_BATTER`]), because a duel's camera, nearly over
+//! it, sees little of a face that stands upright.
+//!
+//! A standing dome and the wall cast soft shadows on the felt
+//! ([`dome_shade_mesh`], [`wall_shade_mesh`]), at [`SHADE_RUNG`], under
+//! every card's face for the wall's reason; a dome's, lifted with its card,
+//! is faded out before it could rise to one.
 
 use baylee_client_core::airborne;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
@@ -69,7 +76,7 @@ use bevy::shader::ShaderRef;
 use crate::table::{CARD_CORNER, CARD_LIFT, CARD_THICKNESS, FLOOR_RUNG, STRIP_RUNG};
 
 /// How far past the card's edge the rim's foot stands, in card widths.
-pub const RIM_MARGIN: f32 = 0.04;
+pub const RIM_MARGIN: f32 = 0.06;
 /// How far above the card's face the rim's top edge stands.
 pub const RIM_RISE: f32 = 0.010;
 /// How far below the card's face the rim's foot hangs: to the felt, for a
@@ -150,6 +157,18 @@ pub const DOME_RINGS: usize = 10;
 /// Where a dome sits in the transparent pass: last of all, over the strip
 /// and the count badge, since it is glass over the whole card.
 pub const DOME_RUNG: f32 = STRIP_RUNG + 0.0005;
+/// How far out past a standing dome's foot its shadow on the felt reaches.
+pub const DOME_SHADE: f32 = 0.12;
+/// How dark a shadow on the felt is where it is cast: a dome's at its foot,
+/// the wall's behind it and at its own foot.
+pub const DOME_SHADE_DEPTH: f32 = 0.6;
+/// See [`DOME_SHADE_DEPTH`].
+pub const WALL_SHADE_DEPTH: f32 = 0.85;
+/// See [`DOME_SHADE_DEPTH`].
+pub const WALL_FOOT_DEPTH: f32 = 0.5;
+/// Where a shell's shadow lies on the felt, and in the pass: over every
+/// card's contact shadow, under the offer's light and the rings.
+pub const SHADE_RUNG: f32 = CARD_LIFT * 0.6;
 /// How high defender's wall stands off the felt: two courses of brick and
 /// a row of merlons, and never as high as a card's face (the PM, 25.09).
 pub const WALL_HEIGHT: f32 = 0.08;
@@ -157,15 +176,24 @@ pub const WALL_HEIGHT: f32 = 0.08;
 pub const WALL_COURSE: f32 = 0.028;
 /// See [`WALL_COURSE`].
 pub const WALL_BRICK: f32 = 0.07;
-/// How far past the card's top edge the wall's inner face stands at its
-/// ends; its middle bulges [`WALL_BULGE`] further out. Far enough that its
+/// How far past the card's top edge the foot of the wall's inner face
+/// stands at its ends; its middle bulges [`WALL_BULGE`] further out. Far enough that its
 /// own card hides little of it (the wall sweep in `table::shell_tests`
 /// counts it: one point in a hundred, from every shot).
 pub const WALL_NEAR: f32 = 0.12;
 /// How far the wall's middle bows out past its ends, like a shield.
 pub const WALL_BULGE: f32 = 0.04;
-/// How thick the wall is.
-pub const WALL_THICK: f32 = 0.025;
+/// How thick the wall is at its top.
+pub const WALL_THICK: f32 = 0.04;
+/// How far the wall's inner face leans back from its foot to the top of its
+/// courses: a battered rampart, so that a duel's camera, nearly over it,
+/// sees its courses and not only its top.
+pub const WALL_BATTER: f32 = 0.06;
+/// How far behind the wall its shadow on the felt reaches, and in front of
+/// it the shade at its foot.
+pub const WALL_SHADE: f32 = 0.12;
+/// See [`WALL_SHADE`].
+pub const WALL_FOOT_SHADE: f32 = 0.04;
 /// How far the wall runs past the card's width at each end.
 pub const WALL_OVERHANG: f32 = 0.06;
 /// How many merlons crown it.
@@ -189,6 +217,8 @@ const _: () = assert!(WALL_HEIGHT <= 0.08 && WALL_HEIGHT < RIM_DROP);
 const _: () = assert!(2.0 * WALL_COURSE < WALL_HEIGHT);
 // Outside the dome's skirt.
 const _: () = assert!(WALL_NEAR > DOME_MARGIN);
+// Over a card's own contact shadow, under the offer's light.
+const _: () = assert!(SHADE_RUNG > CARD_LIFT * 0.5 && SHADE_RUNG < FLOOR_RUNG);
 
 /// Which shell a material draws, as `shell.wgsl` reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -204,6 +234,8 @@ pub enum ShellKind {
     DomeRing = 4,
     /// Defender's brick wall.
     Wall = 5,
+    /// A standing dome's or the wall's shadow on the felt.
+    Shade = 6,
 }
 
 /// A protection that stands over its card as a dome of light (#298).
@@ -386,6 +418,7 @@ impl ShellMaterial {
             3 => ShellKind::Dome,
             4 => ShellKind::DomeRing,
             5 => ShellKind::Wall,
+            6 => ShellKind::Shade,
             _ => ShellKind::Rim,
         }
     }
@@ -409,13 +442,15 @@ impl Material for ShellMaterial {
         AlphaMode::Blend
     }
 
-    /// See [`RIM_RUNG`], [`RING_RUNG`] and [`DOME_RUNG`].
+    /// See [`RIM_RUNG`], [`RING_RUNG`], [`DOME_RUNG`], [`WALL_RUNG`] and
+    /// [`SHADE_RUNG`].
     fn depth_bias(&self) -> f32 {
         crate::table::sort_bias(match self.kind() {
             ShellKind::Rim => RIM_RUNG,
             ShellKind::Ring | ShellKind::DomeRing => RING_RUNG,
             ShellKind::Dome => DOME_RUNG,
             ShellKind::Wall => WALL_RUNG,
+            ShellKind::Shade => SHADE_RUNG,
         })
     }
 
@@ -615,11 +650,13 @@ fn ring_angle(k: usize) -> f32 {
 /// The point `d` past the card's edge in the direction `angle` (degrees) out
 /// of the corner `centre` stands on, and that direction.
 ///
-/// Inside the card's edge a corner cannot keep a negative radius: it keeps
-/// [`CAP_ROUND`] instead, which lies inside the true inset, so no point of a
-/// dome is further past the edge than its profile says.
+/// Inside the card's edge a dome's ring rounds its corners more the further
+/// in it stands, [`DOME_ROUNDING`] for each unit, until its ends are half
+/// circles, as a dome's are: its crown is a ridge with round ends,
+/// [`CAP_ROUND`] across. A rounder corner lies inside the true inset, so no
+/// point of a dome is further past the edge than its profile says.
 fn outline(centre: Vec2, angle: f32, d: f32) -> (Vec2, Vec2) {
-    let round = (CARD_CORNER + d).max(CAP_ROUND);
+    let round = (CARD_CORNER + d).max((CARD_CORNER - DOME_ROUNDING * d).min(CARD_WIDTH / 2.0 + d));
     let pull = CARD_CORNER + d - round;
     let dir = Vec2::from_angle(angle.to_radians());
     (centre + centre.signum() * pull + dir * round, dir)
@@ -627,6 +664,9 @@ fn outline(centre: Vec2, angle: f32, d: f32) -> (Vec2, Vec2) {
 
 /// The smallest corner a ring of a dome keeps: its crown's.
 const CAP_ROUND: f32 = 0.03;
+/// How much rounder a dome's ring's corners are for each unit it stands
+/// inside the card's edge.
+const DOME_ROUNDING: f32 = 1.5;
 
 /// The four corners a card's outline turns round, and the angle each turn
 /// starts at, anticlockwise seen from above.
@@ -705,11 +745,119 @@ pub fn dome_mesh(row: DomeRow, step: DomeStep) -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
+/// The shadow a dome standing at `step` casts on the felt round its foot,
+/// [`DOME_SHADE`] out from it: none where its foot stands on its own card's
+/// face. In the dome's own space, [`SHADE_RUNG`] over the felt.
+#[must_use]
+pub fn dome_shade_mesh(row: DomeRow, step: DomeStep) -> Option<Mesh> {
+    let (margin, base, _, _) = dome_ellipse(row, step);
+    if margin <= 0.0 {
+        return None;
+    }
+    let z = base + SHADE_RUNG;
+    let pairs = band((margin, z), (margin + DOME_SHADE, z))
+        .chunks(2)
+        .map(|pair| {
+            (
+                pair[0].at.truncate(),
+                pair[1].at.truncate(),
+                DOME_SHADE_DEPTH,
+            )
+        })
+        .collect();
+    Some(shade_mesh(&[pairs], z, true))
+}
+
+/// Defender's wall's shadow on the felt, in the wall's own space
+/// ([`wall_mesh`]): behind it, [`WALL_SHADE`] deep, where the light over the
+/// player's shoulder throws it, and in front of it the shade at its foot,
+/// [`WALL_FOOT_SHADE`] deep; both fading out at the wall's two ends.
+#[must_use]
+pub fn wall_shade_mesh() -> Mesh {
+    const PIECES: usize = 24;
+    let half = WALL_THICK / 2.0;
+    let arc: Vec<(Vec2, Vec2, f32)> = (0..=PIECES)
+        .map(|i| {
+            #[expect(clippy::cast_precision_loss)] // a few dozen pieces
+            let u = i as f32 / PIECES as f32;
+            let (centre, out, _) = wall_arc(u);
+            let end = if i == 0 || i == PIECES { 0.0 } else { 1.0 };
+            (centre, out, end)
+        })
+        .collect();
+    let behind = arc
+        .iter()
+        .map(|&(centre, out, end)| {
+            let foot = centre + out * half;
+            (foot, foot + out * WALL_SHADE, WALL_SHADE_DEPTH * end)
+        })
+        .collect();
+    let front = arc
+        .iter()
+        .map(|&(centre, out, end)| {
+            let foot = centre - out * (half + WALL_BATTER);
+            (foot, foot - out * WALL_FOOT_SHADE, WALL_FOOT_DEPTH * end)
+        })
+        .collect();
+    shade_mesh(&[behind, front], SHADE_RUNG - RIM_DROP, false)
+}
+
+/// A shadow on the felt as a mesh, `z` off the face: strips of `(where it
+/// is cast, where it is gone, how dark it is cast there)`, each pair joined
+/// to the next and, `closed`, the last to the first. `uv.x` is how far
+/// across its strip a point is, `uv.y` how dark; every triangle faces up.
+///
+/// # Panics
+///
+/// Never: a shadow has a few hundred vertices.
+fn shade_mesh(strips: &[Vec<(Vec2, Vec2, f32)>], z: f32, closed: bool) -> Mesh {
+    let mut at: Vec<[f32; 3]> = Vec::new();
+    let mut uvs: Vec<[f32; 2]> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+    for strip in strips {
+        let first = u32::try_from(at.len()).expect("a few hundred");
+        let pairs = u32::try_from(strip.len()).expect("a few dozen");
+        for &(cast, gone, depth) in strip {
+            at.push(cast.extend(z).to_array());
+            uvs.push([0.0, depth]);
+            at.push(gone.extend(z).to_array());
+            uvs.push([1.0, depth]);
+        }
+        let joins = if closed { pairs } else { pairs - 1 };
+        for pair in 0..joins {
+            let next = (pair + 1) % pairs;
+            let quad = [
+                first + 2 * pair,
+                first + 2 * pair + 1,
+                first + 2 * next + 1,
+                first + 2 * next,
+            ];
+            let [a, b, c, _] = quad.map(|i| Vec3::from_array(at[i as usize]));
+            let order = if (b - a).cross(c - a).z >= 0.0 {
+                [0, 1, 2, 0, 2, 3]
+            } else {
+                [0, 2, 1, 0, 3, 2]
+            };
+            indices.extend(order.map(|k| quad[k]));
+        }
+    }
+    let normals = vec![[0.0, 0.0, 1.0]; at.len()];
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
+}
+
 /// Defender's wall as a mesh, in the card's own space with its face at
 /// `z = 0` and the felt [`RIM_DROP`] under it: two courses of brick along a
-/// shallow arc past the card's top edge, and [`WALL_MERLONS`] merlons on
-/// them. Every face faces out of the solid, and `uv.x` is the distance
-/// along the arc, which the bricks are laid by.
+/// shallow arc past the card's top edge, their face towards the card
+/// leaning back [`WALL_BATTER`], and [`WALL_MERLONS`] merlons on them.
+/// Every face faces out of the solid, and `uv.x` is the distance along the
+/// arc, which the bricks are laid by.
 ///
 /// # Panics
 ///
@@ -738,7 +886,10 @@ pub fn wall_mesh() -> Mesh {
     let foot = -RIM_DROP;
     let crenels = foot + 2.0 * WALL_COURSE;
     let top = foot + WALL_HEIGHT;
-    let mut slab = |from: f32, to: f32, low: f32, high: f32, pieces: usize| {
+    // A length of wall from `from` to `to` along it, `low` to `high` off
+    // the face, its face towards the card's foot `batter` further in than
+    // its top.
+    let mut slab = |from: f32, to: f32, low: f32, high: f32, batter: f32, pieces: usize| {
         let arc: Vec<(Vec2, Vec2, f32)> = (0..=pieces)
             .map(|i| {
                 #[expect(clippy::cast_precision_loss)] // a few dozen pieces
@@ -751,6 +902,7 @@ pub fn wall_mesh() -> Mesh {
             let half = WALL_THICK / 2.0;
             let (o0, o1) = (c0 + n0 * half, c1 + n1 * half);
             let (i0, i1) = (c0 - n0 * half, c1 - n1 * half);
+            let (f0, f1) = (i0 - n0 * batter, i1 - n1 * batter);
             let n = (n0 + n1).normalize().extend(0.0);
             quad(
                 [
@@ -763,12 +915,12 @@ pub fn wall_mesh() -> Mesh {
             );
             quad(
                 [
-                    (i0.extend(low), s0),
-                    (i1.extend(low), s1),
+                    (f0.extend(low), s0),
+                    (f1.extend(low), s1),
                     (i1.extend(high), s1),
                     (i0.extend(high), s0),
                 ],
-                -n,
+                (Vec3::Z * batter - n * (high - low)).normalize(),
             );
             quad(
                 [
@@ -786,7 +938,7 @@ pub fn wall_mesh() -> Mesh {
             let along = Vec2::new(n.y, -n.x) * outward;
             quad(
                 [
-                    ((c - n * half).extend(low), s),
+                    ((c - n * (half + batter)).extend(low), s),
                     ((c + n * half).extend(low), s),
                     ((c + n * half).extend(high), s),
                     ((c - n * half).extend(high), s),
@@ -795,7 +947,7 @@ pub fn wall_mesh() -> Mesh {
             );
         }
     };
-    slab(0.0, 1.0, foot, crenels, 24);
+    slab(0.0, 1.0, foot, crenels, WALL_BATTER, 24);
     let parts = 2 * WALL_MERLONS - 1;
     for k in 0..WALL_MERLONS {
         #[expect(clippy::cast_precision_loss)] // five merlons
@@ -803,7 +955,7 @@ pub fn wall_mesh() -> Mesh {
             (2 * k) as f32 / parts as f32,
             (2 * k + 1) as f32 / parts as f32,
         );
-        slab(from, to, crenels, top, 3);
+        slab(from, to, crenels, top, 0.0, 3);
     }
     Mesh::new(
         PrimitiveTopology::TriangleList,
@@ -815,15 +967,15 @@ pub fn wall_mesh() -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
-/// The wall's middle line at `u` along it (0 at its left end, 1 at its
-/// right, seen from the card): where it is, which way is out (towards the
-/// table's middle), and how far along the arc that is.
+/// The middle line of the wall's top at `u` along it (0 at its left end, 1
+/// at its right, seen from the card): where it is, which way is out
+/// (towards the table's middle), and how far along the arc that is.
 #[must_use]
 pub fn wall_arc(u: f32) -> (Vec2, Vec2, f32) {
     let chord = CARD_WIDTH + 2.0 * WALL_OVERHANG;
     let x = (u - 0.5) * chord;
     let across = 2.0 * x / chord;
-    let near = CARD_HEIGHT / 2.0 + WALL_NEAR + WALL_THICK / 2.0;
+    let near = CARD_HEIGHT / 2.0 + WALL_NEAR + WALL_BATTER + WALL_THICK / 2.0;
     let y = near + WALL_BULGE * (1.0 - across * across);
     let slope = -8.0 * WALL_BULGE * x / (chord * chord);
     let out = Vec2::new(-slope, 1.0).normalize();
@@ -1193,6 +1345,8 @@ struct VertexOutput {
             ("RIM_DROP", RIM_DROP),
             ("WALL_COURSE", WALL_COURSE),
             ("WALL_BRICK", WALL_BRICK),
+            ("WALL_HEIGHT", WALL_HEIGHT),
+            ("SHADE_FLOOR", crate::table::TABLE_Y + SHADE_RUNG),
         ] {
             let theirs = wgsl_const(SHADER, name);
             assert!(
@@ -1206,6 +1360,7 @@ struct VertexOutput {
             ("SHELL_DOME", ShellKind::Dome),
             ("SHELL_DOME_RING", ShellKind::DomeRing),
             ("SHELL_WALL", ShellKind::Wall),
+            ("SHELL_SHADE", ShellKind::Shade),
         ] {
             #[expect(clippy::cast_precision_loss)] // a small enum
             let ours = kind as u32 as f32;
@@ -1306,13 +1461,10 @@ struct VertexOutput {
         assert!((gap(&square(0.0, 0.0), &square(1.3, 1.4)) - 0.5).abs() < 1e-6);
     }
 
-    /// Every point of a dome's mesh is where its profile says or further in:
-    /// no ring stands further past the card's edge than its point of the
-    /// profile, which is the distance the guard measures its throw from, and
-    /// each stands at that point's height.
     /// Defender's wall stands where its constants say: on the felt, no
-    /// higher than [`WALL_HEIGHT`], [`WALL_NEAR`] past the card's top edge
-    /// or further. And every face of it faces out of the solid, so the back
+    /// higher than [`WALL_HEIGHT`], its foot [`WALL_NEAR`] past the card's
+    /// top edge or further, its face towards the card leaning back
+    /// [`WALL_BATTER`] to the top of its courses. And every face of it faces out of the solid, so the back
     /// faces the pipeline culls are the ones inside it: a face whose front
     /// is in the wall and whose back is out of it is drawn inside out.
     #[test]
@@ -1352,7 +1504,9 @@ struct VertexOutput {
                 return false;
             }
             let (centre, out, _) = wall_arc(u);
-            if (p.truncate() - centre).dot(out).abs() > WALL_THICK / 2.0 {
+            let across = (p.truncate() - centre).dot(out);
+            let lean = WALL_BATTER * ((crenels - p.z) / (crenels + RIM_DROP)).max(0.0);
+            if across > WALL_THICK / 2.0 || across < -WALL_THICK / 2.0 - lean {
                 return false;
             }
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // 0..=9
@@ -1377,6 +1531,10 @@ struct VertexOutput {
         assert!(out > 200, "only {out} faces face out of the wall");
     }
 
+    /// Every point of a dome's mesh is where its profile says or further in:
+    /// no ring stands further past the card's edge than its point of the
+    /// profile, which is the distance the guard measures its throw from, and
+    /// each stands at that point's height.
     #[test]
     fn a_domes_mesh_stands_no_further_out_than_its_profile() {
         let row = Dome::Hexproof.row();
@@ -1419,6 +1577,76 @@ struct VertexOutput {
                 }
             }
         }
+    }
+
+    /// A shadow lies flat on the felt, facing up, and only outside its own
+    /// card: a dome's from its foot [`DOME_SHADE`] out, and only at the
+    /// steps whose foot stands on the felt; the wall's behind it and before
+    /// its foot. Lying there it is under every card's face, and one lifted
+    /// with its card is gone before it rises to one: the shader fades it out
+    /// by `SHADE_GONE` over [`SHADE_RUNG`].
+    #[test]
+    #[allow(clippy::float_cmp)] // exactly one edge or the other is the claim
+    fn a_shadow_lies_on_the_felt_outside_its_card() {
+        let felt = SHADE_RUNG - RIM_DROP;
+        let lies = |mesh: &Mesh, what: &str| -> Vec<Vec3> {
+            let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+            else {
+                panic!("{what} has positions");
+            };
+            let Some(bevy::mesh::VertexAttributeValues::Float32x2(uvs)) =
+                mesh.attribute(Mesh::ATTRIBUTE_UV_0)
+            else {
+                panic!("{what} has uvs");
+            };
+            let Some(Indices::U32(indices)) = mesh.indices() else {
+                panic!("{what} is indexed");
+            };
+            let at: Vec<Vec3> = at.iter().map(|p| Vec3::from_array(*p)).collect();
+            for p in &at {
+                assert!((p.z - felt).abs() < 1e-6, "{what} at {p}, off the felt");
+            }
+            for uv in uvs {
+                assert!(uv[0] == 0.0 || uv[0] == 1.0, "{what}: across {uv:?}");
+                assert!((0.0..=1.0).contains(&uv[1]), "{what}: depth {uv:?}");
+            }
+            for tri in indices.chunks(3) {
+                let [a, b, c] = [0, 1, 2].map(|k| at[tri[k] as usize]);
+                assert!((b - a).cross(c - a).z > 0.0, "{what} faces down at {a}");
+            }
+            at
+        };
+        let row = Dome::Hexproof.row();
+        let mut shaded = 0;
+        for step in DOME_STEPS {
+            let margin = row.margin - step.inward;
+            let Some(mesh) = dome_shade_mesh(row, step) else {
+                assert!(margin <= 0.0, "a dome on the felt casts no shadow");
+                continue;
+            };
+            shaded += 1;
+            assert!(margin > 0.0, "a dome on its card's face casts one");
+            for p in lies(&mesh, "a dome's shadow") {
+                let past = card_sdf(p.truncate());
+                assert!(
+                    past > margin - 1e-4 && past < margin + DOME_SHADE + 1e-4,
+                    "a dome's shadow {past} past its card"
+                );
+            }
+        }
+        assert_eq!(shaded, 2, "full height and lower stand on the felt");
+        for p in lies(&wall_shade_mesh(), "the wall's shadow") {
+            assert!(
+                p.y > CARD_HEIGHT / 2.0 + WALL_NEAR - WALL_FOOT_SHADE - 1e-4,
+                "the wall's shadow comes to {p}"
+            );
+        }
+        let gone = wgsl_const(SHADER, "SHADE_FLOOR") + wgsl_const(SHADER, "SHADE_GONE");
+        assert!(
+            gone < RIM_DROP,
+            "a lifted shadow is still drawn at {gone}, over a card's face at {RIM_DROP}"
+        );
     }
 
     /// Shroud swallows hexproof: one dome, never two colours.

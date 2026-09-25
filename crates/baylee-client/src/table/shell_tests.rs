@@ -394,7 +394,8 @@ fn a_standing_rim_never_lands_on_another_cards_print() {
 /// the far foot behind the card, and what the rim's top would throw onto the
 /// print, and from the table's real shots that leaves most of the rim's
 /// width drawn: 0.647 measured when this was written (25.09.2026), against
-/// 0.023 with a feather as wide as a card's border.
+/// 0.023 with a feather as wide as a card's border; 0.926 once the rim's
+/// foot was drawn out to 0.06, all of that below the face.
 #[test]
 fn the_mask_leaves_a_standing_rim_to_see() {
     let mut found = Sweep::default();
@@ -590,7 +591,8 @@ fn sweep_walls(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Wa
 /// Then 0.14 and 0.008, once every seat at a ring was handed a duel's board
 /// (#264): the rows at three, four and eight seats stopped overlapping, and
 /// a print stands in front of a wall only where a row does. Then 0.17 and
-/// 0.008, once the duels were given rows long enough to fan.
+/// 0.008, once the duels were given rows long enough to fan. Then 0.21 and
+/// 0.005, once the wall's face leant back and its top grew to be seen.
 #[test]
 fn a_wall_never_draws_over_a_print() {
     let mut found = WallSweep::default();
