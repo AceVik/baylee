@@ -110,6 +110,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - A summoning-sick creature (`board::asleep`, creatures only, CR 302.6) wears the moon on its strip, and its plate inks moon-grey.
 - Offers (`glow::OFFERS`: activatable, reachable, armed, will-tap) are light on the felt (`floormat.rs`, `floor.wgsl`): a child quad under the card at `FLOOR_RUNG`, never drawn on the card material. The count badge (`badgemat.rs`) hangs off the top-left corner, outside the card. A merged group stands on a pile of jogged slabs (`PILE_JOG`, `SLAB_EDGE_COLOR`).
 - A protected permanent wears a shell (`shellmat.rs`, `shell.wgsl`). Its alpha is exactly zero over its own print (a view-ray mask; every fragment `return` carries `clear`), and `table::fit_the_shells` stands it up or lays it on the felt from the live transforms, so it never lands on another card's print. Indestructible is a darksteel rim (the owner, 25.09).
+- Hexproof stands under a blue dome and shroud under a violet one (shroud swallows hexproof; `shellmat::Dome` rows, and #302 adds more). One guard serves every shell (`shell_stands` over a profile): a dome stands at the tallest of `DOME_STEPS` that lands on no print, else it lies as a ring in its colour. If steel and dome both lie, they share the band inside out (0.10–0.13 and 0.13–0.16). Use Blend, never Add: Bevy's Add is premultiplied, so alpha 0 still adds colour.
 - New card marks join `ObjectSummaryKey`.
 
 ## Stack and HUD
