@@ -13,6 +13,40 @@ pub mod names;
 /// Wire protocol version; incompatible versions refuse the session.
 pub const PROTOCOL_VERSION: u32 = 3;
 
+/// Why a peer that says it speaks protocol `theirs` is refused, or `None`
+/// when it speaks this build's (#271).
+///
+/// One sentence for every boundary, so a refused agent, engine or client
+/// is told the same thing in the same words: both numbers, because a
+/// mismatch is only ever fixed by knowing which side is behind. `who` is the
+/// peer as the sentence addresses it ("This agent"). A `theirs` of 0 is a
+/// peer from before the version was sent at all, which proto3 cannot tell
+/// from one that sent 0, and which says so rather than claim a version.
+#[must_use]
+pub fn version_refusal(who: &str, theirs: u32) -> Option<String> {
+    (theirs != PROTOCOL_VERSION).then(|| {
+        if theirs == 0 {
+            format!(
+                "{who} does not say which protocol it speaks; this gateway speaks {PROTOCOL_VERSION}."
+            )
+        } else {
+            format!("{who} speaks protocol {theirs}; this gateway speaks {PROTOCOL_VERSION}.")
+        }
+    })
+}
+
+/// The path and query a seat socket is opened on, relative to the gateway:
+/// `/games/{game_id}/ws?token=…&protocol=…` (#271).
+///
+/// Every dialer builds it here, so none can leave out the protocol it
+/// speaks: the gateway refuses a seat socket that does not say, before a
+/// frame of the game is sent (`docs/protocol.md` §"Which side checks the
+/// protocol (#271)").
+#[must_use]
+pub fn seat_socket_path(game_id: &str, seat_token: &str) -> String {
+    format!("/games/{game_id}/ws?token={seat_token}&protocol={PROTOCOL_VERSION}")
+}
+
 /// Generated protobuf types (`baylee.v1`).
 #[allow(missing_docs, clippy::all, clippy::pedantic)]
 pub mod v1 {
@@ -102,6 +136,34 @@ mod tests {
         assert_eq!(
             v1::Envelope::decode(&wire[..]).expect("an empty envelope decodes"),
             empty
+        );
+    }
+
+    /// A peer is refused by the one sentence every boundary shares, and it
+    /// names both numbers; this build's own version is not refused.
+    #[test]
+    fn a_peer_of_another_protocol_is_told_both_numbers() {
+        let newer = PROTOCOL_VERSION + 1;
+        let said = super::version_refusal("This agent", newer).expect("refused");
+        assert!(said.starts_with("This agent"), "{said}");
+        assert!(said.contains(&newer.to_string()), "{said}");
+        assert!(said.contains(&PROTOCOL_VERSION.to_string()), "{said}");
+        let silent = super::version_refusal("This engine", 0).expect("refused");
+        assert!(silent.contains("does not say"), "{silent}");
+        assert!(silent.contains(&PROTOCOL_VERSION.to_string()), "{silent}");
+        assert_eq!(
+            super::version_refusal("This client", PROTOCOL_VERSION),
+            None
+        );
+    }
+
+    /// A seat socket says which protocol it speaks in the one path every
+    /// dialer opens it on.
+    #[test]
+    fn a_seat_socket_says_its_protocol() {
+        assert_eq!(
+            super::seat_socket_path("g", "t"),
+            format!("/games/g/ws?token=t&protocol={PROTOCOL_VERSION}")
         );
     }
 

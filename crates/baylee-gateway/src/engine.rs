@@ -169,6 +169,14 @@ async fn run_agent_socket(state: Shared, mut socket: WebSocket) {
         tracing::warn!(name = hello.name, "agent presented the wrong token");
         return;
     }
+    // After the secret, so a stranger learns nothing here it could not read
+    // off `/info`. Said rather than dropped: the operator restarting this
+    // agent in a loop needs the sentence, not a closed socket (#271).
+    if let Some(why) = baylee_protocol::version_refusal("This agent", hello.protocol_version) {
+        tracing::warn!(name = hello.name, why, "agent refused");
+        let _ = send(&mut socket, &refusal(&why)).await;
+        return;
+    }
     let agent_id = auth::new_id();
     let (tx, mut rx) = mpsc::unbounded_channel();
     state.agents.lock().connected.insert(
@@ -285,19 +293,37 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
             tracing::warn!(game_id, "engine attach refused");
             return;
         }
-        let Some(preset) = game.preset.as_ref() else {
+        // The engine this game was given cannot play it, and the agent
+        // would start the same binary again, so the game ends here with the
+        // reason said and logged, rather than waiting on an engine that
+        // never comes (#271). After the token, so only the engine this game
+        // ordered can end it.
+        if let Some(why) = baylee_protocol::version_refusal("This engine", hello.protocol_version) {
+            tracing::error!(game_id, why, "engine refused");
+            Err(why)
+        } else {
+            let Some(preset) = game.preset.as_ref() else {
+                return;
+            };
+            let Ok(preset_json) = serde_json::to_vec(preset) else {
+                return;
+            };
+            game.engine = Some(tx);
+            Ok(Envelope {
+                msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+                    game_id: game_id.clone(),
+                    preset_json,
+                    seat_names: names,
+                })),
+            })
+        }
+    };
+    let setup = match setup {
+        Ok(setup) => setup,
+        Err(why) => {
+            let _ = send(&mut socket, &refusal(&why)).await;
+            end_game(&state, &game_id);
             return;
-        };
-        let Ok(preset_json) = serde_json::to_vec(preset) else {
-            return;
-        };
-        game.engine = Some(tx);
-        Envelope {
-            msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
-                game_id: game_id.clone(),
-                preset_json,
-                seat_names: names,
-            })),
         }
     };
     if send(&mut socket, &setup).await.is_err() {
@@ -377,6 +403,16 @@ async fn pump_engine(
                 }
             }
         }
+    }
+}
+
+/// The one frame a refused agent or engine is sent before its socket closes.
+fn refusal(why: &str) -> Envelope {
+    Envelope {
+        msg: Some(v1::envelope::Msg::Error(v1::Error {
+            code: 1,
+            message: why.to_string(),
+        })),
     }
 }
 

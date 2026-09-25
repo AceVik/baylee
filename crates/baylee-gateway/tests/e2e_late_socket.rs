@@ -61,8 +61,7 @@ async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
         .expect("the agent was never asked to run this game")
         .expect("the agent hung up before its engine attached");
 
-    let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
-    let mut ws = common::dial_seat(&url).await;
+    let mut ws = common::dial_seat(port, &game_id, &seat_token).await;
 
     // A working gateway answers at once. The broken one accepted the socket,
     // said nothing, and closed it half a minute later — so a generous

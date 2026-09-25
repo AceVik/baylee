@@ -6,13 +6,11 @@ package baylee.v1;
 
 // ---------------------------------------------------------------- handshake
 
-message Hello {
-  uint32 protocol_version = 1;
-  // Hash of the server's compiled card pool; mismatches invalidate client
-  // caches and refuse the session.
-  string card_pool_hash = 2;
-}
-
+// A seat socket refused for its protocol (#271): the first and only frame
+// on it, sent by the gateway before the socket is closed. The client says
+// which protocol it speaks in the socket's query (`&protocol=`), so there
+// is no hello to answer; `protocol_version` is the gateway's, and
+// `message` names both numbers.
 message HelloAck {
   uint32 protocol_version = 1;
   bool compatible = 2;
@@ -231,6 +229,10 @@ message AgentHello {
   string name = 2;
   // How many engines this agent will run at once. 0 means no limit.
   uint32 capacity = 3;
+  // The PROTOCOL_VERSION this agent was built with (#271). The gateway
+  // refuses any other with an Error naming both; 0 is an agent from before
+  // this field, which says none.
+  uint32 protocol_version = 4;
 }
 
 // Gateway → agent, once the token checks out.
@@ -275,6 +277,9 @@ message EngineStatus {
 message EngineHello {
   string game_id = 1;
   string token = 2;
+  // The PROTOCOL_VERSION this engine was built with (#271), checked like
+  // AgentHello's.
+  uint32 protocol_version = 3;
 }
 
 // Gateway → engine: everything needed to build the game.
@@ -327,8 +332,10 @@ message GameEnded {
 }
 
 message Envelope {
+  // 1 was `Hello`, which nothing ever sent (#271).
+  reserved 1;
+  reserved "hello";
   oneof msg {
-    Hello hello = 1;
     HelloAck hello_ack = 2;
     JoinGame join = 3;
     ResumeGame resume = 4;

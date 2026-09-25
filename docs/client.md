@@ -2430,6 +2430,9 @@ Three pieces now:
   freeze this whole path exists to prevent. `Local` is the default, so a host
   with no socket never enters the schedule — an in-process engine would
   otherwise be "reconnected" to twelve times and then declared unreachable.
+  A fifth, `Refused{table}` (#271), is a table that refused this client's
+  protocol: final, never dialled again, and the bar says which side is behind
+  (`docs/protocol.md` §"Which side checks the protocol (#271)").
 - **`Retry`** (`baylee-client-core/src/reconnect.rs`) is the schedule and
   nothing else: 0.5 s, doubling to a 15 s cap, twelve dials, then `exhausted`.
   Renderer-free and transport-free for the same reason the lobby's decisions

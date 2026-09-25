@@ -51,6 +51,13 @@ pub enum LinkState {
     Connecting,
     /// The socket went away and nothing is being done about it.
     Down,
+    /// The table refused this client's protocol (#271). Final: a table
+    /// that said no is never dialled again, and the player is told which
+    /// side is behind.
+    Refused {
+        /// The protocol the table speaks.
+        table: u32,
+    },
 }
 
 /// A source of duel state.

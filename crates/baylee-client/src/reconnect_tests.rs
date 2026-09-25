@@ -242,6 +242,34 @@ fn a_table_that_cannot_be_reached_stops_and_says_so() {
     );
 }
 
+/// A table that refused this client's protocol is never dialled again
+/// (#271): only an update on one side changes its answer. The player is told
+/// which side is behind, and the duel is given up once.
+#[test]
+fn a_table_that_refused_the_protocol_is_never_dialled_again() {
+    let ours = baylee_protocol::PROTOCOL_VERSION;
+    for (table, said) in [
+        (ours + 1, Phrase::ClientOutdated),
+        (ours - 1, Phrase::TableOlder),
+    ] {
+        let (mut app, _link, dials) = app_with(LinkState::Refused { table }, ORDINARY);
+        for _ in 0..80 {
+            advance(&mut app, 20.0);
+        }
+        assert_eq!(*dials.lock().unwrap(), 0, "a refusal is not an outage");
+        assert_eq!(
+            app.world().resource::<Duel>().link_note,
+            Some(said),
+            "a table speaking {table}"
+        );
+        assert_eq!(
+            app.world().resource::<Unreachables>().0,
+            1,
+            "given up, once"
+        );
+    }
+}
+
 /// A table that comes back takes the notice off the bar and resets the
 /// schedule, so the *next* drop is dialled promptly rather than at the
 /// cap the last one ended on.

@@ -620,6 +620,7 @@ mod attached {
                 msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
                     game_id: attach.game_id.clone(),
                     token: attach.token.clone(),
+                    protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 })),
             },
         )
@@ -673,6 +674,11 @@ mod attached {
                         continue;
                     }
                     let envelope = Envelope::decode(frame.into_data())?;
+                    // The gateway's one word to an engine it will not keep
+                    // (#271): said as this process's failure, in its words.
+                    if let Some(v1::envelope::Msg::Error(refused)) = envelope.msg {
+                        return Err(refused.message.into());
+                    }
                     // Read the clocks before handing the frame over: this
                     // frame may move the game, and after it has, a number
                     // belongs to a question nobody is being asked any more.

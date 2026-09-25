@@ -468,6 +468,7 @@ async fn attach_agent_inner(
                 token: gateway.agent_token.clone(),
                 name: "test-agent".to_string(),
                 capacity: 0,
+                protocol_version: baylee_protocol::PROTOCOL_VERSION,
             })),
         },
     )
@@ -504,6 +505,7 @@ async fn run_engine(
             msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
+                protocol_version: baylee_protocol::PROTOCOL_VERSION,
             })),
         },
     )
@@ -553,8 +555,12 @@ pub async fn dial(url: &str) -> Option<Socket> {
 /// one, so a seat socket that stayed silent would hang its test. Sent at
 /// once rather than after the first view, which changes nothing the engine
 /// can see: the gateway attaches the seat before it forwards a frame from it.
-pub async fn dial_seat(url: &str) -> Socket {
-    let mut ws = dial(url)
+///
+/// Opened on [`baylee_protocol::seat_socket_path`], as the client opens it,
+/// so every seat socket here says which protocol it speaks (#271).
+pub async fn dial_seat(port: u16, game_id: &str, seat_token: &str) -> Socket {
+    let url = seat_url(port, game_id, seat_token);
+    let mut ws = dial(&url)
         .await
         .unwrap_or_else(|| panic!("the seat socket never opened within {WAIT_BUDGET:?}: {url}"));
     send(
@@ -567,7 +573,15 @@ pub async fn dial_seat(url: &str) -> Socket {
     ws
 }
 
-async fn send(ws: &mut Socket, envelope: &Envelope) {
+/// A seat socket's URL on a gateway listening on `port`.
+pub fn seat_url(port: u16, game_id: &str, seat_token: &str) -> String {
+    format!(
+        "ws://127.0.0.1:{port}{}",
+        baylee_protocol::seat_socket_path(game_id, seat_token)
+    )
+}
+
+pub async fn send(ws: &mut Socket, envelope: &Envelope) {
     let _ = ws
         .send(tokio_tungstenite::tungstenite::Message::Binary(
             envelope.encode_to_vec().into(),
@@ -576,7 +590,7 @@ async fn send(ws: &mut Socket, envelope: &Envelope) {
 }
 
 /// The next protocol message on a socket, or `None` when it closes.
-async fn next_msg(ws: &mut Socket) -> Option<v1::envelope::Msg> {
+pub async fn next_msg(ws: &mut Socket) -> Option<v1::envelope::Msg> {
     loop {
         let frame = ws.next().await?.ok()?;
         if !frame.is_binary() {

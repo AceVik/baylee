@@ -656,8 +656,8 @@ fn build_fields() -> serde_json::Map<String, serde_json::Value> {
 /// carries nothing a stranger may not read. `protocol_version` is the
 /// envelope a seat socket speaks. `view_version` is the view shape *this
 /// gateway's build* was compiled with, and it is a promise about nothing
-/// else: the gateway never decodes a view, and an agent's engine says no
-/// version when it attaches. A deployment runs one build on both sides, so
+/// else: the gateway never decodes a view, and an agent's engine says only
+/// its protocol when it attaches (#271). A deployment runs one build on both sides, so
 /// the number is the right early warning; the check that decides is still
 /// the client's own, on the first `GameStatic` of a game.
 async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
@@ -3375,6 +3375,10 @@ async fn put_settings(
 #[derive(Deserialize)]
 struct WsParams {
     token: String,
+    /// The protocol the dialler speaks (#271). A client from before it was
+    /// sent says nothing, which reads as 0 and is refused.
+    #[serde(default)]
+    protocol: u32,
 }
 
 /// What `/lobby/ws` is opened with: an account token, and the same search a
@@ -3461,7 +3465,36 @@ async fn game_ws(
             .map(|s| s.seat)
             .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid seat token"))?
     };
+    // After the seat token, as at the agent's door, and before the engine
+    // hears of the socket: a table this client cannot read is not joined at
+    // all. Said on the socket rather than as an HTTP status, because a
+    // browser's `WebSocket` shows a script neither (#271).
+    if let Some(why) = baylee_protocol::version_refusal("This client", params.protocol) {
+        tracing::warn!(game_id = id, seat, why, "seat socket refused");
+        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why)));
+    }
     Ok(ws.on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
+}
+
+/// The one frame a seat socket of another protocol is sent before it closes
+/// (#271): a `HelloAck` that is not compatible, carrying this gateway's
+/// version and the sentence naming both.
+async fn refuse_seat(mut socket: WebSocket, why: String) {
+    use prost::Message as _;
+    let ack = Envelope {
+        msg: Some(v1::envelope::Msg::HelloAck(v1::HelloAck {
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            compatible: false,
+            message: why,
+        })),
+    };
+    if socket
+        .send(Message::Binary(ack.encode_to_vec().into()))
+        .await
+        .is_ok()
+    {
+        let _ = socket.send(Message::Close(None)).await;
+    }
 }
 
 /// `GET /games/{id}/cosmetics?token=…` — every seat's sleeve and playmat.

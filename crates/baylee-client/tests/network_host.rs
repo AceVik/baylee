@@ -8,7 +8,7 @@
 
 #![allow(clippy::missing_docs_in_private_items)]
 
-use baylee_client::host::{DuelHost, HostMessage};
+use baylee_client::host::{DuelHost, HostMessage, LinkState};
 use baylee_client::{NetworkHost, SeatTicket};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
@@ -242,6 +242,93 @@ fn choices(messages: &[HostMessage]) -> Vec<&Pending> {
             _ => None,
         })
         .collect()
+}
+
+/// A table that refuses this client's protocol, as the gateway does
+/// (#271): it hands back the query each socket was opened with, sends the
+/// one frame the gateway would, and closes.
+#[allow(clippy::result_large_err)] // tungstenite's handshake callback, as it is declared
+fn spawn_refusing_table(table: u32) -> (u16, std::sync::mpsc::Receiver<String>) {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    listener.set_nonblocking(true).expect("nonblocking");
+    let (asked, heard) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async move {
+            let listener = tokio::net::TcpListener::from_std(listener).expect("listener");
+            while let Ok((stream, _)) = listener.accept().await {
+                let asked = asked.clone();
+                let Ok(mut ws) = tokio_tungstenite::accept_hdr_async(
+                    stream,
+                    move |request: &tokio_tungstenite::tungstenite::handshake::server::Request,
+                          response| {
+                        let _ = asked.send(request.uri().query().unwrap_or_default().to_string());
+                        Ok(response)
+                    },
+                )
+                .await
+                else {
+                    continue;
+                };
+                let refusal = Envelope {
+                    msg: Some(v1::envelope::Msg::HelloAck(v1::HelloAck {
+                        protocol_version: table,
+                        compatible: false,
+                        message: "This client speaks another protocol.".to_string(),
+                    })),
+                };
+                if send(&mut ws, refusal).await.is_ok() {
+                    let _ = ws.close(None).await;
+                }
+            }
+        });
+    });
+    (port, heard)
+}
+
+/// A seat socket says which protocol it speaks, and a table that refuses
+/// it is final (#271): the host shows the refusal as its link, and dials
+/// that table no more.
+#[test]
+fn a_table_that_refuses_the_protocol_is_not_dialled_again() {
+    let table = baylee_protocol::PROTOCOL_VERSION + 1;
+    let (port, asked) = spawn_refusing_table(table);
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    let query = asked
+        .recv_timeout(WAIT_BUDGET)
+        .expect("the table was dialled");
+    assert!(
+        query.ends_with(&format!("&protocol={}", baylee_protocol::PROTOCOL_VERSION)),
+        "the socket did not say its protocol: {query}"
+    );
+    for _ in 0..WAIT_TRIES {
+        host.poll();
+        if host.link() == (LinkState::Refused { table }) {
+            break;
+        }
+        std::thread::sleep(WAIT_STEP);
+    }
+    assert_eq!(
+        host.link(),
+        LinkState::Refused { table },
+        "after {WAIT_BUDGET:?}"
+    );
+    assert!(host.reconnect().is_err(), "a refused table is not dialled");
+    assert_eq!(
+        host.link(),
+        LinkState::Refused { table },
+        "and stays refused"
+    );
+    assert!(
+        asked
+            .recv_timeout(std::time::Duration::from_millis(200))
+            .is_err(),
+        "nothing dialled it again"
+    );
 }
 
 /// `ready` reaches the table as a `SeatReady`, and the table's `Curtain`

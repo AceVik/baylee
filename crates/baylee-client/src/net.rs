@@ -77,11 +77,13 @@ pub(crate) fn ws_base(gateway: &str) -> String {
 }
 
 impl SeatTicket {
-    /// The websocket URL this ticket opens.
+    /// The websocket URL this ticket opens, saying which protocol this
+    /// client speaks (#271).
     #[must_use]
     pub fn socket_url(&self) -> String {
         let base = ws_base(&self.gateway);
-        format!("{base}/games/{}/ws?token={}", self.game_id, self.seat_token)
+        let path = baylee_protocol::seat_socket_path(&self.game_id, &self.seat_token);
+        format!("{base}{path}")
     }
 
     /// The ticket this launch was handed, if it was handed one.
@@ -254,6 +256,12 @@ pub struct NetworkHost {
     outbox: Vec<Envelope>,
     /// Messages this host produced itself, rather than received.
     pending_out: Vec<HostMessage>,
+    /// The protocol of a table that refused this client's (#271).
+    ///
+    /// Set in the same [`DuelHost::poll`] that drains the refusal and the
+    /// close behind it, and never cleared, so [`DuelHost::link`] never shows
+    /// the retry schedule a closed socket it could redial.
+    refused: Option<u32>,
 }
 
 impl NetworkHost {
@@ -276,6 +284,7 @@ impl NetworkHost {
             connection: Connection::default(),
             outbox: Vec::new(),
             pending_out: Vec::new(),
+            refused: None,
         })
     }
 
@@ -339,6 +348,19 @@ impl NetworkHost {
         self.last_seq = self.last_seq.max(seq);
     }
 
+    /// Remembers a table that refused this client's protocol (#271).
+    ///
+    /// The gateway's sentence names both numbers and goes to the log; the
+    /// player is told which side is behind, from [`LinkState::Refused`].
+    fn note_refusal(&mut self, envelope: &Envelope) {
+        if let Some(v1::envelope::Msg::HelloAck(ack)) = &envelope.msg
+            && !ack.compatible
+        {
+            bevy::log::warn!(table = ack.protocol_version, "{}", ack.message);
+            self.refused = Some(ack.protocol_version);
+        }
+    }
+
     /// Sends everything that was waiting for the socket to open.
     fn flush(&mut self) {
         if !self.connection.open || self.outbox.is_empty() {
@@ -366,6 +388,7 @@ impl DuelHost for NetworkHost {
                     match Envelope::decode(bytes.as_slice()) {
                         Ok(envelope) => {
                             self.note_seq(&envelope);
+                            self.note_refusal(&envelope);
                             if let Some(message) = host_message(envelope) {
                                 if let HostMessage::Static(statics) = &message {
                                     // The table decides which chair this is; a
@@ -421,6 +444,9 @@ impl DuelHost for NetworkHost {
     }
 
     fn link(&self) -> LinkState {
+        if let Some(table) = self.refused {
+            return LinkState::Refused { table };
+        }
         match (self.connection.lost, self.connection.dialling) {
             (false, _) => LinkState::Up,
             (true, true) => LinkState::Connecting,
@@ -429,6 +455,9 @@ impl DuelHost for NetworkHost {
     }
 
     fn reconnect(&mut self) -> Result<(), String> {
+        if self.refused.is_some() {
+            return Err("this table refused this client's protocol".to_string());
+        }
         self.redial()
     }
 }
@@ -468,7 +497,10 @@ mod tests {
     fn a_plain_gateway_becomes_a_plain_socket() {
         assert_eq!(
             ticket("http://127.0.0.1:28766").socket_url(),
-            "ws://127.0.0.1:28766/games/0199-abc/ws?token=deadbeef"
+            format!(
+                "ws://127.0.0.1:28766/games/0199-abc/ws?token=deadbeef&protocol={}",
+                baylee_protocol::PROTOCOL_VERSION
+            )
         );
     }
 
@@ -479,7 +511,10 @@ mod tests {
     fn a_tls_gateway_becomes_a_tls_socket() {
         assert_eq!(
             ticket("https://play.example/").socket_url(),
-            "wss://play.example/games/0199-abc/ws?token=deadbeef"
+            format!(
+                "wss://play.example/games/0199-abc/ws?token=deadbeef&protocol={}",
+                baylee_protocol::PROTOCOL_VERSION
+            )
         );
     }
 

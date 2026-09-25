@@ -134,9 +134,8 @@ async fn human_vs_human_both_seats_receive_updates() {
     // this replaces: both seats have to open before anything below runs, and
     // neither one's opening is what unblocks the other — the engine attaching
     // is.
-    let url = |token: &str| format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={token}");
-    let mut ws_a = common::dial_seat(&url(&seat_token_a)).await;
-    let mut ws_b = common::dial_seat(&url(&seat_token_b)).await;
+    let mut ws_a = common::dial_seat(port, &game_id, &seat_token_a).await;
+    let mut ws_b = common::dial_seat(port, &game_id, &seat_token_b).await;
 
     // The very first thing a seat is sent is the roster and the print table.
     // A client has no preset to build them from, and without the print table
@@ -285,6 +284,7 @@ async fn the_control_socket_refuses_the_wrong_secret() {
             token: "not-the-secret".to_string(),
             name: "impostor".to_string(),
             capacity: 0,
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
         })),
     };
     ws.send(tokio_tungstenite::tungstenite::Message::Binary(
@@ -333,16 +333,10 @@ async fn the_curtain_goes_up_for_both_seats_once_both_are_ready() {
     let gw = spawn_gateway("hvh_curtain");
     let _agent = attach_agent(&gw).await;
     let (game_id, seat_token_a, seat_token_b) = start_two_seats(gw.port);
-    let url = |token: &str| {
-        format!(
-            "ws://127.0.0.1:{}/games/{game_id}/ws?token={token}",
-            gw.port
-        )
-    };
     let prompt = std::time::Duration::from_secs(u64::from(baylee_engine_server::CURTAIN_SECS) / 3);
     let mut seats = [
-        common::dial_seat(&url(&seat_token_a)).await,
-        common::dial_seat(&url(&seat_token_b)).await,
+        common::dial_seat(gw.port, &game_id, &seat_token_a).await,
+        common::dial_seat(gw.port, &game_id, &seat_token_b).await,
     ];
     for (seat, ws) in seats.iter_mut().enumerate() {
         let mut heard = Vec::new();

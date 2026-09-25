@@ -85,11 +85,13 @@ is no account yet:
   it again before showing it, because a gateway built elsewhere made no such
   promise.
 - The build fields are `/source`'s and `/health`'s.
-- `protocol_version` is the envelope a seat socket speaks (`baylee_protocol`).
+- `protocol_version` is the envelope a seat socket speaks (`baylee_protocol`),
+  and the one this gateway holds every peer to (§"Which side checks the
+  protocol (#271)").
 - `view_version` is the view shape **this gateway's build** was compiled
-  with. The gateway never decodes a view, and an engine says no version when
-  it attaches, so the number describes the engines only because one
-  deployment runs one build. It is the early warning; the check that decides
+  with. The gateway never decodes a view, and an engine says only its
+  protocol when it attaches, so the number describes the engines only because
+  one deployment runs one build. It is the early warning; the check that decides
   is still the client's own, on a game's first `GameStatic`.
 
 ## Printings (which art the client draws)
@@ -1076,6 +1078,8 @@ fighting over one number.
 ## v0 (M0)
 Transport handshake + preset transfer:
 `Hello{protocol_version, card_pool_hash}` / `HelloAck`, `JoinGame`,
+(`Hello` was never sent and is gone since #271, its field reserved;
+`HelloAck` is the seat socket's refusal frame now),
 `ResumeGame{last_seq}`, `GamePresetMsg`, `Heartbeat`, `Error`, wrapped in
 an `Envelope` oneof. Card references are `{card_index, print_ref}`;
 `card_pool_hash` invalidates client caches.
@@ -1174,7 +1178,7 @@ POST /lobby/games ─┐
               gateway ── StartEngine{game_id, engine_token, gateway_url} ──> agent
                    ^                                                          │ spawn
                    │                                                          v
-                   └──────── EngineHello{game_id, token} ──── baylee-engine-server
+                   └── EngineHello{game_id, token, protocol_version} ── baylee-engine-server
                    │
                    ├── GameSetup / SeatAttached / SeatDetached / SeatFrame ──>
                    <── SeatFrame / GameEnded ──────────────────────────────────
@@ -1323,9 +1327,60 @@ would drop them.
 **Deploy the engine-server before the clients.** A client from before this
 change never sends `SeatReady`, and its table opens thirty seconds late. A
 client from after it, playing against an older engine, is never sent
-`Curtain` and waits behind the curtain for ever. `PROTOCOL_VERSION` is not
-checked on the seat socket yet; #271 makes a mismatch a refusal with a
-sentence, which turns that silent wait into an error.
+`Curtain` and waits behind the curtain for ever. Since #271 neither pair
+meets: the gateway refuses a seat socket and an engine of another protocol
+than its own (below), and `SeatReady` and `Curtain` came with a
+`PROTOCOL_VERSION` bump.
+
+## Which side checks the protocol (#271)
+
+The gateway checks, and only against itself. Every peer says which protocol
+it speaks when it connects, and the gateway compares that number with its
+own `PROTOCOL_VERSION`. Nothing compares a client with an engine directly:
+each was compared with the gateway, so two that both got in speak each
+other's protocol.
+
+| peer | where it says it | checked after | what a refused peer is sent | then |
+| --- | --- | --- | --- | --- |
+| agent | `AgentHello.protocol_version` | the agent token | `Error{code: 1, message}`, and the socket closes | not registered; it logs the sentence at error level and dials again on its back-off |
+| engine | `EngineHello.protocol_version` | the game's engine token | `Error{code: 1, message}`, and the socket closes | the game ends: it leaves the listing and its agent is sent `StopEngine`. The process exits with the sentence |
+| seat socket | `&protocol=` in the socket's query | the seat token, and before the engine hears of the socket | `HelloAck{protocol_version: <the gateway's>, compatible: false, message}`, the only frame, and the socket closes | the client stops for good (below) |
+
+- **One sentence for all three**, `baylee_protocol::version_refusal`, and it
+  names both numbers: a mismatch is fixed by knowing which side is behind.
+- **0 means "says none".** Proto3 cannot tell a peer that sent 0 from one
+  built before the field existed, so 0 is refused with a sentence of its own
+  ("does not say which protocol it speaks") rather than as a version.
+- **Every seat-socket dialer builds its path with
+  `baylee_protocol::seat_socket_path`**, the client and the gateway's tests
+  alike, so none can leave the parameter out, and the number is written
+  nowhere else.
+- **After the secret.** A stranger learns nothing from the refusal that
+  `GET /info` would not tell it.
+- **On the socket, not as an HTTP status.** A browser's `WebSocket` shows a
+  script neither the status of a refused upgrade nor its body, so the
+  refusal is a frame on an accepted socket.
+- **An engine's refusal ends its game.** The agent would start the same
+  binary again, so the game does not wait for another engine.
+
+The client reads a `HelloAck` that is not compatible as final: the host's
+link becomes `LinkState::Refused{table}`, set in the same poll that drains
+the frame and the close behind it, so the retry schedule never sees a closed
+socket it could dial again. The player is told which side is behind, without
+numbers: "Your client is out of date: update it to join." when the table's
+protocol is newer, and "This table runs an older version than your client."
+when it is older. The gateway's sentence, with both numbers, goes to the
+client's log.
+
+**One deployment runs one build.** Gateway, agent and engine-server share
+one `PROTOCOL_VERSION`; a gateway updated without its agents ends every game
+it orders at the engine's attach, and says why. A client from before #271
+says no protocol and is refused. It does not know `HelloAck`, so it sees a
+socket that closed, dials again on its schedule and gives up as unreachable.
+A client that is already shipped cannot be taught more than that.
+
+`Hello` is gone and its field reserved. Nothing ever sent it, and a seat
+socket is checked at the upgrade, before there is a frame to say hello in.
 
 ## Confirming an address, and why it is optional
 
@@ -2062,7 +2117,8 @@ declaration against exactly that list — "which planeswalkers may I attack"
 (CR 506.2) is a rules question, and a client re-deriving it would be a
 second, divergent implementation of the rule. `AttackerView::defending`
 changed the same way, which is what took **`VIEW_VERSION` from 2 to 3**;
-a client checks that on `HelloAck` and refuses a host it cannot render.
+a client checks that on a game's first `GameStatic` and refuses a host it
+cannot render.
 
 `Defender` is an externally tagged serde enum over two transparent ids, so
 the JSON is `{"Player":0}` or `{"Planeswalker":1234}` where a v2 payload

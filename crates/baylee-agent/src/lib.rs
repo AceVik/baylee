@@ -101,6 +101,7 @@ impl AgentConfig {
                 token: self.token.clone(),
                 name: self.name.clone(),
                 capacity: self.capacity,
+                protocol_version: baylee_protocol::PROTOCOL_VERSION,
             })),
         }
     }
@@ -150,7 +151,10 @@ pub enum Order {
         /// The game that is over.
         game_id: String,
     },
-    /// The gateway refused, or said something this agent does not act on.
+    /// The gateway refused this agent, and said why (#271): a protocol this
+    /// build does not speak, for one. The socket closes after it.
+    Refused(String),
+    /// Something this agent does not act on.
     Nothing,
 }
 
@@ -170,6 +174,7 @@ pub fn order(envelope: Envelope) -> Order {
         Some(v1::envelope::Msg::StopEngine(stop)) => Order::Stop {
             game_id: stop.game_id,
         },
+        Some(v1::envelope::Msg::Error(error)) => Order::Refused(error.message),
         _ => Order::Nothing,
     }
 }
@@ -404,7 +409,11 @@ mod tests {
                 message: "no".to_string(),
             })),
         };
-        assert_eq!(order(refusal), Order::Nothing, "and neither is a refusal");
+        assert_eq!(
+            order(refusal),
+            Order::Refused("no".to_string()),
+            "a refusal is read, so the operator is told why (#271)"
+        );
     }
 
     /// The status kind travels as an integer and is read back as an enum, so

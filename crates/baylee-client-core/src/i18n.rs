@@ -1650,6 +1650,19 @@ messages! {
         en: "The table cannot be reached. Rejoin from the lobby.",
         de: "Der Tisch ist nicht erreichbar. Tritt aus der Lobby erneut bei.",
     },
+    /// The table refused this client's protocol, and speaks a newer one
+    /// (#271). No numbers: the log has both, and the player can act only on
+    /// which side is behind.
+    ClientOutdated {
+        en: "Your client is out of date: update it to join.",
+        de: "Dein Client ist veraltet: Aktualisiere ihn, um beizutreten.",
+    },
+    /// The table refused this client's protocol, and speaks an older one
+    /// (#271).
+    TableOlder {
+        en: "This table runs an older version than your client.",
+        de: "Dieser Tisch läuft mit einer älteren Version als dein Client.",
+    },
 
 
     /// A card has no candidate satisfying its required targets (#112).

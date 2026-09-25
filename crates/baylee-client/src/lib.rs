@@ -2140,6 +2140,16 @@ fn keep_the_table_connected(
             retry.schedule.stayed_down(time.delta_secs());
             duel.link_note = Some(link_note(&retry.schedule, table));
         }
+        // The table said this client speaks another protocol (#271). Only an
+        // update on one side changes that, so there is no schedule: the
+        // player is told which side is behind, once, and nothing redials.
+        LinkState::Refused { table } => {
+            duel.link_note = Some(refusal_note(table));
+            if !retry.told {
+                retry.told = true;
+                reports.write(DuelReport::Unreachable);
+            }
+        }
         LinkState::Down => {
             retry.schedule.stayed_down(time.delta_secs());
             if retry.schedule.exhausted() {
@@ -2159,6 +2169,20 @@ fn keep_the_table_connected(
                 }
             }
         }
+    }
+}
+
+/// What the bar says about a table that refused this client's protocol,
+/// which speaks `table` (#271): which side is behind.
+///
+/// Equal numbers are refused only from a client that did not say which
+/// protocol it speaks, which this one always does; they fall in with the
+/// newer table, the one case the player can still fix from here.
+fn refusal_note(table: u32) -> Phrase {
+    if table < baylee_protocol::PROTOCOL_VERSION {
+        Phrase::TableOlder
+    } else {
+        Phrase::ClientOutdated
     }
 }
 

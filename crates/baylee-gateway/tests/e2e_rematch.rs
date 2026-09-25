@@ -56,10 +56,7 @@ async fn rematch_when_over(port: u16, token: &str, game: &str) -> String {
 
 /// Opens a seat socket, waiting for the engine to attach behind it.
 async fn seat_socket(port: u16, game: &str, token: &str) -> Socket {
-    common::dial_seat(&format!(
-        "ws://127.0.0.1:{port}/games/{game}/ws?token={token}"
-    ))
-    .await
+    common::dial_seat(port, game, token).await
 }
 
 /// Waits for the opening payload, which is the first thing any seat is sent.

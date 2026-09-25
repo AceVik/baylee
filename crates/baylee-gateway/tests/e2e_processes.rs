@@ -99,8 +99,7 @@ async fn a_real_agent_starts_a_real_engine_for_a_real_seat() {
     // spawning a *process*. A bare `connect_async` raced it — it happened to
     // win on an idle machine, which is the same assumption the wait budgets
     // above were raised for.
-    let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
-    let mut ws = common::dial_seat(&url).await;
+    let mut ws = common::dial_seat(port, &game_id, &seat_token).await;
 
     // The seat's first frame is the roster and the print table — and it came
     // out of a process the gateway started through an agent and cannot read.

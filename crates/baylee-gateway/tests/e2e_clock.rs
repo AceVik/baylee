@@ -218,8 +218,7 @@ async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
     let game_id = json_field(&body, "game_id").to_string();
     let seat_token = json_field(&body, "seat_token").to_string();
 
-    let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
-    let mut ws = common::dial_seat(&url).await;
+    let mut ws = common::dial_seat(port, &game_id, &seat_token).await;
     let frame = tokio::time::timeout(common::WAIT_BUDGET, {
         use futures_util::StreamExt as _;
         ws.next()

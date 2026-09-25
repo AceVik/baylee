@@ -147,6 +147,14 @@ async fn session(
                 gateway_url,
             } => start(config, running, &out, &game_id, &engine_token, &gateway_url),
             Order::Stop { game_id } => stop(running, &game_id),
+            // Error level: nothing this agent does will be accepted until
+            // someone changes a binary, and the sentence says which. A
+            // failure rather than a close, so the next dial waits out a
+            // growing back-off instead of the first second, again and again.
+            Order::Refused(why) => {
+                tracing::error!(why, "the gateway refused this agent");
+                break Err(Box::from(why));
+            }
             Order::Nothing => {}
         }
     };
