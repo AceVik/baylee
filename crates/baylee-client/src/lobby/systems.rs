@@ -1013,6 +1013,7 @@ pub(super) fn clicks(
                 let request = state.lobby.delete_account();
                 dispatch(&mut state, &mailbox, request);
             }
+            Press::OpenSource => super::source::open(&state),
             Press::Rebind(action) => {
                 // Tapping the armed row again disarms it, so the chip is its
                 // own cancel and there is no way to get stuck waiting.
@@ -1895,6 +1896,8 @@ pub(crate) enum Press {
     ConfirmAccountDeletion,
     /// Close the confirmation, deleting nothing.
     CancelAccountDeletion,
+    /// Open the source address in the browser (#299).
+    OpenSource,
     /// Show the pool or the deck, on a screen with room for one.
     ShowPane(Pane),
     /// Read a card in full, by its slot in the pool.

@@ -1004,20 +1004,49 @@ pub(super) fn colophon(
             Pickable::IGNORE,
         ))
         .id();
-    let source = commands
-        .spawn((
-            Text::new(Phrase::SourceCode.fill(state.lobby.lang(), &[source_address(state)])),
-            tf(fonts, metrics.small * 0.85),
-            TextColor(palette::MUTED.with_alpha(0.8)),
-            // An address is one long word; on a phone it breaks where it
-            // must rather than running off the card.
-            TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let mut source = commands.spawn((
+        Text::new(Phrase::SourceCode.fill(state.lobby.lang(), &[source_address(state)])),
+        tf(fonts, metrics.small * 0.85),
+        TextColor(palette::MUTED.with_alpha(0.8)),
+        // An address is one long word; on a phone it breaks where it
+        // must rather than running off the card.
+        TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
+    ));
+    // A link only for an address that passed the check at the door
+    // (`source::keep_the_code`), and the same address as a code beside it
+    // on a screen a phone could be held up to (#299).
+    let code = state.source_code.as_ref();
+    if code.is_some() {
+        source.insert((
+            Button,
+            Press::OpenSource,
+            Underline,
+            UnderlineColor(palette::MUTED.with_alpha(0.5)),
+        ));
+    } else {
+        source.insert(Pickable::IGNORE);
+    }
+    let source = source.id();
     commands
         .entity(colophon)
         .add_children(&[build, notice, source]);
+    if let Some(code) = code.filter(|_| metrics.frame != Frame::Phone) {
+        #[allow(clippy::cast_precision_loss)] // a code is at most 177 modules a side
+        let side = px(code.side as f32 * super::source::MODULE_PX);
+        let picture = commands
+            .spawn((
+                ImageNode::new(code.image.clone()),
+                Node {
+                    width: side,
+                    height: side,
+                    ..default()
+                },
+                Button,
+                Press::OpenSource,
+            ))
+            .id();
+        commands.entity(colophon).add_child(picture);
+    }
     colophon
 }
 

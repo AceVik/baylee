@@ -144,7 +144,11 @@ pub fn shown(raw: &str, max: usize) -> String {
 /// else. So an address that is not `http://` or `https://`, is longer than
 /// [`MAX_SOURCE_CHARS`], or holds whitespace, a control or a bidi character
 /// is not kept at all.
-fn web_address(raw: &str) -> Option<String> {
+///
+/// The client's one check on a web address, which the front door asks again
+/// before it opens one or draws it as a code (#299).
+#[must_use]
+pub fn web_address(raw: &str) -> Option<String> {
     let url = raw.trim();
     let plain = (url.starts_with("https://") || url.starts_with("http://"))
         && url.chars().count() <= MAX_SOURCE_CHARS
@@ -343,6 +347,11 @@ mod tests {
             format!("{longest}a"),
             "github.com/AceVik/baylee".to_string(),
             "javascript:alert(1)".to_string(),
+            // What the front door would otherwise hand the system to open
+            // (#299): a file, an app's intent, a page made of the address.
+            "file:///etc/passwd".to_string(),
+            "intent://scan/#Intent;scheme=zxing;end".to_string(),
+            "data:text/html,<script>alert(1)</script>".to_string(),
             "https://git.example/a b".to_string(),
             "https://git.example/\u{202E}krof".to_string(),
             "https://git.example/\nfork".to_string(),

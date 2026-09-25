@@ -141,6 +141,11 @@ send_wrapper = "0.6"
 # wasm32-unknown-unknown; this is `std::time` everywhere else and the
 # browser's own clock there. Already in the tree — bevy depends on it.
 web-time = "1.1"
+# Opens the source address from the front door (#299). `hardened` makes the
+# crate itself refuse anything but http(s), under the client's own check.
+webbrowser = { version = "1.2", features = ["hardened"] }
+# The source address as a QR code (#299): Nayuki's encoder, no dependencies.
+qrcodegen = "1.8"
 # The card shader is validated at build time. Without this it would compile
 # only when a real GPU pipeline is built — which in the browser means the one
 # environment that cannot be debugged by looking at a filesystem.

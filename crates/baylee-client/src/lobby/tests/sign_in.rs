@@ -151,6 +151,63 @@ fn the_front_door_says_where_the_source_is() {
     }
 }
 
+/// #299: the source line opens the address it names and carries it as a QR
+/// code, on a screen a phone could be held up to. An address that fails the
+/// client's own check at the door stays text, with no link and no code,
+/// whatever the gateway sent: the check on the way in is not the only one.
+#[test]
+fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
+    let links = |app: &mut App| {
+        presses(app)
+            .into_iter()
+            .filter(|press| *press == Press::OpenSource)
+            .count()
+    };
+    for (width, codes) in [(1400.0, 1), (390.0, 0)] {
+        let mut app = headless();
+        app.init_resource::<Assets<Image>>();
+        sized(&mut app, width);
+        to_gateway_face(&mut app);
+        app.update();
+        assert_eq!(
+            links(&mut app),
+            1 + codes,
+            "{width} px: the line, and the code where there is room for one"
+        );
+        let code = app.world().resource::<LobbyState>().source_code.clone();
+        assert_eq!(
+            code.map(|code| code.url).as_deref(),
+            Some(baylee_build::REPOSITORY)
+        );
+
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            let gateway = state.gateway.clone();
+            // Past the check on the way in, as a gateway's answer never is.
+            state.probes.insert(
+                gateway,
+                Probe::Known(baylee_client_core::lobby::gateway_info::GatewayInfo {
+                    name: None,
+                    version: String::new(),
+                    protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                    view_version: baylee_view::VIEW_VERSION,
+                    source: Some("javascript:alert(1)".to_string()),
+                }),
+            );
+        }
+        app.update();
+        assert_eq!(
+            links(&mut app),
+            0,
+            "{width} px: a hostile address is a link"
+        );
+        assert!(
+            app.world().resource::<LobbyState>().source_code.is_none(),
+            "{width} px: a hostile address was drawn as a code"
+        );
+    }
+}
+
 #[test]
 fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     let mut app = headless();

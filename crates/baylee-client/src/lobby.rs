@@ -104,7 +104,13 @@ impl Plugin for LobbyPlugin {
                     (hovers, hint::hint_hovers),
                     // The motion decides which panels are drawn, and the
                     // pose lands on the panels the rebuild just stood up.
-                    (front::move_front, ui, front::pose_front).chain(),
+                    (
+                        source::keep_the_code,
+                        front::move_front,
+                        ui,
+                        front::pose_front,
+                    )
+                        .chain(),
                     ui::blink,
                     dock::materialize,
                     button_style::materialize,
@@ -182,6 +188,10 @@ pub struct LobbyState {
     pub(crate) gateway_cursor: Option<usize>,
     /// Whether the front door's gear menu is open.
     pub(crate) front_menu: bool,
+    /// The source address as a QR code, for the front door's colophon
+    /// (#299). `None` until one is made, and for an address that fails the
+    /// check at the door.
+    pub(crate) source_code: Option<source::Code>,
     /// Whether the chosen gateway mirrors card art, as its `/auth/config`
     /// said. Used only while signed in there (`systems::art_follows_the_session`).
     pub(crate) art_cache: bool,
@@ -324,6 +334,7 @@ impl LobbyState {
             guests: stored.guests,
             gateway_cursor: None,
             front_menu: false,
+            source_code: None,
             art_cache: false,
             gateway_selected: false,
             gateway_epoch: 0,
@@ -438,6 +449,7 @@ mod library_ui;
 pub(crate) mod offline;
 mod preview;
 mod print_catalog;
+mod source;
 mod systems;
 pub(crate) mod thumbnails;
 mod ui;

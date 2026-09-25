@@ -191,8 +191,14 @@ Urheber- und Medienrecht.
    only where somebody knows to look. The client's front door draws it
    under the Fan Content notice, on every panel: the address the gateway
    it points at gave, else the client's own repository
-   (`lobby::front::source_address`). It is text, not a link: the client
-   has no way to open one yet.
+   (`lobby::front::source_address`). Since #299 it is a link that opens
+   the address in the player's browser on their click, with the same
+   address as a QR code under it on a screen a phone can be held up to.
+   Both are drawn only for an address that passes the client's own check
+   at the door (`gateway_info::web_address`: plain `http(s)`, at most 200
+   characters, no whitespace, control or bidi character), because the
+   gateway that sent it may be hostile; the whole address stays in sight
+   as text, so what a phone reads is what the screen says.
 7. **The card-script reference.** Code generation may read an external,
    GPL-licensed corpus of rules scripts from a checkout the developer
    supplies. It is an automated lookup: no file of it is copied into this

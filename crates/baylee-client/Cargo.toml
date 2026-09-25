@@ -44,6 +44,9 @@ ehttp.workspace = true
 ewebsock.workspace = true
 # The clock behind `sky.rs`, which has to work in a browser.
 web-time.workspace = true
+# The front door's source link and its QR code (#299): `lobby::source`.
+webbrowser.workspace = true
+qrcodegen.workspace = true
 
 [dev-dependencies]
 # The same crate as above, with its view builders switched on. A test target

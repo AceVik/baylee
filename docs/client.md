@@ -2840,6 +2840,19 @@ frame, as before. Everything a gateway sends here is untrusted, so
 `client_core::lobby::gateway_info` drops control and bidi characters and caps
 the name and the version before anything is drawn.
 
+The front door's colophon ends on the source line (AGPL §13, #270): the
+address the chosen gateway gave in `/info`, else this build's repository.
+Since #299 it is a link (underlined, `Press::OpenSource`) that opens the
+address in the player's browser through `webbrowser` (its `hardened`
+feature: http(s) only), and on a tablet or a desktop the same address is a
+QR code under it (`lobby::source`, two logical pixels a module, nearest
+sampling, the standard's quiet zone, near-black on paper). A phone draws no
+code, since it cannot read itself. Both are drawn, and the address opened,
+only when it passes `gateway_info::web_address` again at the door
+(`source::keep_the_code`, `source::open`), because a hostile gateway's
+answer is the thing being drawn; otherwise the line stays plain text.
+`docs/legal.md` §6 is the reason for the line.
+
 **Playing as a guest** (#269; `docs/protocol.md` §"Playing as a guest").
 When the chosen gateway's `/auth/config` says `guests_enabled`, the sign-in
 face draws the guest's way in first, above the tabs and ruled off from them:
