@@ -616,6 +616,13 @@ pub struct ManaPool {
     #[serde(default)]
     snow: [u16; 6],
     restricted: Vec<RestrictedMana>,
+    /// Subset of plain mana that carries a rider and restricts nothing
+    /// (Path of Ancestry, #232), in the order it was made, each entry under
+    /// the id its rider is filed by. Ordinary mana (CR 106.6: the rider
+    /// "doesn't affect the mana's type"), so every payment may spend it; an
+    /// ordinary spend takes the other units first.
+    #[serde(default)]
+    ridden: Vec<RestrictedMana>,
 }
 
 impl ManaPool {
@@ -650,12 +657,85 @@ impl ManaPool {
         }
         self.snow[color.index()] -= 1;
         self.plain[color.index()] -= 1;
+        self.settle_ridden(color);
         true
     }
 
     /// Adds restricted mana (riders preserved).
     pub fn add_restricted(&mut self, mana: RestrictedMana) {
         self.restricted.push(mana);
+    }
+
+    /// Adds mana that carries a rider and restricts nothing: into the plain
+    /// counters (and the snow ones, for [`ManaFlags::SNOW`]), remembering
+    /// which units carry the rider.
+    pub fn add_ridden(&mut self, mana: RestrictedMana) {
+        let before = self.available(mana.color);
+        if mana.flags.contains(ManaFlags::SNOW) {
+            self.add_snow(mana.color, mana.amount);
+        } else {
+            self.add(mana.color, mana.amount);
+        }
+        let amount = self.available(mana.color) - before;
+        if amount > 0 {
+            self.ridden.push(RestrictedMana { amount, ..mana });
+        }
+    }
+
+    /// The units of the plain counters that carry a rider (engine payment
+    /// solver).
+    #[must_use]
+    pub fn ridden(&self) -> &[RestrictedMana] {
+        &self.ridden
+    }
+
+    /// Spends up to `n` units of the ridden entry with the given id, and
+    /// returns the part spent, rider and all. `None` is an id nobody holds
+    /// mana for, or `n == 0`.
+    pub fn take_ridden_units(&mut self, id: u32, n: u16) -> Option<RestrictedMana> {
+        if n == 0 {
+            return None;
+        }
+        let pos = self.ridden.iter().position(|m| m.restriction.0 == id)?;
+        let entry = &mut self.ridden[pos];
+        let taken = n.min(entry.amount);
+        entry.amount -= taken;
+        let part = RestrictedMana {
+            amount: taken,
+            ..*entry
+        };
+        if entry.amount == 0 {
+            self.ridden.remove(pos);
+        }
+        let i = part.color.index();
+        self.plain[i] -= taken;
+        if part.flags.contains(ManaFlags::SNOW) {
+            self.snow[i] -= taken;
+        } else {
+            // A unit of snow mana counted beside it may have been the one
+            // that went.
+            self.snow[i] = self.snow[i].min(self.plain[i]);
+        }
+        Some(part)
+    }
+
+    /// Keeps the ridden units of `color` within what is left of it, after a
+    /// spend that did not say which units it took: the other units went
+    /// first, so the rider units still there are the earliest made.
+    fn settle_ridden(&mut self, color: ManaColor) {
+        let i = color.index();
+        let mut room = self.plain[i];
+        let mut snow_room = self.snow[i];
+        for entry in self.ridden.iter_mut().filter(|m| m.color == color) {
+            let snow = entry.flags.contains(ManaFlags::SNOW);
+            let fits = if snow { room.min(snow_room) } else { room };
+            entry.amount = entry.amount.min(fits);
+            room -= entry.amount;
+            if snow {
+                snow_room -= entry.amount;
+            }
+        }
+        self.ridden.retain(|m| m.amount > 0);
     }
 
     /// Available amount of a plain color.
@@ -671,6 +751,7 @@ impl ManaPool {
             *slot -= amount;
             // Preserve snow mana when ordinary mana can cover the payment.
             self.snow[color.index()] = self.snow[color.index()].min(*slot);
+            self.settle_ridden(color);
             true
         } else {
             false
@@ -718,6 +799,7 @@ impl ManaPool {
     pub fn empty_at_step_end(&mut self) {
         self.plain = [0; 6];
         self.snow = [0; 6];
+        self.ridden.clear();
         self.restricted
             .retain(|r| r.flags.contains(ManaFlags::NO_EMPTY));
     }
@@ -784,6 +866,72 @@ impl ManaCost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ridden(color: ManaColor, amount: u16, id: u32) -> RestrictedMana {
+        RestrictedMana {
+            color,
+            amount,
+            flags: ManaFlags::default(),
+            restriction: RestrictionId(id),
+        }
+    }
+
+    /// Mana with a rider alone is ordinary mana (CR 106.6, #232): counted in
+    /// the plain counters, kept back by an ordinary spend while other units
+    /// can pay, spent by one that cannot, and gone at step end.
+    #[test]
+    fn mana_with_a_rider_is_plain_mana_spent_last() {
+        let mut pool = ManaPool::new();
+        pool.add_ridden(ridden(ManaColor::Blue, 1, 7));
+        pool.add(ManaColor::Blue, 1);
+        assert_eq!(pool.available(ManaColor::Blue), 2);
+        assert!(pool.restricted().is_empty());
+
+        assert!(pool.spend(ManaColor::Blue, 1));
+        assert_eq!(pool.ridden(), [ridden(ManaColor::Blue, 1, 7)], "kept back");
+        assert!(pool.spend(ManaColor::Blue, 1));
+        assert!(
+            pool.ridden().is_empty(),
+            "spent when nothing else could pay"
+        );
+
+        pool.add_ridden(ridden(ManaColor::Colorless, 2, 8));
+        pool.empty_at_step_end();
+        assert!(pool.ridden().is_empty());
+        assert!(pool.is_empty());
+    }
+
+    /// A payment that names the rider's units takes them out of the plain
+    /// counters with it, and leaves the rest of the entry where it was.
+    #[test]
+    fn taking_rider_units_spends_them() {
+        let mut pool = ManaPool::new();
+        pool.add_ridden(ridden(ManaColor::Green, 2, 3));
+        pool.add(ManaColor::Green, 1);
+        let taken = pool.take_ridden_units(3, 1).expect("the entry is there");
+        assert_eq!(taken, ridden(ManaColor::Green, 1, 3));
+        assert_eq!(pool.available(ManaColor::Green), 2);
+        assert_eq!(pool.ridden(), [ridden(ManaColor::Green, 1, 3)]);
+        assert_eq!(pool.take_ridden_units(9, 1), None, "nobody holds id 9");
+    }
+
+    /// Snow mana with a rider is in both subsets, and an ordinary spend
+    /// keeps both as long as a unit that is neither can pay.
+    #[test]
+    fn snow_mana_with_a_rider_is_kept_in_both_subsets() {
+        let mut pool = ManaPool::new();
+        pool.add_ridden(RestrictedMana {
+            flags: ManaFlags::SNOW,
+            ..ridden(ManaColor::Red, 1, 4)
+        });
+        pool.add(ManaColor::Red, 1);
+        assert_eq!(pool.snow_available(ManaColor::Red), 1);
+        assert!(pool.spend(ManaColor::Red, 1));
+        assert_eq!(pool.snow_available(ManaColor::Red), 1);
+        assert_eq!(pool.ridden().len(), 1);
+        assert!(pool.spend_snow(ManaColor::Red));
+        assert!(pool.ridden().is_empty(), "the snow unit was the ridden one");
+    }
 
     #[test]
     fn snow_mana_is_a_subset_preserved_until_needed_and_cleared_at_step_end() {

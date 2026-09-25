@@ -412,13 +412,14 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         // others` through the engine, when the view can read the filter.
         (
             "Alternate resource engines (restricted mana)",
+            // A rider alone restricts nothing (#232).
             count_reaching(|effect| {
                 matches!(
                     effect,
                     Effect::AddMana {
-                        restriction: Some(_),
+                        restriction: Some(restriction),
                         ..
-                    }
+                    } if restriction.restricts
                 )
             }),
         ),

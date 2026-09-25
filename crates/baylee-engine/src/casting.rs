@@ -440,6 +440,36 @@ fn admitted(
         .collect()
 }
 
+/// The mana in `player`'s pool that carries a rider for `what` and restricts
+/// nothing (#232), in pool order, each with the permanent that made it and
+/// its rider: the units whose filter matches the spell.
+///
+/// These units are in the plain counters already, so they are nothing to
+/// merge. A spell the filter does not match, and every ability, spends them
+/// as the ordinary mana they are, and no rider goes off (CR 106.6).
+fn ridden_for(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
+    let SpendFor::Spell(card) = what else {
+        return SmallVec::new();
+    };
+    let Some(spell) = state.object(card) else {
+        return SmallVec::new();
+    };
+    state.players[player.get() as usize]
+        .mana_pool
+        .ridden()
+        .iter()
+        .filter_map(|mana| {
+            let &(source, filter, rider) = state.restriction_info.get(&mana.restriction.0)?;
+            crate::eval::matches(filter, state, spell, player, source)
+                .then_some((*mana, source, rider))
+        })
+        .collect()
+}
+
 /// `pool` with every admitted restricted unit added to its plain counters.
 fn merged(pool: &ManaPool, entries: &[(RestrictedMana, ObjectId, SpendRider)]) -> ManaPool {
     let mut merged = pool.clone();
@@ -488,8 +518,10 @@ pub(crate) fn spendable_pool(
 }
 
 /// Pays `cost` for `what` out of `player`'s pool, and returns the restricted
-/// mana it spent, each part with its source and rider. `None` leaves the
-/// pool untouched, because partial payments are not allowed (CR 601.2h).
+/// mana it spent, and the rider-carrying mana it spent on a spell that rider
+/// names ([`ridden_for`]), each part with its source and rider. `None`
+/// leaves the pool untouched, because partial payments are not allowed
+/// (CR 601.2h).
 ///
 /// The payment is solved once, on the same pool [`spendable_pool`] offers
 /// from, so it pays whatever was offered. The solver prefers the admitted
@@ -514,10 +546,11 @@ pub(crate) fn pay_mana_for(
 ) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
     let wild = mana_is_wild(state);
     let entries = admitted(state, player, what);
+    let riding = ridden_for(state, player, what);
     let real = &state.players[player.get() as usize].mana_pool;
     let merged = merged(real, &entries);
     let mut prefer = [0_u16; 6];
-    for (mana, ..) in &entries {
+    for (mana, ..) in entries.iter().chain(&riding) {
         let slot = &mut prefer[mana.color.index()];
         *slot = slot.saturating_add(mana.amount);
     }
@@ -549,6 +582,22 @@ pub(crate) fn pay_mana_for(
             continue;
         }
         let taken = pool.take_restricted_units(mana.restriction.0, k)?;
+        *budget -= taken.amount;
+        spent.push((taken, source, rider));
+    }
+    // Then the rider units the spell sets off, out of the plain counters
+    // they are counted in, before an ordinary spend keeps them back.
+    for (mana, source, rider) in riding {
+        let budget = if mana.flags.contains(ManaFlags::SNOW) {
+            &mut used_snow[mana.color.index()]
+        } else {
+            &mut used_plain[mana.color.index()]
+        };
+        let k = mana.amount.min(*budget);
+        if k == 0 {
+            continue;
+        }
+        let taken = pool.take_ridden_units(mana.restriction.0, k)?;
         *budget -= taken.amount;
         spent.push((taken, source, rider));
     }

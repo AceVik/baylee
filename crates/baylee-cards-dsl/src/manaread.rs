@@ -266,7 +266,12 @@ pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)
             Amount::Fixed(amount) => Some(u8::try_from(*amount).unwrap_or(u8::MAX)),
             _ => None,
         };
-        written = Some((*source, amount, restriction.is_some()));
+        // A rider alone restricts nothing: that mana is ordinary (#232).
+        written = Some((
+            *source,
+            amount,
+            restriction.is_some_and(|restriction| restriction.restricts),
+        ));
     }
     written
 }
@@ -336,7 +341,10 @@ pub fn mana_bundle(cost: &Cost, effects: &[Effect]) -> Option<Vec<ManaColor>> {
         else {
             continue;
         };
-        if *combination || restriction.is_some() || !matches!(amount, Amount::Fixed(1)) {
+        if *combination
+            || restriction.is_some_and(|restriction| restriction.restricts)
+            || !matches!(amount, Amount::Fixed(1))
+        {
             return None;
         }
         let ManaSource::Fixed(color) = source else {
@@ -390,6 +398,7 @@ mod tests {
             restriction: Some(ManaRestriction {
                 filter: &ALLY,
                 rider: SpendRider::None,
+                restricts: true,
             }),
         }];
         assert_eq!(
@@ -401,6 +410,22 @@ mod tests {
         assert!(restricted);
         assert_eq!(mana.colors.len(), 5, "five colours to choose between");
         assert_eq!(mana.amount, 1);
+    }
+
+    /// Mana with a rider alone is ordinary mana (CR 106.6, #232): the
+    /// planner counts it, and the label does not call it restricted.
+    #[test]
+    fn mana_with_a_rider_alone_is_read_as_ordinary_mana() {
+        static SPELLS: Filter = Filter::INSTANT_OR_SORCERY;
+        let effects = [
+            Effect::mana(ManaColor::Colorless, 1).when_spent(&SPELLS, SpendRider::Uncounterable)
+        ];
+        assert!(
+            simple_mana(&tap(), &effects).is_some(),
+            "the planner counts it"
+        );
+        let (_, restricted) = mana_made(&tap(), &effects).expect("the label can read it");
+        assert!(!restricted);
     }
 
     /// The bar stays high for everything else: an ability that costs mana

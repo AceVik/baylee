@@ -5116,6 +5116,18 @@ fn path_of_ancestry() -> CardIndex {
     card_index("b473e293-59e3-4e04-acf2-622604aeb25f")
 }
 
+fn snapcaster_mage() -> CardIndex {
+    card_index("2bb2eda7-3b38-4c56-870f-c3218a1056f5")
+}
+
+fn sakura_tribe_elder() -> CardIndex {
+    card_index("e3afc704-220f-498f-9eaa-0821b17dc24c")
+}
+
+fn counsel_of_the_soratami() -> CardIndex {
+    card_index("62ddc5ae-ced9-4319-854c-1a114c6afc3f")
+}
+
 fn tower_of_the_magistrate() -> CardIndex {
     card_index("ac08fae8-208c-4602-8d39-9bfd29b53a5e")
 }

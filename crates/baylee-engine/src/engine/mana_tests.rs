@@ -850,6 +850,50 @@ fn restricted_mana_that_matches_no_pip_is_left_in_the_pool() {
     assert_eq!(pool.available(ManaColor::Red), 0, "the red paid");
 }
 
+fn boseiju_who_shelters_all() -> CardIndex {
+    card_index("36937483-30cb-449a-8028-75017a124922")
+}
+
+/// **Mana with a rider alone pays for what its rider does not name** (#232).
+/// Boseiju's `{C}` makes an instant or sorcery uncounterable and restricts
+/// nothing (CR 106.6), and Sol Ring is neither. Read as a restriction, the
+/// `{C}` was admitted for instants and sorceries only, and Sol Ring was
+/// offered nothing.
+#[test]
+fn mana_with_a_rider_alone_pays_for_a_spell_its_rider_does_not_name() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[boseiju_who_shelters_all()])
+        .hand(0, &[sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    activate(&mut engine, PlayerId::new(0), boseiju_who_shelters_all(), 0);
+
+    cast(&mut engine, sol_ring()).expect("the {C} is ordinary mana");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+/// **An ordinary spend keeps the rider back.** Boseiju's `{C}` and Command
+/// Tower's (no commander, so colourless) are one colour, and Sol Ring needs
+/// one of them. The Tower's pays; Boseiju's stays for a spell its rider
+/// names, as a player paying by hand would have it.
+#[test]
+fn a_spell_the_rider_does_not_name_is_paid_with_the_other_mana_first() {
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[boseiju_who_shelters_all(), command_tower()])
+        .hand(0, &[sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    activate(&mut engine, PlayerId::new(0), boseiju_who_shelters_all(), 0);
+    activate(&mut engine, PlayerId::new(0), command_tower(), 0);
+
+    cast(&mut engine, sol_ring()).expect("either {C} pays");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert_eq!(pool.ridden().len(), 1, "Boseiju's is the one left");
+}
+
 /// **Under Mycosynth Lattice restricted mana pays any pip** (CR 106.6 still
 /// decides what it may be spent on, the Lattice decides as what). Oakhollow's
 /// green alone casts a `{R}` creature. The replaced payer matched colours

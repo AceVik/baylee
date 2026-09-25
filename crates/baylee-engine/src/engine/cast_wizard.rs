@@ -1168,8 +1168,9 @@ fn reduce_generic(cost: &ManaCost, n: u32) -> ManaCost {
 }
 
 impl<L: CardLookup> Engine<L> {
-    /// Applies spend riders after a restricted-mana payment (uncounterable
-    /// marks, scry triggers).
+    /// Applies spend riders after a payment (uncounterable marks, scry
+    /// triggers), for restricted mana and for mana whose rider named the
+    /// spell.
     fn apply_spend_riders(
         &mut self,
         player: PlayerId,
@@ -1180,11 +1181,18 @@ impl<L: CardLookup> Engine<L> {
             baylee_cards_dsl::SpendRider,
         )],
     ) {
-        for (_, _, rider) in riders {
+        // Each unit spent is its own rider: a replacement that made more of
+        // the mana made more delayed triggers (CR 106.6a).
+        let units = riders
+            .iter()
+            .flat_map(|(mana, _, rider)| std::iter::repeat_n(rider, usize::from(mana.amount)));
+        for rider in units {
             match rider {
                 baylee_cards_dsl::SpendRider::None => {}
                 baylee_cards_dsl::SpendRider::Uncounterable => {
-                    if let Some(obj) = self.state.object_mut(spell) {
+                    if let Some(obj) = self.state.object_mut(spell)
+                        && !obj.riders.contains(&crate::object::Rider::Uncounterable)
+                    {
                         obj.riders.push(crate::object::Rider::Uncounterable);
                     }
                 }

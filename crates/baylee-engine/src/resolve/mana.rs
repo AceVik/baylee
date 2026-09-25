@@ -92,24 +92,34 @@ pub(super) fn add(
             .supertypes
             .contains(baylee_core::types::SupertypeSet::SNOW)
     });
-    if let Some(ManaRestriction { filter, rider }) = restriction {
+    if let Some(ManaRestriction {
+        filter,
+        rider,
+        restricts,
+    }) = restriction
+    {
         let id = state.next_restriction_id;
         state.next_restriction_id += 1;
         state
             .restriction_info
             .insert(id, (res.source, filter, rider));
-        state.players[you.get() as usize].mana_pool.add_restricted(
-            baylee_core::mana::RestrictedMana {
-                color,
-                amount,
-                flags: if snow {
-                    baylee_core::mana::ManaFlags::SNOW
-                } else {
-                    baylee_core::mana::ManaFlags::default()
-                },
-                restriction: baylee_core::mana::RestrictionId(id),
+        let mana = baylee_core::mana::RestrictedMana {
+            color,
+            amount,
+            flags: if snow {
+                baylee_core::mana::ManaFlags::SNOW
+            } else {
+                baylee_core::mana::ManaFlags::default()
             },
-        );
+            restriction: baylee_core::mana::RestrictionId(id),
+        };
+        let pool = &mut state.players[you.get() as usize].mana_pool;
+        // A rider alone leaves the mana ordinary mana (CR 106.6, #232).
+        if restricts {
+            pool.add_restricted(mana);
+        } else {
+            pool.add_ridden(mana);
+        }
     } else if snow {
         state.players[you.get() as usize]
             .mana_pool

@@ -333,13 +333,20 @@ pub enum ManaSource {
     ChosenOr(&'static [ManaColor]),
 }
 
-/// What produced mana may be spent on (Cavern of Souls, Path of Ancestry).
+/// What produced mana may be spent on (Cavern of Souls), or what spending
+/// it on something does (Path of Ancestry), CR 106.6.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ManaRestriction {
-    /// The mana is spendable only on spells matching this.
+    /// The spells the rider fires on, and while [`Self::restricts`] the only
+    /// ones the mana may pay for.
     pub filter: &'static Filter,
     /// What happens when it is spent on a matching spell.
     pub rider: SpendRider,
+    /// "Spend this mana only …". False for a rider alone ("When that mana
+    /// is spent to cast …"): that mana is ordinary mana and pays for
+    /// anything, and only a spell `filter` matches sets the rider off
+    /// (#232).
+    pub restricts: bool,
 }
 
 /// What a reflexive triggered ability waits for (CR 603.12): an event
@@ -533,7 +540,7 @@ pub enum TargetSlot {
     Second,
 }
 
-/// What happens when restricted mana is spent on a matching spell.
+/// What happens when mana is spent on a spell its filter matches.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SpendRider {
     /// Nothing extra (restriction only).
@@ -1840,7 +1847,7 @@ impl Effect {
     }
 
     /// `Spend this mana only to cast …` — the tail of a mana line, written
-    /// where the card writes it (Cavern of Souls, Path of Ancestry).
+    /// where the card writes it (Cavern of Souls).
     ///
     /// # Panics
     /// At compile time, when applied to anything but a mana effect.
@@ -1859,7 +1866,46 @@ impl Effect {
             source,
             amount,
             combination,
-            restriction: Some(ManaRestriction { filter, rider }),
+            restriction: Some(ManaRestriction {
+                filter,
+                rider,
+                restricts: true,
+            }),
+        }
+    }
+
+    /// `When that mana is spent to cast …` / `If that mana is spent on …` —
+    /// a rider that restricts nothing (Path of Ancestry, Boseiju, Who
+    /// Shelters All). The mana pays for anything; spent on a spell `filter`
+    /// matches, it sets the rider off, once for each unit (CR 106.6a).
+    ///
+    /// # Panics
+    /// At compile time, when applied to anything but a mana effect, or with
+    /// [`SpendRider::None`]: a rider that does nothing says nothing.
+    #[must_use]
+    pub const fn when_spent(self, filter: &'static Filter, rider: SpendRider) -> Self {
+        assert!(
+            !matches!(rider, SpendRider::None),
+            "when_spent() names what spending the mana does, and SpendRider::None does nothing"
+        );
+        let Self::AddMana {
+            source,
+            amount,
+            combination,
+            ..
+        } = self
+        else {
+            panic!("when_spent() describes mana, and only Effect::AddMana produces it")
+        };
+        Self::AddMana {
+            source,
+            amount,
+            combination,
+            restriction: Some(ManaRestriction {
+                filter,
+                rider,
+                restricts: false,
+            }),
         }
     }
     /// The effect lists this one runs, as at most two slices.

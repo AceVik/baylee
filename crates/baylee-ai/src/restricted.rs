@@ -30,13 +30,14 @@ use baylee_view::{ObjectStatus, PlayerView, PublicObject};
 
 use crate::HeuristicAgent;
 
-/// What the mana `effects` add may be spent on, when it is restricted.
+/// What the mana `effects` add may be spent on, when it is restricted. A
+/// rider alone restricts nothing (#232): that source is an ordinary one.
 pub(crate) fn only_for(effects: &[Effect]) -> Option<&'static Filter> {
     effects.iter().find_map(|effect| match effect {
         Effect::AddMana {
             restriction: Some(restriction),
             ..
-        } => Some(restriction.filter),
+        } if restriction.restricts => Some(restriction.filter),
         _ => None,
     })
 }

@@ -1331,7 +1331,17 @@ Effect::mana_commander_identity()                      // …in your commander's
 Effect::mana_land_color(true)                          // …a land you control could produce.
 Effect::mana_dynamic(ManaColor::Black, Amount::CountOf { .. })
 Effect::mana_of_any_color().restricted(&FILTER, SpendRider::Uncounterable)
+Effect::mana(ManaColor::Colorless, 1).when_spent(&FILTER, SpendRider::Uncounterable)
 ```
+
+`restricted` is "Spend this mana only …": the mana pays for nothing its
+filter does not match. `when_spent` is "When that mana is spent to cast …" /
+"If that mana is spent on …" with no "only" before it (Path of Ancestry,
+Boseiju, Who Shelters All): the mana is ordinary mana and pays for anything,
+and only a spell the filter matches sets its rider off, once per unit spent
+(CR 106.6, 106.6a; #232). A card printing a rider without "only" never uses
+`restricted`: that is the defect #232 fixed, where Path of Ancestry paid for
+almost nothing.
 
 `mana_combination` is not decoration: "in any combination of colors" is one
 color pick *per mana*, while a plain choice picks one color for the whole

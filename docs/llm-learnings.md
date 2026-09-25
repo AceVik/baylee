@@ -306,7 +306,10 @@ Open milestones discovered tonight:
   refund on failure), `Rider::Uncounterable` checked in all counter ops,
   `Filter::SharesSubtypeWithCommander`. Cavern of Souls (uncounterable),
   Path of Ancestry (scry rider), Jasmine Dragon Tea Shop (Ally-only)
-  Implemented.
+  Implemented. Later (#232, 25.09.2026): Path and Boseiju, Who Shelters All
+  were written with `.restricted`, which reads "When/If that mana is spent
+  on …" as "Spend this mana only …", and paid for almost nothing. A rider
+  with no "only" before it is `.when_spent(filter, rider)`.
 - **180 Implemented, 14 Partial, 0 Unimplemented (93%)**.
 - Remaining partials: M3/M4 protocol items (target re-choice, outside-game,
   presentation, MP direction, commander-cast count) + riders (Spark Double
