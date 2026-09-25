@@ -81,12 +81,13 @@ pub const STAGE_STEP: f32 = CARD_HEIGHT * 0.5;
 pub const CARD_SPAN: f32 = CARD_HEIGHT;
 /// Gap between cards in a comfortably filled lane.
 pub const CARD_GAP: f32 = 0.12;
-/// How much of a card must stay visible when a lane fans.
+/// How much of a card must stay visible when a lane fans: a third (the
+/// owner, 25.09: "at least 33% of each card stays visible").
 ///
-/// Below roughly a quarter of the card the name and the power/toughness box are
-/// both gone, and the fan stops carrying information — that is the point where
-/// the board model should group instead.
-pub const MIN_VISIBLE_FRACTION: f32 = 0.26;
+/// Below that a row does not fan further but scrolls
+/// ([`LanePacking::window`]). It was 0.26, the point where the name and the
+/// power/toughness box are both gone, until rows could scroll.
+pub const MIN_VISIBLE_FRACTION: f32 = 0.33;
 
 /// Which row of a seat's board a permanent belongs to.
 ///
@@ -404,6 +405,14 @@ impl SeatSlot {
     #[must_use]
     pub fn lane_height(&self) -> f32 {
         (self.mat_depth() - crate::tabletop::MAT_LEDGE - STAGE_STEP) / LaneKind::ALL.len() as f32
+    }
+
+    /// Where a merged card's count badge stands on this seat's rows: over
+    /// the card's top-right corner where the rows leave the felt for it (a
+    /// duel's), beside its right edge where they do not (a ring's).
+    #[must_use]
+    pub fn badge_place(&self) -> crate::cardplate::BadgePlace {
+        crate::cardplate::BadgePlace::for_margin((self.lane_height() - CARD_HEIGHT) * 0.5)
     }
 
     /// Centre of a lane in table space.
@@ -1366,15 +1375,18 @@ const ARC_SHARE: f32 = 0.86;
 /// A focused opponent counts as this many ordinary seats.
 const FOCUS_WEIGHT: f32 = 2.6;
 
-/// The pitch on either side of a merged card: a whole cell, the room a card
-/// turns in.
+/// The pitch after a merged card whose count badge stands beside it
+/// ([`BadgePlace::Beside`](crate::cardplate::BadgePlace::Beside)): a whole
+/// cell, the room a card turns in.
 ///
-/// A merged card's count badge hangs [`BADGE_REACH`](crate::cardplate::BADGE_REACH)
-/// off its left edge, and when it taps the badge turns with it to lie along
-/// its right edge. The owner's rule is that it lies on no other card's print
-/// (25.09), so neither neighbour may reach into the cell a merged card
-/// stands in: the card before it, tapped, ends half a span from its own
-/// centre, and the badge starts where that leaves off.
+/// Beside a card the badge hangs [`BADGE_REACH`](crate::cardplate::BADGE_REACH)
+/// off its right edge, and when it taps the badge turns with it to lie under
+/// its right end. The owner's rule is that it lies on no other card's print
+/// (25.09), so the card after it may not reach into its cell: that card,
+/// tapped, starts half a span from its own centre, and the badge ends short
+/// of where it does. Over a card
+/// ([`BadgePlace::Above`](crate::cardplate::BadgePlace::Above)) no card of
+/// the row reaches the badge, and nothing is held.
 pub const HELD_PITCH: f32 = CARD_SPAN;
 const _: () =
     assert!(CARD_SPAN * 0.5 + CARD_WIDTH * 0.5 + crate::cardplate::BADGE_REACH <= HELD_PITCH);
@@ -1487,14 +1499,14 @@ pub fn pack_lane(count: usize, width: f32) -> LanePacking {
     pack_row(&vec![false; count], width)
 }
 
-/// Packs a row into a lane `width` units wide, holding the gaps either side
-/// of each card `held` names open at [`HELD_PITCH`].
+/// Packs a row into a lane `width` units wide, holding the gap after each
+/// card `held` names open at [`HELD_PITCH`].
 ///
 /// Cards keep their size and start overlapping once they no longer fit, the
 /// way a physical player fans a row. Shrinking instead would trade a readable
 /// board for an unreadable one at exactly the moment the board matters most.
-/// A fan is only ever of cards over cards: a merged card's cell stays whole,
-/// and a row that cannot hold it and still fan legibly scrolls instead
+/// A fan is only ever of cards over cards: a held gap stays whole, and a row
+/// that cannot hold it and still fan legibly scrolls instead
 /// (`overflowing`), rather than run past its lane into the piles beside it.
 #[must_use]
 pub fn pack_row(held: &[bool], width: f32) -> LanePacking {
@@ -1513,8 +1525,9 @@ pub fn pack_row(held: &[bool], width: f32) -> LanePacking {
     let n = count as f32;
     let comfortable_pitch = CARD_SPAN + CARD_GAP;
     let comfortable_span = comfortable_pitch * (n - 1.0) + CARD_SPAN;
-    // The gap after card `i` is held when either card beside it is.
-    let gaps: Vec<bool> = held.windows(2).map(|pair| pair[0] || pair[1]).collect();
+    // The gap after card `i` is held when card `i` is: its badge is on its
+    // right.
+    let gaps: Vec<bool> = held[..count - 1].to_vec();
     let holds = gaps.iter().filter(|&&h| h).count() as f32;
     let free = (n - 1.0) - holds;
     let min_pitch = CARD_WIDTH * MIN_VISIBLE_FRACTION;

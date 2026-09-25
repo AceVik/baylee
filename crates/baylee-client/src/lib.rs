@@ -1290,6 +1290,7 @@ fn add_present_systems(app: &mut App) {
                 table::glide.after(table::sync_scene),
                 table::retire,
                 table::ground_the_shadows,
+                table::keep_badges_upright,
                 // Where the camera is this frame, as well as the cards.
                 table::fit_the_shells.after(table::apply_camera_rig),
             )

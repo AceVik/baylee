@@ -1728,26 +1728,27 @@ const COUNT_MAX: u32 = 999u;
 /// corner, where its shadow falls and how soft it is, and the widest it
 /// grows. `cardplate::BADGE_H`, `BADGE_CORNER`, `BADGE_DROP`, `BADGE_BLUR`
 /// and `BADGE_W`. Where it stands on the card is the material's
-/// (`cardplate::BADGE_RIGHT`, `BADGE_TOP`), so one Rust constant moves it.
+/// (`cardplate::badge_rect`), so the Rust side moves it.
 const BADGE_H: f32 = 0.12;
 const BADGE_CORNER: f32 = 0.034;
-const BADGE_DROP_X: f32 = -0.006;
+const BADGE_DROP_X: f32 = 0.006;
 const BADGE_DROP_Y: f32 = 0.012;
 const BADGE_BLUR: f32 = 0.02;
 const BADGE_W: f32 = 0.2006886;
 
-/// How many permanents a merged card stands for, `×54`, hanging off the
-/// card's top-left corner (#261, #298): the figures over their own drop
-/// shadow, as one colour and one coverage for the blend, and no plate behind
-/// them — the owner's placement, outside the card. `p` is the point in card
-/// widths from the card's top-left corner, `y` down the card, and lies off
-/// the card left of its edge, where the count overhangs. `right` and `top`
-/// are where the count's box's right end and top stand.
+/// How many permanents a merged card stands for, `×54`, at the card's
+/// top-right corner (#261, #298; the owner, 25.09): the figures over their
+/// own drop shadow, as one colour and one coverage for the blend, and no
+/// plate behind them — the owner's placement, outside the card, over its
+/// top edge or off its right one. `p` is the point in card widths from the
+/// card's top-left corner, `y` down the card. `right` and `top` are where
+/// the count's box's right end and top stand.
 ///
 /// The plate's ink and figure height, because it is one of this client's
-/// numbers and not something printed. It grows leftwards with its digits
-/// (`cardplate::badge_rect`), off the card, up to `×99`; three digits are set
-/// smaller to fit (`cardplate::badge_cap`). `count` is a uniform, so the
+/// numbers and not something printed. It grows leftwards from `right` with
+/// its digits, up to `×99`, and beside the card `right` moves with them so
+/// the box starts on the printed border (`cardplate::badge_rect`); three
+/// digits are set smaller to fit (`cardplate::badge_cap`). `count` is a uniform, so the
 /// early return keeps what follows in uniform control flow.
 fn count_badge(
     p: vec2<f32>,
@@ -1769,7 +1770,7 @@ fn count_badge(
     let mid = vec2<f32>(right - 0.5 * w, top + 0.5 * BADGE_H);
 
     // The figures' own shadow: the same figures dropped down and a little
-    // left, away from the card's name, and softened as far as their
+    // right, away from the card's print, and softened as far as their
     // distance field reaches, so they read on the felt and on a light print
     // alike.
     let unit = cap / TEXT_CAP;

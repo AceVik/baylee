@@ -58,7 +58,6 @@ fn board(groups: Vec<CardGroup>) -> BoardModel {
             lanes: vec![Lane {
                 kind: LaneKind::Creatures,
                 groups,
-                overflowing: false,
             }],
             piles: baylee_client_core::PileKind::ALL
                 .into_iter()

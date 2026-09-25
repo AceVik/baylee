@@ -55,7 +55,6 @@ fn table(merged: &[bool]) -> (BoardModel, TableLayout) {
             } else {
                 Vec::new()
             },
-            overflowing: false,
         })
         .collect();
     let pod = SeatPod {

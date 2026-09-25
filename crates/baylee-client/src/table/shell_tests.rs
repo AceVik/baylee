@@ -48,11 +48,7 @@ fn table(seats: u8, row: [usize; 3], window: Vec2) -> Duel {
                             group
                         })
                         .collect();
-                    Lane {
-                        kind,
-                        groups,
-                        overflowing: false,
-                    }
+                    Lane { kind, groups }
                 })
                 .collect();
             SeatPod {

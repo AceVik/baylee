@@ -88,7 +88,6 @@ pub(super) fn duel(groups: Vec<CardGroup>) -> Duel {
                 lanes: vec![Lane {
                     kind: LaneKind::Creatures,
                     groups,
-                    overflowing: false,
                 }],
                 piles: baylee_client_core::PileKind::ALL
                     .into_iter()

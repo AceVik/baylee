@@ -18,7 +18,6 @@ fn pod(library: u32) -> SeatPod {
         lanes: vec![Lane {
             kind: LaneKind::Creatures,
             groups: Vec::new(),
-            overflowing: false,
         }],
         piles: baylee_client_core::PileKind::ALL
             .into_iter()

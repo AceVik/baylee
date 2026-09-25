@@ -91,29 +91,58 @@ fn an_unfittable_lane_reports_overflow_so_the_caller_can_group() {
     assert!(packing.pitch >= CARD_WIDTH * MIN_VISIBLE_FRACTION);
 }
 
-/// A merged card's cell stays whole in a fan (the owner, 25.09): the gaps on
-/// both sides of it are a full cell, so its count badge, hanging off its left
-/// edge or, tapped, along its right, lies on no neighbour and under none,
-/// while the cards around it fan as tightly as they need to.
+/// Beside a merged card its count badge hangs off its right edge, so the gap
+/// after it is a full cell (the owner, 25.09): the badge lies on no
+/// neighbour and under none, tapped or not, while the gap before it fans
+/// with the rest of the row as tightly as it needs to.
 #[test]
-fn a_merged_card_holds_its_cell_whole_in_a_fan() {
+fn the_gap_after_a_merged_card_is_held_and_the_rest_fan() {
     let mut held = vec![false; 14];
     held[5] = true;
     let packing = pack_row(&held, 10.0);
     assert!(packing.fanned && !packing.overflowing);
     let steps: Vec<f32> = packing.offsets.windows(2).map(|w| w[1] - w[0]).collect();
     for (i, step) in steps.iter().enumerate() {
-        if i == 4 || i == 5 {
+        if i == 5 {
             assert!(
                 (step - HELD_PITCH).abs() < 1e-5,
-                "gap {i} beside the merged card is {step}"
+                "the gap after the merged card is {step}"
             );
         } else {
             assert!(*step < CARD_WIDTH, "gap {i} does not fan: {step}");
         }
     }
-    // The room is what a tapped card before it and the badge need: a
+    // The room is what a tapped card after it and the badge need: a
     // constant assertion under `HELD_PITCH` says so.
+}
+
+/// A duel's rows leave the felt above their cards for the badge to stand
+/// over its card, clear of the row behind; a ring's rows do not, so there
+/// it stands beside the card (the owner, 25.09).
+#[test]
+fn a_duel_stands_its_badges_over_the_cards_and_a_ring_beside_them() {
+    use crate::cardplate::{BADGE_RISE, BadgePlace};
+    for seats in 2u8..=8 {
+        for aspect in [0.45_f32, 1.0, 16.0 / 9.0, 21.0 / 9.0] {
+            let players: Vec<PlayerId> = (0..seats).map(PlayerId::new).collect();
+            let layout = TableLayout::new(&players, aspect, None);
+            for slot in &layout.slots {
+                let place = slot.badge_place();
+                if place == BadgePlace::Above {
+                    assert!(
+                        BADGE_RISE <= (slot.lane_height() - CARD_HEIGHT) * 0.5,
+                        "{seats} seats at {aspect}: the badge reaches the next row"
+                    );
+                }
+                if seats == 2 && aspect > 1.0 {
+                    assert_eq!(place, BadgePlace::Above, "a duel at {aspect}");
+                }
+                if seats > 2 {
+                    assert_eq!(place, BadgePlace::Beside, "{seats} seats at {aspect}");
+                }
+            }
+        }
+    }
 }
 
 /// A row that cannot hold its cells and fan legibly scrolls: from every

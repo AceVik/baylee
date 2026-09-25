@@ -47,22 +47,22 @@ const PREVIEW_PAD: f32 = 6.0;
 
 /// How far past the bubble's padding the count badge reaches, in logical
 /// pixels, for a card `img_w` wide: what the bubble's clip has to be let out
-/// by so the badge's overhang and its shadow are not cut off, and how much
-/// wider than the bubble the panel is placed as (#261).
+/// by so the badge and its shadow are not cut off, and how much taller than
+/// the bubble the panel is placed as (#261).
 ///
-/// The left's, which is the furthest it reaches past any edge: it ends short
-/// of the print on the right (`cardplate::badge_quad_rect`), and off the
-/// prints (#274) its shadow falls past the card's bottom edge by far less
-/// than the overhang. The margin is the same on all four sides, so it lets
+/// The top's, which is the furthest it reaches past any edge: the preview
+/// stands its badge over the card's top-right corner
+/// ([`crate::badgemat::PREVIEW`]), and its shadow passes the card's right
+/// edge by far less. The margin is the same on all four sides, so it lets
 /// that out too, and nothing else, since the bubble is sized by what it
 /// holds.
 pub(super) fn badge_reach(img_w: f32) -> f32 {
-    let over = -baylee_client_core::cardplate::badge_quad_rect()[0] * img_w;
+    let over = -baylee_client_core::cardplate::badge_quad_rect(crate::badgemat::PREVIEW)[1] * img_w;
     (over - PREVIEW_PAD).max(0.0)
 }
 
 /// Where the preview panel's top-left corner goes when a badge reaches
-/// `reach` past its left edge: placed as a panel that much wider, so the
+/// `reach` over its top edge: placed as a panel that much taller, so the
 /// badge lands on the screen wherever the panel does.
 pub(super) fn place_with_badge(
     at: super::hand::PreviewAt,
@@ -71,7 +71,7 @@ pub(super) fn place_with_badge(
     keep_out: Option<Rect>,
     reach: f32,
 ) -> Vec2 {
-    let shift = Vec2::new(reach, 0.0);
+    let shift = Vec2::new(0.0, reach);
     preview_place(at, panel + shift, window, keep_out) + shift
 }
 
@@ -593,11 +593,11 @@ pub fn sync_overlay(
                 Rect::from_center_size(centre, size)
             });
             // And the same count: the ×12 on the table is the one thing the
-            // art under it cannot say. A badge hanging off the card's corner
-            // as it hangs off it on the felt (#261), so the panel is placed
-            // with the badge's reach beside it — a preview at the window's
-            // left edge would hang its count off the screen — and the
-            // bubble's clip lets it out as far.
+            // art under it cannot say. A badge over the card's top-right
+            // corner, as it stands over it on a duel's felt (#261), so the
+            // panel is placed with the badge's reach above it — a preview at
+            // the window's top edge would stand its count off the screen —
+            // and the bubble's clip lets it out as far.
             let count = baylee_client_core::cardplate::count_word(
                 hovered
                     .and_then(|id| board.group(id))
@@ -835,7 +835,8 @@ pub fn sync_overlay(
             // clips to the card: it is one side's, so it turns with the front
             // and is hidden with it at the quarter turn.
             if let Some(material) = badge {
-                let [x0, y0, x1, y1] = baylee_client_core::cardplate::badge_quad_rect();
+                let [x0, y0, x1, y1] =
+                    baylee_client_core::cardplate::badge_quad_rect(crate::badgemat::PREVIEW);
                 let down = img_h / baylee_client_core::cardrail::CARD_TALL;
                 let node = commands
                     .spawn((

@@ -394,7 +394,10 @@ fn a_narrow_pod_reports_overflow_after_grouping() {
         .and_then(|p| p.lane(LaneKind::Creatures))
         .expect("lane");
     assert_eq!(lane.groups.len(), 40);
-    assert!(lane.overflowing);
+    assert!(
+        pack_row(&lane.held(BadgePlace::Beside), 5.0).overflowing,
+        "forty distinct creatures fit a small pod"
+    );
 }
 
 #[test]
@@ -408,7 +411,7 @@ fn grouping_removes_the_overflow_that_distinct_cards_would_cause() {
         .and_then(|p| p.lane(LaneKind::Creatures))
         .expect("lane");
     assert_eq!(lane.groups.len(), 1);
-    assert!(!lane.overflowing);
+    assert!(!pack_row(&lane.held(BadgePlace::Beside), 5.0).overflowing);
 }
 
 /// Only a creature is modelled asleep, whatever a host says (CR 302.6). A

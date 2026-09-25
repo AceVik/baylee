@@ -5,30 +5,41 @@ use super::flying_tests::{creature, duel};
 use super::*;
 use bevy::ecs::world::CommandQueue;
 
-/// The badge's quad is where `cardplate` says, in the card's own space: its
-/// left edge off the card's left edge, its top edge as far down the card as
-/// [`cardplate::badge_quad_rect`] puts it.
+/// The badge's quad is where `cardplate` says, in the card's own space, at
+/// either place: over the card, wholly above its top edge; beside it, off
+/// its right edge.
 ///
 /// Read back out of the transform and the mesh's size rather than restated,
 /// so a flipped axis — a card's `+y` is its top, and its UV's is its bottom —
-/// hangs the badge off the other corner and this goes red.
+/// stands the badge at another corner and this goes red.
 #[test]
 fn the_badge_lies_where_cardplate_puts_it() {
-    let at = badge_transform(0.0).translation;
-    let size = crate::badgemat::quad_size();
-    let (w, h) = (size.x * CARD_WIDTH, size.y * DOWN_THE_CARD);
-    let top = (CARD_HEIGHT * 0.5 - (at.y + h * 0.5)) / DOWN_THE_CARD;
-    let left = (at.x - w * 0.5) / CARD_WIDTH + 0.5;
-    let [x0, y0, ..] = cardplate::badge_quad_rect();
-    assert!(
-        (top - y0).abs() < 1e-5,
-        "the badge's quad starts {top} card widths down the card, not at {y0}"
-    );
-    assert!(
-        (left - x0).abs() < 1e-5,
-        "the badge's quad starts {left} across the card, not at {x0}"
-    );
-    assert!(left < 0.0, "the badge does not hang off the card");
+    for place in [BadgePlace::Above, BadgePlace::Beside] {
+        let at = badge_transform(0.0, place).translation;
+        let size = crate::badgemat::quad_size();
+        let (w, h) = (size.x * CARD_WIDTH, size.y * DOWN_THE_CARD);
+        let top = (CARD_HEIGHT * 0.5 - (at.y + h * 0.5)) / DOWN_THE_CARD;
+        let left = (at.x - w * 0.5) / CARD_WIDTH + 0.5;
+        let [x0, y0, x1, y1] = cardplate::badge_quad_rect(place);
+        assert!(
+            (top - y0).abs() < 1e-5,
+            "{place:?}: the badge's quad starts {top} card widths down the card, not at {y0}"
+        );
+        assert!(
+            (left - x0).abs() < 1e-5,
+            "{place:?}: the badge's quad starts {left} across the card, not at {x0}"
+        );
+        match place {
+            BadgePlace::Above => assert!(
+                top + (y1 - y0) < 0.0,
+                "the badge over the card reaches down onto it"
+            ),
+            BadgePlace::Beside => assert!(
+                left + (x1 - x0) > 1.0,
+                "the badge beside the card does not hang off it"
+            ),
+        }
+    }
 }
 
 /// A row of merged creatures, `n` of them, each standing for two.
@@ -66,7 +77,10 @@ fn a_badge_lies_on_its_card_and_under_the_next_one() {
         for (i, card) in placed.iter().enumerate() {
             assert_eq!(card.badge, 2, "the placement carries the count");
             let face = card.lift + CARD_THICKNESS;
-            let badge = card.lift + badge_transform(card.rung).translation.z;
+            let badge = card.lift
+                + badge_transform(card.rung, card.slot.badge_place())
+                    .translation
+                    .z;
             assert!(
                 badge > face,
                 "in a row of {n}, badge {i} is not above its card"
@@ -79,6 +93,75 @@ fn a_badge_lies_on_its_card_and_under_the_next_one() {
                 );
             }
         }
+    }
+}
+
+/// A badge over its card stands where it stands on the card untapped while
+/// the card taps, and all the way round (the owner, 25.09): tapping moves
+/// nothing in a row, and a badge turned with its card would stand beside it,
+/// over the next card in a fan.
+#[test]
+fn a_badge_over_its_card_stays_upright_as_the_card_taps() {
+    use bevy::ecs::system::RunSystemOnce;
+    let mut card = placements(&crowded(2, 3, |_| false))
+        .into_iter()
+        .find(|p| p.badge > 0)
+        .expect("a merged card");
+    assert_eq!(
+        card.slot.badge_place(),
+        BadgePlace::Above,
+        "the premise: a duel"
+    );
+    let pose = |tapped| card_transform(&card.slot, card.position, tapped, card.lift);
+    let (rest, tapped) = (pose(false), pose(true));
+    let mut world = World::new();
+    let mut index = SceneIndex {
+        badge_quad: Some(Handle::default()),
+        ..default()
+    };
+    let mut materials = Assets::<BadgeMaterial>::default();
+    let entity = world.spawn(rest).id();
+    let mut sync = |world: &mut World, placement: &Placement| {
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, world);
+        sync_badge(&mut commands, &mut index, &mut materials, entity, placement);
+        queue.apply(world);
+    };
+    let badge_at = |world: &mut World| {
+        let local = *world
+            .query_filtered::<&Transform, With<CountBadge>>()
+            .single(world)
+            .expect("one badge");
+        let card = *world.get::<Transform>(entity).expect("the card");
+        card.mul_transform(local)
+    };
+    sync(&mut world, &card);
+    let upright = badge_at(&mut world);
+    let same = |a: Transform, b: Transform| {
+        a.translation.distance(b.translation) < 1e-4
+            && a.rotation.dot(b.rotation).abs() > 1.0 - 1e-6
+    };
+
+    card.tapped = true;
+    sync(&mut world, &card);
+    *world.get_mut::<Transform>(entity).expect("the card") = tapped;
+    assert!(
+        same(badge_at(&mut world), upright),
+        "tapped, the badge turned"
+    );
+
+    for share in [0.25, 0.5, 0.9] {
+        world
+            .get_mut::<Transform>(entity)
+            .expect("the card")
+            .rotation = rest.rotation.slerp(tapped.rotation, share);
+        world
+            .run_system_once(keep_badges_upright)
+            .expect("the system runs");
+        assert!(
+            same(badge_at(&mut world), upright),
+            "{share} of the way round, the badge turned"
+        );
     }
 }
 
@@ -193,7 +276,6 @@ fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
                 .map(|&kind| Lane {
                     kind,
                     groups: (0..n).map(&mut group).collect(),
-                    overflowing: false,
                 })
                 .collect(),
             piles: baylee_client_core::PileKind::ALL
@@ -283,8 +365,8 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
         sync_badge(&mut commands, &mut index, &mut materials, card, placement);
         queue.apply(&mut world);
     }
-    let [x0, y0, x1, y1] = cardplate::badge_quad_rect();
-    let half = Vec2::new((x1 - x0) * CARD_WIDTH, (y1 - y0) * DOWN_THE_CARD) * 0.5;
+    let size = crate::badgemat::quad_size();
+    let half = Vec2::new(size.x * CARD_WIDTH, size.y * DOWN_THE_CARD) * 0.5;
     let laid = world
         .query_filtered::<(&ChildOf, &Transform), With<CountBadge>>()
         .iter(&world)
@@ -306,22 +388,23 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
 /// No count badge lies on another card's print (#274; the owner, 25.09),
 /// wherever the table puts the cards.
 ///
-/// The print fills the card since #298 and the badge hangs off the card's
-/// top-left corner, outside it, or, tapped, lies along its right edge. A
-/// merged card holds its cell whole in its row (`layout::HELD_PITCH`), so
-/// neither neighbour reaches into it, and a row that cannot hold its cells
-/// and fan legibly scrolls rather than packing tighter: only the run it
-/// shows is drawn, and only that run is laid against.
+/// The print fills the card since #298 and the badge stands at the card's
+/// top-right corner, outside it: over the card in a duel, whose rows leave
+/// it the felt, upright however the card turns; beside its right edge at a
+/// ring, turning with the card, where the merged card holds its cell whole
+/// in its row (`layout::HELD_PITCH`), so the next card does not reach into
+/// it. A row that cannot fan legibly scrolls rather than packing tighter:
+/// only the run it shows is drawn, and only that run is laid against.
 ///
 /// Every badge is spawned as the scene spawns it, on its card at the card's
 /// resting pose, and each badge's quad, shadow and all, is laid against
 /// every other drawn card on the table, the print being the whole card. A
-/// duel and a ring of eight; rows of two to forty in all three lanes, so the
-/// tightest fan (0.26 of a card, asserted) and rows that scroll are there,
-/// each scrolled to its start, a few cards in and past its end; untapped,
-/// all tapped and every other one tapped, a tapped badge turning with its
-/// card; and a creature staged into combat beside a merged one, half a card
-/// forward of its row, which is where a badge above the top edge failed.
+/// duel and a ring of eight; rows of two to seventy-two in all three lanes,
+/// so the tightest fan (a third of a card, asserted) and rows that scroll
+/// are there, each scrolled to its start, a few cards in and past its end;
+/// untapped, all tapped and every other one tapped; and a creature staged
+/// into combat beside a merged one, half a card forward of its row, which
+/// is where a badge above the top edge once failed.
 #[test]
 fn no_badge_lies_on_another_cards_print() {
     use baylee_client_core::layout::{MIN_VISIBLE_FRACTION, STAGE_STEP};
@@ -331,9 +414,9 @@ fn no_badge_lies_on_another_cards_print() {
         ("tapped", |_| true),
         ("every other tapped", |i| i % 2 == 1),
     ];
-    let (mut badges, mut pairs, mut hidden, mut tightest) = (0, 0, 0, f32::INFINITY);
+    let (mut count, mut hidden, mut tightest) = (Tally::default(), 0, f32::INFINITY);
     for seats in [2u8, 8] {
-        for n in [2usize, 3, 4, 5, 6, 8, 10, 13, 17, 24, 32, 40] {
+        for n in [2usize, 3, 4, 5, 6, 8, 10, 13, 17, 24, 32, 40, 72] {
             for (tap, tapped) in taps {
                 for (staged, first) in [(false, 0), (true, 0), (false, 3), (false, 1000)] {
                     let mut duel = crowded(seats, n, tapped);
@@ -383,30 +466,11 @@ fn no_badge_lies_on_another_cards_print() {
                         p.position += forward * STAGE_STEP;
                         p.badge = 0;
                     }
-                    let (poses, cards, laid) = laid_badges(&placed);
-                    let whole = [0.0, 0.0, 1.0, cardrail::CARD_TALL];
-                    let bodies: Vec<[Vec2; 4]> =
-                        poses.iter().map(|pose| on_table(pose, whole)).collect();
-                    for (card, badge) in &laid {
-                        badges += 1;
-                        let own = cards
-                            .iter()
-                            .position(|c| c == card)
-                            .expect("a badge on a card");
-                        for (other, body) in bodies.iter().enumerate() {
-                            if own == other {
-                                continue;
-                            }
-                            pairs += 1;
-                            assert!(
-                                !overlap(badge, body),
-                                "{seats} seats, rows of {n}, {tap}{}, from card {first}: the badge of {:?} lies on {:?}",
-                                if staged { ", one staged" } else { "" },
-                                placed[own].object,
-                                placed[other].object
-                            );
-                        }
-                    }
+                    let table = format!(
+                        "{seats} seats, rows of {n}, {tap}{}, from card {first}",
+                        if staged { ", one staged" } else { "" }
+                    );
+                    lay_against_the_prints(&placed, &table, &mut count);
                 }
             }
         }
@@ -419,10 +483,62 @@ fn no_badge_lies_on_another_cards_print() {
         hidden > 1000,
         "only {hidden} cards were scrolled out of view"
     );
+    let Tally {
+        badges,
+        pairs,
+        above,
+        beside,
+    } = count;
     assert!(
         badges > 5_000 && pairs > badges,
         "{badges} badges, {pairs} pairs"
     );
+    assert!(
+        above > 1_000 && beside > 1_000,
+        "{above} badges over their cards and {beside} beside them"
+    );
+}
+
+/// What laying tables' badges against the prints counted: badges, badge and
+/// card pairs, and how many badges stood over their cards and beside them.
+#[derive(Default)]
+struct Tally {
+    badges: usize,
+    pairs: usize,
+    above: usize,
+    beside: usize,
+}
+
+/// Spawns every badge of `placed` as the scene does and lays each one's
+/// quad against every other drawn card, the print being the whole card:
+/// it lies on none. `table` names the table in a failure.
+fn lay_against_the_prints(placed: &[Placement], table: &str, count: &mut Tally) {
+    let (poses, cards, laid) = laid_badges(placed);
+    let whole = [0.0, 0.0, 1.0, cardrail::CARD_TALL];
+    let bodies: Vec<[Vec2; 4]> = poses.iter().map(|pose| on_table(pose, whole)).collect();
+    for (card, badge) in &laid {
+        count.badges += 1;
+        let own = cards
+            .iter()
+            .position(|c| c == card)
+            .expect("a badge on a card");
+        match placed[own].slot.badge_place() {
+            BadgePlace::Above => count.above += 1,
+            BadgePlace::Beside => count.beside += 1,
+        }
+        for (other, body) in bodies.iter().enumerate() {
+            if own == other {
+                continue;
+            }
+            count.pairs += 1;
+            assert!(
+                !overlap(badge, body),
+                "{table}: the badge of {:?} lies on {:?}",
+                placed[own].object,
+                placed[other].object
+            );
+        }
+    }
 }
 
 /// Every card a row draws stands inside its lane, however many the row

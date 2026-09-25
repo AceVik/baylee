@@ -143,14 +143,18 @@ Urheber- und Medienrecht.
      on one condition: it reads as a lifted object over the card with its
      own shadow. It never lies over the name, the cost, the type line or the
      artist (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`);
-   - the **count badge** of a merged group, hanging off the card's top-left
-     corner, outside it, on the felt. It never lies on another card's print
-     either (the owner, 25.09). A merged card holds its cell whole in its
-     row, so neither neighbour reaches the badge, and a row too tight for
-     that and a legible fan scrolls sideways instead, in all three rows: it
-     shows a run of whole cards, draws nothing of the rest, and has a
-     scrollbar saying there is more (#298;
-     `cardplate::nothing_of_the_badge_reaches_past_the_printed_border`,
+   - the **count badge** of a merged group, at the card's top-right corner,
+     outside it, on the felt (the owner, 25.09: "the right edge and a bit
+     higher"): over the card's top edge where the rows leave the room (a
+     duel), beside its right edge where they do not (a ring), its shadow
+     then ending on the print's own border. It never lies on another card's
+     print either (the owner, 25.09). Over the card no card of its row
+     reaches it, and it stays upright when its card taps; beside the card
+     the gap after a merged card is held whole. A row too tight for that
+     and a legible fan (at least a third of each card showing) scrolls
+     sideways instead, in all three rows: it shows a run of whole cards,
+     draws nothing of the rest, and has a scrollbar saying there is more
+     (#298; `cardplate::nothing_of_the_badge_reaches_past_the_printed_border`,
      `table::badge_tests::no_badge_lies_on_another_cards_print`,
      `table::badge_tests::every_drawn_card_stands_inside_its_lane`). Until
      25.09 the tightest rows let it overhang the card before it, its

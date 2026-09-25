@@ -458,19 +458,20 @@ fn the_dodge_is_to_the_nearer_side_of_the_drawer() {
     }
 }
 
-/// A merged card's preview hangs its count badge off the card's left edge
-/// (#261), and the badge lands on the screen wherever the panel does: a
-/// preview opened at the window's left edge would otherwise hang the count
-/// off it. And the bubble's clip lets out the whole badge, shadow included,
-/// on every side it passes the card: off the prints (#274) its shadow falls
-/// past the card's bottom edge too, by less than it overhangs the left, and
-/// the clip's margin is one number for all four sides.
+/// A merged card's preview stands its count badge over the card's top-right
+/// corner (#261; the owner, 25.09), and the badge lands on the screen
+/// wherever the panel does: a preview opened at the window's top edge would
+/// otherwise stand the count off it. And the bubble's clip lets out the
+/// whole badge, shadow included, on every side it passes the card: its
+/// shadow passes the card's right edge too, by less than it stands over the
+/// top, and the clip's margin is one number for all four sides.
 #[test]
 fn a_preview_keeps_its_count_badge_on_the_screen() {
     use crate::hud::overlay::{badge_reach, place_with_badge};
-    let [_, qy0, _, qy1] = baylee_client_core::cardplate::badge_quad_rect();
-    let past = (-qy0).max(qy1 - baylee_client_core::cardrail::CARD_TALL);
-    let over = |img_w: f32| -baylee_client_core::cardplate::badge_quad_rect()[0] * img_w;
+    let [qx0, qy0, qx1, _] =
+        baylee_client_core::cardplate::badge_quad_rect(crate::badgemat::PREVIEW);
+    let past = (-qx0).max(qx1 - 1.0);
+    let over = |img_w: f32| -qy0 * img_w;
     // The picture inside the panel, at the default scale and at the two ends
     // of the slider.
     for img_w in [154.0_f32, 308.0, 539.0] {
@@ -479,13 +480,13 @@ fn a_preview_keeps_its_count_badge_on_the_screen() {
         assert!(
             reach + 6.0 >= over(img_w) - 1e-3,
             "a card {img_w} wide: the clip lets out {reach} past the padding \
-             and the badge reaches {} past the card",
+             and the badge stands {} over the card",
             over(img_w)
         );
         assert!(
             past * img_w <= over(img_w),
-            "a card {img_w} wide: the badge reaches {} past the card's top or \
-             bottom, further than the {} past its left the clip is let out by",
+            "a card {img_w} wide: the badge reaches {} past the card's side, \
+             further than the {} over its top the clip is let out by",
             past * img_w,
             over(img_w)
         );
@@ -497,18 +498,24 @@ fn a_preview_keeps_its_count_badge_on_the_screen() {
             )),
             PreviewAt::Hand(20.0),
             PreviewAt::Pointer(Vec2::new(1724.0, 300.0)),
+            // At the window's top edge, where the badge stands over the card.
+            PreviewAt::Pointer(Vec2::new(860.0, 2.0)),
+            PreviewAt::Card(Rect::from_corners(
+                Vec2::new(800.0, 0.0),
+                Vec2::new(840.0, 56.0),
+            )),
         ];
         for at in anchors {
             let place = place_with_badge(at, panel, WINDOW, None, reach);
-            let badge_left = place.x + 6.0 - over(img_w);
+            let badge_top = place.y + 6.0 - over(img_w);
             assert!(
-                badge_left >= 0.0,
-                "{at:?}, a card {img_w} wide: the badge starts at {badge_left}, off the screen"
+                badge_top >= 0.0,
+                "{at:?}, a card {img_w} wide: the badge starts at {badge_top}, off the screen"
             );
             assert!(
-                place.x + panel.x <= WINDOW.x,
-                "{at:?}, a card {img_w} wide: the panel ends off the right at {}",
-                place.x + panel.x
+                place.y + panel.y <= WINDOW.y,
+                "{at:?}, a card {img_w} wide: the panel ends off the bottom at {}",
+                place.y + panel.y
             );
         }
     }

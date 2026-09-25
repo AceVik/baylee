@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn a_sideways_wheel_over_a_card_scrolls_its_row_and_an_upright_one_does_not() {
         let mut app = app();
-        app.insert_resource(crate::rowbar::tests::long_rows(2, 40));
+        app.insert_resource(crate::rowbar::tests::long_rows(2, 80));
         let card = app
             .world_mut()
             .spawn(crate::table::CardVisual {
@@ -591,7 +591,7 @@ mod tests {
     fn a_wheel_over_a_scrolled_rows_felt_scrolls_it_either_way() {
         use crate::rowbar::{Part, RowBar};
         let mut app = app();
-        app.insert_resource(crate::rowbar::tests::long_rows(2, 40));
+        app.insert_resource(crate::rowbar::tests::long_rows(2, 80));
         let pad = app
             .world_mut()
             .spawn(RowBar {

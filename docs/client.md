@@ -720,49 +720,61 @@ accident, and arithmetic borrows nothing.
 
 ## Grouping and the token summary
 
-Identical permanents draw as one card with a **count badge** hanging off a
-corner of it, `×N` (#261; `cardplate::count_word` and `badge_rect`,
+Identical permanents draw as one card with a **count badge** at its
+top-right corner, `×N` (#261; `cardplate::count_word` and `badge_rect`,
 `badgemat.rs`, `badge.wgsl` and `badge_ui.wgsl`, drawn by
 `card_common.wgsl`'s `count_badge`). It was a pill painted over the printed
 cost until #274 took everything of ours off the print; the owner's placement
-is "ganz oben links an der Ecke, leicht überragend mit elevation shadow". So
-it is an object lying on the card, as the strip is: since #298 the plate's
-figures, 0.12 card widths tall, over their own drop shadow (`BADGE_DROP`,
-`BADGE_BLUR`) and **no plate behind them**; one quad per merged card, a
-child of the card, not pickable and not a `CardShadow`; one material per
-distinct count on the table. The `×` is load-bearing: a bare `12` in a
-corner reads as twelve generic mana.
+was "ganz oben links an der Ecke, leicht überragend mit elevation shadow",
+and since 25.09 it is "the right edge and a bit higher". So it is an object
+at the card, as the strip is: since #298 the plate's figures, 0.12 card
+widths tall, over their own drop shadow (`BADGE_DROP`, down and a little
+right, `BADGE_BLUR`) and **no plate behind them**; one quad per merged card,
+a child of the card, not pickable and not a `CardShadow`; one material per
+distinct count and place on the table. The `×` is load-bearing: a bare `12`
+in a corner reads as twelve generic mana.
 
-**It hangs off the card's top-left corner, outside it** (#298). Its right
-end stands in the print's own black border (`BADGE_RIGHT`, 0.031: the
-border's 0.045 less the shadow's reach), its top 0.008 under the card's top
-edge, and it grows **left** with its digits, off the card. The bottom-left
-stand-in it had while the frame's ledge carried the plate
-(`BADGE_OFF_THE_PRINTS`) went with the ledge: without a frame it would have
-stood under the card, on the row behind.
+**It stands at the card's top-right corner, in one of two places**
+(`cardplate::BadgePlace`, per seat: `SeatSlot::badge_place`, from the felt
+the seat's rows leave above their cards):
 
-- A tapped card turns its badge with it, as any object lying on the card
-  does; there is no longer a system holding it upright.
-- **It lies on no other card's print** (the owner, 25.09). A merged card
-  holds its cell whole in its row: the gaps on both sides of it are
-  `layout::HELD_PITCH`, a card's span, whatever the rest of the row fans
-  to. That is the room a tapped card before it and the badge's reach need
+- **Over the card** (`Above`), where the rows leave `BADGE_RISE` (0.17) of
+  felt above their cards: a duel's leave 0.19. Its body ends at the card's
+  right edge and grows left with its digits, and the lowest of its shadow
+  stands `BADGE_AIR` (0.01) over the card's top edge, so no card of its row
+  reaches it however far the row fans, and a merged card fans like any
+  other. It stays upright when its card taps (`table::Upright`;
+  `keep_badges_upright` lays it again on every frame of the turn): tapping
+  moves nothing in a row, and a badge turned with its card would stand
+  beside it, over the next card in a fan.
+- **Beside the card** (`Beside`), at a ring table, whose rows stand 0.019
+  apart and so cannot show "higher". Its left end stands on the print's own
+  black border (`BADGE_LEFT`, so the shadow's left end is at the border's
+  0.045), its top 0.008 under the card's top edge, and it grows **right**
+  with its digits, off the card. It turns with a tapped card, lying under
+  the tapped card's right end, in the lane's own air on that side
+  (`a_tapped_card_s_badge_stays_off_the_next_row`).
+
+- **It lies on no other card's print** (the owner, 25.09). Over the card
+  that is where it stands. Beside it, the gap after a merged card is held
+  at `layout::HELD_PITCH`, a card's span, whatever the rest of the row fans
+  to: the room a tapped card after it and the badge's reach need
   (`CARD_SPAN / 2 + CARD_WIDTH / 2 + BADGE_REACH`, 1.394 of 1.397, a
   constant assertion; `the_badge_reaches_as_far_as_its_quad` holds
-  `BADGE_REACH` to the quad). Tapped, the badge lies along its card's right
-  edge, which the next card no longer reaches either. A row that cannot
-  hold its merged cells and still fan legibly scrolls instead
-  (§"A row that does not fit scrolls"). Until then a fanned row laid the
-  overhang on the cards before it, the top-right corner of the one before
-  it, where its cost is, included.
+  `BADGE_REACH` and `BADGE_RISE` to the quads). The gap before it fans with
+  the row. A row that still does not fit scrolls (§"A row that does not
+  fit scrolls"). Until 25.09 a fanned row laid the badge, then at the
+  top-left, on the card before it, where its cost is.
 - `no_badge_lies_on_another_cards_print` holds it. It lays every badge,
   spawned as the scene spawns it, against every other drawn card on the
   table, the print being the whole card. It runs at a duel and a ring of
-  eight, with rows of 2 to 40 in all three lanes, every third card merged,
-  reaching the 0.26 fan and rows that scroll. Each row is scrolled to its
-  start, three cards in and past its end. Cards are untapped, all tapped
-  or every other one tapped, and one run stages a merged creature forward
-  of its row.
+  eight, so at both places, and counts that both occur. Rows are 2 to 72
+  cards in all three lanes, every third card merged, reaching the tightest
+  fan and rows that scroll. Each row is scrolled to its start, three cards
+  in and past its end. Cards are untapped, all tapped or every other one
+  tapped, and one run stages a merged creature forward of its row.
+  `a_badge_over_its_card_stays_upright_as_the_card_taps` holds the upright
+  one at rest and a quarter, half and nine tenths of the way round.
 - It grows to `×99` (`BADGE_W`) and no further; three digits are set smaller
   to fit (`badge_cap`).
 - It lies at the strip's height, half a row step over its card's face and a
@@ -778,9 +790,10 @@ seat bar's number. The hover preview wears the same badge, because it is the
 table card held up larger and the count is the one thing its art cannot say:
 a UI node hanging off the card's turning frame rather than off the face,
 whose node clips to the card, so it turns with the front and hides at the
-quarter turn. The panel is placed as though it were the badge's reach wider,
-so a preview opened at the window's left edge keeps its count on the screen,
-and the bubble's clip lets it out as far
+quarter turn. It stands over the card (`badgemat::PREVIEW`), as on a duel's
+felt. The panel is placed as though it were the badge's reach taller, so a
+preview opened at the window's top edge keeps its count on the screen, and
+the bubble's clip lets it out as far
 (`a_preview_keeps_its_count_badge_on_the_screen`). `BoardModel::group` is
 how it and `/state` find the card a pointer is on.
 
@@ -790,9 +803,9 @@ up to thirty) and one slab per card under it up to fourteen
 (`stack_layers`), children of the card built by `table::sync_stack`. A slab
 is a card with no print — nothing under the top card carries an image —
 jogged right and left in turn, and further out the deeper it lies: from
-half of `PILE_JOG` under the top card to all of it at the foot (0.045 card
-widths, about four pixels on a table card), so each side is a staircase of
-edges. And the slabs on a side alternate between the back and a lighter edge
+half of `PILE_JOG` under the top card to all of it at the foot (0.08 card
+widths: the owner's "about eight percent" each, 25.09, who had not noticed
+the 0.045 before it), so each side is a staircase of edges. And the slabs on a side alternate between the back and a lighter edge
 (`slab_color`, `SLAB_EDGE_COLOR`, twenty-odd display levels over the back),
 so the layers stripe. The slabs wore the top card's identity paper while
 the frame had a paper to wear, and at 0.012 a card that paper was all that
@@ -800,8 +813,8 @@ showed; with the frame gone, twenty Forests read as one Forest on a dark
 block until #298 widened and staggered the jog and striped the edges
 (`a_pile_shows_its_layers`; two constant assertions under `PILE_JOG` hold
 the jog between half a keyword mark and the air a card has in its lane
-cell). A merged card's cell is held whole, so the jog shows in a fanned row
-too. The library stays backs all the way down, face down
+cell). In a fan a pile lies over its neighbour as its card does: a slab has
+no print, only an edge. The library stays backs all the way down, face down
 (CR 401.2; `a_library_is_backs_all_the_way_down`).
 
 The deck follows the count. `sync_stack` rebuilds the slabs and the
@@ -867,13 +880,15 @@ nothing in `baylee-client` reads either.
 
 ### A row that does not fit scrolls
 
-A battlefield row packs its cards into its lane (`layout::pack_row`): at
-`CARD_SPAN + CARD_GAP` while that fits, fanned down to
-`MIN_VISIBLE_FRACTION` of a card when it does not, and with every merged
-card's cell held whole (`HELD_PITCH`, the count badge's room; §"Grouping
-and the token summary"). A row that cannot hold its cells and still fan legibly **scrolls**
-(the owner, 25.09, for all three rows). It used to run on past its lane into
-the pile strip beside it instead.
+A battlefield row packs its cards into its lane (`layout::pack_row`,
+`Lane::pack`): at `CARD_SPAN + CARD_GAP` while that fits, fanned when it
+does not until a third of each card is left (`MIN_VISIBLE_FRACTION`, 0.33;
+the owner, 25.09: "at least 33% of each card stays visible"), and at a ring
+table with the gap after every merged card held whole (`HELD_PITCH`, the
+room of a count badge standing beside its card; §"Grouping and the token
+summary"). A row that cannot do that **scrolls** (the owner, 25.09, for all
+three rows). It used to run on past its lane into the pile strip beside it
+instead, and fanned to a quarter of a card (0.26) before that.
 
 - **Whole cards, from the lane's left edge.** `LanePacking::window(first)`
   shows the longest run of whole cards from `first` that fits the lane,
@@ -1879,8 +1894,9 @@ on objects of its own:
   identity crests ("The strip says what the card does in combat", below).
   The owner's okay for a wider strip carrying all of that is recorded in
   `docs/legal.md` §3.
-- **The count badge** hangs off the card's top-left corner, outside it
-  ("Grouping and the token summary").
+- **The count badge** stands at the card's top-right corner, outside it:
+  over the top edge in a duel, beside the right edge at a ring ("Grouping
+  and the token summary").
 - **The offer's light** lies on the felt round the card (`floormat.rs`,
   `floor.wgsl`, `floor_light`): a quad under the card, `floormat::REACH`
   (0.10 card widths) past it on every side, added to the felt at

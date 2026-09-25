@@ -33,7 +33,7 @@ use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
 use baylee_client_core::card_face::CardFace;
 use baylee_client_core::cardcrest;
-use baylee_client_core::cardplate;
+use baylee_client_core::cardplate::{self, BadgePlace};
 use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
@@ -191,8 +191,8 @@ const STACK_LIFT: f32 = 0.006;
 /// it. A reverse-`z` depth buffer resolves a few millionths of a unit at
 /// [`CameraRig::MAX_DISTANCE`]; an ordinary fan of a dozen puts its cards a
 /// hundred times that apart, and a lane packed all the way to
-/// `MIN_VISIBLE_FRACTION` — a hundred and more cards, which the model groups
-/// long before — still keeps an order of magnitude of it.
+/// `MIN_VISIBLE_FRACTION` — past which a row scrolls, never showing more than
+/// its lane holds — keeps an order of magnitude of it.
 const LANE_RISE: f32 = 0.004;
 // A row that rose further than a card floats would be a staircase, not a row.
 const _: () = assert!(LANE_RISE < CARD_LIFT);
@@ -233,17 +233,16 @@ const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
 /// stand out less, down to half of it under the top card
 /// ([`slab_transform`]), so each side is a staircase of edges.
 ///
-/// About four physical pixels on a 94-pixel table card. It was 0.012 — one
-/// pixel — while the frame's paper was what showed (#274), and with the frame
-/// gone that read as one card on a block (#298). At least half a keyword
-/// mark, so it is seen, and inside the air an untapped card has in its lane
-/// cell, so no slab reaches the next card: the two assertions under it.
+/// About eight hundredths of a card each (the owner, 25.09, who had not
+/// noticed the 0.045 it was). Inside the air an untapped card has in its lane
+/// cell, so on a roomy row no slab reaches the next card; in a fan the pile
+/// lies over its neighbour as its card does, and a slab has no print, only
+/// an edge.
 ///
-/// What peeks out is the slab's edge, never a print: a slab has none.
 /// Sideways only: a slab standing out at the top would reach towards the
 /// band the seat bar writes on, and one at the bottom towards the row
 /// behind.
-const PILE_JOG: f32 = 0.045;
+const PILE_JOG: f32 = 0.08;
 const _: () = assert!(PILE_JOG >= cardrail::MARK / 2.0);
 const _: () = assert!(PILE_JOG * CARD_WIDTH <= (CARD_SPAN - CARD_WIDTH) / 2.0);
 /// The lighter of the two colours a pile's slabs wear in turn (#298): card
@@ -1688,12 +1687,13 @@ pub struct SceneIndex {
     /// The quad every strip is drawn on: [`cardrail::quad_rect`], one mesh
     /// for the whole table, since the shader sizes the strip inside it.
     marks_quad: Option<Handle<Mesh>>,
-    /// The count badge hanging off each merged card (#261): the count and
-    /// the row step it was put on for, and the badge itself. Held for the
-    /// strip's reason.
-    badges: HashMap<ObjectId, (u32, f32, Entity)>,
-    /// One badge material per count, shared by every card saying it.
-    badge_materials: HashMap<u32, Handle<BadgeMaterial>>,
+    /// The count badge at each merged card's corner (#261): what it was put
+    /// on for (the count, the row step, where it stands and whether its card
+    /// is tapped) and the badge itself. Held for the strip's reason.
+    badges: HashMap<ObjectId, (BadgeKey, Entity)>,
+    /// One badge material per count and place, shared by every card saying
+    /// it.
+    badge_materials: HashMap<(u32, BadgePlace), Handle<BadgeMaterial>>,
     /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
     /// mesh for the whole table, since the shader sizes the body inside it.
     badge_quad: Option<Handle<Mesh>>,
@@ -3146,21 +3146,50 @@ fn sync_strip(
     index.marks.insert(object, (strip, rung, entity));
 }
 
-/// The count badge hanging off a merged card (#261): a marker, so a badge
+/// The count badge at a merged card's corner (#261): a marker, so a badge
 /// can be found and counted without being taken for the card or its strip.
 #[derive(Component)]
 pub struct CountBadge;
 
-/// Where a card's count badge lies, in the card's own space: at
-/// [`cardplate::badge_quad_rect`], off the card's left edge, at the strip's
-/// share of its row's step over the face.
+/// What a card's badge was put on for: the count, the row step, where it
+/// stands and whether its card is tapped.
+type BadgeKey = (u32, f32, BadgePlace, bool);
+
+/// A badge standing over its card ([`BadgePlace::Above`]) stays upright when
+/// the card taps (the owner, 25.09): it is where it would be on the card
+/// untapped, clear of the row, and tapping moves nothing else in a row
+/// either. It is still the card's child, so it glides and goes with it;
+/// [`keep_badges_upright`] turns it back by as much as the card has turned.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Upright {
+    /// The card's rotation untapped.
+    base: Quat,
+    /// The badge's transform on the card untapped.
+    at: Transform,
+}
+
+impl Upright {
+    /// The badge's transform on a card turned `rotation`: its place on the
+    /// card untapped, turned back by as much as the card is turned from
+    /// untapped.
+    fn on(&self, rotation: Quat) -> Transform {
+        let back = rotation.inverse() * self.base;
+        Transform {
+            translation: back * self.at.translation,
+            rotation: back * self.at.rotation,
+            scale: self.at.scale,
+        }
+    }
+}
+
+/// Where a card's count badge lies, in the card's own space, untapped: at
+/// [`cardplate::badge_quad_rect`] for `place`, at the strip's share of its
+/// row's step over the face.
 ///
 /// The strip's height and for the strip's reason: a badge lifted further
-/// would stand over the card laid on this one. It is also what puts the
-/// overhang over the card *before* this one in a fanned row, which lies a
-/// whole step lower.
-fn badge_transform(rung: f32) -> Transform {
-    let [x0, y0, x1, y1] = cardplate::badge_quad_rect();
+/// would stand over the card laid on this one.
+fn badge_transform(rung: f32, place: BadgePlace) -> Transform {
+    let [x0, y0, x1, y1] = cardplate::badge_quad_rect(place);
     Transform::from_xyz(
         (f32::midpoint(x0, x1) - 0.5) * CARD_WIDTH,
         CARD_HEIGHT * 0.5 - f32::midpoint(y0, y1) * DOWN_THE_CARD,
@@ -3168,12 +3197,27 @@ fn badge_transform(rung: f32) -> Transform {
     )
 }
 
+/// Keeps every badge standing over its card upright while its card turns
+/// (#298): a tap glides, and the badge is the card's child, so it is laid
+/// again from where the glide has the card this frame.
+pub fn keep_badges_upright(
+    cards: Query<&Transform, Without<CountBadge>>,
+    mut badges: Query<(&ChildOf, &Upright, &mut Transform), With<CountBadge>>,
+) {
+    for (parent, upright, mut local) in &mut badges {
+        if let Ok(card) = cards.get(parent.parent()) {
+            local.set_if_neq(upright.on(card.rotation));
+        }
+    }
+}
+
 /// Puts the count badge on a card, changes it, or takes it off (#261).
 ///
 /// [`sync_strip`]'s diff, for [`sync_strip`]'s reasons: a child of the card,
-/// so it follows every glide and tap and goes with the card; not a
-/// [`CardShadow`]; not pickable, since a click on the count is a click on
-/// the card.
+/// so it follows every glide and goes with the card; not a [`CardShadow`];
+/// not pickable, since a click on the count is a click on the card. Where it
+/// stands is its seat's rows' ([`SeatSlot::badge_place`]): over the card it
+/// is [`Upright`], beside it it turns with a tapped card.
 fn sync_badge(
     commands: &mut Commands,
     index: &mut SceneIndex,
@@ -3181,14 +3225,16 @@ fn sync_badge(
     card: Entity,
     placement: &Placement,
 ) {
+    let place = placement.slot.badge_place();
+    let key: BadgeKey = (placement.badge, placement.rung, place, placement.tapped);
     let current = index.badges.get(&placement.object).copied();
-    if current.is_some_and(|(count, rung, _)| {
-        count == placement.badge && rung.to_bits() == placement.rung.to_bits()
+    if current.is_some_and(|((count, rung, at, tapped), _)| {
+        (count, at, tapped) == (key.0, key.2, key.3) && rung.to_bits() == key.1.to_bits()
     }) {
         return;
     }
     if placement.badge == 0 {
-        if let Some((.., badge)) = index.badges.remove(&placement.object) {
+        if let Some((_, badge)) = index.badges.remove(&placement.object) {
             commands.entity(badge).despawn();
         }
         return;
@@ -3198,11 +3244,26 @@ fn sync_badge(
     };
     let material = index
         .badge_materials
-        .entry(placement.badge)
-        .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge)))
+        .entry((placement.badge, place))
+        .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge, place)))
         .clone();
-    let transform = badge_transform(placement.rung);
-    let badge = if let Some((.., badge)) = current {
+    let at = badge_transform(placement.rung, place);
+    let upright = (place == BadgePlace::Above).then(|| Upright {
+        base: card_transform(&placement.slot, placement.position, false, placement.lift).rotation,
+        at,
+    });
+    // Laid for where the card will come to rest; `keep_badges_upright`
+    // keeps an upright one so on the way there.
+    let transform = upright.map_or(at, |upright| {
+        upright.on(card_transform(
+            &placement.slot,
+            placement.position,
+            placement.tapped,
+            placement.lift,
+        )
+        .rotation)
+    });
+    let badge = if let Some((_, badge)) = current {
         commands
             .entity(badge)
             .try_insert((MeshMaterial3d(material), transform));
@@ -3220,9 +3281,15 @@ fn sync_badge(
         commands.entity(card).add_child(badge);
         badge
     };
-    index
-        .badges
-        .insert(placement.object, (placement.badge, placement.rung, badge));
+    match upright {
+        Some(upright) => {
+            commands.entity(badge).try_insert(upright);
+        }
+        None => {
+            commands.entity(badge).try_remove::<Upright>();
+        }
+    }
+    index.badges.insert(placement.object, (key, badge));
 }
 
 /// The offer's light on the felt under a card (#298): a marker, so a light
@@ -3929,7 +3996,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
             // A merged card holds its cell whole, so its badge lies on no
             // neighbour; a row that cannot hold them and still fan legibly
             // shows a run of whole cards and scrolls (the owner, 25.09).
-            let packing = lane.pack(slot.lane_width());
+            let packing = lane.pack(slot);
             let window = packing.window(duel.rows.first((pod.player, lane.kind)));
             // The row's rise, shared out over however many cards are on it.
             let steps = lane.groups.len().saturating_sub(1).max(1) as f32;

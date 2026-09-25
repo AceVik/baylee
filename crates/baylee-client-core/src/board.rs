@@ -28,9 +28,10 @@
 //! The result is that collapsing can shorten the board but can never change
 //! what a player would conclude from it.
 
+use crate::cardplate::BadgePlace;
 use crate::images::{ArtSize, Face, ImageKey};
 use crate::interaction::CombatFocus;
-use crate::layout::{LaneKind, LanePacking, PileKind, pack_lane, pack_row};
+use crate::layout::{LaneKind, LanePacking, PileKind, SeatSlot, pack_lane, pack_row};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, TargetRef};
@@ -358,24 +359,27 @@ pub struct Lane {
     pub kind: LaneKind,
     /// Cards, already grouped and deterministically ordered.
     pub groups: Vec<CardGroup>,
-    /// Whether the row still does not fit after grouping, with every merged
-    /// card's cell held whole, so it scrolls rather than fanning further.
-    pub overflowing: bool,
 }
 
 impl Lane {
-    /// How the row packs into a lane `width` units wide: every merged card,
-    /// the ones wearing a count badge, holds its cell whole
-    /// ([`crate::layout::HELD_PITCH`]).
+    /// How the row packs into its lane at `slot`: after every merged card
+    /// whose count badge stands beside it, the gap holds a whole cell
+    /// ([`crate::layout::HELD_PITCH`]), and a row that does not fit that way
+    /// scrolls ([`LanePacking::overflowing`]).
     #[must_use]
-    pub fn pack(&self, width: f32) -> LanePacking {
-        pack_row(&self.held(), width)
+    pub fn pack(&self, slot: &SeatSlot) -> LanePacking {
+        pack_row(&self.held(slot.badge_place()), slot.lane_width())
     }
 
-    /// Which of the row's cards hold their cells: the merged ones.
+    /// Which of the row's cards hold the gap after them open: the merged
+    /// ones, where their badges stand beside them, and none where they stand
+    /// over them.
     #[must_use]
-    pub fn held(&self) -> Vec<bool> {
-        self.groups.iter().map(CardGroup::is_stack).collect()
+    pub fn held(&self, place: BadgePlace) -> Vec<bool> {
+        self.groups
+            .iter()
+            .map(|group| place == BadgePlace::Beside && group.is_stack())
+            .collect()
     }
 
     /// Total number of permanents represented, counting group members.
@@ -1595,18 +1599,7 @@ fn build_pod(
                 crowded,
                 reg,
             );
-            // Measured again on what is actually drawn, and against the
-            // harder bound: forty Soldiers collapse to one card and the row
-            // is no longer overflowing, while forty *distinct* creatures
-            // collapse to nothing and it still is — which is the case that
-            // has to scroll rather than fan.
-            let held: Vec<bool> = groups.iter().map(CardGroup::is_stack).collect();
-            let overflowing = pack_row(&held, pod_width).overflowing;
-            Lane {
-                kind,
-                groups,
-                overflowing,
-            }
+            Lane { kind, groups }
         })
         .collect();
 

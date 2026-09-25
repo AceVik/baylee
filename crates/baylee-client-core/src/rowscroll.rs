@@ -125,7 +125,7 @@ pub fn packing_of(
     let slot = layout.slot(player)?;
     let pod = board.pods.iter().find(|pod| pod.player == player)?;
     let lane = pod.lanes.iter().find(|lane| lane.kind == kind)?;
-    Some(lane.pack(slot.lane_width()))
+    Some(lane.pack(slot))
 }
 
 #[cfg(test)]

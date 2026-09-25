@@ -38,7 +38,8 @@ fn group(slot: u32, merged: bool) -> CardGroup {
 }
 
 /// A table of `seats` whose land rows hold `row` merged cards each, the
-/// other rows empty: forty of them scroll on any lane.
+/// other rows empty: eighty of them scroll on any lane, a duel's widest
+/// too.
 pub(crate) fn long_rows(seats: u8, row: usize) -> Duel {
     let players: Vec<PlayerId> = (0..seats).map(PlayerId::new).collect();
     let mut next = 1u32;
@@ -72,7 +73,6 @@ pub(crate) fn long_rows(seats: u8, row: usize) -> Duel {
                     } else {
                         Vec::new()
                     },
-                    overflowing: false,
                 })
                 .collect(),
             piles: baylee_client_core::PileKind::ALL
@@ -195,7 +195,7 @@ fn only_a_row_that_scrolls_has_a_bar() {
     let mut app = App::new();
     app.init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
-        .insert_resource(long_rows(2, 40))
+        .insert_resource(long_rows(2, 80))
         .add_systems(Update, sync_row_bars);
     app.update();
     let parts = |app: &mut App| {

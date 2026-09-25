@@ -1,5 +1,5 @@
 //! The count badge's material: how many permanents a merged card stands for,
-//! as an object hanging off its top-left corner (#261, #274).
+//! as an object at its top-right corner (#261, #274).
 //!
 //! The count was a pill painted into the card's own material, over the
 //! printed cost, until #274 moved everything this client says off the print.
@@ -7,18 +7,20 @@
 //! überragend mit elevation shadow". So it is a quad and a material of its
 //! own, like the keyword strip ([`crate::marksmat`]), and the card's material
 //! has no dimension for it at all. Since #298 it is the figures over their
-//! own drop shadow with no plate behind them, hanging off the card's left
-//! edge, and it turns with a tapped card. `baylee_client_core::cardplate`
-//! says where the quad lies ([`cardplate::badge_quad_rect`]) and where the
-//! count lies in it; `card_common.wgsl`'s `count_badge` draws it, for both
-//! shaders here.
+//! own drop shadow with no plate behind them, and since the owner's word of
+//! 25.09 it stands at the card's right edge: over the top-right corner where
+//! the rows leave the room, beside the right edge where they do not
+//! ([`cardplate::BadgePlace`]). `baylee_client_core::cardplate` says where
+//! the quad lies ([`cardplate::badge_quad_rect`]) and where the count lies
+//! in it; `card_common.wgsl`'s `count_badge` draws it, for both shaders
+//! here.
 //!
-//! **The material key is the count and nothing else.** Every badge is the
-//! same quad, and the shader sizes the body inside it from the count, so a
-//! table has at most one badge material per distinct count on it. There is no
+//! **The material key is the count and the place.** Every badge is the same
+//! quad, and the shader sizes the body inside it from the count, so a table
+//! has at most one badge material per distinct count on it. There is no
 //! clock: a badge does not move on its own.
 
-use baylee_client_core::cardplate;
+use baylee_client_core::cardplate::{self, BadgePlace};
 use bevy::asset::embedded_asset;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -39,31 +41,37 @@ pub struct BadgeParams {
     /// How many permanents the card stands for,
     /// [`cardplate::count_word`]: below two, nothing is drawn.
     pub count: u32,
-    /// Where the count's right end stands, [`cardplate::BADGE_RIGHT`], and
-    /// its top, [`cardplate::BADGE_TOP`], in card widths: in the material
-    /// and not the shader, so those two are the lines that move the badge.
+    /// Where the count's right end stands and its top, in card widths
+    /// ([`cardplate::badge_rect`]): in the material and not the shader, so
+    /// `badge_rect` is what moves the badge.
     pub right: f32,
     /// See [`Self::right`].
     pub top: f32,
 }
 
 impl BadgeParams {
-    /// The badge saying `count`.
+    /// The badge saying `count`, standing at `place`.
     #[must_use]
-    pub fn new(count: u32) -> Self {
+    pub fn new(count: u32, place: BadgePlace) -> Self {
+        let [_, top, right, _] = cardplate::badge_rect(count, place);
         Self {
-            quad: Vec4::from_array(cardplate::badge_quad_rect()),
+            quad: Vec4::from_array(cardplate::badge_quad_rect(place)),
             count,
-            right: cardplate::BADGE_RIGHT,
-            top: cardplate::BADGE_TOP,
+            right,
+            top,
         }
     }
 }
 
-/// The badge's quad, `[width, height]` in card widths.
+/// Where the preview stands its badge: over the card, as a duel does, since
+/// the preview has no row to be crowded by.
+pub const PREVIEW: BadgePlace = BadgePlace::Above;
+
+/// The badge's quad, `[width, height]` in card widths: one size at either
+/// place.
 #[must_use]
 pub fn quad_size() -> Vec2 {
-    let [x0, y0, x1, y1] = cardplate::badge_quad_rect();
+    let [x0, y0, x1, y1] = cardplate::badge_quad_rect(BadgePlace::Above);
     Vec2::new(x1 - x0, y1 - y0)
 }
 
@@ -83,11 +91,11 @@ pub struct BadgeMaterial {
 }
 
 impl BadgeMaterial {
-    /// The badge saying `count`.
+    /// The badge saying `count`, standing at `place`.
     #[must_use]
-    pub fn new(count: u32) -> Self {
+    pub fn new(count: u32, place: BadgePlace) -> Self {
         Self {
-            params: BadgeParams::new(count),
+            params: BadgeParams::new(count, place),
             marks: crate::markatlas::MARKS,
         }
     }
@@ -149,7 +157,7 @@ impl UiBadgeMaterials {
             .entry(count)
             .or_insert_with(|| {
                 assets.add(BadgeUiMaterial {
-                    params: BadgeParams::new(count),
+                    params: BadgeParams::new(count, PREVIEW),
                     marks: crate::markatlas::MARKS,
                 })
             })
@@ -276,12 +284,13 @@ struct UiVertexOutput {
         assert_eq!(made.params.count, 4);
         assert_eq!(
             made.params.quad,
-            Vec4::from_array(cardplate::badge_quad_rect()),
+            Vec4::from_array(cardplate::badge_quad_rect(PREVIEW)),
             "the quad the shader lays the badge out in"
         );
+        let [_, top, right, _] = cardplate::badge_rect(4, PREVIEW);
         assert_eq!(
             (made.params.right, made.params.top),
-            (cardplate::BADGE_RIGHT, cardplate::BADGE_TOP),
+            (right, top),
             "where the shader stands the body"
         );
     }

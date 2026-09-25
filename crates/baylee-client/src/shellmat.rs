@@ -72,7 +72,7 @@ pub const RING_OUTER: f32 = 0.16;
 /// shadows, under every card.
 pub const RING_RUNG: f32 = CARD_LIFT * 0.8;
 /// Where the rim sits in the transparent pass: under the strip and the count
-/// badge, which hangs over it at the card's top-left corner.
+/// badge, which stands at the card's top-right corner.
 pub const RIM_RUNG: f32 = STRIP_RUNG - 0.001;
 /// How much higher a ring's rim must be able to stand than it is before it
 /// stands up again. A flier bobs [`airborne::SWAY`] either way, and without
