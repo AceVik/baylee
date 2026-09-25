@@ -10,15 +10,21 @@ use baylee_core::ids::{CardIndex, PlayerId, SeatSet};
 use baylee_core::preset::{AIProfile, GamePreset, HouseRules, PrintInfo, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
+use baylee_engine::event::{GameEvent, PolicyAnswer as EnginePolicyAnswer};
 use baylee_engine::state::CardLookup;
 use baylee_engine::zone::ZoneLocation;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{
-    ClockAnswer, GameStatic, HouseAnswer, LOG_TAIL_CAP, LogEvent, LogTail, PlayerView,
-    SeatIdentity, SeatSetting, SharedHand,
+    ClockAnswer, GameStatic, HouseAnswer, LOG_TAIL_CAP, LogEvent, LogTail, PlayerView, PolicyAct,
+    PolicyAnswer, SeatIdentity, SeatSetting, SharedHand,
 };
 
 use crate::log::GameLog;
+
+/// How many of its policies' answers a seat's view carries (#234): the
+/// latest, so a seat yielding to a long loop is not sent the loop. Their
+/// numbers tell a client what it missed.
+const POLICY_WINDOW: usize = 16;
 
 /// Registry lookup backed by the compiled card pool.
 pub struct RegistryLookup;
@@ -161,6 +167,20 @@ pub struct Session {
     /// set for an AI chair, driven or not: the roster already says the house
     /// plays it.
     house_answered: Vec<Option<HouseAnswer>>,
+    /// Per seat, what its own per-ability policies answered for it since it
+    /// last answered by hand, oldest first, the latest [`POLICY_WINDOW`]
+    /// (#234). What [`PlayerView::policy_acts`] reports.
+    ///
+    /// Not game state, for `house_answered`'s reason: the engine journals
+    /// each answer its policy gave, but only the host knows which answers the
+    /// seat gave by hand. Read off the journal after every applied answer,
+    /// cleared by the seat's own decision through [`Session::act`].
+    policy_acts: Vec<Vec<PolicyAct>>,
+    /// Per seat, how many answers its policies have given, which numbers the
+    /// next one.
+    policy_counted: Vec<u32>,
+    /// How much of the journal the policy windows have read.
+    policy_read: usize,
     /// Which seats have yet to be told that a chair changed hands.
     ///
     /// Not game state, for the same reason `revealed` is not: it is what a
@@ -245,6 +265,9 @@ impl Session {
                 .collect(),
             teams: preset.seats.iter().map(|s| s.team).collect(),
             house_answered: vec![None; preset.seats.len()],
+            policy_acts: vec![Vec::new(); preset.seats.len()],
+            policy_counted: vec![0; preset.seats.len()],
+            policy_read: 0,
             roster_dirty: vec![false; preset.seats.len()],
             game_id: String::new(),
             names: Vec::new(),
@@ -764,6 +787,7 @@ impl Session {
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
+                policy_acts: &self.policy_acts,
             },
             &self.house_answered,
         );
@@ -1007,6 +1031,46 @@ impl Session {
             });
         }
         self.log.consume(self.engine.state());
+        self.read_policy_acts();
+    }
+
+    /// Takes what each seat's policies answered for it off the journal and
+    /// into its window (#234).
+    fn read_policy_acts(&mut self) {
+        let state = self.engine.state();
+        let entries = state.journal.entries();
+        for entry in entries.get(self.policy_read..).unwrap_or_default() {
+            let GameEvent::AutoAnswered {
+                player,
+                ability,
+                object,
+                answer,
+            } = entry.event
+            else {
+                continue;
+            };
+            let seat = player.get() as usize;
+            let (Some(window), Some(counted)) = (
+                self.policy_acts.get_mut(seat),
+                self.policy_counted.get_mut(seat),
+            ) else {
+                continue;
+            };
+            *counted += 1;
+            if window.len() == POLICY_WINDOW {
+                window.remove(0);
+            }
+            window.push(PolicyAct {
+                number: *counted,
+                ability: crate::log::policy_ability(state, object, ability, player),
+                answer: match answer {
+                    EnginePolicyAnswer::Passed => PolicyAnswer::Passed,
+                    EnginePolicyAnswer::Yes => PolicyAnswer::Yes,
+                    EnginePolicyAnswer::No => PolicyAnswer::No,
+                },
+            });
+        }
+        self.policy_read = entries.len();
     }
 
     /// How long a seat may sit on a decision, per the table's house rules
@@ -1215,6 +1279,9 @@ impl Session {
                 held: self.engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: None,
+                // What a policy answered is told to the seat's player; it is
+                // not an input to a decision.
+                policy_acts: &[],
             },
             &self.house_answered,
         )
@@ -1303,6 +1370,7 @@ impl Session {
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
+                policy_acts: &self.policy_acts,
             },
             &self.house_answered,
         );
@@ -1387,6 +1455,7 @@ impl Session {
         }
         let clock = matches!(by, Some(HouseAnswer::Clock))
             .then(|| clock_answer(self.engine.pending_for(player), &action));
+        let by_hand = by.is_none();
         let by = by.filter(|_| !kind.is_ai_chair());
         // Read before the action is spent: an automation setting is the one
         // thing the engine takes from a seat that is not being asked, and it
@@ -1396,6 +1465,14 @@ impl Session {
         let asked = self.answering(player, &action);
         if self.engine.apply(player, action).is_err() {
             return Err("illegal action for your seat".to_string());
+        }
+        // Before the journal is read: the same apply may have run on into
+        // this seat's policy answering again, and that one is news.
+        if moves_the_game
+            && by_hand
+            && let Some(window) = self.policy_acts.get_mut(player.get() as usize)
+        {
+            window.clear();
         }
         self.log_answer(player, &asked, deciding, clock);
         self.seq += 1;
@@ -2187,6 +2264,104 @@ pub(crate) mod tests {
         assert!(
             !routed_view(&routed, PlayerId::new(1)).priority_held,
             "one seat's standing order is not the other's to read"
+        );
+    }
+
+    /// What a seat's policies answered for it stays in its view until the
+    /// seat next answers by hand, and is counted over the whole game (#234).
+    ///
+    /// The window is cleared before the journal is read: the answer that
+    /// clears it can run on into the policy answering again, and that answer
+    /// is news. Here a keep starts the game and the same apply reaches the
+    /// first upkeep, where the seat's yield passes over its own arena.
+    #[test]
+    fn a_seats_own_answer_clears_what_its_policies_answered() {
+        let arena = baylee_cards::by_oracle_id("ee579a32-a048-4335-b966-231ba731cdea")
+            .expect("Phyrexian Arena is in the pool")
+            .index;
+        let mut preset = test_preset();
+        preset.seats[1].controller = SeatController::Open;
+        preset.seats[0].starting_battlefield = vec![DeckEntry {
+            card: arena,
+            print: PrintRef::new(0),
+        }];
+        let mut session = Session::new(&preset).expect("session builds");
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let trigger = baylee_core::ids::AbilityRef::new(arena, 0);
+        let acts = |routed: &[(PlayerId, Envelope)], seat| -> Vec<(u32, PolicyAnswer)> {
+            routed_view(routed, seat)
+                .policy_acts
+                .iter()
+                .map(|act| (act.number, act.answer))
+                .collect()
+        };
+        let _ = session.pump();
+        session
+            .act(
+                me,
+                PlayerAction::SetAbilityPolicy {
+                    ability: trigger,
+                    pass: true,
+                    answer: None,
+                },
+            )
+            .expect("a seat may set a policy at any time");
+        session
+            .act(them, PlayerAction::MulliganKeep)
+            .expect("the other seat keeps");
+
+        let routed = session
+            .act(me, PlayerAction::MulliganKeep)
+            .expect("this seat keeps");
+        assert_eq!(acts(&routed, me), [(1, PolicyAnswer::Passed)]);
+        let named = routed_view(&routed, me).policy_acts[0].ability;
+        assert_eq!(named.ability, Some(trigger));
+        assert!(named.text.is_some(), "named in full while on the stack");
+        assert_eq!(acts(&routed, them), [], "one seat's policy is its own");
+
+        let routed = session
+            .act(them, PlayerAction::PassPriority)
+            .expect("the other seat lets the trigger resolve");
+        assert_eq!(
+            acts(&routed, me),
+            [(1, PolicyAnswer::Passed)],
+            "another seat's answer is not this seat's"
+        );
+        let routed = session
+            .act(me, PlayerAction::PassPriority)
+            .expect("this seat passes its upkeep by hand");
+        assert_eq!(acts(&routed, me), []);
+
+        // Round to this seat's next upkeep, as passively as a player can.
+        let mut next = None;
+        for _ in 0..200 {
+            let (player, action) = match session.engine.pending().clone() {
+                Pending::Priority { player, .. } => (player, PlayerAction::PassPriority),
+                Pending::DiscardChoice { player, count } => {
+                    let hand = session
+                        .engine
+                        .state()
+                        .zones
+                        .list(ZoneLocation::Hand(player));
+                    let objects = hand.iter().take(usize::from(count)).copied().collect();
+                    (player, PlayerAction::ChooseObjects { objects })
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    (player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                }
+                other => panic!("an Island deck was asked {other:?}"),
+            };
+            let routed = session.act(player, action).expect("a passive answer");
+            if !acts(&routed, me).is_empty() {
+                next = Some(routed);
+                break;
+            }
+        }
+        let routed = next.expect("this seat's next upkeep came round");
+        assert_eq!(
+            acts(&routed, me),
+            [(2, PolicyAnswer::Passed)],
+            "numbered on over the game, not from the window"
         );
     }
 

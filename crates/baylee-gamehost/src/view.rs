@@ -23,7 +23,7 @@ use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, CommanderDamage, CommanderView,
     CounterEntry, CounterKind, DayNight, GameStatic, HandObject, HouseAnswer, LossCause,
-    ObjectStatus, Phase, PlayerView, PublicObject, RulesFace, SeatView, Step, TargetRef,
+    ObjectStatus, Phase, PlayerView, PolicyAct, PublicObject, RulesFace, SeatView, Step, TargetRef,
 };
 
 pub use baylee_view as wire;
@@ -752,7 +752,7 @@ pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
 /// compiling everywhere and read nowhere. `session.rs` and `harness.rs` are
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SeatContext {
+pub struct SeatContext<'a> {
     /// The seat the table is waiting for, as this seat's view tells it. Pass
     /// [`awaiting_for`], which is per seat during the opening mulligans.
     pub awaiting: Option<PlayerId>,
@@ -780,6 +780,15 @@ pub struct SeatContext {
     /// play the same position differently on a slow machine. Same invariant
     /// as #87 and the same reason.
     pub decision_remaining_ms: Option<u32>,
+    /// Per seat, in seat order, what its own per-ability policies answered
+    /// for it since it last answered by hand (#234). Pass the host's window
+    /// ([`Session`](crate::Session) keeps it), or `&[]`.
+    ///
+    /// The whole table rather than this seat's row, and the second odd one
+    /// out: like `house_answered`, only the host knows it. The view picks the
+    /// seat's own row, so no other seat's reaches it
+    /// ([`PlayerView::policy_acts`]).
+    pub policy_acts: &'a [Vec<PolicyAct>],
 }
 
 /// This seat's own hand, which is the one hand a view spells out.
@@ -851,6 +860,11 @@ pub fn player_view(
         deciding: ctx.deciding,
         decision_remaining_ms: ctx.decision_remaining_ms,
         priority_held: ctx.held,
+        policy_acts: ctx
+            .policy_acts
+            .get(seat.get() as usize)
+            .cloned()
+            .unwrap_or_default(),
         owed: ctx.owed,
         monarch: state.monarch,
         day_night: state.day_night.map(day_night),
@@ -3298,6 +3312,43 @@ mod tests {
             Some(Some(HouseAnswer::StandIn))
         );
         assert_eq!(short.seat(them).map(|s| s.house_answered), Some(None));
+    }
+
+    /// What a seat's own policies answered for it is told to that seat and
+    /// no other (#234), for `priority_held`'s reason: the host hands every
+    /// seat's row in, and the view picks the one it is built for.
+    #[test]
+    fn a_seat_is_told_what_its_own_policies_answered_and_no_other_seats() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let act = |number, card| PolicyAct {
+            number,
+            ability: baylee_view::LogAbility {
+                ability: Some(baylee_core::ids::AbilityRef::new(CardIndex::new(card), 0)),
+                text: None,
+                rules: None,
+            },
+            answer: baylee_view::PolicyAnswer::Passed,
+        };
+        let table = [vec![act(1, 7)], vec![act(1, 8), act(2, 8)]];
+        let ctx = SeatContext {
+            policy_acts: &table,
+            ..SeatContext::default()
+        };
+        let told = |seat| player_view(engine.state(), seat, 0, None, &ctx, &[]).policy_acts;
+        assert_eq!(told(me), [act(1, 7)]);
+        assert_eq!(told(them), [act(1, 8), act(2, 8)]);
+
+        let short = SeatContext {
+            policy_acts: &table[..1],
+            ..SeatContext::default()
+        };
+        let told = player_view(engine.state(), them, 0, None, &short, &[]).policy_acts;
+        assert!(
+            told.is_empty(),
+            "a seat the table does not reach is told nothing"
+        );
     }
 
     fn opt() -> CardIndex {

@@ -3833,6 +3833,7 @@ mod tests {
             deciding: SeatSet::new(),
             decision_remaining_ms: None,
             priority_held: false,
+            policy_acts: Vec::new(),
             monarch: None,
             day_night: None,
             seats,

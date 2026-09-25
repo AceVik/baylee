@@ -8,6 +8,7 @@ use crate::choice::{
     CastModeDesc, CastModeKind, ChoicePrompt, PlayerAction, PriorityHold, SeatAutomation,
     TargetPrompt, YesNoPrompt,
 };
+use crate::event::PolicyAnswer;
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
@@ -117,34 +118,38 @@ impl<L: CardLookup> Engine<L> {
     /// could *lose* a game is automated, and no automated answer is one
     /// the seat could not have given by hand.
     fn auto_answer(&mut self) -> bool {
-        let answer = match &self.pending {
+        // What the seat's per-ability policy answered, when it was the
+        // policy that answered (#234): its ability, the stack object asked
+        // about, and the answer.
+        type ByPolicy = Option<(AbilityRef, Option<ObjectId>, PolicyAnswer)>;
+        let answer: Option<(PlayerId, PlayerAction, ByPolicy)> = match &self.pending {
             Pending::Priority { player, legal } => {
                 let settings = self.automation(*player);
-                let top_ability = self
-                    .state
-                    .zones
-                    .list(ZoneLocation::Stack)
-                    .last()
-                    .and_then(|id| self.state.object(*id))
-                    .and_then(|obj| {
-                        let loc = obj.ability?;
-                        loc.card
-                            .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index))
-                    });
-                let hold = settings.hold;
-                let pass = !settings.priority_paused
-                    && (match hold {
-                        PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
-                        // Every other variant either withholds the decision or
-                        // does not, and `suppresses` is the one place that says
-                        // which — the same answer the view hands the client, so
-                        // an indicator cannot disagree with the engine. The
-                        // expiry pass above already cleared any hold whose
-                        // condition is met, so an active one still means "keep
-                        // going".
-                        other => other.suppresses(),
-                    } || top_ability.is_some_and(|ability| settings.yields_to(ability)));
-                pass.then_some((*player, PlayerAction::PassPriority))
+                let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
+                let top_ability = top.and_then(|id| self.state.object(id)).and_then(|obj| {
+                    let loc = obj.ability?;
+                    loc.card.map(|card| AbilityRef::new(card, loc.index))
+                });
+                let by_hold = match settings.hold {
+                    PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
+                    // Every other variant either withholds the decision or
+                    // does not, and `suppresses` is the one place that says
+                    // which — the same answer the view hands the client, so
+                    // an indicator cannot disagree with the engine. The
+                    // expiry pass above already cleared any hold whose
+                    // condition is met, so an active one still means "keep
+                    // going".
+                    other => other.suppresses(),
+                };
+                let by_policy = top_ability.filter(|ability| settings.yields_to(*ability));
+                let pass = !settings.priority_paused && (by_hold || by_policy.is_some());
+                // The policy is reported only where it made the difference:
+                // a pass the hold would have made anyway is the hold's, and
+                // the seat already sees its hold.
+                let report = by_policy
+                    .filter(|_| !by_hold)
+                    .map(|ability| (ability, top, PolicyAnswer::Passed));
+                pass.then_some((*player, PlayerAction::PassPriority, report))
             }
             // Two conditions, and the second is the one that is easy to
             // leave out: the question has to be *of a kind* a standing
@@ -155,20 +160,44 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 prompt,
                 source: Some(ability),
-            } if prompt.automatable() => self
-                .automation(*player)
-                .standing_answer(*ability)
-                .map(|a| (*player, PlayerAction::YesNo(a.as_bool()))),
+            } if prompt.automatable() => {
+                let asking = self.resolution.as_ref().map(|r| r.on_stack);
+                self.automation(*player)
+                    .standing_answer(*ability)
+                    .map(|standing| {
+                        let told = if standing.as_bool() {
+                            PolicyAnswer::Yes
+                        } else {
+                            PolicyAnswer::No
+                        };
+                        (
+                            *player,
+                            PlayerAction::YesNo(standing.as_bool()),
+                            Some((*ability, asking, told)),
+                        )
+                    })
+            }
             _ => None,
         };
-        let Some((player, action)) = answer else {
+        let Some((player, action, report)) = answer else {
             return false;
         };
         self.awaiting_answer = false;
         // An automated answer goes through the ordinary action path, so it
         // is validated and journaled exactly like a hand-played one — a
         // replay cannot tell the difference, which is the point.
-        self.apply_inner(player, action).is_ok()
+        let accepted = self.apply_inner(player, action).is_ok();
+        // Recorded once accepted, so the journal never claims an answer the
+        // game refused.
+        if accepted && let Some((ability, object, answer)) = report {
+            self.state.journal.record(GameEvent::AutoAnswered {
+                player,
+                ability,
+                object,
+                answer,
+            });
+        }
+        accepted
     }
 
     /// Runs the game to the next decision, letting seat automation answer

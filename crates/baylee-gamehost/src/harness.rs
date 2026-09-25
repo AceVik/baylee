@@ -303,6 +303,7 @@ pub fn play_report<L: CardLookup>(
                 held: engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&engine),
                 decision_remaining_ms: None,
+                policy_acts: &[],
             },
             &[],
         );
@@ -935,6 +936,7 @@ mod tests {
                     held: engine.automation(player).hold.suppresses(),
                     owed: crate::view::owed_payment(&engine),
                     decision_remaining_ms: None,
+                    policy_acts: &[],
                 },
                 &[],
             );

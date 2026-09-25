@@ -62,6 +62,14 @@ impl Sees {
         }
     }
 
+    /// Whether `seat` is told the object by name.
+    fn names_to(self, seat: PlayerId) -> bool {
+        match self {
+            Self::Everyone => true,
+            Self::Only(seats) | Self::FaceDown(seats) => seats.contains(seat),
+        }
+    }
+
     /// Takes `object` down to what `seat` may know of it.
     fn tell(self, seat: PlayerId, object: &mut LogObject) {
         match self {
@@ -332,6 +340,11 @@ impl GameLog {
             | GameEvent::PhaseChanged { .. }
             | GameEvent::StackObjectResolved { .. }
             | GameEvent::DevCommandApplied { .. }
+            // What a seat's own policy answered for it is told to that seat
+            // alone, in its view (#234). A line here would reach every seat,
+            // or, kept to one, stop an automated loop from folding for all
+            // of them.
+            | GameEvent::AutoAnswered { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
             | GameEvent::ZoneChanged {
@@ -848,6 +861,52 @@ fn log_ability(obj: &GameObject) -> Option<LogAbility> {
     })
 }
 
+/// The ability a seat's own policy answered for it (#234), named to that
+/// seat as a log line names one: in full while `object` is on the stack, by
+/// its reference alone once it has left, and not at all where the seat may
+/// not know its source.
+///
+/// A source that has left the state is not asked about: the ability was on
+/// the stack, where every seat's view named it.
+pub(crate) fn policy_ability(
+    state: &GameState,
+    object: Option<ObjectId>,
+    ability: AbilityRef,
+    seat: PlayerId,
+) -> LogAbility {
+    let by_ref = LogAbility {
+        ability: Some(ability),
+        text: None,
+        rules: None,
+    };
+    let Some(obj) = object.and_then(|id| state.object(id)) else {
+        return by_ref;
+    };
+    // A spell's own question has the spell as its source.
+    let source = obj
+        .ability
+        .map_or(Some(obj), |loc| state.object(loc.source));
+    if let Some(source) = source
+        && !in_zone(
+            state,
+            source,
+            source.zone,
+            source.zone_owner.unwrap_or(source.owner),
+        )
+        .names_to(seat)
+    {
+        return LogAbility {
+            ability: None,
+            text: None,
+            rules: None,
+        };
+    }
+    log_ability(obj).map_or(by_ref, |full| LogAbility {
+        ability: Some(ability),
+        ..full
+    })
+}
+
 /// The zone a log line names, where there is one.
 const fn log_zone(zone: Zone) -> Option<LogZone> {
     match zone {
@@ -1039,6 +1098,87 @@ mod tests {
         }
         assert!(repeats > 1_000, "the loop ran: {repeats}");
         assert!(lines.len() <= 16, "{} lines", lines.len());
+    }
+
+    /// What a seat's policy answers for it is told to that seat alone, in
+    /// its view (#234), and is no line: a line would reach every seat, and a
+    /// line kept to one would stop the loop that seat yields to from folding
+    /// for the whole table. The loop reads as it does when nobody yields.
+    #[test]
+    fn a_loop_a_seat_yields_to_still_folds() {
+        let other = PlayerId::new(1);
+        let first_loop = |yields: bool| {
+            let mut engine = looping_game();
+            let mut log = GameLog::new(engine.state());
+            for index in (0..2).filter(|_| yields) {
+                engine
+                    .apply(
+                        other,
+                        PlayerAction::SetAbilityPolicy {
+                            ability: AbilityRef::new(LOOPING, index),
+                            pass: true,
+                            answer: None,
+                        },
+                    )
+                    .expect("a seat may set a policy at any time");
+            }
+            let answers = (LoopWatch::WATCH_AFTER + LoopWatch::SAMPLE_EVERY * 24) as u32;
+            play_passively(&mut engine, &mut log, answers);
+            let yielded = engine
+                .state()
+                .journal
+                .entries()
+                .iter()
+                .filter(|entry| matches!(entry.event, GameEvent::AutoAnswered { .. }))
+                .count();
+            let mut lines = log.told(other, 0, log.len());
+            let broken = lines
+                .iter()
+                .position(|line| matches!(line.event, LogEvent::LoopDetected { broken: true }))
+                .expect("the loop was broken, and logged");
+            lines.truncate(broken + 1);
+            (lines, yielded)
+        };
+        let (plain, none) = first_loop(false);
+        let (yielded_to, yielded) = first_loop(true);
+        assert_eq!(none, 0);
+        assert!(
+            yielded > 1_000,
+            "the other seat's policy passed {yielded} times"
+        );
+        let repeats: u32 = yielded_to.iter().map(|line| line.repeat).sum();
+        assert!(repeats > 1_000, "the loop ran: {repeats}");
+        // How often it ran, and where in its cycle the engine broke it,
+        // depend on how many questions were asked; the fold does not.
+        let folded = |lines: &[LogEntry]| -> Vec<LogEvent> {
+            lines
+                .iter()
+                .filter(|line| line.repeat > 1)
+                .map(|line| line.event.clone())
+                .collect()
+        };
+        assert!(!folded(&plain).is_empty(), "the plain loop folds");
+        assert_eq!(folded(&yielded_to), folded(&plain));
+    }
+
+    /// An ability a policy answered for is named by its handle alone once
+    /// its object has left the stack (#234): the handle is the one the seat
+    /// gave the policy.
+    #[test]
+    fn a_policy_ability_that_has_left_the_stack_is_named_by_its_handle() {
+        let engine = looping_game();
+        let ability = AbilityRef::new(LOOPING, 1);
+        let by_handle = LogAbility {
+            ability: Some(ability),
+            text: None,
+            rules: None,
+        };
+        for object in [None, Some(ObjectId::new(9_999, 0))] {
+            assert_eq!(
+                policy_ability(engine.state(), object, ability, PlayerId::new(1)),
+                by_handle
+            );
+        }
     }
 
     fn known(id: u32) -> LogObject {

@@ -107,7 +107,9 @@ use serde::{Deserialize, Serialize};
 /// 34 adds teammates' hands shown on request (#265):
 /// [`PlayerView::shared_hands`] and the three sets beside it, and
 /// [`SeatSetting`], what a seat sends to show, withdraw, ask or decline.
-pub const VIEW_VERSION: u32 = 34;
+/// 35 adds [`PlayerView::policy_acts`], what this seat's own per-ability
+/// policies answered for it since it last answered by hand (#234).
+pub const VIEW_VERSION: u32 = 35;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1443,6 +1445,15 @@ pub struct PlayerView {
     /// owner intends to respond to, and telling the table would hand out
     /// exactly the read a player is entitled to keep.
     pub priority_held: bool,
+    /// What this seat's own standing policies for single abilities answered
+    /// for it since it last answered anything by hand, oldest first (#234):
+    /// a pass over an ability it lets resolve, or its standing yes or no. A
+    /// host keeps the latest few.
+    ///
+    /// An explicit per-ability choice may act for a seat, but never
+    /// silently, and this is how the seat is told. One seat's own, never
+    /// another's, for [`Self::priority_held`]'s reason.
+    pub policy_acts: Vec<PolicyAct>,
     /// What the awaited seat still owes, while the engine is holding a
     /// CR 605.3a payment window open for it.
     ///
@@ -1859,6 +1870,30 @@ pub struct LogAbility {
     pub rules: Option<RulesFace>,
 }
 
+/// One answer a seat's standing policy for one ability gave for it (#234).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct PolicyAct {
+    /// This seat's policy answers counted from 1 over the whole game, so a
+    /// client tells each one once, whichever frame carries it.
+    pub number: u32,
+    /// Which ability, named as a log line names one: nothing where the seat
+    /// may not know the ability's source.
+    pub ability: LogAbility,
+    /// What the policy answered.
+    pub answer: PolicyAnswer,
+}
+
+/// What a seat's standing policy for one ability answered for it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum PolicyAnswer {
+    /// Passed priority over the ability on top of the stack.
+    Passed,
+    /// Said yes to the ability's optional question.
+    Yes,
+    /// Said no to it.
+    No,
+}
+
 /// What a seat's decision clock answered when it ran out, which is the
 /// answer that does nothing wherever there is one.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -2228,6 +2263,7 @@ mod tests {
             deciding: SeatSet::new(),
             decision_remaining_ms: None,
             priority_held: false,
+            policy_acts: Vec::new(),
             monarch: None,
             day_night: None,
             seats: (0..seats)
@@ -2925,7 +2961,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (34, 0xff6b_4601_b6ef_4072);
+        const RECORDED: (u32, u64) = (35, 0x025f_38ab_fa30_23cb);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

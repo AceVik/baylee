@@ -7,7 +7,7 @@
 use crate::object::CounterKind;
 use crate::turn::{Phase, Step};
 use crate::zone::Zone;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 
 /// Why an event happened.
@@ -315,6 +315,39 @@ pub enum GameEvent {
         /// Command text.
         command: String,
     },
+    /// A seat's standing policy for one ability answered a question for it
+    /// (#234): passed priority over that ability on top of the stack, or
+    /// gave the seat's standing yes or no to that ability's optional
+    /// question.
+    ///
+    /// Recorded only where the per-ability policy made the difference. A
+    /// pass the seat's own priority hold would have made anyway is the
+    /// hold's, which the seat already sees as held. The policy is the
+    /// seat's own setting, so a host tells this to that seat alone; the game
+    /// log leaves it out.
+    AutoAnswered {
+        /// The seat answered for.
+        player: PlayerId,
+        /// The ability the policy is filed under.
+        ability: AbilityRef,
+        /// The stack object the question was about: the ability passed
+        /// over, or the spell or ability resolving when it asked. `None`
+        /// when nothing on the stack asked.
+        object: Option<ObjectId>,
+        /// What the policy answered.
+        answer: PolicyAnswer,
+    },
+}
+
+/// What a seat's standing policy for one ability answered for it (#234).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum PolicyAnswer {
+    /// Passed priority over the ability on top of the stack.
+    Passed,
+    /// Said yes to the ability's optional question.
+    Yes,
+    /// Said no to it.
+    No,
 }
 
 /// Why a player lost the game.

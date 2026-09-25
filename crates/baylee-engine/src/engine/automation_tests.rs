@@ -681,3 +681,141 @@ fn clearing_an_ability_policy_cannot_pass_using_the_old_yield() {
         3
     );
 }
+
+/// Every answer a per-ability policy gave, as the journal records it
+/// (#234).
+fn auto_answers(
+    engine: &Engine<RegistryLookup>,
+) -> Vec<(
+    PlayerId,
+    AbilityRef,
+    Option<ObjectId>,
+    crate::event::PolicyAnswer,
+)> {
+    engine
+        .journal()
+        .entries()
+        .iter()
+        .filter_map(|entry| match entry.event {
+            crate::event::GameEvent::AutoAnswered {
+                player,
+                ability,
+                object,
+                answer,
+            } => Some((player, ability, object, answer)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// A yield that passes for its seat says so, naming the ability and the
+/// trigger it passed over (#234). The seat's own hand passes before it say
+/// nothing: the event is the policy's, not every pass's.
+#[test]
+fn a_yield_that_passes_for_its_seat_is_recorded() {
+    let mut engine = three_rally_triggers();
+    let top = *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .last()
+        .expect("three triggers");
+    assert!(
+        auto_answers(&engine).is_empty(),
+        "passing by hand is not a policy answering"
+    );
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityPolicy {
+                ability,
+                pass: true,
+                answer: None,
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player: P1, .. }),
+        "the yield passed p0's priority"
+    );
+    assert_eq!(
+        auto_answers(&engine),
+        vec![(P0, ability, Some(top), crate::event::PolicyAnswer::Passed)]
+    );
+}
+
+/// A pass the seat's own hold makes is the hold's, even over a yielded
+/// ability: the seat sees its hold already, and telling it the policy acted
+/// would name a setting that changed nothing.
+#[test]
+fn a_pass_the_hold_makes_anyway_is_not_the_policys() {
+    let mut engine = three_rally_triggers();
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    let turn = engine.state().turn.number;
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetPriorityHold(PriorityHold::UntilEndOfTurn { turn }),
+        )
+        .unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityPolicy {
+                ability,
+                pass: true,
+                answer: None,
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        auto_answers(&engine).is_empty(),
+        "the hold's passes were reported as the policy's: {:?}",
+        auto_answers(&engine)
+    );
+}
+
+/// A standing answer says what it answered and which trigger asked.
+#[test]
+fn a_standing_answer_is_recorded_with_the_trigger_that_asked() {
+    let mut engine = started(
+        Duel::new(31, plains())
+            .battlefield(0, &[plains(), plains()])
+            .hand(0, &[ondu_cleric()]),
+    );
+    let ability = AbilityRef::new(ondu_cleric(), 0);
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetAbilityPolicy {
+                ability,
+                pass: false,
+                answer: Some(StandingAnswer::Yes),
+            },
+        )
+        .unwrap();
+    assert!(walk_to_own_main(&mut engine, P0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, P0, ondu_cleric());
+    pass_until(&mut engine, stack_is_empty);
+    let answers = auto_answers(&engine);
+    assert_eq!(
+        answers.len(),
+        1,
+        "one rally trigger, one answer: {answers:?}"
+    );
+    let (player, answered, object, answer) = answers[0];
+    assert_eq!(
+        (player, answered, answer),
+        (P0, ability, crate::event::PolicyAnswer::Yes)
+    );
+    let object = object.expect("the trigger resolving asked");
+    assert!(
+        engine
+            .state()
+            .object(object)
+            .is_none_or(|o| o.ability.is_some_and(|loc| loc.index == 0)),
+        "the object named is not the trigger that asked"
+    );
+}

@@ -410,6 +410,24 @@ prowessed creature is exactly that shape. They fall through now — the card
 is identity, and identity is not a precondition — and a loyalty activation
 and a copied spell's scry rider stopped being refused for the same reason.
 
+## What a policy answered (view version 35)
+
+A standing answer and a yield (`pass` of `SetAbilityPolicy`) act for a seat,
+but never silently. Each time one of them decides something the seat would
+otherwise have been asked, the engine journals `GameEvent::AutoAnswered`:
+only where the per-ability policy made the difference, so a pass a priority
+hold would have made anyway is not one. The host reads those into a window
+per seat (`Session`, the latest 16, numbered from 1 over the game) and sends
+it as `PlayerView::policy_acts`: **the viewing seat's own and no other
+seat's**, for `priority_held`'s reason below. The seat's own decision through
+`Session::act` clears its window; a clock answer does not.
+
+Each act names its ability as a log line would (`LogAbility`): in full while
+the ability is on the stack, by its handle alone once it has resolved, and
+not at all where the seat may not know the source. The game log itself writes
+no line for it: a line reaches every seat, and one kept to a single seat
+would stop a loop the seat yields to from folding for the whole table.
+
 ## Priority holds (view version 9)
 
 The other half of a standing answer is `PlayerAction::SetPriorityHold`, and
