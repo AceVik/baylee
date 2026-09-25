@@ -25,6 +25,7 @@ use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::{SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
+use baylee_view::SeatSetting;
 
 /// How long the curtain waits for seats that have not said they are ready
 /// (#256), counted from the moment the game is built.
@@ -595,6 +596,25 @@ impl EngineRunner {
                     .iter()
                     .map(|env| seat_frame(seat, env))
                     .collect()
+            }
+            // Not a move in the game (#265): the engine never sees it, so it
+            // is not `apply`. A refusal is only said: the seat submitted no
+            // answer, so it still holds its question and needs none re-sent.
+            // Taken before the curtain is up as well: it is no decision and
+            // runs no clock, and the views it changes go out as `show` builds
+            // them, with no pump and no question.
+            Some(v1::envelope::Msg::SeatSetting(setting_msg)) => {
+                let Ok(setting) = serde_json::from_slice::<SeatSetting>(&setting_msg.setting_json)
+                else {
+                    return Vec::new();
+                };
+                let Some(session) = self.session.as_mut() else {
+                    return Vec::new();
+                };
+                match session.seat_setting(player, setting) {
+                    Ok(routed) => self.route(&routed),
+                    Err(reason) => self.route(&[(player, error(&reason))]),
+                }
             }
             _ => Vec::new(),
         }
@@ -1852,5 +1872,84 @@ mod tests {
         assert_eq!(told(&out, 0), (Some(0), Some(591_000)));
         let deciding = last_view(&out, 1).expect("a view").deciding;
         assert_eq!(deciding.iter().map(PlayerId::get).collect::<Vec<_>>(), [0]);
+    }
+
+    /// A seat's setting about itself, wrapped the way its socket sends it
+    /// (#265).
+    fn set(runner: &mut EngineRunner, seat: u32, setting: SeatSetting) -> Vec<Envelope> {
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::SeatSetting(v1::SeatSettingMsg {
+                setting_json: serde_json::to_vec(&setting).expect("setting serializes"),
+            })),
+        };
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            &[],
+        )
+    }
+
+    /// Two players on one team, against the house.
+    fn partners() -> GamePreset {
+        let mut preset = two_humans(600);
+        let mut house = preset.seats[1].clone();
+        house.controller =
+            baylee_core::preset::SeatController::Ai(baylee_core::preset::AIProfile::default());
+        house.team = Some(2);
+        preset.seats[0].team = Some(1);
+        preset.seats[1].team = Some(1);
+        preset.seats.push(house);
+        preset
+    }
+
+    /// A seat's setting is heard before the curtain is up as well as after
+    /// it (#265): it is no decision and runs no clock. Either way it sends
+    /// the views it changed and asks nothing, and a setting that is refused
+    /// is answered to the seat that sent it and to nobody else.
+    #[test]
+    fn a_seat_setting_is_heard_before_the_curtain_and_after_and_asks_nothing() {
+        let only_views = |out: &[Envelope]| {
+            !out.is_empty()
+                && said(out)
+                    .iter()
+                    .all(|(_, what)| matches!(*what, "static" | "view"))
+        };
+        let hands = |out: &[Envelope], seat: u32| {
+            last_view(out, seat)
+                .expect("the teammate is sent a view")
+                .shared_hands
+                .iter()
+                .map(|h| h.player.get())
+                .collect::<Vec<_>>()
+        };
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &partners());
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        assert!(runner.curtain_pending());
+        let partner: baylee_core::ids::SeatSet = [PlayerId::new(1)].into_iter().collect();
+
+        let shown = set(&mut runner, 0, SeatSetting::ShareHand(partner));
+        assert!(only_views(&shown), "{:?}", said(&shown));
+        assert_eq!(hands(&shown, 1), [0]);
+
+        ready(&mut runner, 0);
+        ready(&mut runner, 1);
+        assert!(!runner.curtain_pending());
+        let withdrawn = set(
+            &mut runner,
+            0,
+            SeatSetting::ShareHand(baylee_core::ids::SeatSet::new()),
+        );
+        assert!(only_views(&withdrawn), "{:?}", said(&withdrawn));
+        assert_eq!(hands(&withdrawn, 1), [0; 0]);
+
+        let house: baylee_core::ids::SeatSet = [PlayerId::new(2)].into_iter().collect();
+        let refused = set(&mut runner, 0, SeatSetting::ShareHand(house));
+        assert_eq!(said(&refused), [(0, "error")]);
     }
 }

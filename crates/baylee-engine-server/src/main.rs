@@ -25,6 +25,7 @@ use baylee_core::preset::GamePreset;
 use baylee_engine::choice::PlayerAction;
 use baylee_gamehost::{SeatKind, Session, preset};
 use baylee_protocol::v1::{self, Envelope};
+use baylee_view::SeatSetting;
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
 
@@ -502,6 +503,27 @@ async fn serve(
                                 // Said out loud rather than swallowed: a
                                 // program driving a seat has no screen to
                                 // notice that nothing happened.
+                                Err(reason) => vec![error(&reason)],
+                            },
+                            None => vec![error("no such game")],
+                        }
+                    }
+                    v1::envelope::Msg::SeatSetting(setting_msg) => {
+                        let Some(id) = state.game_id.clone() else {
+                            continue;
+                        };
+                        let Ok(setting) =
+                            serde_json::from_slice::<SeatSetting>(&setting_msg.setting_json)
+                        else {
+                            continue;
+                        };
+                        let mut games = games.lock().await;
+                        match games.get_mut(&id) {
+                            Some(table) => match table.session.seat_setting(state.seat, setting) {
+                                Ok(out) => {
+                                    publish(table, out);
+                                    Vec::new()
+                                }
                                 Err(reason) => vec![error(&reason)],
                             },
                             None => vec![error("no such game")],

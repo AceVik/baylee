@@ -136,6 +136,15 @@ holds for an absent player
 (`session::tests::a_seat_the_house_answers_is_never_told_the_log`). What an
 agent knows of the past is what its view shows now.
 
+An agent is never handed a teammate's hand either (#265). Every view an
+agent answers from is built by `Session::agent_view`, which leaves
+`shared_hands` and the three sets beside it empty; only a view on its way to
+a socket carries them. A chair the house AI plays is never shown a hand, and
+shows its own at once to a teammate who asks: showing it changes nothing its
+agent sees. A chair the house holds for an absent player keeps the shares
+its player was given, is played without them, and leaves requests to the
+player (`view::tests::no_agent_is_handed_a_teammates_hand`).
+
 **A mode is chosen by what it reaches, not by where it is printed.** A modal
 spell whose every effect sits under a mode is offered no normal cast
 (CR 700.2a), and the answer to a cast question used to be the position of a

@@ -16,6 +16,7 @@ baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
+baylee-view.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 prost.workspace = true

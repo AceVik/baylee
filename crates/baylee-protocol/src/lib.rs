@@ -11,7 +11,7 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 /// Generated protobuf types (`baylee.v1`).
 #[allow(missing_docs, clippy::all, clippy::pedantic)]
@@ -109,8 +109,11 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_two() {
+    fn the_wire_version_is_three() {
         // 2: `SeatReady` and `Curtain` (#256).
-        assert_eq!(PROTOCOL_VERSION, 2);
+        // 3: `SeatSettingMsg` (#265). An engine built before it drops the
+        // frame without a word, so a client that sent one would wait for a
+        // view that never comes.
+        assert_eq!(PROTOCOL_VERSION, 3);
     }
 }

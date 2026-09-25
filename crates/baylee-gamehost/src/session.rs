@@ -2,6 +2,8 @@
 //! tests and both servers (engine-server dev harness, gateway) drive it
 //! directly; transport lives with the callers.
 
+use std::collections::BTreeMap;
+
 use baylee_ai::{HeuristicAgent, policy_seed};
 use baylee_cards::dsl::CardDef;
 use baylee_core::ids::{CardIndex, PlayerId, SeatSet};
@@ -12,7 +14,8 @@ use baylee_engine::state::CardLookup;
 use baylee_engine::zone::ZoneLocation;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{
-    ClockAnswer, GameStatic, HouseAnswer, LOG_TAIL_CAP, LogEvent, LogTail, PlayerView, SeatIdentity,
+    ClockAnswer, GameStatic, HouseAnswer, LOG_TAIL_CAP, LogEvent, LogTail, PlayerView,
+    SeatIdentity, SeatSetting, SharedHand,
 };
 
 use crate::log::GameLog;
@@ -177,6 +180,19 @@ pub struct Session {
     /// has been *told*. It starts again at 0 when a socket attaches
     /// ([`Session::retell_log`]).
     told: Vec<usize>,
+    /// Per seat, the teammates it shows its hand to (#265).
+    ///
+    /// Not game state: showing a hand moves nothing in the game, so it never
+    /// enters the engine, the journal or the snapshot hash. It is what a
+    /// seat *wants*, and who is actually shown the hand is read afresh for
+    /// every view ([`Session::shows_hand`]), so a seat that left the game is
+    /// shown nothing more without this having to be told.
+    showing: Vec<SeatSet>,
+    /// Per seat, the teammates asking to see its hand, not yet answered.
+    asking: Vec<SeatSet>,
+    /// `(owner, asker)` → the turn the owner turned the asker down in. The
+    /// asker may ask again from the next turn on.
+    declined: BTreeMap<(u8, u8), u32>,
 }
 
 /// A seat's number as the policy-seed derivation takes it.
@@ -234,6 +250,9 @@ impl Session {
             names: Vec::new(),
             log,
             told: vec![0; preset.seats.len()],
+            showing: vec![SeatSet::new(); preset.seats.len()],
+            asking: vec![SeatSet::new(); preset.seats.len()],
+            declined: BTreeMap::new(),
         })
     }
 
@@ -301,7 +320,30 @@ impl Session {
         };
         *kind = SeatKind::Ai(agent.clone());
         self.roster_changed();
+        self.house_takes_hands(seat);
         true
+    }
+
+    /// The house plays `seat` from now on, which is shown no teammate's hand
+    /// and shows its own to every teammate who asks (#265).
+    ///
+    /// Withdrawn here rather than only left out of the next view: a chair
+    /// that is taken over again later must not find a share waiting for it
+    /// that its teammate made to somebody else.
+    fn house_takes_hands(&mut self, seat: PlayerId) {
+        let at = seat.get() as usize;
+        for (owner, shown) in self.showing.iter_mut().enumerate() {
+            if owner != at {
+                *shown = shown.iter().filter(|&s| s != seat).collect();
+            }
+            if let Some(asked) = self.asking.get_mut(owner)
+                && owner != at
+            {
+                *asked = asked.iter().filter(|&s| s != seat).collect();
+            }
+        }
+        let waiting = std::mem::take(&mut self.asking[at]);
+        self.showing[at] = self.showing[at].iter().chain(waiting.iter()).collect();
     }
 
     /// The house sits down at a player's chair, because nobody is answering
@@ -349,6 +391,200 @@ impl Session {
         self.roster_changed();
         self.log.note(LogEvent::Returned { player: seat });
         true
+    }
+
+    /// What a seat says about itself (#265): which teammates it shows its
+    /// hand to, or asking or declining to be shown one.
+    ///
+    /// Returns the frames for every seat whose view it changed, and nothing
+    /// at all when it changed nothing, so a client that repeats its setting
+    /// costs no view. It moves nothing in the game: no action reaches the
+    /// engine, the journal and the snapshot hash stay as they were, and no
+    /// decision clock is touched. No question is re-sent either, so a
+    /// teammate's share never resets a seat halfway through an answer.
+    ///
+    /// Teammates may review each other's hands at any time (CR 808.5, CR
+    /// 809.7, CR 810.5); this is that permission, used by choice. A request
+    /// to a chair the house AI plays is accepted at once. A request to a
+    /// chair the house is holding for an absent player waits for the
+    /// player: the house does not decide about a person's cards.
+    ///
+    /// # Errors
+    /// When the seat is not answered over a socket or has left the game, or
+    /// the game is over; when a seat it names is not a teammate still in the
+    /// game, or is a chair the house AI plays and so is shown no hand; and
+    /// when it asks again in the turn it was turned down.
+    pub fn seat_setting(
+        &mut self,
+        seat: PlayerId,
+        setting: SeatSetting,
+    ) -> Result<Vec<(PlayerId, Envelope)>, String> {
+        let at = seat.get() as usize;
+        if !self
+            .seat_kind(seat)
+            .is_some_and(SeatKind::answers_over_socket)
+        {
+            return Err("only a seat answered over a socket says anything about itself".into());
+        }
+        if !self.seated(seat) {
+            return Err("this seat is no longer in the game".into());
+        }
+        let mates = self.teammates(seat);
+        let before: Vec<_> = self
+            .human_seats()
+            .into_iter()
+            .map(|s| self.hands_told(s))
+            .collect();
+        match setting {
+            SeatSetting::ShareHand(shown) => {
+                if let Some(other) = shown.iter().find(|&o| !mates.contains(o)) {
+                    return Err(format!("seat {other} is not a teammate still in the game"));
+                }
+                if let Some(house) = shown.iter().find(|&o| !self.may_be_shown(o)) {
+                    return Err(format!(
+                        "seat {house} is played by the house and is shown no hand"
+                    ));
+                }
+                self.showing[at] = shown;
+                // Showing a teammate the hand answers their request.
+                self.asking[at] = self.asking[at]
+                    .iter()
+                    .filter(|&o| !shown.contains(o))
+                    .collect();
+            }
+            SeatSetting::RequestHand(owner) => {
+                if !mates.contains(owner) {
+                    return Err(format!("seat {owner} is not a teammate still in the game"));
+                }
+                let key = (owner.get(), seat.get());
+                let turn = self.engine.state().turn.number;
+                let o = owner.get() as usize;
+                if self.showing[o].contains(seat) || self.asking[o].contains(seat) {
+                    // Already shown, or already asked: nothing to change.
+                } else if self.declined.get(&key) == Some(&turn) {
+                    return Err(format!(
+                        "seat {owner} turned this request down this turn; ask again next turn"
+                    ));
+                } else if matches!(self.seats[o], SeatKind::Ai(_)) {
+                    self.showing[o].insert(seat);
+                } else {
+                    self.asking[o].insert(seat);
+                }
+            }
+            SeatSetting::DeclineHand(asker) => {
+                if self.asking[at].contains(asker) {
+                    self.asking[at] = self.asking[at].iter().filter(|&o| o != asker).collect();
+                    self.declined
+                        .insert((seat.get(), asker.get()), self.engine.state().turn.number);
+                }
+            }
+        }
+        let changed: Vec<PlayerId> = self
+            .human_seats()
+            .into_iter()
+            .zip(before)
+            .filter(|(s, was)| self.hands_told(*s) != *was)
+            .map(|(s, _)| s)
+            .collect();
+        if changed.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.seq += 1;
+        let mut out = Vec::new();
+        for s in changed {
+            let envelopes = self.view_envelopes(s);
+            out.extend(envelopes.into_iter().map(|env| (s, env)));
+        }
+        Ok(out)
+    }
+
+    /// Whether `seat` is still in a game that is still going.
+    fn seated(&self, seat: PlayerId) -> bool {
+        (seat.get() as usize) < self.seats.len()
+            && !self.engine.state().has_left(seat)
+            && !matches!(self.engine.pending(), Pending::GameOver(_))
+    }
+
+    /// The other seats on `seat`'s team that are still in the game. None for
+    /// a seat on no team: it has no teammates.
+    fn teammates(&self, seat: PlayerId) -> SeatSet {
+        let Some(team) = self.teams.get(seat.get() as usize).copied().flatten() else {
+            return SeatSet::new();
+        };
+        (0..self.seats.len())
+            .map(|i| PlayerId::new(seat_byte(i)))
+            .filter(|&other| {
+                other != seat
+                    && self.teams.get(other.get() as usize).copied().flatten() == Some(team)
+                    && self.seated(other)
+            })
+            .collect()
+    }
+
+    /// Whether a chair may be shown a teammate's hand: every chair but one
+    /// the house AI plays. A chair the house is holding for an absent player
+    /// keeps what the player was shown, and its agent is handed none of it
+    /// ([`Session::show_hands`] is only on the way to a socket).
+    fn may_be_shown(&self, seat: PlayerId) -> bool {
+        !matches!(self.seat_kind(seat), Some(SeatKind::Ai(_)) | None)
+    }
+
+    /// Whether `owner`'s hand is shown to `viewer` right now.
+    fn shows_hand(&self, owner: PlayerId, viewer: PlayerId) -> bool {
+        self.seated(owner)
+            && self.teammates(owner).contains(viewer)
+            && self.may_be_shown(viewer)
+            && self.showing[owner.get() as usize].contains(viewer)
+    }
+
+    /// Whose hands `seat` is shown, and the three sets beside them: what a
+    /// setting is compared by to decide whose view it changed.
+    fn hands_told(&self, seat: PlayerId) -> [SeatSet; 4] {
+        if !self.seated(seat) {
+            return [SeatSet::new(); 4];
+        }
+        let mates = self.teammates(seat);
+        [
+            mates.iter().filter(|&o| self.shows_hand(o, seat)).collect(),
+            self.showing[seat.get() as usize]
+                .iter()
+                .filter(|&o| mates.contains(o) && self.may_be_shown(o))
+                .collect(),
+            self.asking[seat.get() as usize]
+                .iter()
+                .filter(|&o| mates.contains(o))
+                .collect(),
+            mates
+                .iter()
+                .filter(|&o| self.asking[o.get() as usize].contains(seat))
+                .collect(),
+        ]
+    }
+
+    /// Puts into a view a socket is sent what its seat is shown of its
+    /// teammates' hands, and where its own showing and asking stand (#265).
+    ///
+    /// Only on the way to a socket. The views agents answer from are built
+    /// elsewhere and never pass through here, so a seat the house plays is
+    /// handed exactly what it was handed before hands could be shown.
+    fn show_hands(&self, view: &mut PlayerView, seat: PlayerId) {
+        if !self
+            .seat_kind(seat)
+            .is_some_and(SeatKind::answers_over_socket)
+        {
+            return;
+        }
+        let [shown, sharing, requests, requested] = self.hands_told(seat);
+        view.shared_hands = shown
+            .iter()
+            .map(|owner| SharedHand {
+                player: owner,
+                cards: crate::view::own_hand(self.engine.state(), owner),
+            })
+            .collect();
+        view.hand_shared_with = sharing;
+        view.hand_requests = requests;
+        view.hand_requested = requested;
     }
 
     /// A chair changed hands, so every seat's roster is out of date.
@@ -459,6 +695,22 @@ impl Session {
         if let Some(dirty) = self.roster_dirty.get_mut(seat.get() as usize) {
             *dirty = false;
         }
+        // The hands this seat is shown (#265), whose cards may have changed
+        // while nobody was on the seat: a chair the house holds is built no
+        // view, and what a returning seat is sent after this may be a
+        // read-only snapshot, which reveals nothing.
+        if self
+            .seat_kind(seat)
+            .is_some_and(SeatKind::answers_over_socket)
+        {
+            let [shown, ..] = self.hands_told(seat);
+            let prints: Vec<_> = shown
+                .iter()
+                .flat_map(|owner| crate::view::own_hand(self.engine.state(), owner))
+                .map(|card| card.card.print)
+                .collect();
+            self.reveal(seat, prints);
+        }
         let statics = self.game_static(seat);
         Envelope {
             msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
@@ -501,7 +753,7 @@ impl Session {
     /// image on.
     fn view_envelopes(&mut self, seat: PlayerId) -> Vec<Envelope> {
         let awaiting = crate::view::awaiting_for(&self.engine, seat);
-        let view = crate::view::player_view(
+        let mut view = crate::view::player_view(
             self.engine.state(),
             seat,
             self.seq,
@@ -515,6 +767,7 @@ impl Session {
             },
             &self.house_answered,
         );
+        self.show_hands(&mut view, seat);
         let mut out = Vec::new();
         let tail = self.log_tail(seat);
         // Two separate `let`s: `reveal` marks printings as shown, so folding
@@ -651,26 +904,7 @@ impl Session {
                 // Both receive a filtered view. Scouting checks the live
                 // seat kind separately and denies a human's stand-in.
                 SeatKind::Ai(agent) | SeatKind::StandIn(agent) => {
-                    let view = crate::view::player_view(
-                        self.engine.state(),
-                        player,
-                        self.seq,
-                        Some(&pending),
-                        &crate::view::SeatContext {
-                            awaiting: crate::view::awaiting_for(&self.engine, player),
-                            deciding: self.deciding(),
-                            held: self.engine.automation(player).hold.suppresses(),
-                            owed: crate::view::owed_payment(&self.engine),
-                            // No clock in a view an agent answers from. This
-                            // number is made of elapsed wall time, and
-                            // machine speed is not an authorized input to a
-                            // decision: an agent that read it would play the
-                            // same position differently on a slow machine,
-                            // legally and invisibly. Same invariant as #87.
-                            decision_remaining_ms: None,
-                        },
-                        &self.house_answered,
-                    );
+                    let view = self.agent_view(player, &pending);
                     let context = self.engine.decision_context();
                     let scouting = agent.scouting_request(&pending).and_then(|request| {
                         crate::scouting::request(
@@ -950,7 +1184,27 @@ impl Session {
         // Teams included, as `stand_in` builds it: without them every other
         // chair reads as an enemy, the seat's own partner among them.
         let agent = HeuristicAgent::new(AIProfile::default()).with_teams(self.teams.clone());
-        let view = crate::view::player_view(
+        Some(agent.act(&self.agent_view(player, pending), pending))
+    }
+
+    /// The view the house answers `player`'s question from, whether it plays
+    /// the chair or has only been handed one decision by a clock.
+    ///
+    /// One builder for both, because what an agent may know is one rule.
+    /// Two things a socket's view carries never reach it:
+    ///
+    /// - **No clock.** `decision_remaining_ms` is made of elapsed wall time,
+    ///   and machine speed is not an authorized input to a decision: an
+    ///   agent that read it would play the same position differently on a
+    ///   slow machine, legally and invisibly (#87). A clock's answer is
+    ///   where it would bite first, since that view exists because the
+    ///   number ran out.
+    /// - **No teammate's hand** (#265). Only [`Session::show_hands`] puts
+    ///   one into a view, on the way to a socket, and this never calls it,
+    ///   so a chair the house holds for an absent player is played from
+    ///   what it was played from before hands could be shown.
+    pub(crate) fn agent_view(&self, player: PlayerId, pending: &Pending) -> PlayerView {
+        crate::view::player_view(
             self.engine.state(),
             player,
             self.seq,
@@ -960,14 +1214,10 @@ impl Session {
                 deciding: self.deciding(),
                 held: self.engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
-                // As in `pump`, and pointedly so here: this view exists
-                // because a clock ran out, so it is the one place the
-                // expired number could reach a rules decision.
                 decision_remaining_ms: None,
             },
             &self.house_answered,
-        );
-        Some(agent.act(&view, pending))
+        )
     }
 
     /// The sequence number a client should report back when it resumes.
@@ -1042,7 +1292,7 @@ impl Session {
         let awaiting = crate::view::awaiting_for(&self.engine, seat);
         // Read-only, so no printing is revealed here: this rebuilds a state a
         // `pump` already showed this seat, and the reveal happened there.
-        let view = crate::view::player_view(
+        let mut view = crate::view::player_view(
             self.engine.state(),
             seat,
             self.seq,
@@ -1056,6 +1306,7 @@ impl Session {
             },
             &self.house_answered,
         );
+        self.show_hands(&mut view, seat);
         let mut out = state_frames(self.seq, &view, log);
         let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));
         if let Some(pending) = own.or(over) {
@@ -1277,7 +1528,7 @@ fn choice_envelope(seq: u64, pending: &Pending) -> Envelope {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// The awaited seat's clock answer, as a one-seat table asks it.
@@ -1429,7 +1680,7 @@ mod tests {
         assert_ne!(session.engine.snapshot_hash(), before);
     }
 
-    fn teamed_preset(teams: [Option<u8>; 4]) -> GamePreset {
+    pub(crate) fn teamed_preset(teams: [Option<u8>; 4]) -> GamePreset {
         let mut preset = test_preset();
         let seat = preset.seats[0].clone();
         preset.seats = teams
@@ -1862,7 +2113,7 @@ mod tests {
     }
 
     /// The view a seat is sent, decoded back out of its envelope.
-    fn seat_view(session: &Session, seat: PlayerId) -> baylee_view::PlayerView {
+    pub(crate) fn seat_view(session: &Session, seat: PlayerId) -> baylee_view::PlayerView {
         session
             .snapshot(seat)
             .into_iter()
@@ -1881,7 +2132,10 @@ mod tests {
     /// is read-only and builds a fresh view every time it is asked, so it
     /// would report a field as delivered even if the live path — `act`, then
     /// `pump` — never produced a frame at all.
-    fn routed_view(routed: &[(PlayerId, Envelope)], seat: PlayerId) -> baylee_view::PlayerView {
+    pub(crate) fn routed_view(
+        routed: &[(PlayerId, Envelope)],
+        seat: PlayerId,
+    ) -> baylee_view::PlayerView {
         routed
             .iter()
             .filter(|(s, _)| *s == seat)
@@ -3582,5 +3836,285 @@ mod tests {
         eprintln!("acceptance: {acceptance:?}");
         eprintln!("pool probes: {pool:?}");
         assert!(acceptance.games > 0 && pool.games > 0);
+    }
+
+    // ---- teammates' hands (#265) -------------------------------------------
+
+    /// A four-chair table past its opening hands: `teams` per seat, and `ai`
+    /// the chairs the house plays. Every player keeps.
+    pub(crate) fn a_kept_table(teams: [Option<u8>; 4], ai: [bool; 4]) -> Session {
+        a_kept_table_from(teamed_preset(teams), ai)
+    }
+
+    /// [`a_kept_table`] from a preset a test has already changed.
+    pub(crate) fn a_kept_table_from(mut preset: GamePreset, ai: [bool; 4]) -> Session {
+        for (spec, &house) in preset.seats.iter_mut().zip(&ai) {
+            if house {
+                spec.controller = SeatController::Ai(AIProfile::default());
+            }
+        }
+        let mut session = Session::new(&preset).expect("a four-seat game");
+        session.pump();
+        for (seat, &house) in ai.iter().enumerate() {
+            if !house {
+                session
+                    .act(PlayerId::new(seat_byte(seat)), PlayerAction::MulliganKeep)
+                    .expect("a keep");
+            }
+        }
+        assert!(session.deciding().is_empty(), "every seat has kept");
+        session
+    }
+
+    /// Answers every question the way the house would, a player's too, until
+    /// turn `turn` has begun.
+    pub(crate) fn play_to_turn(session: &mut Session, turn: u32) {
+        for _ in 0..2_000 {
+            if session.state().turn.number >= turn {
+                return;
+            }
+            let seat = session.awaiting_seat().expect("somebody is asked");
+            let action = session.house_action(seat).expect("the house has an answer");
+            session
+                .act(seat, action)
+                .expect("the house answers legally");
+        }
+        panic!("turn {turn} never began");
+    }
+
+    /// `seat` shows its hand to exactly `to`.
+    pub(crate) fn show_to(
+        session: &mut Session,
+        seat: u8,
+        to: &[u8],
+    ) -> Result<Vec<(PlayerId, Envelope)>, String> {
+        let to = to.iter().map(|&s| PlayerId::new(s)).collect();
+        session.seat_setting(PlayerId::new(seat), SeatSetting::ShareHand(to))
+    }
+
+    /// `seat` asks `owner` to be shown their hand.
+    pub(crate) fn ask(
+        session: &mut Session,
+        seat: u8,
+        owner: u8,
+    ) -> Result<Vec<(PlayerId, Envelope)>, String> {
+        session.seat_setting(
+            PlayerId::new(seat),
+            SeatSetting::RequestHand(PlayerId::new(owner)),
+        )
+    }
+
+    /// Whose hands a view shows.
+    pub(crate) fn hands_shown(view: &PlayerView) -> Vec<PlayerId> {
+        view.shared_hands.iter().map(|h| h.player).collect()
+    }
+
+    fn seats(of: &[u8]) -> SeatSet {
+        of.iter().map(|&s| PlayerId::new(s)).collect()
+    }
+
+    /// The owner's usual table is players with house teammates, and a chair
+    /// that refused every request would make the whole feature dead there.
+    /// So the house shows its hand to a teammate who asks, at once: showing
+    /// it changes nothing the house's own agent sees.
+    #[test]
+    fn a_request_to_a_chair_the_house_plays_is_accepted_at_once() {
+        let mut session = a_kept_table(
+            [Some(1), Some(1), Some(2), Some(2)],
+            [false, true, false, true],
+        );
+        let routed = ask(&mut session, 0, 1).expect("a teammate may ask");
+        let view = routed_view(&routed, PlayerId::new(0));
+        assert_eq!(hands_shown(&view), vec![PlayerId::new(1)], "shown at once");
+        assert!(
+            view.hand_requested.is_empty(),
+            "and nothing is left waiting"
+        );
+        assert_eq!(
+            view.shared_hands[0].cards.len(),
+            session
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(PlayerId::new(1)))
+                .len(),
+            "the whole hand"
+        );
+    }
+
+    /// A chair the house plays is shown nobody's hand, so no agent is ever
+    /// handed one, and it says nothing about itself: it has no socket to say
+    /// it over.
+    #[test]
+    fn a_chair_the_house_plays_is_shown_no_hand_and_sets_nothing() {
+        let mut session = a_kept_table(
+            [Some(1), Some(1), Some(2), Some(2)],
+            [false, true, false, true],
+        );
+        assert!(
+            show_to(&mut session, 0, &[1]).is_err(),
+            "no hand for the house"
+        );
+        assert!(
+            seat_view(&session, PlayerId::new(0))
+                .hand_shared_with
+                .is_empty()
+        );
+        assert!(
+            show_to(&mut session, 1, &[0]).is_err(),
+            "an AI chair has no socket to say anything over"
+        );
+    }
+
+    /// A chair the house holds for an absent player keeps what the player
+    /// set, and a request to it waits for the player: the house does not
+    /// decide about a person's cards, however long they are gone.
+    #[test]
+    fn a_request_to_an_absent_player_waits_for_them() {
+        let mut session = a_kept_table([Some(1), Some(1), Some(2), Some(2)], [false; 4]);
+        assert!(session.stand_in(PlayerId::new(1)));
+        ask(&mut session, 0, 1).expect("an absent teammate may be asked");
+        play_to_turn(&mut session, 3);
+        let view = seat_view(&session, PlayerId::new(0));
+        assert_eq!(view.hand_requested, seats(&[1]), "still asked");
+        assert!(
+            hands_shown(&view).is_empty(),
+            "and not answered by the house"
+        );
+        assert!(session.hand_back(PlayerId::new(1)));
+        assert_eq!(
+            seat_view(&session, PlayerId::new(1)).hand_requests,
+            seats(&[0]),
+            "the player finds the request waiting"
+        );
+        show_to(&mut session, 1, &[0]).expect("and accepts it by showing the hand");
+        let view = seat_view(&session, PlayerId::new(0));
+        assert_eq!(hands_shown(&view), vec![PlayerId::new(1)]);
+        assert!(view.hand_requested.is_empty(), "which answers the request");
+    }
+
+    /// A driven chair is answered over a socket, so it asks, shows and is
+    /// shown as a player does. Handed back, it is the house's again: shown
+    /// nothing, and showing its hand to whoever was waiting.
+    #[test]
+    fn a_driven_chair_answers_for_itself_until_it_is_handed_back() {
+        let mut session = a_kept_table(
+            [Some(1), Some(1), Some(2), Some(2)],
+            [false, true, false, true],
+        );
+        assert!(session.take_over(PlayerId::new(1)));
+        ask(&mut session, 0, 1).expect("a driven teammate may be asked");
+        assert_eq!(
+            seat_view(&session, PlayerId::new(0)).hand_requested,
+            seats(&[1]),
+            "a driven chair decides for itself"
+        );
+        show_to(&mut session, 0, &[1]).expect("a driven chair may be shown a hand");
+        assert_eq!(
+            hands_shown(&seat_view(&session, PlayerId::new(1))),
+            vec![PlayerId::new(0)]
+        );
+
+        assert!(session.release(PlayerId::new(1)));
+        let view = seat_view(&session, PlayerId::new(0));
+        assert!(
+            view.hand_shared_with.is_empty(),
+            "the house is shown nothing"
+        );
+        assert_eq!(
+            hands_shown(&view),
+            vec![PlayerId::new(1)],
+            "and shows its hand to the teammate who was waiting"
+        );
+        assert!(session.take_over(PlayerId::new(1)));
+        assert!(
+            hands_shown(&seat_view(&session, PlayerId::new(1))).is_empty(),
+            "taken over again, it finds no share left over from before"
+        );
+    }
+
+    /// A seat that is turned down may ask again, but not until the next
+    /// turn: asking again at once would be the same request, louder.
+    #[test]
+    fn a_turned_down_request_waits_for_the_next_turn() {
+        let mut session = a_kept_table([Some(1), Some(1), Some(2), Some(2)], [false; 4]);
+        ask(&mut session, 1, 0).expect("asks");
+        session
+            .seat_setting(PlayerId::new(0), SeatSetting::DeclineHand(PlayerId::new(1)))
+            .expect("turns it down");
+        assert!(
+            seat_view(&session, PlayerId::new(1))
+                .hand_requested
+                .is_empty(),
+            "the request is answered"
+        );
+        assert!(ask(&mut session, 1, 0).is_err(), "not again this turn");
+        let turn = session.state().turn.number;
+        play_to_turn(&mut session, turn + 1);
+        ask(&mut session, 1, 0).expect("the next turn it may");
+        assert_eq!(
+            seat_view(&session, PlayerId::new(0)).hand_requests,
+            seats(&[1])
+        );
+    }
+
+    /// A setting that changes nothing is answered with nothing: no frame and
+    /// no new sequence number. A client that repeats its setting costs the
+    /// table no view.
+    #[test]
+    fn a_setting_that_changes_nothing_sends_nothing() {
+        let mut session = a_kept_table([Some(1), Some(1), Some(2), Some(2)], [false; 4]);
+        assert!(!show_to(&mut session, 0, &[1]).expect("shows").is_empty());
+        let seq = session.seq();
+        assert!(show_to(&mut session, 0, &[1]).expect("again").is_empty());
+        assert!(
+            ask(&mut session, 1, 0).expect("asks").is_empty(),
+            "asking for a hand already shown"
+        );
+        assert!(
+            session
+                .seat_setting(PlayerId::new(0), SeatSetting::DeclineHand(PlayerId::new(1)))
+                .expect("declines")
+                .is_empty(),
+            "declining a request nobody made"
+        );
+        assert_eq!(session.seq(), seq);
+        assert!(!show_to(&mut session, 0, &[]).expect("withdraws").is_empty());
+    }
+
+    /// Showing a hand is not a move in the game. The engine is not asked,
+    /// so the journal, the snapshot hash and every decision clock's anchor
+    /// stay exactly where they were.
+    #[test]
+    fn a_setting_moves_nothing_in_the_game() {
+        let mut session = a_kept_table([Some(1), Some(1), Some(2), Some(2)], [false; 4]);
+        let seat = session.awaiting_seat().expect("somebody is asked");
+        let hash = session.engine.snapshot_hash();
+        let journal = session.state().journal.entries().len();
+        let decisions = session.decision_seq();
+        let asked = session.asked_at(seat);
+        ask(&mut session, 1, 0).expect("asks");
+        session
+            .seat_setting(PlayerId::new(0), SeatSetting::DeclineHand(PlayerId::new(1)))
+            .expect("declines");
+        show_to(&mut session, 0, &[1]).expect("shows");
+        show_to(&mut session, 0, &[]).expect("withdraws");
+        assert_eq!(session.engine.snapshot_hash(), hash);
+        assert_eq!(session.state().journal.entries().len(), journal);
+        assert_eq!(session.decision_seq(), decisions);
+        assert_eq!(session.asked_at(seat), asked);
+    }
+
+    /// A seat on no team has no teammate, so it has nobody to ask or show.
+    #[test]
+    fn a_seat_on_no_team_has_nobody_to_ask_or_show() {
+        let mut session = a_kept_table([None, None, Some(1), Some(1)], [false; 4]);
+        assert!(ask(&mut session, 0, 1).is_err());
+        assert!(show_to(&mut session, 0, &[1]).is_err());
+        assert!(
+            show_to(&mut session, 0, &[])
+                .expect("showing nobody is allowed")
+                .is_empty(),
+            "and changes nothing"
+        );
     }
 }

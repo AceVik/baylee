@@ -104,7 +104,10 @@ use serde::{Deserialize, Serialize};
 /// field of [`PlayerView`], which stays a snapshot; it travels beside the
 /// view in the same envelope, and an agent answering from a view never sees
 /// it.
-pub const VIEW_VERSION: u32 = 33;
+/// 34 adds teammates' hands shown on request (#265):
+/// [`PlayerView::shared_hands`] and the three sets beside it, and
+/// [`SeatSetting`], what a seat sends to show, withdraw, ask or decline.
+pub const VIEW_VERSION: u32 = 34;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1033,7 +1036,8 @@ impl core::hash::Hash for ObjectSummaryKey {
     }
 }
 
-/// A card in the viewing seat's own hand.
+/// A card in the viewing seat's own hand, or in a teammate's it is shown
+/// ([`SharedHand`]).
 ///
 /// Separate from [`PublicObject`] because a card in hand has no board state and
 /// carrying the permanent-only fields would invite a client to render them.
@@ -1041,7 +1045,8 @@ impl core::hash::Hash for ObjectSummaryKey {
 pub struct HandObject {
     /// Engine object handle.
     pub id: ObjectId,
-    /// Card identity — always known: it is the seat's own hand.
+    /// Card identity — always known: it is the seat's own hand, or one its
+    /// owner is showing this seat.
     pub card: CardIdentity,
     /// Printed name of the active face.
     pub name: String,
@@ -1492,6 +1497,26 @@ pub struct PlayerView {
     pub seats: Vec<SeatView>,
     /// The viewing seat's hand.
     pub hand: Vec<HandObject>,
+    /// The teammates' hands this seat is being shown, in seat order (#265).
+    ///
+    /// Teammates may review each other's hands at any time (CR 808.5, CR
+    /// 809.7, CR 810.5). Here that is the owner's choice: a hand is in this
+    /// list only while its owner shows it to this seat
+    /// ([`SeatSetting::ShareHand`]), the two are on one team and both are
+    /// still in the game. Every other hand is a count in
+    /// [`SeatView::hand_count`], this one's as well.
+    ///
+    /// Empty in every view an agent answers from, as are the three sets
+    /// below: a seat the house plays is handed what it was handed before
+    /// hands could be shown.
+    pub shared_hands: Vec<SharedHand>,
+    /// The teammates this seat is showing its own hand to.
+    pub hand_shared_with: SeatSet,
+    /// The teammates asking to see this seat's hand, not yet answered.
+    pub hand_requests: SeatSet,
+    /// The teammates this seat has asked to see the hand of, not yet
+    /// answered.
+    pub hand_requested: SeatSet,
     /// The shared battlefield. Objects carry their controller, so a client
     /// partitions this per seat rather than the host sending it eight times.
     pub battlefield: Vec<PublicObject>,
@@ -1602,8 +1627,10 @@ impl PlayerView {
             .flat_map(|s| s.commanders.iter())
             .filter_map(|c| c.card);
         let public = self.public_objects().filter_map(|o| o.card);
+        let shown = self.shared_hands.iter().flat_map(|h| &h.cards);
         self.hand
             .iter()
+            .chain(shown)
             .map(|o| o.card)
             .chain(public)
             .chain(commanders)
@@ -1669,6 +1696,38 @@ impl PlayerView {
             .map(|offset| self.seats[(me + offset) % n].player)
             .collect()
     }
+}
+
+// --------------------------------------------------------------- shown hands
+
+/// A teammate's hand, as its owner is showing it to this seat (#265).
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct SharedHand {
+    /// Whose hand it is.
+    pub player: PlayerId,
+    /// The cards, in the owner's hand order, as the owner's own view has
+    /// them.
+    pub cards: Vec<HandObject>,
+}
+
+/// Something a seat says about itself that is not a move in the game
+/// (#265).
+///
+/// It travels in its own envelope (`SeatSettingMsg`), never as a
+/// `PlayerAction`: the engine journals every action, its automation settings
+/// included, and a setting touches neither the journal nor the snapshot
+/// hash. A replay has nobody to show a hand to.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum SeatSetting {
+    /// Show this seat's hand to exactly these teammates. The whole set, so
+    /// that showing, withdrawing and accepting a request are one message,
+    /// and sending the set already in force changes nothing.
+    ShareHand(SeatSet),
+    /// Ask a teammate to show this seat their hand.
+    RequestHand(PlayerId),
+    /// Turn down a teammate's request. They may ask again from the next
+    /// turn on.
+    DeclineHand(PlayerId),
 }
 
 // ----------------------------------------------------------------------- log
@@ -2188,6 +2247,10 @@ mod tests {
                 })
                 .collect(),
             hand: vec![],
+            shared_hands: vec![],
+            hand_shared_with: SeatSet::new(),
+            hand_requests: SeatSet::new(),
+            hand_requested: SeatSet::new(),
             battlefield: vec![],
             stack: vec![],
             graveyards: vec![vec![]; seats as usize],
@@ -2862,7 +2925,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (33, 0x8593_c4e9_b1e2_8288);
+        const RECORDED: (u32, u64) = (34, 0xff6b_4601_b6ef_4072);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

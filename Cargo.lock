@@ -939,6 +939,7 @@ dependencies = [
  "baylee-engine",
  "baylee-gamehost",
  "baylee-protocol",
+ "baylee-view",
  "bytes",
  "futures-util",
  "prost",

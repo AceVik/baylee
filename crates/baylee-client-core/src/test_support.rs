@@ -103,6 +103,10 @@ impl ViewBuilder {
                     })
                     .collect(),
                 hand: Vec::new(),
+                shared_hands: vec![],
+                hand_shared_with: SeatSet::new(),
+                hand_requests: SeatSet::new(),
+                hand_requested: SeatSet::new(),
                 battlefield: Vec::new(),
                 stack: Vec::new(),
                 graveyards: vec![Vec::new(); n],

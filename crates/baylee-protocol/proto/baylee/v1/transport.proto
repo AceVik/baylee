@@ -173,6 +173,16 @@ message PlayerActionMsg {
   bytes action_json = 3;
 }
 
+// Client → server: something a seat says about itself that is not a move in
+// the game (#265): which teammates it shows its hand to, and asking or
+// declining to be shown one. The engine never sees it, so it enters neither
+// the journal nor the snapshot hash. A setting that changes nothing is
+// answered with nothing.
+message SeatSettingMsg {
+  // serde_json-encoded baylee_view::SeatSetting.
+  bytes setting_json = 1;
+}
+
 // Server → client: the once-per-game payload — seat roster and print
 // table. A networked client cannot build this itself: it never sees the
 // preset, and the print table is what turns a PrintRef into a card face.
@@ -347,6 +357,8 @@ message Envelope {
     // Game start (player ↔ engine; on the engine link inside a SeatFrame).
     SeatReady seat_ready = 25;
     Curtain curtain = 26;
+    // Player → engine, protocol version 3: a seat's setting about itself.
+    SeatSettingMsg seat_setting = 27;
   }
 
 }

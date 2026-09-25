@@ -948,6 +948,99 @@ by the house's own answers and sent a view after every pump as a socket is):
 | of those, with more lines than one frame carries | 0 | 0 |
 | most lines in one pump | 90 | 62 |
 
+## A teammate's hand (view version 34, #265)
+
+"Teammates may review each other's hands and discuss strategies at any time"
+(CR 808.5, CR 809.7, CR 810.5). Here that permission is used by choice: a
+seat shows its hand to the teammates it picks, and a teammate may ask to be
+shown it. Everything below is per seat and the host's alone. The engine is
+never asked, so a setting enters neither the journal nor the snapshot hash,
+restarts no decision clock, and leaves a replay exactly as it was.
+
+**The message** (`PROTOCOL_VERSION` 3): `SeatSettingMsg { setting_json }`,
+player → engine inside `SeatFrame`, forwarded unread like everything else a
+seat says. `setting_json` is `baylee_view::SeatSetting` as serde_json:
+
+| setting | JSON | meaning |
+| --- | --- | --- |
+| `ShareHand(SeatSet)` | `{"ShareHand":2}` | show my hand to exactly these teammates (a bitmask: 2 is seat 1, 0 is nobody) |
+| `RequestHand(PlayerId)` | `{"RequestHand":1}` | ask seat 1 to show me their hand |
+| `DeclineHand(PlayerId)` | `{"DeclineHand":1}` | turn down seat 1's request |
+
+`ShareHand` names the whole set, so showing, withdrawing and accepting a
+request are one message. Showing a hand to a teammate who asked answers the
+request.
+
+**The answer is the views it changed**, to each seat whose view changed, with
+a new `seq`, and nothing else: no question is re-sent, so a teammate's share
+never resets a seat halfway through an answer. A setting that changes nothing
+(the set already in force, a request already made or already met, a decline
+of nothing) is answered with nothing and costs no view. A refused setting is
+answered with an `Error` to the seat that sent it and to nobody else, and no
+re-ask, because the seat submitted no answer and still holds its question.
+It is refused when:
+
+- the seat has left the game, or the game is over;
+- it names a seat that is not a teammate still in the game (a seat on no team
+  has no teammates);
+- it would show a hand to a chair the house AI plays;
+- it asks again in the same turn it was turned down (from the next turn on,
+  it may).
+
+It is heard **before the curtain** as well: it is no decision and runs no
+clock. Its views are the ones `Session::show` builds, with no pump and no
+question.
+
+**The view** carries four fields, all of them per viewer:
+
+- `shared_hands`: the teammates' hands this seat is shown, each as
+  `SharedHand { player, cards }`, where `cards` are the `HandObject`s the
+  owner's own view has;
+- `hand_shared_with`: whom this seat shows its hand to;
+- `hand_requests`: the teammates asking this seat, not yet answered;
+- `hand_requested`: the teammates this seat has asked, not yet answered.
+
+A hand is in a view only while all of these hold: the owner shows it to that
+seat, the two are on one team, and both are still in a game that is still
+going. Every other hand, this one's for everybody else as well, stays a
+count in `SeatView::hand_count`. Its printings reach the seat in a
+`GameStaticMsg` before the view that shows them. That includes a seat coming
+back from away, which may be sent a read-only snapshot.
+
+**Who answers for a chair:**
+
+- *A chair the house AI plays* shows its hand at once to a teammate who asks.
+  Showing its own hand changes nothing its agent sees. It is never shown a
+  hand, and cannot be named in `ShareHand`.
+- *A chair the house holds for an absent player* keeps what the player set.
+  A request to it waits for the player: the house does not decide about a
+  person's cards.
+- *A driven chair* answers over a socket, so it asks, shows and is shown as a
+  player does. Released back to the house, it follows the first rule: every
+  share made to it is withdrawn, and every request waiting on it is accepted.
+
+**No agent is handed any of it.** Only views on their way to a socket carry
+the four fields (`Session::show_hands`). The view an agent answers from is
+built by `Session::agent_view`, which never fills them, so a chair the house
+holds for an absent player is played from exactly what it was played from
+before hands could be shown (`docs/house-ai.md`).
+
+**The game log is unchanged.** Showing a hand shows the cards it holds now,
+not how they got there, so a teammate is not retold the lines naming
+earlier draws. While a hand is shown, the view names a card that the log
+line for its draw still tells that teammate as `Hidden`. That leaks nothing
+and adds no knowledge after the fact.
+
+A seat socket has no frame-rate bound yet (#284). A client toggling its
+setting makes the engine build its teammate's views as fast as it sends, the
+same as any other frame today. Only settings that change nothing are free.
+
+Tests: the hidden-information guarantees are in `crates/baylee-gamehost/src/view.rs`,
+one per rule ("a teammate's hand is shown only while it is shared"). The
+chair rules, the decline, the no-op and "moves nothing in the game" are in
+`session.rs`, and the frame before and after the curtain is in
+`baylee-engine-server`.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who
