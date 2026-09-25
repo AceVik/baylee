@@ -243,6 +243,7 @@ pub(super) fn printing_picker(
                 ),
                 back_url: None,
                 finish: treatment(picker.finish()),
+                index: None,
             },
         );
         commands.entity(thumb).insert((

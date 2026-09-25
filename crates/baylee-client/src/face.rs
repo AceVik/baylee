@@ -246,6 +246,60 @@ fn card_of(
     Some((card, text.map_or(face, |t| t.face)))
 }
 
+/// The face for a card in the deckbuilder's pool (#259): its printed front
+/// face out of the compiled registry, and the words the pool row carries —
+/// the name, type line and rules text the gateway served in the player's
+/// language.
+#[must_use]
+pub fn of_pool(card: &baylee_client_core::deckbuilder::PoolCard) -> CardFace {
+    use baylee_client_core::card_face::{CardText, Characteristics};
+    use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
+
+    let index = baylee_core::ids::CardIndex::new(card.index);
+    let printed = baylee_cards::by_index(index).and_then(|def| def.faces.first());
+    // Named in English, as the registry names it, so the row's text is
+    // taken as describing it and its own name is the one written.
+    let chars = Characteristics {
+        name: card.english_name.clone(),
+        types: printed.map_or(TypeSet::EMPTY, |f| f.types),
+        supertypes: printed.map_or(SupertypeSet::EMPTY, |f| f.supertypes),
+        subtypes: printed.map_or(SubtypeSet::EMPTY, |f| SubtypeSet::from_slice(f.subtypes)),
+        colors: card
+            .colors
+            .chars()
+            .filter_map(MagicColor::from_symbol)
+            .fold(ColorSet::EMPTY, |set, color| set.union(ColorSet::of(color))),
+        power: printed.and_then(|f| f.power),
+        toughness: printed.and_then(|f| f.toughness),
+        loyalty: printed.and_then(|f| f.loyalty),
+        damage: 0,
+    };
+    // A gateway with no catalog serves no rules text, and a fallback is the
+    // English Oracle's sentence, never a blank box.
+    let oracle = if card.oracle_text.is_empty() {
+        baylee_cards::generated_oracle::ORACLE
+            .get(card.index as usize)
+            .and_then(|faces| faces.first())
+            .map_or_else(String::new, |text| (*text).to_owned())
+    } else {
+        card.oracle_text.clone()
+    };
+    let text = CardText {
+        lang: String::new(),
+        name: card.name.clone(),
+        type_line: card.type_line.clone(),
+        oracle_text: oracle,
+        mana_cost: card.mana_cost.clone(),
+        english_name: card.english_name.clone(),
+    };
+    CardFace::build(
+        &chars,
+        printed.map(|f| &f.mana_cost),
+        printed.map(printed_types),
+        Some(&text),
+    )
+}
+
 /// The face for a card in hand.
 ///
 /// A hand card arrives as a [`baylee_view::HandObject`], which carries only
@@ -1859,6 +1913,49 @@ mod tests {
         });
         app.update();
         assert_eq!(node(track, &app).display, Display::None);
+    }
+
+    /// A pool card's face is the row's words on the printed card (#259): the
+    /// name and type line the gateway served in the player's language, the
+    /// colours the row names, the numbers the registry prints — and without
+    /// a catalog, the English Oracle rather than an empty box.
+    #[test]
+    fn a_pool_card_s_face_is_the_row_s_words_on_the_printed_card() {
+        use baylee_client_core::deckbuilder::PoolCard;
+        let row = PoolCard {
+            index: baylee_cards::decks::by_name("Birds of Paradise")
+                .expect("in the pool")
+                .get(),
+            name: "Paradiesvögel".to_owned(),
+            english_name: "Birds of Paradise".to_owned(),
+            mana_cost: "{G}".to_owned(),
+            colors: "G".to_owned(),
+            type_line: "Kreatur — Vogel".to_owned(),
+            oracle_text: "Fliegend".to_owned(),
+            ..PoolCard::default()
+        };
+        let face = of_pool(&row);
+        assert_eq!(face.name, "Paradiesvögel");
+        assert_eq!(face.type_line, "Kreatur — Vogel");
+        assert_eq!(face.cost, vec![ManaSymbol::Green]);
+        assert_eq!(face.colors, ColorSet::of(MagicColor::Green));
+        assert_eq!(
+            face.stats,
+            Some(Stats::PowerToughness {
+                power: 0,
+                toughness: 1,
+                damage: 0
+            })
+        );
+        assert_eq!(face.body, vec![TextBlock::Rules("Fliegend".to_owned())]);
+
+        let bare = of_pool(&PoolCard {
+            oracle_text: String::new(),
+            ..row
+        });
+        let text: Vec<_> = bare.body.iter().map(TextBlock::text).collect();
+        assert_eq!(text, ["Flying", "{T}: Add one mana of any color."]);
+        assert!(!bare.text_pending);
     }
 
     /// A number the ledge already shows is not written on the face again,

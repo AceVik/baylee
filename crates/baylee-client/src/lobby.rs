@@ -105,7 +105,9 @@ impl Plugin for LobbyPlugin {
                     ui::blink,
                     dock::materialize,
                     button_style::materialize,
-                    (preview, hint::hint_panel),
+                    // The duel's own runs only while there is a duel, and a
+                    // text face in the deckbuilder shows its scrollbar too.
+                    (preview, hint::hint_panel, crate::face::show_scrollbars),
                     crate::buildui::virtual_rows::update,
                     crate::buildui::virtual_rows::update_pool,
                     thumbnails::load,

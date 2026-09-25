@@ -3070,6 +3070,25 @@ printing it is showing and a hover that had to go looking would be doing it on
 the pointer's schedule. A preview is `Pickable::IGNORE` — it must never eat the
 click that would add the card underneath it.
 
+**A card with no picture previews as its text face (#259).** Where a row has
+no printing to fetch, or the player reads text rather than art
+(`prefer_text_view`, the setting the table reads too), the preview draws the
+card's text face: the same `face::UiFace` the duel's overlay draws, with its
+rules text (`Detail::Full`), in the printing's finish. The face is built when
+the row is hovered, from the registry index the row carries (`HoverCard::index`
+→ `face::of_pool`), not for each of the rows the list spawns. Its words are the
+row's — the name, type line and rules text the gateway served in the player's
+language — on the printed card's body out of the registry. A gateway with no
+catalog serves no rules text, and the face then carries the English Oracle
+(`generated_oracle::ORACLE`), never an empty box. The rules text steps down to
+10 px as it does on the table and shows its scrollbar past that
+(`face::show_scrollbars` runs in the lobby too), but does not scroll: the
+preview follows the pointer and is never under it, and the wheel over the list
+scrolls the list. The back stays a picture, the printing's or the card back.
+The held modifier that turns a table card to its text is not read here. A
+preview whose picture is still on its way waits for it, as before, rather than
+drawing the text face in the meantime.
+
 **The card panel is where a card is moved, not just read.** `?` opens a menu
 over the card: add it to the deck or to the sideboard, move the copy that is
 already there from one to the other, remove it, or set it as the commander.

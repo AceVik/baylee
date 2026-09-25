@@ -28,6 +28,9 @@ pub struct HoverCard {
     pub back_url: Option<String>,
     /// How the printing is finished, so a foil previews as one.
     pub finish: FinishTreatment,
+    /// The pool card's registry index, for its text face (#259). The face is
+    /// built when the row is hovered, not for every row the list spawns.
+    pub index: Option<u32>,
 }
 
 /// The card the pointer is over, and where the pointer was.
@@ -119,11 +122,81 @@ fn lineage_card<'a>(
     None
 }
 
+use baylee_client_core::card_face::CardFace;
+
+/// What drawing a pool card as its text face reads (#259).
+///
+#[derive(bevy::ecs::system::SystemParam)]
+pub(super) struct Reading<'w> {
+    settings: Option<Res<'w, crate::settings::ClientSettings>>,
+    state: Option<Res<'w, LobbyState>>,
+    fonts: Option<Res<'w, UiFonts>>,
+    font_assets: Option<Res<'w, Assets<Font>>>,
+}
+
+impl Reading<'_> {
+    /// The text face `card` previews as, and the fonts to set it in: where
+    /// there is no picture to show, and where the player reads text rather
+    /// than art (the setting the table reads too). Built here, on the hover,
+    /// and not for every row the list spawns.
+    fn face(&self, card: &HoverCard) -> Option<(CardFace, &UiFonts)> {
+        let reads_text = self.settings.as_deref().is_some_and(|s| s.prefer_text_view);
+        if card.url.is_some() && !reads_text {
+            return None;
+        }
+        let pool = self.state.as_deref()?.lobby.builder().pool();
+        let face = crate::face::of_pool(pool.iter().find(|c| Some(c.index) == card.index)?);
+        Some((face, self.fonts.as_deref()?))
+    }
+
+    /// Spawns a text face as the front side of the preview `frame`, in the
+    /// printing's finish.
+    fn spawn(
+        &self,
+        commands: &mut Commands,
+        cards: &mut UiCards,
+        frame: Entity,
+        finish: FinishTreatment,
+        (face, fonts): &(CardFace, &UiFonts),
+        width: f32,
+    ) {
+        let lang = self.state.as_deref().map_or(Lang::En, |s| s.lobby.lang());
+        let widths =
+            crate::face::Widths::of(self.font_assets.as_deref().and_then(|a| a.get(&fonts.text)));
+        // No plate: a card in the pool is on no battlefield, so its face
+        // writes its own numbers.
+        let laid =
+            crate::face::UiFace::lay(face, lang, width, crate::face::Detail::Full, &widths, 0);
+        let look = crate::cardmat::CardLook::back(finish, 0)
+            .faced(crate::face::table_color(face.colors), laid.word);
+        let node = commands
+            .spawn((
+                MaterialNode(cards.get(look, None)),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px(0),
+                    width: percent(100),
+                    height: percent(100),
+                    border_radius: BorderRadius::all(px(12)),
+                    ..default()
+                },
+                crate::flip::Side::Front,
+                Visibility::Inherited,
+                Pickable::IGNORE,
+            ))
+            .id();
+        crate::face::spawn_ui(commands, node, lang, face, &laid, fonts);
+        commands.entity(frame).add_child(node);
+    }
+}
+
 /// Draws the hovered card beside the pointer.
 ///
 /// Its own entity, spawned and despawned on its own: rebuilding the whole
 /// builder on every hover would mean tearing down two hundred rows to show
 /// one picture.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(super) fn preview(
     mut commands: Commands,
     hovered: Res<Hovered>,
@@ -132,6 +205,7 @@ pub(super) fn preview(
     assets: Option<Res<AssetServer>>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+    reading: Reading,
 ) {
     let canvas = windows
         .iter()
@@ -149,9 +223,10 @@ pub(super) fn preview(
     let (Some(card), Some(assets)) = (hovered.card.as_ref(), assets) else {
         return;
     };
-    let Some(url) = card.url.clone() else {
+    let text = reading.face(card);
+    if text.is_none() && card.url.is_none() {
         return;
-    };
+    }
     let (Some(mut cache), Some(mut store)) = (ui_materials, material_assets) else {
         return;
     };
@@ -206,6 +281,10 @@ pub(super) fn preview(
         ))
         .id();
 
+    if let Some(text) = &text {
+        reading.spawn(&mut commands, &mut cards, frame, card.finish, text, width);
+    }
+
     let mut face = |url: &str, side: crate::flip::Side| {
         let material = cards.preview(url, card.finish, assets.load(url.to_string()));
         let node = commands
@@ -233,7 +312,11 @@ pub(super) fn preview(
             .id();
         commands.entity(frame).add_child(node);
     };
-    face(&url, crate::flip::Side::Front);
+    if text.is_none()
+        && let Some(url) = &card.url
+    {
+        face(url, crate::flip::Side::Front);
+    }
     let back = card.back_url.clone().unwrap_or_else(|| {
         baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
     });
@@ -271,6 +354,7 @@ pub(crate) fn hover_of_card(card: &baylee_client_core::deckbuilder::PoolCard) ->
             })
             .flatten(),
         finish: FinishTreatment::Plain,
+        index: Some(card.index),
     }
 }
 
@@ -315,6 +399,7 @@ pub(crate) fn hover_of_entry(
             })
             .flatten(),
         finish: crate::buildui::treatment(finish),
+        index: Some(card.index),
     }
 }
 
@@ -431,6 +516,133 @@ mod tests {
             panic!("pixel placement")
         };
         assert!(left + width <= 640.0);
+    }
+
+    /// A pool row the registry compiles a face for: a one-mana green
+    /// creature with rules text.
+    fn birds() -> PoolCard {
+        PoolCard {
+            index: baylee_cards::decks::by_name("Birds of Paradise")
+                .expect("in the pool")
+                .get(),
+            name: "Birds of Paradise".to_string(),
+            english_name: "Birds of Paradise".to_string(),
+            colors: "G".to_string(),
+            ..row(false, false)
+        }
+    }
+
+    /// What the preview draws for `card` over a pool holding [`birds`]:
+    /// whether a rules text box stands in it, and each front side's
+    /// material, with whether it carries a picture.
+    fn drawn(card: HoverCard, reads_text: bool) -> (bool, Vec<(bool, crate::cardmat::CardParams)>) {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_asset::<Font>()
+            .init_asset::<CardUiMaterial>()
+            .init_resource::<UiCardMaterials>()
+            .init_resource::<LobbyState>()
+            .insert_resource(crate::settings::ClientSettings {
+                prefer_text_view: reads_text,
+                ..default()
+            })
+            .insert_resource(UiFonts {
+                text: Handle::default(),
+                medium: Handle::default(),
+                bold: Handle::default(),
+                italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
+                icons: Handle::default(),
+                mana: Handle::default(),
+            })
+            .insert_resource(Hovered {
+                card: Some(card),
+                at: Vec2::new(100.0, 300.0),
+                ..default()
+            })
+            .add_systems(Update, preview);
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .builder_mut()
+            .set_pool(vec![birds()], true);
+        app.world_mut().spawn(Window::default());
+        app.update();
+        let world = app.world_mut();
+        let text_box = world
+            .query_filtered::<(), With<crate::face::FaceTextBox>>()
+            .iter(world)
+            .count()
+            > 0;
+        let fronts: Vec<_> = world
+            .query::<(&crate::flip::Side, &MaterialNode<CardUiMaterial>)>()
+            .iter(world)
+            .filter(|(side, _)| **side == crate::flip::Side::Front)
+            .map(|(_, node)| node.0.clone())
+            .collect();
+        let materials = world.resource::<Assets<CardUiMaterial>>();
+        let fronts = fronts
+            .iter()
+            .map(|handle| {
+                let material = materials.get(handle).expect("a material");
+                (material.art.is_some(), material.params)
+            })
+            .collect();
+        (text_box, fronts)
+    }
+
+    /// A card with no printing to fetch previews as its text face, where it
+    /// used to preview as nothing at all (#259).
+    #[test]
+    fn a_card_with_no_picture_previews_as_its_text_face() {
+        let card = HoverCard {
+            url: None,
+            ..hover_of_card(&birds())
+        };
+        let (text, fronts) = drawn(card, false);
+        assert!(text, "the rules text stands in the face");
+        let [(art, params)] = fronts[..] else {
+            panic!("one front, not {}", fronts.len())
+        };
+        assert!(!art, "no picture under the face");
+        assert_ne!(params.face, 0, "drawn as a text face, not a flat tint");
+    }
+
+    /// The table's preference reaches the builder, both ways: a player who
+    /// reads text sees the text face where there is a picture, and nothing
+    /// under it; one who does not sees the picture and no text.
+    #[test]
+    fn a_player_who_reads_text_previews_the_text_face_over_the_picture() {
+        let (text, fronts) = drawn(hover_of_card(&birds()), true);
+        assert!(text, "the text face is drawn");
+        assert!(
+            fronts.iter().all(|(art, _)| !art),
+            "and the picture is not drawn under it"
+        );
+        let (text, fronts) = drawn(hover_of_card(&birds()), false);
+        assert!(!text, "the picture alone");
+        assert!(matches!(fronts[..], [(true, _)]), "{} fronts", fronts.len());
+    }
+
+    /// A foil printing read as text is still a foil.
+    #[test]
+    fn a_text_face_keeps_the_printing_s_finish() {
+        let card = HoverCard {
+            finish: FinishTreatment::Foil,
+            ..hover_of_card(&birds())
+        };
+        let (_, fronts) = drawn(card, true);
+        let [(_, params)] = fronts[..] else {
+            panic!("one front, not {}", fronts.len())
+        };
+        assert_ne!(params.face, 0);
+        assert_eq!(
+            params.finish,
+            crate::cardmat::finish_code(FinishTreatment::Foil)
+        );
     }
 
     /// A pool row with one printing id and whichever sides flags a test wants.

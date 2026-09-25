@@ -146,6 +146,7 @@ mod tests {
                 url: Some("test/normal/art".into()),
                 back_url: None,
                 finish: default(),
+                index: None,
             },
         );
         world.flush();

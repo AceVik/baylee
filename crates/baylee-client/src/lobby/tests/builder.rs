@@ -1013,3 +1013,43 @@ fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
             .any(|p| matches!(p, Press::CompleteSearch(_)))
     );
 }
+
+/// The builder runs the text face's scrollbar (#259). The duel's copy of the
+/// system runs only while a duel is open, and a preview whose rules text
+/// still runs over at the floor would otherwise show no bar at all.
+#[test]
+fn a_text_face_in_the_builder_shows_its_scrollbar() {
+    let mut app = headless();
+    let text_box = app
+        .world_mut()
+        .spawn((
+            crate::face::FaceTextBox,
+            ScrollPosition(Vec2::ZERO),
+            ComputedNode {
+                size: Vec2::new(200.0, 100.0),
+                content_size: Vec2::new(200.0, 200.0),
+                ..default()
+            },
+        ))
+        .id();
+    let thumb = app
+        .world_mut()
+        .spawn((crate::face::FaceScrollThumb, Node::default()))
+        .id();
+    let track = app
+        .world_mut()
+        .spawn((
+            crate::face::FaceScrollbar { text_box },
+            Node {
+                display: Display::None,
+                ..default()
+            },
+        ))
+        .add_child(thumb)
+        .id();
+    app.update();
+    assert_eq!(
+        app.world().get::<Node>(track).unwrap().display,
+        Display::Flex
+    );
+}
