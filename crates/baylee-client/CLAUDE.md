@@ -52,6 +52,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 
 ## The table
 
+- A row that can't fan until a third of each card shows scrolls sideways (`Duel::rows`, `rowbar.rs`). Cards outside its window are `Visibility::Hidden`, never despawned.
 - Unlit: no lights, `Tonemapping::None`.
 - Never position directly: `table::sync_scene` sets a `Motion` target, `table::glide` moves it (`1-e^(-rate·dt)`); `ShownRig` likewise for camera (yaw the short way); `reduce_motion` disables both.
 - Generated, no sprites or textures. `tabletop.rs` CPU references: fixed-seed value-noise, no rand, no clock; the felt shader takes one OS-random seed per duel (`feltmat::TablePattern`, `host::fresh_seed`), stable across updates, resizes, reconnects (docs/legal.md §2).
@@ -108,7 +109,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - A saga (lore counters, CR 714) takes the plate; `Corner::of`/`of_object`.
 - Identity crests (`cardcrest.rs`: token, copy, commander) are squares of paper at the strip's end, after the marks. They pack (a lone commander takes the first). The paper is the reading (verdigris, violet, oxblood), and the glyph is ink on it. Linear colours; a sheen must beat ~20 noise levels.
 - A summoning-sick creature (`board::asleep`, creatures only, CR 302.6) wears the moon on its strip, and its plate inks moon-grey.
-- Offers (`glow::OFFERS`: activatable, reachable, armed, will-tap) are light on the felt (`floormat.rs`, `floor.wgsl`): a child quad under the card at `FLOOR_RUNG`, never drawn on the card material. The count badge (`badgemat.rs`) hangs off the top-left corner, outside the card. A merged group stands on a pile of jogged slabs (`PILE_JOG`, `SLAB_EDGE_COLOR`).
+- Offers (`glow::OFFERS`: activatable, reachable, armed, will-tap) are light on the felt (`floormat.rs`, `floor.wgsl`): a child quad under the card at `FLOOR_RUNG`, never drawn on the card material. The count badge (`badgemat.rs`) stands at the top-right corner, outside the card: `Above` in a duel (upright on a tapped card, `keep_badges_upright`) and `Beside` at a ring, where a merged card holds the gap after it (`HELD_PITCH`). A merged group stands on a pile of slabs jogged by `PILE_JOG` 0.08 (`SLAB_EDGE_COLOR`).
 - A protected permanent wears a shell (`shellmat.rs`, `shell.wgsl`). Its alpha is exactly zero over its own print (a view-ray mask; every fragment `return` carries `clear`), and `table::fit_the_shells` stands it up or lays it on the felt from the live transforms, so it never lands on another card's print. Indestructible is a darksteel rim (the owner, 25.09).
 - Hexproof stands under a blue dome and shroud under a violet one (shroud swallows hexproof; `shellmat::Dome` rows, and #302 adds more). One guard serves every shell (`shell_stands` over a profile): a dome stands at the tallest of `DOME_STEPS` that lands on no print, else it lies as a ring in its colour. If steel and dome both lie, they share the band inside out (0.10–0.13 and 0.13–0.16). Use Blend, never Add: Bevy's Add is premultiplied, so alpha 0 still adds colour.
 - New card marks join `ObjectSummaryKey`.
