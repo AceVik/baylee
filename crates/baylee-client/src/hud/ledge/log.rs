@@ -71,7 +71,7 @@ const LOG_LINE_PT: f32 = LABEL_PT;
 const LOG_TURN_PT: f32 = CAP_PT;
 
 /// Between two lines.
-const LOG_ROW_GAP: f32 = 3.0;
+pub(in crate::hud) const LOG_ROW_GAP: f32 = 3.0;
 
 /// Above a turn's heading, so a turn reads as a paragraph.
 const LOG_TURN_GAP: f32 = 8.0;
@@ -87,10 +87,10 @@ const SWATCH_W: f32 = 3.0;
 const SWATCH_GAP: f32 = 6.0;
 
 /// The scrollbar's track.
-const TRACK_W: f32 = 6.0;
+pub(in crate::hud) const TRACK_W: f32 = 6.0;
 
 /// The shortest the thumb gets, so a long log's thumb can still be caught.
-const THUMB_MIN: f32 = 20.0;
+pub(in crate::hud) const THUMB_MIN: f32 = 20.0;
 
 /// How near its end the list has to be to count as following.
 ///
@@ -294,7 +294,7 @@ pub fn sync_log(
         let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
         let wording = wording(&duel, lang, &lookup);
         for line in duel.log.lines_since(revision.drawn, &wording) {
-            let row = spawn_line(&mut commands, &fonts, lang, &line);
+            let row = spawn_line(&mut commands, &fonts, lang, &line, &PANEL_INKS);
             commands.entity(list).add_child(row);
         }
         if !follow.stuck {
@@ -368,17 +368,29 @@ fn draw_all(
         commands.entity(list).add_child(empty);
     }
     for line in lines {
-        let row = spawn_line(commands, fonts, lang, line);
+        let row = spawn_line(commands, fonts, lang, line, &PANEL_INKS);
         commands.entity(list).add_child(row);
     }
-    let track = scrollbar(commands, list);
+    let track = scrollbar(
+        commands,
+        list,
+        (
+            palette::DOCK_EDGE.with_alpha(0.35),
+            palette::CANDLE.with_alpha(0.8),
+        ),
+        at_rest,
+    );
     let pill = new_lines_pill(commands, fonts, lang);
     commands.entity(body).add_children(&[list, track, pill]);
     [head, body]
 }
 
 /// Who the lines are written for.
-fn wording<'a>(duel: &'a Duel, lang: Lang, texts: &'a dyn CardTextLookup) -> Wording<'a> {
+pub(in crate::hud) fn wording<'a>(
+    duel: &'a Duel,
+    lang: Lang,
+    texts: &'a dyn CardTextLookup,
+) -> Wording<'a> {
     Wording {
         lang,
         seat: duel.view.as_ref().map_or(PlayerId::new(0), |v| v.seat),
@@ -444,30 +456,31 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
         .id()
 }
 
-/// The list's scrollbar: Bevy's own, so the thumb can be dragged.
-fn scrollbar(commands: &mut Commands, list: Entity) -> Entity {
-    let thumb = commands
-        .spawn((
-            ScrollbarThumb {
-                border_radius: BorderRadius::all(px(TRACK_W / 2.0)),
-                border: UiRect::ZERO,
-            },
-            BackgroundColor(palette::CANDLE.with_alpha(0.8)),
-        ))
-        .id();
-    commands
-        .spawn((
-            Node {
-                width: px(TRACK_W),
-                flex_shrink: 0.0,
-                border_radius: BorderRadius::all(px(TRACK_W / 2.0)),
-                ..default()
-            },
-            BackgroundColor(palette::DOCK_EDGE.with_alpha(0.35)),
-            Scrollbar::new(list, ControlOrientation::Vertical, THUMB_MIN),
-        ))
-        .add_child(thumb)
-        .id()
+/// The list's scrollbar: Bevy's own, so the thumb can be dragged. The
+/// track and the thumb are `track` and `thumb`, put on by `paint`.
+pub(in crate::hud) fn scrollbar(
+    commands: &mut Commands,
+    list: Entity,
+    (track, thumb): (Color, Color),
+    paint: fn(&mut EntityCommands, Paint),
+) -> Entity {
+    let mut grip = commands.spawn(ScrollbarThumb {
+        border_radius: BorderRadius::all(px(TRACK_W / 2.0)),
+        border: UiRect::ZERO,
+    });
+    paint(&mut grip, Paint::Fill(thumb));
+    let grip = grip.id();
+    let mut bar = commands.spawn((
+        Node {
+            width: px(TRACK_W),
+            flex_shrink: 0.0,
+            border_radius: BorderRadius::all(px(TRACK_W / 2.0)),
+            ..default()
+        },
+        Scrollbar::new(list, ControlOrientation::Vertical, THUMB_MIN),
+    ));
+    paint(&mut bar, Paint::Fill(track));
+    bar.add_child(grip).id()
 }
 
 /// The pill at the list's bottom, hidden until lines arrive under a list the
@@ -518,6 +531,61 @@ fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entit
         .id()
 }
 
+/// What a line is drawn in, and how its colours go on.
+///
+/// The panel's lines and the end sheet's are one builder in two inks. The
+/// panel is dark and stands at once; the sheet is parchment and settles as
+/// the veil rises, so its colours go on clear and are remembered
+/// (`finish::Settling`). Everything else about a line, its pieces, its
+/// weights and its count, is the same line in both.
+pub(in crate::hud) struct LineInks {
+    /// A line.
+    pub line_pt: f32,
+    /// A turn's heading.
+    pub turn_pt: f32,
+    /// The sentence and the names in it.
+    pub ink: Color,
+    /// A turn's heading, and "(×N)".
+    pub soft: Color,
+    /// The rule over a turn's heading.
+    pub rule: Color,
+    /// Whether a line keeps the seat swatch's room at its left.
+    pub swatch: bool,
+    /// Puts one of those colours on a node.
+    pub paint: fn(&mut EntityCommands, Paint),
+}
+
+/// One colour a line puts on one node.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::hud) enum Paint {
+    /// A text's or a span's.
+    Ink(Color),
+    /// A rule's.
+    Rule(Color),
+    /// A surface's: the scrollbar's track and thumb.
+    Fill(Color),
+}
+
+/// The panel's inks.
+pub(in crate::hud) const PANEL_INKS: LineInks = LineInks {
+    line_pt: LOG_LINE_PT,
+    turn_pt: LOG_TURN_PT,
+    ink: palette::DIALOG_INK,
+    soft: palette::DIALOG_SOFT,
+    rule: palette::DIALOG_LINE,
+    swatch: true,
+    paint: at_rest,
+};
+
+/// A colour as it stands from the first frame.
+fn at_rest(node: &mut EntityCommands, paint: Paint) {
+    match paint {
+        Paint::Ink(colour) => node.insert(TextColor(colour)),
+        Paint::Rule(colour) => node.insert(BorderColor::all(colour)),
+        Paint::Fill(colour) => node.insert(BackgroundColor(colour)),
+    };
+}
+
 /// One line of the log, as a row.
 ///
 /// A turn's heading is a quieter line under a rule. Any other line is the
@@ -528,81 +596,62 @@ pub(in crate::hud) fn spawn_line(
     fonts: &UiFonts,
     lang: Lang,
     line: &LogLine,
+    inks: &LineInks,
 ) -> Entity {
     if line.header {
-        return commands
-            .spawn((
-                Node {
-                    margin: UiRect::top(px(LOG_TURN_GAP)),
-                    padding: UiRect::top(px(3)),
-                    border: UiRect::top(px(1)),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                BorderColor::all(palette::DIALOG_LINE),
-                Pickable::IGNORE,
-                children![(
-                    Text::new(line.text.clone()),
-                    tf(fonts, LOG_TURN_PT),
-                    TextColor(palette::DIALOG_SOFT),
-                    Pickable::IGNORE,
-                )],
-            ))
-            .id();
-    }
-    let swatch = commands
-        .spawn((
+        let mut heading = commands.spawn((
+            Text::new(line.text.clone()),
+            tf(fonts, inks.turn_pt),
+            Pickable::IGNORE,
+        ));
+        (inks.paint)(&mut heading, Paint::Ink(inks.soft));
+        let heading = heading.id();
+        let mut rule = commands.spawn((
             Node {
-                width: px(SWATCH_W),
+                margin: UiRect::top(px(LOG_TURN_GAP)),
+                padding: UiRect::top(px(3)),
+                border: UiRect::top(px(1)),
                 flex_shrink: 0.0,
-                border_radius: BorderRadius::all(px(SWATCH_W / 2.0)),
-                ..default()
-            },
-            // The seat swatch's one spot: `LogLine::subject`, once it lands,
-            // is `palette::ACTIVE` for the reading seat and `team_color` for
-            // another, and a line about the table keeps it empty.
-            BackgroundColor(Color::NONE),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let sentence = commands
-        .spawn((
-            Text::default(),
-            tf(fonts, LOG_LINE_PT),
-            TextColor(palette::DIALOG_INK),
-            Node {
-                flex_grow: 1.0,
-                min_width: px(0),
                 ..default()
             },
             Pickable::IGNORE,
-        ))
-        .id();
+        ));
+        (inks.paint)(&mut rule, Paint::Rule(inks.rule));
+        return rule.add_child(heading).id();
+    }
+    let mut sentence = commands.spawn((
+        Text::default(),
+        tf(fonts, inks.line_pt),
+        Node {
+            flex_grow: 1.0,
+            min_width: px(0),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    (inks.paint)(&mut sentence, Paint::Ink(inks.ink));
+    let sentence = sentence.id();
     for (text, name) in pieces(line) {
         let font = if name {
             TextFont {
                 font: bevy::text::FontSource::Handle(fonts.medium.clone()),
-                ..tf(fonts, LOG_LINE_PT)
+                ..tf(fonts, inks.line_pt)
             }
         } else {
-            tf(fonts, LOG_LINE_PT)
+            tf(fonts, inks.line_pt)
         };
-        let span = commands
-            .spawn((TextSpan::new(text), font, TextColor(palette::DIALOG_INK)))
-            .id();
+        let mut span = commands.spawn((TextSpan::new(text), font));
+        (inks.paint)(&mut span, Paint::Ink(inks.ink));
+        let span = span.id();
         commands.entity(sentence).add_child(span);
     }
     if let Some(times) = times(line, lang) {
-        let span = commands
-            .spawn((
-                TextSpan::new(times),
-                tf(fonts, LOG_LINE_PT),
-                TextColor(palette::DIALOG_SOFT),
-            ))
-            .id();
+        let mut span = commands.spawn((TextSpan::new(times), tf(fonts, inks.line_pt)));
+        (inks.paint)(&mut span, Paint::Ink(inks.soft));
+        let span = span.id();
         commands.entity(sentence).add_child(span);
     }
-    commands
+    let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
@@ -612,8 +661,28 @@ pub(in crate::hud) fn spawn_line(
             },
             Pickable::IGNORE,
         ))
-        .add_children(&[swatch, sentence])
-        .id()
+        .id();
+    if inks.swatch {
+        let swatch = commands
+            .spawn((
+                Node {
+                    width: px(SWATCH_W),
+                    flex_shrink: 0.0,
+                    border_radius: BorderRadius::all(px(SWATCH_W / 2.0)),
+                    ..default()
+                },
+                // The seat swatch's one spot: `LogLine::subject`, once it
+                // lands, is `palette::ACTIVE` for the reading seat and
+                // `team_color` for another, and a line about the table keeps
+                // it empty.
+                BackgroundColor(Color::NONE),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_child(swatch);
+    }
+    commands.entity(row).add_child(sentence);
+    row
 }
 
 /// A line's sentence cut at its names: each piece, and whether it is a name.

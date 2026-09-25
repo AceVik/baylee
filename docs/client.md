@@ -6601,7 +6601,7 @@ goes on, so it must not bury the zones button or its own. It is the shelf's
 z-rung (`Z_LOG`), under a zone dialog answering a question and under the
 menu. `Esc` shuts it after the menu and before the browser; a question never
 does, and neither does a press outside it. The game's end shuts it, because
-the end screen shows the whole log.
+the end screen shows the whole log (below).
 
 It reads every line when it opens, when the language changes, when card text
 arrives (the catalog's generation) and when the book is rewritten. Otherwise
@@ -6619,6 +6619,22 @@ swatch is drawn empty until the book says which seat a line is about
 (`LogLine::subject`, from the log's owner); it already takes its width, so
 the lines do not move when it is filled. The panel's words are `GameLog…`
 phrases, because every `Log…` phrase is a sentence of the book's.
+
+**The end screen** (`hud::finish::write_the_log`) carries the whole log
+between the loss lines and the way out, under a "Game log" caption, in a box
+at most 320 high that scrolls. It uses the panel's own rows
+(`ledge::log::spawn_line`) in the sheet's inks (`LineInks`): parchment ink,
+headings and "(×N)" in the slip's softer ink, and no seat swatch. Its colours
+go on clear and rise with the veil (`finish::Settling`), like the rest of the
+sheet. It starts at the top and does not follow its end, because it is read
+from the start of the game and nothing arrives any more. It is built once:
+the host sends every line before the game's last question (`Session::pump`),
+so the book is whole when the sheet is drawn. A game that logged nothing gets
+no box. The sheet is at most the window less `SHEET_AIR` high, and a short
+window takes its room out of the box and out of nothing else. `hud::scrolls`
+is the one input system that runs in `DuelPhase::Finished` as well, so the
+wheel reaches the box. `settle_the_sheet` writes a colour only when it
+changes, because a long game puts thousands of spans on the sheet.
 
 Known limits, each a later view version:
 

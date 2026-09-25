@@ -48,11 +48,23 @@
 //! sheet is up, and for a while that made it the one screen a keyboard could
 //! reach and not leave. It reads the row rather than a list of its own, so
 //! the two cases above stay one rule.
+//!
+//! # The whole game, under its end
+//!
+//! Under the losses the sheet carries the game's log, every line of it
+//! (#262), in the panel's own rows ([`super::ledge::log::spawn_line`]) set in
+//! the sheet's inks. It is the one thing here that scrolls, so it is the one
+//! thing a short window takes its room out of. The wheel reaches it because
+//! `hud::scrolls` is the one input system that runs past `Playing`.
 
+use super::ledge::log::{LOG_ROW_GAP, LineInks, Paint, scrollbar, spawn_line, wording};
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::gamelog::LogLine;
 use baylee_client_core::interaction::{ending_reason, table_losses, verdict};
+use baylee_core::ids::CardIndex;
 use bevy::text::LineHeight;
+use bevy::ui::ScrollPosition;
 
 /// How wide the sheet is drawn, at a window with room for it.
 ///
@@ -78,6 +90,10 @@ const SHEET_W: f32 = 720.0;
 /// The air the sheet leaves at each side of a window too narrow for
 /// [`SHEET_W`]. Below about 816 logical pixels the sheet is the window less
 /// this, and the verdict wraps to at most two lines rather than scaling down.
+///
+/// And the air above and below it in a window too short for all it says:
+/// the sheet is then the window less this, and the room comes out of the
+/// game log, which scrolls, and out of nothing else.
 const SHEET_AIR: f32 = 96.0;
 
 /// The verdict, in logical pixels.
@@ -119,6 +135,39 @@ const EXITS_GAP: f32 = 28.0;
 /// sheet that had not finished settling.
 const EXITS_H: f32 = 32.0;
 
+/// The game log's lines: the size the losses are read at, because on this
+/// sheet the log is read, not glanced at.
+const LOG_PT: f32 = LOSS_PT;
+
+/// A turn's heading in it, quieter than a line: the size the shelf's
+/// labels are set at.
+const LOG_TURN_PT: f32 = 13.0;
+
+/// How tall the log's box gets, at most. A few turns, and the rest a scroll
+/// away: the verdict stays the thing this sheet is about.
+const LOG_BOX_H: f32 = 320.0;
+
+/// Between the log's caption and its box.
+const LOG_CAPTION_GAP: f32 = 6.0;
+
+/// The air inside the box.
+const LOG_PAD: f32 = 8.0;
+
+/// The log's lines in the sheet's inks, settling with it.
+///
+/// No seat swatch: the sheet is one reader's account of a game that is over,
+/// and a column of seat colours down its left is the panel's, where the table
+/// is still being played beside it.
+const SHEET_INKS: LineInks = LineInks {
+    line_pt: LOG_PT,
+    turn_pt: LOG_TURN_PT,
+    ink: palette::PARCHMENT_INK,
+    soft: palette::SLIP_SOFT,
+    rule: palette::PARCHMENT_EDGE,
+    swatch: false,
+    paint: settle,
+};
+
 /// How far above its resting place the sheet starts.
 ///
 /// It settles; it does not slide. Twelve pixels is a sheet coming to rest on
@@ -141,6 +190,10 @@ pub(crate) struct FinishSheet;
 /// out are.
 #[derive(Component)]
 pub(crate) struct FinishExits;
+
+/// The game log's scrolling list on the sheet.
+#[derive(Component)]
+pub(crate) struct FinishLog;
 
 /// A node of this sheet, and the colour it rests at.
 ///
@@ -186,6 +239,22 @@ impl Settling {
         }
     }
 
+    /// A rule, which is a border alone.
+    const fn edge(border: Color) -> Self {
+        Self {
+            border: Some(border),
+            ..Self::NONE
+        }
+    }
+
+    /// A surface with no edge: the log's scrollbar.
+    const fn fill(fill: Color) -> Self {
+        Self {
+            fill: Some(fill),
+            ..Self::NONE
+        }
+    }
+
     /// The grain laid over a sheet, which is an image and is tinted white.
     const fn grain() -> Self {
         Self {
@@ -193,6 +262,24 @@ impl Settling {
             ..Self::NONE
         }
     }
+}
+
+/// A colour on this sheet: clear at first, and remembered for the veil to
+/// raise ([`settle_the_sheet`]). What the log's rows are painted with here.
+fn settle(node: &mut EntityCommands, paint: Paint) {
+    match paint {
+        Paint::Ink(colour) => {
+            node.insert((TextColor(colour.with_alpha(0.0)), Settling::ink(colour)))
+        }
+        Paint::Rule(colour) => node.insert((
+            BorderColor::all(colour.with_alpha(0.0)),
+            Settling::edge(colour),
+        )),
+        Paint::Fill(colour) => node.insert((
+            BackgroundColor(colour.with_alpha(0.0)),
+            Settling::fill(colour),
+        )),
+    };
 }
 
 /// Builds the screen, if there is a result to build it from.
@@ -207,6 +294,7 @@ pub(crate) fn spawn_finish(
     settings: Res<crate::settings::ClientSettings>,
     fonts: Option<Res<UiFonts>>,
     sheets: Option<Res<UiSheets>>,
+    texts: Option<Res<crate::cardtext::CardTexts>>,
     windows: Query<&Window>,
 ) {
     let (Some(result), Some(fonts)) = (duel.ending(), fonts) else {
@@ -224,10 +312,9 @@ pub(crate) fn spawn_finish(
     let seat = statics.your_seat;
     let team = duel.my_team();
     let lang = Lang::of(&settings.lang);
-    let width = windows
-        .iter()
-        .next()
-        .map_or(1280.0, |w| w.resolution.width());
+    let (width, height) = windows.iter().next().map_or((1280.0, 720.0), |w| {
+        (w.resolution.width(), w.resolution.height())
+    });
 
     let root = commands
         .spawn((
@@ -266,6 +353,7 @@ pub(crate) fn spawn_finish(
             FinishSheet,
             Node {
                 width: px(SHEET_W.min(width - SHEET_AIR)),
+                max_height: px(height - SHEET_AIR),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 padding: UiRect {
@@ -318,12 +406,20 @@ pub(crate) fn spawn_finish(
         },
     );
 
+    // The whole game, under how it ended (#262).
+    let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
+    let lines = duel.log.lines(&wording(&duel, lang, &lookup));
+    write_the_log(&mut commands, &fonts, sheet, lang, &lines);
+
     let exits = commands
         .spawn((
             FinishExits,
             Node {
                 width: percent(100),
                 height: px(EXITS_H),
+                // Its own height in a window of any height: a short one
+                // takes its room out of the log above.
+                flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 column_gap: px(BUTTON_GAP),
                 justify_content: JustifyContent::Center,
@@ -424,6 +520,89 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
     }
 }
 
+/// The whole log, between the losses and the way out (#262).
+///
+/// Nothing at all for a game that logged nothing: an empty box on a sheet
+/// that is only read would be a question with no answer. Built once, with
+/// the rest of the sheet: the host sends every line before the game's last
+/// question (`Session::pump`), so the book is whole when this is drawn.
+///
+/// It starts at the top and does not follow its end, unlike the panel's
+/// list: this is read from the start of the game, and nothing is arriving.
+fn write_the_log(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    sheet: Entity,
+    lang: Lang,
+    lines: &[LogLine],
+) {
+    if lines.is_empty() {
+        return;
+    }
+    let mut caption = commands.spawn((
+        Text::new(Phrase::GameLogTitle.text(lang)),
+        tf(fonts, LOG_TURN_PT),
+        Node {
+            align_self: AlignSelf::FlexStart,
+            margin: UiRect::top(px(EXITS_GAP)),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    settle(&mut caption, Paint::Ink(palette::SLIP_SOFT));
+    let caption = caption.id();
+    // Pickable, unlike everything else on the sheet: the wheel is aimed at
+    // what is under the pointer, and the rows under it pass it up to here.
+    let list = commands
+        .spawn((
+            FinishLog,
+            Scrolls,
+            ScrollPosition::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_width: px(0),
+                row_gap: px(LOG_ROW_GAP),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+        ))
+        .id();
+    for line in lines {
+        let row = spawn_line(commands, fonts, lang, line, &SHEET_INKS);
+        commands.entity(list).add_child(row);
+    }
+    let bar = scrollbar(
+        commands,
+        list,
+        (
+            palette::PARCHMENT_EDGE.with_alpha(0.45),
+            palette::SLIP_SOFT.with_alpha(0.7),
+        ),
+        settle,
+    );
+    let mut frame = commands.spawn((
+        Node {
+            width: percent(100),
+            max_height: px(LOG_BOX_H),
+            // Overrides the least a flex item may be, which would otherwise
+            // be its content: the box is what gives way in a short window.
+            min_height: px(0),
+            flex_direction: FlexDirection::Row,
+            column_gap: px(4),
+            margin: UiRect::top(px(LOG_CAPTION_GAP)),
+            padding: UiRect::all(px(LOG_PAD)),
+            border: UiRect::all(px(1)),
+            border_radius: btn_radius(),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    settle(&mut frame, Paint::Rule(palette::PARCHMENT_EDGE));
+    let frame = frame.add_children(&[list, bar]).id();
+    commands.entity(sheet).add_children(&[caption, frame]);
+}
+
 /// One line of [`table_losses`] on the sheet.
 #[derive(Component)]
 pub(crate) struct FinishLoss;
@@ -449,6 +628,11 @@ type Painted = (
 /// sheet's as well, and nothing had to be told a transition is happening.
 /// The same shape `sky::table_light` uses for the felt.
 ///
+/// A colour is written only when it differs, which is every frame of the
+/// fade and none after it: the log puts thousands of spans on this sheet in
+/// a long game, and a write to each on every frame would mark every one of
+/// them changed for as long as the sheet stands.
+///
 /// The exits are deliberately **not** settled. They belong to another plugin
 /// and carry `ambience::Feel`, which owns their `BackgroundColor` from their
 /// first frame; two systems writing that component would be two answers to
@@ -460,18 +644,21 @@ pub(crate) fn settle_the_sheet(
     mut sheets: Query<&mut UiTransform, With<FinishSheet>>,
 ) {
     let lit = veil.lit.clamp(0.0, 1.0);
+    let at = |colour: Color| colour.with_alpha(colour.alpha() * lit);
     for (settling, fill, border, ink, image) in &mut nodes {
         if let (Some(colour), Some(mut node)) = (settling.fill, fill) {
-            node.0 = colour.with_alpha(colour.alpha() * lit);
+            node.set_if_neq(BackgroundColor(at(colour)));
         }
         if let (Some(colour), Some(mut node)) = (settling.border, border) {
-            *node = BorderColor::all(colour.with_alpha(colour.alpha() * lit));
+            node.set_if_neq(BorderColor::all(at(colour)));
         }
         if let (Some(colour), Some(mut node)) = (settling.ink, ink) {
-            node.0 = colour.with_alpha(colour.alpha() * lit);
+            node.set_if_neq(TextColor(at(colour)));
         }
-        if let (Some(colour), Some(mut node)) = (settling.grain, image) {
-            node.color = colour.with_alpha(colour.alpha() * lit);
+        if let (Some(colour), Some(mut node)) = (settling.grain, image)
+            && node.color != at(colour)
+        {
+            node.color = at(colour);
         }
     }
     for mut transform in &mut sheets {
@@ -716,6 +903,228 @@ mod tests {
         app.update();
         assert!((ink(&mut app) - palette::PARCHMENT_INK.alpha()).abs() < 1e-6);
         assert_eq!(lift(&mut app), Val2::px(0.0, 0.0), "it comes to rest");
+    }
+
+    /// A game that has just ended with `lines` lines in its log: a turn's
+    /// heading, then mulligans, turn after turn.
+    fn logged(lines: u32) -> crate::Duel {
+        use baylee_view::{LogEntry, LogEvent, LogTail};
+        let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let mut duel = crate::Duel {
+            view: Some(view.clone()),
+            ..ended(
+                GameResult {
+                    winner: Some(Victor::Player(PlayerId::new(0))),
+                    reason: EndReason::LastPlayerStanding,
+                },
+                None,
+            )
+        };
+        let tail = LogTail {
+            from: 0,
+            entries: (0..lines)
+                .map(|i| LogEntry {
+                    turn: i / 3,
+                    repeat: 1,
+                    event: if i % 3 == 0 {
+                        LogEvent::TurnStarted {
+                            active: PlayerId::new(0),
+                        }
+                    } else {
+                        LogEvent::Mulliganed {
+                            player: PlayerId::new(1),
+                        }
+                    },
+                })
+                .collect(),
+        };
+        duel.log.append(&tail, &view);
+        duel
+    }
+
+    /// Everything under `root`, itself included.
+    fn under(app: &App, root: Entity) -> Vec<Entity> {
+        let mut out = vec![root];
+        let mut at = 0;
+        while let Some(&entity) = out.get(at) {
+            if let Some(kids) = app.world().get::<Children>(entity) {
+                out.extend(kids.iter());
+            }
+            at += 1;
+        }
+        out
+    }
+
+    fn the_log(app: &mut App) -> Option<Entity> {
+        let mut found = app.world_mut().query_filtered::<Entity, With<FinishLog>>();
+        found.iter(app.world()).next()
+    }
+
+    /// The whole log is on the sheet, a row for each line, between why the
+    /// seats went out and the way out of the screen.
+    #[test]
+    fn the_whole_log_stands_between_the_losses_and_the_way_out() {
+        let duel = logged(7);
+        let expected = duel.log.len();
+        let mut app = app_at(duel);
+        let list = the_log(&mut app).expect("the log is on the sheet");
+        let rows = app.world().get::<Children>(list).map_or(0, Children::len);
+        assert_eq!(rows, expected, "a row for each of the {expected} lines");
+
+        let mut sheets = app
+            .world_mut()
+            .query_filtered::<&Children, With<FinishSheet>>();
+        let order: Vec<Entity> = sheets
+            .single(app.world())
+            .expect("one sheet")
+            .iter()
+            .collect();
+        let frame = app.world().get::<ChildOf>(list).expect("a box").parent();
+        let exits = order
+            .iter()
+            .position(|e| app.world().get::<FinishExits>(*e).is_some())
+            .expect("the exits");
+        let boxed = order.iter().position(|e| *e == frame).expect("the box");
+        assert_eq!(boxed + 1, exits, "the log stands right above the way out");
+        let caption = app
+            .world()
+            .get::<Text>(order[boxed - 1])
+            .map(|t| t.0.clone());
+        assert_eq!(
+            caption.as_deref(),
+            Some(Phrase::GameLogTitle.text(Lang::En)),
+            "and says what it is"
+        );
+    }
+
+    /// A game that logged nothing gets no box and no caption over one.
+    #[test]
+    fn a_game_that_logged_nothing_puts_no_log_on_the_sheet() {
+        let mut app = app_at(logged(0));
+        assert!(the_log(&mut app).is_none(), "an empty log was boxed");
+        assert!(
+            !lines(&mut app).contains(&Phrase::GameLogTitle.text(Lang::En).to_string()),
+            "a caption over nothing"
+        );
+    }
+
+    /// Every colour in the log goes on clear and rises with the veil, the
+    /// rest of the sheet's way: a log painted at rest would stand fully
+    /// inked over a sheet that has not arrived yet.
+    #[test]
+    fn the_log_settles_with_the_sheet() {
+        let mut app = app_at(logged(4));
+        let list = the_log(&mut app).expect("the log is on the sheet");
+        let frame = app.world().get::<ChildOf>(list).expect("a box").parent();
+        let loudest = |app: &App| {
+            under(app, frame)
+                .into_iter()
+                .flat_map(|e| {
+                    let world = app.world();
+                    [
+                        world.get::<TextColor>(e).map(|c| c.0.alpha()),
+                        world.get::<BackgroundColor>(e).map(|c| c.0.alpha()),
+                        world.get::<BorderColor>(e).map(|c| c.top.alpha()),
+                    ]
+                })
+                .flatten()
+                .fold(0.0_f32, f32::max)
+        };
+        assert!(
+            loudest(&app) < 1e-6,
+            "the log stood inked before the veil rose: {}",
+            loudest(&app)
+        );
+
+        app.world_mut().resource_mut::<Veil>().lit = 1.0;
+        app.update();
+        let inks: Vec<f32> = under(&app, frame)
+            .into_iter()
+            .filter_map(|e| app.world().get::<TextColor>(e).map(|c| c.0.alpha()))
+            .collect();
+        assert!(!inks.is_empty(), "the log has no text to settle");
+        assert!(
+            inks.iter().all(|alpha| *alpha > 0.5),
+            "a line stayed clear after the veil rose: {inks:?}"
+        );
+        let edge = app.world().get::<BorderColor>(frame).expect("a box").top;
+        assert!(edge.alpha() > 0.5, "the box's edge stayed clear");
+    }
+
+    /// The wheel reaches the log once the game is over, and only a game in
+    /// hand or just ended: the schedule is the client's own
+    /// (`add_input_systems`), whose every other system stops at `Playing`.
+    #[test]
+    fn a_wheel_scrolls_the_log_after_the_game() {
+        use bevy::input::mouse::MouseScrollUnit;
+        use bevy::picking::events::{Pointer, Scroll};
+        use bevy::picking::pointer::{Location, PointerId};
+
+        use bevy::ecs::system::RunSystemOnce;
+
+        let moved_in = |phase: crate::DuelPhase| {
+            let mut app = App::new();
+            app.add_plugins(bevy::state::app::StatesPlugin)
+                .init_state::<crate::DuelPhase>()
+                .add_message::<Pointer<Scroll>>()
+                .insert_resource(logged(7))
+                .insert_resource(crate::settings::ClientSettings::default())
+                .insert_resource(fonts())
+                .init_resource::<PreviewScroll>();
+            app.world_mut()
+                .run_system_once(spawn_finish)
+                .expect("the sheet is built");
+            crate::add_input_systems(&mut app);
+            app.world_mut()
+                .resource_mut::<NextState<crate::DuelPhase>>()
+                .set(phase);
+            app.update();
+            let list = the_log(&mut app).expect("the log is on the sheet");
+            // Layout never runs here, so the list is told how much of it
+            // there is: three windows of it.
+            app.world_mut().entity_mut(list).insert(ComputedNode {
+                size: Vec2::new(300.0, 300.0),
+                content_size: Vec2::new(300.0, 900.0),
+                inverse_scale_factor: 1.0,
+                ..default()
+            });
+            // Aimed at a line's sentence, which is what the pointer is over:
+            // the row under it and the list under that pass it up.
+            let row = app.world().get::<Children>(list).expect("rows")[1];
+            let sentence = app.world().get::<Children>(row).expect("a sentence")[0];
+            let wheel = Pointer::new(
+                PointerId::Mouse,
+                Location {
+                    target: bevy::camera::NormalizedRenderTarget::Window(
+                        bevy::window::WindowRef::Primary
+                            .normalize(Some(Entity::PLACEHOLDER))
+                            .expect("a window reference"),
+                    ),
+                    position: Vec2::ZERO,
+                },
+                Scroll {
+                    unit: MouseScrollUnit::Line,
+                    x: 0.0,
+                    y: -1.0,
+                    hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                    phase: bevy::input::touch::TouchPhase::Moved,
+                },
+                sentence,
+            );
+            app.world_mut()
+                .resource_mut::<Messages<Pointer<Scroll>>>()
+                .write(wheel);
+            app.update();
+            app.world().get::<ScrollPosition>(list).expect("a list").y > 0.0
+        };
+        assert!(
+            moved_in(crate::DuelPhase::Finished),
+            "the end sheet's log did not take the wheel"
+        );
+        assert!(
+            !moved_in(crate::DuelPhase::Opening),
+            "the wheel ran before the game did, so the test reads no schedule"
+        );
     }
 
     /// The sheet stands over the veil it brought with it.

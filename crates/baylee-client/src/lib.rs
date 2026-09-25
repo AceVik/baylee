@@ -1527,7 +1527,6 @@ fn add_input_systems(app: &mut App) {
             hud::follow_the_hover
                 .after(input::pointer_hover)
                 .before(hud::scrolls),
-            hud::scrolls,
             input::preview_resize,
             input::tray_drag,
             // After the drag, for the reason `glide_the_sheet`'s own
@@ -1542,6 +1541,15 @@ fn add_input_systems(app: &mut App) {
         )
             .in_set(DuelSet::Input)
             .run_if(in_state(DuelPhase::Playing)),
+    );
+    // The wheel, on its own because it is the one input that outlives the
+    // game: the end sheet's log scrolls (#262), and every other system above
+    // would be answering a question nobody is asking any more.
+    app.add_systems(
+        Update,
+        hud::scrolls
+            .in_set(DuelSet::Input)
+            .run_if(in_state(DuelPhase::Playing).or_else(in_state(DuelPhase::Finished))),
     );
 }
 
