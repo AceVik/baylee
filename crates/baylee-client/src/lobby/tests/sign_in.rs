@@ -929,15 +929,22 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
         .find(|(_, said)| said.contains(&newer))
         .expect("the mismatch names the gateway's view version");
 
-    // Pointing at the mark draws its sentence; leaving takes it away.
+    // Pointing at the mark draws its sentence; leaving takes it away. The
+    // sentence is the label the pointing added, not any label holding the
+    // number: the build line holds the commit id, and an id that happens to
+    // hold the same two digits failed "no label says it" with the hint gone.
+    let before = labels(&mut app);
     let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
     app.world_mut()
         .write_message(aimed(*mark, Over { hit: hit.clone() }));
     app.update();
-    assert!(labels(&mut app).iter().any(|l| l.contains(&newer)));
+    let sentence = labels(&mut app)
+        .into_iter()
+        .find(|l| l.contains(&newer) && !before.contains(l))
+        .expect("pointing at the mark drew a sentence naming the version");
     app.world_mut().write_message(aimed(*mark, Out { hit }));
     app.update();
-    assert!(!labels(&mut app).iter().any(|l| l.contains(&newer)));
+    assert!(!labels(&mut app).contains(&sentence), "{sentence:?} stayed");
 }
 
 /// Each front door panel standing, with its scale across and whether it is
