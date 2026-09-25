@@ -451,8 +451,24 @@ pub struct Duel {
     pub stack_selected: Option<ObjectId>,
     /// A requested boundary must also suppress the client's phase autopilot.
     pub stack_stop_requested: bool,
-    /// Ability policies last installed in this host connection.
-    pub ability_orders_applied: Option<Vec<automation::AbilityOrder>>,
+    /// The standing orders the engine has been sent this game: the ones for
+    /// cards in [`Duel::known_cards`], as they stood when last sent.
+    ///
+    /// Not cleared when a `GameStatic` arrives. The engine keeps a seat's
+    /// automation for the whole game, and that payload is re-sent every time
+    /// the seat earns a printing, so clearing it re-sent every order each
+    /// time a new card came into view, and every one made the engine
+    /// re-offer its question (#285).
+    pub ability_orders_applied: Vec<automation::AbilityOrder>,
+    /// Every card this game has shown this seat, from each view's own walk
+    /// ([`PlayerView::cards`]); it only grows.
+    ///
+    /// A standing order goes out only for a card in here (#285). The host is
+    /// told nothing about the account's other decks, and a join sends the
+    /// orders this table can use rather than every one the account holds.
+    /// An order about an opponent's card goes out the view that card first
+    /// shows up in, which is before its ability can be on the stack.
+    pub known_cards: std::collections::BTreeSet<baylee_core::ids::CardIndex>,
     /// Whether the table is open (#256). Until it is, the engine reads
     /// nothing this seat sends, so the outbox is held rather than sent:
     /// the standing ability orders go out the moment there is a view, and
@@ -855,6 +871,7 @@ impl Duel {
         // correction by size, because the view carries no question identity.
         self.clock
             .sync(view.decision_remaining_ms, view.awaiting == Some(view.seat));
+        self.known_cards.extend(view.cards());
         self.view = Some(view);
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
@@ -1665,7 +1682,6 @@ fn poll_host(
         match message {
             HostMessage::Static(statics) => {
                 duel.statics = Some(*statics);
-                duel.ability_orders_applied = None;
                 // Every attach opens with this payload. One before the
                 // curtain is up is a seat the engine may not have heard
                 // from, so it is told again once the view is built.
@@ -1720,26 +1736,35 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
     if !duel.outbox.is_empty() {
         return;
     }
-    if duel.view.is_some()
-        && duel.ability_orders_applied.as_ref() != Some(&prefs.all().ability_orders)
-    {
-        let old = duel.ability_orders_applied.take().unwrap_or_default();
+    // Only the orders for cards this game has shown (#285), as a difference
+    // from what the engine already has: a card coming into view sends its
+    // own orders, and a change in the settings sends the change.
+    let known = |order: &&automation::AbilityOrder| duel.known_cards.contains(&order.ability.card);
+    let stale = duel.view.is_some()
+        && !duel
+            .ability_orders_applied
+            .iter()
+            .eq(prefs.all().ability_orders.iter().filter(known));
+    if stale {
+        let wanted: Vec<_> = prefs
+            .all()
+            .ability_orders
+            .iter()
+            .filter(known)
+            .copied()
+            .collect();
+        let old = std::mem::take(&mut duel.ability_orders_applied);
         for order in &old {
-            if !prefs
-                .all()
-                .ability_orders
-                .iter()
-                .any(|new| new.ability == order.ability)
-            {
+            if !wanted.iter().any(|new| new.ability == order.ability) {
                 duel.submit(automation::AbilityOrder::manual(order.ability).action());
             }
         }
-        for order in &prefs.all().ability_orders {
+        for order in &wanted {
             if !old.contains(order) {
                 duel.submit(order.action());
             }
         }
-        duel.ability_orders_applied = Some(prefs.all().ability_orders.clone());
+        duel.ability_orders_applied = wanted;
         if !duel.outbox.is_empty() {
             return;
         }

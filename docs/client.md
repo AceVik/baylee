@@ -1158,7 +1158,11 @@ account settings; individual rules or all rules can be cleared in automation
 settings. Only optional, automatable yes/no prompts accept standing answers;
 targets, payments and other choices remain manual. Rules are applied to the
 engine as seat actions, which move no journal entry, and are included in
-deterministic snapshots. Explicit stops and
+deterministic snapshots. The engine keeps a seat's automation for the whole
+game, so the client sends each order once a game: the view its card first
+shows up in (`PlayerView::cards`), or when the settings change it. An order
+for a card the table has not shown is not sent at all, so the host learns
+nothing about the account's other decks (#285). Explicit stops and
 cancellation take precedence over standing yields.
 
 Under the title sits one more line

@@ -135,3 +135,61 @@ fn the_outbox_is_held_until_the_curtain_and_sent_with_it() {
     assert_eq!(table.told(), ["ready", "action"]);
     assert!(table.duel().outbox().is_empty());
 }
+
+/// The engine keeps a seat's standing orders for the whole game, so none is
+/// sent twice (#285): not when a `GameStatic` is re-sent because the seat
+/// earned a printing, and not when the seat comes back after a drop, which
+/// opens on the same payloads and the curtain.
+#[test]
+fn a_standing_order_is_sent_once_a_game() {
+    use baylee_client_core::automation::{AbilityOrder, set_ability_order};
+    let mut table = Table::new();
+    let mut prefs = prefs::Prefs::default();
+    set_ability_order(
+        &mut prefs.edit().ability_orders,
+        AbilityOrder {
+            ability: baylee_core::ids::AbilityRef::new(baylee_core::ids::CardIndex::new(12), 0),
+            pass: true,
+            answer: None,
+        },
+    );
+    table
+        .app
+        .insert_resource(prefs)
+        .add_systems(Update, run_autopilot.after(poll_host).before(flush_outbox));
+    let shown = || {
+        HostMessage::View(Box::new(
+            ViewBuilder::new(2)
+                .with_battlefield(
+                    1,
+                    vec![baylee_client_core::test_support::printed(
+                        200, 1, "Shown", 12,
+                    )],
+                )
+                .build(),
+        ))
+    };
+    table.hear(vec![statics(), shown()]);
+    table.hear(vec![HostMessage::Curtain]);
+    assert_eq!(
+        table.told(),
+        ["ready", "action"],
+        "the order, once the table is open"
+    );
+
+    table.hear(vec![statics(), shown()]);
+    table.hear(vec![]);
+    assert_eq!(
+        table.told(),
+        ["ready", "action"],
+        "a print table re-sent mid-game"
+    );
+
+    table.hear(vec![statics(), shown(), HostMessage::Curtain]);
+    table.hear(vec![]);
+    assert_eq!(
+        table.told(),
+        ["ready", "action"],
+        "a reconnect to the same game"
+    );
+}

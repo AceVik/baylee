@@ -1,7 +1,7 @@
 //! Stack selection is navigation, not a target choice or a priority answer.
 use super::*;
 use baylee_client_core::automation::{AbilityOrder, set_ability_order};
-use baylee_client_core::test_support::{ViewBuilder, token};
+use baylee_client_core::test_support::{ViewBuilder, printed, token};
 use baylee_core::ids::{AbilityRef, CardIndex};
 use baylee_engine::choice::{LegalActions, PriorityHold, StandingAnswer, TargetPrompt};
 
@@ -113,6 +113,7 @@ fn remembered_rules_are_installed_once_and_cleared_in_the_engine() {
     let mut app = App::new();
     let mut duel = duel_with_stack();
     duel.interaction = None;
+    shows(&mut duel, &[12]);
     app.insert_resource(duel)
         .insert_resource(prefs)
         .add_systems(Update, run_autopilot);
@@ -133,6 +134,50 @@ fn remembered_rules_are_installed_once_and_cleared_in_the_engine() {
         app.world_mut().resource_mut::<Duel>().take_outbox(),
         [AbilityOrder::manual(ability).action()]
     );
+}
+
+/// The duel's view again, with a permanent of each of `cards` on the
+/// battlefield, received as the host would hand it over.
+fn shows(duel: &mut Duel, cards: &[u16]) {
+    let mut view = duel.view.clone().expect("a view");
+    for (slot, card) in (200..).zip(cards) {
+        view.battlefield.push(printed(slot, 1, "Shown", *card));
+    }
+    duel.receive_view(view);
+}
+
+/// A standing order goes out the view its card first shows up in, and not
+/// before (#285): the host learns nothing about the account's other decks,
+/// and a join sends only what this table can use.
+#[test]
+fn an_order_goes_out_the_view_its_card_first_shows_up_in() {
+    let order = |card| AbilityOrder {
+        ability: AbilityRef::new(CardIndex::new(card), 0),
+        pass: true,
+        answer: None,
+    };
+    let mut prefs = prefs::Prefs::default();
+    set_ability_order(&mut prefs.edit().ability_orders, order(12));
+    set_ability_order(&mut prefs.edit().ability_orders, order(13));
+    let mut duel = duel_with_stack();
+    duel.interaction = None;
+    let mut app = App::new();
+    app.insert_resource(duel)
+        .insert_resource(prefs)
+        .add_systems(Update, run_autopilot);
+    let sent = |app: &mut App| app.world_mut().resource_mut::<Duel>().take_outbox();
+
+    app.update();
+    assert_eq!(sent(&mut app), [], "neither card has been shown");
+    shows(&mut app.world_mut().resource_mut::<Duel>(), &[12]);
+    app.update();
+    assert_eq!(sent(&mut app), [order(12).action()]);
+    shows(&mut app.world_mut().resource_mut::<Duel>(), &[12, 13]);
+    app.update();
+    assert_eq!(sent(&mut app), [order(13).action()], "only the new card's");
+    shows(&mut app.world_mut().resource_mut::<Duel>(), &[12, 13]);
+    app.update();
+    assert_eq!(sent(&mut app), [], "nothing twice");
 }
 
 #[test]
