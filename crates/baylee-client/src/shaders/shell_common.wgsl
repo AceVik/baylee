@@ -16,6 +16,7 @@ const SHELL_DOME: u32 = 3u;
 const SHELL_DOME_RING: u32 = 4u;
 const SHELL_WALL: u32 = 5u;
 const SHELL_SHADE: u32 = 6u;
+const SHELL_WAVE: u32 = 7u;
 
 /// The card, in its own space: half its width and height, and its corner.
 /// `shellmat` holds these to `CARD_WIDTH`, `CARD_HEIGHT` and `CARD_CORNER`.

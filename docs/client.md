@@ -2021,7 +2021,7 @@ on objects of its own:
   blue hour over the table, the brightest of it, and its foot the felt,
   dim and not black, with the crisp line between them that tells metal
   from paint, and it catches a broad glint of the key light
-  (`shell.wgsl`'s `steel`). It stands round the card from `RIM_RISE`
+  (`shell_common.wgsl`'s `steel`). It stands round the card from `RIM_RISE`
   (0.010) above its face down to the felt, `RIM_MARGIN` (0.06) out, with a
   silver band of light going round it once every seven seconds (its mean,
   when motion is off). Hexproof's is a dome of glass, blue, and shroud's

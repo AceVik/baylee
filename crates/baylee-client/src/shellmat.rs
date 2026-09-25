@@ -260,7 +260,8 @@ const _: () = assert!(WAVE_INSET > CARD_CORNER);
 const _: () = assert!(WAVE_RUNG > RING_RUNG && WAVE_RUNG < RIM_RUNG);
 const _: () = assert!(WAVE_TRAVEL < WAVE_PERIOD);
 
-/// Which shell a material draws, as `shell.wgsl` reads it.
+/// Which shell a material draws, as `shell_common.wgsl` numbers it for the
+/// table's shader and the preview's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum ShellKind {
@@ -563,12 +564,15 @@ impl Material for ShellMaterial {
     }
 }
 
-/// Registers the material and ships its shader in the binary, for the reason
-/// [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin) embeds its own.
+/// Registers the material and ships its shaders in the binary, for the reason
+/// [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin) embeds its own:
+/// `shell.wgsl`, and `shell_common.wgsl`, which the preview's shells
+/// ([`crate::shellui`]) import as well.
 pub struct ShellMaterialPlugin;
 
 impl Plugin for ShellMaterialPlugin {
     fn build(&self, app: &mut App) {
+        embedded_asset!(app, "shaders/shell_common.wgsl");
         embedded_asset!(app, "shaders/shell.wgsl");
         app.add_plugins(MaterialPlugin::<ShellMaterial>::default());
     }
@@ -1424,6 +1428,9 @@ mod tests {
     use crate::cardmat::tests::{check_wgsl, wgsl_const};
 
     const SHADER: &str = include_str!("shaders/shell.wgsl");
+    /// What it shares with the preview's shells: the card, the kinds, and
+    /// how steel, glass and brick are lit.
+    const COMMON: &str = include_str!("shaders/shell_common.wgsl");
 
     /// The shell's shader, parsed and validated against stubs of what Bevy
     /// hands a custom vertex stage: the mesh's matrices, the view and the
@@ -1449,7 +1456,10 @@ struct VertexOutput {
 ";
         check_wgsl(
             SHADER,
-            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+            &format!(
+                "{prelude}{}{COMMON}",
+                include_str!("shaders/card_common.wgsl")
+            ),
         );
     }
 
@@ -1482,32 +1492,33 @@ struct VertexOutput {
         );
     }
 
-    /// Every number the shader and this file share is the same number in
+    /// Every number the shaders and this file share is the same number in
     /// both: a mask cut to a different card than the rim is built round is a
-    /// mask with a gap in it.
+    /// mask with a gap in it. The card and the kinds are `shell_common.wgsl`'s,
+    /// which the table's shells and the preview's both draw with.
     #[test]
     fn the_shader_measures_the_card_this_file_does() {
-        for (name, ours) in [
-            ("CARD_HALF_W", CARD_WIDTH / 2.0),
-            ("CARD_HALF_H", CARD_HEIGHT / 2.0),
-            ("CARD_ROUND", CARD_CORNER),
-            ("MASK_FEATHER", MASK_FEATHER),
-            ("RIM_RISE", RIM_RISE),
-            ("RIM_DROP", RIM_DROP),
-            ("WALL_COURSE", WALL_COURSE),
-            ("WALL_BRICK", WALL_BRICK),
-            ("WALL_HEIGHT", WALL_HEIGHT),
-            ("SHADE_FLOOR", crate::table::TABLE_Y + SHADE_RUNG),
-            ("WAVE_LIFT", WAVE_LIFT),
-            ("WAVE_CREST", WAVE_CREST),
-            ("WAVE_INSET", WAVE_INSET),
-            ("WAVE_TRAVEL", WAVE_TRAVEL),
-            ("WAVE_PERIOD", WAVE_PERIOD),
+        for (source, name, ours) in [
+            (COMMON, "CARD_HALF_W", CARD_WIDTH / 2.0),
+            (COMMON, "CARD_HALF_H", CARD_HEIGHT / 2.0),
+            (COMMON, "CARD_ROUND", CARD_CORNER),
+            (COMMON, "MASK_FEATHER", MASK_FEATHER),
+            (COMMON, "RIM_RISE", RIM_RISE),
+            (COMMON, "RIM_DROP", RIM_DROP),
+            (COMMON, "WALL_COURSE", WALL_COURSE),
+            (COMMON, "WALL_BRICK", WALL_BRICK),
+            (COMMON, "WALL_HEIGHT", WALL_HEIGHT),
+            (SHADER, "SHADE_FLOOR", crate::table::TABLE_Y + SHADE_RUNG),
+            (SHADER, "WAVE_LIFT", WAVE_LIFT),
+            (SHADER, "WAVE_CREST", WAVE_CREST),
+            (SHADER, "WAVE_INSET", WAVE_INSET),
+            (SHADER, "WAVE_TRAVEL", WAVE_TRAVEL),
+            (SHADER, "WAVE_PERIOD", WAVE_PERIOD),
         ] {
-            let theirs = wgsl_const(SHADER, name);
+            let theirs = wgsl_const(source, name);
             assert!(
                 (theirs - ours).abs() < 1e-4,
-                "{name}: {ours} here, {theirs} in shell.wgsl"
+                "{name}: {ours} here, {theirs} in the shader"
             );
         }
         for (name, kind) in [
@@ -1522,7 +1533,7 @@ struct VertexOutput {
             #[expect(clippy::cast_precision_loss)] // a small enum
             let ours = kind as u32 as f32;
             assert!(
-                (wgsl_const(SHADER, name) - ours).abs() < f32::EPSILON,
+                (wgsl_const(COMMON, name) - ours).abs() < f32::EPSILON,
                 "{name}"
             );
         }

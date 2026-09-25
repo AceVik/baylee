@@ -173,13 +173,12 @@ fn track_motion(
 /// Registers the preview's shell material and ships its shader in the
 /// binary, for the reason
 /// [`CardMaterialPlugin`](crate::cardmat::CardMaterialPlugin) embeds its own.
-/// `card_common.wgsl`, which it imports, is registered with the card's
-/// material, and `shell_common.wgsl` here.
+/// `card_common.wgsl` and `shell_common.wgsl`, which it imports, are
+/// registered with the card's material and the table's shells.
 pub struct ShellUiPlugin;
 
 impl Plugin for ShellUiPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "shaders/shell_common.wgsl");
         embedded_asset!(app, "shaders/shell_ui.wgsl");
         app.add_plugins(UiMaterialPlugin::<ShellUiMaterial>::default())
             .init_resource::<UiShellMaterials>()
