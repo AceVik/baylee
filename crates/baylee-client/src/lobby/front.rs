@@ -712,12 +712,14 @@ fn card(
                 width: percent(100),
                 align_self: AlignSelf::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: px(metrics.gap * 1.5),
+                row_gap: px(card_gap(metrics)),
+                // The foot's inlays stand clear of the tooled line, and the
+                // last row stands clear of them.
                 padding: UiRect {
                     left: px(side),
                     right: px(side),
                     top: px(HEADER_TOP),
-                    bottom: px(side),
+                    bottom: px(side + super::dock::INLAY_LIFT),
                 },
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(CARD_RADIUS)),
@@ -1009,19 +1011,27 @@ fn rule(commands: &mut Commands) -> Entity {
         .id()
 }
 
-/// A reserved slot for the lobby's status line, two lines deep, so a refusal
-/// arriving does not push the form about.
+/// The space between two rows of a panel.
+fn card_gap(metrics: Metrics) -> f32 {
+    metrics.gap * 1.5
+}
+
+/// The lobby's status line, between two rows of a panel: the slot is a
+/// sliver, and the line is laid over it and the two gaps round it, which
+/// hold two lines with air. A refusal arriving does not push the form about,
+/// and an empty status leaves no hole in it.
 fn status_slot(
     commands: &mut Commands,
     state: &LobbyState,
     fonts: &UiFonts,
     metrics: Metrics,
 ) -> Entity {
+    let sliver = metrics.small;
     let slot = commands
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(metrics.small * 2.8),
+                height: px(sliver),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1035,7 +1045,22 @@ fn status_slot(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(slot).add_child(status);
+    let band = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                top: px(-card_gap(metrics)),
+                height: px(2.0 * card_gap(metrics) + sliver),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(band).add_child(status);
+    commands.entity(slot).add_child(band);
     slot
 }
 
@@ -1437,8 +1462,9 @@ fn account_face(
         .and_modify(|mut node| {
             node.justify_content = JustifyContent::Center;
         });
+    // Over the form's last gap, next to what it answers.
     let status = status_slot(commands, state, fonts, metrics);
-    commands.entity(card).add_children(&[submit, status]);
+    commands.entity(card).add_children(&[status, submit]);
 }
 
 /// The guest's way in (#269): the guest this device keeps here, as one

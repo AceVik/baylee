@@ -28,7 +28,8 @@ use bevy::window::PrimaryWindow;
 
 /// Whether the shader draws what a phone's tiler pays most for: the fine
 /// skyline and the rim's fine break, the clouds' own noise, the rays, the
-/// middle motes, the finer seams and the glitter's sparkle.
+/// middle motes, the finer seams, the bands' laminations and grain, the
+/// quartz's sparkle and the glitter's sparkle.
 const QUALITY: f32 = if cfg!(any(target_os = "android", target_os = "ios")) {
     0.0
 } else {

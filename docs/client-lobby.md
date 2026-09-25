@@ -1,7 +1,9 @@
 # Account entry, collection and deck history
 
 The account screens reuse the table hand HUD's `FrontalMaterial`: leather,
-engraved borders and five mineral inlays. `lobby/dock.rs` maintains seven bounded
+engraved borders and five mineral inlays, which a lobby panel lifts clear of
+its tooled line (`dock::INLAY_LIFT`; on the hand they sit on it), with the
+panel's last row clear of them in turn. `lobby/dock.rs` maintains seven bounded
 material slots, one per differently sized surface. Decorative children ignore
 picking. The existing motion preference also controls these materials and the
 ambient shader. Native/browser text editing, selection, paste and IME continue

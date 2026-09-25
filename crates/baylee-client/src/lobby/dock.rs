@@ -11,6 +11,11 @@ pub(super) const GROUND_RADIUS: f32 = super::front::CARD_RADIUS - 1.0;
 /// opaque. The front door fades a panel by lowering it (`front::fade_front`).
 pub(super) const GROUND_DENSITY: f32 = 0.98;
 
+/// How far above the tooled line a lobby panel's five inlays sit, in pixels:
+/// on the hand they sit on it, and on a panel standing on the page they
+/// would be read as studs on its border.
+pub(super) const INLAY_LIFT: f32 = 10.0;
+
 /// A bounded material slot: each differently sized panel needs its own uniforms.
 #[derive(Component, Clone, Copy)]
 pub(crate) struct Dock(pub u8);
@@ -41,7 +46,7 @@ pub(super) fn materialize(
             // Keep the hand's full tooling and five inlays, with even opacity
             // behind a reading surface rather than the hand's bottom fade.
             material.params.ramp = Vec4::new(36.0, GROUND_DENSITY, GROUND_DENSITY, 0.0);
-            material.params.surface = Vec4::ZERO;
+            material.params.surface = Vec4::new(0.0, 0.0, INLAY_LIFT, 0.0);
             // A lobby panel stands on the page, so all four corners are cut,
             // one pixel inside the panel's own radius and border. The hand's
             // cloth runs off the window and cuts only its top two.

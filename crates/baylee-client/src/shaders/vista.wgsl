@@ -11,18 +11,20 @@
 // nearer, the more), which is the whole of the depth:
 //
 // - the world: a blue-hour sky with the first light low in it, clouds lit
-//   from below and rays from the light;
+//   from below that end in streaks, and rays from the light;
 // - a far ridge of crystal fins, one skyline from two noise samples, low in
 //   the middle where the light rises over the panel;
 // - a floor of dark resin that mirrors the sky, with the light's reflection
 //   running towards the viewer as a path of glitter;
 // - motes in the middle air, gold near the light;
-// - the frame: dark mineral with seams of light in it (the table's own
-//   material), lit by the opening; a broken rim with a seam of gold along it,
-//   and crystal teeth lining the cavity, pointing in;
+// - the frame: a geode's cut face, bands of agate that swell and pinch round
+//   the cavity out into rough dark rock, lit by the opening; a broken rim,
+//   deeper on the right and with a lip on its sill, a seam of gold along it,
+//   sparkling quartz behind it, and crystal teeth lining the cavity,
+//   pointing in;
 // - the near air: motes, grain, and a dither against banding.
 //
-// The panel's rect and the ring round it are held dark whatever is lit, so
+// The panel's rect and the band round it are held dark whatever is lit, so
 // the form reads against the brightest scene.
 //
 // Passing through (choosing a gateway) is two frames: `gate_a` is the cavity
@@ -173,7 +175,10 @@ fn cavity(at: vec2<f32>, opening: f32, zoom: f32) -> Cavity {
     let overhead = (centre.y - params.panel.w + OVERHEAD) * opening;
     let lift = 0.5 * (overhead - room.y);
     let half = params.panel.zw + vec2<f32>(room.x * opening, 0.5 * (overhead + room.y));
-    let b = out.g + vec2<f32>(0.0, lift);
+    let level = out.g + vec2<f32>(0.0, lift);
+    // Nothing like a frame: the right side runs deeper into the rock than
+    // the left, towards the light.
+    let b = vec2<f32>(level.x * mix(1.0, 0.86, smoothstep(-0.2, 0.2, level.x)), level.y);
     // A fat superellipse, nowhere a circle.
     let corner = 0.55 * min(half.x, half.y);
     // The angle normalised to the box, so the teeth are as dense on the long
@@ -185,8 +190,13 @@ fn cavity(at: vec2<f32>, opening: f32, zoom: f32) -> Cavity {
     if params.hour.w > 0.5 {
         rough = rough + 0.015 * (noise2(out.c * 5.5 + 7.0) - 0.5);
     }
+    // And a lip of rock rises off the sill on the left, clear of the panel's
+    // corner.
+    let lip_at = (b.x + 0.72 * half.x) / (0.18 * half.x);
+    let lip = 0.045 * landscape(params.view.z) * exp(-lip_at * lip_at)
+        * smoothstep(0.2 * half.y, 0.9 * half.y, b.y);
     // Distances back in screen units, so edges keep their width at any zoom.
-    out.d = (rounded_box(b, half, corner) + rough) * zoom;
+    out.d = (rounded_box(b, half, corner) + rough + lip) * zoom;
     return out;
 }
 
@@ -225,29 +235,53 @@ fn frame(
 
     // The mineral, as a geode's cut face is: bands of agate following the
     // cavity, thin and pale next to it and wider and darker away from it,
-    // fading into rough dark rock. Each band is its own tone.
+    // fading into rough dark rock. The bands swell and pinch along the ring,
+    // as they do where the silica came in faster, and each one's tone drifts
+    // along its length, so no band repeats the cavity's outline.
     var mineral = vec3<f32>(0.0);
     if stone > 0.0 {
         var wobble = 0.03 * noise2(g * 3.0 + warp * 0.4);
         if quality > 0.5 {
             wobble = wobble + 0.012 * noise2(g * 9.0 + 5.0);
         }
-        let layer = sqrt(max(outside + wobble, 0.0)) * 16.0;
+        let deep = max(outside + wobble, 0.0) * (0.55 + 0.9 * noise2(c * 1.3 + 11.0));
+        let layer = sqrt(deep) * 16.0;
         let stratum = floor(layer);
         let within = fract(layer);
-        let tone = hash2(vec2<f32>(stratum, 3.0));
+        let along = noise2(c * 2.3 + vec2<f32>(stratum * 1.9, 0.0));
+        let tone = mix(hash2(vec2<f32>(stratum, 3.0)), along, 0.55);
         let edge = smoothstep(0.0, 0.12, within) * (1.0 - smoothstep(0.88, 1.0, within));
         var agate = mix(AGATE_DEEP, AGATE_VIOLET, tone);
-        // Now and then a pale band of chalcedony.
-        let pale = step(0.88, hash2(vec2<f32>(stratum, 11.0)));
+        // Now and then a pale line of chalcedony down a band's middle,
+        // thinning out along its way, and only near the cavity.
+        let pale = smoothstep(0.70, 0.78, hash2(vec2<f32>(stratum, 11.0)) * (0.92 + 0.16 * along))
+            * (1.0 - smoothstep(0.2, 0.4, abs(within - 0.5)))
+            * (1.0 - smoothstep(0.06, 0.16, deep));
         agate = mix(agate, AGATE_PALE, pale) * (0.7 + 0.3 * edge);
-        let rock = MINERAL * (0.7 + 0.6 * field);
-        mineral = mix(agate, rock, smoothstep(0.18, 0.40, outside + wobble));
+        var rock = MINERAL * (0.5 + 0.6 * field);
+        if quality > 0.5 {
+            // Fine laminations inside each band, and grain over all of it;
+            // the rock rougher than the agate.
+            agate = agate * (1.0 + 0.10 * sin(layer * TAU * 4.0 + 3.0 * noise2(g * 6.0)));
+            agate = agate * (0.75 + 0.5 * noise2(g * 22.0 + vec2<f32>(stratum * 3.1, 0.0)));
+            agate = agate * (0.84 + 0.32 * noise2(g * 90.0));
+            rock = rock * (0.6 + 0.8 * noise2(g * 14.0 + 3.0)) * (0.85 + 0.3 * noise2(g * 70.0));
+        }
+        mineral = mix(agate, rock, smoothstep(0.16, 0.34, deep));
         // Light travelling along the bands, one swell every sixteen bars.
         mineral = mineral * (1.0 + 0.15 * sin(t * TAU / (16.0 * BAR) - 3.0 * (g.x + g.y)));
         let flicker = 0.6 + 0.4 * noise2(c * 1.8 + vec2<f32>(t * 0.03, 2.0));
         mineral = mineral + FIRST * 0.04 * exp(-outside / 0.10) * flicker;
         mineral = mineral + CHAMPAGNE * 0.5 * (1.0 - smoothstep(0.0015, 0.008, outside));
+        // The quartz next to the cavity sparkles now and then.
+        if quality > 0.5 {
+            let quartz = 1.0 - smoothstep(0.004, 0.03, outside);
+            let cells = g * 160.0;
+            let seed = hash2(floor(cells) + 23.0);
+            let spot = 1.0 - smoothstep(0.0, 0.22, length(fract(cells) - 0.5));
+            let twinkle = 0.5 + 0.5 * sin(t * 1.2 + seed * 40.0);
+            mineral = mineral + CHAMPAGNE * 0.4 * quartz * spot * step(0.92, seed) * twinkle * twinkle;
+        }
     }
 
     // The crystal teeth, pointing in, longest where the gap is widest and
@@ -352,11 +386,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     var rgb = light_of(sky_at, y_h, sx, hour, first_breath);
     if !buried {
         // Clouds lit from underneath, drifting.
+        // A broad drift broken by two finer octaves stretched along the
+        // horizon, so a cloud ends in streaks and never in an outline.
         var puff = field;
         if quality > 0.5 {
-            puff = noise2(vec2<f32>(sky_at.x * 2.4 + t * 0.012, sky_at.y * 7.0) + warp * 0.5);
+            let wind = vec2<f32>(t * 0.012, 0.0);
+            let broad = noise2(vec2<f32>(sky_at.x * 2.4, sky_at.y * 7.0) + wind + warp * 0.5);
+            let streak = noise2(vec2<f32>(sky_at.x * 5.0, sky_at.y * 26.0) + wind * 1.6 + warp * 0.8);
+            let wisp = noise2(vec2<f32>(sky_at.x * 11.0, sky_at.y * 60.0) + wind * 2.2);
+            puff = 0.55 * broad + 0.30 * streak + 0.15 * wisp;
         }
-        let cloud = smoothstep(0.52, 0.72, puff) * (1.0 - smoothstep(y_h - 0.05, y_h - 0.01, sky_at.y));
+        let cloud = smoothstep(0.50, 0.70, puff) * (1.0 - smoothstep(y_h - 0.05, y_h - 0.01, sky_at.y));
         let lit_from_below = clamp((y_h - sky_at.y) / 0.3, 0.0, 1.0);
         rgb = mix(rgb, mix(FIRST * 0.55, SKY_HIGH * 0.45, lit_from_below), 0.6 * cloud);
 

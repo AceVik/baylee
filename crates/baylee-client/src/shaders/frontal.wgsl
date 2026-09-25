@@ -205,7 +205,8 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         dye = mix(dye, params.lip.rgb, etch * 0.70);
         for (var i = 0u; i < 5u; i = i + 1u) {
             let centre_x = (f32(i) - 2.0) * 14.0;
-            let cut = abs(x - centre_x) + abs(foot - 7.0);
+            // On the tooled line, or `surface.z` above it (a lobby panel).
+            let cut = abs(x - centre_x) + abs(foot - 7.0 - params.surface.z);
             let socket = 1.0 - smoothstep(3.2, 4.3, cut);
             let gem = 1.0 - smoothstep(1.7, 2.8, cut);
             dye = mix(dye, params.lip.rgb * 0.65, socket);

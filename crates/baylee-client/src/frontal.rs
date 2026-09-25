@@ -77,7 +77,11 @@ pub struct FrontalParams {
     /// runs off the bottom of the window, and a lobby panel's own radius on
     /// a panel that stands on the page.
     pub foot_corner: f32,
-    /// Virtual seconds, surface kind (skirt / rail / seat), reserved.
+    /// Virtual seconds and surface kind (skirt / rail / seat); then, on a
+    /// rail, its opening (`z` its centre, `w` minus its half width, or `w`
+    /// over a half for an open foot) and, on a skirt, how far above the
+    /// tooled line its five inlays sit in pixels (`z`: zero on the hand,
+    /// `lobby::dock::INLAY_LIFT` on a lobby panel).
     pub surface: Vec4,
     /// Stationary WUBRG inlays in linear light.
     pub inlays: [Vec4; 5],

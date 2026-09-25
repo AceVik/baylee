@@ -3236,11 +3236,15 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 The gateway and sign-in faces are drawn inside a geode (#295): `vista.rs`
 schedules it and `shaders/vista.wgsl` paints it, one full-screen `UiMaterial`
 on uniforms only, so it stays inside the GL budget. The screen is the geode's
-cut face, agate bands following the cavity's line out into rough rock; the
-cavity is a broken superellipse round the panel (`vista::Framed`), lined with
-two rows of crystal teeth pointing inward and edged with a gold seam that
-breathes with the music's bar. Through it, back to front: the lobby's
-blue-hour sky (the same warped noise as `ambience.rs`) with clouds and rays,
+cut face, agate bands following the cavity out into rough dark rock; the bands
+swell and pinch along the ring and drift in tone along their length, so none
+repeats the cavity's outline, and the quartz next to the cavity sparkles now
+and then. The cavity is a broken superellipse round the panel
+(`vista::Framed`), deeper on the right than on the left and with a lip rising
+off its sill on the left, lined with two rows of crystal teeth pointing
+inward and edged with a gold seam that breathes with the music's bar. Through
+it, back to front: the lobby's blue-hour sky (the same warped noise as
+`ambience.rs`) with clouds that end in streaks and rays,
 a first light low over a ridge of crystal fins, a resin lake mirroring both
 with the light's path glittering towards the viewer, and motes drifting in
 two planes. The first light is the brightest thing on the screen and rises
@@ -3275,10 +3279,11 @@ showing through reads as clutter.
 
 Under `reduce_motion` nothing moves: the scene ignores time and the pointer,
 and the passage is a quarter-second change of colour to the far side's light.
-Measured on the Mac at 3456×2104: 0 pixels of 7,271,424 changed in 1.5 s,
-against 24.9 % with motion. A phone draws it without the fine skyline and
-the rim's fine break, the clouds' own noise, the rays, the middle motes, the
-finer seams and the glitter's sparkle (`vista::QUALITY`). Its cost is not
+Measured on the Mac at 3456×2104 with the pointer at rest: 0 pixels of
+7,271,424 changed in 1.5 s, against 8.6 % with motion. A phone draws it
+without the fine skyline and the rim's fine break, the clouds' own noise, the
+rays, the middle motes, the finer seams, the bands' laminations and grain,
+the quartz's sparkle and the glitter's sparkle (`vista::QUALITY`). Its cost is not
 measured on a phone yet: on the Android emulator (Pixel 9 Pro XL image, API
 35, landscape, release build) against a flat fill it drew 14–20 fps against
 10–16 on the host GPU and 2.3–2.5 against 1.6–2.3 on SwiftShader, which is
