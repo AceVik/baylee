@@ -109,6 +109,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - Identity crests (`cardcrest.rs`: token, copy, commander) are squares of paper at the strip's end, after the marks. They pack (a lone commander takes the first). The paper is the reading (verdigris, violet, oxblood), and the glyph is ink on it. Linear colours; a sheen must beat ~20 noise levels.
 - A summoning-sick creature (`board::asleep`, creatures only, CR 302.6) wears the moon on its strip, and its plate inks moon-grey.
 - Offers (`glow::OFFERS`: activatable, reachable, armed, will-tap) are light on the felt (`floormat.rs`, `floor.wgsl`): a child quad under the card at `FLOOR_RUNG`, never drawn on the card material. The count badge (`badgemat.rs`) hangs off the top-left corner, outside the card. A merged group stands on a pile of jogged slabs (`PILE_JOG`, `SLAB_EDGE_COLOR`).
+- A protected permanent wears a shell (`shellmat.rs`, `shell.wgsl`). Its alpha is exactly zero over its own print (a view-ray mask; every fragment `return` carries `clear`), and `table::fit_the_shells` stands it up or lays it on the felt from the live transforms, so it never lands on another card's print. Indestructible is a darksteel rim (the owner, 25.09).
 - New card marks join `ObjectSummaryKey`.
 
 ## Stack and HUD
