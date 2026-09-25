@@ -86,7 +86,8 @@ pub struct NewGuest {
 pub struct Account {
     /// Account id (`UUIDv7`).
     pub id: String,
-    /// The e-mail address (lowercased, unique), if the account has one.
+    /// The e-mail address as it was typed, if the account has one. Unique
+    /// regardless of case: the database indexes `lower(email)`.
     pub email: Option<String>,
     /// The name it signs in with (#269). Private to its owner.
     pub username: Option<String>,
@@ -98,11 +99,11 @@ pub struct Account {
     pub password_hash: Option<String>,
     /// When the address was confirmed, if it has been.
     ///
-    /// `None` on a gateway that sends mail means the account cannot log in
-    /// yet. On a gateway with no SMTP configured it means nothing at all —
-    /// see [`crate::mail::Mailer::required`] — which is why this is an
-    /// `Option` and not a bool: "never asked" and "asked and not answered"
-    /// are the same field, and only the mailer decides which one matters.
+    /// It keeps nobody out (#269): an account signs in with its name either
+    /// way, and a confirmed address is only one known to reach its owner.
+    /// `None` is both "never asked", on a gateway with no SMTP configured
+    /// (see [`crate::mail::Mailer::required`]), and "asked and not
+    /// answered".
     pub confirmed_at: Option<u64>,
     /// The language the account registered in, for the mail it is sent.
     pub lang: String,

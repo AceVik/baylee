@@ -923,9 +923,9 @@ const CONFIRM_TTL_SECS: u64 = 24 * 3600;
 
 /// Mints a confirmation link for an account and mails it.
 ///
-/// Returns without sending on a gateway with no mailer, which is the whole
-/// reason the account was already marked confirmed by then: an unconfigured
-/// gateway must behave exactly as it did before any of this existed.
+/// Returns without sending on a gateway with no mailer. The address then
+/// stays unconfirmed, which costs its owner nothing: it keeps nobody out
+/// (#269).
 async fn mail_confirmation(state: &Shared, account_id: &str) {
     if !state.mail.required() {
         return;

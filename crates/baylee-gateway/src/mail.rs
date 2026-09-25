@@ -1,17 +1,17 @@
 //! Confirmation mail, and the rule that makes it optional.
 //!
 //! A gateway with no SMTP configured is not a broken gateway: it is the
-//! development default, and it has to keep working exactly as it did before
-//! this module existed. So [`Mailer`] has an `Off` arm, and the whole
-//! confirmation flow keys off whether the mailer is configured — an
-//! unconfigured gateway confirms an account the moment it is created and
-//! never sends anything.
+//! development default. So [`Mailer`] has an `Off` arm, and the whole
+//! confirmation flow keys off whether the mailer is configured: an
+//! unconfigured gateway never sends anything.
 //!
-//! The reverse is the part worth being careful about: once mail *is*
-//! configured, an unconfirmed account cannot log in. Sending has to fail
-//! loudly enough to be seen in the log and quietly enough not to hand a
-//! stranger an oracle for which addresses exist — so a send failure is logged
-//! and the HTTP answer is the same either way.
+//! A confirmation keeps nobody out (#269). An account signs in with its name
+//! whether or not its address is confirmed, and the address is only a way to
+//! reach its owner. New accounts are made without one, so in practice only
+//! an imported account is ever sent a link. Sending has to fail loudly
+//! enough to be seen in the log and quietly enough not to hand a stranger an
+//! oracle for which addresses exist — so a send failure is logged and the
+//! HTTP answer is the same either way.
 
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
@@ -88,7 +88,10 @@ impl Mailer {
         }
     }
 
-    /// Whether an account has to confirm its address before it may log in.
+    /// Whether this gateway sends confirmation mail.
+    ///
+    /// The name is older than #269, when confirming was the price of signing
+    /// in; now a confirmed address only says it reaches its owner.
     #[must_use]
     pub const fn required(&self) -> bool {
         matches!(self, Self::Smtp(_))

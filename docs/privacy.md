@@ -296,8 +296,3 @@ to weigh, not conclusions.
    access log sits in front of the gateway.
 6. **Retention of stdout logs and of backups** is not set anywhere in the
    repository.
-7. **Comment drift:**
-   - `store::Account` says the e-mail is lowercased, while the entity says
-     it is stored as typed;
-   - `mail.rs`'s module doc says an unconfirmed account cannot sign in,
-     which #269 changed.
