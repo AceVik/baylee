@@ -16,6 +16,10 @@
 //!   another. A client flushes its whole outbox in one frame. At join that
 //!   is every standing order the account holds, one frame each.
 //!
+//! [`Allowance`] is the bound itself, set from those two numbers: a seat
+//! that sends more than [`BURST`] frames at once, or more than [`RATE`] a
+//! second after that, is closed.
+//!
 //! Both are counted in fixed windows, not sliding ones. A burst that
 //! straddles a window's edge is counted as two smaller ones, so a peak
 //! here is a floor for the true one: at worst half of it. What that buys is
@@ -23,6 +27,26 @@
 //! is safe to run on a socket that is flooding.
 
 use std::time::{Duration, Instant};
+
+/// The most frames a seat socket may send at once.
+///
+/// What bounds a real client's largest burst is the standing orders it
+/// sends when a card first shows up (#285), one frame each. A card
+/// carries at most 12 (the pool's most listed abilities, 5, plus the 7
+/// reserved question indices). A duel's first view names 9 cards at most
+/// (a hand and two commanders), so about 108 frames. A team game with shared hands
+/// shows more at once, and there the account's settings cap is what
+/// binds: 16 KiB holds about 277 orders, 278 frames with `SeatReady`.
+/// This sits well above that.
+pub const BURST: u32 = 512;
+
+/// Frames a second a seat socket may keep up once its burst is spent.
+///
+/// A client answers at most one question per frame it draws, and each
+/// answer waits for the next question, so its sustained rate is bounded
+/// by its display rate and the round trip. Provisional until the meter has
+/// read a real client (#284).
+pub const RATE: u32 = 240;
 
 /// The window the busiest second is counted in.
 pub const SECOND: Duration = Duration::from_secs(1);
@@ -72,6 +96,50 @@ impl Meter {
     #[must_use]
     pub const fn largest_burst(&self) -> u32 {
         self.burst.peak
+    }
+}
+
+/// A seat socket's allowance of frames (#284): [`Allowance::new`]'s
+/// `burst` at once, then `rate` a second.
+///
+/// The generic cell rate algorithm, which is a token bucket kept as one
+/// timestamp: the moment the allowance would be whole again if nothing
+/// more were sent. A frame moves it one interval later. A frame that would
+/// put it more than `burst` intervals ahead of now is refused and moves
+/// nothing. One `Instant` per socket, nothing to refill and no timer.
+#[derive(Debug)]
+pub struct Allowance {
+    /// `1 s / rate`: what one frame spends.
+    interval: Duration,
+    /// How far ahead of now the allowance may be spent: `burst - 1`
+    /// intervals, so that `burst` frames at one instant are admitted.
+    tolerance: Duration,
+    /// When the allowance is whole again.
+    whole_at: Instant,
+}
+
+impl Allowance {
+    /// A whole allowance at `now`: `burst` frames at once, then `rate` a
+    /// second.
+    #[must_use]
+    pub fn new(now: Instant, rate: u32, burst: u32) -> Self {
+        let interval = SECOND / rate.max(1);
+        Self {
+            interval,
+            tolerance: interval.saturating_mul(burst.saturating_sub(1)),
+            whole_at: now,
+        }
+    }
+
+    /// Whether a frame arriving at `now` is within the allowance, which it
+    /// then spends.
+    pub fn admit(&mut self, now: Instant) -> bool {
+        let whole_at = self.whole_at.max(now);
+        if whole_at.saturating_duration_since(now) > self.tolerance {
+            return false;
+        }
+        self.whole_at = whole_at + self.interval;
+        true
     }
 }
 
@@ -129,6 +197,64 @@ mod tests {
         assert_eq!(meter.frames, 340);
         assert_eq!(meter.largest_burst(), 280, "the flush");
         assert_eq!(meter.busiest_second(), 340, "all of it inside one second");
+    }
+
+    /// A burst is admitted whole and the frame after it is not; the rate
+    /// then comes back one interval at a time.
+    #[test]
+    fn an_allowance_takes_its_burst_then_its_rate() {
+        let opened = Instant::now();
+        let mut allowance = Allowance::new(opened, 100, 5);
+        for frame in 0..5 {
+            assert!(allowance.admit(opened), "frame {frame} of the burst");
+        }
+        assert!(!allowance.admit(opened), "the sixth at the same instant");
+        assert!(
+            !allowance.admit(at(opened, 9)),
+            "and before an interval has passed"
+        );
+        assert!(
+            allowance.admit(at(opened, 10)),
+            "one interval later, one more"
+        );
+        assert!(!allowance.admit(at(opened, 10)), "and only one");
+        assert!(
+            allowance.admit(at(opened, 1_000)),
+            "a quiet second later, again"
+        );
+        for frame in 0..4 {
+            assert!(
+                allowance.admit(at(opened, 1_000)),
+                "frame {frame} of the refill"
+            );
+        }
+        assert!(
+            !allowance.admit(at(opened, 1_000)),
+            "the whole burst, and no more"
+        );
+    }
+
+    /// A client that keeps to the rate is never refused, however long it
+    /// keeps it up.
+    #[test]
+    fn a_steady_client_at_the_rate_is_never_refused() {
+        let opened = Instant::now();
+        let mut allowance = Allowance::new(opened, 100, 1);
+        for frame in 0..10_000 {
+            assert!(allowance.admit(at(opened, frame * 10)), "frame {frame}");
+        }
+    }
+
+    /// The real client's largest burst, the ceiling [`BURST`]'s comment
+    /// derives, fits the allowance this gateway runs, and so does most of
+    /// it again at the same instant.
+    #[test]
+    fn the_largest_real_burst_fits_with_room() {
+        let opened = Instant::now();
+        let mut allowance = Allowance::new(opened, RATE, BURST);
+        for frame in 0..278 + 200 {
+            assert!(allowance.admit(opened), "frame {frame}");
+        }
     }
 
     /// The busiest second is the busiest one, not the last one or the sum.

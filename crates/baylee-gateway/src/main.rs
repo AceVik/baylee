@@ -3640,6 +3640,32 @@ fn to_engine(state: &Shared, game_id: &str, msg: v1::envelope::Msg) -> bool {
 /// The gateway never decodes either direction. It cannot: it does not link the
 /// rules kernel, and the whole point of the engine plane is that it does not
 /// have to.
+/// Closes a seat socket that sent more than its allowance (#284), with 1008
+/// and a line in the log.
+///
+/// Closed rather than dropped: a client whose answer vanished would wait on
+/// a question it thinks it answered, and a closed one dials again on its own
+/// schedule.
+async fn close_over_allowance(
+    socket: &mut WebSocket,
+    game_id: &str,
+    seat: usize,
+    meter: &seatrate::Meter,
+) {
+    tracing::warn!(
+        game_id,
+        seat,
+        frames = meter.frames,
+        largest_burst = meter.largest_burst(),
+        "seat socket over its frame allowance; closing"
+    );
+    let over = axum::extract::ws::CloseFrame {
+        code: axum::extract::ws::close_code::POLICY,
+        reason: "too many frames".into(),
+    };
+    let _ = socket.send(Message::Close(Some(over))).await;
+}
+
 async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket: WebSocket) {
     // Subscribe BEFORE announcing the seat, so this socket cannot miss its
     // own first view; every envelope addressed to this seat arrives here,
@@ -3662,13 +3688,21 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
     if !to_engine(&state, &game_id, attach) {
         return;
     }
-    // What this seat sends, for the line logged when it goes (#284).
-    let mut meter = seatrate::Meter::new(std::time::Instant::now());
+    // What this seat sends, for the line logged when it goes, and how much
+    // it may (#284).
+    let opened = std::time::Instant::now();
+    let mut meter = seatrate::Meter::new(opened);
+    let mut allowance = seatrate::Allowance::new(opened, seatrate::RATE, seatrate::BURST);
     loop {
         tokio::select! {
             frame = socket.recv() => {
                 if let Some(Ok(_)) = &frame {
-                    meter.note(std::time::Instant::now());
+                    let now = std::time::Instant::now();
+                    meter.note(now);
+                    if !allowance.admit(now) {
+                        close_over_allowance(&mut socket, &game_id, seat, &meter).await;
+                        break;
+                    }
                 }
                 match frame {
                     Some(Ok(Message::Binary(data))) => {
