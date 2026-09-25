@@ -12,7 +12,10 @@ workspace = true
 [dependencies]
 uuid.workspace = true
 url = "2.5.8"
-time.workspace = true
+# `local-offset`: the game log's clock column says the device's own time
+# (#300), asked of the platform per line (`localtime_r`, Windows' zone
+# information, or the browser's `Date` through `wasm-bindgen` below).
+time = { workspace = true, features = ["local-offset"] }
 baylee-ai.workspace = true
 baylee-cards.workspace = true
 # `manasources.rs` reads a card's printed mana ability out of the registry:
@@ -170,6 +173,9 @@ bevy = { workspace = true, features = ["android-native-activity"] }
 # does not exist" and the table drew constructed faces on grey slabs.
 bevy = { workspace = true, features = ["http", "https"] }
 getrandom = { workspace = true, features = ["wasm_js"] }
+# The log's clock column in a browser: without it `time` has no zone there
+# and the column would say UTC.
+time = { workspace = true, features = ["wasm-bindgen"] }
 web-sys = { workspace = true, features = [
     "Document",
     "Element",

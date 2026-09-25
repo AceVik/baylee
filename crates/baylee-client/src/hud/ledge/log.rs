@@ -27,6 +27,19 @@
 //! and nothing above it is touched. A long game has thousands of lines, and
 //! rebuilding them for each one would be the whole log written per action.
 //!
+//! # Names, links and times (#300)
+//!
+//! A line reads like a chat: its time on the device's own clock in a column
+//! of its own ([`local_clock`]), every player it names in bold, "you"
+//! included, and every card or token it shows the seat as a link in the
+//! manner of a game's item links, "[Lightning Bolt]" in the link's ink.
+//! Hovering a link opens the table's own preview of that card, drawn from the
+//! printing the line named ([`LogLink`]) and never from the object as it is
+//! now: a card shuffled away since is still the card the line showed, and a
+//! card the line did not show has no link to hover. A hidden card names no
+//! span at all, and a face-down one a span with nothing to preview, which is
+//! set a weight up and not linked ([`Piece::Name`]).
+//!
 //! # Following the newest line
 //!
 //! The list stays at its end while the player leaves it there, and stops
@@ -35,9 +48,11 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use baylee_client_core::gamelog::{CardTextLookup, LogLine, Wording};
+use baylee_client_core::gamelog::{CardTextLookup, LogLine, NameSpan, Wording};
+use baylee_client_core::images::{ArtSize, ImageKey};
 use baylee_core::ids::CardIndex;
-use bevy::picking::events::{Click, Pointer};
+use baylee_view::CardIdentity;
+use bevy::picking::events::{Click, Out, Over, Pointer};
 use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 
@@ -564,8 +579,10 @@ pub(in crate::hud) struct LineInks {
     pub turn_pt: f32,
     /// The sentence and the names in it.
     pub ink: Color,
-    /// A turn's heading, and "(×N)".
+    /// A turn's heading, "(×N)" and a line's time.
     pub soft: Color,
+    /// A card a line names that the seat was shown: a link.
+    pub link: Color,
     /// The rule over a turn's heading.
     pub rule: Color,
     /// Puts one of those colours on a node.
@@ -589,6 +606,7 @@ pub(in crate::hud) const PANEL_INKS: LineInks = LineInks {
     turn_pt: LOG_TURN_PT,
     ink: palette::DIALOG_INK,
     soft: palette::DIALOG_SOFT,
+    link: palette::CANDLE,
     rule: palette::DIALOG_LINE,
     paint: at_rest,
 };
@@ -622,10 +640,11 @@ const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
 
 /// One line of the log, as a row.
 ///
-/// A turn's heading is a quieter line under a rule. Any other line is the
-/// seat swatch, when `swatch` gives it a colour ([`subject_ink`]), and the
-/// sentence, with each name the sentence gives an object set one weight up,
-/// and "(×N)" after a line that happened more than once.
+/// A turn's heading is a quieter line under a rule. Any other line is its
+/// time ([`local_clock`]), the seat swatch, when `swatch` gives it a colour
+/// ([`subject_ink`]), and the sentence, cut into its [`Piece`]s: players in
+/// bold, a card the seat was shown as a link, a card it was not shown a
+/// weight up, and "(×N)" after a line that happened more than once.
 pub(in crate::hud) fn spawn_line(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -655,39 +674,7 @@ pub(in crate::hud) fn spawn_line(
         (inks.paint)(&mut rule, Paint::Rule(inks.rule));
         return rule.add_child(heading).id();
     }
-    let mut sentence = commands.spawn((
-        Text::default(),
-        tf(fonts, inks.line_pt),
-        Node {
-            flex_grow: 1.0,
-            min_width: px(0),
-            overflow: TEXT_OWN_HEIGHT,
-            ..default()
-        },
-        Pickable::IGNORE,
-    ));
-    (inks.paint)(&mut sentence, Paint::Ink(inks.ink));
-    let sentence = sentence.id();
-    for (text, name) in pieces(line) {
-        let font = if name {
-            TextFont {
-                font: bevy::text::FontSource::Handle(fonts.medium.clone()),
-                ..tf(fonts, inks.line_pt)
-            }
-        } else {
-            tf(fonts, inks.line_pt)
-        };
-        let mut span = commands.spawn((TextSpan::new(text), font));
-        (inks.paint)(&mut span, Paint::Ink(inks.ink));
-        let span = span.id();
-        commands.entity(sentence).add_child(span);
-    }
-    if let Some(times) = times(line, lang) {
-        let mut span = commands.spawn((TextSpan::new(times), tf(fonts, inks.line_pt)));
-        (inks.paint)(&mut span, Paint::Ink(inks.soft));
-        let span = span.id();
-        commands.entity(sentence).add_child(span);
-    }
+    let sentence = sentence(commands, fonts, lang, line, inks);
     let row = commands
         .spawn((
             Node {
@@ -699,6 +686,24 @@ pub(in crate::hud) fn spawn_line(
             Pickable::IGNORE,
         ))
         .id();
+    // The time first, in a column as wide as any time is, so the sentences
+    // start in one place down the list. A line the host never dated has
+    // none, and neither then has any other line of that game.
+    if let Some(clock) = local_clock(line) {
+        let mut time = commands.spawn((
+            Text::new(clock),
+            tf(fonts, inks.line_pt),
+            Node {
+                width: px(CLOCK_W),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ));
+        (inks.paint)(&mut time, Paint::Ink(inks.soft));
+        let time = time.id();
+        commands.entity(row).add_child(time);
+    }
     if let Some(colour) = swatch {
         let swatch = commands
             .spawn((
@@ -718,32 +723,234 @@ pub(in crate::hud) fn spawn_line(
     row
 }
 
-/// A line's sentence cut at its names: each piece, and whether it is a name.
+/// A line's sentence, cut into its [`Piece`]s and set piece by piece.
+fn sentence(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    line: &LogLine,
+    inks: &LineInks,
+) -> Entity {
+    let pieces = pieces(line);
+    // Hoverable only where there is something to hover, and never in the
+    // way of what is under it: the list scrolls under the pointer whatever
+    // line it is on.
+    let linked = pieces
+        .iter()
+        .any(|(_, piece)| matches!(piece, Piece::Link(_)));
+    let mut sentence = commands.spawn((
+        Text::default(),
+        tf(fonts, inks.line_pt),
+        Node {
+            flex_grow: 1.0,
+            min_width: px(0),
+            overflow: TEXT_OWN_HEIGHT,
+            ..default()
+        },
+        if linked {
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            }
+        } else {
+            Pickable::IGNORE
+        },
+    ));
+    (inks.paint)(&mut sentence, Paint::Ink(inks.ink));
+    let sentence = sentence.id();
+    for (text, piece) in pieces {
+        let face = match piece {
+            Piece::Words => None,
+            Piece::Player => Some(&fonts.bold),
+            Piece::Name | Piece::Link(_) => Some(&fonts.medium),
+        };
+        let font = face.map_or_else(
+            || tf(fonts, inks.line_pt),
+            |face| TextFont {
+                font: bevy::text::FontSource::Handle(face.clone()),
+                ..tf(fonts, inks.line_pt)
+            },
+        );
+        let mut span = commands.spawn((TextSpan::new(text), font));
+        if let Piece::Link(link) = piece {
+            span.insert(link);
+            (inks.paint)(&mut span, Paint::Ink(inks.link));
+        } else {
+            (inks.paint)(&mut span, Paint::Ink(inks.ink));
+        }
+        let span = span.id();
+        commands.entity(sentence).add_child(span);
+    }
+    if let Some(times) = times(line, lang) {
+        let mut span = commands.spawn((TextSpan::new(times), tf(fonts, inks.line_pt)));
+        (inks.paint)(&mut span, Paint::Ink(inks.soft));
+        let span = span.id();
+        commands.entity(sentence).add_child(span);
+    }
+    sentence
+}
+
+/// How wide a line's time is: "00:00" at the line's size, with a little to
+/// spare for the widest figures.
+const CLOCK_W: f32 = 34.0;
+
+/// A line's time on the device's own clock, "14:05" (#300).
 ///
-/// A range the sentence cannot be cut at is read as no name at all rather
-/// than as a panic: the sentence is still true, only set in one weight.
-pub(in crate::hud) fn pieces(line: &LogLine) -> Vec<(String, bool)> {
+/// The offset is asked of the platform for the moment the line was written,
+/// not for now, so a line from before the clocks changed keeps its hour.
+/// Where the platform will not say, the time is UTC, which is what the host
+/// stamped.
+pub(in crate::hud) fn local_clock(line: &LogLine) -> Option<String> {
+    let offset = i64::try_from(line.at / 1000)
+        .ok()
+        .and_then(|secs| time::OffsetDateTime::from_unix_timestamp(secs).ok())
+        .and_then(|utc| time::UtcOffset::local_offset_at(utc).ok())
+        .map_or(0, time::UtcOffset::whole_seconds);
+    line.clock(offset)
+}
+
+/// A card or token a line names, as the line showed it to this seat: what its
+/// link previews (#300).
+///
+/// Taken from the line and not from the table, so the preview is the printing
+/// and finish the line named, whatever has become of the card since.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct LogLink {
+    /// The card, its printing and its face.
+    pub card: Option<CardIdentity>,
+    /// The registry token, for a token.
+    pub token: Option<u16>,
+}
+
+impl LogLink {
+    /// The link a name makes, when the line showed the seat what it names.
+    /// A face-down card's name shows neither, and makes none.
+    fn of(name: &NameSpan) -> Option<Self> {
+        (name.card.is_some() || name.token.is_some()).then_some(Self {
+            card: name.card,
+            token: name.token,
+        })
+    }
+
+    /// The picture its preview shows, at `size`.
+    pub(in crate::hud) fn art(self, size: ArtSize) -> Option<ImageKey> {
+        match (self.card, self.token) {
+            (Some(card), _) => Some(ImageKey::new(card.print, card.face, size)),
+            (None, Some(token)) => Some(ImageKey::token(token, size)),
+            (None, None) => None,
+        }
+    }
+}
+
+/// What a piece of a line's sentence is, which is how it is set.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(in crate::hud) enum Piece {
+    /// The sentence's own words.
+    Words,
+    /// A player, "you" included, in bold: a line is found by who it is about.
+    Player,
+    /// An object the seat was not shown, a face-down card: a weight up, and
+    /// nothing to hover.
+    Name,
+    /// A card or token the seat was shown: in brackets and the link's ink, and
+    /// the table's preview of it under the pointer.
+    Link(LogLink),
+}
+
+/// A line's sentence cut at its names and players: each piece, and what it
+/// is. A link's piece carries its brackets.
+///
+/// A range the sentence cannot be cut at, or two that overlap, is read as no
+/// mark at all rather than as a panic: the sentence is still true, only set
+/// in one weight.
+pub(in crate::hud) fn pieces(line: &LogLine) -> Vec<(String, Piece)> {
+    let whole = || vec![(line.text.clone(), Piece::Words)];
+    let mut marks: Vec<(std::ops::Range<usize>, Piece)> = line
+        .names
+        .iter()
+        .map(|name| {
+            let piece = LogLink::of(name).map_or(Piece::Name, Piece::Link);
+            (name.range.clone(), piece)
+        })
+        .chain(
+            line.players
+                .iter()
+                .map(|player| (player.range.clone(), Piece::Player)),
+        )
+        .collect();
+    marks.sort_by_key(|(range, _)| range.start);
     let mut out = Vec::new();
     let mut at = 0;
-    for name in &line.names {
-        let (Some(before), Some(named)) = (
-            line.text.get(at..name.range.start),
-            line.text.get(name.range.clone()),
-        ) else {
-            return vec![(line.text.clone(), false)];
+    for (range, piece) in marks {
+        let (Some(before), Some(marked)) =
+            (line.text.get(at..range.start), line.text.get(range.clone()))
+        else {
+            return whole();
         };
         if !before.is_empty() {
-            out.push((before.to_string(), false));
+            out.push((before.to_string(), Piece::Words));
         }
-        out.push((named.to_string(), true));
-        at = name.range.end;
+        let text = match piece {
+            Piece::Link(_) => format!("[{marked}]"),
+            _ => marked.to_string(),
+        };
+        out.push((text, piece));
+        at = range.end;
     }
     match line.text.get(at..) {
-        Some(rest) if !rest.is_empty() => out.push((rest.to_string(), false)),
+        Some(rest) if !rest.is_empty() => out.push((rest.to_string(), Piece::Words)),
         Some(_) => {}
-        None => return vec![(line.text.clone(), false)],
+        None => return whole(),
     }
     out
+}
+
+/// Where the pointer is on a link in the log, for the preview (#300).
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct LogHover {
+    /// The link's span, which the pointer leaves by.
+    pub span: Entity,
+    /// What it previews.
+    pub link: LogLink,
+    /// Where the pointer found it, in logical pixels: the preview stands
+    /// beside it, as it does beside a row in the zone browser.
+    pub at: Vec2,
+}
+
+/// Follows the pointer onto the log's links and off them again
+/// ([`Duel::hovered_log`]). Written only when it changes, so the overlay's
+/// redraw gate sees a hover and not a frame.
+pub fn hover_log_links(
+    mut overs: MessageReader<Pointer<Over>>,
+    mut outs: MessageReader<Pointer<Out>>,
+    links: Query<&LogLink>,
+    mut duel: ResMut<Duel>,
+) {
+    for over in overs.read() {
+        if let Ok(link) = links.get(over.entity) {
+            duel.hovered_log = Some(LogHover {
+                span: over.entity,
+                link: *link,
+                at: over.pointer_location.position,
+            });
+        }
+    }
+    for out in outs.read() {
+        if duel
+            .hovered_log
+            .is_some_and(|hover| hover.span == out.entity)
+        {
+            duel.hovered_log = None;
+        }
+    }
+    // A link that is gone with its panel, or with its game, shows nothing:
+    // a despawned span is never left by the pointer.
+    if duel
+        .hovered_log
+        .is_some_and(|hover| !links.contains(hover.span))
+    {
+        duel.hovered_log = None;
+    }
 }
 
 /// What follows a line that happened more than once: the part of
@@ -840,9 +1047,10 @@ pub fn grow_the_log(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_client_core::gamelog::NameSpan;
+    use baylee_client_core::gamelog::PlayerSpan;
     use baylee_core::ids::ObjectId;
     use baylee_view::{DayNight, GameStatic, LogEntry, LogEvent, LogTail, SeatIdentity};
+    use bevy::ecs::system::RunSystemOnce;
 
     fn fonts() -> UiFonts {
         UiFonts {
@@ -928,23 +1136,204 @@ mod tests {
         assert_eq!(
             pieces(&bolt),
             [
-                ("You cast ".to_string(), false),
-                ("Lightning Bolt".to_string(), true),
-                (" at ".to_string(), false),
-                ("Ana".to_string(), true),
+                ("You cast ".to_string(), Piece::Words),
+                ("Lightning Bolt".to_string(), Piece::Name),
+                (" at ".to_string(), Piece::Words),
+                ("Ana".to_string(), Piece::Name),
             ]
         );
         let first = line("Ana drew a card", &[(0, 3)], 1);
         assert_eq!(
             pieces(&first),
             [
-                ("Ana".to_string(), true),
-                (" drew a card".to_string(), false)
+                ("Ana".to_string(), Piece::Name),
+                (" drew a card".to_string(), Piece::Words)
             ]
         );
         // Inside the `ö`, which is bytes 2 and 3: not a place to cut.
         let broken = line("Björn drew", &[(0, 3)], 1);
-        assert_eq!(pieces(&broken), [("Björn drew".to_string(), false)]);
+        assert_eq!(pieces(&broken), [("Björn drew".to_string(), Piece::Words)]);
+    }
+
+    fn bolt_identity() -> CardIdentity {
+        CardIdentity {
+            index: CardIndex::new(7),
+            print: baylee_core::ids::PrintRef::new(3),
+            face: 0,
+        }
+    }
+
+    /// Every player a line names is bold, "you" as much as a name; a card
+    /// the seat was shown is a link in brackets, and so is a token; the
+    /// words between are kept (#300).
+    #[test]
+    fn players_are_bold_and_what_the_seat_was_shown_is_a_link() {
+        let mut said = line(
+            "You cast Lightning Bolt at Ana's Goblin",
+            &[(9, 23), (33, 39)],
+            1,
+        );
+        said.names[0].card = Some(bolt_identity());
+        said.names[1].token = Some(12);
+        said.players = vec![
+            PlayerSpan {
+                range: 0..3,
+                player: PlayerId::new(0),
+            },
+            PlayerSpan {
+                range: 27..30,
+                player: PlayerId::new(1),
+            },
+        ];
+        let bolt = LogLink {
+            card: Some(bolt_identity()),
+            token: None,
+        };
+        let goblin = LogLink {
+            card: None,
+            token: Some(12),
+        };
+        assert_eq!(
+            pieces(&said),
+            [
+                ("You".to_string(), Piece::Player),
+                (" cast ".to_string(), Piece::Words),
+                ("[Lightning Bolt]".to_string(), Piece::Link(bolt)),
+                (" at ".to_string(), Piece::Words),
+                ("Ana".to_string(), Piece::Player),
+                ("'s ".to_string(), Piece::Words),
+                ("[Goblin]".to_string(), Piece::Link(goblin)),
+            ]
+        );
+        assert_eq!(
+            bolt.art(ArtSize::Normal),
+            Some(ImageKey::new(bolt_identity().print, 0, ArtSize::Normal)),
+            "the preview is the printing the line named"
+        );
+        assert_eq!(
+            goblin.art(ArtSize::Small),
+            Some(ImageKey::token(12, ArtSize::Small))
+        );
+    }
+
+    /// The hidden-information guard (#300): a card the line did not show the
+    /// seat is no link, has nothing to preview, and puts nothing on the row
+    /// that the pointer could hover into a preview. A face-down card is
+    /// named, a weight up, and that is all; a hidden card is not even named.
+    #[test]
+    fn a_card_the_seat_was_not_shown_is_no_link() {
+        let face_down = line("Ana cast a face-down card", &[(9, 25)], 1);
+        assert_eq!(face_down.names[0].card, None);
+        assert_eq!(face_down.names[0].token, None);
+        assert_eq!(
+            pieces(&face_down),
+            [
+                ("Ana cast ".to_string(), Piece::Words),
+                ("a face-down card".to_string(), Piece::Name),
+            ]
+        );
+        assert_eq!(LogLink::of(&face_down.names[0]), None);
+        let hidden = line("Ana drew a card", &[], 1);
+        assert_eq!(
+            pieces(&hidden),
+            [("Ana drew a card".to_string(), Piece::Words)]
+        );
+
+        let mut app = App::new();
+        app.insert_resource(fonts());
+        let row = app
+            .world_mut()
+            .run_system_once(move |mut commands: Commands, fonts: Res<UiFonts>| {
+                spawn_line(
+                    &mut commands,
+                    &fonts,
+                    Lang::En,
+                    &face_down,
+                    &PANEL_INKS,
+                    None,
+                )
+            })
+            .expect("spawns");
+        app.update();
+        let mut links = app.world_mut().query::<&LogLink>();
+        assert_eq!(
+            links.iter(app.world()).count(),
+            0,
+            "a link on a face-down card"
+        );
+        let mut hoverable = app.world_mut().query::<&Pickable>();
+        assert!(
+            hoverable.iter(app.world()).all(|pick| !pick.is_hoverable),
+            "a row with nothing to preview answers the pointer"
+        );
+        assert!(app.world().get_entity(row).is_ok());
+    }
+
+    /// A pointer event aimed at one entity, from where the pointer stands.
+    fn at<E: std::fmt::Debug + Clone + Reflect>(entity: Entity, event: E) -> Pointer<E> {
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::picking::pointer::{Location, PointerId};
+        use bevy::window::WindowRef;
+        Pointer::new(
+            PointerId::Mouse,
+            Location {
+                target: NormalizedRenderTarget::Window(
+                    WindowRef::Primary
+                        .normalize(Some(Entity::PLACEHOLDER))
+                        .expect("a window"),
+                ),
+                position: Vec2::new(40.0, 50.0),
+            },
+            event,
+            entity,
+        )
+    }
+
+    /// The pointer on a link is what the preview follows: onto it, off it,
+    /// and off it by the link's going, which no pointer reports (#300).
+    #[test]
+    fn the_hover_follows_the_pointer_onto_a_link_and_off_it() {
+        let mut app = App::new();
+        app.init_resource::<Duel>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Out>>()
+            .add_systems(Update, hover_log_links);
+        let link = LogLink {
+            card: Some(bolt_identity()),
+            token: None,
+        };
+        let span = app.world_mut().spawn(link).id();
+        let words = app.world_mut().spawn_empty().id();
+        let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        let hovered = |app: &App| app.world().resource::<Duel>().hovered_log;
+
+        app.world_mut()
+            .write_message(at(words, Over { hit: hit.clone() }));
+        app.update();
+        assert_eq!(hovered(&app), None, "words are no link");
+
+        app.world_mut()
+            .write_message(at(span, Over { hit: hit.clone() }));
+        app.update();
+        assert_eq!(
+            hovered(&app),
+            Some(LogHover {
+                span,
+                link,
+                at: Vec2::new(40.0, 50.0)
+            })
+        );
+        app.world_mut()
+            .write_message(at(span, Out { hit: hit.clone() }));
+        app.update();
+        assert_eq!(hovered(&app), None, "left by the pointer");
+
+        app.world_mut().write_message(at(span, Over { hit }));
+        app.update();
+        assert!(hovered(&app).is_some());
+        app.world_mut().despawn(span);
+        app.update();
+        assert_eq!(hovered(&app), None, "left by the link's going");
     }
 
     /// A line that happened more than once says how often, after the

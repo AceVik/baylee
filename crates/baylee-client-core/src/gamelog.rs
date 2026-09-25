@@ -101,6 +101,23 @@ pub struct LogLine {
 }
 
 impl LogLine {
+    /// When it was written, as a clock on the wall says it: "14:05", `offset`
+    /// seconds from UTC (#300). `None` for a line the host never dated.
+    ///
+    /// The offset is the caller's to find, because the zone is the device's
+    /// and this crate reads no clock and no zone: the renderer asks the
+    /// platform for the offset at [`Self::at`], so a line from before a change
+    /// to summer time keeps the hour it was written at.
+    #[must_use]
+    pub fn clock(&self, offset: i32) -> Option<String> {
+        if self.at == 0 {
+            return None;
+        }
+        let secs = i64::try_from(self.at / 1000).ok()? + i64::from(offset);
+        let day = secs.rem_euclid(86_400);
+        Some(format!("{:02}:{:02}", day / 3600, day % 3600 / 60))
+    }
+
     /// The sentence with how often it happened, for a reader that draws
     /// plain text.
     #[must_use]
@@ -2380,6 +2397,34 @@ mod tests {
             "Du hast Blitzschlag aus dem Exil gewirkt"
         );
         assert_eq!(say(Lang::En, cast(BO, None)), "Bo cast Lightning Bolt");
+    }
+
+    /// A line's time is said as the wall clock says it, wherever the device
+    /// is: the offset moves it across midnight either way, and a half-hour
+    /// zone keeps its minutes (#300).
+    #[test]
+    fn a_line_says_its_time_on_the_wall_clock() {
+        let mut line = LogLine {
+            index: 0,
+            turn: 1,
+            times: 1,
+            header: false,
+            at: 0,
+            text: String::new(),
+            names: Vec::new(),
+            players: Vec::new(),
+            ability: None,
+            subject: None,
+        };
+        assert_eq!(line.clock(0), None, "a line the host never dated");
+        // 2026-09-25 12:34:56.789 UTC.
+        line.at = 1_790_339_696_789;
+        assert_eq!(line.clock(0).as_deref(), Some("12:34"));
+        assert_eq!(line.clock(2 * 3600).as_deref(), Some("14:34"));
+        // West of Greenwich across midnight, and east across it.
+        assert_eq!(line.clock(-13 * 3600).as_deref(), Some("23:34"));
+        assert_eq!(line.clock(12 * 3600).as_deref(), Some("00:34"));
+        assert_eq!(line.clock(5 * 3600 + 1800).as_deref(), Some("18:04"));
     }
 
     /// A line carries the time the host wrote it, and a token's registry

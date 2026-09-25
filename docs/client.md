@@ -6826,9 +6826,37 @@ into the list's scroll range: measured, the panel's range came to 776 pixels
 against 620 of lines, and the list scrolled past its last line into blank
 space. The clip stops the report at the row and clips none of the glyphs.
 
-A turn's heading is a quieter line under a rule. Every other line is the
-seat swatch, then the sentence with each name set one weight up and
-"(×N)" in the quieter ink after a line that happened more than once. The
+A turn's heading is a quieter line under a rule. Every other line reads
+like a chat (#300): its time, the seat swatch, then the sentence, and
+"(×N)" in the quieter ink after a line that happened more than once.
+
+- **The time** is `LogLine::at` on the device's own clock, "14:05", in a
+  column `CLOCK_W` wide so the sentences start in one place
+  (`ledge::log::local_clock`, `LogLine::clock`). The offset is asked of the
+  platform for the moment the line was written (`time`'s `local-offset`:
+  `localtime_r`, Windows' zone information, the browser's `Date`), so a line
+  from before the clocks changed keeps its hour; where the platform will not
+  say, it is UTC, which is what the host stamped. A game whose host never
+  told the time (0) has no column.
+- **Players** (`LogLine::players`), "you" included, are set in bold.
+- **A card or token the line showed the seat** is a link: "[Lightning
+  Bolt]", in brackets and the link's ink (`LineInks::link`: the candle on
+  the panel, a darkened candle on the sheet). The pointer on it opens the
+  table's own preview (`Duel::hovered_log`, `hud::hover_log_links`), drawn
+  from the printing and finish the line named (`LogLink`) and not from the
+  object as it is now, beside the pointer as a zone-browser row's is. While
+  it lasts it stands in for `Duel::hovered`, so the preview asks the table's
+  object for nothing (strip, count, sheen, the stack's sentence). The
+  sentence is hoverable only on a line with a link, and blocks nothing under
+  it, so the list still scrolls under the pointer.
+- **The hidden-information guard:** a card the line did not show the seat
+  is no link. A hidden card names no span at all, and a face-down one a span
+  with neither a card nor a token (`LogLink::of` makes none), set one weight
+  up and nothing more (`ledge::log::Piece::Name`);
+  `a_card_the_seat_was_not_shown_is_no_link` holds both halves, the pieces
+  and the spawned row.
+
+The
 swatch is the colour of the seat the line is about (`LogLine::subject`):
 `hud::seat_colour`, the one the seat bar's own swatch wears, so the reader's
 lines are gold and another seat's are its team's. A line about the table
@@ -6841,7 +6869,8 @@ because every `Log…` phrase is a sentence of the book's.
 between the loss lines and the way out, under a "Game log" caption, in a box
 at most 320 high that scrolls. It uses the panel's own rows
 (`ledge::log::spawn_line`) in the sheet's inks (`LineInks`): parchment ink,
-headings and "(×N)" in the slip's softer ink, and no seat swatch. Its colours
+headings, times and "(×N)" in the slip's softer ink, links in the darkened
+candle, and no seat swatch. Its colours
 go on clear and rise with the veil (`finish::Settling`), like the rest of the
 sheet. It starts at the top and does not follow its end, because it is read
 from the start of the game and nothing arrives any more. It is built once:

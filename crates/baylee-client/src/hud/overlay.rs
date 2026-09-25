@@ -312,6 +312,7 @@ pub fn sync_overlay(
         && revision.error == error
         && revision.link_note == link_note
         && revision.hovered == hovered
+        && revision.hovered_log == duel.hovered_log
         && revision.selected == selected
         && revision.orders.as_ref().is_some_and(|o| o.same_as(&orders))
         && revision.autopilot == autopilot
@@ -342,6 +343,7 @@ pub fn sync_overlay(
     revision.error.clone_from(&error);
     revision.link_note = link_note;
     revision.hovered = hovered;
+    revision.hovered_log = duel.hovered_log;
     revision.selected.clone_from(&selected);
     revision.orders = Some(orders.clone());
     revision.autopilot = autopilot;
@@ -522,14 +524,29 @@ pub fn sync_overlay(
         // ---- card preview: a speech-bubble tooltip over the hovered
         // card (hand, own battlefield, or command zone). No title text —
         // the image is big enough to read.
-        if let Some((art, anchor)) = preview_anchor(
-            board,
-            view,
-            hovered,
-            layout,
-            duel.hand_scroll,
-            duel.hovered_at,
-        ) {
+        //
+        // Or over a card a log line names, while the pointer is on its link
+        // (#300): the printing the line showed, beside the pointer, and in
+        // place of any card the keyboard cursor holds. Everything below that
+        // reads the table's own object (its strip, its count, its sheen, the
+        // stack's sentence) is then asked about none, since the line's card
+        // is not the object as it stands now and may be nowhere at all.
+        let hovered = hovered.filter(|_| duel.hovered_log.is_none());
+        let anchor = match duel.hovered_log {
+            Some(log) => log
+                .link
+                .art(ArtSize::Normal)
+                .map(|art| (Some(art), PreviewAt::Pointer(log.at))),
+            None => preview_anchor(
+                board,
+                view,
+                hovered,
+                layout,
+                duel.hand_scroll,
+                duel.hovered_at,
+            ),
+        };
+        if let Some((art, anchor)) = anchor {
             let scale = settings.preview_scale.clamp(0.5, 1.75);
             let window = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
                 Vec2::new(w.width(), w.height())
@@ -2550,6 +2567,43 @@ mod tests {
             .flat_map(|c| c.iter().collect::<Vec<_>>())
             .filter(|e| !kept.contains(e))
             .collect::<Vec<_>>()
+    }
+
+    /// A card a log line names opens the table's preview while the pointer
+    /// is on its link (#300), and closes it when the pointer leaves: the
+    /// overlay draws it from the link alone, with nothing on the table under
+    /// the pointer at all.
+    #[test]
+    fn a_log_link_opens_the_preview_of_the_card_it_names() {
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        let mut app = bar_of(duel);
+        app.update();
+        let previews = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<PreviewResize>>();
+            q.iter(app.world()).count()
+        };
+        assert_eq!(previews(&mut app), 0, "a preview with nothing hovered");
+        let span = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<Duel>().hovered_log = Some(super::super::LogHover {
+            span,
+            link: super::super::LogLink {
+                card: Some(baylee_view::CardIdentity {
+                    index: baylee_core::ids::CardIndex::new(7),
+                    print: baylee_core::ids::PrintRef::new(3),
+                    face: 0,
+                }),
+                token: None,
+            },
+            at: Vec2::new(300.0, 200.0),
+        });
+        app.update();
+        assert_eq!(previews(&mut app), 1, "the link opened no preview");
+        app.world_mut().resource_mut::<Duel>().hovered_log = None;
+        app.update();
+        assert_eq!(previews(&mut app), 0, "the preview outlived the hover");
     }
 
     /// The shelf is built once and stands; everything else on the overlay is

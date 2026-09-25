@@ -1146,6 +1146,8 @@ pub struct HudRevision {
     /// Cursor position and choice selection — they change without a new
     /// snapshot (hover is per-frame, selection never leaves the client).
     hovered: Option<ObjectId>,
+    /// A card a log line names, under the pointer (#300).
+    hovered_log: Option<LogHover>,
     selected: Vec<ObjectId>,
     /// Standing orders, autopilot, and inspected seat.
     orders: Option<baylee_client_core::automation::PhaseOrders>,
@@ -2067,7 +2069,10 @@ pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
-pub use ledge::log::{LogPanel, LogRevision, follow_the_log, grow_the_log, sync_log};
+pub use ledge::log::{
+    LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log, hover_log_links,
+    sync_log,
+};
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, sync_menu};
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};

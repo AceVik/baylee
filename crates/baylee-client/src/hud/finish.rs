@@ -153,12 +153,17 @@ const LOG_CAPTION_GAP: f32 = 6.0;
 /// The air inside the box.
 const LOG_PAD: f32 = 8.0;
 
+/// A link on the sheet: the panel's candle, darkened until it reads on
+/// parchment as the candle reads on the dialog's ground.
+const SHEET_LINK: Color = Color::srgb(0.47, 0.26, 0.04);
+
 /// The log's lines in the sheet's inks, settling with it.
 const SHEET_INKS: LineInks = LineInks {
     line_pt: LOG_PT,
     turn_pt: LOG_TURN_PT,
     ink: palette::PARCHMENT_INK,
     soft: palette::SLIP_SOFT,
+    link: SHEET_LINK,
     rule: palette::PARCHMENT_EDGE,
     paint: settle,
 };

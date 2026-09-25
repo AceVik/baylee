@@ -441,6 +441,10 @@ pub struct Duel {
     /// `None` when the hover came from the keyboard cursor, which has no
     /// position on the screen at all.
     pub hovered_at: Option<HoverSpot>,
+    /// A card a line of the game log names, under the pointer in the log
+    /// (#300): previewed as the line showed it, in place of [`Self::hovered`]
+    /// while it lasts.
+    pub hovered_log: Option<hud::LogHover>,
     /// The aspect ratio of the part of the window the table is *seen*
     /// through, once anything has measured it.
     ///
@@ -1433,6 +1437,7 @@ fn add_present_systems(app: &mut App) {
                     hud::sync_log.after(hud::sync_ledge),
                     hud::grow_the_log.after(hud::sync_log),
                     hud::follow_the_log.after(hud::sync_log),
+                    hud::hover_log_links.after(hud::sync_log),
                 ),
                 // The tray hangs off the shelf's edge and not out of its
                 // layout, so it needs nothing the shelf worked out — but it
