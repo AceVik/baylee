@@ -75,7 +75,7 @@ is no account yet:
 
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
- "protocol_version":…,"view_version":…}
+ "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee"}
 ```
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
@@ -93,6 +93,13 @@ is no account yet:
   protocol when it attaches, so the number describes the engines only because
   one deployment runs one build. It is the early warning; the check that decides
   is still the client's own, on a game's first `GameStatic`.
+- `source` is where this gateway's source can be had: the AGPL's §13 offer
+  (#270), the same address `/source` names. It is `BAYLEE_SOURCE_URL`, for a
+  fork that publishes elsewhere, else the repository the build came from. An
+  address that is not `http://` or `https://`, is over 200 characters, or
+  holds whitespace, a control or a bidirectional character refuses startup.
+  The client keeps only an address that is plainly one, and drops rather
+  than cuts anything else (`gateway_info::GatewayInfo::source`).
 
 ## Printings (which art the client draws)
 

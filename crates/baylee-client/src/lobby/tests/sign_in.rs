@@ -729,6 +729,7 @@ fn gateway_info(name: Option<&str>, version: &str, view: u32) -> Probe {
         version: version.to_string(),
         protocol_version: baylee_protocol::PROTOCOL_VERSION,
         view_version: view,
+        source: None,
     })
 }
 

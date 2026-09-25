@@ -301,6 +301,48 @@ fn a_gateway_name_is_trimmed_counted_in_characters_and_refused_when_it_hides_any
     }
 }
 
+/// #270, AGPL §13: where the source is, as an operator may set it.
+///
+/// Unset and blank are this build's repository. What is set is shown to
+/// players as it is, so it must be a web address that displays as what it
+/// says: anything else refuses startup rather than being trimmed.
+#[test]
+fn a_source_address_is_the_repository_unless_an_operator_names_a_web_address() {
+    assert_eq!(source_url(None), Ok(baylee_build::REPOSITORY.to_owned()));
+    assert_eq!(
+        source_url(Some("  ")),
+        Ok(baylee_build::REPOSITORY.to_owned()),
+        "blank is unset"
+    );
+    assert_eq!(
+        source_url(Some(" https://git.example/fork/baylee ")),
+        Ok("https://git.example/fork/baylee".to_owned()),
+        "the ends are trimmed"
+    );
+    assert!(source_url(Some("http://10.0.0.2/baylee.tar.gz")).is_ok());
+
+    let longest = format!("https://{}", "a".repeat(MAX_SOURCE_CHARS - 8));
+    assert_eq!(source_url(Some(&longest)), Ok(longest.clone()));
+    assert!(
+        source_url(Some(&format!("{longest}a"))).is_err(),
+        "one more"
+    );
+
+    for refused in [
+        "git.example/fork",
+        "ftp://git.example/fork",
+        "javascript:alert(1)",
+        "https://git.example/fork and more",
+        "https://git.example/\u{202E}krof",
+        "https://git.example/\nfork",
+    ] {
+        assert!(
+            source_url(Some(refused)).is_err(),
+            "{refused:?} is not an address that shows as what it is"
+        );
+    }
+}
+
 /// What a deck list of these lines parses to, or what the player is told.
 ///
 /// Every refusal here is a 400 and that is folded in rather than asserted

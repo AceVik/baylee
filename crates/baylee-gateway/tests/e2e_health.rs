@@ -89,7 +89,13 @@ async fn health_answers_what_a_monitor_cannot_learn_from_an_open_port() {
 async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
     let named = spawn_gateway_with(
         "info-named",
-        &[("BAYLEE_GATEWAY_NAME", "  Baylee Test Hall  ".into())],
+        &[
+            ("BAYLEE_GATEWAY_NAME", "  Baylee Test Hall  ".into()),
+            (
+                "BAYLEE_SOURCE_URL",
+                "https://git.example/fork/baylee".into(),
+            ),
+        ],
     );
     let (status, body) = http(named.port, "GET", "/info", None, "");
     assert_eq!(status, 200, "info: {body}");
@@ -109,7 +115,14 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
         "view: {body}"
     );
     let (_, source) = http(named.port, "GET", "/source", None, "");
-    for field in ["version", "commit", "build"] {
+    // #270, AGPL §13: where the source is, for the client to show at
+    // sign-in, and `/source` says the same.
+    assert_eq!(
+        json_field(&body, "source"),
+        "https://git.example/fork/baylee",
+        "the operator's address: {body}"
+    );
+    for field in ["version", "commit", "build", "source"] {
         assert_eq!(
             json_field(&body, field),
             json_field(&source, field),
@@ -127,6 +140,11 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
     assert!(
         !body.contains("\"name\""),
         "no name set, so none is sent and the client shows the address: {body}"
+    );
+    assert_eq!(
+        json_field(&body, "source"),
+        baylee_build::REPOSITORY,
+        "none set, so the repository this build came from: {body}"
     );
 }
 

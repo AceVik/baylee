@@ -73,6 +73,10 @@ struct AppState {
     /// already checked by [`display_name`]. `None` when unset, and the client
     /// names it by its address instead.
     display_name: Option<String>,
+    /// Where this build's source can be had (`BAYLEE_SOURCE_URL`, else the
+    /// repository it was built from), already checked by [`source_url`].
+    /// The AGPL's §13 offer, which `/source` and `/info` both carry.
+    source_url: String,
     /// Where confirmation mail goes, and — because it is the same
     /// question — whether an address has to be confirmed at all.
     mail: mail::Mailer,
@@ -164,6 +168,8 @@ async fn main() {
     validate_the_dev_board();
     let display_name = display_name(std::env::var("BAYLEE_GATEWAY_NAME").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GATEWAY_NAME: {why}"));
+    let source_url = source_url(std::env::var("BAYLEE_SOURCE_URL").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_SOURCE_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
     let store_path = std::env::var("STORE_PATH")
@@ -197,6 +203,7 @@ async fn main() {
         guests_enabled: switched_on(std::env::var("BAYLEE_GUESTS").ok().as_deref()),
         guest_cap,
         display_name,
+        source_url,
         mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
@@ -623,12 +630,48 @@ fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> Strin
 /// because "the source is on GitHub" does not say *which* source — a build
 /// running a patch nobody published would answer that sentence truthfully
 /// and still be hiding what it runs.
-async fn source() -> Json<serde_json::Value> {
+async fn source(State(state): State<Shared>) -> Json<serde_json::Value> {
     let mut body = build_fields();
     body.insert("name".into(), "baylee".into());
     body.insert("license".into(), "AGPL-3.0-only".into());
-    body.insert("source".into(), baylee_build::REPOSITORY.into());
+    body.insert("source".into(), state.source_url.clone().into());
     Json(body.into())
+}
+
+/// The longest `BAYLEE_SOURCE_URL` may be, in characters.
+const MAX_SOURCE_CHARS: usize = 200;
+
+/// Where this gateway's source can be had, out of `BAYLEE_SOURCE_URL`.
+///
+/// §13 of the AGPL makes whoever runs a *modified* gateway offer its users
+/// that version's source, and a fork may publish it somewhere other than
+/// the repository its `Cargo.toml` names. So an operator can say where;
+/// unset or blank is the repository this build was made from
+/// (`baylee_build::REPOSITORY`). It is meant to be shown to players as it
+/// is (at sign-in, once the client draws it), so it has to be a web address and nothing
+/// that displays as something else: `http://` or `https://`, no whitespace,
+/// no control or bidirectional character, at most [`MAX_SOURCE_CHARS`]. Refused
+/// at startup rather than trimmed, as `BAYLEE_GATEWAY_NAME` is.
+fn source_url(raw: Option<&str>) -> Result<String, String> {
+    let Some(url) = raw.map(str::trim).filter(|url| !url.is_empty()) else {
+        return Ok(baylee_build::REPOSITORY.to_owned());
+    };
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("it is not an http:// or https:// address".to_owned());
+    }
+    let length = url.chars().count();
+    if length > MAX_SOURCE_CHARS {
+        return Err(format!(
+            "{length} characters, and an address has {MAX_SOURCE_CHARS} at most"
+        ));
+    }
+    if let Some(bad) = url
+        .chars()
+        .find(|&c| c.is_whitespace() || c.is_control() || is_bidi_control(c))
+    {
+        return Err(format!("it contains U+{:04X}", u32::from(bad)));
+    }
+    Ok(url.to_owned())
 }
 
 /// Which binary this is, spelled once for every route that says so.
@@ -651,7 +694,9 @@ fn build_fields() -> serde_json::Map<String, serde_json::Value> {
 }
 
 /// What a client asks before it saves this gateway: the name to show, the
-/// build, and the two versions that decide whether the two can talk.
+/// build, the two versions that decide whether the two can talk, and where
+/// the source is (`source`, the AGPL's §13 offer, for the client to show
+/// at sign-in; see [`source_url`]).
 ///
 /// Unauthenticated, because it is asked before there is an account, and it
 /// carries nothing a stranger may not read. `protocol_version` is the
@@ -671,6 +716,7 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
         baylee_protocol::PROTOCOL_VERSION.into(),
     );
     body.insert("view_version".into(), baylee_view::VIEW_VERSION.into());
+    body.insert("source".into(), state.source_url.clone().into());
     Json(body.into())
 }
 

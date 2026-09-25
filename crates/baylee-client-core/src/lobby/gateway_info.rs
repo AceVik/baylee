@@ -28,6 +28,13 @@ pub const MAX_NAME_CHARS: usize = 64;
 /// about half of this.
 pub const MAX_VERSION_CHARS: usize = 48;
 
+/// The longest source address this client keeps.
+///
+/// The gateway refuses to start with a longer one (`MAX_SOURCE_CHARS` in
+/// `baylee-gateway`). A longer one from a server that does not check is
+/// dropped rather than cut, because a cut address leads somewhere else.
+pub const MAX_SOURCE_CHARS: usize = 200;
+
 /// A gateway's answer to `GET /info`, cleaned for drawing.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GatewayInfo {
@@ -39,6 +46,10 @@ pub struct GatewayInfo {
     pub protocol_version: u32,
     /// The view shape its build draws.
     pub view_version: u32,
+    /// Where its source can be had: the AGPL's §13 offer (#270), for the
+    /// sign-in screen to show. Only a plain `http://` or `https://` address
+    /// is kept.
+    pub source: Option<String>,
 }
 
 /// `GET /info` as it arrives.
@@ -54,6 +65,8 @@ struct Wire {
     version: String,
     protocol_version: u32,
     view_version: u32,
+    #[serde(default)]
+    source: Option<String>,
 }
 
 impl GatewayInfo {
@@ -69,6 +82,7 @@ impl GatewayInfo {
             version: shown(&wire.version, MAX_VERSION_CHARS),
             protocol_version: wire.protocol_version,
             view_version: wire.view_version,
+            source: wire.source.as_deref().and_then(web_address),
         })
     }
 
@@ -120,6 +134,24 @@ pub fn shown(raw: &str, max: usize) -> String {
     cut.truncate(cut.trim_end().len());
     cut.push('…');
     cut
+}
+
+/// A source address as this client keeps it, or `None` for anything that
+/// is not plainly one.
+///
+/// Stricter than [`shown`]: a name with a character dropped is still the
+/// name, but an address with one dropped, or cut short, leads somewhere
+/// else. So an address that is not `http://` or `https://`, is longer than
+/// [`MAX_SOURCE_CHARS`], or holds whitespace, a control or a bidi character
+/// is not kept at all.
+fn web_address(raw: &str) -> Option<String> {
+    let url = raw.trim();
+    let plain = (url.starts_with("https://") || url.starts_with("http://"))
+        && url.chars().count() <= MAX_SOURCE_CHARS
+        && !url
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || is_bidi_control(c));
+    plain.then(|| url.to_string())
 }
 
 /// Unicode's embeddings, overrides and isolates: characters that are not
@@ -233,6 +265,7 @@ mod tests {
             version: String::new(),
             protocol_version: protocol,
             view_version: view,
+            source: None,
         })
     }
 
@@ -284,6 +317,41 @@ mod tests {
         assert_eq!(long.chars().count(), MAX_NAME_CHARS);
         assert!(long.ends_with('…'));
         assert_eq!(shown("ab cd", 4), "ab…", "no space before the ellipsis");
+    }
+
+    /// #270, AGPL §13: the gateway's source address is kept when it is
+    /// plainly a web address, and not at all otherwise: an address with a
+    /// character dropped or cut short leads somewhere else.
+    #[test]
+    fn a_source_address_is_kept_only_when_it_is_plainly_one() {
+        let read = |source: &str| {
+            let body = serde_json::json!({
+                "source": source, "protocol_version": 1, "view_version": 1,
+            });
+            GatewayInfo::read(body.to_string().as_bytes())
+                .expect("an answer")
+                .source
+        };
+        assert_eq!(
+            read(" https://github.com/AceVik/baylee ").as_deref(),
+            Some("https://github.com/AceVik/baylee")
+        );
+        assert!(read("http://10.0.0.2/baylee.tar.gz").is_some());
+        let longest = format!("https://{}", "a".repeat(MAX_SOURCE_CHARS - 8));
+        assert_eq!(read(&longest).as_deref(), Some(longest.as_str()));
+        for dropped in [
+            format!("{longest}a"),
+            "github.com/AceVik/baylee".to_string(),
+            "javascript:alert(1)".to_string(),
+            "https://git.example/a b".to_string(),
+            "https://git.example/\u{202E}krof".to_string(),
+            "https://git.example/\nfork".to_string(),
+        ] {
+            assert_eq!(read(&dropped), None, "{dropped:?}");
+        }
+        let older = GatewayInfo::read(br#"{"protocol_version":1,"view_version":1}"#)
+            .expect("a gateway from before #270");
+        assert_eq!(older.source, None, "says nothing, so nothing is drawn");
     }
 
     #[test]

@@ -172,7 +172,13 @@ Urheber- und Medienrecht.
    does not fully describe what is running. `baylee-build` stamps all of it
    in at compile time, and the client prints the short form beside its own
    name in the lobby. Anyone who deploys a fork carries the same obligation
-   and inherits the route that discharges it.
+   and inherits the route that discharges it; a fork that publishes its
+   source somewhere else says where with `BAYLEE_SOURCE_URL`. `GET /info`,
+   which every client asks before it signs in, carries the same address as
+   `source` (#270), so a client can show it where players are rather than
+   only where somebody knows to look. The client reads and keeps it but
+   does not draw it yet; until it does, the offer is no more prominent
+   than `/source` is.
 7. **The card-script reference.** Code generation may read an external,
    GPL-licensed corpus of rules scripts from a checkout the developer
    supplies. It is an automated lookup: no file of it is copied into this
