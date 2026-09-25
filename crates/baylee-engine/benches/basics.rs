@@ -167,6 +167,7 @@ fn wide_board(anthems: usize) -> GameState {
             id: EffectId::new(0),
             source: None,
             controller: seat,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
             layer: Layer::PtModify,
             timestamp: i as u64,
             duration: Duration::Indefinitely,

@@ -76624,6 +76624,7 @@ fn homeward_path_restores_creature_control_to_owner() {
             id: baylee_core::ids::EffectId::new(0),
             source: None,
             controller: p1,
+            origin: crate::effects::EffectOrigin::Resolution,
             layer: baylee_cards_dsl::Layer::Control,
             timestamp,
             duration: baylee_cards_dsl::Duration::UntilEndOfTurn,

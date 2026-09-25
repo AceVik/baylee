@@ -932,6 +932,7 @@ mod tests {
             id: baylee_core::ids::EffectId::new(0),
             source: Some(object),
             controller,
+            origin: crate::effects::EffectOrigin::Resolution,
             layer: baylee_cards_dsl::Modifier::ProtectionFrom(filter).layer(),
             timestamp: 1,
             duration: baylee_cards_dsl::Duration::Indefinitely,

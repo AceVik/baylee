@@ -1490,6 +1490,7 @@ mod tests {
             id: EffectId::new(0),
             source: None,
             controller,
+            origin: crate::effects::EffectOrigin::Resolution,
             layer: modifier.layer(),
             timestamp: 1,
             duration: Duration::Indefinitely,

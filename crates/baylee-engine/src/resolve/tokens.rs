@@ -154,6 +154,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     id: baylee_core::ids::EffectId::new(0),
                     source: Some(id),
                     controller: you,
+                    origin: crate::effects::EffectOrigin::Static,
                     layer: baylee_cards_dsl::Layer::PtModify,
                     timestamp: ts,
                     duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,

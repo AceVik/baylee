@@ -99,6 +99,33 @@ exists (CR 400.7). When the controller moves in either direction the
 object's timestamp is bumped, because CR 302.6 wants control held
 *continuously* since the turn began.
 
+**A static ability's "you" is whoever controls its source now** (CR 109.5,
+611.3a); an effect a resolving spell or ability made keeps the player who
+controlled it then (CR 611.2). `ContinuousEffect::origin` says which, and it
+is a required field so that every registration site answers: the statics
+`sync_static_effects` and `keep_own_statics` register, a copy's "except it
+has …" and a token's quoted ability are `Static`; everything a resolution or
+a replacement did is `Resolution`, including the lose-all-abilities rider
+that lasts while its source stays on the battlefield. For a `Static` effect
+`controller` is projection output like `GameObject::controller`: the refresh
+writes the source's controller into it, and into every
+`ReplacementEntry::controller` (all of them are statics), so each of the
+twenty-odd readers keeps asking one field. Only a source on the battlefield
+is followed; one that has left keeps its last controller there until the
+next sync drops what it registered, which is its last-known information.
+
+The refresh therefore walks the board until a walk moves no controller.
+One walk projects one object at a time, and it used to read the stored
+controller of any object it had not reached yet, and of the object it was
+projecting, so a creature just taken was not pumped by its taker's anthem
+until something else invalidated the projection. Each walk first points
+every static at its source's controller; the walk that moves nothing read
+exactly the controllers it wrote. That is one walk when no control changed,
+two when one did, and three for a static that gives control (Control Magic)
+whose source changed hands (CR 613.8a). The bound, control effects plus two,
+only stops a dependency loop. Summoning sickness restarts once per
+permanent whose controller ended the refresh different from how it began it.
+
 ## Combat
 An attack names a `Defender` — a player or one of the defending player's
 planeswalkers (CR 506.2); battles will be the third case, and every match

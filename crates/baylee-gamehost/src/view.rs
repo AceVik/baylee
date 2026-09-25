@@ -2000,6 +2000,7 @@ mod tests {
                 id: baylee_core::ids::EffectId::new(0),
                 source: Some(source),
                 controller: PlayerId::new(0),
+                origin: baylee_engine::effects::EffectOrigin::Resolution,
                 layer: grant.layer(),
                 timestamp,
                 duration: baylee_cards_dsl::Duration::Indefinitely,

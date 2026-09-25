@@ -157,6 +157,7 @@ fn grant_flashback(engine: &mut Engine<RegistryLookup>, seat: PlayerId, filter: 
         id: EffectId::new(0),
         source: None,
         controller: seat,
+        origin: crate::effects::EffectOrigin::Resolution,
         layer: Layer::Text,
         timestamp,
         duration: Duration::UntilEndOfTurn,

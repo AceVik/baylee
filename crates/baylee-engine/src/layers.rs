@@ -104,6 +104,14 @@ impl LayerPlan {
         self.ordered.is_empty()
     }
 
+    /// How many control-changing effects there are (CR 613.1b): each can
+    /// hand one more controller to a static ability that reads it, so this
+    /// bounds how often a refresh has to walk the board again.
+    #[must_use]
+    pub fn control_effects(&self) -> usize {
+        self.layer(Layer::Control).len()
+    }
+
     /// The ordered effect indices of one layer.
     #[must_use]
     fn layer(&self, layer: Layer) -> &[u32] {
@@ -648,6 +656,7 @@ mod tests {
             id: EffectId::new(id),
             source: None,
             controller: PlayerId::new(0),
+            origin: crate::effects::EffectOrigin::Resolution,
             layer: Layer::Type,
             timestamp,
             duration: Duration::Indefinitely,
@@ -702,6 +711,7 @@ mod tests {
                 id: EffectId::new(0),
                 source: None,
                 controller: PlayerId::new(0),
+                origin: crate::effects::EffectOrigin::Resolution,
                 layer,
                 timestamp,
                 duration: Duration::Indefinitely,
@@ -836,6 +846,7 @@ mod tests {
             id: EffectId::new(0),
             source: None,
             controller: me(),
+            origin: crate::effects::EffectOrigin::Resolution,
             layer: modifier.layer(),
             timestamp,
             duration: Duration::Indefinitely,

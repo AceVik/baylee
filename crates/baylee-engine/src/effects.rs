@@ -147,6 +147,24 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
     }
 }
 
+/// What generated a continuous effect (CR 611.1), which is what decides who
+/// its "you" is (CR 109.5).
+///
+/// A required field rather than a guess from the duration: a resolving
+/// ability can make an effect that lasts while its source stays on the
+/// battlefield (`resolve`'s lose-all-abilities rider), and that effect
+/// keeps the player who controlled the ability, however the source moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum EffectOrigin {
+    /// The resolution of a spell or ability (CR 611.2). Its controller is
+    /// the player who controlled it as it resolved, for as long as it lasts.
+    Resolution,
+    /// A static ability of its source (CR 611.3). Not locked in
+    /// (CR 611.3a): its controller is whoever controls the source now, and
+    /// `GameState::refresh_characteristics` keeps it so.
+    Static,
+}
+
 /// A registered continuous effect.
 #[derive(Clone, Debug)]
 pub struct ContinuousEffect {
@@ -155,7 +173,13 @@ pub struct ContinuousEffect {
     /// The permanent/spell/emblem that created this effect.
     pub source: Option<ObjectId>,
     /// The player who controls the effect (for "you"/"opponent" filters).
+    ///
+    /// For a [`EffectOrigin::Static`] effect this is projection output, like
+    /// `GameObject::controller`: the refresh writes its source's controller
+    /// here, so every reader asks this one field whatever the origin.
     pub controller: PlayerId,
+    /// What generated it, and so how `controller` is kept.
+    pub origin: EffectOrigin,
     /// The layer it applies in.
     pub layer: Layer,
     /// Registration timestamp (effects ordering within a layer).
@@ -225,6 +249,24 @@ impl EffectTable {
         self.effects
             .iter()
             .any(|fx| fx.source == Some(source) && fx.modifier == modifier)
+    }
+
+    /// Points every static ability's "you" at whoever controls its source
+    /// now (CR 109.5).
+    ///
+    /// `controller_of` answers for a source on the battlefield and `None`
+    /// otherwise, so an effect whose source has left keeps the controller
+    /// the source last had there until `sync_static_effects` drops it. The
+    /// generation does not move: this is the projection being written, as
+    /// `GameObject::controller` is, and not the table changing.
+    pub(crate) fn follow_sources(&mut self, controller_of: impl Fn(ObjectId) -> Option<PlayerId>) {
+        for fx in &mut self.effects {
+            if fx.origin == EffectOrigin::Static
+                && let Some(now) = fx.source.and_then(&controller_of)
+            {
+                fx.controller = now;
+            }
+        }
     }
 
     /// Number of registered effects.
@@ -416,6 +458,7 @@ mod tests {
             id: EffectId::new(0),
             source: Some(source),
             controller: me(),
+            origin: crate::effects::EffectOrigin::Resolution,
             layer: modifier.layer(),
             timestamp: 1,
             duration: Duration::UntilEndOfTurn,

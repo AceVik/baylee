@@ -393,7 +393,9 @@ fn a_leavers_creature_is_exiled_when_a_turns_taker_lets_go() {
 }
 
 /// A control effect of the kind no card in the pool makes, registered by
-/// hand for `taker` on `object`.
+/// hand for `taker` on `object`: with a source, that source's static
+/// ability (Control Magic, `taker` controlling it); without, a resolved
+/// spell's.
 fn hand_registered_control(
     engine: &mut Engine<RegistryLookup>,
     taker: PlayerId,
@@ -408,6 +410,11 @@ fn hand_registered_control(
         id: baylee_core::ids::EffectId::new(0),
         source,
         controller: taker,
+        origin: if source.is_some() {
+            crate::effects::EffectOrigin::Static
+        } else {
+            crate::effects::EffectOrigin::Resolution
+        },
         layer: baylee_cards_dsl::Layer::Control,
         timestamp,
         duration,
