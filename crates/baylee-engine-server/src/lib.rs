@@ -799,6 +799,42 @@ mod tests {
         preset
     }
 
+    /// A human seat is on its reconnect window from the moment the game is
+    /// built, before any socket could have reached it (#256).
+    ///
+    /// Pinned as it stands so the change that moves it shows as a moved
+    /// test. Every human chair owes its opening mulligan from the setup on,
+    /// so a chair with no socket yet is a chair being waited for: a player
+    /// whose client takes longer than the window to load loses the chair to
+    /// the house before it has drawn the table, and the first socket in
+    /// starts its decision clock while the others are still loading.
+    #[test]
+    fn a_seat_with_no_socket_yet_is_waited_for_from_the_setup_on() {
+        let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
+        let mut preset = two_humans(600);
+        preset.house_rules.reconnect_window_secs = 60;
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &preset);
+        let kinds = |runner: &EngineRunner| {
+            runner
+                .clocks()
+                .iter()
+                .map(|c| (c.seat, c.what, c.secs))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            kinds(&runner),
+            [(zero, Deadline::StandIn, 60), (one, Deadline::StandIn, 60)],
+            "nobody has attached, and both chairs are already on the window"
+        );
+        attach(&mut runner, 0);
+        assert_eq!(
+            kinds(&runner),
+            [(zero, Deadline::Decide, 600), (one, Deadline::StandIn, 60)],
+            "the first socket in is deciding while the other is still on its way"
+        );
+    }
+
     /// During the opening mulligans each human seat is on its own clock, and
     /// one seat's answer leaves the other's exactly as it was: the same
     /// `Clock`, which is what keeps the attach loop from arming it again
