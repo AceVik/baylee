@@ -114,6 +114,14 @@ pub struct ClientSettings {
     /// list, as the rest of what this device knows of an account is.
     #[serde(default)]
     pub guests: std::collections::BTreeMap<String, baylee_client_core::lobby::KeptGuest>,
+    /// How loud the front door's music plays, and whether it is muted (#296).
+    ///
+    /// This device's, like the address above, and for the same reason: the
+    /// music plays on the faces before anybody has signed in, where no
+    /// account's settings can be read. A file from before the music opens
+    /// with it playing, at the default level.
+    #[serde(default)]
+    pub music: baylee_client_core::music::MusicLevel,
 }
 
 impl Default for ClientSettings {
@@ -128,6 +136,7 @@ impl Default for ClientSettings {
             gateways: Vec::new(),
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
             guests: std::collections::BTreeMap::new(),
+            music: baylee_client_core::music::MusicLevel::default(),
         }
     }
 }
@@ -541,6 +550,11 @@ mod tests {
         assert!(
             (settings.preview_scale - ClientSettings::default().preview_scale).abs() < f32::EPSILON
         );
+        assert_eq!(
+            settings.music,
+            baylee_client_core::music::MusicLevel::default(),
+            "a store from before the music opens with it playing"
+        );
     }
 
     #[test]
@@ -571,6 +585,12 @@ mod tests {
                 },
             ))
             .collect(),
+            music: {
+                let mut music = baylee_client_core::music::MusicLevel::default();
+                music.set_volume(0.3);
+                music.set_muted(true);
+                music
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -589,6 +609,10 @@ mod tests {
         );
         assert_eq!(read.last_username, "mail@acevik.de");
         assert_eq!(read.gateway_uses, written.gateway_uses);
+        assert_eq!(
+            read.music, written.music,
+            "a player who silenced the front door's music has it silent on the next start"
+        );
         assert_eq!(read.gateway_uses.of("https://example.test").count, 1);
         assert_eq!(read.guests, written.guests, "the guest comes back");
     }

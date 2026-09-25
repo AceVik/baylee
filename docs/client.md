@@ -5406,6 +5406,57 @@ are the same `last_cue` and two different sounds, so a harness reading only
 the name could not tell a burst from a tap — which is precisely the thing the
 counted cues exist to do.
 
+### The front door has music, and the table never does
+
+The gateway, sign-in and registration faces play a tune (#296), and it is
+arithmetic like everything above: `baylee-client-core/src/music.rs` writes it
+a sample at a time, in the manner of a tracker module and from no module. A
+square lead with its own echo, an arpeggio on a pulse whose width sweeps, a
+triangle bass and a noise drum, 32 bars of 6/8 in D minor at a dotted quarter
+of 76. Where it comes from is `docs/legal.md` §5.
+
+**It is streamed, never rendered ahead.** `Tune` is an endless iterator, and
+`crates/baylee-client/src/music.rs` makes it a `Decodable` asset whose decoder
+is the tune itself, so rodio pulls it a buffer at a time on the audio thread.
+No frame computes a sample, nothing is held but the tune's few voices, and
+startup waits for none of it. A browser has no audio thread, so the pull
+there runs between frames on the one thread it has. Both are cheap: a
+release build makes the tune about 300× faster than it plays on an M1 and
+220× faster on a Pixel 11 Pro XL (`music::tests::record` prints the factor).
+
+**It loops without a seam.** The first four bars are an introduction and are
+heard once; `LOOP` returns to `RESTART`, bar 5. Every note restarts its
+oscillator's phase and the drum's noise is reseeded at `RESTART`, so the
+second pass is the first one sample for sample, and a player who leaves the
+face open for an hour hears no drift. `the_loop_plays_on_without_a_seam`
+holds the join to no larger a step than the tune takes inside itself.
+
+**It is heard at the front door and nowhere else.** `music::heard` is
+`Screen::SignIn` while `DuelPhase::Closed`. The music fades in over 2.5 s and
+out over 0.8 s, on signing in, on a game opening over the face, and on a
+mute. At most one player exists; one that has faded out is despawned, so a
+table synthesises nothing, and the next front door starts again at bar 1
+(`the_player_comes_and_goes_with_the_front_door`).
+
+**The level is the device's.** `ClientSettings::music` is a `MusicLevel`: a
+volume, heard as its square because a linear slider does all its work in its
+first quarter, and a mute that keeps the volume for when it is lifted. It is
+not in the account's settings, for `last_username`'s reason: it plays before
+anybody has signed in. The fields are private because serde_json writes a NaN
+`f32` as `null`, and a `null` there would refuse the whole settings file,
+gateways and guest sessions included; the setters ignore a non-number and
+clamp. Its controls are the settings gear's and a speaker beside it on the
+faces it plays on, because music that starts by itself has to be stoppable
+where it plays (WCAG 1.4.2). The system reads the level every frame, so a
+slider is heard as it moves.
+
+**A browser keeps it quiet until someone presses something.** Browsers start
+an `AudioContext` suspended until the page has had a gesture, and cpal asks
+its context to resume once, at startup, before any gesture can have
+happened. `index.html` wraps `AudioContext` before the wasm loads and resumes
+every context it made on each press, key or touch until it runs. That is
+what makes the table's cues audible in a browser too.
+
 ## The zone browser is a dialog, which is a different material
 
 `docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:

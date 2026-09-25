@@ -75,6 +75,7 @@ pub mod manaui;
 pub mod markatlas;
 pub mod marksmat;
 pub mod matmat;
+pub mod music;
 pub mod net;
 pub mod prefs;
 pub mod settings;

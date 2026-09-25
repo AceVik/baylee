@@ -13,6 +13,34 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>baylee</title>
+  <!-- Sound waits for the player (#296). A browser lets a page make sound only
+       after someone has pressed, tapped or typed on it: an AudioContext made
+       before that starts suspended, and cpal makes its one at startup and asks
+       it to resume only then, so without this nothing the client plays is
+       ever heard in a browser. This keeps every context the page makes and
+       resumes it on each press until it runs. It must stand before the wasm
+       is loaded, so the context cpal makes is one of these. -->
+  <script>
+    (() => {
+      const Made = window.AudioContext || window.webkitAudioContext;
+      if (!Made) return;
+      const made = [];
+      window.AudioContext = class extends Made {
+        constructor(...args) {
+          super(...args);
+          made.push(this);
+        }
+      };
+      const wake = () => {
+        for (const context of made) {
+          if (context.state === "suspended") context.resume();
+        }
+      };
+      for (const press of ["pointerdown", "keydown", "touchend"]) {
+        window.addEventListener(press, wake, { capture: true, passive: true });
+      }
+    })();
+  </script>
   <link data-trunk rel="rust" data-wasm-opt="z" data-bin="baylee-client">
   <!-- Bevy's asset server resolves `fonts/Faustina.ttf` against `./assets/` in a
        browser exactly as it does natively, but nothing puts that directory in

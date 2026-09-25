@@ -72,6 +72,9 @@ impl Plugin for LobbyPlugin {
         }
         crate::prefs::install(app);
         crate::ambience::install(app);
+        // The front door's music (#296): heard on the faces before sign-in
+        // and faded out on the way to the lobby or a table.
+        crate::music::install(app);
         crate::loading::install(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()

@@ -67,6 +67,7 @@ pub mod lobby;
 pub mod manapip;
 pub mod manaplan;
 pub mod manapool;
+pub mod music;
 pub mod prefs;
 pub mod prose;
 pub mod reconnect;
