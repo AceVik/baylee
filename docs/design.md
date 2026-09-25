@@ -1,5 +1,12 @@
 # Where the client is going
 
+> **Out of date as a visual guide (the owner, 25.09.2026).** The looks this
+> programme describes no longer bind visual work. The owner's own decisions do
+> (the issues, `docs/legal.md`), as does `docs/client.md`, which stays normative.
+> Whatever of this file still binds is what `docs/client.md` or a test repeats.
+> The one look the owner has named is the blue-hour ambient field of the lobby
+> (`crates/baylee-client/src/ambience.rs`).
+
 This is the design programme for the duel client: what it should look like,
 how it should be operated, and what is still missing before it is a complete
 Magic client. `docs/client.md` remains normative for what the client *is*;
