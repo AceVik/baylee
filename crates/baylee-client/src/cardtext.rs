@@ -64,6 +64,51 @@ enum Reply {
     Failed,
 }
 
+/// The gateway card text is asked of, and the session it answers (#270).
+///
+/// `/catalog/text` answers a signed-in session only: open to anyone, it
+/// re-served Scryfall's data to whoever asked. So the text follows the
+/// lobby's session as the art mirror does
+/// (`lobby::systems::text_follows_the_session`): signed in, the gateway the
+/// player signed in to and that one only; otherwise none, and the Scryfall
+/// door answers instead. A duel with no lobby behind it, a seat ticket from
+/// the environment among them, is never signed in.
+#[derive(Resource, Default, Clone, PartialEq, Eq, Debug)]
+pub struct TextGateway(pub Option<SignedIn>);
+
+/// A gateway and a session on it.
+#[derive(Clone, PartialEq, Eq)]
+pub struct SignedIn {
+    /// The gateway's base URL.
+    pub base: String,
+    /// The bearer token, shown to that gateway and nowhere else.
+    pub token: String,
+}
+
+impl std::fmt::Debug for SignedIn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignedIn")
+            .field("base", &self.base)
+            .field("token", &"<token>")
+            .finish()
+    }
+}
+
+/// The request for `ids`' text in `lang`: to the gateway the session is on,
+/// carrying it. None without a session, which the gateway would refuse.
+fn text_request(gateway: Option<&SignedIn>, lang: &str, ids: &[&str]) -> Option<ehttp::Request> {
+    let gateway = gateway?;
+    let mut request = ehttp::Request::get(format!(
+        "{}/catalog/text?lang={lang}&oracle_ids={}",
+        gateway.base.trim_end_matches('/'),
+        ids.join(",")
+    ));
+    request
+        .headers
+        .insert("Authorization", format!("Bearer {}", gateway.token));
+    Some(request)
+}
+
 /// One card's text as served, with each face's printed sentences already
 /// placed against the compiled Oracle.
 struct Filed {
@@ -393,6 +438,7 @@ pub fn request(
     mut texts: ResMut<CardTexts>,
     duel: Res<crate::Duel>,
     settings: Res<crate::settings::ClientSettings>,
+    gateway: Res<TextGateway>,
     time: Res<Time<Real>>,
 ) {
     if texts.lang != settings.lang {
@@ -409,7 +455,9 @@ pub fn request(
         texts.scryfall.down = false;
         texts.scryfall.walked = None;
     }
-    if texts.down {
+    if texts.down || gateway.0.is_none() {
+        // Signed in to no gateway, nothing at one would answer (#270).
+        texts.down = true;
         ask_scryfall(&mut texts, view, time.elapsed_secs_f64());
         return;
     }
@@ -432,15 +480,12 @@ pub fn request(
         // nothing to name them by, and nothing to draw them with either.
         return;
     }
-    let url = format!(
-        "{}/catalog/text?lang={}&oracle_ids={}",
-        crate::settings::gateway_url(),
-        settings.lang,
-        ids.join(",")
-    );
+    let Some(request) = text_request(gateway.0.as_ref(), &settings.lang, &ids) else {
+        return;
+    };
     let slot: Slot = Arc::default();
     let target = Arc::clone(&slot);
-    ehttp::fetch(ehttp::Request::get(&url), move |result| {
+    ehttp::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => response
                 .text()
@@ -1130,6 +1175,81 @@ mod tests {
     /// The door opens only where the gateway is down and the language is not
     /// English, asks one card at a time at its pace, skips cards that have
     /// text or were tried, and closes when Scryfall does not answer.
+    /// #270: text is asked of the gateway the player is signed in to, with
+    /// that session, and of no gateway without one; the token never prints.
+    #[test]
+    fn text_is_asked_of_the_signed_in_gateway_with_its_session() {
+        assert!(
+            text_request(None, "de", &["a"]).is_none(),
+            "signed in nowhere"
+        );
+        let signed = SignedIn {
+            base: "http://gw.example:28766/".to_string(),
+            token: "s3cret-session".to_string(),
+        };
+        let request = text_request(Some(&signed), "de", &["a", "b"]).expect("signed in");
+        assert_eq!(
+            request.url,
+            "http://gw.example:28766/catalog/text?lang=de&oracle_ids=a,b"
+        );
+        assert_eq!(
+            request.headers.get("Authorization"),
+            Some("Bearer s3cret-session")
+        );
+        assert!(
+            !format!("{signed:?}").contains("s3cret"),
+            "the token never prints"
+        );
+    }
+
+    /// Signed in nowhere, the Scryfall door answers from the first view
+    /// (#270), because a gateway would refuse the question; signed in, the
+    /// gateway is asked first. A sign-in counts from the next game, as a
+    /// gateway that is up again does. The view names no card, so nothing
+    /// leaves.
+    #[test]
+    fn a_client_signed_in_nowhere_asks_scryfall_instead() {
+        use bevy::ecs::system::RunSystemOnce;
+        let signed = SignedIn {
+            base: "http://gw.example:28766".to_string(),
+            token: "tok".to_string(),
+        };
+        for (gateway, door) in [(None, true), (Some(signed), false)] {
+            let mut app = App::new();
+            app.init_resource::<CardTexts>()
+                .init_resource::<Time<Real>>()
+                .insert_resource(TextGateway(gateway.clone()))
+                .insert_resource(crate::settings::ClientSettings {
+                    lang: "de".to_string(),
+                    ..Default::default()
+                })
+                .insert_resource(crate::Duel {
+                    statics: Some(baylee_client_core::test_support::statics(0)),
+                    view: Some(ViewBuilder::new(2).build()),
+                    ..Default::default()
+                });
+            app.world_mut().run_system_once(request).expect("runs");
+            let texts = app.world().resource::<CardTexts>();
+            assert_eq!(texts.down, door, "{gateway:?}");
+            assert!(texts.waiting.is_none(), "no card, no question");
+            if gateway.is_none() {
+                // Signed in by the next game: that game asks the gateway again.
+                app.insert_resource(TextGateway(Some(SignedIn {
+                    base: "http://gw.example:28766".to_string(),
+                    token: "tok".to_string(),
+                })));
+                let mut next = baylee_client_core::test_support::statics(0);
+                next.game_id = "next-game".to_string();
+                app.world_mut().resource_mut::<crate::Duel>().statics = Some(next);
+                app.world_mut().run_system_once(request).expect("runs");
+                assert!(
+                    !app.world().resource::<CardTexts>().down,
+                    "the next game, signed in, asks the gateway first"
+                );
+            }
+        }
+    }
+
     #[test]
     fn the_scryfall_door_asks_only_while_the_gateway_is_down() {
         let (stone, oracle_id) = mind_stone_card();

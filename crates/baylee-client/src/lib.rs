@@ -1597,6 +1597,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::Veil>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
+            .init_resource::<cardtext::TextGateway>()
             .init_resource::<face::FaceMode>()
             .init_resource::<combatlines::LineAssets>()
             .init_resource::<combatlines::FocusAssets>()

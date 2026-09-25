@@ -4,7 +4,8 @@
 //! tests pin which printing speaks for a card. What neither can see is the
 //! route between them — the query parameters, the id filter, which of the
 //! two lookups a request reaches — so this asks a real gateway over HTTP,
-//! with a catalog seeded into its own schema.
+//! with a catalog seeded into its own schema, signed in: the catalog
+//! answers a session only (#270).
 //!
 //! No test here asks for a printing the catalog lacks: asked by printing,
 //! the gateway fetches it from Scryfall, and a test must not reach the
@@ -15,7 +16,7 @@
 mod common;
 
 use baylee_catalog::{CardTextEntry, Catalog, scryfall};
-use common::{http, spawn_gateway};
+use common::{http, login, spawn_gateway};
 
 const STONE: &str = "00000000-0000-4000-8000-00000000a001";
 const ENGLISH: &str = "00000000-0000-4000-8000-000000000001";
@@ -60,6 +61,7 @@ async fn text_is_served_by_card_and_by_printing() {
         ])
         .await
         .expect("seeding");
+    let token = login(gw.port, "reader", "Reader");
 
     // By card: the pinned shape, whole. A malformed id beside the good one
     // is dropped rather than failing the batch.
@@ -67,7 +69,7 @@ async fn text_is_served_by_card_and_by_printing() {
         gw.port,
         "GET",
         &format!("/catalog/text?lang=DE&oracle_ids=not-an-id,{STONE}"),
-        None,
+        Some(&token),
         "",
     );
     assert_eq!(status, 200, "{body}");
@@ -85,7 +87,7 @@ async fn text_is_served_by_card_and_by_printing() {
         gw.port,
         "GET",
         &format!("/catalog/text?lang=en&oracle_ids={STONE}"),
-        None,
+        Some(&token),
         "",
     );
     assert_eq!(status, 200, "{body}");
@@ -100,7 +102,7 @@ async fn text_is_served_by_card_and_by_printing() {
         gw.port,
         "GET",
         &format!("/catalog/text?lang=de&ids={}", ENGLISH.to_uppercase()),
-        None,
+        Some(&token),
         "",
     );
     assert_eq!(status, 200, "{body}");
@@ -110,7 +112,7 @@ async fn text_is_served_by_card_and_by_printing() {
     assert_eq!(by_print[0].faces[0].oracle_text, GERMAN);
 
     // Neither parameter is no question, and no error.
-    let (status, body) = http(gw.port, "GET", "/catalog/text?lang=de", None, "");
+    let (status, body) = http(gw.port, "GET", "/catalog/text?lang=de", Some(&token), "");
     assert_eq!((status, body.as_str()), (200, "[]"));
 }
 
@@ -147,12 +149,13 @@ async fn a_pool_card_is_held_until_the_catalog_is_stamped() {
         )])
         .await
         .expect("seeding");
+    let token = login(gw.port, "holder", "Holder");
     let printed = || {
         let (status, body) = http(
             gw.port,
             "GET",
             &format!("/catalog/text?lang=de&oracle_ids={POOL_STONE}"),
-            None,
+            Some(&token),
             "",
         );
         assert_eq!(status, 200, "{body}");
@@ -187,4 +190,47 @@ async fn a_pool_card_is_held_until_the_catalog_is_stamped() {
     let pool = pool();
     assert!(pool.contains("Erzeuge {C}"), "the pool moved with the text");
     assert!(!pool.contains("Erhöhe deinen Manavorrat"));
+}
+
+/// #270: the catalog is Scryfall's data, and a route anyone could call
+/// re-served it to whoever asked. Text and search answer a session only,
+/// asked before anything else: without one, or with one that has ended,
+/// 401. With one, both answer.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_catalog_answers_a_session_and_nobody_else() {
+    let gw = spawn_gateway("text-session");
+    let catalog = Catalog::connect(&gw.database_url())
+        .await
+        .expect("connecting to the gateway's schema");
+    catalog
+        .upsert(&[printing(ENGLISH, "en", None)])
+        .await
+        .expect("seeding");
+    catalog
+        .project()
+        .await
+        .expect("search reads the projection");
+    let asks = [
+        format!("/catalog/text?lang=en&oracle_ids={STONE}"),
+        format!("/catalog/text?lang=en&ids={ENGLISH}"),
+        "/catalog/search?q=Mind%20Stone".to_string(),
+    ];
+    for ask in &asks {
+        let (status, body) = http(gw.port, "GET", ask, None, "");
+        assert_eq!(status, 401, "{ask} without a session: {body}");
+        let (status, body) = http(gw.port, "GET", ask, Some("not-a-session"), "");
+        assert_eq!(status, 401, "{ask} with a made-up one: {body}");
+    }
+
+    let token = login(gw.port, "session", "Session");
+    for ask in &asks {
+        let (status, body) = http(gw.port, "GET", ask, Some(&token), "");
+        assert_eq!(status, 200, "{ask} with a session: {body}");
+        assert!(body.contains("Mind Stone"), "{ask}: {body}");
+    }
+
+    let (status, _) = http(gw.port, "POST", "/auth/logout", Some(&token), "");
+    assert_eq!(status, 204);
+    let (status, body) = http(gw.port, "GET", &asks[0], Some(&token), "");
+    assert_eq!(status, 401, "once the session has ended: {body}");
 }

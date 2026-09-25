@@ -127,8 +127,10 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
             )
-            // In every phase: a table is where most pictures are asked for.
-            .add_systems(Update, art_follows_the_session)
+            // In every phase: a table is where most pictures and text are
+            // asked for.
+            .init_resource::<crate::cardtext::TextGateway>()
+            .add_systems(Update, (art_follows_the_session, text_follows_the_session))
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
             .init_resource::<Hovered>()
             .add_message::<Pointer<Over>>()
@@ -463,7 +465,7 @@ use http::{ask_about_registration, ask_about_saved_gateways, dispatch};
 use preview::{Hovered, despawn_preview, hovers, preview};
 use systems::{
     art_follows_the_session, came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls,
-    softkeys, waiting, watch,
+    softkeys, text_follows_the_session, waiting, watch,
 };
 use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 

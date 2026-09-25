@@ -600,6 +600,30 @@ pub(super) fn art_source(state: &LobbyState) -> (Option<String>, Option<&str>) {
     (mirror, token)
 }
 
+/// The gateway card text is asked of, and the session it is asked with:
+/// the one signed in to, else none (#270).
+pub(super) fn text_source(state: &LobbyState) -> Option<crate::cardtext::SignedIn> {
+    state.lobby.token().map(|token| crate::cardtext::SignedIn {
+        base: state.gateway.clone(),
+        token: token.to_string(),
+    })
+}
+
+/// Keeps the gateway card text is asked of with the lobby's session (#270).
+///
+/// `/catalog/text` serves only a session, as the art mirror does, so a
+/// client that is not signed in to its gateway, offline play among them,
+/// takes text from Scryfall and shows the gateway nothing. It reads the
+/// lobby as [`art_follows_the_session`] does, so the two cannot disagree.
+pub(super) fn text_follows_the_session(
+    state: Res<LobbyState>,
+    mut text: ResMut<crate::cardtext::TextGateway>,
+) {
+    if state.is_changed() {
+        text.set_if_neq(crate::cardtext::TextGateway(text_source(&state)));
+    }
+}
+
 /// Keeps the art base and the mirror's session with the lobby's (#273).
 ///
 /// The mirror serves only a session, so a client that is not signed in to its

@@ -130,8 +130,14 @@ perfectly and show the wrong art.
 
 ## Card text (`GET /catalog/text`)
 
-Unauthenticated, like Scryfall's own answer to the same question, because a
-client draws a readable card before it has an account.
+For a signed-in session only (#270), like `/art` (#273) and like
+`GET /catalog/search`: `Authorization: Bearer`, asked before anything else,
+and 401 without one. The catalog is Scryfall's data, and Scryfall's terms
+say "You may not simply repackage, republish, or proxy Scryfall data"; a
+route anyone could call served it to whoever asked. A free account is
+enough, a guest's included ("end-users should be able to access card data
+anonymously or with free accounts"). A client that is not signed in asks
+Scryfall itself (`docs/client.md`), and has the English Oracle compiled in.
 
 ```
 GET /catalog/text?lang=de&oracle_ids=<uuid>,<uuid>,…   by card

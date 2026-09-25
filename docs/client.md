@@ -1027,7 +1027,10 @@ cut with.
 
 **The text is asked for by card, and the English Oracle is under all of it**
 (#212). `crates/baylee-client/src/cardtext.rs` asks `GET
-/catalog/text?lang=…&oracle_ids=…` about the cards the seat's view names
+/catalog/text?lang=…&oracle_ids=…` of the gateway the lobby is signed in
+to, with that session and to no other host (`cardtext::TextGateway`, set by
+`lobby::systems::text_follows_the_session`; the route answers a session
+only, #270), about the cards the seat's view names
 (`PlayerView::cards`: the hand, each public object's card and the card whose
 rules it has, each stack ability's card), each card once per language, one
 request out at a time, at most 500 ids in it. The key is the card and not the
@@ -1053,8 +1056,8 @@ that card its German and not its words — "Fallback ist immer englisch".
 The Scryfall door this replaced (`POST /cards/collection`, by printing id) is
 gone: a deck names English printings, so all it could fetch was the English
 the Oracle now compiles in. Its successor asks by card and language. While the
-gateway does not answer (offline, or not running) and the language is not
-English, `cardtext::ask_scryfall` searches `oracleid:… lang:…` for one card
+gateway does not answer (offline, signed in nowhere, or not running) and the
+language is not English, `cardtext::ask_scryfall` searches `oracleid:… lang:…` for one card
 the view names without text, then waits `PACE` (0.3 s: Scryfall asks for ten a
 second at most, and a game is a guest there) before the next.
 `scryfall::printings` sorts the answer in the catalog's `ORDER BY` and

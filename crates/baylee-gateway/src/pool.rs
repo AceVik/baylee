@@ -54,9 +54,10 @@ pub struct PoolQuery {
 
 /// `GET /pool` — every card a deck may be built from.
 ///
-/// Deliberately unauthenticated, for the same reason `/catalog/text` is: this
-/// is what the game can play, which is public reference data, and a player
-/// looking at what the platform supports has not signed up yet.
+/// Deliberately unauthenticated: this is what the game can play, which is
+/// public reference data, and a player looking at what the platform
+/// supports has not signed up yet. `/catalog/text` answered on the same
+/// footing until #270 closed it to anyone without a session.
 ///
 /// The answer is built once per language and catalog version and sent as
 /// the bytes it was serialized to ([`crate::texts`]): it is a few hundred

@@ -1380,3 +1380,65 @@ fn card_art_comes_from_the_mirror_only_while_signed_in_there() {
     state.lobby.sign_out();
     assert_eq!(art_source(&state), (None, None), "and signing out ends it");
 }
+
+/// #270: card text is asked of the gateway the lobby is signed in to, with
+/// its session, and of none while signed out, offline play included.
+#[test]
+fn card_text_is_asked_of_the_gateway_only_while_signed_in_there() {
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    state.gateway = "http://127.0.0.1:28766".to_string();
+    assert_eq!(text_source(&state), None, "signed out");
+
+    state.lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: None,
+    });
+    assert_eq!(
+        text_source(&state),
+        Some(crate::cardtext::SignedIn {
+            base: "http://127.0.0.1:28766".to_string(),
+            token: "tok".to_string(),
+        })
+    );
+
+    state.lobby.sign_out();
+    assert_eq!(text_source(&state), None, "and signing out ends it");
+}
+
+/// And the system that hands it to the table does hand it over, and takes
+/// it back at sign-out.
+#[test]
+fn the_table_is_told_where_card_text_comes_from() {
+    use bevy::ecs::system::RunSystemOnce;
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    state.gateway = "http://127.0.0.1:28766".to_string();
+    state.lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: None,
+    });
+    let mut app = App::new();
+    app.insert_resource(state)
+        .init_resource::<crate::cardtext::TextGateway>();
+    app.world_mut()
+        .run_system_once(text_follows_the_session)
+        .expect("runs");
+    let told = |app: &App| {
+        app.world()
+            .resource::<crate::cardtext::TextGateway>()
+            .0
+            .clone()
+    };
+    assert_eq!(
+        told(&app).map(|signed| signed.base),
+        Some("http://127.0.0.1:28766".to_string())
+    );
+
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .sign_out();
+    app.world_mut()
+        .run_system_once(text_follows_the_session)
+        .expect("runs");
+    assert_eq!(told(&app), None, "signed out, the table asks no gateway");
+}

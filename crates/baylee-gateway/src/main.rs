@@ -1297,19 +1297,25 @@ fn text_ids(list: &str) -> Vec<String> {
 
 /// Card text for a set of cards (`oracle_ids=`) or printings (`ids=`).
 ///
-/// Deliberately unauthenticated. This is public reference data — Scryfall
-/// serves the same thing without a token — and a client has to be able to draw
-/// a readable card before it has an account, which is exactly the case when a
-/// card image fails to load on first launch.
+/// For a signed-in session only (#270), asked before anything else, as
+/// `/art` is (#273). The catalog is Scryfall's data, and Scryfall's terms
+/// say "You may not simply repackage, republish, or proxy Scryfall data":
+/// a route anyone could call served it to whoever asked, and asked by
+/// printing it fetched from Scryfall on a stranger's behalf. A player
+/// signs in with a free account, a guest's included, which the same terms
+/// allow ("end-users should be able to access card data anonymously or
+/// with free accounts"). A client that is not signed in asks Scryfall
+/// itself, and has the English Oracle compiled in.
 ///
-/// Asked by card, a card the catalog lacks is simply not answered: the
-/// client has the English Oracle compiled in and asks Scryfall itself.
+/// Asked by card, a card the catalog lacks is simply not answered.
 /// Asked by printing, a printing it lacks is fetched once and kept, as it
 /// always was for the clients that still ask that way.
 async fn catalog_text(
     State(state): State<Shared>,
+    headers: HeaderMap,
     Query(params): Query<CatalogTextQuery>,
 ) -> Result<Json<Vec<baylee_catalog::CardTextEntry>>, (StatusCode, Json<ErrorBody>)> {
+    authed(&state, &headers).await?;
     let catalog = state.catalog.as_ref().ok_or_else(|| {
         err(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -1431,10 +1437,15 @@ struct CatalogSearchQuery {
 }
 
 /// Searches the card catalog — the entry point the deck builder will use.
+///
+/// For a signed-in session only, for the reason `catalog_text` gives: open,
+/// it was a search over Scryfall's data for anyone who asked (#270).
 async fn catalog_search(
     State(state): State<Shared>,
+    headers: HeaderMap,
     Query(params): Query<CatalogSearchQuery>,
 ) -> Result<Json<Vec<baylee_catalog::SearchHit>>, (StatusCode, Json<ErrorBody>)> {
+    authed(&state, &headers).await?;
     let catalog = state.catalog.as_ref().ok_or_else(|| {
         err(
             StatusCode::SERVICE_UNAVAILABLE,
