@@ -15,6 +15,7 @@ mod handle;
 mod lobby;
 mod mail;
 mod pool;
+mod seatrate;
 mod store;
 mod texts;
 
@@ -3653,9 +3654,14 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
     if !to_engine(&state, &game_id, attach) {
         return;
     }
+    // What this seat sends, for the line logged when it goes (#284).
+    let mut meter = seatrate::Meter::new(std::time::Instant::now());
     loop {
         tokio::select! {
             frame = socket.recv() => {
+                if let Some(Ok(_)) = &frame {
+                    meter.note(std::time::Instant::now());
+                }
                 match frame {
                     Some(Ok(Message::Binary(data))) => {
                         if data.len() > MAX_SEAT_FRAME {
@@ -3704,6 +3710,14 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
             }
         }
     }
+    tracing::info!(
+        game_id,
+        seat,
+        frames = meter.frames,
+        busiest_second = meter.busiest_second(),
+        largest_burst = meter.largest_burst(),
+        "seat socket closed"
+    );
     // The engine runs a decision clock only for a seat that can answer, so it
     // has to be told when one walks away.
     to_engine(
