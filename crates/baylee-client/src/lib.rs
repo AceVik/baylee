@@ -1224,6 +1224,7 @@ pub struct DuelPlugin {
 /// outgrown one. `ease_the_stack_in` runs after the rebuild deliberately: a
 /// stack row spawned this frame is spawned at rest, so without the ordering
 /// it is drawn once at full strength before its arrival is ever applied.
+#[allow(clippy::too_many_lines)] // one registration list, which grows with every animation
 fn add_present_systems(app: &mut App) {
     app.init_resource::<hud::StackFold>()
         .init_resource::<hud::TrayReveal>()
@@ -1247,20 +1248,20 @@ fn add_present_systems(app: &mut App) {
             sky::hang_sky,
             sky::sync_sky,
             sky::light_the_table.after(sky::sync_sky),
-            // One entry and not three: a system tuple holds twenty and this
+            // One entry and not four: a system tuple holds twenty and this
             // list is at its limit. Chained rather than merely ordered
             // because that is what the first pair is — a card that left this
             // frame is moved once before it is counted against its own clock,
             // so a table running at ten frames a second still shows the exit
-            // instead of skipping it. The third reads where the glide left
-            // each card and puts a flying one's shadow back on the felt, so
-            // it comes after both.
+            // instead of skipping it. The last two read where the glide
+            // left each card: a flying one's shadow, a tapped one's badge.
             (
                 combatfx::animate.before(table::sync_scene),
                 combatfx::age.before(table::sync_scene),
                 table::glide.after(table::sync_scene),
                 table::retire,
                 table::ground_the_shadows,
+                table::hold_badges_upright,
             )
                 .chain(),
             // After the glide, and deliberately: a line is welded to where

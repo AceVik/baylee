@@ -25,8 +25,8 @@ use bevy::shader::ShaderRef;
 /// What the badge's shader reads.
 ///
 /// Thirty-two bytes: a uniform block under the GL backend is laid out
-/// `std140`, the rectangle takes the first sixteen and the count rounds the
-/// block up to the next sixteen.
+/// `std140`, the rectangle takes the first sixteen, and the count and the
+/// body's corner take twelve of the next sixteen.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct BadgeParams {
     /// The quad, [`cardplate::badge_quad_rect`]: `[x0, y0, x1, y1]` in card
@@ -36,6 +36,13 @@ pub struct BadgeParams {
     /// How many permanents the card stands for,
     /// [`cardplate::count_word`]: below two, nothing is drawn.
     pub count: u32,
+    /// Where the body's right end stands, [`cardplate::BADGE_RIGHT`], and
+    /// its top, [`cardplate::BADGE_TOP`], in card widths: in the material
+    /// and not the shader, so [`cardplate::BADGE_OFF_THE_PRINTS`] is the one
+    /// line that moves the badge (#274).
+    pub right: f32,
+    /// See [`Self::right`].
+    pub top: f32,
 }
 
 impl BadgeParams {
@@ -45,6 +52,8 @@ impl BadgeParams {
         Self {
             quad: Vec4::from_array(cardplate::badge_quad_rect()),
             count,
+            right: cardplate::BADGE_RIGHT,
+            top: cardplate::BADGE_TOP,
         }
     }
 }
@@ -235,7 +244,12 @@ struct UiVertexOutput {
                 .collect();
             assert_eq!(
                 fields,
-                ["quad: vec4<f32>,", "count: u32,"],
+                [
+                    "quad: vec4<f32>,",
+                    "count: u32,",
+                    "right: f32,",
+                    "top: f32,"
+                ],
                 "{which} lays the uniform out differently from `BadgeParams`"
             );
         }
@@ -262,6 +276,11 @@ struct UiVertexOutput {
             made.params.quad,
             Vec4::from_array(cardplate::badge_quad_rect()),
             "the quad the shader lays the badge out in"
+        );
+        assert_eq!(
+            (made.params.right, made.params.top),
+            (cardplate::BADGE_RIGHT, cardplate::BADGE_TOP),
+            "where the shader stands the body"
         );
     }
 }

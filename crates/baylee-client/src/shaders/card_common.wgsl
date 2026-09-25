@@ -1887,14 +1887,13 @@ fn plate_layer(
 const COUNT_MIN: u32 = 2u;
 const COUNT_MAX: u32 = 999u;
 
-/// The count badge's geometry, in card widths (#261): its height, where its
-/// right end and its top stand on the card, its corner, where its shadow
-/// falls and how soft it is, and the widest it grows. `cardplate::BADGE_H`,
-/// `BADGE_RIGHT`, `BADGE_TOP`, `BADGE_CORNER`, `BADGE_DROP`, `BADGE_BLUR` and
-/// `BADGE_W`.
+/// The count badge's geometry, in card widths (#261): its height, its
+/// corner, where its shadow falls and how soft it is, and the widest it
+/// grows. `cardplate::BADGE_H`, `BADGE_CORNER`, `BADGE_DROP`, `BADGE_BLUR`
+/// and `BADGE_W`. Where it stands on the card is the material's
+/// (`cardplate::BADGE_RIGHT`, `BADGE_TOP`), so one Rust constant moves it
+/// (#274).
 const BADGE_H: f32 = 0.12;
-const BADGE_RIGHT: f32 = 0.045;
-const BADGE_TOP: f32 = 0.008;
 const BADGE_CORNER: f32 = 0.034;
 const BADGE_DROP_X: f32 = -0.006;
 const BADGE_DROP_Y: f32 = 0.012;
@@ -1902,10 +1901,11 @@ const BADGE_BLUR: f32 = 0.02;
 const BADGE_W: f32 = 0.2006886;
 
 /// How many permanents a merged card stands for, `×54`, on a badge of its own
-/// hanging off the card's top-left corner (#261): the body over its drop
+/// hanging off a corner of the card (#261, #274): the body over its drop
 /// shadow, as one colour and one coverage for the blend. `p` is the point in
 /// card widths from the card's top-left corner, `y` down the card, and lies
-/// off the card left of its edge, where the badge overhangs.
+/// off the card left of its edge, where the badge overhangs. `right` and
+/// `top` are where the body's right end and top stand.
 ///
 /// The plate's register — its body, its ink, its figure height — because it
 /// is one of this client's numbers and not something printed, and the
@@ -1917,6 +1917,8 @@ const BADGE_W: f32 = 0.2006886;
 fn count_badge(
     p: vec2<f32>,
     count: u32,
+    right: f32,
+    top: f32,
     aa: f32,
     marks: texture_2d<f32>,
     marks_s: sampler,
@@ -1931,13 +1933,13 @@ fn count_badge(
     let w = max(min(wants + 2.0 * PLATE_PAD, BADGE_W), BADGE_H);
 
     let half = vec2<f32>(0.5 * w, 0.5 * BADGE_H);
-    let mid = vec2<f32>(BADGE_RIGHT - half.x, BADGE_TOP + half.y);
+    let mid = vec2<f32>(right - half.x, top + half.y);
     let body = sd_round_box(p - mid, half, BADGE_CORNER);
     let cover = 1.0 - smoothstep(-aa, aa, body);
 
     // The shadow of a thing standing proud of the card rather than lying
     // flat on it: the body itself, dropped down and a little left, away from
-    // the print, and softened by `BADGE_BLUR`.
+    // the card's print and plate, and softened by `BADGE_BLUR`.
     let drop = vec2<f32>(BADGE_DROP_X, BADGE_DROP_Y);
     let dropped = sd_round_box(p - mid - drop, half, BADGE_CORNER);
     let fall = 1.0 - smoothstep(0.0, BADGE_BLUR, max(dropped, 0.0));

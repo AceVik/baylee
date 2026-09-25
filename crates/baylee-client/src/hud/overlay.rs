@@ -50,10 +50,12 @@ const PREVIEW_PAD: f32 = 6.0;
 /// by so the badge's overhang and its shadow are not cut off, and how much
 /// wider than the bubble the panel is placed as (#261).
 ///
-/// Only the left: the badge's quad starts at the card's top edge and ends
-/// short of the print (`cardplate::badge_quad_rect`). The margin is the same
-/// on all four sides, which lets nothing else out, since the bubble is sized
-/// by what it holds.
+/// The left's, which is the furthest it reaches past any edge: it ends short
+/// of the print on the right (`cardplate::badge_quad_rect`), and off the
+/// prints (#274) its shadow falls past the card's bottom edge by far less
+/// than the overhang. The margin is the same on all four sides, so it lets
+/// that out too, and nothing else, since the bubble is sized by what it
+/// holds.
 pub(super) fn badge_reach(img_w: f32) -> f32 {
     let over = -baylee_client_core::cardplate::badge_quad_rect()[0] * img_w;
     (over - PREVIEW_PAD).max(0.0)

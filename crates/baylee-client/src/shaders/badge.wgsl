@@ -1,7 +1,7 @@
 // The count badge on a card lying on the table (#261, #274).
 //
 // One quad per merged card, a child of the card lying just over its face and
-// hanging off its top-left corner, and this is all it draws:
+// hanging off a corner of it, and this is all it draws:
 // `card_common.wgsl`'s `count_badge`, blended over the card and whatever lies
 // beside it. The quad is `cardplate::badge_quad_rect` — the widest badge with
 // its shadow round it — so every badge is the same mesh and the only thing
@@ -16,6 +16,10 @@ struct BadgeParams {
     quad: vec4<f32>,
     /// How many permanents the card stands for. `cardplate::count_word`.
     count: u32,
+    /// Where the body's right end and top stand, in card widths:
+    /// `cardplate::BADGE_RIGHT` and `BADGE_TOP`.
+    right: f32,
+    top: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: BadgeParams;
@@ -30,5 +34,5 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // Taken here, in uniform control flow, before anything branches on
     // where a fragment is.
     let aa = max(fwidth(p.x), 0.0015);
-    return count_badge(p, params.count, aa, marks, marks_sampler);
+    return count_badge(p, params.count, params.right, params.top, aa, marks, marks_sampler);
 }

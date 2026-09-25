@@ -2462,8 +2462,6 @@ struct Globals { time: f32 };
             ("CHIP_GAP", plate::CHIP_GAP),
             ("CHIP_W", plate::CHIP_W),
             ("BADGE_H", plate::BADGE_H),
-            ("BADGE_RIGHT", plate::BADGE_RIGHT),
-            ("BADGE_TOP", plate::BADGE_TOP),
             ("BADGE_CORNER", plate::BADGE_CORNER),
             ("BADGE_DROP_X", plate::BADGE_DROP[0]),
             ("BADGE_DROP_Y", plate::BADGE_DROP[1]),

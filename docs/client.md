@@ -720,8 +720,8 @@ accident, and arithmetic borrows nothing.
 
 ## Grouping and the token summary
 
-Identical permanents draw as one card with a **count badge** hanging off its
-top-left corner, `×N` (#261; `cardplate::count_word` and `badge_rect`,
+Identical permanents draw as one card with a **count badge** hanging off a
+corner of it, `×N` (#261; `cardplate::count_word` and `badge_rect`,
 `badgemat.rs`, `badge.wgsl` and `badge_ui.wgsl`, drawn by
 `card_common.wgsl`'s `count_badge`). It was a pill painted over the printed
 cost until #274 took everything of ours off the print; the owner's placement
@@ -733,25 +733,55 @@ plate's figures and a shadow dropped down and a little left (`BADGE_DROP`,
 and not a `CardShadow`; one material per distinct count on the table. The
 `×` is load-bearing: a bare `12` in a corner reads as twelve generic mana.
 
-- Its right end stands at 0.045, short of the print's window by the shadow's
-  reach (`nothing_of_the_badge_reaches_the_print`), and it grows **left**
-  with its digits, off the card.
-- Its top stands 0.008 under the card's top edge, not over it: a ring's rows
-  stand 0.019 apart, so a badge proud of the edge would lie on the next
-  row's plate (`nothing_of_the_badge_stands_above_the_card`).
+**Until the owner's okay it stands at the bottom-left corner**
+(`cardplate::BADGE_OFF_THE_PRINTS`, #274). At the top-left corner, in a
+fanned lane, its overhang lay on the print of the card before it, where
+that card's name is: at the tightest fan, 0.26 of a card apart, a `×2`
+covered that print from 0.137 to 0.305 of its width, and every pitch under
+about 1.1 overlapped. Nothing of ours lies on a print without the owner's
+okay, so the constant keeps the badge on the ledge, left of the plate, and
+its overhang on the ledge of the card before it and on the felt. `false`
+brings back the owner's placement, whole. The shader reads where the badge
+stands from its material (`BadgeParams::right`, `top`), so that one line is
+the switch.
+
+- Its right end stands short of the plate (`LEDGE_PAD`) by the shadow's
+  reach, and it grows **left** with its digits, off the card. Its top stands
+  under the print's window by the shadow's rise, and the body reaches a hair
+  past the card's bottom edge onto the felt, its shadow about 0.035; a ring's
+  rows stand 0.019 apart and the next row's frame is 0.045 deep
+  (`off_the_prints_the_badge_lies_on_the_ledge_left_of_the_plate`).
+- A tapped card's badge does not turn with it (`table::hold_badges_upright`,
+  after the glide). Turned, the overhang would lie across the print of an
+  untapped card before it, whose top stands clear of the tapped one's. It
+  stays at the corner of the card's cell, below and left of the tapped card,
+  however far the card has turned this frame.
+- Above the top edge was measured and is no way out: a creature staged into
+  combat stands half a card forward of its row, print and all, and the card
+  before a merged one can be that creature.
+- `no_badge_lies_on_another_card_s_print` holds it: every badge, spawned as
+  the scene spawns it and held by the upright system, against every other
+  card's print window on the table, at a duel and a ring of eight, rows of 2
+  to 40 in all three lanes (reaching the 0.26 fan), untapped, tapped and
+  every other one tapped, and with a creature staged beside a merged one.
+- **What it costs:** at a tight fan the overhang lies on the left of the
+  previous card's plate, its power and toughness; a tapped merged card's
+  count stands a little apart from the card.
 - It grows to `×99` (`BADGE_W`) and no further; three digits are set smaller
-  to fit (`badge_cap`). A tapped card's left edge is its side facing the next
-  row, a ring leaves it 0.217 of the lane there, and a `×999` at full size
-  reached 0.240 with its shadow (`a_tapped_card_s_badge_stays_off_the_next_row`,
-  over every seated layout from two to eight chairs at four aspects).
+  to fit (`badge_cap`). In the owner's placement a tapped card turns its
+  badge with it, its left edge is its side facing the next row, a ring
+  leaves it 0.217 of the lane there, and a `×999` at full size reached 0.240
+  with its shadow (`a_tapped_card_s_badge_stays_off_the_next_row`, over
+  every seated layout from two to eight chairs at four aspects).
 - It lies at the strip's height, half a row step over its card's face, which
   also lays its overhang over the card before it in a fanned row, a whole
-  step lower (`a_badge_lies_on_its_card_and_under_the_next_one`). In a
-  fanned lane that overhang lies on the end of the exposed name of the card
-  before it.
-- **Accepted:** a tapped card in a fanned lane turns its badge towards the
-  card laid over it, which hides it — the pill hid there too — and the
-  preview names the count.
+  step lower (`a_badge_lies_on_its_card_and_under_the_next_one`).
+- In the owner's placement its right end stands at 0.045, short of the
+  print's window by the shadow's reach
+  (`nothing_of_the_badge_reaches_the_print`), and its top 0.008 under the
+  card's top edge (`nothing_of_the_badge_stands_above_the_card`); a tapped
+  card in a fanned lane turns its badge towards the card laid over it, which
+  hides it, and the preview names the count.
 
 Until #210 the count was the job of a function (`table::stack_badge`) that
 nothing called: 54 Goblins drew as one Goblin, the slab under the card was
@@ -1790,8 +1820,9 @@ window, and the paper around the window is ours. One object of ours
 overlaps the print, by the owner's decision: the keyword strip, lying on the
 card over the art's bottom edge and never over the name, the cost, the type
 line or the artist (below, "The strip says what the card does in combat").
-A second lies on the card beside the print and never on it: the count badge
-off a merged card's top-left corner ("Grouping and the token summary").
+A second lies on the card beside the print and never on it, nor on any other
+card's print: the count badge off a merged card's corner ("Grouping and the
+token summary").
 
 - The quad keeps its size, 1 × 1.397 card widths, so no lane, pile, hit test
   or shadow moved. The print is scaled into it at `cardframe::PRINT_SCALE`

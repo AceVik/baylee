@@ -1638,10 +1638,10 @@ pub struct SceneIndex {
     /// The quad every strip is drawn on: [`cardrail::quad_rect`], one mesh
     /// for the whole table, since the shader sizes the strip inside it.
     marks_quad: Option<Handle<Mesh>>,
-    /// The count badge hanging off each merged card (#261): the count and
-    /// the row step it was put on for, and the badge itself. Held for the
-    /// strip's reason.
-    badges: HashMap<ObjectId, (u32, f32, Entity)>,
+    /// The count badge hanging off each merged card (#261): the count, the
+    /// row step and the card's untapped rotation it was put on for, and the
+    /// badge itself. Held for the strip's reason.
+    badges: HashMap<ObjectId, (u32, f32, Quat, Entity)>,
     /// One badge material per count, shared by every card saying it.
     badge_materials: HashMap<u32, Handle<BadgeMaterial>>,
     /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
@@ -3053,10 +3053,17 @@ fn sync_strip(
         .insert(placement.object, (placement.marks, placement.rung, strip));
 }
 
-/// The count badge hanging off a merged card (#261): a marker, so a badge can
-/// be found and counted without being taken for the card or its strip.
+/// The count badge hanging off a merged card (#261): so a badge can be found
+/// and counted without being taken for the card or its strip, and what
+/// [`hold_badges_upright`] needs to keep it where it lies on the card
+/// untapped.
 #[derive(Component)]
-pub struct CountBadge;
+pub struct CountBadge {
+    /// The row step it lies a share of, for [`badge_transform`].
+    rung: f32,
+    /// Its card's rotation untapped: lying flat, facing its owner.
+    upright: Quat,
+}
 
 /// Where a card's count badge lies, in the card's own space: at
 /// [`cardplate::badge_quad_rect`], off the card's left edge, at the strip's
@@ -3089,13 +3096,14 @@ fn sync_badge(
     placement: &Placement,
 ) {
     let current = index.badges.get(&placement.object).copied();
-    if current.is_some_and(|(count, rung, _)| {
-        count == placement.badge && rung.to_bits() == placement.rung.to_bits()
+    let upright = card_transform(&placement.slot, placement.position, false, 0.0).rotation;
+    if current.is_some_and(|(count, rung, turned, _)| {
+        count == placement.badge && rung.to_bits() == placement.rung.to_bits() && turned == upright
     }) {
         return;
     }
     if placement.badge == 0 {
-        if let Some((_, _, badge)) = index.badges.remove(&placement.object) {
+        if let Some((.., badge)) = index.badges.remove(&placement.object) {
             commands.entity(badge).despawn();
         }
         return;
@@ -3109,15 +3117,19 @@ fn sync_badge(
         .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge)))
         .clone();
     let transform = badge_transform(placement.rung);
-    let badge = if let Some((_, _, badge)) = current {
+    let marker = CountBadge {
+        rung: placement.rung,
+        upright,
+    };
+    let badge = if let Some((.., badge)) = current {
         commands
             .entity(badge)
-            .try_insert((MeshMaterial3d(material), transform));
+            .try_insert((MeshMaterial3d(material), transform, marker));
         badge
     } else {
         let badge = commands
             .spawn((
-                CountBadge,
+                marker,
                 Mesh3d(quad),
                 MeshMaterial3d(material),
                 transform,
@@ -3127,9 +3139,42 @@ fn sync_badge(
         commands.entity(card).add_child(badge);
         badge
     };
-    index
-        .badges
-        .insert(placement.object, (placement.badge, placement.rung, badge));
+    index.badges.insert(
+        placement.object,
+        (placement.badge, placement.rung, upright, badge),
+    );
+}
+
+/// Keeps each count badge where it lies on its card untapped (#274).
+///
+/// Off the prints ([`cardplate::BADGE_OFF_THE_PRINTS`]) the badge hangs off
+/// the card's bottom-left corner, over the ledge of the card before it. A
+/// tapped card would turn that corner a quarter, and the overhang with it,
+/// up across the print of an untapped card before it, whose top stands
+/// clear of the tapped one's by the difference of their spans. So the badge
+/// does not turn: it stays at the corner of the card's cell, under and left
+/// of a tapped card, however far the card has turned this frame, because it
+/// is the card's live rotation that is undone and not its target. In the
+/// owner's placement it turns with the card, as it always did.
+///
+/// After [`glide`], which is what turns the card.
+pub fn hold_badges_upright(
+    cards: Query<&Transform, Without<CountBadge>>,
+    mut badges: Query<(&CountBadge, &ChildOf, &mut Transform)>,
+) {
+    if !cardplate::BADGE_OFF_THE_PRINTS {
+        return;
+    }
+    for (badge, parent, mut at) in &mut badges {
+        let Ok(card) = cards.get(parent.parent()) else {
+            continue;
+        };
+        let pose = Transform::from_rotation(card.rotation.inverse() * badge.upright)
+            * badge_transform(badge.rung);
+        if *at != pose {
+            *at = pose;
+        }
+    }
 }
 
 /// One slab of the deck under a card: depth, not a card. A marker, so the

@@ -688,32 +688,69 @@ pub fn count_width(count: u32) -> f32 {
     cells * PLATE_CAP / TEXT_CAP + 2.0 * PLATE_PAD
 }
 
+/// Whether the count badge keeps off every print (#274): the placement this
+/// client ships until the owner says the other one may.
+///
+/// The owner's placement (#261: "ganz oben links an der Ecke, leicht
+/// überragend") hangs the badge off the card's top-left corner, and in a
+/// fanned row that overhang lies on the card before it, on the top of its
+/// print where its name is: at the tightest fan, 0.26 of a card apart, a
+/// `×2` covers that card's print from 0.137 to 0.305 of its width, and the
+/// print starts at 0.061. Nothing of ours lies on a print without the
+/// owner's okay, and that okay has not come. So the badge sits at the card's
+/// **bottom**-left corner instead, on the ledge left of the plate, and its
+/// overhang lies on the ledge of the card before it and on the felt. Above
+/// the top edge was measured and is no way out: a creature staged into
+/// combat stands half a card forward of its row, print and all, so the
+/// print of the card before a merged one can be right there.
+///
+/// `false` is the owner's placement, whole: the badge back at the top-left
+/// corner and turning with a tapped card again. The shader takes where the
+/// badge stands from its material ([`BADGE_RIGHT`], [`BADGE_TOP`]), so this
+/// is the one line to change.
+pub const BADGE_OFF_THE_PRINTS: bool = true;
+
 /// The count badge's height, in card widths (#261).
 ///
 /// The badge is an object of its own lying on the card, not paint in the
-/// frame: a pill of the plate's body with its own drop shadow, hanging off
-/// the top-left corner. Taller than the plate ([`PLATE_H`]) by the air a
-/// thing standing proud of the card wants round its figures.
+/// frame: a pill of the plate's body with its own drop shadow, hanging off a
+/// corner. Taller than the plate ([`PLATE_H`]) by the air a thing standing
+/// proud of the card wants round its figures.
 pub const BADGE_H: f32 = 0.12;
 
 /// Where the badge's right end stands, in card widths from the card's left
 /// edge.
 ///
-/// Short of the print's window ([`crate::cardframe::FRAME_SIDE`]) by the
-/// shadow's reach and a hair of air, so nothing of the badge — body or
-/// shadow — reaches the print. Its words grow **left** from here, off the
-/// card, which is the overhang the owner asked for (#261: "ganz oben links
-/// an der Ecke, leicht überragend").
-pub const BADGE_RIGHT: f32 = 0.045;
+/// Its words grow **left** from here, off the card: the overhang the owner
+/// asked for (#261). Off the prints ([`BADGE_OFF_THE_PRINTS`]) it stands on
+/// the ledge, short of the plate ([`LEDGE_PAD`]) by the shadow's reach and a
+/// hair of air, so the card's own power and toughness stay uncovered. In the
+/// owner's placement it stands short of the print's window
+/// ([`crate::cardframe::FRAME_SIDE`]) by the same, so nothing of the badge,
+/// body or shadow, reaches the print.
+pub const BADGE_RIGHT: f32 = if BADGE_OFF_THE_PRINTS {
+    LEDGE_PAD - (BADGE_DROP[0] + BADGE_BLUR) - 0.004
+} else {
+    0.045
+};
 
 /// How far below the card's top edge the badge's top stands, in card widths.
 ///
-/// Flush with the edge, not over it. A lane's rows stand
-/// `lane_height − CARD_HEIGHT` apart, 0.019 at a ring table, so a badge
-/// standing proud of the top edge would lie on the next row's ledge — its
-/// power and toughness. Down by the shadow's own rise, so the shadow stays on
-/// the card too.
-pub const BADGE_TOP: f32 = 0.008;
+/// Off the prints ([`BADGE_OFF_THE_PRINTS`]) it stands on the ledge, under
+/// the print's window by the shadow's rise, so the shadow stays off the
+/// print too; the body then reaches a hair past the card's bottom edge,
+/// onto the felt, which a ring leaves 0.019 of before the next row's frame.
+///
+/// In the owner's placement it stands flush with the top edge, not over it:
+/// a lane's rows stand `lane_height − CARD_HEIGHT` apart, 0.019 at a ring
+/// table, so a badge standing proud of the top edge would lie on the next
+/// row's ledge, its power and toughness. Down by the shadow's own rise, so
+/// the shadow stays on the card too.
+pub const BADGE_TOP: f32 = if BADGE_OFF_THE_PRINTS {
+    crate::cardframe::FRAME_TOP + crate::cardframe::PRINT_TALL + (BADGE_BLUR - BADGE_DROP[1])
+} else {
+    0.008
+};
 // The body sits on the card, not on its edge.
 const _: () = assert!(BADGE_TOP > 0.0);
 
@@ -721,7 +758,7 @@ const _: () = assert!(BADGE_TOP > 0.0);
 pub const BADGE_CORNER: f32 = 0.034;
 
 /// Where the badge's shadow falls, `[x, y]` in card widths, `y` down the
-/// card: down and a little left, away from the print.
+/// card: down and a little left, away from the card's own print and plate.
 pub const BADGE_DROP: [f32; 2] = [-0.006, 0.012];
 
 /// How soft the badge's shadow is: how far past the dropped body it fades
@@ -730,11 +767,11 @@ pub const BADGE_BLUR: f32 = 0.02;
 
 /// The widest the badge grows: `×99`.
 ///
-/// Held there so the overhang is bounded whatever the count. A tapped card's
-/// left edge is its side facing the next row, and a ring table leaves a
-/// tapped card 0.217 of its lane to that side; a `×999` at the plate's
-/// figure height would reach 0.240 with its shadow and lie on the next row's
-/// ledge. So three digits are set smaller instead ([`badge_cap`]), which is
+/// Held there so the overhang is bounded whatever the count. In the owner's
+/// placement a tapped card's badge turns with it, and its left edge is its
+/// side facing the next row: a ring table leaves a tapped card 0.217 of its
+/// lane to that side, and a `×999` at the plate's figure height would reach
+/// 0.240 with its shadow and lie on the next row's ledge. So three digits are set smaller instead ([`badge_cap`]), which is
 /// still the true count, and a count that rare is read up close anyway.
 pub const BADGE_W: f32 = {
     let cells = TEXT_ADV[GLYPH_TIMES] + 2.0 * TEXT_ADV[0];
@@ -1174,6 +1211,28 @@ mod tests {
         assert!(y0 >= 0.0, "the badge's quad starts {y0} above the card");
     }
 
+    /// Off the prints (#274), nothing of the badge reaches the print's
+    /// bottom edge or the card's own plate: it lies on the ledge, left of
+    /// the plate, whatever the count. Whether it lies on *another* card's
+    /// print is the table's question (`table::badge_tests`).
+    #[test]
+    fn off_the_prints_the_badge_lies_on_the_ledge_left_of_the_plate() {
+        if !BADGE_OFF_THE_PRINTS {
+            return;
+        }
+        let [_, qy0, qx1, _] = badge_quad_rect();
+        let [.., print_bottom] = crate::cardframe::window();
+        assert!(
+            qy0 >= print_bottom,
+            "the badge's quad starts {qy0} down the card, over the print ending at {print_bottom}"
+        );
+        let [plate_x0, ..] = plate_rect();
+        assert!(
+            qx1 <= plate_x0,
+            "the badge's quad reaches {qx1}, over the plate starting at {plate_x0}"
+        );
+    }
+
     /// Every count fits its badge, and every badge its quad.
     ///
     /// The words are `×` and the digits at [`badge_cap`] with the plate's
@@ -1219,8 +1278,9 @@ mod tests {
         badge_rect(count)[0]
     }
 
-    /// A tapped card turns its top-left corner a quarter clockwise, so the
-    /// badge's overhang points at the next row: a tapped card has
+    /// In the owner's placement a tapped card turns its top-left corner a
+    /// quarter clockwise, and the badge with it, so the badge's overhang
+    /// points at the next row: a tapped card has
     /// `(lane_height − CARD_WIDTH) / 2` of its lane to that side, and the
     /// next row's card stands `(lane_height − CARD_HEIGHT) / 2` beyond. The
     /// widest badge and its shadow stay inside both, at the tightest lane

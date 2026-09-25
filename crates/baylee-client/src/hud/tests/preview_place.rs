@@ -461,10 +461,15 @@ fn the_dodge_is_to_the_nearer_side_of_the_drawer() {
 /// A merged card's preview hangs its count badge off the card's left edge
 /// (#261), and the badge lands on the screen wherever the panel does: a
 /// preview opened at the window's left edge would otherwise hang the count
-/// off it. And the bubble's clip lets out the whole badge, shadow included.
+/// off it. And the bubble's clip lets out the whole badge, shadow included,
+/// on every side it passes the card: off the prints (#274) its shadow falls
+/// past the card's bottom edge too, by less than it overhangs the left, and
+/// the clip's margin is one number for all four sides.
 #[test]
 fn a_preview_keeps_its_count_badge_on_the_screen() {
     use crate::hud::overlay::{badge_reach, place_with_badge};
+    let [_, qy0, _, qy1] = baylee_client_core::cardplate::badge_quad_rect();
+    let past = (-qy0).max(qy1 - baylee_client_core::cardframe::CARD_TALL);
     let over = |img_w: f32| -baylee_client_core::cardplate::badge_quad_rect()[0] * img_w;
     // The picture inside the panel, at the default scale and at the two ends
     // of the slider.
@@ -475,6 +480,13 @@ fn a_preview_keeps_its_count_badge_on_the_screen() {
             reach + 6.0 >= over(img_w) - 1e-3,
             "a card {img_w} wide: the clip lets out {reach} past the padding \
              and the badge reaches {} past the card",
+            over(img_w)
+        );
+        assert!(
+            past * img_w <= over(img_w),
+            "a card {img_w} wide: the badge reaches {} past the card's top or \
+             bottom, further than the {} past its left the clip is let out by",
+            past * img_w,
             over(img_w)
         );
         let anchors = [
