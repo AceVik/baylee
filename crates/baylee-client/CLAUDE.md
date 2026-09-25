@@ -7,7 +7,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 
 - The renderer has no socket, only a `DuelHost`: `LocalHost` (in-process engine vs house AI) or `NetworkHost` (`src/net.rs`, `/games/{id}/ws`), same envelopes.
 - `standalone::run` (`src/standalone.rs`; `main.rs`, `android_main`) picks `NetworkHost` iff given a `SeatTicket` (`BAYLEE_GAME` + `BAYLEE_SEAT_TOKEN`, or `?game=…&token=…`, gateway `?gateway=…` kept in localStorage `baylee:gateway`); else `LobbyPlugin`.
-- `DuelHost::link()` → `LinkState` (Local/Up/Connecting/Down); `keep_the_table_connected` redials (`Connecting` distinct, else every frame), asking for missed frames. `InstalledHost` is `Box<dyn DuelHost>`: link policy goes via `link()`.
+- `DuelHost::link()` → `LinkState` (Local/Up/Connecting/Down/Refused); `keep_the_table_connected` redials (`Connecting` distinct, else every frame), asking for missed frames, and never after `Refused` (the gateway's `HelloAck{compatible:false}`, #271: a hard stop naming which side is behind). `InstalledHost` is `Box<dyn DuelHost>`: link policy goes via `link()`.
 - `Retry` (`baylee-client-core/src/reconnect.rs`): 0.5 s doubling to 15 s, 12 dials, then an announced give-up.
 - Socketless seat: decision clock stops, reconnect clock runs; at expiry the house AI takes over (zero window: never). `GameStatic::reconnect_secs` carries it; `reconnect::Window` keeps never-told/forever/secs distinct.
 - The banner turns at `Retry::brief` (`PATIENCE` 8 s or the window, earlier; never if unknown or forever), in future tense (the handover is unobservable; §"What the banner may claim…").
