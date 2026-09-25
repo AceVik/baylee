@@ -12,7 +12,7 @@
 //! other screen without a second copy of any of them.
 
 use crate::hud::{UiFonts, palette, tf};
-use crate::lobby::{Metrics, Press, button, chip, heading, panel, row};
+use crate::lobby::{Metrics, Press, button, chip, heading, panel, row, spacer};
 use baylee_client_core::atmosphere::Atmosphere;
 use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
 use baylee_client_core::cue::Loudness;
@@ -65,6 +65,21 @@ pub(crate) fn screen(
         ))
         .id();
     commands.entity(header).add_child(note);
+    // The account's own door out, where the account's settings are. A
+    // device's settings have no account to delete.
+    if signed_in {
+        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+        let delete = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::DeleteAccount.text(lang),
+            Press::AskToDeleteAccount,
+            palette::PANEL_LIT,
+            true,
+        );
+        commands.entity(header).add_children(&[gap, delete]);
+    }
     commands.entity(root).add_child(header);
     // The language sits above the two columns, because it is the one
     // setting on this screen that decides how the rest of it reads.

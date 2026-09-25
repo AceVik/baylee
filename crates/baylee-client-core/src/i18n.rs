@@ -347,6 +347,30 @@ messages! {
     // ---- the table screen
     /// Leaves the account.
     SignOut { en: "Sign out", de: "Abmelden" },
+    /// Opens the confirmation that deletes the account (#292), on the
+    /// settings screen.
+    DeleteAccount { en: "Delete account", de: "Konto löschen" },
+    /// Asked before an account is deleted. `{0}` is its name.
+    DeleteAccountQuestion { en: "Delete the account {0}?", de: "Das Konto {0} löschen?" },
+    /// Under that question, for an account with a password.
+    DeleteAccountHint {
+        en: "The account, its decks and its settings leave this gateway for good, and every device signed in to it is signed out. Type your password to confirm.",
+        de: "Das Konto, seine Decks und seine Einstellungen verschwinden endgültig von diesem Gateway, und jedes angemeldete Gerät wird abgemeldet. Gib zur Bestätigung dein Passwort ein.",
+    },
+    /// The same, for a guest, which has no password to type.
+    DeleteGuestHint {
+        en: "The guest, its decks and its settings leave this gateway for good.",
+        de: "Der Gast, seine Decks und seine Einstellungen verschwinden endgültig von diesem Gateway.",
+    },
+    /// The confirmation's button that deletes.
+    DeleteAccountConfirm { en: "Delete for good", de: "Endgültig löschen" },
+    /// The confirmation was sent with no password typed.
+    DeleteAccountNeedsPassword {
+        en: "your password, please",
+        de: "bitte dein Passwort",
+    },
+    /// The account is gone.
+    AccountDeleted { en: "account deleted", de: "Konto gelöscht" },
     /// Heading over the account's decks.
     YourDecks { en: "Your decks", de: "Deine Decks" },
     /// Opens the builder on a new deck.

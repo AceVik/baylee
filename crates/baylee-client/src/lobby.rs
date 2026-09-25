@@ -412,6 +412,8 @@ enum Expect {
     DeckLoaded,
     /// A deck is gone; the gateway answers `204` with no body.
     DeckDeleted,
+    /// The account is gone (#292); the gateway answers `204` with no body.
+    AccountDeleted,
     /// A game list.
     Games,
     /// Something at a table changed. The body says what the whole lobby

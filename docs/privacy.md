@@ -55,7 +55,8 @@ the pointers, because line numbers move.
   - `GET /me` shows the owner everything but the hash.
 - **Kept:** until its player deletes it.
 - **Removed:** `DELETE /account` (`account::delete_account`), with the
-  password asked again (a guest's session is enough). One statement,
+  password asked again (a guest's session is enough). In the client it is
+  "Delete account" on the settings screen (#292). One statement,
   `baylee_db::accounts::delete`, deletes the row, and the foreign keys
   cascade to its decks and their history, sessions, confirmations, settings
   and picture claims

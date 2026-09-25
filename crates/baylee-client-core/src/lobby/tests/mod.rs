@@ -1,4 +1,5 @@
 mod decks;
+mod deletion;
 mod fields;
 mod guests;
 mod offline;

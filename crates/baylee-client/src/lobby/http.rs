@@ -158,6 +158,19 @@ pub(super) fn build(
             },
             Expect::DeckDeleted,
         ),
+        // A guest sends `{}` and not nothing: the gateway reads a JSON body
+        // either way, and refuses an empty one.
+        LobbyRequest::DeleteAccount { password } => (
+            json_body(
+                ehttp::Method::DELETE,
+                &format!("{base}/account"),
+                &match password {
+                    Some(password) => serde_json::json!({ "password": password }),
+                    None => serde_json::json!({}),
+                },
+            ),
+            Expect::AccountDeleted,
+        ),
         LobbyRequest::ListGames(query) => (
             ehttp::Request::get(format!("{base}/lobby/games?{}", params(&query))),
             Expect::Games,
@@ -429,6 +442,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
                 .map(|d| d.deck_id),
         },
         Expect::DeckDeleted => LobbyEvent::DeckDeleted,
+        Expect::AccountDeleted => LobbyEvent::AccountDeleted,
         Expect::Pool => serde_json::from_str::<PoolBody>(body).map_or_else(
             |_| unreadable(lang, Phrase::ThePool),
             |b| LobbyEvent::Pool {

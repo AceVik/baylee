@@ -443,8 +443,24 @@ pub(super) fn keyboard(
         }
         return;
     }
+    // The account's deletion stands over the settings screen, and its
+    // password box is the one thing there that is typed into: Enter sends,
+    // Escape cancels.
+    if state.lobby.deleting_account().is_some() {
+        if !keys.is_empty() {
+            text_field_keys(
+                &mut keys,
+                &codes,
+                state.as_mut(),
+                &mut prefs,
+                &mailbox,
+                false,
+            );
+        }
+        return;
+    }
     if state.settings.is_open() {
-        // Nothing on the settings screen is typed into.
+        // Nothing else on the settings screen is typed into.
         keys.clear();
         return;
     }
@@ -744,6 +760,13 @@ fn text_field_keys(
             Key::Tab => state
                 .lobby
                 .cycle_focus(if shift { Tab::Back } else { Tab::Next }),
+            Key::Escape if state.lobby.deleting_account().is_some() => {
+                state.lobby.cancel_account_deletion();
+            }
+            Key::Enter if state.lobby.deleting_account().is_some() => {
+                let request = state.lobby.submit();
+                dispatch(state, mailbox, request);
+            }
             // Escape shuts the gear menu, and otherwise goes back from the
             // account form: the same as the Back button beside its title.
             Key::Escape if !table && state.front_menu => state.front_menu = false,
@@ -984,6 +1007,12 @@ pub(super) fn clicks(
             }
             Press::OpenSettings => state.settings = SettingsPane::Open,
             Press::CloseSettings => state.settings = SettingsPane::Closed,
+            Press::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
+            Press::CancelAccountDeletion => state.lobby.cancel_account_deletion(),
+            Press::ConfirmAccountDeletion => {
+                let request = state.lobby.delete_account();
+                dispatch(&mut state, &mailbox, request);
+            }
             Press::Rebind(action) => {
                 // Tapping the armed row again disarms it, so the chip is its
                 // own cancel and there is no way to get stuck waiting.
@@ -1860,6 +1889,12 @@ pub(crate) enum Press {
     ClearDeck,
     ConfirmDestructive,
     CancelDestructive,
+    /// Open the confirmation that deletes the account (#292).
+    AskToDeleteAccount,
+    /// Send the deletion.
+    ConfirmAccountDeletion,
+    /// Close the confirmation, deleting nothing.
+    CancelAccountDeletion,
     /// Show the pool or the deck, on a screen with room for one.
     ShowPane(Pane),
     /// Read a card in full, by its slot in the pool.

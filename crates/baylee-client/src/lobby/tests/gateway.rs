@@ -631,3 +631,32 @@ fn a_gateway_is_asked_what_it_is_at_the_routes_it_serves() {
         }
     }
 }
+
+/// `DELETE /account` (#292), signed with the session, with the password
+/// asked again for an account and `{}` for a guest: the gateway reads a JSON
+/// body either way and refuses an empty one. Its `204` is the account gone.
+#[test]
+fn deleting_the_account_is_a_signed_delete_with_a_json_body() {
+    for (password, body) in [
+        (Some("hunter22"), r#"{"password":"hunter22"}"#),
+        (None, "{}"),
+    ] {
+        let (http, expect) = super::super::http::build(
+            "http://gw/",
+            Some("tok"),
+            "en",
+            LobbyRequest::DeleteAccount {
+                password: password.map(str::to_string),
+            },
+        );
+        assert_eq!(http.method.as_str(), "DELETE");
+        assert_eq!(http.url, "http://gw/account");
+        assert_eq!(http.headers.get("Authorization"), Some("Bearer tok"));
+        assert_eq!(http.headers.get("Content-Type"), Some("application/json"));
+        assert_eq!(String::from_utf8_lossy(&http.body), body);
+        assert!(matches!(
+            decode(Lang::En, expect, &answer(204, "")),
+            LobbyEvent::AccountDeleted
+        ));
+    }
+}

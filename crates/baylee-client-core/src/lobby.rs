@@ -77,6 +77,10 @@ pub enum Field {
     /// What the table list is being searched for. Also on the table screen,
     /// and also not a sign-in field.
     Search,
+    /// The password again, asked before the account is deleted (#292). The
+    /// confirmation's own box and never the sign-in form's, so a password
+    /// half-typed on one is not sent from the other.
+    AccountPassword,
 }
 
 /// How the line under the form should read.
@@ -525,6 +529,11 @@ pub enum LobbyRequest {
         /// Which deck.
         deck_id: String,
     },
+    /// `DELETE /account` (#292): the signed-in account, for good.
+    DeleteAccount {
+        /// A registered account's password, asked again. A guest sends none.
+        password: Option<String>,
+    },
     /// `GET /lobby/games` — one page of it.
     ListGames(GameQuery),
     /// `POST /lobby/games`.
@@ -679,6 +688,9 @@ pub enum LobbyEvent {
     },
     /// A deck was deleted.
     DeckDeleted,
+    /// The account is gone (`DELETE /account` answered `204`), and every one
+    /// of its sessions with it.
+    AccountDeleted,
     /// A chair was given up, or a room closed.
     Left,
     /// The tables that are open — one page of them.
@@ -819,6 +831,23 @@ pub struct Lobby {
     /// request, on the other side of the unseating. Deliberately *not*
     /// cleared by [`Lobby::unseat`], which is the whole reason it exists.
     rematch_wanted: Option<String>,
+    /// The account's deletion, while the player is confirming it (#292).
+    deleting: Option<Deletion>,
+    /// The password typed to confirm it.
+    account_password: TextBuffer,
+}
+
+/// The signed-in account's deletion, while it is being confirmed (#292).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Deletion {
+    /// What the gateway said to the last try: a wrong password, or too many
+    /// tries. The session is still good after either, so the confirmation
+    /// stays up and shows it.
+    pub refusal: Option<String>,
+    /// Whether the deletion has been sent and not answered.
+    sent: bool,
+    /// Where the caret was before the confirmation took it.
+    was: Field,
 }
 
 impl Lobby {
@@ -906,7 +935,7 @@ impl Lobby {
             Field::DisplayName | Field::GuestName | Field::Search => FieldKind::Name,
             Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
             Field::Password | Field::PasswordAgain => FieldKind::Password,
-            Field::RoomPassword => FieldKind::Secret,
+            Field::RoomPassword | Field::AccountPassword => FieldKind::Secret,
         }
     }
 
@@ -929,6 +958,7 @@ impl Lobby {
             Field::PasswordAgain => &self.password_again,
             Field::RoomPassword => &self.room_password,
             Field::Search => &self.search,
+            Field::AccountPassword => &self.account_password,
         }
     }
 
@@ -1218,7 +1248,10 @@ impl Lobby {
     /// there, which is what a player correcting an address expects and what
     /// append-only fields could never do.
     pub fn cycle_focus(&mut self, dir: Tab) {
-        if self.screen == Screen::Table {
+        if self.deleting.is_some() {
+            // The confirmation's one box is a ring of one.
+            self.focus = Field::AccountPassword;
+        } else if self.screen == Screen::Table {
             self.focus = match self.focus {
                 Field::Search => Field::RoomPassword,
                 _ => Field::Search,
@@ -1281,6 +1314,10 @@ impl Lobby {
     /// password ends up half-typed into a search box.
     #[must_use]
     pub fn typing_here(&self) -> bool {
+        // The confirmation stands over every screen and has the one box.
+        if self.deleting.is_some() {
+            return self.focus == Field::AccountPassword;
+        }
         match self.screen {
             // One form at a time: the address without a gateway, the
             // account's fields with one.
@@ -1289,7 +1326,7 @@ impl Lobby {
                 Field::GuestName => self.guest_name_offered(),
                 Field::Username | Field::Password => self.gateway_chosen(),
                 Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
-                Field::RoomPassword | Field::Search => false,
+                Field::RoomPassword | Field::Search | Field::AccountPassword => false,
             },
             Screen::Table => matches!(self.focus, Field::RoomPassword | Field::Search),
             Screen::Build | Screen::Seated(_) => false,
@@ -1408,6 +1445,10 @@ impl Lobby {
 
     /// Submits the sign-in form — the Enter key, or the button.
     pub fn submit(&mut self) -> Option<LobbyRequest> {
+        // Enter in the confirmation's box is its button.
+        if self.deleting.is_some() {
+            return self.delete_account();
+        }
         let Screen::SignIn { registering } = self.screen else {
             return None;
         };
@@ -2046,6 +2087,82 @@ impl Lobby {
         ending
     }
 
+    /// Opens the confirmation that deletes the signed-in account (#292).
+    ///
+    /// Only a gateway account or a guest has one to delete; offline or
+    /// signed out this does nothing. The caret goes into the password box,
+    /// which a guest's confirmation neither draws nor asks for.
+    pub fn ask_to_delete_account(&mut self) {
+        if !matches!(self.performer, Performer::Gateway(_) | Performer::Guest(_)) {
+            return;
+        }
+        self.deleting = Some(Deletion {
+            refusal: None,
+            sent: false,
+            was: self.focus,
+        });
+        self.account_password.clear();
+        self.revealed = None;
+        self.focus = Field::AccountPassword;
+        self.focus_epoch += 1;
+    }
+
+    /// The deletion being confirmed, if one is.
+    #[must_use]
+    pub fn deleting_account(&self) -> Option<&Deletion> {
+        self.deleting.as_ref()
+    }
+
+    /// What the confirmation names the account by: a guest's handle, or the
+    /// name the account signed in with.
+    #[must_use]
+    pub fn account_name(&self) -> &str {
+        match &self.kept_guest {
+            Some(kept) if self.guest() => &kept.handle,
+            _ => self.username.text().trim(),
+        }
+    }
+
+    /// Closes the confirmation, deleting nothing. The caret goes back where
+    /// it was, and the typed password goes.
+    pub fn cancel_account_deletion(&mut self) {
+        if let Some(deletion) = self.deleting.take() {
+            self.focus = deletion.was;
+        }
+        self.account_password.clear();
+        self.revealed = None;
+    }
+
+    /// Sends the deletion the player has confirmed (#292).
+    ///
+    /// A registered account's password is asked again, because a session
+    /// left signed in on somebody else's machine is not enough
+    /// (`docs/protocol.md` §"Deleting an account (#292)"). A guest has none,
+    /// and its session is enough.
+    pub fn delete_account(&mut self) -> Option<LobbyRequest> {
+        if self.busy {
+            return None;
+        }
+        let deletion = self.deleting.as_mut()?;
+        let password = match self.performer {
+            Performer::Gateway(_) if self.account_password.is_empty() => {
+                deletion.refusal = Some(
+                    Phrase::DeleteAccountNeedsPassword
+                        .text(self.lang)
+                        .to_string(),
+                );
+                return None;
+            }
+            Performer::Gateway(_) => Some(self.account_password.text().to_string()),
+            Performer::Guest(_) => None,
+            Performer::Nobody | Performer::Offline => return None,
+        };
+        deletion.refusal = None;
+        deletion.sent = true;
+        self.busy = true;
+        Some(LobbyRequest::DeleteAccount { password })
+    }
+
     /// The gateway no longer knows the session held (a `401`). A guest's
     /// ending is the guest's (#269): it is dropped here, and the player is
     /// told, since the one they come back as next is a new one.
@@ -2062,6 +2179,8 @@ impl Lobby {
 
     /// Forgets the account and everything it bought.
     fn forget_the_session(&mut self) {
+        self.deleting = None;
+        self.account_password.clear();
         self.close_library();
         self.copied_deck = None;
         self.performer = Performer::Nobody;
@@ -2294,7 +2413,22 @@ impl Lobby {
                     }
                 }
             }
+            LobbyEvent::AccountDeleted => {
+                if self.guest() {
+                    self.kept_guest = None;
+                }
+                self.forget_the_session();
+                self.note(Phrase::AccountDeleted);
+                None
+            }
             LobbyEvent::Failed(why) => {
+                // A refused deletion leaves the session good: the refusal is
+                // the confirmation's, and the typed password goes with it.
+                if let Some(deletion) = self.deleting.as_mut().filter(|d| d.sent) {
+                    deletion.sent = false;
+                    deletion.refusal = Some(why.clone());
+                    self.account_password.clear();
+                }
                 self.write(why, Tone::Refusal);
                 // A failed fetch may have been the pool's; letting it be asked
                 // for again costs one request and un-wedges the builder.
@@ -2324,6 +2458,7 @@ impl Lobby {
             Field::PasswordAgain => &mut self.password_again,
             Field::RoomPassword => &mut self.room_password,
             Field::Search => &mut self.search,
+            Field::AccountPassword => &mut self.account_password,
         }
     }
 

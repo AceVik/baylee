@@ -2874,6 +2874,25 @@ the token, and a gateway that did not hear it lets the session lapse). The clien
 upload yet; the gateway refuses one from a guest, and a control for it has
 to be hidden from a guest (`Lobby::guest`).
 
+**Deleting the account** (#292; `docs/protocol.md` §"Deleting an account
+(#292)"). The settings screen's header carries "Delete account" while an
+account or a guest is signed in. It opens a confirmation over that screen,
+drawn from the lobby's own state (`Lobby::deleting_account`,
+`lobby::confirm::draw_deletion`) and not from `Destructive`, because it
+types into a field and answers the gateway. A registered account types its
+password again, into the confirmation's own box (`Field::AccountPassword`,
+never the sign-in form's), because a session left signed in on somebody
+else's machine is not enough; nothing is sent without it. A guest has no
+password and confirms on its session alone. The request is
+`DELETE /account` signed with the session and a JSON body, `{"password":…}`
+or `{}`, since the gateway refuses an empty one. A `204` forgets the session
+here as a sign-out does, drops a kept guest, and says "account deleted" at
+the front door. A wrong password (`403`) or too many tries (`429`) leaves the
+session good: the confirmation stays up with the gateway's words under the
+box, and what was typed is cleared. A `401` is the session already gone,
+as everywhere, and closes it. Enter sends and Escape cancels, which gives
+the caret back where it was.
+
 **Rooms.** The table screen lists every room the gateway knows and draws each
 one seat by seat: who is sitting there, whether they are a person or the AI,
 at what difficulty, what they brought, and whether that chair is ready. A host

@@ -335,6 +335,7 @@ pub(super) fn ui(
             &fonts,
             metrics,
         );
+        super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);
         return;
     }
 

@@ -352,6 +352,7 @@ impl Offline {
             | LobbyRequest::LogIn { .. }
             | LobbyRequest::PlayAsGuest { .. }
             | LobbyRequest::LogOut { .. }
+            | LobbyRequest::DeleteAccount { .. }
             | LobbyRequest::JoinGame { .. }
             | LobbyRequest::HandOver { .. }
             // Nothing here can be handed back: the table lives in this
