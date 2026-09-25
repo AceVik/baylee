@@ -796,32 +796,32 @@ pub async fn sweep_tokens(db: &DatabaseConnection, now: u64) -> Result<u64> {
 
 // -------------------------------------------------------- confirmations
 
-/// Drop every confirmation link for one account, and every link that has
-/// expired.
+/// Drop every confirmation link for one account.
 ///
-/// Both halves matter: a fresh link has to invalidate the last one that was
-/// mailed, or a resend would leave two working links behind; and nothing else
-/// ever walks this table, so expiry has to be swept somewhere.
+/// A fresh link has to invalidate the last one that was mailed, or a resend
+/// would leave two working links behind. Expired links of every account go
+/// in the sweep ([`sweep_confirmations`]).
 ///
 /// # Errors
 ///
 /// If the database refuses.
-pub async fn clear_confirmations(
-    db: &DatabaseConnection,
-    account_id: &str,
-    now: u64,
-) -> Result<()> {
+pub async fn clear_confirmations(db: &DatabaseConnection, account_id: &str) -> Result<()> {
     if let Some(id) = uuid(account_id) {
         Confirmations::delete_many()
             .filter(confirmation::Column::AccountId.eq(id))
             .exec(db)
             .await?;
     }
-    Confirmations::delete_many()
-        .filter(confirmation::Column::ExpiresAt.lte(at(now)))
-        .exec(db)
-        .await?;
     Ok(())
+}
+
+/// Remove every expired confirmation link, answering how many went (#293).
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn sweep_confirmations(db: &DatabaseConnection, now: u64) -> Result<u64> {
+    Ok(baylee_db::confirmations::sweep(db, at(now)).await?)
 }
 
 /// Store a confirmation link.

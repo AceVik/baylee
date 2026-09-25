@@ -18,7 +18,9 @@
 //! saying that a schema works when nothing had asked it to do anything.
 
 use baylee_db::entity::prelude::*;
-use baylee_db::entity::{account, client_settings, deck, deck_version, session_token, upload};
+use baylee_db::entity::{
+    account, client_settings, confirmation, deck, deck_version, session_token, upload,
+};
 use baylee_db::migration::Migrator;
 use sea_orm::{
     ActiveValue::{NotSet, Set},
@@ -1299,6 +1301,62 @@ async fn guests_come_in_over_accounts_and_step_back_only_without_one() {
         .await
         .expect("steps back without one");
     Migrator::up(db, None).await.expect("and forward again");
+
+    sandbox.close().await;
+}
+
+/// #293: an expired confirmation link goes in one sweep, whichever account
+/// it was for, and a live one stays. A link due at the very moment of the
+/// sweep has expired, as `GET /auth/confirm` holds it.
+#[tokio::test]
+async fn an_expired_confirmation_link_goes_in_the_sweep_and_a_live_one_stays() {
+    let sandbox = Sandbox::open("confirmation_sweep").await;
+    let db = &sandbox.db;
+    let now = OffsetDateTime::now_utc();
+    let hour = time::Duration::hours(1);
+    for (email, expires) in [
+        ("lapsed@example.com", now - hour),
+        ("due@example.com", now),
+        ("waiting@example.com", now + hour),
+    ] {
+        let account = Account::insert(an_account(email))
+            .exec_with_returning(db)
+            .await
+            .unwrap()
+            .id;
+        Confirmation::insert(confirmation::ActiveModel {
+            token_hash: Set(email.as_bytes().to_vec()),
+            account_id: Set(account),
+            expires_at: Set(expires),
+        })
+        .exec(db)
+        .await
+        .unwrap();
+    }
+
+    assert_eq!(baylee_db::confirmations::sweep(db, now).await.unwrap(), 2);
+    let left: Vec<Vec<u8>> = Confirmation::find()
+        .all(db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|link| link.token_hash)
+        .collect();
+    assert_eq!(
+        left,
+        [b"waiting@example.com".to_vec()],
+        "the live one stays"
+    );
+    assert_eq!(
+        baylee_db::confirmations::sweep(db, now).await.unwrap(),
+        0,
+        "and a second sweep finds nothing"
+    );
+    assert_eq!(
+        Account::find().count(db).await.unwrap(),
+        3,
+        "no account went"
+    );
 
     sandbox.close().await;
 }

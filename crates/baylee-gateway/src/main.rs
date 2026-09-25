@@ -386,8 +386,8 @@ async fn open_database(store_path: &std::path::Path) -> sea_orm::DatabaseConnect
 }
 
 /// Periodically reclaims finished games (after a grace period), stale
-/// waiting lobbies, expired tokens and the guests they were the way into —
-/// all of them grew without bound.
+/// waiting lobbies, expired sessions and the guests they were the way into,
+/// and expired confirmation links (#293) — all of them grew without bound.
 fn spawn_cleanup(state: Shared) {
     /// How long a finished game stays joinable for reconnect/review.
     const OVER_GRACE_SECS: u64 = 3600;
@@ -431,6 +431,13 @@ fn spawn_cleanup(state: Shared) {
             // the gateway had ever issued.
             match store::sweep_tokens(&state.db, now).await {
                 Ok(purged) if purged > 0 => tracing::debug!(purged, "lapsed sessions swept"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!("{e:#}"),
+            }
+            match store::sweep_confirmations(&state.db, now).await {
+                Ok(swept) if swept > 0 => {
+                    tracing::debug!(swept, "expired confirmation links swept");
+                }
                 Ok(_) => {}
                 Err(e) => tracing::warn!("{e:#}"),
             }
@@ -934,7 +941,7 @@ async fn mail_confirmation(state: &Shared, account_id: &str) {
     let now = auth::now_secs();
     // The old link stops working before the new one is written: a resend
     // that left both alive would be two working logins in one mailbox.
-    if let Err(e) = store::clear_confirmations(&state.db, account_id, now).await {
+    if let Err(e) = store::clear_confirmations(&state.db, account_id).await {
         tracing::error!("{e:#}");
         return;
     }

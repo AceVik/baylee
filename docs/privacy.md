@@ -15,7 +15,7 @@ the pointers, because line numbers move.
 | Account | Postgres `account` | until its player deletes it | `DELETE /account` |
 | Guest account | Postgres `account` (`guest`) | until its last session lapses, 29–30 days after its last request | the sweep, or signing out |
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
-| Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, or the next resend for that account |
+| Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it | the deletion of the last account that does |
@@ -114,9 +114,11 @@ the pointers, because line numbers move.
   and the link (`mail::Mailer`). Without `BAYLEE_SMTP_URL` nothing is sent.
 - **Removed:**
   - `store::take_confirmation` when the link is used;
-  - `store::clear_confirmations` removes an account's expired rows, and
-    runs only inside the next resend for that account. There is no periodic
-    sweep, although the entity's doc says the sweep is what removes them.
+  - `store::clear_confirmations` removes all of an account's links when it
+    asks for a new one;
+  - `baylee_db::confirmations::sweep` removes every expired link, every
+    600 s, beside the session sweep (#293);
+  - the account's deletion, by cascade.
 
 ## Decks
 
@@ -308,12 +310,9 @@ to weigh, not conclusions.
    - a gateway that stops between an account's deletion and the removal of
      its pictures leaves those files behind with no owner: the deletion
      commits first.
-2. **Confirmation rows:**
-   - there is no periodic sweep, contrary to the entity's doc;
-   - expired rows go only when the same account asks for a resend.
-3. **The legacy import file** stays on disk after import, with e-mails and
+2. **The legacy import file** stays on disk after import, with e-mails and
    password hashes in it.
-4. **Tokens in query strings** (listed under Logs) are exposed to whatever
+3. **Tokens in query strings** (listed under Logs) are exposed to whatever
    access log sits in front of the gateway.
-5. **Retention of stdout logs and of backups** is not set anywhere in the
+4. **Retention of stdout logs and of backups** is not set anywhere in the
    repository.

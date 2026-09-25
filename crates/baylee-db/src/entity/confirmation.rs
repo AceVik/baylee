@@ -18,8 +18,10 @@ pub struct Model {
     /// When the link stops working.
     ///
     /// A link that never expired would be a password that never expired,
-    /// sitting in a mailbox. Expiry is also the only thing that removes these
-    /// rows, so the sweep is what keeps the table from growing without bound.
+    /// sitting in a mailbox. A link goes when it is used, when its account
+    /// asks for a new one or is deleted, and otherwise once it has expired,
+    /// in the gateway's sweep ([`crate::confirmations::sweep`]), which is
+    /// what keeps the table from growing without bound.
     pub expires_at: TimeDateTimeWithTimeZone,
 }
 
