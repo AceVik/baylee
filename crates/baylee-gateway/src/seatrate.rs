@@ -38,14 +38,25 @@ use std::time::{Duration, Instant};
 /// shows more at once, and there the account's settings cap is what
 /// binds: 16 KiB holds about 277 orders, 278 frames with `SeatReady`.
 /// This sits well above that.
+///
+/// Measured on 25.09.2026 (#284): the real client joined a duel holding
+/// 12 standing orders for every card of its deck, 1308 in all, and sent at
+/// most 54 frames in one [`BURST_WIDTH`] window. The windows are fixed, so
+/// its true burst lies between 54 and 108, as counted above.
 pub const BURST: u32 = 512;
 
 /// Frames a second a seat socket may keep up once its burst is spent.
 ///
 /// A client answers at most one question per frame it draws, and each
 /// answer waits for the next question, so its sustained rate is bounded
-/// by its display rate and the round trip. Provisional until the meter has
-/// read a real client (#284).
+/// by its display rate and the round trip.
+///
+/// Measured on 25.09.2026 (#284): the real client on its autopilot, which
+/// played a 30-turn duel out in 36 seconds, sent at most 22 frames in one
+/// second, and 108 in the second it joined with the orders above. The
+/// machine was busy (a load average of 8 to 11), so an idle one may send
+/// somewhat more. This is about ten times the autopilot's rate, and the
+/// join's second is the burst's to cover.
 pub const RATE: u32 = 240;
 
 /// The window the busiest second is counted in.
