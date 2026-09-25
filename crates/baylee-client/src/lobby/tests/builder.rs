@@ -19,6 +19,27 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     }
 }
 
+/// #254: the deckbuilder says which build it is, as the lobby does, and on a
+/// phone too, where the bar drops its title.
+#[test]
+fn the_builder_names_its_build_on_every_frame() {
+    for width in [1400.0, 390.0] {
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, width);
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .build_deck();
+        app.update();
+        let drawn = labels(&mut app);
+        assert!(
+            drawn.iter().any(|l| l == baylee_build::short()),
+            "{width} px: {drawn:?}"
+        );
+    }
+}
+
 #[test]
 fn the_builder_screen_builds_with_its_controls() {
     let mut app = headless();

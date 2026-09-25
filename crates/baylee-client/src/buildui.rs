@@ -277,6 +277,18 @@ fn build_bar(
             .id();
         commands.entity(bar).add_child(title);
     }
+    // The build, on every frame including a phone, as the lobby's bar has
+    // it (#254): a deck that will not save is a bug report, and a bug report
+    // without the build it came from is one nobody can act on.
+    let build = commands
+        .spawn((
+            Text::new(baylee_build::short()),
+            tf(fonts, metrics.small * 0.9),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(bar).add_child(build);
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     commands.entity(bar).add_child(gap);
     let mut history_hint = None;
