@@ -453,6 +453,15 @@ pub struct Duel {
     pub stack_stop_requested: bool,
     /// Ability policies last installed in this host connection.
     pub ability_orders_applied: Option<Vec<automation::AbilityOrder>>,
+    /// Whether the table is open (#256). Until it is, the engine reads
+    /// nothing this seat sends, so the outbox is held rather than sent:
+    /// the standing ability orders go out the moment there is a view, and
+    /// would otherwise be dropped. Set by `HostMessage::Curtain` and never
+    /// cleared for the rest of the game.
+    pub curtain_up: bool,
+    /// Whether this seat has said it has drawn its table since it last
+    /// attached; a stopgap for "drawn" that is "the first view is built".
+    pub ready_sent: bool,
     /// Whether the player has aimed the camera themselves.
     ///
     /// While this is false the table frames itself ([`table::frame_table`]),
@@ -1657,6 +1666,12 @@ fn poll_host(
             HostMessage::Static(statics) => {
                 duel.statics = Some(*statics);
                 duel.ability_orders_applied = None;
+                // Every attach opens with this payload. One before the
+                // curtain is up is a seat the engine may not have heard
+                // from, so it is told again once the view is built.
+                if !duel.curtain_up {
+                    duel.ready_sent = false;
+                }
                 // A print table arriving is the one event that can turn an
                 // unresolvable printing into a resolvable one: this payload is
                 // re-sent, before the view that needs it, whenever the seat
@@ -1671,7 +1686,12 @@ fn poll_host(
                 if *phase.get() == DuelPhase::Opening {
                     next.set(DuelPhase::Playing);
                 }
+                if !duel.curtain_up && !duel.ready_sent {
+                    host.0.ready();
+                    duel.ready_sent = true;
+                }
             }
+            HostMessage::Curtain => duel.curtain_up = true,
             HostMessage::Choice(pending) => {
                 if matches!(*pending, Pending::GameOver(_)) {
                     next.set(DuelPhase::Finished);
@@ -2170,7 +2190,9 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
     let Some(mut host) = host else {
         return;
     };
-    if duel.outbox.is_empty() {
+    // Held, not dropped, until the table is open (#256): the engine drops
+    // what a seat sends before then.
+    if duel.outbox.is_empty() || !duel.curtain_up {
         return;
     }
     for action in std::mem::take(&mut duel.outbox) {
@@ -2592,6 +2614,9 @@ mod schedule_order_tests;
 
 #[cfg(test)]
 mod cue_feed_tests;
+
+#[cfg(test)]
+mod curtain_tests;
 
 /// A [`baylee_view::PublicObject`] carrying the registry card of that name.
 ///

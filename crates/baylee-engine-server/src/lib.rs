@@ -20,11 +20,43 @@
 
 #![warn(missing_docs)]
 
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::{SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
+
+/// How long the curtain waits for seats that have not said they are ready
+/// (#256), counted from the moment the game is built.
+///
+/// The thirty seconds a seat socket already gives the engine to appear
+/// (`ENGINE_WAIT_SECS` in the gateway). A client that has not drawn its
+/// table by then is stuck, or is an old client that never says it is ready;
+/// either way the table opens without it, and that seat's own clock starts
+/// then.
+pub const CURTAIN_SECS: u32 = 30;
+
+/// The curtain while it is down (#256): the seats it waits for, and which of
+/// them have said they are ready.
+///
+/// Two sets rather than one that shrinks, so a `SeatReady` from a seat it
+/// never waited for (an AI chair a socket drives) is not counted, and one
+/// from a seat that already said it is counted once. Both are bitmasks, so
+/// hearing a seat allocates nothing.
+#[derive(Clone, Copy, Debug)]
+struct Barrier {
+    /// Every seat that answers over a socket, as the game was built.
+    waits_for: SeatSet,
+    /// Those of them that have drawn their table.
+    ready: SeatSet,
+}
+
+impl Barrier {
+    /// Whether every seat it waits for is ready.
+    fn met(self) -> bool {
+        self.waits_for.iter().all(|seat| self.ready.contains(seat))
+    }
+}
 
 /// What a deadline is waiting for.
 ///
@@ -134,6 +166,10 @@ pub struct EngineRunner {
     attached: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
+    /// The curtain, while it is down; `None` before the game is built and
+    /// from the moment it goes up, which is for good: nothing brings it
+    /// down again (#256).
+    curtain: Option<Barrier>,
     /// What the caller last read off its own timers: each armed clock, and
     /// how much of it was left.
     ///
@@ -155,6 +191,17 @@ impl EngineRunner {
     #[must_use]
     pub fn ready(&self) -> bool {
         self.session.is_some()
+    }
+
+    /// Whether the table has been built and not yet opened (#256): what
+    /// the caller arms [`CURTAIN_SECS`] against, and what it disarms on.
+    ///
+    /// Nothing is decided while this holds. No seat is asked a question, an
+    /// action that arrives is dropped, the house plays no AI chair, and no
+    /// clock runs.
+    #[must_use]
+    pub const fn curtain_pending(&self) -> bool {
+        self.curtain.is_some()
     }
 
     /// Whether the game is over and the process may exit.
@@ -179,7 +226,10 @@ impl EngineRunner {
     ///
     /// Nothing is on either clock when nobody is being asked, when the table
     /// set that limit to zero, or when the awaited seat is an AI chair — it
-    /// never had a socket to lose, so its absence means nothing. During the
+    /// never had a socket to lose, so its absence means nothing. Nor before
+    /// the curtain is up (#256): every clock starts when the table opens, so
+    /// no seat spends its decision time or its reconnect window on another
+    /// seat's loading. During the
     /// opening mulligans several seats are asked at once, each on its own
     /// clock, and one seat's answer leaves every other seat's clock exactly
     /// as it was.
@@ -197,6 +247,9 @@ impl EngineRunner {
 
     /// `seat`'s clock, if it is on one.
     fn clock_for(&self, session: &Session, seat: PlayerId) -> Option<Clock> {
+        if self.curtain.is_some() {
+            return None;
+        }
         let (what, secs) = if self.attached.contains(&seat.get()) {
             (Deadline::Decide, session.decision_timeout_secs())
         } else if session
@@ -223,6 +276,9 @@ impl EngineRunner {
     /// timer firing and this being called, and one seat's expired clock must
     /// never take another seat's decision, nor this seat's next one.
     pub fn timeout(&mut self, clock: Clock) -> Vec<Envelope> {
+        if self.curtain.is_some() {
+            return Vec::new();
+        }
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
@@ -350,8 +406,65 @@ impl EngineRunner {
         };
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
         self.game_id.clone_from(&setup.game_id);
+        // Down until every seat that answers over a socket has drawn its
+        // table, or `CURTAIN_SECS` have passed. An AI chair is ready from the
+        // start, and a table with no such seat has nothing to wait for.
+        let waits_for: SeatSet = session.human_seats().into_iter().collect();
+        self.curtain = (!waits_for.is_empty()).then_some(Barrier {
+            waits_for,
+            ready: SeatSet::new(),
+        });
         self.session = Some(session);
         Vec::new()
+    }
+
+    /// Opens the table (#256), once: the last seat said it is ready, or the
+    /// caller's [`CURTAIN_SECS`] ran out, whichever came first. Any later call
+    /// does nothing.
+    ///
+    /// The house plays its chairs in the pump that follows, which is the
+    /// first moment anything is decided, and every attached seat is sent
+    /// what that pump produced and then [`curtain`], last, so a client opens
+    /// on the table as it stands afterwards. A seat that attaches later is
+    /// sent the same at the end of its own batch. The clocks start here too,
+    /// because this is the first moment [`EngineRunner::clocks`] names any.
+    pub fn raise_curtain(&mut self) -> Vec<Envelope> {
+        if self.curtain.take().is_none() {
+            return Vec::new();
+        }
+        // The clocks exist from here on, and the views below are the first
+        // to carry them.
+        self.absorb_clock();
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
+        };
+        let routed = session.pump();
+        let mut out = self.route(&routed);
+        out.extend(
+            self.attached
+                .iter()
+                .map(|&seat| seat_frame(seat, &curtain())),
+        );
+        out.extend(self.ending());
+        out
+    }
+
+    /// A seat has drawn its table (#256). Counted for the seat whose socket
+    /// said so — the frame's seat, which the gateway stamps, since the
+    /// message itself names none — at most once, and not at all after the
+    /// curtain is up. The last one raises it.
+    fn seat_ready(&mut self, player: PlayerId) -> Vec<Envelope> {
+        let Some(barrier) = self.curtain.as_mut() else {
+            return Vec::new();
+        };
+        if barrier.waits_for.contains(player) {
+            barrier.ready.insert(player);
+        }
+        if barrier.met() {
+            self.raise_curtain()
+        } else {
+            Vec::new()
+        }
     }
 
     /// A seat's socket opened. Sends it the payload every later frame refers
@@ -387,17 +500,33 @@ impl EngineRunner {
         // points into them, and a seat earns printings as it sees cards, so
         // this is not a payload that "cannot have changed".
         let mut out = vec![seat_frame(seat, &session.game_static_envelope(player))];
-        if attached.resync {
-            for env in session.snapshot(player) {
-                out.push(seat_frame(seat, &env));
-            }
+        // Before the curtain the seat is given its table to draw and nothing
+        // to answer: pumping here would let the house play its chairs while
+        // the other seats are still loading (#256).
+        if self.curtain.is_some() {
+            // A fresh socket holds no log either, even one that opened
+            // before (a loader that dropped and dialled again).
+            session.retell_log(player);
+            out.extend(session.show(player).iter().map(|env| seat_frame(seat, env)));
             return out;
         }
-        // A socket that just opened holds none of the game log, and whatever
-        // went to this seat while nobody was on it was dropped in `route`.
-        session.retell_log(player);
-        let routed = session.pump();
-        out.extend(self.route(&routed));
+        if attached.resync {
+            out.extend(
+                session
+                    .snapshot(player)
+                    .iter()
+                    .map(|env| seat_frame(seat, env)),
+            );
+        } else {
+            // A socket that just opened holds none of the game log, and whatever
+            // went to this seat while nobody was on it was dropped in `route`.
+            session.retell_log(player);
+            let routed = session.pump();
+            out.extend(self.route(&routed));
+        }
+        // The table is open, and has been since before this seat arrived:
+        // it is told so last, after what it opens on.
+        out.push(seat_frame(seat, &curtain()));
         out.extend(self.ending());
         out
     }
@@ -428,12 +557,32 @@ impl EngineRunner {
             return Vec::new();
         };
         match inner.msg {
+            Some(v1::envelope::Msg::SeatReady(_)) => self.seat_ready(player),
+            // Dropped rather than refused before the curtain is up (#256): no
+            // seat has been asked anything, so a correct client has nothing
+            // to answer, and a refusal would reach it as a failure.
+            Some(v1::envelope::Msg::PlayerAction(_)) if self.curtain.is_some() => {
+                tracing::debug!(seat, "an action before the curtain went up; dropped");
+                Vec::new()
+            }
             Some(v1::envelope::Msg::PlayerAction(action_msg)) => {
                 let Ok(action) = serde_json::from_slice::<PlayerAction>(&action_msg.action_json)
                 else {
                     return Vec::new();
                 };
                 self.apply(player, action)
+            }
+            // What it missed, before the curtain, is the table it has not
+            // been shown, and still no question.
+            Some(v1::envelope::Msg::Resume(_)) if self.curtain.is_some() => {
+                let Some(session) = self.session.as_mut() else {
+                    return Vec::new();
+                };
+                session
+                    .show(player)
+                    .iter()
+                    .map(|env| seat_frame(seat, env))
+                    .collect()
             }
             // Read-only: a seat asking for what it missed must not advance the
             // game, or reconnecting would play an AI seat's turn for it.
@@ -533,6 +682,14 @@ pub fn seat_frame(seat: u8, envelope: &Envelope) -> Envelope {
     }
 }
 
+/// The table is open (#256).
+#[must_use]
+pub fn curtain() -> Envelope {
+    Envelope {
+        msg: Some(v1::envelope::Msg::Curtain(v1::Curtain {})),
+    }
+}
+
 /// An error a seat may be shown.
 fn error(message: &str) -> Envelope {
     Envelope {
@@ -629,6 +786,31 @@ mod tests {
             },
             &[],
         )
+    }
+
+    /// A seat says it has drawn its table, the way its socket would.
+    fn ready(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+        };
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            &[],
+        )
+    }
+
+    /// A seat that attaches and has drawn its table: what every test about
+    /// an open table starts from (#256). The last human seat to sit raises
+    /// the curtain.
+    fn sit(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
+        let mut out = attach(runner, seat);
+        out.extend(ready(runner, seat));
+        out
     }
 
     /// One seat's answer, wrapped the way its socket would deliver it.
@@ -733,8 +915,8 @@ mod tests {
     fn a_refused_action_is_answered_with_the_question_again() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(0));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         // The opening choice is a mulligan; passing priority is not an answer.
         let out = act(&mut runner, 0, &PlayerAction::PassPriority);
         let refusal = frames(&out);
@@ -779,8 +961,8 @@ mod tests {
     fn a_refusal_does_not_restart_the_clock() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(30));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         let before = on_clock(&runner).expect("a seat is on the clock");
         let out = act(&mut runner, 0, &PlayerAction::PassPriority);
         assert!(!out.is_empty(), "the refusal was answered at all");
@@ -799,17 +981,19 @@ mod tests {
         preset
     }
 
-    /// A human seat is on its reconnect window from the moment the game is
-    /// built, before any socket could have reached it (#256).
+    /// A human seat's clock starts when the table opens, not when the game
+    /// is built (#256).
     ///
-    /// Pinned as it stands so the change that moves it shows as a moved
-    /// test. Every human chair owes its opening mulligan from the setup on,
-    /// so a chair with no socket yet is a chair being waited for: a player
-    /// whose client takes longer than the window to load loses the chair to
-    /// the house before it has drawn the table, and the first socket in
-    /// starts its decision clock while the others are still loading.
+    /// It used to be the other way round, and this test pinned it before it
+    /// moved: every human chair owes its opening mulligan from the setup on,
+    /// so a chair with no socket yet was on its reconnect window from that
+    /// moment, and a player whose client took longer than the window to load
+    /// lost the chair to the house before drawing the table. Now nobody is on
+    /// either clock until the curtain is up, and then the seat that never
+    /// arrived starts its whole window, and the seat that is here its whole
+    /// allowance.
     #[test]
-    fn a_seat_with_no_socket_yet_is_waited_for_from_the_setup_on() {
+    fn a_seat_with_no_socket_yet_is_waited_for_from_the_curtain_on() {
         let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
         let mut preset = two_humans(600);
         preset.house_rules.reconnect_window_secs = 60;
@@ -822,17 +1006,214 @@ mod tests {
                 .map(|c| (c.seat, c.what, c.secs))
                 .collect::<Vec<_>>()
         };
+        assert_eq!(kinds(&runner), [], "nobody has attached, and nobody waits");
+        sit(&mut runner, 0);
         assert_eq!(
             kinds(&runner),
-            [(zero, Deadline::StandIn, 60), (one, Deadline::StandIn, 60)],
-            "nobody has attached, and both chairs are already on the window"
+            [],
+            "the first seat in waits for the others with its clock stopped"
         );
-        attach(&mut runner, 0);
+        let out = runner.raise_curtain();
         assert_eq!(
             kinds(&runner),
             [(zero, Deadline::Decide, 600), (one, Deadline::StandIn, 60)],
-            "the first socket in is deciding while the other is still on its way"
+            "the table opened without seat 1, and its window starts now"
         );
+        assert!(
+            matches!(
+                frames(&out).last(),
+                Some((0, v1::envelope::Msg::Curtain(_)))
+            ),
+            "the seat that is here is told the table is open"
+        );
+    }
+
+    /// Whose frames say what, in order, for the seats a test cares about.
+    fn said(out: &[Envelope]) -> Vec<(u32, &'static str)> {
+        frames(out)
+            .into_iter()
+            .map(|(seat, msg)| {
+                let what = match msg {
+                    v1::envelope::Msg::GameStatic(_) => "static",
+                    v1::envelope::Msg::StateDelta(_) => "view",
+                    v1::envelope::Msg::ChoiceRequest(_) => "question",
+                    v1::envelope::Msg::Curtain(_) => "curtain",
+                    v1::envelope::Msg::Error(_) => "error",
+                    _ => "other",
+                };
+                (seat, what)
+            })
+            .collect()
+    }
+
+    /// The curtain waits for every human seat, and each is shown its table
+    /// but asked nothing until the last one is ready (#256). Then every seat
+    /// is asked, and told the table is open last, after what it opens on.
+    #[test]
+    fn the_curtain_goes_up_when_the_last_human_seat_is_ready() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        // Shown a table: the payload, and a view (after a second payload
+        // when the view is the first to show a printing), but no question
+        // and no curtain.
+        let shown = |out: &[Envelope], seat: u32| {
+            let order = said(out);
+            order.first() == Some(&(seat, "static"))
+                && order.last() == Some(&(seat, "view"))
+                && order
+                    .iter()
+                    .all(|(s, what)| *s == seat && matches!(*what, "static" | "view"))
+        };
+        let first = attach(&mut runner, 0);
+        assert!(shown(&first, 0), "{:?}", said(&first));
+        assert_eq!(
+            last_view(&first, 0).expect("a view").decision_remaining_ms,
+            None,
+            "a table that has not opened shows no clock"
+        );
+        assert!(ready(&mut runner, 0).is_empty(), "seat 1 is not here yet");
+        let second = attach(&mut runner, 1);
+        assert!(shown(&second, 1), "{:?}", said(&second));
+        assert!(runner.curtain_pending());
+
+        let up = ready(&mut runner, 1);
+        assert!(!runner.curtain_pending());
+        for seat in [0, 1] {
+            let theirs: Vec<&str> = said(&up)
+                .into_iter()
+                .filter(|(s, _)| *s == seat)
+                .map(|(_, what)| what)
+                .collect();
+            assert!(
+                theirs.contains(&"question"),
+                "seat {seat} is asked: {theirs:?}"
+            );
+            assert_eq!(theirs.last(), Some(&"curtain"), "seat {seat}: {theirs:?}");
+        }
+        assert_eq!(
+            last_view(&up, 0).expect("a view").decision_remaining_ms,
+            Some(600_000),
+            "the clock starts whole when the table opens"
+        );
+    }
+
+    /// An AI chair never holds the curtain, and plays nothing behind it: the
+    /// house keeps its opening hand in the pump that raises it (#256).
+    #[test]
+    fn the_house_plays_nothing_before_the_curtain_is_up() {
+        let house = PlayerId::new(1);
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(600));
+        attach(&mut runner, 0);
+        let session = runner.session().expect("a game");
+        assert!(
+            session.awaited().contains(house),
+            "the house has decided already"
+        );
+        let stuck = session.decision_seq();
+
+        let up = ready(&mut runner, 0);
+        assert_eq!(said(&up).last(), Some(&(0, "curtain")));
+        let session = runner.session().expect("a game");
+        assert!(!session.awaited().contains(house), "the house did not keep");
+        assert!(session.decision_seq() > stuck);
+    }
+
+    /// The deadline opens the table with nobody at it, and a seat that
+    /// arrives afterwards is shown the open table and told so, last (#256).
+    #[test]
+    fn the_deadline_opens_a_table_nobody_has_reached() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel_window(600, 60));
+        assert!(runner.curtain_pending());
+        assert!(
+            runner.raise_curtain().is_empty(),
+            "nobody is attached to be told"
+        );
+        assert!(runner.raise_curtain().is_empty(), "and once is all");
+        assert_eq!(
+            on_clock(&runner).map(|c| (c.what, c.secs)),
+            Some((Deadline::StandIn, 60)),
+            "the absent seat's window starts at the curtain"
+        );
+
+        let late = attach(&mut runner, 0);
+        let order = said(&late);
+        assert_eq!(order.first(), Some(&(0, "static")));
+        assert!(order.contains(&(0, "question")), "{order:?}");
+        assert_eq!(order.last(), Some(&(0, "curtain")), "{order:?}");
+    }
+
+    /// An action before the curtain is up is dropped without a word: a
+    /// refusal would reach the client as a failure, and a correct client has
+    /// been asked nothing it could answer (#256).
+    #[test]
+    fn an_action_before_the_curtain_is_dropped_without_a_word() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        let before = runner.session().expect("a game").seq();
+        assert!(act(&mut runner, 0, &PlayerAction::MulliganKeep).is_empty());
+        assert_eq!(runner.session().expect("a game").seq(), before);
+        assert!(
+            runner
+                .session()
+                .expect("a game")
+                .awaited()
+                .contains(PlayerId::new(0)),
+            "the keep went through"
+        );
+    }
+
+    /// A seat's `SeatReady` counts for that seat, once, and for nothing
+    /// after the curtain is up; one from a seat the curtain never waited
+    /// for, or one beyond any table, counts for nobody (#256).
+    #[test]
+    fn a_seat_ready_counts_once_for_its_own_seat() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        for _ in 0..3 {
+            assert!(ready(&mut runner, 0).is_empty());
+        }
+        assert!(ready(&mut runner, 7).is_empty(), "no seat 7 at this table");
+        assert!(
+            ready(&mut runner, 200).is_empty(),
+            "nor any seat past a set"
+        );
+        assert!(runner.curtain_pending(), "seat 1 has not said it");
+        assert!(!ready(&mut runner, 1).is_empty());
+        assert!(
+            ready(&mut runner, 0).is_empty(),
+            "the curtain is already up"
+        );
+    }
+
+    /// A seat that asks what it missed before the curtain is up is shown its
+    /// table again, and still asked nothing (#256).
+    #[test]
+    fn a_resume_before_the_curtain_asks_nothing() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::Resume(v1::ResumeGame {
+                game_id: "g1".to_string(),
+                seat_token: String::new(),
+                last_seq: 0,
+            })),
+        };
+        let out = runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat: 0,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            &[],
+        );
+        assert_eq!(said(&out), [(0, "view")]);
     }
 
     /// During the opening mulligans each human seat is on its own clock, and
@@ -845,8 +1226,8 @@ mod tests {
         let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
         let mut runner = EngineRunner::new();
         setup(&mut runner, &two_humans(30));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         let before = runner.clocks();
         assert_eq!(
             before.iter().map(|c| (c.seat, c.what)).collect::<Vec<_>>(),
@@ -916,8 +1297,8 @@ mod tests {
     fn the_other_seats_hold_does_not_wind_the_clock() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &two_humans(30));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         // Past the mulligans, which ask both seats at once: this is about
         // the seat that is not being asked.
         keep_both(&mut runner);
@@ -958,7 +1339,7 @@ mod tests {
     fn nobody_is_on_a_clock_they_cannot_see() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(60, 30));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         let clock = on_clock(&runner).expect("the seat being asked is here");
         assert_eq!(clock.seat.get(), 0);
         assert_eq!(clock.what, Deadline::Decide);
@@ -983,7 +1364,7 @@ mod tests {
     fn no_limit_means_no_clock() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(0, 30));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         assert_eq!(on_clock(&runner), None);
 
         detach(&mut runner, 0);
@@ -1015,7 +1396,7 @@ mod tests {
     fn a_chair_nobody_is_sitting_in_goes_to_the_house() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(60, 30));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         detach(&mut runner, 0);
         let stuck = runner.session().expect("the game is built").decision_seq();
 
@@ -1035,10 +1416,10 @@ mod tests {
     fn a_player_who_gets_back_in_time_keeps_their_chair() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(60, 30));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         detach(&mut runner, 0);
         let clock = on_clock(&runner).expect("the chair is on a clock");
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
 
         assert!(
             runner.timeout(clock).is_empty(),
@@ -1057,7 +1438,7 @@ mod tests {
     fn the_house_gives_the_chair_back_when_the_socket_returns() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel_window(60, 30));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         detach(&mut runner, 0);
         let clock = on_clock(&runner).expect("the chair is on a clock");
         let _ = runner.timeout(clock);
@@ -1070,7 +1451,7 @@ mod tests {
             "the house is holding seat 0"
         );
 
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         assert!(
             !runner
                 .session()
@@ -1087,7 +1468,7 @@ mod tests {
     fn a_stale_deadline_answers_for_nobody() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(60));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         let clock = on_clock(&runner).expect("someone is being asked");
         let stale = Clock {
             seq: clock.seq + 1,
@@ -1119,7 +1500,7 @@ mod tests {
         use baylee_gamehost::view::wire::HouseAnswer;
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(60));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         let clock = on_clock(&runner).expect("someone is being asked");
         assert_eq!(clock.what, Deadline::Decide);
         let out = runner.timeout(clock);
@@ -1220,7 +1601,7 @@ mod tests {
     fn a_question_just_asked_is_shown_the_whole_allowance() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(30));
-        let out = attach(&mut runner, 0);
+        let out = sit(&mut runner, 0);
         assert_eq!(
             last_view(&out, 0)
                 .expect("seat 0 was sent a view")
@@ -1236,7 +1617,7 @@ mod tests {
     fn a_reading_taken_for_this_question_is_what_the_seat_is_shown() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(600));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         // A socket returning mid-question: the game has not moved, so this
         // is the same question with four seconds left on it.
         let out = runner.handle(
@@ -1265,7 +1646,7 @@ mod tests {
     fn a_view_built_after_the_question_moved_shows_the_whole_allowance() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &duel(600));
-        attach(&mut runner, 0);
+        sit(&mut runner, 0);
         let before = runner.session().expect("a game").decision_seq();
         // Four seconds left on *this* question, and then an answer that
         // moves the game on to the next one. The reading has to be a partial
@@ -1324,15 +1705,15 @@ mod tests {
     fn a_seat_waiting_out_its_reconnect_window_is_on_no_decision_clock() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &two_humans(600));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         // Past the mulligans, which ask both seats at once: this is about
         // the seat that is not being asked.
         keep_both(&mut runner);
         detach(&mut runner, 0);
         // Seat 1 is still here and still being sent views; seat 0, which the
         // table is waiting on, is on the reconnect window instead.
-        let out = attach(&mut runner, 1);
+        let out = sit(&mut runner, 1);
         assert_eq!(
             on_clock(&runner).map(|c| c.what),
             Some(Deadline::StandIn),
@@ -1357,8 +1738,8 @@ mod tests {
     fn the_other_seat_is_told_the_awaited_seats_remainder() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &two_humans(600));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         act(&mut runner, 0, &PlayerAction::MulliganKeep);
         let out = act(&mut runner, 1, &PlayerAction::MulliganKeep);
         let awaited = runner.session().expect("a game").awaiting_seat();
@@ -1384,8 +1765,8 @@ mod tests {
     fn in_the_mulligans_each_seat_is_told_its_own_remainder() {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &two_humans(600));
-        attach(&mut runner, 0);
-        attach(&mut runner, 1);
+        sit(&mut runner, 0);
+        sit(&mut runner, 1);
         let [zero, one] = runner.clocks()[..] else {
             panic!("both seats are deciding");
         };

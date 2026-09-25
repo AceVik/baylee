@@ -2640,6 +2640,31 @@ window opens before turn 1 either. Against the house offline none of this is
 visible: the house keeps for its chair before the first view is sent, so the
 wait only appears at a table of two or more players.
 
+### The table opens for everyone at once (#256)
+
+A networked table does not start until every seat has drawn it
+(docs/protocol.md §"The curtain"). The client's half:
+
+- **It says so.** `poll_host` calls `DuelHost::ready` the first time a view has
+  been built (`Duel::ready_sent`). It says it again after a fresh `Static`
+  while the table is still closed, because that is a new attach the engine
+  may not have heard from. For now "drawn" means the first view is built;
+  #256(b) moves the call to the moment the table is drawn, art included.
+  `ready` has no default body: a host without it would hold the table for the
+  engine's whole wait, and only a missing method makes the compiler say so.
+- **It holds, and does not drop.** Before `HostMessage::Curtain` the engine
+  reads nothing a seat sends, so `flush_outbox` keeps the outbox until the
+  curtain arrives (`Duel::curtain_up`) and sends it on that frame. The outbox
+  is not empty that early: `run_autopilot` sends the standing ability orders
+  as soon as there is a view. No question arrives before the curtain, so a
+  player has nothing to answer until then.
+- **It never closes again.** `curtain_up` is cleared only by the
+  `Duel::default()` a new game starts from. A reconnect or a lag resync
+  leaves it set.
+
+`LocalHost` sends `Curtain` last in its first batch: one seat, nobody else
+loading, no clock.
+
 ## The lobby
 
 Without a ticket the binary adds `LobbyPlugin` (`src/lobby.rs`) instead of

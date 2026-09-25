@@ -409,6 +409,13 @@ impl DuelHost for NetworkHost {
         self.flush();
     }
 
+    fn ready(&mut self) {
+        self.outbox.push(Envelope {
+            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+        });
+        self.flush();
+    }
+
     fn seat(&self) -> PlayerId {
         self.seat
     }

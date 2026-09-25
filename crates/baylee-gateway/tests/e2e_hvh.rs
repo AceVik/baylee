@@ -53,13 +53,9 @@ where
     panic!("expected envelope never arrived");
 }
 
-#[tokio::test]
-#[allow(clippy::too_many_lines)] // e2e scenario script
-async fn human_vs_human_both_seats_receive_updates() {
-    let gw = spawn_gateway("hvh");
-    let port = gw.port;
-    let agent = attach_agent(&gw).await;
-
+/// Two accounts, a deck each, a room A opens and B joins, both ready and the
+/// host starts it: the game's id and each seat's token.
+fn start_two_seats(port: u16) -> (String, String, String) {
     // Two accounts.
     let tokens = [
         login(port, "alice", "alice_hvh"),
@@ -121,6 +117,17 @@ async fn human_vs_human_both_seats_receive_updates() {
         "",
     );
     assert_eq!(status, 200, "start: {body}");
+
+    (game_id, seat_token_a, seat_token_b)
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // e2e scenario script
+async fn human_vs_human_both_seats_receive_updates() {
+    let gw = spawn_gateway("hvh");
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let (game_id, seat_token_a, seat_token_b) = start_two_seats(port);
 
     // Connect both seat sockets.
     // Sequentially, which is the same end state as the interleaved retry loop
@@ -310,5 +317,54 @@ async fn the_control_socket_refuses_the_wrong_secret() {
             // A close frame, a broken stream, or the end of it: refused.
             _ => break,
         }
+    }
+}
+
+/// Both seats are told the table is open as soon as both have said they
+/// are ready, and not on the curtain's deadline (#256).
+///
+/// This is what turns a seat socket that forgot `SeatReady` into a red test.
+/// Without it a table still opens, thirty seconds late, and every game is
+/// slower by that for no reason anybody sees. The in-process engine here
+/// runs no deadline at all, so a missing `SeatReady` never opens the table,
+/// and the bound below fails.
+#[tokio::test]
+async fn the_curtain_goes_up_for_both_seats_once_both_are_ready() {
+    let gw = spawn_gateway("hvh_curtain");
+    let _agent = attach_agent(&gw).await;
+    let (game_id, seat_token_a, seat_token_b) = start_two_seats(gw.port);
+    let url = |token: &str| {
+        format!(
+            "ws://127.0.0.1:{}/games/{game_id}/ws?token={token}",
+            gw.port
+        )
+    };
+    let prompt = std::time::Duration::from_secs(u64::from(baylee_engine_server::CURTAIN_SECS) / 3);
+    let mut seats = [
+        common::dial_seat(&url(&seat_token_a)).await,
+        common::dial_seat(&url(&seat_token_b)).await,
+    ];
+    for (seat, ws) in seats.iter_mut().enumerate() {
+        let mut heard = Vec::new();
+        tokio::time::timeout(prompt, async {
+            loop {
+                let env = recv_until(ws, |_| true).await;
+                let what = match env.msg {
+                    Some(v1::envelope::Msg::ChoiceRequest(_)) => "question",
+                    Some(v1::envelope::Msg::Curtain(_)) => "curtain",
+                    _ => "other",
+                };
+                heard.push(what);
+                if what == "curtain" {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("seat {seat} saw no curtain within {prompt:?}: {heard:?}"));
+        assert!(
+            heard.contains(&"question"),
+            "seat {seat} opened on no question: {heard:?}"
+        );
     }
 }

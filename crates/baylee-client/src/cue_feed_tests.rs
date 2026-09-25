@@ -19,6 +19,7 @@ impl DuelHost for ScriptedHost {
         std::mem::take(&mut self.0)
     }
     fn submit(&mut self, _: PlayerAction) {}
+    fn ready(&mut self) {}
     fn seat(&self) -> PlayerId {
         PlayerId::new(0)
     }

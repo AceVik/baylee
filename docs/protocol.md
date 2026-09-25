@@ -564,10 +564,11 @@ is, exactly as `owed` is above. The opening mulligans are the one exception:
 every deciding seat is on its own clock then, and each is told its own
 remainder and nobody else's (below).
 
-**`None` is five situations wearing one answer**: nobody is being asked, this
+**`None` is six situations wearing one answer**: nobody is being asked, this
 seat has kept while others still decide their mulligans, the table is
 `untimed` (`decision_timeout_secs` at zero — no number because there
-is no limit), the awaited seat is an AI chair, or the awaited seat is on the
+is no limit), the table has not opened yet (no clock runs before the curtain,
+below), the awaited seat is an AI chair, or the awaited seat is on the
 **stand-in** clock rather than the decision clock. That last one is the one
 worth stating: its socket is gone, so it is not deciding at all, and a
 countdown drawn against it on everybody else's screen would name the wrong
@@ -1130,8 +1131,8 @@ A seat's frames are dropped in the *engine* while it has no socket, not one hop
 later at the gateway. That is what keeps a seat's own opening payload first on
 its wire: the frames another seat's arrival produced for a player who was not
 there yet are gone before they can overtake it. Nothing is lost by it — every
-attach pumps, and a pump re-sends the current view to every seat that is
-present.
+attach once the table is open pumps, a pump re-sends the current view to every
+seat that is present, and an attach before then is shown its own view.
 
 Losing the engine link ends the game. The state lives in that process and
 nowhere else, so a link that closes before `GameEnded` is a game that cannot be
@@ -1153,6 +1154,85 @@ tells an engine to dial `BAYLEE_ENGINE_URL`, which defaults to
 agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.
+
+## The curtain: nothing starts until every seat can see it (#256)
+
+A game used to start on the engine's clock rather than the players'. The first
+seat's socket to attach pumped the game: the house played its chairs, that seat
+was asked its mulligan, and its decision clock started, while the other seats
+were still loading. A seat with no socket yet was on its reconnect window from
+the moment the game was built, so a client slower than the window lost its
+chair to the house before it had drawn the table. Two envelopes fix the start
+(a `PROTOCOL_VERSION` bump; the view is unchanged):
+
+| message | direction | meaning |
+| --- | --- | --- |
+| `SeatReady {}` | player → engine | this seat has drawn its table |
+| `Curtain {}` | engine → player | the table is open |
+
+Both travel inside `SeatFrame` on the engine link, so the gateway forwards them
+without reading them, like everything else a seat says. `SeatReady` is empty
+on purpose: it counts for the seat the gateway stamped on the frame, so there
+is nothing in it a client could claim for another seat.
+
+**Before the curtain nothing is decided.** `EngineRunner` builds the game at
+`GameSetup` and waits for every seat that answers over a socket; an AI chair is
+ready from the start. Until then:
+
+- An attach is sent the payload and its own view, and no question. The view
+  goes through `Session::show`, which reveals printings as a pump would (an
+  opponent's commander needs its entry to be drawn) but drives no seat.
+  `ResumeGame` is answered the same way.
+- A `PlayerActionMsg` is dropped and logged at debug level. It is not refused,
+  because the client turns an `Error` into a failure on screen, and a correct
+  client has been asked nothing it could answer.
+- The house plays none of its chairs, and no clock runs:
+  `EngineRunner::clocks` is empty and every view's `decision_remaining_ms` is
+  `None`.
+
+`SeatReady` counts once per seat. A repeat, one after the curtain, or one from
+a seat the curtain was not waiting for changes nothing. Hearing it allocates
+nothing: the barrier is two `SeatSet` bitmasks.
+
+**The curtain goes up once**, when the last seat is ready or
+`baylee_engine_server::CURTAIN_SECS` (30 s) after the game was built, whichever
+comes first. The attach loop arms that deadline on its first turn after
+`GameSetup`, whether or not any seat has attached. Thirty seconds is the wait a
+seat socket already gives the engine to appear (`ENGINE_WAIT_SECS`). A client
+that has not drawn its table by then is stuck, or is too old to send
+`SeatReady`, so such a client costs the table at most thirty seconds. At
+curtain-up the house plays its chairs in one pump, every attached seat is sent
+what the pump produced (its view and its question), and then `Curtain`,
+**last**, so a client opens on the table as it now stands. A seat that attaches
+later gets the payload, its views and then `Curtain`, again last. The curtain
+never comes down again in that game, including on a reconnect or a lag resync.
+
+**Every clock starts at curtain-up.** This is a player-visible rule. The
+decision clock of a seat that is present, and the reconnect window of a seat
+that is not, are both anchored at the moment the table opens. No seat spends
+its decision time or its window on another seat's loading. A seat that never
+attached starts its whole reconnect window at curtain-up, and the house takes
+the chair only when that window runs out.
+
+**Every host that serves a seat sends `Curtain`**, last in the batch that
+seats it, so no client can wait behind a curtain nothing raises. `LocalHost`
+sends it with its first poll: one seat, nobody else loading, no clock. The
+engine-server's dev harness has no barrier and no clocks, but sends it at the
+end of `CreateGame`, `Join` and `Resume`.
+
+**The client** sends `SeatReady` once its first view is built, and again if it
+attaches afresh before the table is open. The first view is a stopgap for
+"drawn"; #256(b) moves the signal to "drawn" and adds the curtain the player
+sees. Until the table opens it holds its outbox rather than sending it: it
+sends its standing ability orders as soon as it has a view, and the engine
+would drop them.
+
+**Deploy the engine-server before the clients.** A client from before this
+change never sends `SeatReady`, and its table opens thirty seconds late. A
+client from after it, playing against an older engine, is never sent
+`Curtain` and waits behind the curtain for ever. `PROTOCOL_VERSION` is not
+checked on the seat socket yet; #271 makes a mismatch a refusal with a
+sentence, which turns that silent wait into an error.
 
 ## Confirming an address, and why it is optional
 
@@ -1920,7 +2000,8 @@ expiry the house agent answers for the seat, because it is legal for every
 seat stuck on the same question forever.
 
 `HouseRules::reconnect_window_secs` is enforced as of 2026-09-05, and it is a
-**second clock**, not a longer first one. A seat with no socket is on no
+**second clock**, not a longer first one. Like the decision clock it starts
+when the table opens, not when the game is built (#256, above). A seat with no socket is on no
 decision clock at all — nobody should lose on time to a question they never
 saw — which was right and left the table waiting on a closed laptop forever.
 So each awaited seat is on exactly one of two deadlines: the decision

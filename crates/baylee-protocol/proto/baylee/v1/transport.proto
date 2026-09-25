@@ -32,6 +32,20 @@ message ResumeGame {
   uint64 last_seq = 3;
 }
 
+// Player → engine: this seat has drawn its table and can play (#256).
+// Empty on purpose: the seat is the socket's own, stamped on the SeatFrame by
+// the gateway, so there is nothing in it a client could claim for another
+// seat. Sent once per attach; a repeat, or one after the curtain is up,
+// changes nothing.
+message SeatReady {}
+
+// Engine → player: the table is open (#256). Nothing is decided and no clock
+// runs before it. Sent to every attached seat once every human seat is ready,
+// or 30 s after the game was built, whichever comes first, and to every later
+// attach. It is always the last frame of its batch, so a client opens on the
+// table as it stands after the curtain went up.
+message Curtain {}
+
 // ------------------------------------------------------------------- preset
 
 enum Finish {
@@ -330,6 +344,9 @@ message Envelope {
     SeatDetached seat_detached = 22;
     SeatFrame seat_frame = 23;
     GameEnded game_ended = 24;
+    // Game start (player ↔ engine; on the engine link inside a SeatFrame).
+    SeatReady seat_ready = 25;
+    Curtain curtain = 26;
   }
 
 }

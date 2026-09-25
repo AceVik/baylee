@@ -506,6 +506,7 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
                     duel.interaction = Some(Interaction::new(*p, seat));
                 }
                 HostMessage::Failed(why) => panic!("the host refused: {why}"),
+                HostMessage::Curtain => duel.curtain_up = true,
             }
         }
         match duel.interaction.as_ref().map(Interaction::pending) {

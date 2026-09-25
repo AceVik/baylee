@@ -134,6 +134,10 @@ async fn serve(stream: tokio::net::TcpStream, session: &mut Session) {
                 }
             }
             Some(v1::envelope::Msg::Resume(msg)) => session.resume(SEAT, msg.last_seq),
+            // A table of one: the seat that is ready is the last one.
+            Some(v1::envelope::Msg::SeatReady(_)) => vec![Envelope {
+                msg: Some(v1::envelope::Msg::Curtain(v1::Curtain {})),
+            }],
             _ => vec![],
         };
         for envelope in replies {
@@ -238,6 +242,20 @@ fn choices(messages: &[HostMessage]) -> Vec<&Pending> {
             _ => None,
         })
         .collect()
+}
+
+/// `ready` reaches the table as a `SeatReady`, and the table's `Curtain`
+/// comes back as one (#256). The two halves of a handshake that, missing,
+/// holds every game behind the engine's whole wait.
+#[test]
+fn a_seat_that_says_it_is_ready_is_told_the_table_is_open() {
+    let port = spawn_table();
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    poll_until(&mut host, "the first view", |m| !views(m).is_empty());
+    host.ready();
+    poll_until(&mut host, "the curtain", |m| {
+        m.iter().any(|m| matches!(m, HostMessage::Curtain))
+    });
 }
 
 /// The whole opening: roster, print table, hand, and the first question.

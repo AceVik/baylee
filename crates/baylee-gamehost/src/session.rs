@@ -992,6 +992,22 @@ impl Session {
         self.decisions
     }
 
+    /// What a seat is shown of a table that has not opened yet (#256): its
+    /// own view, after the payload when the view reveals a printing the seat
+    /// did not hold or the roster moved, and never a question.
+    ///
+    /// Between [`Session::pump`] and [`Session::snapshot`], and neither will
+    /// do. `pump` drives every AI seat until a human is needed, which is a
+    /// decision taken before the table is open. `snapshot` does not reveal,
+    /// because it rebuilds a state a pump already showed; a seat arriving at
+    /// a table nobody has pumped has been shown nothing, and an opponent's
+    /// commander would have no printing to draw. And no question, because
+    /// nothing may be answered before the curtain is up: a seat that is never
+    /// asked cannot answer.
+    pub fn show(&mut self, seat: PlayerId) -> Vec<Envelope> {
+        self.view_envelopes(seat)
+    }
+
     /// Everything a seat needs to render the game from scratch: its own
     /// view, every log line it has been sent, plus the outstanding choice
     /// when this seat is the one being asked (or the game is over, which

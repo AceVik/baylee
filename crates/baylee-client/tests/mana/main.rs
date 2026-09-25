@@ -129,7 +129,7 @@ impl Table {
                 HostMessage::View(view) => self.view = Some(*view),
                 HostMessage::Choice(pending) => self.pending = Some(*pending),
                 HostMessage::Failed(reason) => panic!("the engine refused: {reason}"),
-                HostMessage::Static(_) => {}
+                HostMessage::Static(_) | HostMessage::Curtain => {}
             }
         }
     }

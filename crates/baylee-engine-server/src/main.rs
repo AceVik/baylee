@@ -254,6 +254,21 @@ fn publish(table: &Table, out: Vec<(PlayerId, Envelope)>) {
     }
 }
 
+/// Tells a seat the table is open, behind the frames already on the fan for
+/// it.
+///
+/// This harness has no curtain to wait behind: it is loopback and dev-only,
+/// runs no clock, and pumps the moment a game is created. It says `Curtain`
+/// anyway, last in every batch that seats a socket, because every host that
+/// serves a seat does (#256); a client pointed here would otherwise wait
+/// behind a curtain nothing raises. Through the fan rather than the reply, so
+/// it lands after the pump's views rather than before them.
+fn publish_curtain(table: &Table, seat: PlayerId) {
+    let _ = table
+        .fan
+        .send((seat.get(), baylee_engine_server::curtain()));
+}
+
 /// Transport limits.
 ///
 /// tungstenite defaults to a 64 MiB message, which is three orders of
@@ -404,6 +419,7 @@ async fn serve(
                                 out.push(table.session.game_static_envelope(SEAT));
                                 let pumped = table.session.pump();
                                 publish(table, pumped);
+                                publish_curtain(table, SEAT);
                                 state.game_id = Some(id);
                             }
                             None => out.push(error("could not start the game")),
@@ -430,6 +446,7 @@ async fn serve(
                                     table.session.retell_log(seat);
                                     let pumped = table.session.pump();
                                     publish(table, pumped);
+                                    publish_curtain(table, seat);
                                     out
                                 }
                             },
@@ -459,6 +476,7 @@ async fn serve(
                                     // thing.
                                     let mut out = vec![table.session.game_static_envelope(seat)];
                                     out.extend(table.session.resume(seat, resume.last_seq));
+                                    out.push(baylee_engine_server::curtain());
                                     out
                                 }
                             },
@@ -591,13 +609,31 @@ mod attached {
         // when its seat is asked something new rather than every time a frame
         // from another seat wakes this task up.
         let mut armed = baylee_engine_server::Armed::default();
+        // The curtain's deadline (#256). The table's rather than a seat's, so
+        // not a `Clock`: armed on the first turn of this loop after the game
+        // is built, whether or not any seat has attached, and dropped once
+        // the curtain is up.
+        let mut curtain_at = None;
         loop {
             let now = tokio::time::Instant::now();
             armed.sync(&runner.clocks(), |clock| {
                 now + std::time::Duration::from_secs(u64::from(clock.secs))
             });
+            curtain_at = runner.curtain_pending().then(|| {
+                curtain_at.unwrap_or_else(|| {
+                    now + std::time::Duration::from_secs(u64::from(
+                        baylee_engine_server::CURTAIN_SECS,
+                    ))
+                })
+            });
             let next = armed.next();
             tokio::select! {
+                () = deadline(curtain_at) => {
+                    tracing::info!(game_id = attach.game_id, "the curtain went up on its deadline");
+                    for envelope in runner.raise_curtain() {
+                        send(&mut ws, &envelope).await?;
+                    }
+                }
                 () = deadline(next.map(|(_, at)| at)) => {
                     // The clock is the one thing the rules kernel must not
                     // own: it is deterministic and may not read a wall clock.

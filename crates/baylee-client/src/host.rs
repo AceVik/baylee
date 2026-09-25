@@ -26,6 +26,11 @@ pub enum HostMessage {
     Choice(Box<Pending>),
     /// Something went wrong; the string is safe to show a player.
     Failed(String),
+    /// The table is open (#256): every seat has drawn it, or the engine
+    /// stopped waiting. Nothing this seat sends is read before it, which is
+    /// why the client holds its outbox until then. It never comes down again
+    /// in the same game.
+    Curtain,
 }
 
 /// Whether a host still has the connection it plays through.
@@ -59,6 +64,15 @@ pub trait DuelHost: Send + Sync + 'static {
 
     /// Sends the local seat's answer.
     fn submit(&mut self, action: PlayerAction);
+
+    /// Says this seat has drawn its table (#256), so the engine can open it
+    /// once every seat has. Called once per game, when the first view has
+    /// been built.
+    ///
+    /// No default: a host that forgot it would hold the whole table behind
+    /// the curtain for the engine's full wait, and a missing method is the
+    /// only way the compiler can say so.
+    fn ready(&mut self);
 
     /// The seat this client plays.
     fn seat(&self) -> PlayerId;
@@ -127,6 +141,7 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
             }
         }
         v1::envelope::Msg::Error(err) => HostMessage::Failed(err.message),
+        v1::envelope::Msg::Curtain(_) => HostMessage::Curtain,
         _ => return None,
     })
 }
@@ -184,12 +199,20 @@ impl LocalHost {
 impl DuelHost for LocalHost {
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = Vec::new();
-        if let Some(statics) = self.statics.take() {
+        let opening = self.statics.take();
+        let opens = opening.is_some();
+        if let Some(statics) = opening {
             out.extend(host_message(statics));
             let routed = self.session.pump();
             self.absorb(routed);
         }
         out.append(&mut self.pending_out);
+        // A table of one seat is open as soon as it is dealt: nobody else is
+        // loading, and no clock runs here. Said anyway, and last, because
+        // every host that serves a seat does (#256).
+        if opens {
+            out.push(HostMessage::Curtain);
+        }
         out
     }
 
@@ -210,6 +233,9 @@ impl DuelHost for LocalHost {
             }
         }
     }
+
+    /// Nothing to say: this table opened on the first poll.
+    fn ready(&mut self) {}
 
     fn seat(&self) -> PlayerId {
         self.seat
@@ -427,6 +453,37 @@ pub(crate) mod tests {
 
     /// The acceptance deck file that ships with the repository.
     const DECK_FILE: &str = include_str!("../../../data/acceptance-decks.txt");
+
+    /// A table of one seat is open as soon as it is dealt, and says so once,
+    /// last in its first batch (#256): the client holds its outbox until it
+    /// hears it, so an offline game that never said it could not be played.
+    #[test]
+    fn a_table_of_one_opens_on_its_first_poll() {
+        let preset = demo_duel(DECK_FILE, 7).expect("the demo duel");
+        let mut host =
+            LocalHost::new(&preset, PlayerId::new(0), &["You", "House"]).expect("a game");
+        let first = host.poll();
+        assert!(matches!(first.first(), Some(HostMessage::Static(_))));
+        assert!(
+            matches!(first.last(), Some(HostMessage::Curtain)),
+            "the curtain is last in the opening batch"
+        );
+        assert_eq!(
+            first
+                .iter()
+                .filter(|m| matches!(m, HostMessage::Curtain))
+                .count(),
+            1
+        );
+        host.submit(PlayerAction::MulliganKeep);
+        assert!(
+            !host
+                .poll()
+                .iter()
+                .any(|m| matches!(m, HostMessage::Curtain)),
+            "and only once"
+        );
+    }
 
     /// A dealt card and the same card in a decklist are **one** print entry.
     ///

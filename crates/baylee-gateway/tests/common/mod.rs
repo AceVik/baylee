@@ -546,10 +546,25 @@ pub async fn dial(url: &str) -> Option<Socket> {
 /// here: a seat socket is opened *while* the engine is still being started by
 /// an agent, so this waits on two processes rather than one, and it is the
 /// loop with the least reason of any of them to assume an idle machine.
+///
+/// And it says `SeatReady` (#256), as a client does once it has drawn its
+/// table: the engine asks nothing and runs no clock until every seat has,
+/// and this harness's engine runs no deadline to open the table without
+/// one, so a seat socket that stayed silent would hang its test. Sent at
+/// once rather than after the first view, which changes nothing the engine
+/// can see: the gateway attaches the seat before it forwards a frame from it.
 pub async fn dial_seat(url: &str) -> Socket {
-    dial(url)
+    let mut ws = dial(url)
         .await
-        .unwrap_or_else(|| panic!("the seat socket never opened within {WAIT_BUDGET:?}: {url}"))
+        .unwrap_or_else(|| panic!("the seat socket never opened within {WAIT_BUDGET:?}: {url}"));
+    send(
+        &mut ws,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+        },
+    )
+    .await;
+    ws
 }
 
 async fn send(ws: &mut Socket, envelope: &Envelope) {

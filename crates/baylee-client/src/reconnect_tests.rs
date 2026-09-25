@@ -19,6 +19,7 @@ impl DuelHost for FakeHost {
         Vec::new()
     }
     fn submit(&mut self, _: PlayerAction) {}
+    fn ready(&mut self) {}
     fn seat(&self) -> PlayerId {
         PlayerId::new(0)
     }

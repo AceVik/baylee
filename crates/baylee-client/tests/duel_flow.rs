@@ -350,6 +350,9 @@ impl Client {
                     self.errors
                         .push(format!("{e}, answering {asked} with {sent}"));
                 }
+                // This driver answers the host itself, not through the
+                // client's outbox, so it has nothing to hold.
+                HostMessage::Curtain => {}
             }
         }
     }
