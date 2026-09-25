@@ -1025,6 +1025,7 @@ mod tests {
             individual: None,
             proposed: None,
             section: Section::Centre,
+            attached: Vec::new(),
         }
     }
 

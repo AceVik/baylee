@@ -59,7 +59,10 @@ fn every_bar_is_written_between_its_own_board_and_the_hearth() {
 /// the mat for as long as the local seat had a rule of its own — which cost
 /// nothing only because the ink was not on either edge, but floating in the
 /// gap past the rim. Measured against a whole card rather than a lane centre,
-/// because a card is what would be standing on the writing.
+/// because a card is what would be standing on the writing. The cards tucked
+/// under a creature (#305) peek out towards the band, and the client measures
+/// them against it the same way
+/// (`table::tuck_tests::nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it`).
 #[test]
 fn no_card_reaches_the_band_its_seat_writes_on() {
     for n in 2..=8u8 {

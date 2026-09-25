@@ -33,6 +33,7 @@ fn creature(slot: u32) -> CardGroup {
         individual: None,
         proposed: None,
         section: Section::Centre,
+        attached: Vec::new(),
     }
 }
 

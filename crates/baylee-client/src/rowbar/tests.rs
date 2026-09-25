@@ -37,6 +37,7 @@ fn group(slot: u32, merged: bool) -> CardGroup {
         individual: None,
         proposed: None,
         section: Section::Centre,
+        attached: Vec::new(),
     }
 }
 

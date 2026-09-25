@@ -2,17 +2,29 @@
 //! dome that stands never lands on another card's print, seen from the real
 //! camera of every seat; the mask still leaves a rim to see; and both halves
 //! of each choice are taken, so neither test is true of nothing. Defender's
-//! wall stands under every face, so every print in front of it hides it.
+//! wall stands under every face, so every print in front of it hides it. A
+//! card tucked under another (#305) is a print like any other, the lowest
+//! of four included, and wears no shell of its own.
 
 use super::flying_tests::creature;
 use super::*;
 use crate::shellmat::{self, Dome, Footprint};
-use baylee_client_core::board::{BoardModel, Lane, SeatPod};
+use baylee_client_core::board::{BoardModel, Individual, Lane, SeatPod};
 use baylee_client_core::layout::LaneKind;
 
+/// Where the ids of the cards tucked under another start: a card that
+/// never wears a shell, so no sweep stands one at it, and a print every
+/// other card's shell has to keep off.
+const TUCKED: u32 = 200_000;
+
+fn tucked(placement: &Placement) -> bool {
+    placement.object.slot() >= TUCKED
+}
+
 /// A table of `seats` players with the same three rows each, `row` cards in
-/// each, tapped, flying and merged in patterns that differ by row and seat,
-/// so the sweep meets every neighbour a rim can have.
+/// each, tapped, flying, merged and carrying cards tucked under them in
+/// patterns that differ by row and seat, so the sweep meets every neighbour
+/// a rim can have.
 fn table(seats: u8, row: [usize; 3], window: Vec2) -> Duel {
     let players: Vec<PlayerId> = (0..seats).map(PlayerId::new).collect();
     let mut next = 1u32;
@@ -45,6 +57,20 @@ fn table(seats: u8, row: [usize; 3], window: Vec2) -> Duel {
                                 group.members.extend(
                                     (0..3).map(|k| ObjectId::new(100_000 + slot * 4 + k, 0)),
                                 );
+                            }
+                            // One to four cards tucked under it (#305),
+                            // whose prints every shell has to keep off.
+                            if i % 4 == 1 {
+                                group.individual = Some(Individual::HasAttachments);
+                                #[expect(clippy::cast_possible_truncation)] // under four
+                                let under = 1 + ((i + seat) % 4) as u32;
+                                group.attached = (0..under)
+                                    .map(|k| {
+                                        let mut card = creature(TUCKED + slot * 4 + k, Vec::new());
+                                        card.individual = Some(Individual::Attached);
+                                        card
+                                    })
+                                    .collect();
                             }
                             group
                         })
@@ -188,6 +214,9 @@ fn sweep(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
     let table = posed(&poses);
     let points = rim_points();
     for (i, at) in poses.iter().enumerate() {
+        if tucked(&placed[i]) {
+            continue;
+        }
         let others = faces
             .iter()
             .enumerate()
@@ -313,6 +342,9 @@ fn sweep_domes(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sw
     let faces: Vec<Footprint> = poses.iter().map(Footprint::of).collect();
     let table = posed(&poses);
     for (i, at) in poses.iter().enumerate() {
+        if tucked(&placed[i]) {
+            continue;
+        }
         let others = faces
             .iter()
             .enumerate()
@@ -544,6 +576,9 @@ fn sweep_walls(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Wa
         })
         .collect();
     for (i, at) in poses.iter().enumerate() {
+        if tucked(&placed[i]) {
+            continue;
+        }
         found.walls += 1;
         let wall = at.to_matrix() * wall_pose(at).to_matrix();
         let near: Vec<usize> = (0..poses.len())

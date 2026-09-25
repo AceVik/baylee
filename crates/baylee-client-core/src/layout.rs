@@ -1426,7 +1426,9 @@ const FOCUS_WEIGHT: f32 = 2.6;
 /// tapped, starts half a span from its own centre, and the badge ends short
 /// of where it does. Over a card
 /// ([`BadgePlace::Above`](crate::cardplate::BadgePlace::Above)) no card of
-/// the row reaches the badge, and nothing is held.
+/// the row reaches the badge, and nothing is held, except before a card with
+/// cards tucked under it (#305), whose names peek out where the badge
+/// stands.
 pub const HELD_PITCH: f32 = CARD_SPAN;
 const _: () =
     assert!(CARD_SPAN * 0.5 + CARD_WIDTH * 0.5 + crate::cardplate::BADGE_REACH <= HELD_PITCH);

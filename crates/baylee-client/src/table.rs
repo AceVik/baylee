@@ -4341,6 +4341,103 @@ fn float_of(placement: &Placement, held: bool, elapsed: f32) -> f32 {
     }
 }
 
+/// How far a card tucked under another (#305) peeks out past its host,
+/// towards the middle of the table: the border and the name bar of a print,
+/// which is what the owner asked to see of it. Under a tapped host it is
+/// the card's long edge instead, turned with it, and the name is back when
+/// the host untaps.
+const ATTACH_PEEK: f32 = CARD_HEIGHT * 0.11;
+/// How far under its host a tucked card lies, and under the one tucked
+/// before it: a fraction of a row's whole rise, and far above what the depth
+/// buffer resolves at `CameraRig::MAX_DISTANCE`.
+const ATTACH_DROP: f32 = LANE_RISE * 0.25;
+/// How far under its host everything tucked under it lies, all together:
+/// half the height a face stands over Defender's wall
+/// ([`shellmat::WALL_HEIGHT`]), so the wall of the card beside it, which
+/// stands on the felt where a tucked card peeks out, stays under every print.
+const ATTACH_DEPTH: f32 = (shellmat::RIM_DROP - shellmat::WALL_HEIGHT) * 0.5;
+const _: () = assert!(ATTACH_DROP <= ATTACH_DEPTH);
+
+/// Lays the cards tucked under `host` (#305) down under it, each peeking out
+/// past the one before towards the middle of the table.
+///
+/// The room is measured and never assumed: from the host's front edge to the
+/// first thing ahead of it — the band the seat's bar is written on, in front
+/// of the creature row, and the next row in front of any other. So a staged
+/// host, and the tight rows of a ring, fold what is under them flat rather
+/// than lay it on somebody's writing or print. Measured when this was
+/// written (25.09.2026): an unstaged creature row shows four whole peeks at
+/// every table, and a tapped host a whole one in every row; untapped, the
+/// support and land rows show a whole one in a duel at 16:10 and 16:9,
+/// 0.053 at 4:3, and 0.0093 at a ring, whose rows stand 0.0185 apart, as
+/// does a staged creature there. A tapped host turns what is under it with
+/// it (client-41, on #305): upright behind a tapped card, an aura would
+/// stand 0.2 past it on both sides, into the air where the next row's plate
+/// stands.
+///
+/// What a tucked card shows is its name and nothing written on it: no strip,
+/// no plate and no shell, since each of those stands on or around a card and
+/// this one lies under another's print. Its hover preview is the card.
+#[allow(clippy::too_many_arguments)] // the host's placement, handed over as it was built
+fn tuck(
+    out: &mut Vec<Placement>,
+    duel: &Duel,
+    slot: &SeatSlot,
+    lane: baylee_client_core::layout::LaneKind,
+    host: &baylee_client_core::board::CardGroup,
+    position: Vec2,
+    lift: f32,
+    tapped: bool,
+    shown: bool,
+) {
+    if host.attached.is_empty() {
+        return;
+    }
+    let forward = slot.forward();
+    let depth = if tapped { CARD_WIDTH } else { CARD_HEIGHT };
+    let ahead = if lane == baylee_client_core::layout::LaneKind::Creatures {
+        (slot.center + forward * (slot.half_extent.y - tabletop::MAT_LEDGE)).dot(forward)
+    } else {
+        slot.lane_center(lane).dot(forward) + slot.lane_height() * 0.5
+    };
+    let room = (ahead - position.dot(forward) - depth * 0.5).max(0.0);
+    let n = host.attached.len() as f32;
+    let peek = ATTACH_PEEK.min(room / n);
+    let drop = ATTACH_DROP.min(ATTACH_DEPTH / n);
+    for (k, card) in (1_u16..).zip(&host.attached) {
+        let k = f32::from(k);
+        out.push(Placement {
+            object: card.representative,
+            slot: *slot,
+            position: position + forward * (peek * k),
+            lift: lift - drop * k,
+            tapped,
+            flying: false,
+            indestructible: false,
+            dome: None,
+            defender: false,
+            count: 1,
+            badge: 0,
+            art: card.art,
+            offer: crate::cardmat::Offer::on(duel.proposing(), &card.members, card.activatable),
+            corner: baylee_client_core::cardplate::Corner::default(),
+            selected: duel
+                .interaction
+                .as_ref()
+                .is_some_and(|i| card.members.iter().any(|member| i.is_selected(*member))),
+            fan: None,
+            marks: 0,
+            sick: false,
+            crests: [None; cardcrest::MAX_CRESTS],
+            covered: true,
+            // No plate: a tucked card says nothing of its own.
+            room: cardplate::PlateRoom::OPEN,
+            rung: drop,
+            shown,
+        });
+    }
+}
+
 /// Computes placements for the whole table.
 ///
 /// Pure geometry over the board model, so the ordering is the model's ordering
@@ -4399,14 +4496,18 @@ fn placements(duel: &Duel) -> Vec<Placement> {
             for (i, (group, offset)) in lane.groups.iter().zip(packing.offsets.iter()).enumerate() {
                 let along = Vec2::new(slot.facing.cos(), -slot.facing.sin());
                 let stage = if staged[i] { STAGE_STEP } else { 0.0 };
+                let position = center + along * (*offset + window.shift) + slot.forward() * stage;
+                // Later in the row is higher, so a fanned lane shingles the
+                // way a hand of cards does — each card over the one before
+                // it, and never in bands of both.
+                let lift = LANE_RISE * i as f32 / steps;
+                let turned = tapped[i];
+                let shown = window.shown.contains(&i);
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
-                    position: center + along * (*offset + window.shift) + slot.forward() * stage,
-                    // Later in the row is higher, so a fanned lane shingles
-                    // the way a hand of cards does — each card over the one
-                    // before it, and never in bands of both.
-                    lift: LANE_RISE * i as f32 / steps,
+                    position,
+                    lift,
                     marks: cardrail::badge_bits(&group.badges),
                     sick: group.summoning_sick,
                     crests: cardcrest::marks(group.provenance, group.commander),
@@ -4414,9 +4515,9 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // nothing lies over a merged card's cell.
                     covered: packing.covered(i, &window),
                     room: packing.plate_room(i, &window, &tapped, &staged),
-                    shown: window.shown.contains(&i),
+                    shown,
                     rung: LANE_RISE / steps,
-                    tapped: group.status.is_tapped(),
+                    tapped: turned,
                     // A group is one card standing for several and every
                     // member of it has the same keywords — `ObjectSummaryKey`
                     // carries them, so two Serra Angels of which one has lost
@@ -4460,6 +4561,9 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         .is_some_and(|i| group.members.iter().any(|member| i.is_selected(*member))),
                     fan: None,
                 });
+                tuck(
+                    &mut out, duel, slot, lane.kind, group, position, lift, turned, shown,
+                );
             }
         }
 
@@ -5243,3 +5347,5 @@ mod shell_tests;
 mod stack_tests;
 #[cfg(test)]
 mod strip_tests;
+#[cfg(test)]
+mod tuck_tests;

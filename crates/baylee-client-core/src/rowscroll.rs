@@ -102,14 +102,19 @@ impl RowScroll {
     }
 }
 
-/// The row `object` is drawn in, and where in it.
+/// The row `object` is drawn in, and where in it: a card tucked under
+/// another (#305) is where its host is.
 #[must_use]
 pub fn row_of(board: &BoardModel, object: ObjectId) -> Option<(RowKey, usize)> {
     board.pods.iter().find_map(|pod| {
         pod.lanes.iter().find_map(|lane| {
             lane.groups
                 .iter()
-                .position(|group| group.members.contains(&object) || group.representative == object)
+                .position(|group| {
+                    group
+                        .with_attached()
+                        .any(|card| card.members.contains(&object) || card.representative == object)
+                })
                 .map(|index| ((pod.player, lane.kind), index))
         })
     })

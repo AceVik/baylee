@@ -251,13 +251,17 @@ fn attacking_and_blocking_creatures_never_merge() {
     assert!(reasons.contains(&Some(Individual::Blocking)));
 }
 
+/// An aura lies tucked under the creature it enchants (#305), not in a row
+/// of its own, and the creature never piles with its bare twins: the aura is
+/// a visible difference, as a counter is.
 #[test]
-fn an_enchanted_creature_and_its_aura_both_stay_individual() {
+fn an_aura_lies_under_its_host_and_the_host_stays_out_of_the_pile() {
     let mut objs: Vec<PublicObject> = (0..4).map(|i| token(i, 0, "Bear", 2, 2)).collect();
     let host = objs[0].id;
     let mut aura = token(90, 0, "Rancor", 0, 0);
     aura.types = TypeSet::ENCHANTMENT;
     aura.attached_to = Some(host);
+    let aura_id = aura.id;
     objs.push(aura);
     let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
     let m = model(&view);
@@ -266,16 +270,173 @@ fn an_enchanted_creature_and_its_aura_both_stay_individual() {
     let creatures = pod.lane(LaneKind::Creatures).expect("creatures");
     // Three plain bears group; the enchanted one is separate.
     assert_eq!(creatures.groups.len(), 2);
+    let enchanted = creatures
+        .groups
+        .iter()
+        .find(|g| g.individual == Some(Individual::HasAttachments))
+        .expect("the enchanted bear is a card of its own");
+    assert_eq!(enchanted.representative, host);
+    assert_eq!(enchanted.count(), 1);
+    let under: Vec<ObjectId> = enchanted
+        .attached
+        .iter()
+        .map(|g| g.representative)
+        .collect();
+    assert_eq!(under, vec![aura_id]);
+    assert_eq!(enchanted.attached[0].individual, Some(Individual::Attached));
+
+    let support = pod.lane(LaneKind::Support).expect("support");
     assert!(
-        creatures
-            .groups
-            .iter()
-            .any(|g| g.individual == Some(Individual::HasAttachments))
+        support.groups.is_empty(),
+        "the aura stands in no row: {support:?}"
     );
+    assert_eq!(
+        pod.permanent_count(),
+        5,
+        "and is still counted where it is drawn"
+    );
+    assert_eq!(m.group(aura_id).map(|g| g.representative), Some(aura_id));
+    assert_eq!(
+        crate::rowscroll::row_of(&m, aura_id),
+        crate::rowscroll::row_of(&m, host),
+        "a tucked card scrolls with its host"
+    );
+}
+
+/// Pacifism lies on the creature it enchants, on that creature's side of
+/// the table: an attachment follows its host, not its controller (CR
+/// 301.5d), and takes the host's section, so it moves when the host does.
+#[test]
+fn an_attachment_lies_under_its_host_whoever_controls_it() {
+    let mut legend = printed(1, 0, "Isamaru, Hound of Konda", 1);
+    legend.supertypes = SupertypeSet::LEGENDARY;
+    let host = legend.id;
+    // Printed and no legend: in a row of its own it would stand centre.
+    let mut pacifism = printed(50, 1, "Pacifism", 2);
+    pacifism.types = TypeSet::ENCHANTMENT;
+    pacifism.attached_to = Some(host);
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![legend])
+        .with_battlefield(1, vec![pacifism])
+        .build();
+    let m = model(&view);
+
+    let theirs = m.pod(PlayerId::new(1)).expect("the aura's controller");
+    assert_eq!(theirs.permanent_count(), 0, "{theirs:?}");
+    let mine = m.pod(PlayerId::new(0)).expect("the host's controller");
+    let lane = mine.lane(LaneKind::Creatures).expect("creatures");
+    assert_eq!(lane.groups.len(), 1);
+    let group = &lane.groups[0];
+    assert_eq!(group.section, Section::Right, "a legend stands right");
+    let aura = group
+        .attached
+        .first()
+        .expect("Pacifism lies under the legend");
+    assert_eq!(aura.representative, ObjectId::new(50, 0));
+    assert_eq!(aura.section, group.section, "and in the legend's section");
+}
+
+/// An aura on an Equipment lies under the creature carrying both, after
+/// everything attached to the creature itself: the order a hand would stack
+/// them in, read from the host down, and never by id alone.
+#[test]
+fn an_attachment_on_an_attachment_lies_under_the_same_host_after_it() {
+    let creature = token(1, 0, "Bear", 2, 2);
+    let host = creature.id;
+    let mut sword = token(20, 0, "Bonesplitter", 0, 0);
+    sword.types = TypeSet::ARTIFACT;
+    sword.attached_to = Some(host);
+    let mut rancor = token(30, 0, "Rancor", 0, 0);
+    rancor.types = TypeSet::ENCHANTMENT;
+    rancor.attached_to = Some(host);
+    // Lowest id of the three, and last: it hangs off the sword.
+    let mut on_the_sword = token(10, 0, "Aura on the Sword", 0, 0);
+    on_the_sword.types = TypeSet::ENCHANTMENT;
+    on_the_sword.attached_to = Some(sword.id);
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![on_the_sword, rancor, sword, creature])
+        .build();
+    let m = model(&view);
+    let pod = m.pod(PlayerId::new(0)).expect("pod");
+
+    let lane = pod.lane(LaneKind::Creatures).expect("creatures");
+    assert_eq!(lane.groups.len(), 1);
+    assert_eq!(lane.groups[0].representative, host);
+    let under: Vec<u32> = lane.groups[0]
+        .attached
+        .iter()
+        .map(|g| g.representative.slot())
+        .collect();
+    assert_eq!(under, vec![20, 30, 10]);
+    assert!(
+        pod.lane(LaneKind::Support)
+            .expect("support")
+            .groups
+            .is_empty()
+    );
+}
+
+/// Only a host that is drawn takes anything. An aura whose host is on no
+/// row — phased out here — stays in its own row, where it can still be seen,
+/// rather than vanish under a card nobody draws.
+#[test]
+fn an_attachment_whose_host_is_not_drawn_stays_in_its_row() {
+    let mut creature = token(1, 0, "Bear", 2, 2);
+    creature.status = ObjectStatus::PHASED_OUT;
+    let mut aura = token(90, 0, "Rancor", 0, 0);
+    aura.types = TypeSet::ENCHANTMENT;
+    aura.attached_to = Some(creature.id);
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![creature, aura])
+        .build();
+    let m = model(&view);
+    let pod = m.pod(PlayerId::new(0)).expect("pod");
 
     let support = pod.lane(LaneKind::Support).expect("support");
     assert_eq!(support.groups.len(), 1);
-    assert_eq!(support.groups[0].individual, Some(Individual::Attached));
+    assert_eq!(support.groups[0].representative, ObjectId::new(90, 0));
+    assert!(support.groups[0].attached.is_empty());
+}
+
+/// A merged card holds its cell before a card with something tucked under
+/// it (#305), wherever its badge stands: over the card the badge stands in
+/// the air over the row's top edge, which is where the tucked card's name
+/// peeks out. Before a bare card, a badge over its card holds nothing.
+#[test]
+fn a_merged_card_holds_its_cell_before_a_card_with_something_under_it() {
+    let mut objs = vec![
+        token(1, 0, "Bear", 2, 2),
+        token(2, 0, "Bear", 2, 2),
+        token(3, 0, "Cat", 1, 1),
+        token(4, 0, "Dog", 3, 3),
+        token(5, 0, "Emu", 1, 2),
+        token(6, 0, "Emu", 1, 2),
+    ];
+    let mut aura = token(90, 0, "Rancor", 0, 0);
+    aura.types = TypeSet::ENCHANTMENT;
+    aura.attached_to = Some(objs[2].id);
+    objs.push(aura);
+    let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
+    let m = model(&view);
+    let lane = m
+        .pod(PlayerId::new(0))
+        .and_then(|p| p.lane(LaneKind::Creatures))
+        .expect("lane");
+    let names: Vec<(&str, usize)> = lane
+        .groups
+        .iter()
+        .map(|g| (g.name.as_str(), g.attached.len()))
+        .collect();
+    assert_eq!(names, [("Bear", 0), ("Cat", 1), ("Dog", 0), ("Emu", 0)]);
+
+    assert_eq!(
+        lane.gaps(BadgePlace::Above),
+        [Gap::Held, Gap::Free, Gap::Free, Gap::Free]
+    );
+    assert_eq!(
+        lane.gaps(BadgePlace::Beside),
+        [Gap::Held, Gap::Free, Gap::Free, Gap::Held]
+    );
 }
 
 #[test]

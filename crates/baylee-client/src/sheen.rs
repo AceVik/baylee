@@ -367,7 +367,12 @@ pub fn watch_for_arrivals(
     let table = board.pods.iter().flat_map(|pod| {
         pod.lanes
             .iter()
-            .flat_map(|lane| lane.groups.iter().map(|group| group.representative))
+            .flat_map(|lane| {
+                lane.groups
+                    .iter()
+                    .flat_map(baylee_client_core::board::CardGroup::with_attached)
+            })
+            .map(|group| group.representative)
     });
     sheen.observe(
         time.elapsed_secs_wrapped(),

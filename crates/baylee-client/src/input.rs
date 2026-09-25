@@ -2383,7 +2383,13 @@ fn cursor_grid(duel: &Duel) -> Vec<Vec<ObjectId>> {
         .chain(board.pods.iter().filter(|p| !p.is_local))
     {
         for lane in &pod.lanes {
-            let row: Vec<ObjectId> = lane.groups.iter().map(|g| g.representative).collect();
+            // A tucked card (#305) is visited right after its host.
+            let row: Vec<ObjectId> = lane
+                .groups
+                .iter()
+                .flat_map(baylee_client_core::board::CardGroup::with_attached)
+                .map(|g| g.representative)
+                .collect();
             if !row.is_empty() {
                 rows.push(row);
             }

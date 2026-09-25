@@ -62,6 +62,7 @@ pub(super) fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
         individual: None,
         proposed: None,
         section: Section::Centre,
+        attached: Vec::new(),
     }
 }
 

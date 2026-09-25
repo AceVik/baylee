@@ -947,6 +947,37 @@ holds that room before it: a `×8` Forest's five slabs never lie on the card
 beside it, and the row is centred with them
 (`a_pile_holds_its_room_on_the_left`).
 
+### A card lies under its host
+
+An aura, equipment or fortification lies tucked under the permanent it is
+attached to, peeking out towards the middle of the table so its name shows
+(#305). It follows its host, not its controller (CR 301.5d): Pacifism lies
+on the creature it enchants, on that creature's side of the table, in its
+section. What hangs off an attachment lies under the same host, after it.
+The board model carries them as `CardGroup::attached` and they stand in no
+row of their own (`an_aura_lies_under_its_host_and_the_host_stays_out_of_the_pile`);
+a host never merges, so it has no badge. One whose host is not drawn (phased
+out) stays in its row.
+
+`table::tuck` measures the room from the host's front edge to what is
+ahead: the ledge band before the creature row, the next row before the
+others. An unstaged creature row shows four whole peeks (`ATTACH_PEEK`,
+0.11 of a card) everywhere. A staged creature and the support and land rows
+of a ring, which stand 0.0185 apart, fold to 0.0093, and at a duel's 4:3
+those rows show 0.053
+(`nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it`). A tapped
+host turns what is under it with it (client-41: upright, it would stand
+0.2 into the lane air on both sides), so its peek is the card's long edge;
+the name is back when the host untaps. Everything under a host lies within
+half the height between a face and the top of Defender's wall
+(`ATTACH_DEPTH`), so the wall stays under every print. A merged card holds its cell before a host even where
+its badge stands over it, because that is where the host's peek is
+(`Lane::gaps`, `no_badge_lies_on_another_cards_print`). A tucked card
+stands where its host does along the row, so a neighbour's plate, which
+stops at the host's left edge, never reaches its peek
+(`lay_plates_against_the_tucked`). A tucked card wears no strip, plate or
+shell, and is a print every other shell keeps off.
+
 ### A row that does not fit scrolls
 
 A battlefield row packs its cards into its lane (`layout::pack_gaps`,

@@ -414,6 +414,15 @@ pub struct CardGroup {
     /// Which part of its row the card stands in. The same for every member:
     /// it is read off characteristics `ObjectSummaryKey` merges on.
     pub section: Section,
+    /// The auras, equipment and fortifications lying tucked under this card
+    /// (#305), in the order they hang off it: what is attached to it first,
+    /// then what is attached to those. Each is a card of its own
+    /// ([`Individual::Attached`]) standing in this card's section, and none
+    /// of them stands in a row: they move with this card between sections
+    /// and rows because they are drawn from it. A card with anything here is
+    /// never merged ([`Individual::HasAttachments`]), so this is only ever
+    /// filled on a group of one.
+    pub attached: Vec<CardGroup>,
 }
 
 impl CardGroup {
@@ -433,6 +442,12 @@ impl CardGroup {
     #[must_use]
     pub fn total_power(&self) -> i32 {
         i32::from(self.power.unwrap_or(0)) * self.members.len() as i32
+    }
+
+    /// This card and the cards tucked under it, this one first: every card
+    /// drawn for this place in the row.
+    pub fn with_attached(&self) -> impl Iterator<Item = &Self> {
+        std::iter::once(self).chain(self.attached.iter())
     }
 }
 
@@ -467,20 +482,22 @@ impl Lane {
     /// What lies after each of the row's cards: the air between sections
     /// where the next card stands in another one, else a held cell after a
     /// merged card whose badge stands beside it, and nothing where the
-    /// badges stand over their cards.
+    /// badges stand over their cards — unless the next card has cards tucked
+    /// under it (#305), whose names peek out over the row's top edge where
+    /// that badge stands.
     #[must_use]
     pub fn gaps(&self, place: BadgePlace) -> Vec<Gap> {
-        let sections: Vec<Section> = self.groups.iter().map(|g| g.section).collect();
         self.groups
             .iter()
             .enumerate()
             .map(|(i, group)| {
-                if sections
-                    .get(i + 1)
-                    .is_some_and(|&next| next != group.section)
-                {
+                let next = self.groups.get(i + 1);
+                if next.is_some_and(|next| next.section != group.section) {
                     Gap::Section
-                } else if place == BadgePlace::Beside && group.is_stack() {
+                } else if group.is_stack()
+                    && (place == BadgePlace::Beside
+                        || next.is_some_and(|next| !next.attached.is_empty()))
+                {
                     Gap::Held
                 } else {
                     Gap::Free
@@ -492,7 +509,11 @@ impl Lane {
     /// Total number of permanents represented, counting group members.
     #[must_use]
     pub fn permanent_count(&self) -> usize {
-        self.groups.iter().map(CardGroup::count).sum()
+        self.groups
+            .iter()
+            .flat_map(CardGroup::with_attached)
+            .map(CardGroup::count)
+            .sum()
     }
 }
 
@@ -759,7 +780,8 @@ impl SeatPod {
         self.lanes.iter().find(|l| l.kind == kind)
     }
 
-    /// Total permanents controlled.
+    /// Total permanents drawn on this seat's board: the ones in its rows and
+    /// the ones tucked under them (#305), whoever controls those.
     #[must_use]
     pub fn permanent_count(&self) -> usize {
         self.lanes.iter().map(Lane::permanent_count).sum()
@@ -1019,6 +1041,7 @@ impl BoardModel {
         reg: Registry<'_>,
     ) -> Self {
         let individual = individual_objects(view);
+        let tucked = tucked_under(view);
 
         let ring = std::iter::once(view.seat)
             .chain(view.opponents_in_turn_order())
@@ -1031,6 +1054,7 @@ impl BoardModel {
                     view,
                     player,
                     &individual,
+                    &tucked,
                     &openings,
                     roster
                         .iter()
@@ -1175,6 +1199,7 @@ impl BoardModel {
             .iter()
             .flat_map(|pod| pod.lanes.iter())
             .flat_map(|lane| lane.groups.iter())
+            .flat_map(CardGroup::with_attached)
             .find(|group| group.representative == representative)
     }
 
@@ -1210,13 +1235,14 @@ impl BoardModel {
         let mut keys: Vec<ImageKey> = Vec::new();
         for pod in &self.pods {
             for lane in &pod.lanes {
-                keys.extend(lane.groups.iter().filter_map(|g| g.art));
+                let cards = || lane.groups.iter().flat_map(CardGroup::with_attached);
+                keys.extend(cards().filter_map(|g| g.art));
                 // The card under a copy is drawn beside its preview, which is
                 // a hover and therefore has no frame to spare for a fetch. It
                 // is also the one key on the board that nothing else can be
                 // holding: the copy is drawing the card it *wears*, and the
                 // cardboard underneath is by definition a different picture.
-                keys.extend(lane.groups.iter().filter_map(|g| g.original));
+                keys.extend(cards().filter_map(|g| g.original));
             }
             // A pile's top card is drawn face up on the table beside the mat,
             // and it is very often a card nothing else is drawing — the last
@@ -1636,6 +1662,47 @@ fn individual_objects(view: &PlayerView) -> HashMap<ObjectId, Individual> {
     map
 }
 
+/// Which permanents lie tucked under another (#305): by the host they lie
+/// under, in the order they hang off it.
+///
+/// An aura, equipment or fortification lies under the permanent it is
+/// attached to, whoever controls it — an Equipment's controller need not be
+/// the equipped creature's (CR 301.5d), and Pacifism lies on the creature it
+/// enchants, on that creature's side of the table. One attached to an
+/// attachment lies under the same host, after it. Only a host that is drawn
+/// takes anything: attachments phase out with their host (CR 702.26g), and
+/// one whose host is not on the battlefield stays in its own row, where it
+/// can still be seen.
+fn tucked_under(view: &PlayerView) -> HashMap<ObjectId, Vec<ObjectId>> {
+    let drawn: HashMap<ObjectId, Option<ObjectId>> = view
+        .battlefield
+        .iter()
+        .filter(|o| !o.status.is_phased_out())
+        .map(|o| (o.id, o.attached_to))
+        .collect();
+    let mut under: HashMap<ObjectId, Vec<(usize, ObjectId)>> = HashMap::new();
+    for (&id, &host) in &drawn {
+        // Walk up to the last host that is drawn. The rules make no cycle,
+        // and the bound is what keeps a malformed view from making one here.
+        let (mut root, mut at, mut depth) = (None, host, 0);
+        while let Some(next) = at.filter(|h| drawn.contains_key(h) && depth < drawn.len()) {
+            root = Some(next);
+            depth += 1;
+            at = drawn[&next];
+        }
+        if let Some(root) = root {
+            under.entry(root).or_default().push((depth, id));
+        }
+    }
+    under
+        .into_iter()
+        .map(|(host, mut hanging)| {
+            hanging.sort_unstable();
+            (host, hanging.into_iter().map(|(_, id)| id).collect())
+        })
+        .collect()
+}
+
 /// Whether the table is waiting on `player` to answer something.
 ///
 /// From turn 1 on that is one seat, [`PlayerView::awaiting`], the same in
@@ -1662,6 +1729,7 @@ fn build_pod(
     view: &PlayerView,
     player: PlayerId,
     individual: &HashMap<ObjectId, Individual>,
+    tucked: &HashMap<ObjectId, Vec<ObjectId>>,
     openings: &Openings<'_>,
     role: SeatRole,
     reg: Registry<'_>,
@@ -1671,6 +1739,7 @@ fn build_pod(
         .battlefield_of(player)
         .filter(|o| !o.status.is_phased_out())
         .collect();
+    let hanging: HashSet<ObjectId> = tucked.values().flatten().copied().collect();
 
     let lanes = LaneKind::ALL
         .iter()
@@ -1678,9 +1747,9 @@ fn build_pod(
             let members: Vec<&PublicObject> = permanents
                 .iter()
                 .copied()
-                .filter(|o| lane_of(o.types) == kind)
+                .filter(|o| lane_of(o.types) == kind && !hanging.contains(&o.id))
                 .collect();
-            let groups = group_objects(
+            let mut groups = group_objects(
                 kind,
                 &members,
                 individual,
@@ -1688,6 +1757,26 @@ fn build_pod(
                 openings.proposed,
                 reg,
             );
+            for group in &mut groups {
+                let Some(under) = tucked.get(&group.representative) else {
+                    continue;
+                };
+                let section = group.section;
+                group.attached = under
+                    .iter()
+                    .filter_map(|&id| view.object(id))
+                    .map(|obj| {
+                        card_group(
+                            obj,
+                            Some(Individual::Attached),
+                            openings.activatable.contains(&obj.id),
+                            openings.proposed.get(&obj.id).copied(),
+                            section,
+                            reg,
+                        )
+                    })
+                    .collect();
+            }
             Lane { kind, groups }
         })
         .collect();
@@ -1823,6 +1912,7 @@ fn card_group(
         individual,
         proposed,
         section,
+        attached: Vec::new(),
     }
 }
 

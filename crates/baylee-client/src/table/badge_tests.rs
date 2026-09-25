@@ -253,11 +253,13 @@ fn a_badge_comes_and_goes_with_the_count() {
 }
 
 /// A table of `seats` chairs, every lane of every seat holding `n`
-/// creatures, every third of them (the first included) merged of two, tapped
-/// where `tapped` says by their place in the row: so a row has cards that
-/// fan and merged cards that hold their cells between them.
+/// creatures, every third of them (the first included) merged of two and
+/// the other two each with a card tucked under it (#305), tapped where
+/// `tapped` says by their place in the row: so a row has cards that fan,
+/// merged cards that hold their cells between them, and on either side of
+/// each a host that never merges, with a print peeking out past it.
 fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
-    use baylee_client_core::board::{BoardModel, Lane, SeatPod};
+    use baylee_client_core::board::{BoardModel, Individual, Lane, SeatPod};
     use baylee_client_core::layout::LaneKind;
     let players: Vec<PlayerId> = (0..seats).map(PlayerId::new).collect();
     let mut slot = 0;
@@ -266,6 +268,12 @@ fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
         let mut group = creature(slot, Vec::new());
         if i.is_multiple_of(3) {
             group.members.push(obj(slot + 100_000));
+        }
+        if !i.is_multiple_of(3) {
+            let mut under = creature(slot + 200_000, Vec::new());
+            under.individual = Some(Individual::Attached);
+            group.individual = Some(Individual::HasAttachments);
+            group.attached.push(under);
         }
         if tapped(i) {
             group.status = baylee_view::ObjectStatus::TAPPED;
@@ -425,9 +433,13 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
 /// duel and a ring of eight; rows of two to seventy-two in all three lanes,
 /// so the tightest fan (a third of a card, asserted) and rows that scroll
 /// are there, each scrolled to its start, a few cards in and past its end;
-/// untapped, all tapped and every other one tapped; and a creature staged
-/// into combat beside a merged one, half a card forward of its row, which
-/// is where a badge above the top edge once failed.
+/// untapped, all tapped and every other one tapped; a card tucked under
+/// the cards on both sides of every merged one, which never merge and so
+/// carry no badge themselves, peeking out where a badge above the top edge
+/// stands (#305; the row holds the cell after a merged card for it,
+/// `Lane::gaps`); and a creature staged into combat beside a merged one,
+/// half a card forward of its row, which is where a badge above the top
+/// edge once failed.
 #[test]
 fn no_badge_lies_on_another_cards_print() {
     use baylee_client_core::layout::{MIN_VISIBLE_FRACTION, STAGE_STEP};
@@ -438,6 +450,7 @@ fn no_badge_lies_on_another_cards_print() {
         ("every other tapped", |i| i % 2 == 1),
     ];
     let (mut count, mut hidden, mut tightest) = (Tally::default(), 0, f32::INFINITY);
+    let mut plates = 0;
     for seats in [2u8, 8] {
         for n in [2usize, 3, 4, 5, 6, 8, 10, 13, 17, 24, 32, 40, 72] {
             for (tap, tapped) in taps {
@@ -468,10 +481,20 @@ fn no_badge_lies_on_another_cards_print() {
                         );
                     }
                     let all = placements(&duel);
-                    assert_eq!(all.len(), usize::from(seats) * 3 * n, "three rows a seat");
+                    assert_eq!(
+                        all.len(),
+                        usize::from(seats) * 3 * (2 * n - n.div_ceil(3)),
+                        "three rows a seat, a card under two of every three"
+                    );
                     hidden += all.iter().filter(|p| !p.shown).count();
                     let mut placed: Vec<Placement> = all.into_iter().filter(|p| p.shown).collect();
-                    for pair in placed.windows(2) {
+                    // Neighbours in their row: what is tucked under a
+                    // card is drawn between it and the next.
+                    let rowed: Vec<&Placement> = placed
+                        .iter()
+                        .filter(|p| p.object.slot() < 200_000)
+                        .collect();
+                    for pair in rowed.windows(2) {
                         if pair[0].slot.player == pair[1].slot.player
                             && (pair[0].position - pair[1].position)
                                 .dot(pair[0].slot.forward())
@@ -481,6 +504,13 @@ fn no_badge_lies_on_another_cards_print() {
                             tightest = tightest.min(pair[0].position.distance(pair[1].position));
                         }
                     }
+                    let table = format!(
+                        "{seats} seats, rows of {n}, {tap}{}, from card {first}",
+                        if staged { ", one staged" } else { "" }
+                    );
+                    // Before the hand-made step below, which moves a card
+                    // without the room its row would leave it staged.
+                    plates += lay_plates_against_the_tucked(&placed, &table);
                     // The first card of the local seat's creature row, which
                     // is merged, staged out of its group as the board model
                     // does for a declared attacker, and forward of the row.
@@ -489,10 +519,6 @@ fn no_badge_lies_on_another_cards_print() {
                         p.position += forward * STAGE_STEP;
                         p.badge = 0;
                     }
-                    let table = format!(
-                        "{seats} seats, rows of {n}, {tap}{}, from card {first}",
-                        if staged { ", one staged" } else { "" }
-                    );
                     lay_against_the_prints(&placed, &table, &mut count);
                 }
             }
@@ -520,6 +546,7 @@ fn no_badge_lies_on_another_cards_print() {
         above > 1_000 && beside > 1_000,
         "{above} badges over their cards and {beside} beside them"
     );
+    assert!(plates > 10_000, "only {plates} plates beside a tucked card");
 }
 
 /// What laying tables' badges against the prints counted: badges, badge and
@@ -562,6 +589,67 @@ fn lay_against_the_prints(placed: &[Placement], table: &str, count: &mut Tally) 
             );
         }
     }
+}
+
+/// Lays every row card's plate, shadow and all, where `plate_rect` puts it
+/// from the room its row leaves it, against what shows of every card tucked
+/// under another (#305): it lies on none. What shows is the strip between
+/// the host's front edge and the tucked card's; the rest lies under the
+/// host, which lies over any plate before it in the row. The room ends at
+/// the next card's left edge, and a tucked card stands where its host does
+/// along the row, turned with it, so the strip starts no further left.
+/// Returns how many plates were laid beside a tucked card.
+fn lay_plates_against_the_tucked(placed: &[Placement], table: &str) -> usize {
+    let whole = [0.0, 0.0, 1.0, cardrail::CARD_TALL];
+    let print = |p: &Placement| {
+        on_table(
+            &card_transform(&p.slot, p.position, p.tapped, p.lift),
+            whole,
+        )
+    };
+    let strips: Vec<(&Placement, [Vec2; 4])> = placed
+        .iter()
+        .filter(|t| t.object.slot() > 200_000)
+        .map(|t| {
+            let host = placed
+                .iter()
+                .find(|h| h.object.slot() == t.object.slot() - 200_000)
+                .expect("a tucked card's host is drawn");
+            let forward = host.slot.forward();
+            // The host's front edge, and the same edge moved as far as the
+            // tucked card lies past it.
+            let mut corners = print(host);
+            corners.sort_by(|x, y| y.dot(forward).total_cmp(&x.dot(forward)));
+            let (a, b) = (corners[0], corners[1]);
+            let past = t.position - host.position;
+            (t, [a, b, b + past, a + past])
+        })
+        .collect();
+    let mut laid = 0;
+    for p in placed.iter().filter(|p| p.object.slot() < 200_000) {
+        let badge = (p.badge > 0 && p.tapped && p.slot.badge_place() == BadgePlace::Beside)
+            .then(|| cardplate::badge_quad_rect(BadgePlace::Beside));
+        let Some((body, _)) = cardplate::plate_rect(cardplate::KIND_FIGHT, p.tapped, p.room, badge)
+        else {
+            continue;
+        };
+        // In the frame of the card lying untapped, which is the plate's.
+        let flat = card_transform(&p.slot, p.position, false, p.lift);
+        let plate = on_table(&flat, cardplate::plate_quad(body));
+        for (t, strip) in &strips {
+            if t.slot.player != p.slot.player {
+                continue;
+            }
+            laid += 1;
+            assert!(
+                !overlap(&plate, strip),
+                "{table}: the plate of {:?} lies on what shows of {:?}",
+                p.object,
+                t.object
+            );
+        }
+    }
+    laid
 }
 
 /// Every card a row draws stands inside its lane, however many the row
