@@ -501,7 +501,7 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
         for message in host.poll() {
             match message {
                 HostMessage::Static(s) => duel.statics = Some(*s),
-                HostMessage::View(v) => duel.view = Some(*v),
+                HostMessage::View(v, _) => duel.view = Some(*v),
                 HostMessage::Choice(p) => {
                     duel.interaction = Some(Interaction::new(*p, seat));
                 }

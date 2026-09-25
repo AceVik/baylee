@@ -204,7 +204,7 @@ fn a_mana_ability_still_goes_through_on_one_tap() {
     }
     for message in host.poll() {
         match message {
-            crate::host::HostMessage::View(v) => duel.view = Some(*v),
+            crate::host::HostMessage::View(v, _) => duel.view = Some(*v),
             crate::host::HostMessage::Choice(p) => {
                 duel.interaction = Some(Interaction::new(*p, PlayerId::new(0)));
             }
@@ -248,7 +248,7 @@ fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
     for m in host.poll() {
         match m {
             HostMessage::Static(s) => duel.statics = Some(*s),
-            HostMessage::View(v) => {
+            HostMessage::View(v, _) => {
                 duel.receive_view(*v);
                 crate::rebuild_board(duel);
             }

@@ -126,7 +126,7 @@ impl Table {
     fn drain(&mut self) {
         for message in self.host.poll() {
             match message {
-                HostMessage::View(view) => self.view = Some(*view),
+                HostMessage::View(view, _) => self.view = Some(*view),
                 HostMessage::Choice(pending) => self.pending = Some(*pending),
                 HostMessage::Failed(reason) => panic!("the engine refused: {reason}"),
                 HostMessage::Static(_) | HostMessage::Curtain => {}

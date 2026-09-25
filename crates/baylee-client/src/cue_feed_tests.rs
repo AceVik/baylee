@@ -81,8 +81,8 @@ fn priority() -> Pending {
 #[test]
 fn a_life_total_that_moves_is_heard() {
     let app = table_told(vec![
-        HostMessage::View(Box::new(view_at(40))),
-        HostMessage::View(Box::new(view_at(37))),
+        HostMessage::View(Box::new(view_at(40)), None),
+        HostMessage::View(Box::new(view_at(37)), None),
     ]);
     assert_eq!(cue_names(&app), [Cue::MyLifeLost]);
 }
@@ -91,7 +91,7 @@ fn a_life_total_that_moves_is_heard() {
 /// the ledger's rule reaching all the way out to the message loop.
 #[test]
 fn the_first_view_of_a_table_is_heard_as_nothing() {
-    let app = table_told(vec![HostMessage::View(Box::new(view_at(40)))]);
+    let app = table_told(vec![HostMessage::View(Box::new(view_at(40)), None)]);
     assert!(cues(&app).is_empty());
 }
 

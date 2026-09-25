@@ -333,7 +333,7 @@ impl Client {
         for message in messages {
             match message {
                 HostMessage::Static(s) => self.statics = Some(*s),
-                HostMessage::View(v) => {
+                HostMessage::View(v, _) => {
                     self.board = Some(BoardModel::from_view(
                         &v,
                         Openings::none(),

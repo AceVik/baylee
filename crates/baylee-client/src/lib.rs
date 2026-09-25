@@ -650,6 +650,14 @@ pub struct Duel {
     pub clock: baylee_client_core::decisionclock::DecisionClock,
     /// Strikes waiting for their visual presentation, read at snapshot edges.
     pub strikes: Vec<baylee_client_core::strike::Strike>,
+    /// This game's log, as far as the host has told it (#262).
+    ///
+    /// One book per game, and this is where that is kept: `DuelCommand::Open`
+    /// replaces the whole `Duel`, so the next game starts with an empty book
+    /// rather than one that would read its log as a rewrite of the last
+    /// game's. A reconnect keeps it, and the host's retelling from the start
+    /// adds only what is missing.
+    pub log: baylee_client_core::gamelog::LogBook,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is
@@ -1716,7 +1724,14 @@ fn poll_host(
                 // entry arrived a frame late never drew its art again.
                 textures.forget_unresolved();
             }
-            HostMessage::View(view) => {
+            HostMessage::View(view, log) => {
+                // The lines first, and read against their own frame's view.
+                // A frame that only carries the next part of the log repeats
+                // the view the client already holds, and its lines are no
+                // less new for that.
+                if let Some(tail) = &log {
+                    duel.log.append(tail, &view);
+                }
                 duel.receive_view(*view);
                 rebuild_board(&mut duel);
                 if *phase.get() == DuelPhase::Opening {
@@ -2686,6 +2701,9 @@ mod cue_feed_tests;
 
 #[cfg(test)]
 mod curtain_tests;
+
+#[cfg(test)]
+mod log_feed_tests;
 
 /// A [`baylee_view::PublicObject`] carrying the registry card of that name.
 ///

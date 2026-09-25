@@ -87,7 +87,7 @@ impl Table {
 }
 
 fn view() -> HostMessage {
-    HostMessage::View(Box::new(ViewBuilder::new(2).build()))
+    HostMessage::View(Box::new(ViewBuilder::new(2).build()), None)
 }
 
 fn statics() -> HostMessage {
@@ -158,16 +158,19 @@ fn a_standing_order_is_sent_once_a_game() {
         .insert_resource(prefs)
         .add_systems(Update, run_autopilot.after(poll_host).before(flush_outbox));
     let shown = || {
-        HostMessage::View(Box::new(
-            ViewBuilder::new(2)
-                .with_battlefield(
-                    1,
-                    vec![baylee_client_core::test_support::printed(
-                        200, 1, "Shown", 12,
-                    )],
-                )
-                .build(),
-        ))
+        HostMessage::View(
+            Box::new(
+                ViewBuilder::new(2)
+                    .with_battlefield(
+                        1,
+                        vec![baylee_client_core::test_support::printed(
+                            200, 1, "Shown", 12,
+                        )],
+                    )
+                    .build(),
+            ),
+            None,
+        )
     };
     table.hear(vec![statics(), shown()]);
     table.hear(vec![HostMessage::Curtain]);

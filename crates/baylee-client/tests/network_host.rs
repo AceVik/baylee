@@ -228,7 +228,7 @@ fn views(messages: &[HostMessage]) -> Vec<&baylee_view::PlayerView> {
     messages
         .iter()
         .filter_map(|m| match m {
-            HostMessage::View(v) => Some(&**v),
+            HostMessage::View(v, _) => Some(&**v),
             _ => None,
         })
         .collect()

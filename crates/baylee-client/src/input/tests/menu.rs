@@ -104,7 +104,7 @@ fn the_hold_keys_stop_the_questions_and_take_it_back() {
         .poll()
         .into_iter()
         .find_map(|m| match m {
-            HostMessage::View(v) => Some(*v),
+            HostMessage::View(v, _) => Some(*v),
             _ => None,
         })
         .expect("a view");
@@ -184,7 +184,7 @@ fn the_prompt_bar_can_take_a_hold_back_too() {
         .poll()
         .into_iter()
         .find_map(|m| match m {
-            HostMessage::View(v) => Some(*v),
+            HostMessage::View(v, _) => Some(*v),
             _ => None,
         })
         .expect("a view");
@@ -244,7 +244,7 @@ fn the_prompt_bar_can_ask_for_a_hold_as_well() {
         .poll()
         .into_iter()
         .find_map(|m| match m {
-            HostMessage::View(v) => Some(*v),
+            HostMessage::View(v, _) => Some(*v),
             _ => None,
         })
         .expect("a view");

@@ -13,15 +13,21 @@ use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, PlayerView};
+use baylee_view::{GameStatic, LogTail, PlayerView};
 
 /// Something a host tells the client.
 #[derive(Clone, Debug)]
 pub enum HostMessage {
     /// The once-per-game payload: seats and the print table.
     Static(Box<GameStatic>),
-    /// A fresh snapshot of the game.
-    View(Box<PlayerView>),
+    /// A fresh snapshot of the game, and the game log's lines that came
+    /// with it (#262), when there were any.
+    ///
+    /// One message and not two because the book reads the lines against the
+    /// view of their own frame, and a seat with many lines waiting is sent
+    /// several frames repeating one view and `seq`, each with the next part
+    /// of the log. Every frame's lines count, whatever becomes of its view.
+    View(Box<PlayerView>, Option<LogTail>),
     /// A choice addressed to this seat.
     Choice(Box<Pending>),
     /// Something went wrong; the string is safe to show a player.
@@ -137,7 +143,7 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
         }
         v1::envelope::Msg::StateDelta(delta) => {
             match serde_json::from_slice::<PlayerView>(&delta.view_json) {
-                Ok(view) => HostMessage::View(Box::new(view)),
+                Ok(view) => HostMessage::View(Box::new(view), log_tail(&delta.log_json)),
                 Err(e) => HostMessage::Failed(format!("unreadable game state: {e}")),
             }
         }
@@ -151,6 +157,23 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
         v1::envelope::Msg::Curtain(_) => HostMessage::Curtain,
         _ => return None,
     })
+}
+
+/// The log lines a frame carries, if it carries any.
+///
+/// Empty bytes are "nothing new" and not a tail to decode. Lines that do not
+/// decode are dropped and the view kept: the view is the game and the lines
+/// are its commentary, and a frame's view is not wrong because its lines
+/// are. Nothing is lost for good, either: the book counts the gap the next
+/// tail leaves, and the host tells the whole log again on the next snapshot
+/// or reconnect.
+fn log_tail(json: &[u8]) -> Option<LogTail> {
+    if json.is_empty() {
+        return None;
+    }
+    serde_json::from_slice(json)
+        .inspect_err(|e| bevy::log::warn!("unreadable game log: {e}"))
+        .ok()
 }
 
 /// A duel hosted inside this process.
@@ -230,11 +253,13 @@ impl DuelHost for LocalHost {
             // client drops its `Interaction` the moment it submits, so a
             // `Failed` on its own leaves the player holding no question at
             // all — every later key and click then does nothing, which reads
-            // exactly like a dead client. `snapshot` is read-only, so handing
-            // the question back cannot advance the game.
+            // exactly like a dead client. `reask` is read-only, so handing
+            // the question back cannot advance the game. It carries no log:
+            // a refusal loses no frame, and `snapshot` would tell the seat
+            // every line of the game again for each one.
             Err(reason) => {
                 self.pending_out.push(HostMessage::Failed(reason));
-                let again = self.session.snapshot(self.seat);
+                let again = self.session.reask(self.seat);
                 self.pending_out
                     .extend(again.into_iter().filter_map(host_message));
             }
@@ -538,7 +563,7 @@ pub(crate) mod tests {
         let view = messages
             .iter()
             .find_map(|m| match m {
-                HostMessage::View(v) => Some(v),
+                HostMessage::View(v, _) => Some(v),
                 _ => None,
             })
             .expect("a view");
@@ -559,6 +584,55 @@ pub(crate) mod tests {
         assert_eq!(statics.seat_name(PlayerId::new(1)), "House AI");
         assert!(statics.seats[1].is_ai);
         assert!(!statics.seats[0].is_ai);
+    }
+
+    /// A frame's log rides beside its view (#262): read when it is there,
+    /// nothing when the bytes are empty, and a log that does not decode costs
+    /// its lines and not the view.
+    #[test]
+    fn a_frame_s_log_is_read_beside_its_view() {
+        use baylee_view::{LogEntry, LogEvent};
+        let frame = |log_json: Vec<u8>| Envelope {
+            msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                game_id: "g".to_string(),
+                seq: 1,
+                view_json: serde_json::to_vec(
+                    &baylee_client_core::test_support::ViewBuilder::new(2).build(),
+                )
+                .expect("a view encodes"),
+                log_json,
+            })),
+        };
+        let told = LogTail {
+            from: 3,
+            entries: vec![LogEntry {
+                turn: 2,
+                repeat: 1,
+                event: LogEvent::TurnStarted {
+                    active: PlayerId::new(1),
+                },
+            }],
+        };
+        let Some(HostMessage::View(_, Some(got))) =
+            host_message(frame(serde_json::to_vec(&told).expect("a tail encodes")))
+        else {
+            panic!("the frame's lines were not read");
+        };
+        assert_eq!(got, told);
+        assert!(
+            matches!(
+                host_message(frame(Vec::new())),
+                Some(HostMessage::View(_, None))
+            ),
+            "a frame with nothing new in its log is not a view"
+        );
+        assert!(
+            matches!(
+                host_message(frame(b"{\"from\":".to_vec())),
+                Some(HostMessage::View(_, None))
+            ),
+            "a log that does not decode took its view with it"
+        );
     }
 
     /// The version rides outside the payload so this check can happen before
@@ -587,7 +661,7 @@ pub(crate) mod tests {
             LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
         let messages = host.poll();
         assert!(
-            messages.iter().any(|m| matches!(m, HostMessage::View(_))),
+            messages.iter().any(|m| matches!(m, HostMessage::View(..))),
             "the client must be able to draw before it is asked anything"
         );
         assert!(messages.iter().any(|m| matches!(m, HostMessage::Choice(_))));
@@ -601,7 +675,7 @@ pub(crate) mod tests {
         let view = messages
             .iter()
             .find_map(|m| match m {
-                HostMessage::View(v) => Some(v),
+                HostMessage::View(v, _) => Some(v),
                 _ => None,
             })
             .expect("a view");
@@ -644,7 +718,7 @@ pub(crate) mod tests {
         assert!(
             host.poll()
                 .iter()
-                .any(|m| matches!(m, HostMessage::View(_))),
+                .any(|m| matches!(m, HostMessage::View(..))),
             "the seat can still play after a refusal"
         );
     }
@@ -656,7 +730,7 @@ pub(crate) mod tests {
         host.poll();
         host.submit(PlayerAction::MulliganKeep);
         let out = host.poll();
-        assert!(out.iter().any(|m| matches!(m, HostMessage::View(_))));
+        assert!(out.iter().any(|m| matches!(m, HostMessage::View(..))));
         assert!(!out.iter().any(|m| matches!(m, HostMessage::Failed(_))));
     }
 }

@@ -6542,6 +6542,18 @@ the host never changes a line it has sent. It replaces the book from where the
 two part, and the book counts it (`rewrites`). The fix for that is a fresh
 `LogBook` per game, which is the renderer's to make.
 
+**The renderer keeps one book per game, in `Duel::log`.** `HostMessage::View`
+carries a frame's tail beside its view, and `poll_host` appends it before
+`Duel::receive_view` takes the view, against that frame's own view.
+`DuelCommand::Open` replaces the whole `Duel`, so every game starts with an
+empty book; a reconnect keeps it. A frame that only carries the next part of
+the log repeats the view the client holds. `receive_view` reads its edges
+against the view it replaces, so a repeat strikes no blow, plays no sound and
+reopens no reveal the player put away (`log_feed_tests`). Log bytes that do
+not decode are dropped with a warning and the view is kept: the next snapshot
+or reconnect tells the log again. `LocalHost` hands a refused answer back with
+`Session::reask`, which carries no log.
+
 **The book keeps entries, never sentences.** A line is written each time it is
 read (`line`, `lines`, `lines_since`, `take_unread`), because two things under
 it change mid-game: the language, and the card text, which arrives from the
