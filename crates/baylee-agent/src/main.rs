@@ -65,25 +65,60 @@ async fn main() {
     // kill the games it is about to ask for again. They talk to the gateway
     // over their own sockets, not this one.
     let running: Running = Arc::new(Mutex::new(HashMap::new()));
-    let mut backoff = RETRY_START;
+    let mut wait = RETRY_START;
     loop {
-        match session(&config, &running).await {
-            Ok(()) => {
-                tracing::info!("gateway closed the control socket");
-                backoff = RETRY_START;
+        let ended = match session(&config, &running).await {
+            Ok(ended) => ended,
+            Err(err) => {
+                tracing::warn!(%err, "control socket failed");
+                Ended::Failed
             }
-            Err(err) => tracing::warn!(%err, "control socket failed"),
+        };
+        if ended == Ended::Closed {
+            tracing::info!("gateway closed the control socket");
         }
-        tokio::time::sleep(backoff).await;
-        backoff = (backoff * 2).min(RETRY_MAX);
+        let (now, next) = redial_after(&ended, wait);
+        tokio::time::sleep(now).await;
+        wait = next;
     }
+}
+
+/// How one session with the gateway ended, as far as dialling it again goes.
+#[derive(Debug, PartialEq, Eq)]
+enum Ended {
+    /// The gateway closed the socket.
+    Closed,
+    /// The gateway refused this agent, and said why (#271).
+    Refused,
+    /// The dial or the socket failed.
+    Failed,
+}
+
+/// The wait before the next dial, given how the last session ended and the
+/// wait it was dialled after, and the wait to keep for the dial after that.
+///
+/// A socket the gateway closed starts again from [`RETRY_START`]: the
+/// gateway was there, and a restart is the likeliest reason. A failure
+/// doubles towards [`RETRY_MAX`], and so does a refusal: the same agent is
+/// refused again until someone changes a binary, and a refusal counted as a
+/// close would dial a gateway that said no once a second for as long as
+/// nobody looked.
+fn redial_after(
+    ended: &Ended,
+    last: std::time::Duration,
+) -> (std::time::Duration, std::time::Duration) {
+    let now = match ended {
+        Ended::Closed => RETRY_START,
+        Ended::Refused | Ended::Failed => last,
+    };
+    (now, (now * 2).min(RETRY_MAX))
 }
 
 /// One connection to the gateway, from hello to close.
 async fn session(
     config: &AgentConfig,
     running: &Running,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<Ended, Box<dyn std::error::Error + Send + Sync>> {
     let url = config.control_url();
     let (ws, _) = tokio_tungstenite::connect_async_with_config(&url, Some(ws_config()), false)
         .await
@@ -110,7 +145,7 @@ async fn session(
     let mut beat: Option<tokio::task::JoinHandle<()>> = None;
     let result = loop {
         let Some(frame) = stream.next().await else {
-            break Ok(());
+            break Ok(Ended::Closed);
         };
         let frame = match frame {
             Ok(frame) => frame,
@@ -148,12 +183,10 @@ async fn session(
             } => start(config, running, &out, &game_id, &engine_token, &gateway_url),
             Order::Stop { game_id } => stop(running, &game_id),
             // Error level: nothing this agent does will be accepted until
-            // someone changes a binary, and the sentence says which. A
-            // failure rather than a close, so the next dial waits out a
-            // growing back-off instead of the first second, again and again.
+            // someone changes a binary, and the sentence says which.
             Order::Refused(why) => {
                 tracing::error!(why, "the gateway refused this agent");
-                break Err(Box::from(why));
+                break Ok(Ended::Refused);
             }
             Order::Nothing => {}
         }
@@ -283,5 +316,34 @@ fn stop(running: &Running, game_id: &str) {
         let _ = switch.send(());
     } else {
         tracing::debug!(game_id, "stop for a game this agent is not running");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Ended, RETRY_MAX, RETRY_START, redial_after};
+
+    /// A refused agent backs off as a failed one does (#271), and a socket
+    /// the gateway closed starts again from the first second.
+    #[test]
+    fn a_refusal_grows_the_wait_and_a_close_resets_it() {
+        let mut wait = RETRY_START;
+        let mut waited = Vec::new();
+        for ended in [
+            Ended::Refused,
+            Ended::Refused,
+            Ended::Refused,
+            Ended::Closed,
+            Ended::Failed,
+        ] {
+            let (now, next) = redial_after(&ended, wait);
+            waited.push(now.as_secs());
+            wait = next;
+        }
+        assert_eq!(waited, [1, 2, 4, 1, 2]);
+        for _ in 0..8 {
+            wait = redial_after(&Ended::Refused, wait).1;
+        }
+        assert_eq!(wait, RETRY_MAX, "and it stops growing at the ceiling");
     }
 }
