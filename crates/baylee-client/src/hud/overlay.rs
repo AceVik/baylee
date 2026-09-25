@@ -41,6 +41,11 @@ pub(super) const ANSWER_PT: f32 = 13.0;
 /// feet a caption apart.
 const CAPTION_H: f32 = 13.0;
 
+/// The small cards beside a permanent's preview that are attached to it
+/// (#305), with their caption.
+#[derive(Component)]
+pub(super) struct PreviewAttached;
+
 /// The preview bubble's padding, in logical pixels: the gap its shadow needs
 /// to read as a shadow rather than as a rim.
 const PREVIEW_PAD: f32 = 6.0;
@@ -1097,6 +1102,11 @@ pub fn sync_overlay(
             }
             commands.entity(root).add_child(tooltip);
 
+            // What the preview stands in, with the card underneath a copy
+            // once it stands beside it: the cards attached to it go beside
+            // both.
+            let mut taken = Rect::from_corners(place, place + panel);
+
             // ---- the card underneath a copy ---------------------------
             //
             // The preview above draws what this permanent *is*: a Spark
@@ -1129,11 +1139,9 @@ pub fn sync_overlay(
             }) {
                 let thumb_w = (img_w * 0.34).max(56.0);
                 let thumb_h = thumb_w * 88.0 / 63.0;
-                let at = underneath_place(
-                    Rect::from_corners(place, place + panel),
-                    Vec2::new(thumb_w, thumb_h + CAPTION_H),
-                    window,
-                );
+                let size = Vec2::new(thumb_w, thumb_h + CAPTION_H);
+                let at = underneath_place(taken, size, window);
+                taken = taken.union(Rect::from_corners(at, at + size));
                 let image = textures.get(under, statics, &assets);
                 let card = spawn_card_art(
                     &mut commands,
@@ -1180,6 +1188,108 @@ pub fn sync_overlay(
                 // the worse case here: this panel stands *beside* the
                 // preview, which on a board card means directly over the
                 // neighbouring permanent.
+                commands
+                    .entity(beside)
+                    .insert_recursive::<Children>(Pickable::IGNORE);
+                commands.entity(root).add_child(beside);
+            }
+
+            // ---- the cards attached to it (#305) -----------------------
+            //
+            // On the table they lie under their host and peek out past it,
+            // or, where the row leaves them no room to peek out whole, lie
+            // flush under it and the host wears the attachment mark, which
+            // says only how many. This says which: each as a small card, in
+            // columns of two, captioned as the card underneath a copy is.
+            // Each drawn as the preview draws a card: its art, or where it
+            // has none (a Role is a token) its characteristics.
+            let attached = hovered
+                .and_then(|id| board.group(id))
+                .map_or(&[][..], |group| group.attached.as_slice());
+            if !attached.is_empty() {
+                const GAP: f32 = 4.0;
+                let thumb_w = (img_w * 0.34).max(56.0);
+                let thumb_h = thumb_w * 88.0 / 63.0;
+                let rows = attached.len().min(2);
+                let columns = attached.len().div_ceil(2);
+                #[expect(clippy::cast_precision_loss)] // a handful of cards
+                let size = Vec2::new(
+                    columns as f32 * (thumb_w + GAP) - GAP,
+                    rows as f32 * (thumb_h + GAP) - GAP + CAPTION_H,
+                );
+                let at = underneath_place(taken, size, window);
+                let grid = commands
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(GAP),
+                        ..default()
+                    })
+                    .id();
+                for pair in attached.chunks(2) {
+                    let column = commands
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(GAP),
+                            ..default()
+                        })
+                        .id();
+                    for group in pair {
+                        let key = group.art;
+                        let built = match key {
+                            Some(_) => None,
+                            None => {
+                                preview_face(&faces, view, &textures, group.representative, None)
+                            }
+                        };
+                        let image = match key {
+                            Some(key) => textures.get(key, statics, &assets),
+                            None => textures.card_back(),
+                        };
+                        let card = spawn_card_art(
+                            &mut commands,
+                            lang,
+                            image,
+                            built.as_ref(),
+                            thumb_w,
+                            thumb_h,
+                            crate::face::Detail::Compact,
+                            &fonts,
+                            match key {
+                                Some(key) => CardLook::art(key, finish_of(statics, Some(key))),
+                                None => CardLook::back(FinishTreatment::Plain),
+                            },
+                            cards.as_mut(),
+                            &faces.widths,
+                        );
+                        commands.entity(card).insert(upward_shadow());
+                        commands.entity(column).add_child(card);
+                    }
+                    commands.entity(grid).add_child(column);
+                }
+                let beside = commands
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px(at.x),
+                            top: px(at.y),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            row_gap: px(2),
+                            ..default()
+                        },
+                        BackgroundColor(Color::NONE),
+                        ZIndex(Z_PREVIEW),
+                        PreviewAttached,
+                        children![(
+                            Text::new(Phrase::CardAttached.text(lang).to_string()),
+                            tf(&fonts, 9.0),
+                            TextColor(palette::MUTED),
+                        )],
+                    ))
+                    .id();
+                commands.entity(beside).add_child(grid);
+                // Beside the preview is over the permanents next to the
+                // hovered one, as the card underneath a copy is.
                 commands
                     .entity(beside)
                     .insert_recursive::<Children>(Pickable::IGNORE);
@@ -2769,6 +2879,62 @@ mod tests {
             .flat_map(|c| c.iter().collect::<Vec<_>>())
             .filter(|e| !kept.contains(e))
             .collect::<Vec<_>>()
+    }
+
+    /// Hovering a permanent lays the cards attached to it beside its preview
+    /// (#305), which is where a player reads what the host's attachment mark
+    /// counts: a printed aura by its art, a Role, a token, by its
+    /// characteristics. And a permanent with nothing attached lays none.
+    #[test]
+    fn a_hovered_host_shows_what_is_attached_to_it_beside_its_preview() {
+        use baylee_client_core::test_support::{ViewBuilder, printed, token};
+        let (host, bare) = (ObjectId::new(5, 0), ObjectId::new(8, 0));
+        let mut aura = printed(6, 0, "Pacifism", 3);
+        aura.types = baylee_core::types::TypeSet::ENCHANTMENT;
+        aura.attached_to = Some(host);
+        let mut role = token(7, 0, "Monster Role", 0, 0);
+        role.types = baylee_core::types::TypeSet::ENCHANTMENT;
+        role.attached_to = Some(host);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                [
+                    printed(5, 0, "Grizzly Bears", 2),
+                    aura,
+                    role,
+                    printed(8, 0, "Hill Giant", 4),
+                ],
+            )
+            .build();
+        let shown = |hovered: ObjectId| {
+            let mut duel = duel_with(false);
+            duel.view = Some(view.clone());
+            duel.statics = Some(baylee_client_core::test_support::statics(8));
+            crate::rebuild_board(&mut duel);
+            duel.hovered = Some(hovered);
+            let mut app = bar_of(duel);
+            app.update();
+            let mut panels = app
+                .world_mut()
+                .query_filtered::<Entity, With<PreviewAttached>>();
+            let panels: Vec<Entity> = panels.iter(app.world()).collect();
+            let children = |app: &App, of: Entity| -> Vec<Entity> {
+                app.world()
+                    .get::<Children>(of)
+                    .map(|c| c.iter().collect())
+                    .unwrap_or_default()
+            };
+            // The caption, then the grid: columns of cards.
+            let cards: usize = panels
+                .iter()
+                .flat_map(|&panel| children(&app, panel).into_iter().skip(1))
+                .flat_map(|grid| children(&app, grid))
+                .map(|column| children(&app, column).len())
+                .sum();
+            (panels.len(), cards)
+        };
+        assert_eq!(shown(host), (1, 2), "the host's two attachments");
+        assert_eq!(shown(bare), (0, 0), "nothing is attached to it");
     }
 
     /// A card a log line names opens the table's preview while the pointer

@@ -41,7 +41,9 @@ pub struct BadgeParams {
     /// UV into the point on the card the badge is laid out at.
     pub quad: Vec4,
     /// How many permanents the card stands for,
-    /// [`cardplate::count_word`]: below two, nothing is drawn.
+    /// [`cardplate::count_word`]: below two, nothing is drawn. Or, with
+    /// [`cardplate::BADGE_ATTACHED`] set, how many cards lie folded under
+    /// a host ([`cardplate::attached_word`], #305), from one.
     pub count: u32,
     /// Where the count's right end stands and its top, in card widths
     /// ([`cardplate::badge_rect`]): in the material and not the shader, so

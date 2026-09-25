@@ -105,7 +105,7 @@ fn a_badge_lies_on_its_card_and_under_the_next_one() {
 #[test]
 fn a_badge_over_its_card_stays_upright_as_the_card_taps() {
     use bevy::ecs::system::RunSystemOnce;
-    let mut card = placements(&crowded(2, 3, |_| false))
+    let mut card = placements(&crowded(2, 16.0 / 9.0, 3, |_| false))
         .into_iter()
         .find(|p| p.badge > 0)
         .expect("a merged card");
@@ -252,13 +252,14 @@ fn a_badge_comes_and_goes_with_the_count() {
     assert!(!index.badges.contains_key(&placed[1].object));
 }
 
-/// A table of `seats` chairs, every lane of every seat holding `n`
-/// creatures, every third of them (the first included) merged of two and
-/// the other two each with a card tucked under it (#305), tapped where
-/// `tapped` says by their place in the row: so a row has cards that fan,
-/// merged cards that hold their cells between them, and on either side of
-/// each a host that never merges, with a print peeking out past it.
-fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
+/// A table of `seats` chairs on a screen of `aspect`, every lane of every
+/// seat holding `n` creatures, every fourth of them (the first included)
+/// merged of two, every other one with a card tucked under it (#305) and
+/// every fourth with two, and the rest plain, tapped where `tapped` says by their place in the row: so
+/// a row has cards that fan, merged cards that hold their cells between
+/// them, on either side of each a host that never merges, with a print
+/// peeking out past it or its mark lit, and a plain card between two hosts.
+fn crowded(seats: u8, aspect: f32, n: usize, tapped: fn(usize) -> bool) -> Duel {
     use baylee_client_core::board::{BoardModel, Individual, Lane, SeatPod};
     use baylee_client_core::layout::LaneKind;
     let players: Vec<PlayerId> = (0..seats).map(PlayerId::new).collect();
@@ -266,14 +267,19 @@ fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
     let mut group = |i: usize| {
         slot += 1;
         let mut group = creature(slot, Vec::new());
-        if i.is_multiple_of(3) {
+        if i.is_multiple_of(4) {
             group.members.push(obj(slot + 100_000));
         }
-        if !i.is_multiple_of(3) {
-            let mut under = creature(slot + 200_000, Vec::new());
-            under.individual = Some(Individual::Attached);
+        if i % 2 == 1 {
+            // Two under every other host: one always shows whole over a
+            // duel's felt, two fold where a row is shallow.
+            let two = i / 2 % 2 == 1;
+            for k in 1..=(1 + u32::from(two)) {
+                let mut under = creature(slot + 200_000 * k, Vec::new());
+                under.individual = Some(Individual::Attached);
+                group.attached.push(under);
+            }
             group.individual = Some(Individual::HasAttachments);
-            group.attached.push(under);
         }
         if tapped(i) {
             group.status = baylee_view::ObjectStatus::TAPPED;
@@ -320,7 +326,7 @@ fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
             stack: Vec::new(),
             hand: Vec::new(),
         }),
-        layout: Some(TableLayout::new(&players, 16.0 / 9.0, None)),
+        layout: Some(TableLayout::new(&players, aspect, None)),
         ..Duel::default()
     }
 }
@@ -357,6 +363,22 @@ fn overlap(a: &[Vec2; 4], b: &[Vec2; 4]) -> bool {
             let (b_lo, b_hi) = reach(b, axis);
             a_hi > b_lo + 1e-4 && b_hi > a_lo + 1e-4
         })
+    })
+}
+
+/// Whether the quad `inner` lies inside the rectangle `outer`, to a hair.
+fn within(inner: &[Vec2; 4], outer: &[Vec2; 4]) -> bool {
+    (0..2).all(|i| {
+        let axis = (outer[i + 1] - outer[i]).normalize();
+        let reach = |quad: &[Vec2; 4]| {
+            quad.iter()
+                .map(|p| p.dot(axis))
+                .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), d| {
+                    (lo.min(d), hi.max(d))
+                })
+        };
+        let ((a_lo, a_hi), (b_lo, b_hi)) = (reach(inner), reach(outer));
+        a_lo > b_lo - 1e-4 && a_hi < b_hi + 1e-4
     })
 }
 
@@ -430,17 +452,21 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
 /// Every badge is spawned as the scene spawns it, on its card at the card's
 /// resting pose, and each badge's quad, shadow and all, is laid against
 /// every other drawn card on the table, the print being the whole card. A
-/// duel and a ring of eight; rows of two to seventy-two in all three lanes,
-/// so the tightest fan (a third of a card, asserted) and rows that scroll
-/// are there, each scrolled to its start, a few cards in and past its end;
-/// untapped, all tapped and every other one tapped; a card tucked under
-/// the cards on both sides of every merged one, which never merge and so
-/// carry no badge themselves, peeking out where a badge above the top edge
-/// stands (#305; the row holds the cell after a merged card for it,
-/// `Lane::gaps`); and a creature staged into combat beside a merged one,
-/// half a card forward of its row, which is where a badge above the top
-/// edge once failed.
+/// duel on a wide screen and on a square one, and a ring of eight; rows of
+/// two to seventy-two in all three lanes, so the tightest fan (a third of a
+/// card, asserted) and rows that scroll are there, each scrolled to its
+/// start, a few cards in and past its end; untapped, all tapped and every
+/// other one tapped; a card tucked under the cards on both sides of every
+/// merged one, which never merge and so carry no count, peeking out where a
+/// badge above the top edge stands, or folded away under a host that wears
+/// the attachment mark instead, over its card and beside it, both asserted
+/// (#305; the row holds the cell after a merged card for it, and after a
+/// host at a ring, `Lane::gaps`); a plain card between two hosts, whose cell
+/// is free to fan into at a ring too; and a creature staged into combat
+/// beside a merged one, half a card forward of its row, which is where a
+/// badge above the top edge once failed.
 #[test]
+#[allow(clippy::too_many_lines)] // one table per pass, and each of its sweeps
 fn no_badge_lies_on_another_cards_print() {
     use baylee_client_core::layout::{MIN_VISIBLE_FRACTION, STAGE_STEP};
     use baylee_client_core::rowscroll::ROW_STEP;
@@ -451,11 +477,11 @@ fn no_badge_lies_on_another_cards_print() {
     ];
     let (mut count, mut hidden, mut tightest) = (Tally::default(), 0, f32::INFINITY);
     let mut plates = 0;
-    for seats in [2u8, 8] {
+    for (seats, aspect) in [(2u8, 16.0 / 9.0), (2, 4.0 / 3.0), (8, 16.0 / 9.0)] {
         for n in [2usize, 3, 4, 5, 6, 8, 10, 13, 17, 24, 32, 40, 72] {
             for (tap, tapped) in taps {
                 for (staged, first) in [(false, 0), (true, 0), (false, 3), (false, 1000)] {
-                    let mut duel = crowded(seats, n, tapped);
+                    let mut duel = crowded(seats, aspect, n, tapped);
                     let rows: Vec<_> = duel
                         .board
                         .as_ref()
@@ -483,8 +509,9 @@ fn no_badge_lies_on_another_cards_print() {
                     let all = placements(&duel);
                     assert_eq!(
                         all.len(),
-                        usize::from(seats) * 3 * (2 * n - n.div_ceil(3)),
-                        "three rows a seat, a card under two of every three"
+                        usize::from(seats) * 3 * (n + n / 2 + n / 4),
+                        "three rows a seat, a card under every other one, two \
+                         under every fourth"
                     );
                     hidden += all.iter().filter(|p| !p.shown).count();
                     let mut placed: Vec<Placement> = all.into_iter().filter(|p| p.shown).collect();
@@ -505,7 +532,7 @@ fn no_badge_lies_on_another_cards_print() {
                         }
                     }
                     let table = format!(
-                        "{seats} seats, rows of {n}, {tap}{}, from card {first}",
+                        "{seats} seats at {aspect}, rows of {n}, {tap}{}, from card {first}",
                         if staged { ", one staged" } else { "" }
                     );
                     // Before the hand-made step below, which moves a card
@@ -537,6 +564,7 @@ fn no_badge_lies_on_another_cards_print() {
         pairs,
         above,
         beside,
+        marks,
     } = count;
     assert!(
         badges > 5_000 && pairs > badges,
@@ -547,6 +575,10 @@ fn no_badge_lies_on_another_cards_print() {
         "{above} badges over their cards and {beside} beside them"
     );
     assert!(plates > 10_000, "only {plates} plates beside a tucked card");
+    assert!(
+        marks.iter().all(|&m| m > 100),
+        "{marks:?} attachment marks over their cards and beside them"
+    );
 }
 
 /// What laying tables' badges against the prints counted: badges, badge and
@@ -557,6 +589,8 @@ struct Tally {
     pairs: usize,
     above: usize,
     beside: usize,
+    /// Attachment marks among the badges, over their cards and beside.
+    marks: [usize; 2],
 }
 
 /// Spawns every badge of `placed` as the scene does and lays each one's
@@ -572,12 +606,19 @@ fn lay_against_the_prints(placed: &[Placement], table: &str, count: &mut Tally) 
             .iter()
             .position(|c| c == card)
             .expect("a badge on a card");
-        match placed[own].slot.badge_place() {
+        let place = placed[own].slot.badge_place();
+        match place {
             BadgePlace::Above => count.above += 1,
             BadgePlace::Beside => count.beside += 1,
         }
+        if placed[own].badge & cardplate::BADGE_ATTACHED != 0 {
+            count.marks[usize::from(place == BadgePlace::Beside)] += 1;
+        }
         for (other, body) in bodies.iter().enumerate() {
-            if own == other {
+            // A card folded all the way under the badge's own (#305) shows
+            // nothing: its own card lies over all of it.
+            if own == other || (placed[other].lift < placed[own].lift && within(body, &bodies[own]))
+            {
                 continue;
             }
             count.pairs += 1;
@@ -613,7 +654,7 @@ fn lay_plates_against_the_tucked(placed: &[Placement], table: &str) -> usize {
         .map(|t| {
             let host = placed
                 .iter()
-                .find(|h| h.object.slot() == t.object.slot() - 200_000)
+                .find(|h| h.object.slot() == t.object.slot() % 200_000)
                 .expect("a tucked card's host is drawn");
             let forward = host.slot.forward();
             // The host's front edge, and the same edge moved as far as the
@@ -662,7 +703,7 @@ fn every_drawn_card_stands_inside_its_lane() {
     let mut hidden = 0;
     for seats in [2u8, 3, 4, 8] {
         for n in [5usize, 17, 40, 70] {
-            let duel = crowded(seats, n, |i| i % 2 == 1);
+            let duel = crowded(seats, 16.0 / 9.0, n, |i| i % 2 == 1);
             let board = duel.board.as_ref().expect("a board");
             let row: HashMap<ObjectId, baylee_client_core::layout::LaneKind> = board
                 .pods

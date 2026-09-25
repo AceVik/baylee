@@ -768,8 +768,9 @@ the seat's rows leave above their cards):
   (`a_tapped_card_s_badge_stays_off_the_next_row`).
 
 - **It lies on no other card's print** (the owner, 25.09). Over the card
-  that is where it stands. Beside it, the gap after a merged card is held
-  at `layout::HELD_PITCH`, a card's span, whatever the rest of the row fans
+  that is where it stands. Beside it, the gap after a merged card (and
+  after a host, for its attachment mark, §"A card lies under its host") is
+  held at `layout::HELD_PITCH`, a card's span, whatever the rest of the row fans
   to: the room a tapped card after it and the badge's reach need
   (`CARD_SPAN / 2 + CARD_WIDTH / 2 + BADGE_REACH`, 1.394 of 1.397, a
   constant assertion; `the_badge_reaches_as_far_as_its_quad` holds
@@ -956,27 +957,44 @@ on the creature it enchants, on that creature's side of the table, in its
 section. What hangs off an attachment lies under the same host, after it.
 The board model carries them as `CardGroup::attached` and they stand in no
 row of their own (`an_aura_lies_under_its_host_and_the_host_stays_out_of_the_pile`);
-a host never merges, so it has no badge. One whose host is not drawn (phased
-out) stays in its row.
+a host never merges, so it has no count. One whose host is not drawn
+(phased out) stays in its row.
 
 `table::tuck` measures the room from the host's front edge to what is
 ahead: the ledge band before the creature row, the next row before the
-others. An unstaged creature row shows four whole peeks (`ATTACH_PEEK`,
-0.11 of a card) everywhere. A staged creature and the support and land rows
-of a ring, which stand 0.0185 apart, fold to 0.0093, and at a duel's 4:3
-those rows show 0.053
+others. Every card under a host peeks out a whole `ATTACH_PEEK` (0.11 of a
+card) or none does, since a sliver shows no name. An unstaged creature row
+shows four whole peeks under an untapped host everywhere. A staged creature
+and the support and land rows of a ring, which stand 0.0185 apart, have
+0.0093 of room, and at a duel's 4:3 those rows have 0.053
 (`nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it`). A tapped
 host turns what is under it with it (client-41: upright, it would stand
 0.2 into the lane air on both sides), so its peek is the card's long edge;
-the name is back when the host untaps. Everything under a host lies within
-half the height between a face and the top of Defender's wall
-(`ATTACH_DEPTH`), so the wall stays under every print. A merged card holds its cell before a host even where
-its badge stands over it, because that is where the host's peek is
-(`Lane::gaps`, `no_badge_lies_on_another_cards_print`). A tucked card
-stands where its host does along the row, so a neighbour's plate, which
-stops at the host's left edge, never reaches its peek
-(`lay_plates_against_the_tucked`). A tucked card wears no strip, plate or
-shell, and is a print every other shell keeps off.
+the name is back when the host untaps. It keeps them inside the footprint
+the card has untapped, which holds one peek: a second reached into the
+band where the next card's badge stands over its top edge in a duel.
+
+Where the peeks fold, every card lies flush under the host, and the host
+wears the attachment mark in its count badge's place (a host never merges,
+so it has no count): two tucked cards and how many
+(`cardplate::attached_word`, `BADGE_ATTACHED` in the badge word; the
+shader's `tucked_mark`). The PM, on #305: an aura nobody can see is lost
+information. At a ring the row holds the cell after a host for it, as
+after a merged card. The sweep pins it both ways: an attachment folded
+under the threshold lights the mark, one that shows leaves it dark.
+Hovering the host lays its attachments beside the preview, in columns of
+two under "ATTACHED", art or, for a Role, its characteristics
+(`a_hovered_host_shows_what_is_attached_to_it_beside_its_preview`).
+
+Everything under a host lies within half the height between a face and
+the top of Defender's wall (`ATTACH_DEPTH`), so the wall stays under every
+print. A merged card holds its cell before a host even where its badge
+stands over it, because that is where the host's peek is (`Lane::gaps`,
+`no_badge_lies_on_another_cards_print`, which lays marks over their cards
+and beside them). A tucked card stands where its host does along the row,
+so a neighbour's plate, which stops at the host's left edge, never reaches
+its peek (`lay_plates_against_the_tucked`). A tucked card wears no strip,
+plate or shell, and is a print every other shell keeps off.
 
 ### A row that does not fit scrolls
 
@@ -985,8 +1003,9 @@ A battlefield row packs its cards into its lane (`layout::pack_gaps`,
 does not until a third of each card is left (`MIN_VISIBLE_FRACTION`, 0.33;
 the owner, 25.09: "at least 33% of each card stays visible"), each
 section's last card whole with its air after it, and at a ring table with
-the gap after every merged card held whole (`HELD_PITCH`, the room of a
-count badge standing beside its card; §"Grouping and the token summary").
+the gap after every merged card and every host held whole (`HELD_PITCH`,
+the room of a count badge or an attachment mark standing beside its card;
+§"Grouping and the token summary").
 `Lane::gaps` says which of the three a gap is (`layout::Gap`). One
 division finds the pitch, since a section's air falls linearly with it. A row that cannot do that **scrolls** (the owner, 25.09, for all
 three rows). It used to run on past its lane into the pile strip beside it

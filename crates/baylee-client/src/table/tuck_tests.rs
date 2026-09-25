@@ -162,15 +162,21 @@ fn what_lies_under_a_tapped_host_turns_with_it() {
 /// a staged creature's front edge to within 0.0093 of the band at a ring).
 /// Where a host already stands past it, nothing peeks out at all.
 ///
+/// What is under a host peeks out whole or not at all, and where it folds
+/// away the host wears the attachment mark with how many lie under it, and
+/// only there (#305: an attachment folded under legibility is not lost).
+///
 /// And nothing under a card lies so low that Defender's wall beside it
 /// stands over its face.
 ///
 /// Every seat of rings of two to eight at three screens, one to four cards
 /// under a host, tapped and untapped, staged and not. And both halves are
-/// taken: an unstaged creature row shows every card's whole peek, as a
-/// tapped host shows one in any row, and a staged creature at a ring folds
-/// what is under it nearly flat.
+/// taken: an unstaged creature row shows every card's whole peek under an
+/// untapped host, as a tapped host shows one in any row (and folds two, in
+/// the footprint it has untapped), and a staged creature at a ring folds
+/// what is under it away, so both the mark and its absence are seen.
 #[test]
+#[allow(clippy::too_many_lines)] // one host per row, and everything asked of it
 fn nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it() {
     let (mut whole, mut folded, mut checked) = (0, 0, 0);
     for seats in 2..=8u8 {
@@ -225,6 +231,13 @@ fn nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it() {
                                          ahead starts at {ahead}"
                                     );
                                     assert_eq!(card.tapped, host.tapped, "{table}");
+                                    // A tapped host keeps them inside the
+                                    // footprint it has untapped.
+                                    let untapped = host.position.dot(forward) + CARD_HEIGHT * 0.5;
+                                    assert!(
+                                        !tapped || front <= untapped + 1e-4,
+                                        "{table}: card {k} reaches {front}, past {untapped}"
+                                    );
                                     // Every host here is first in its row,
                                     // at the row's lowest.
                                     let face = CARD_LIFT + CARD_THICKNESS + card.lift;
@@ -235,25 +248,39 @@ fn nothing_tucked_under_a_card_reaches_what_stands_ahead_of_it() {
                                     );
                                     if (peek - ATTACH_PEEK).abs() < 1e-5 {
                                         whole += 1;
-                                    } else if peek < 0.01 {
+                                    } else if peek.abs() < 1e-5 {
                                         folded += 1;
                                     }
                                     checked += 1;
                                     last = card.position;
                                 }
+                                // Whole or not at all: no sliver.
+                                let peek = (last - host.position).dot(forward);
+                                #[expect(clippy::cast_precision_loss)] // four at most
+                                let full = ATTACH_PEEK * under as f32;
+                                let shown = (peek - full).abs() < 1e-4;
+                                assert!(
+                                    shown || peek.abs() < 1e-5,
+                                    "{table}: what is under it peeks out {peek} of {full}"
+                                );
+                                // What folds lights the host's mark, with
+                                // how many; what shows leaves it dark.
+                                let mark = if shown {
+                                    0
+                                } else {
+                                    cardplate::attached_word(under as usize)
+                                };
+                                assert_eq!(host.badge, mark, "{table}");
                                 // An unstaged creature row shows every
                                 // peek whole, and a tapped host one in any
-                                // row.
-                                if (!staged && lane == LaneKind::Creatures)
+                                // row, and never two.
+                                if (!staged && !tapped && lane == LaneKind::Creatures)
                                     || (tapped && under == 1)
                                 {
-                                    let peek = (last - host.position).dot(forward);
-                                    #[expect(clippy::cast_precision_loss)] // four at most
-                                    let full = ATTACH_PEEK * under as f32;
-                                    assert!(
-                                        (peek - full).abs() < 1e-4,
-                                        "{table}: what is under it folds to {peek}"
-                                    );
+                                    assert!(shown, "{table}: what is under it folds");
+                                }
+                                if tapped && under > 1 {
+                                    assert!(!shown, "{table}: what is under it shows");
                                 }
                             }
                         }

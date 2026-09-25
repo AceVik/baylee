@@ -481,10 +481,11 @@ impl Lane {
 
     /// What lies after each of the row's cards: the air between sections
     /// where the next card stands in another one, else a held cell after a
-    /// merged card whose badge stands beside it, and nothing where the
-    /// badges stand over their cards — unless the next card has cards tucked
-    /// under it (#305), whose names peek out over the row's top edge where
-    /// that badge stands.
+    /// card that may wear a badge — a merged card's count, or the mark of a
+    /// host whose row folds what is under it out of sight (#305) — where
+    /// the badge stands beside it, and nothing where the badges stand over
+    /// their cards, unless the next card has cards tucked under it, whose
+    /// names peek out over the row's top edge where that badge stands.
     #[must_use]
     pub fn gaps(&self, place: BadgePlace) -> Vec<Gap> {
         self.groups
@@ -492,9 +493,10 @@ impl Lane {
             .enumerate()
             .map(|(i, group)| {
                 let next = self.groups.get(i + 1);
+                let badged = group.is_stack() || !group.attached.is_empty();
                 if next.is_some_and(|next| next.section != group.section) {
                     Gap::Section
-                } else if group.is_stack()
+                } else if badged
                     && (place == BadgePlace::Beside
                         || next.is_some_and(|next| !next.attached.is_empty()))
                 {

@@ -1416,8 +1416,8 @@ const ARC_SHARE: f32 = 0.86;
 const FOCUS_WEIGHT: f32 = 2.6;
 
 /// The pitch after a merged card whose count badge stands beside it
-/// ([`BadgePlace::Beside`](crate::cardplate::BadgePlace::Beside)): a whole
-/// cell, the room a card turns in.
+/// ([`BadgePlace::Beside`](crate::cardplate::BadgePlace::Beside)), or a
+/// host whose mark may (#305): a whole cell, the room a card turns in.
 ///
 /// Beside a card the badge hangs [`BADGE_REACH`](crate::cardplate::BADGE_REACH)
 /// off its right edge, and when it taps the badge turns with it to lie under
@@ -1427,8 +1427,7 @@ const FOCUS_WEIGHT: f32 = 2.6;
 /// of where it does. Over a card
 /// ([`BadgePlace::Above`](crate::cardplate::BadgePlace::Above)) no card of
 /// the row reaches the badge, and nothing is held, except before a card with
-/// cards tucked under it (#305), whose names peek out where the badge
-/// stands.
+/// cards tucked under it, whose names peek out where the badge stands.
 pub const HELD_PITCH: f32 = CARD_SPAN;
 const _: () =
     assert!(CARD_SPAN * 0.5 + CARD_WIDTH * 0.5 + crate::cardplate::BADGE_REACH <= HELD_PITCH);
@@ -1460,8 +1459,8 @@ pub fn pile_reach(count: usize) -> f32 {
 pub enum Gap {
     /// Nothing: the two fan with the rest of the row.
     Free,
-    /// A whole cell, [`HELD_PITCH`]: the card before it is merged and its
-    /// count badge stands beside it.
+    /// A whole cell, [`HELD_PITCH`]: the card before it may wear a badge
+    /// (`board::Lane::gaps`) where the next card would reach it.
     Held,
     /// The two stand in different sections of their row (#263): the card
     /// before it lies whole, and air follows it ([`section_air`]). Wider

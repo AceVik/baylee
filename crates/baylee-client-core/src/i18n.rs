@@ -1198,6 +1198,10 @@ messages! {
     /// actually lying there. One word, because the picture says the rest and
     /// the caption is no wider than the card it labels.
     CardUnderneath { en: "UNDERNEATH", de: "DARUNTER" },
+    /// Caption over the small cards beside a permanent's preview that are
+    /// attached to it (CR 701.3; #305): on the table they lie under it and
+    /// may be folded out of sight, which its attachment mark says.
+    CardAttached { en: "ATTACHED", de: "ANGELEGT" },
     /// Waiting for {0}
     ///
     /// `{0}` is a seat's *name* and falls back to [`Phrase::SeatNumbered`],

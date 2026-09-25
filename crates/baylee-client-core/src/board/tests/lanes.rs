@@ -401,7 +401,9 @@ fn an_attachment_whose_host_is_not_drawn_stays_in_its_row() {
 /// A merged card holds its cell before a card with something tucked under
 /// it (#305), wherever its badge stands: over the card the badge stands in
 /// the air over the row's top edge, which is where the tucked card's name
-/// peeks out. Before a bare card, a badge over its card holds nothing.
+/// peeks out. Before a bare card, a badge over its card holds nothing. A
+/// host may wear a badge of its own, the mark of what its row folds out of
+/// sight, so beside the card it holds its cell as a merged card does.
 #[test]
 fn a_merged_card_holds_its_cell_before_a_card_with_something_under_it() {
     let mut objs = vec![
@@ -435,7 +437,7 @@ fn a_merged_card_holds_its_cell_before_a_card_with_something_under_it() {
     );
     assert_eq!(
         lane.gaps(BadgePlace::Beside),
-        [Gap::Held, Gap::Free, Gap::Free, Gap::Held]
+        [Gap::Held, Gap::Held, Gap::Free, Gap::Held]
     );
 }
 

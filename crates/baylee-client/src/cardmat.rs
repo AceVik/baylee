@@ -2234,6 +2234,7 @@ struct Globals { time: f32 };
             ("GLYPH_TIMES", plate::GLYPH_TIMES as u32),
             ("COUNT_MIN", plate::COUNT_MIN),
             ("COUNT_MAX", plate::COUNT_MAX),
+            ("BADGE_ATTACHED", plate::BADGE_ATTACHED),
             ("SWING_SET", plate::SWING_SET),
             ("TONE_SHIFT", plate::TONE_SHIFT),
             ("TONE_PLAIN", plate::TONE_PLAIN),

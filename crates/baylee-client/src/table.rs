@@ -4326,7 +4326,10 @@ struct Placement {
     /// What the count badge says ([`cardplate::count_word`]): how many
     /// permanents this card stands for when it is a merged group on the
     /// battlefield, and zero for a lone card, a pile and a fanned card — a
-    /// pile's size is `count` above and is drawn as the deck under it.
+    /// pile's size is `count` above and is drawn as the deck under it. A
+    /// host whose row folds what lies under it wears the attachment mark in
+    /// the badge's place instead ([`cardplate::attached_word`], #305); it
+    /// never piles, so it never has a count to show.
     badge: u32,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
@@ -4424,21 +4427,28 @@ const ATTACH_DEPTH: f32 = (shellmat::RIM_DROP - shellmat::WALL_HEIGHT) * 0.5;
 const _: () = assert!(ATTACH_DROP <= ATTACH_DEPTH);
 
 /// Lays the cards tucked under `host` (#305) down under it, each peeking out
-/// past the one before towards the middle of the table.
+/// past the one before towards the middle of the table, and says whether
+/// the row folded them out of sight instead.
 ///
 /// The room is measured and never assumed: from the host's front edge to the
 /// first thing ahead of it — the band the seat's bar is written on, in front
-/// of the creature row, and the next row in front of any other. So a staged
-/// host, and the tight rows of a ring, fold what is under them flat rather
-/// than lay it on somebody's writing or print. Measured when this was
-/// written (25.09.2026): an unstaged creature row shows four whole peeks at
-/// every table, and a tapped host a whole one in every row; untapped, the
-/// support and land rows show a whole one in a duel at 16:10 and 16:9,
-/// 0.053 at 4:3, and 0.0093 at a ring, whose rows stand 0.0185 apart, as
-/// does a staged creature there. A tapped host turns what is under it with
-/// it (client-41, on #305): upright behind a tapped card, an aura would
+/// of the creature row, and the next row in front of any other. Every card
+/// peeks out a whole `ATTACH_PEEK` or none does: a sliver shows no name,
+/// and it would lie where the host's mark stands. Where not all of them fit
+/// whole, all lie flush under the host and it wears the mark instead
+/// ([`cardplate::attached_word`]), which says how many, and its hover lays
+/// them out beside the preview. Measured when this was written
+/// (25.09.2026): an unstaged creature row shows four whole peeks under an
+/// untapped host at every table, and a tapped host a whole one in every
+/// row and never two (below); untapped, the support
+/// and land rows show a whole one in a duel at 16:10 and 16:9, and fold at
+/// 4:3 (0.053 of room) and at a ring (0.0093; its rows stand 0.0185 apart),
+/// as does a staged creature there. A tapped host turns what is under it
+/// with it (client-41, on #305): upright behind a tapped card, an aura would
 /// stand 0.2 past it on both sides, into the air where the next row's plate
-/// stands.
+/// stands. And it keeps them inside the footprint the card has untapped,
+/// which holds one peek: a second reached into the band over the top edge
+/// where the next card's badge stands in a duel, and lay under it.
 ///
 /// What a tucked card shows is its name and nothing written on it: no strip,
 /// no plate and no shell, since each of those stands on or around a card and
@@ -4454,9 +4464,9 @@ fn tuck(
     lift: f32,
     tapped: bool,
     shown: bool,
-) {
+) -> bool {
     if host.attached.is_empty() {
-        return;
+        return false;
     }
     let forward = slot.forward();
     let depth = if tapped { CARD_WIDTH } else { CARD_HEIGHT };
@@ -4465,9 +4475,15 @@ fn tuck(
     } else {
         slot.lane_center(lane).dot(forward) + slot.lane_height() * 0.5
     };
-    let room = (ahead - position.dot(forward) - depth * 0.5).max(0.0);
+    let mut room = (ahead - position.dot(forward) - depth * 0.5).max(0.0);
+    if tapped {
+        // Inside the card's footprint untapped, over whose top edge the next
+        // card's badge stands in a duel ([`BadgePlace::Above`]).
+        room = room.min((CARD_HEIGHT - CARD_WIDTH) * 0.5);
+    }
     let n = host.attached.len() as f32;
-    let peek = ATTACH_PEEK.min(room / n);
+    let folded = room + 1e-4 < ATTACH_PEEK * n;
+    let peek = if folded { 0.0 } else { ATTACH_PEEK };
     let drop = ATTACH_DROP.min(ATTACH_DEPTH / n);
     for (k, card) in (1_u16..).zip(&host.attached) {
         let k = f32::from(k);
@@ -4501,6 +4517,7 @@ fn tuck(
             shown,
         });
     }
+    folded
 }
 
 /// Computes placements for the whole table.
@@ -4624,9 +4641,12 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         .is_some_and(|i| group.members.iter().any(|member| i.is_selected(*member))),
                     fan: None,
                 });
-                tuck(
+                let host = out.len() - 1;
+                if tuck(
                     &mut out, duel, slot, lane.kind, group, position, lift, turned, shown,
-                );
+                ) {
+                    out[host].badge = cardplate::attached_word(group.attached.len());
+                }
             }
         }
 

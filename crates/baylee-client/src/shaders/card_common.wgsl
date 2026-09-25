@@ -1758,6 +1758,46 @@ fn plate_layer(
 /// and the most it writes out — `cardplate::COUNT_MIN` and `COUNT_MAX`.
 const COUNT_MIN: u32 = 2u;
 const COUNT_MAX: u32 = 999u;
+/// `cardplate::BADGE_ATTACHED`: the word counts the cards tucked under a
+/// host (#305), from one, and the mark stands in the `×`'s cell.
+const BADGE_ATTACHED: u32 = 65536u;
+
+/// The mark of a host with cards tucked under it (#305), in a figure cell's
+/// units round the cell's middle, `y` down: a card with another peeking out
+/// above and right of it, and air between the two, the size of a figure.
+/// What the table draws when it has the room, drawn where it has not.
+fn tucked_mark(q: vec2<f32>, e: f32) -> f32 {
+    let half = vec2<f32>(0.158, 0.22);
+    let shift = vec2<f32>(0.045, -0.055);
+    let front = sd_round_box(q + shift, half, 0.035);
+    let back = sd_round_box(q - shift, half, 0.035);
+    let over = 1.0 - smoothstep(-e, e, front);
+    let under = (1.0 - smoothstep(-e, e, back)) * smoothstep(-e, e, front - 0.035);
+    return max(over, under);
+}
+
+/// What of the badge's words covers `p`: `text_cover`'s coverage, with the
+/// first cell's `×` swapped for [`tucked_mark`] on a host's word.
+fn badge_cover(
+    p: vec2<f32>,
+    mid: vec2<f32>,
+    cap: f32,
+    line: vec2<u32>,
+    attached: bool,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+    aa: f32,
+) -> f32 {
+    let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
+    let unit = cap / TEXT_CAP;
+    let local = (p - mid) / unit + vec2<f32>(text_width(line) * 0.5, 0.0);
+    let adv = text_adv(GLYPH_TIMES);
+    if !attached || local.x < 0.0 || local.x >= adv || abs(local.y) > 0.5 {
+        return hit.x;
+    }
+    let e = max(aa / unit, 0.02);
+    return tucked_mark(local - vec2<f32>(adv * 0.5, 0.0), e);
+}
 
 /// The count's geometry, in card widths (#261): its box's height, its
 /// corner, where its shadow falls and how soft it is, and the widest it
@@ -1779,6 +1819,10 @@ const BADGE_W: f32 = 0.2006886;
 /// card's top-left corner, `y` down the card. `right` and `top` are where
 /// the count's box's right end and top stand.
 ///
+/// With `BADGE_ATTACHED` set in `count` it is a host's attachment mark
+/// instead (#305): how many cards lie folded under it, from one, with two
+/// tucked cards (`tucked_mark`) in the `×`'s cell (`badge_cover`).
+///
 /// The plate's ink and figure height, because it is one of this client's
 /// numbers and not something printed. It grows leftwards from `right` with
 /// its digits, up to `×99`, and beside the card `right` moves with them so
@@ -1797,11 +1841,13 @@ fn count_badge(
     marks: texture_2d<f32>,
     marks_s: sampler,
 ) -> vec4<f32> {
-    if count < COUNT_MIN {
+    let attached = (count & BADGE_ATTACHED) != 0u;
+    let n = count & ~BADGE_ATTACHED;
+    if n < select(COUNT_MIN, 1u, attached) {
         return vec4<f32>(0.0);
     }
     var line = text_push(vec2<u32>(0u, 0u), GLYPH_TIMES);
-    line = text_number(line, min(count, COUNT_MAX));
+    line = text_number(line, min(n, COUNT_MAX));
     let wants = text_width(line) * PLATE_CAP / TEXT_CAP;
     let cap = PLATE_CAP * min((BADGE_W - 2.0 * PLATE_PAD) / wants, 1.0);
     let w = max(min(wants + 2.0 * PLATE_PAD, BADGE_W), BADGE_H);
@@ -1821,8 +1867,8 @@ fn count_badge(
         at = 2.0 * mid - at;
         under = 2.0 * mid - under;
     }
-    let shadow = text_cover(under, mid, cap, line, marks, marks_s, max(aa, 0.08 * unit));
-    let shade = SHADOW_DEPTH * 1.4 * shadow.x;
-    let hit = text_cover(at, mid, cap, line, marks, marks_s, aa);
-    return strip_over_shadow(INK, hit.x, min(shade, 0.9));
+    let shadow = badge_cover(under, mid, cap, line, attached, marks, marks_s, max(aa, 0.08 * unit));
+    let shade = SHADOW_DEPTH * 1.4 * shadow;
+    let hit = badge_cover(at, mid, cap, line, attached, marks, marks_s, aa);
+    return strip_over_shadow(INK, hit, min(shade, 0.9));
 }

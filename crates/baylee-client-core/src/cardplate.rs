@@ -630,15 +630,30 @@ pub fn count_word(members: usize) -> u32 {
     if n < COUNT_MIN { 0 } else { n.min(COUNT_MAX) }
 }
 
+/// The flag a badge word carries when it counts the cards tucked under a
+/// host (#305) rather than the permanents a merged card stands for. A host
+/// never merges ([`crate::board::Individual::HasAttachments`]), so the two
+/// never want one badge, and the mark stands where the count would: the
+/// shader draws a card with another's top edge above it in place of `×`.
+pub const BADGE_ATTACHED: u32 = 1 << 16;
+const _: () = assert!(COUNT_MAX < BADGE_ATTACHED);
+
+/// What the badge says for a host with `cards` tucked under it that the
+/// row folded out of sight: how many, from one, with [`BADGE_ATTACHED`].
+#[must_use]
+pub fn attached_word(cards: usize) -> u32 {
+    BADGE_ATTACHED | u32::try_from(cards).unwrap_or(u32::MAX).clamp(1, COUNT_MAX)
+}
+
 /// How wide `×count` is at the plate's figure height, padded by the plate's
 /// padding on either side, in card widths: `×` and up to three tabular
-/// digits.
+/// digits. An [`attached_word`]'s mark takes the `×`'s cell.
 ///
 /// What the badge would need for its words. Two digits is all it is given
 /// ([`BADGE_W`]); [`badge_cap`] sets a third smaller to fit.
 #[must_use]
 pub fn count_width(count: u32) -> f32 {
-    let digits = match count {
+    let digits = match count & !BADGE_ATTACHED {
         0..=9 => 1.0,
         10..=99 => 2.0,
         _ => 3.0,
@@ -1350,6 +1365,14 @@ mod tests {
         assert_eq!(count_word(54), 54);
         assert_eq!(count_word(999), 999);
         assert_eq!(count_word(4000), COUNT_MAX, "clamped, not wrapped");
+        // A host's mark counts from one, and says so in its flag.
+        assert_eq!(attached_word(1), BADGE_ATTACHED | 1);
+        assert_eq!(attached_word(0), BADGE_ATTACHED | 1, "never an empty mark");
+        assert_eq!(attached_word(4000), BADGE_ATTACHED | COUNT_MAX);
+        assert!(
+            (count_width(attached_word(3)) - count_width(3)).abs() < 1e-6,
+            "the mark takes ×'s cell"
+        );
     }
 
     /// Nothing of the badge, body or shadow, reaches the name or the cost
