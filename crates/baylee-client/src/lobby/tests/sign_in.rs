@@ -110,6 +110,47 @@ fn the_open_tab_is_the_lit_one_and_the_other_opens_its_form() {
     );
 }
 
+/// #270, AGPL §13: the front door says where the source is, under the Fan
+/// Content notice and on a phone too. It is the address the gateway it
+/// points at gave in `/info`, else this build's own repository.
+#[test]
+fn the_front_door_says_where_the_source_is() {
+    let line = |address: &str| Phrase::SourceCode.fill(Lang::En, &[address]);
+    let fork = "https://git.example/fork/baylee";
+    for width in [1400.0, 390.0] {
+        let mut app = headless();
+        sized(&mut app, width);
+        to_gateway_face(&mut app);
+        let drawn = labels(&mut app);
+        assert!(
+            drawn.contains(&line(baylee_build::REPOSITORY)),
+            "{width} px, no gateway has answered: {drawn:?}"
+        );
+
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            let gateway = state.gateway.clone();
+            state.probes.insert(
+                gateway,
+                Probe::Known(baylee_client_core::lobby::gateway_info::GatewayInfo {
+                    name: None,
+                    version: String::new(),
+                    protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                    view_version: baylee_view::VIEW_VERSION,
+                    source: Some(fork.to_string()),
+                }),
+            );
+        }
+        app.update();
+        let drawn = labels(&mut app);
+        assert!(drawn.contains(&line(fork)), "{width} px: {drawn:?}");
+        assert!(
+            !drawn.contains(&line(baylee_build::REPOSITORY)),
+            "{width} px: the gateway's own address, not this build's"
+        );
+    }
+}
+
 #[test]
 fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     let mut app = headless();

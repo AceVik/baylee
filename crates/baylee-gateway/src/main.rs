@@ -647,8 +647,8 @@ const MAX_SOURCE_CHARS: usize = 200;
 /// that version's source, and a fork may publish it somewhere other than
 /// the repository its `Cargo.toml` names. So an operator can say where;
 /// unset or blank is the repository this build was made from
-/// (`baylee_build::REPOSITORY`). It is meant to be shown to players as it
-/// is (at sign-in, once the client draws it), so it has to be a web address and nothing
+/// (`baylee_build::REPOSITORY`). It is shown to players as it is (the
+/// client's front door draws it), so it has to be a web address and nothing
 /// that displays as something else: `http://` or `https://`, no whitespace,
 /// no control or bidirectional character, at most [`MAX_SOURCE_CHARS`]. Refused
 /// at startup rather than trimmed, as `BAYLEE_GATEWAY_NAME` is.
@@ -695,8 +695,8 @@ fn build_fields() -> serde_json::Map<String, serde_json::Value> {
 
 /// What a client asks before it saves this gateway: the name to show, the
 /// build, the two versions that decide whether the two can talk, and where
-/// the source is (`source`, the AGPL's §13 offer, for the client to show
-/// at sign-in; see [`source_url`]).
+/// the source is (`source`, the AGPL's §13 offer, which the client's front
+/// door draws; see [`source_url`]).
 ///
 /// Unauthenticated, because it is asked before there is an account, and it
 /// carries nothing a stranger may not read. `protocol_version` is the

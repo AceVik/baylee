@@ -960,13 +960,19 @@ fn status_slot(
     slot
 }
 
-/// Under the panels: this build, and the notice the Fan Content Policy
-/// asks for, word for word.
+/// Under the panels: this build, the notice the Fan Content Policy asks
+/// for, word for word, and where the source is.
 ///
 /// The build is the same string the signed-in header draws
 /// (`baylee_build::short()`), for the same reason: it is what a bug report
-/// is worthless without.
-pub(super) fn colophon(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics) -> Entity {
+/// is worthless without. The source line is the AGPL's §13 offer (#270),
+/// drawn where every player passes; see [`source_address`].
+pub(super) fn colophon(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
     let colophon = commands
         .spawn((
             Node {
@@ -998,8 +1004,36 @@ pub(super) fn colophon(commands: &mut Commands, fonts: &UiFonts, metrics: Metric
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(colophon).add_children(&[build, notice]);
+    let source = commands
+        .spawn((
+            Text::new(Phrase::SourceCode.fill(state.lobby.lang(), &[source_address(state)])),
+            tf(fonts, metrics.small * 0.85),
+            TextColor(palette::MUTED.with_alpha(0.8)),
+            // An address is one long word; on a phone it breaks where it
+            // must rather than running off the card.
+            TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(colophon)
+        .add_children(&[build, notice, source]);
     colophon
+}
+
+/// Where the source is, for the colophon.
+///
+/// The AGPL's §13 makes whoever runs a modified gateway offer its players
+/// that version's source, so a gateway says where in `/info` (`source`,
+/// #270) and the front door shows what the gateway it points at said. A
+/// gateway that has not answered, or one too old to say, leaves this
+/// client's own repository, which is this program's source either way.
+pub(super) fn source_address(state: &LobbyState) -> &str {
+    match state.probes.get(&state.gateway) {
+        Some(Probe::Known(info)) => info.source.as_deref(),
+        _ => None,
+    }
+    .unwrap_or(baylee_build::REPOSITORY)
 }
 
 /// Two controls sharing a row in equal halves.

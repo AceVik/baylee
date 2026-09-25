@@ -99,7 +99,9 @@ is no account yet:
   address that is not `http://` or `https://`, is over 200 characters, or
   holds whitespace, a control or a bidirectional character refuses startup.
   The client keeps only an address that is plainly one, and drops rather
-  than cuts anything else (`gateway_info::GatewayInfo::source`).
+  than cuts anything else (`gateway_info::GatewayInfo::source`). Its front
+  door draws it under the Fan Content notice, and draws the client's own
+  repository instead while the gateway has not said.
 
 ## Printings (which art the client draws)
 

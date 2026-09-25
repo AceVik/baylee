@@ -178,9 +178,11 @@ Urheber- und Medienrecht.
    source somewhere else says where with `BAYLEE_SOURCE_URL`. `GET /info`,
    which every client asks before it signs in, carries the same address as
    `source` (#270), so a client can show it where players are rather than
-   only where somebody knows to look. The client reads and keeps it but
-   does not draw it yet; until it does, the offer is no more prominent
-   than `/source` is.
+   only where somebody knows to look. The client's front door draws it
+   under the Fan Content notice, on every panel: the address the gateway
+   it points at gave, else the client's own repository
+   (`lobby::front::source_address`). It is text, not a link: the client
+   has no way to open one yet.
 7. **The card-script reference.** Code generation may read an external,
    GPL-licensed corpus of rules scripts from a checkout the developer
    supplies. It is an automated lookup: no file of it is copied into this

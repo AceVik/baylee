@@ -2161,7 +2161,7 @@ fn front_door(
         Phrase::WelcomeNote.text(state.lobby.lang()),
     );
     let stage = super::front::stage(commands, state, cast, fonts, metrics, scrolled_to);
-    let colophon = super::front::colophon(commands, fonts, metrics);
+    let colophon = super::front::colophon(commands, state, fonts, metrics);
     commands
         .entity(page)
         .add_children(&[brand, tagline, stage, colophon]);

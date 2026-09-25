@@ -203,6 +203,9 @@ messages! {
     ForgetGatewayHint { en: "Only this device forgets it. Your account and decks stay on the gateway.", de: "Nur dieses Gerät vergisst ihn. Dein Konto und deine Decks bleiben auf dem Gateway." },
     /// A saved gateway's dot, pointed at, when it answered.
     GatewayAnswering { en: "answering", de: "antwortet" },
+    /// Under the Fan Content notice: where the source is, the AGPL's §13
+    /// offer (#270). `{0}` is the address, drawn as it came.
+    SourceCode { en: "Source code (AGPL-3.0): {0}", de: "Quellcode (AGPL-3.0): {0}" },
     /// Gateway selection: an address is asked about itself before it is saved.
     GatewayChecking { en: "Checking {0}…", de: "Prüfe {0} …" },
     /// Gateway selection: the address answered and is saved.
