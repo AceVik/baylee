@@ -18,6 +18,7 @@ fn card(slot: u32, flying: bool) -> Placement {
         lift: 0.0,
         tapped: false,
         flying,
+        indestructible: false,
         count: 1,
         badge: 0,
         art: None,

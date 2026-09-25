@@ -1831,9 +1831,47 @@ on objects of its own:
   motion; the material key is the four offers (`cardmat::glow::OFFERS`).
 - **Protection** is a mark on the strip (hexproof, indestructible and shroud
   were appended to `MARK_ORDER` as slots 12–14, the index being the wire and
-  the atlas cell). The shells that are its glance — a brick wall for
-  defender, domes for hexproof and shroud, a steel rim for indestructible —
-  are #298's next step.
+  the atlas cell), and a **shell** round the card is its glance
+  (`shellmat.rs`, `shell.wgsl`). Indestructible's is a rim of darksteel,
+  Magic's own indestructible metal (the owner, 25.09): nearly black, darker
+  than the felt, read by a pale lip along its crest. It stands round the
+  card from `RIM_RISE` (0.010) above its face down to the felt,
+  `RIM_MARGIN` (0.04) out, with a silver band of light going round it once
+  every seven seconds (its mean, when motion is off). Domes for hexproof and shroud and a wall for
+  defender are the next slices. Two rules hold every shell:
+  - **Exactly nothing over its own print.** Its vertex stage hands the
+    fragment the camera in the shell's own space (`get_local_from_world`),
+    the fragment follows its ray to the card's face, and where that meets
+    the print its alpha is zero, opening over `MASK_FEATHER` (0.012) off
+    it (`clear_over_print`, mirrored in Rust and read against the shader
+    by `the_shader_measures_the_card_this_file_does`). Every `return` of
+    the fragment carries it (`every_colour_a_shell_returns_carries_the_mask`).
+    It is the real camera, so it holds at every yaw, hover and tap. From
+    the table's real shots it leaves 0.65 of a standing rim's width to see.
+  - **Never on another card's print.** The mask cannot see a neighbour, so
+    `table::fit_the_shells` asks, after the glide and from where every card
+    and the camera are this frame, how far the rim would throw itself onto
+    each card whose face is below its top edge (`shellmat::rim_stands`).
+    The rim falls to the felt, so a card beside it hides all of it below
+    that card's face, and what reaches it is only the top edge's throw:
+    height over that face × the steepest ray's tangent, about 0.013 at
+    rest. Two untapped cards in neighbouring rows of a ring are 0.0185
+    apart, so a resting rim stands there. Where it does not fit (a fanned
+    row, a flier over a neighbour, a hover in a tight row), the rim lies
+    down as a ring on the felt, `RING_INNER`..`RING_OUTER` (0.10–0.16)
+    out, just outside the offer's light, at `RING_RUNG` under every card,
+    held flat under its card the way a flier's shadow is. A ring stands up
+    again only if the rim would fit `STAND_AGAIN` (a flier's whole bob)
+    higher, so a flier at the edge does not swap on every bob.
+    `a_standing_rim_never_lands_on_another_cards_print` follows the real
+    camera's ray through every point of every standing rim onto every
+    card below it, on duels at three windows and rings of three, four and
+    eight, comfortable and fanned, with and without hovers, from the
+    home shot and every seat's framing: none lands on a print, and both
+    halves of the choice are taken hundreds of times.
+  A card leaving the battlefield loses its shell at once; indestructible
+  means nothing anywhere else, and a rim flying off with its card would
+  no longer be fitted to anything on the way.
 
 - Drawn on the print: its own **finish** (`print_finish`), because a foil is
   what that printing *is* — the one exception the owner accepted — and

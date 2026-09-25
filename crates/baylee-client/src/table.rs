@@ -27,6 +27,7 @@ use crate::face;
 use crate::feltmat::FeltMaterial;
 use crate::floormat::{self, FloorMaterial};
 use crate::marksmat::MarksMaterial;
+use crate::shellmat::{self, ShellKind, ShellMaterial};
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
@@ -1267,12 +1268,13 @@ pub fn glide(
 /// The exclusion makes the card and shadow transform queries disjoint.
 type ShadowOwners = (With<CardVisual>, Without<CardShadow>);
 
-/// The materials of the objects lying on and under a card: its strip, its
-/// count badge and the offer's light on the felt round it.
+/// The materials of the objects lying on and round a card: its strip, its
+/// count badge, the offer's light on the felt round it and its shell.
 type CardCompanions<'w> = (
     ResMut<'w, Assets<MarksMaterial>>,
     ResMut<'w, Assets<BadgeMaterial>>,
     ResMut<'w, Assets<FloorMaterial>>,
+    ResMut<'w, Assets<ShellMaterial>>,
 );
 
 /// Ground flying shadows using the card's live pose, preserving its tapped
@@ -1694,6 +1696,16 @@ pub struct SceneIndex {
     /// The quad every light is drawn on: [`floormat::quad_size`], one mesh
     /// for the whole table.
     floor_quad: Option<Handle<Mesh>>,
+    /// The shell round each indestructible permanent: its rim and the ring
+    /// it lies down to, both children of the card, and which of the two is
+    /// showing. [`fit_the_shells`] decides that every frame, from where
+    /// every card is.
+    shells: HashMap<ObjectId, Shell>,
+    /// One material per kind of shell.
+    shell_materials: HashMap<ShellKind, Handle<ShellMaterial>>,
+    /// The rim's mesh and the ring's, one each for the whole table.
+    rim_mesh: Option<Handle<Mesh>>,
+    ring_mesh: Option<Handle<Mesh>>,
     /// What stands under each card on the table: the slabs of its deck and
     /// its contact shadow, with the count they were built for (#261). Held for the strip's reason, and because a group grows under
     /// the same top card: a deck built once at spawn kept one slab under a
@@ -2088,6 +2100,10 @@ pub fn spawn_stage(
         floor.x * CARD_WIDTH,
         floor.y * DOWN_THE_CARD,
     )));
+    let [inner, outer] = shellmat::RIM_EDGES;
+    index.rim_mesh = Some(meshes.add(shellmat::band_mesh(inner, outer)));
+    let [inner, outer] = shellmat::RING_EDGES;
+    index.ring_mesh = Some(meshes.add(shellmat::band_mesh(inner, outer)));
 
     // The contact shadow: a quad a little larger than a card, carrying a
     // painted halo that is dense under the card and gone by its own edge.
@@ -2976,6 +2992,8 @@ pub fn despawn_stage(
     index.badge_materials.clear();
     index.floors.clear();
     index.floor_materials.clear();
+    index.shells.clear();
+    index.shell_materials.clear();
     index.stacks.clear();
     watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
@@ -3260,6 +3278,176 @@ fn sync_floor(
         .insert(placement.object, (offers, depth, light));
 }
 
+/// Which half of a permanent's shell an entity is ([`shellmat`]).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShellPart {
+    /// The rim standing round the card.
+    Rim,
+    /// The ring on the felt the rim lies down to where it has no room.
+    Ring,
+}
+
+/// The shell round one card: see [`SceneIndex::shells`].
+#[derive(Clone, Copy, Debug)]
+struct Shell {
+    rim: Entity,
+    ring: Entity,
+    /// Whether the rim is standing, as [`fit_the_shells`] last found.
+    standing: bool,
+}
+
+/// Puts an indestructible permanent's shell round it, or takes it away.
+///
+/// Both halves are spawned together, hidden, as children of the card, and
+/// [`fit_the_shells`] shows one of them on the same frame: which one depends
+/// on where every card is once they have all moved, which is not known here.
+/// A card standing in a pile's hover fan has none: it is not on the
+/// battlefield.
+fn sync_shell(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<ShellMaterial>,
+    card: Entity,
+    placement: &Placement,
+    motion: f32,
+) {
+    let wanted = placement.indestructible && placement.fan.is_none();
+    if wanted == index.shells.contains_key(&placement.object) {
+        return;
+    }
+    if !wanted {
+        if let Some(shell) = index.shells.remove(&placement.object) {
+            commands.entity(shell.rim).despawn();
+            commands.entity(shell.ring).despawn();
+        }
+        return;
+    }
+    let (Some(rim_mesh), Some(ring_mesh)) = (index.rim_mesh.clone(), index.ring_mesh.clone())
+    else {
+        return;
+    };
+    let mut material = |kind| {
+        index
+            .shell_materials
+            .entry(kind)
+            .or_insert_with(|| materials.add(ShellMaterial::new(kind, motion)))
+            .clone()
+    };
+    let (rim_material, ring_material) = (material(ShellKind::Rim), material(ShellKind::Ring));
+    let rim = commands
+        .spawn((
+            ShellPart::Rim,
+            Mesh3d(rim_mesh),
+            MeshMaterial3d(rim_material),
+            // Its origin on the card's face, which is the plane its mask
+            // measures the print on.
+            Transform::from_xyz(0.0, 0.0, CARD_THICKNESS),
+            Visibility::Hidden,
+            Pickable::IGNORE,
+        ))
+        .id();
+    let ring = commands
+        .spawn((
+            ShellPart::Ring,
+            Mesh3d(ring_mesh),
+            MeshMaterial3d(ring_material),
+            Transform::default(),
+            Visibility::Hidden,
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_children(&[rim, ring]);
+    index.shells.insert(
+        placement.object,
+        Shell {
+            rim,
+            ring,
+            standing: false,
+        },
+    );
+}
+
+/// Stands each indestructible permanent's rim, or lays it on the felt as a
+/// ring, and keeps the ring flat on the felt under its card.
+///
+/// After the glide, because the question is about where every card *is* this
+/// frame: a card gliding in, a hover lifting one, a flier on its bob. It asks
+/// [`shellmat::rim_stands`] against every card on the table, departing ones
+/// included, from where the camera is. The ring is held at
+/// [`shellmat::RING_RUNG`] under the card's middle, unbanked, the way
+/// [`ground_the_shadows`] holds a flier's shadow; it grows with the card,
+/// since it is drawn round it.
+#[allow(clippy::type_complexity)] // four disjoint views of one table
+pub fn fit_the_shells(
+    mut index: ResMut<SceneIndex>,
+    cards: Query<
+        (Entity, &Transform),
+        (Or<(With<CardVisual>, With<Departing>)>, Without<ShellPart>),
+    >,
+    camera: Query<&Transform, (With<TableCamera>, Without<ShellPart>)>,
+    mut parts: Query<(&mut Visibility, &mut Transform), (With<ShellPart>, Without<TableCamera>)>,
+) {
+    if index.shells.is_empty() {
+        return;
+    }
+    let Ok(eye) = camera.single() else {
+        return;
+    };
+    let eye = eye.translation;
+    let faces: Vec<(Entity, shellmat::Footprint)> = cards
+        .iter()
+        .map(|(entity, at)| (entity, shellmat::Footprint::of(at)))
+        .collect();
+    let SceneIndex {
+        shells,
+        cards: drawn,
+        ..
+    } = &mut *index;
+    for (object, shell) in shells.iter_mut() {
+        let Some(&card) = drawn.get(object) else {
+            continue;
+        };
+        let Ok((_, at)) = cards.get(card) else {
+            continue;
+        };
+        let others = faces
+            .iter()
+            .filter(|(entity, _)| *entity != card)
+            .map(|(_, face)| *face);
+        let headroom = if shell.standing {
+            0.0
+        } else {
+            shellmat::STAND_AGAIN
+        };
+        shell.standing = shellmat::rim_stands(&shellmat::Footprint::of(at), others, eye, headroom);
+        let (rim, ring) = if shell.standing {
+            (Visibility::Inherited, Visibility::Hidden)
+        } else {
+            (Visibility::Hidden, Visibility::Inherited)
+        };
+        if let Ok((mut shown, _)) = parts.get_mut(shell.rim) {
+            shown.set_if_neq(rim);
+        }
+        if let Ok((mut shown, mut lying)) = parts.get_mut(shell.ring) {
+            shown.set_if_neq(ring);
+            let ground = Vec3::new(
+                at.translation.x,
+                TABLE_Y + shellmat::RING_RUNG,
+                at.translation.z,
+            );
+            let right = at.rotation * Vec3::X;
+            let yaw = (-right.z).atan2(right.x);
+            lying.set_if_neq(Transform {
+                translation: at.to_matrix().inverse().transform_point3(ground),
+                rotation: at.rotation.inverse()
+                    * Quat::from_rotation_y(yaw)
+                    * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+                scale: Vec3::ONE,
+            });
+        }
+    }
+}
+
 /// One slab of the deck under a card: depth, not a card. A marker, so the
 /// slabs can be found and counted without being taken for the card.
 #[derive(Component)]
@@ -3419,6 +3607,10 @@ struct Placement {
     /// turns it into facts. Resolved here for the reason the offer and the
     /// corner are — this is where the group's members are.
     flying: bool,
+    /// Whether this card is an indestructible permanent, and so stands in
+    /// its steel rim ([`shellmat`]). Read off the group's badges as flying
+    /// is; false for every pile, where indestructible means nothing.
+    indestructible: bool,
     count: usize,
     /// What the count badge says ([`cardplate::count_word`]): how many
     /// permanents this card stands for when it is a merged group on the
@@ -3560,6 +3752,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // carries them, so two Serra Angels of which one has lost
                     // flying are two groups.
                     flying: group.badges.contains(&KeywordBadge::Flying),
+                    indestructible: group.badges.contains(&KeywordBadge::Indestructible),
                     count: group.count(),
                     badge: cardplate::count_word(group.count()),
                     art: group.art,
@@ -3633,6 +3826,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         // not a permanent and has no keywords to draw, the
                         // same reason its corner is the empty one.
                         flying: false,
+                        indestructible: false,
                         count: if i + 1 == len {
                             under.saturating_sub(len - 1).max(1)
                         } else {
@@ -3675,6 +3869,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 // creature would be inventing a fact.
                 tapped: false,
                 flying: false,
+                indestructible: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 badge: 0,
                 art: pile.art,
@@ -3725,7 +3920,7 @@ pub fn sync_scene(
     mut card_materials: ResMut<Assets<CardMaterial>>,
     // One parameter for the objects lying on and under a card: a system
     // takes sixteen.
-    (mut strip_materials, mut badge_materials, mut floor_materials): CardCompanions<'_>,
+    (mut strip_materials, mut badge_materials, mut floor_materials, mut shell_materials): CardCompanions<'_>,
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
@@ -3808,6 +4003,11 @@ pub fn sync_scene(
         }
         for handle in index.floor_materials.values() {
             if let Some(mut material) = floor_materials.get_mut(handle) {
+                material.params.motion = motion;
+            }
+        }
+        for handle in index.shell_materials.values() {
+            if let Some(mut material) = shell_materials.get_mut(handle) {
                 material.params.motion = motion;
             }
         }
@@ -4092,6 +4292,14 @@ pub fn sync_scene(
             placement,
             motion,
         );
+        sync_shell(
+            &mut commands,
+            &mut index,
+            &mut shell_materials,
+            entity,
+            placement,
+            motion,
+        );
 
         // The text children follow the same decision as the material, and are
         // rebuilt when the snapshot they were made from is no longer current:
@@ -4148,6 +4356,13 @@ pub fn sync_scene(
             index.badges.remove(&id);
             index.floors.remove(&id);
             index.stacks.remove(&id);
+            // Not the shell: indestructible means nothing off the
+            // battlefield, and a rim flying off with its card would no
+            // longer be fitted to anything on the way.
+            if let Some(shell) = index.shells.remove(&id) {
+                commands.entity(shell.rim).despawn();
+                commands.entity(shell.ring).despawn();
+            }
             // A stale id with no move behind it did not leave anywhere: it is
             // a graveyard's old top card, covered by the one that landed on
             // it this frame, or a group that re-keyed when its lowest-id
@@ -4303,6 +4518,10 @@ mod face_tests;
 /// shadow is left behind on the felt when the card takes off.
 #[cfg(test)]
 mod flying_tests;
+/// The shell round an indestructible permanent, on real tables and from the
+/// real camera ([`shellmat`]).
+#[cfg(test)]
+mod shell_tests;
 #[cfg(test)]
 mod stack_tests;
 #[cfg(test)]

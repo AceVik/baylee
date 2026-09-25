@@ -134,7 +134,7 @@ Urheber- und Medienrecht.
    the window of a frame of ours and said everything about the card on the
    frame; the owner did not want the frame, and since #298 the print fills
    the card again and what the frame said lies on **objects** of ours, each
-   with its own shadow, none of them paint in the image. Three of them touch
+   with its own shadow, none of them paint in the image. Four of them touch
    a card, each by the owner's decision:
    - the **strip**, a small dark label lying on the art's bottom-left edge,
      where a modern frame's art meets its type line. The owner allowed it
@@ -155,6 +155,19 @@ Urheber- und Medienrecht.
    - the **offer's light** on the felt round a card, which the card lies on
      and which the next card of a fanned lane covers; the owner accepted
      that it shows only on the felt there.
+   - the **shell** of a protected permanent, first indestructible's steel
+     rim, which stands round the card from just above its face down to the
+     felt. Two rules hold it, by the owner's and the PM's decisions under
+     #298. Over its own print it is exactly transparent: a mask follows the
+     real camera's ray through each of its points to the card's face
+     (`shellmat::the_mask_is_exactly_zero_over_the_print`, and
+     `every_colour_a_shell_returns_carries_the_mask` holds every return
+     to it). It never lands on another card's print: where the rim's throw
+     would reach another card's face this frame, it lies down on the felt
+     as a ring under every card instead
+     (`table::shell_tests::a_standing_rim_never_lands_on_another_cards_print`,
+     swept over duels and rings, fanned rows, fliers, hovers and every
+     camera shot).
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival

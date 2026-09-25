@@ -82,6 +82,7 @@ pub mod prefs;
 pub mod settings;
 pub mod settingsui;
 pub mod sheen;
+pub mod shellmat;
 pub mod sky;
 pub mod softkeys;
 pub mod sound;
@@ -1278,6 +1279,8 @@ fn add_present_systems(app: &mut App) {
                 table::glide.after(table::sync_scene),
                 table::retire,
                 table::ground_the_shadows,
+                // Where the camera is this frame, as well as the cards.
+                table::fit_the_shells.after(table::apply_camera_rig),
             )
                 .chain(),
             // After the glide, and deliberately: a line is welded to where
@@ -1574,6 +1577,7 @@ impl Plugin for DuelPlugin {
             .add_plugins(marksmat::MarksMaterialPlugin)
             .add_plugins(badgemat::BadgeMaterialPlugin)
             .add_plugins(floormat::FloorMaterialPlugin)
+            .add_plugins(shellmat::ShellMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
             .add_plugins(frontal::FrontalPlugin)
             .add_plugins(matmat::MatMaterialPlugin)
