@@ -133,7 +133,15 @@ async fn listen() {
     let listener = tokio::net::TcpListener::bind((bind.as_str(), port))
         .await
         .expect("bind websocket port");
+    let port = listener
+        .local_addr()
+        .expect("a bound listener has an address")
+        .port();
     tracing::info!(port, "baylee-engine-server listening");
+    if let Some(path) = std::env::var_os("BAYLEE_PORT_FILE") {
+        write_port_file(std::path::Path::new(&path), port)
+            .unwrap_or_else(|e| panic!("BAYLEE_PORT_FILE {}: {e}", path.display()));
+    }
     let games: Games =
         std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
     while let Ok((stream, peer)) = listener.accept().await {
@@ -145,6 +153,24 @@ async fn listen() {
             }
         });
     }
+}
+
+/// Writes the port the harness is listening on to `path`, for whoever
+/// started it with `PORT=0` and needs to know where it went (#279).
+///
+/// Its e2e tests are that caller. They used to bind `127.0.0.1:0`, read the
+/// number, let go and start this binary on it, and any other process could
+/// take the port in between. The gateway's `write_port_file` closed the same
+/// gap in its own suite; this is its twin, because the gateway links no
+/// engine crate and this binary links no gateway.
+///
+/// Written beside the target and renamed over it, so a reader polling for
+/// the file never reads half a number. Called once the socket is bound, so
+/// the file's appearance also says a dial will be accepted.
+fn write_port_file(path: &std::path::Path, port: u16) -> std::io::Result<()> {
+    let partial = path.with_extension("partial");
+    std::fs::write(&partial, format!("{port}\n"))?;
+    std::fs::rename(&partial, path)
 }
 
 fn tracing_subscriber_init() {
@@ -892,5 +918,26 @@ mod tests {
             config.max_message_size < Some(64 << 20),
             "the default would be the budget again"
         );
+    }
+
+    /// The port file (#279) holds the port and a newline, replaces what an
+    /// earlier run left, and leaves no half-written file behind it.
+    #[test]
+    fn the_port_file_says_the_port_and_nothing_else() {
+        let dir =
+            std::env::temp_dir().join(format!("baylee-engine-port-file-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("engine.port");
+        std::fs::write(&path, "28765\n").unwrap();
+
+        write_port_file(&path, 49_152).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "49152\n");
+        let left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(left, [std::ffi::OsString::from("engine.port")]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

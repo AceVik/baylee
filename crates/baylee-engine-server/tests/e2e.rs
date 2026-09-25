@@ -37,29 +37,57 @@ struct Server {
     child: std::process::Child,
     /// Where to dial it.
     url: String,
+    /// Where it said which port it bound.
+    port_file: std::path::PathBuf,
 }
 
 impl Server {
-    /// Asks the kernel for a free port, releases it, and starts the binary
-    /// on it.
+    /// Starts the binary on a port of its own choosing and waits for it to
+    /// say which (#279).
     ///
-    /// Probe-then-release is a race, and it is the one these tests have
-    /// always run: the server takes a `PORT` and cannot be handed a bound
-    /// listener, and asking for a fixed port instead would stop three of
-    /// these from running at once.
+    /// These tests used to bind `127.0.0.1:0` themselves, read the number,
+    /// let go and hand it over as `PORT`. That is a race: any other process
+    /// could take the port in between, and with several worktrees gating at
+    /// once the gateway's suite, which did the same, lost it often enough to
+    /// fail two feature gates in three. `PORT=0` lets the kernel pick at the
+    /// bind that keeps it, and `BAYLEE_PORT_FILE` is how the number gets back.
     fn spawn() -> Self {
-        let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = probe.local_addr().unwrap().port();
-        drop(probe);
-        let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
-            .env("PORT", port.to_string())
+        static STARTED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let port_file = std::env::temp_dir().join(format!(
+            "baylee-engine-e2e-{}_{}.port",
+            std::process::id(),
+            STARTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_file(&port_file);
+        let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
+            .env("PORT", "0")
+            .env("BAYLEE_PORT_FILE", &port_file)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
             .expect("spawn server");
+        let mut port = None;
+        for _ in 0..WAIT_TRIES {
+            if let Ok(Some(status)) = child.try_wait() {
+                panic!("the server exited before it said its port ({status})");
+            }
+            port = std::fs::read_to_string(&port_file)
+                .ok()
+                .and_then(|text| text.trim().parse::<u16>().ok());
+            if port.is_some() {
+                break;
+            }
+            std::thread::sleep(WAIT_STEP);
+        }
+        let Some(port) = port else {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("the server never wrote {}", port_file.display());
+        };
         Self {
             child,
             url: format!("ws://127.0.0.1:{port}"),
+            port_file,
         }
     }
 }
@@ -72,6 +100,7 @@ impl Drop for Server {
         // two of these three tests already knew that -- they called `wait`
         // after `kill` and the third did not.
         let _ = self.child.wait();
+        let _ = std::fs::remove_file(&self.port_file);
     }
 }
 
