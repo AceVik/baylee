@@ -1022,6 +1022,12 @@ impl Lens {
         }
     }
 
+    /// The window this projects onto, in logical pixels.
+    #[must_use]
+    pub const fn window(&self) -> Vec2 {
+        self.window
+    }
+
     /// Where a point on the felt is drawn, or `None` if it is behind the eye.
     #[must_use]
     pub fn project(&self, table: Vec2) -> Option<Vec2> {

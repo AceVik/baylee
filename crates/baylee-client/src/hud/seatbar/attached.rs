@@ -83,7 +83,10 @@ pub(super) fn place(
         }
         Some(pose_on(corners, panel))
     })();
-    let Some((corner, tilt, scale)) = pose else {
+    let covered = |&(corner, tilt, scale): &(Vec2, f32, f32)| {
+        lens.is_some_and(|lens| under_the_hand(corner, panel.size(), tilt, scale, lens.window()))
+    };
+    let Some((corner, tilt, scale)) = pose.filter(|pose| !covered(pose)) else {
         if node.display != Display::None {
             node.display = Display::None;
         }
@@ -153,6 +156,39 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
         },
         scale.max(0.0),
     )
+}
+
+/// Whether any of a box posed like this lies under the hand zone (#303).
+///
+/// `corner` is the top-left of the un-rotated box and `size` its size before
+/// `scale`, which is what [`pose_on`] hands over; the turn and the scale are
+/// about the box's own middle.
+///
+/// The bars stand under the whole HUD (`GlobalZIndex(-1)`), and the hand
+/// zone's skirt is a veil over the table and not a lid on it
+/// (`hud::hand::spawn_hand_zone`'s own note). So a bar the camera has put
+/// behind the hand is read through it: aimed at an opponent, the camera
+/// stands over the local seat's own mat, and that seat's name, life and
+/// phases showed faintly under the cards. The felt under the veil is meant
+/// to be seen; ink is not, because it is the one thing there that reads as
+/// writing, and the seat's name and life are on the players' strip above the
+/// bar anyway. A box any part of which would be covered is not drawn at all,
+/// since half a name is worse than none.
+///
+/// Only these panels ask. The legacy marks a seat falls back to
+/// (`Density::Mark`) are drawn where a band is too small to write on, which
+/// is a far seat and never one the camera stands over.
+pub(crate) fn under_the_hand(
+    corner: Vec2,
+    size: Vec2,
+    tilt: f32,
+    scale: f32,
+    window: Vec2,
+) -> bool {
+    let (sin, cos) = tilt.sin_cos();
+    let half = size * scale * 0.5;
+    let reach = sin.abs().mul_add(half.x, cos.abs() * half.y);
+    corner.y + size.y * 0.5 + reach > window.y - crate::hud::HAND_ZONE_H
 }
 
 /// Screen-space centre of the life value, sharing the identity's placement.
@@ -631,6 +667,89 @@ mod tests {
             middle + turn * Vec2::new(half.x, half.y),
             middle + turn * Vec2::new(-half.x, half.y),
         ]
+    }
+
+    /// Where [`place`] puts one panel of `player`'s under this rig, if it
+    /// puts it anywhere.
+    fn placed(
+        layout: &baylee_client_core::layout::TableLayout,
+        rig: crate::table::CameraRig,
+        window: Vec2,
+        player: PlayerId,
+        panel: Panel,
+    ) -> Display {
+        let duel = Duel {
+            layout: Some(layout.clone()),
+            ..Duel::default()
+        };
+        let lens = crate::table::Lens::new(rig, window);
+        let mut node = Node::default();
+        let mut turn = UiTransform::default();
+        place(&duel, Some(&lens), player, panel, &mut node, &mut turn);
+        node.display
+    }
+
+    /// #303: aimed at an opponent, the camera stands over the local seat's
+    /// own mat, and that seat's ink was read through the hand zone's veil.
+    /// It is not drawn there — and the rule hides nothing in the shot every
+    /// table opens on, at any seat count, where every panel is above the
+    /// hand.
+    #[test]
+    fn no_ink_is_written_under_the_hand() {
+        use crate::table::{CameraRig, Canvas};
+        use baylee_client_core::layout::TableLayout;
+        let window = Vec2::new(1728.0, 1052.0);
+        let canvas = Canvas::hud(window);
+        let panels = [
+            Panel::Identity,
+            Panel::Phases,
+            Panel::Zone(Zone::Hand),
+            Panel::Zone(Zone::Library),
+            Panel::Zone(Zone::Graveyard),
+            Panel::Zone(Zone::Exile),
+            Panel::Turn,
+        ];
+        for n in 2..=8u8 {
+            let seats: Vec<PlayerId> = (0..n).map(PlayerId::new).collect();
+            let layout = TableLayout::new(&seats, canvas.aspect(), None);
+            let rig = CameraRig::home(&layout, canvas);
+            for &player in &seats {
+                for panel in panels {
+                    assert_eq!(
+                        placed(&layout, rig, window, player, panel),
+                        Display::Flex,
+                        "{n} seats at home: seat {player:?}'s {panel:?} is hidden"
+                    );
+                }
+            }
+        }
+
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let layout = TableLayout::new(&[me, them], canvas.aspect(), Some(them));
+        let slot = *layout.slot(them).expect("the opponent has a seat");
+        let rig = CameraRig::framing(&slot, Vec2::new(slot.center.x, -slot.center.y));
+        let lens = crate::table::Lens::new(rig, window);
+        let mine = layout.slot(me).expect("so do I");
+        let (corner, tilt, scale) = pose_on(
+            lens.corners(mine.ledge_corners())
+                .expect("my band is in front of the camera"),
+            Panel::Identity,
+        );
+        assert!(
+            under_the_hand(corner, Panel::Identity.size(), tilt, scale, window),
+            "aimed at the opponent, my name no longer stands under the hand, so \
+             this no longer tests the rule"
+        );
+        assert_eq!(
+            placed(&layout, rig, window, me, Panel::Identity),
+            Display::None,
+            "my name is written under the hand zone"
+        );
+        assert_eq!(
+            placed(&layout, rig, window, them, Panel::Identity),
+            Display::Flex,
+            "the seat the camera was aimed at lost its name"
+        );
     }
 
     /// Identity and phases stay separated, including when the band is only
