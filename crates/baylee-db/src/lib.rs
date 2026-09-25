@@ -63,6 +63,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod accounts;
 pub mod entity;
 pub mod guests;
 pub mod import;

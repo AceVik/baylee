@@ -6,6 +6,7 @@
 //! reverse proxy in front of this process (Caddy/nginx) — this service
 //! must never be exposed on a plaintext listener in production.
 
+mod account;
 mod art;
 mod auth;
 mod clock;
@@ -24,7 +25,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use baylee_protocol::names;
 use baylee_protocol::v1::{self, Envelope};
 use lobby::{Lobby, LobbyGame, LobbyState};
@@ -34,6 +35,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
 use store::{Confirmation, Deck, StoredToken};
+use tokio::sync::broadcast::error::RecvError;
 use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
@@ -99,6 +101,10 @@ struct AppState {
     /// for — so the socket re-renders the listing for its own reader rather
     /// than trying to broadcast one answer to everybody.
     lobby_changed: tokio::sync::broadcast::Sender<()>,
+    /// The ids of accounts just deleted (#292), for the lobby sockets
+    /// signed in as them to close. A lobby socket resolves its session once,
+    /// when it opens, so nothing else would tell it.
+    departed: tokio::sync::broadcast::Sender<String>,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///
     /// Without one no agent may connect, and therefore no game can start: an
@@ -195,6 +201,7 @@ async fn main() {
         // not draining, and the lag is handled by sending it the current
         // listing rather than by replaying what it missed.
         lobby_changed: tokio::sync::broadcast::channel(16).0,
+        departed: tokio::sync::broadcast::channel(16).0,
         agents: Mutex::new(engine::Agents::default()),
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
@@ -219,18 +226,9 @@ async fn main() {
         .route("/health", get(health))
         .route("/source", get(source))
         .route("/info", get(info))
-        .route("/auth/config", get(auth_config))
-        .route("/auth/register", post(register))
-        .route("/auth/login", post(login))
-        .route("/auth/guest", post(guest))
-        .route("/auth/confirm", get(confirm))
-        .route("/auth/confirm/resend", post(resend_confirmation))
-        .route("/auth/logout", post(logout))
-        .route("/me", get(me))
-        .route("/players/{handle}", get(player))
+        .merge(account_routes())
         .merge(deck_routes())
         .route("/lobby/games", get(list_games).post(create_game))
-        .route("/settings", get(get_settings).put(put_settings))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/seat", post(take_seat))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
@@ -437,9 +435,11 @@ fn spawn_cleanup(state: Shared) {
                 Err(e) => tracing::warn!("{e:#}"),
             }
             // After the sessions, because a guest goes with its last one
-            // (#269).
-            match store::purge_guests(&state.db, now, None).await {
-                Ok(purged) if purged > 0 => tracing::info!(purged, "idle guests deleted"),
+            // (#269), and out of the lobby with it (#292).
+            match account::depart(&state, store::purge_guests(&state.db, now, None)).await {
+                Ok(gone) if !gone.accounts.is_empty() => {
+                    tracing::info!(purged = gone.accounts.len(), "idle guests deleted");
+                }
                 Ok(_) => {}
                 Err(e) => tracing::warn!("{e:#}"),
             }
@@ -1491,11 +1491,34 @@ async fn logout(
     // asked the player first. An account's is left alone: the query deletes
     // guests only.
     if let Some(account_id) = owner {
-        store::purge_guests(&state.db, auth::now_secs(), Some(&account_id))
-            .await
-            .map_err(|e| db_down(&e))?;
+        let now = auth::now_secs();
+        account::depart(
+            &state,
+            store::purge_guests(&state.db, now, Some(&account_id)),
+        )
+        .await
+        .map_err(|e| db_down(&e))?;
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Signing in and out, and the account itself.
+///
+/// Split off the router `main` builds as [`deck_routes`] is, when deleting
+/// an account (#292) made it one route too long for its function.
+fn account_routes() -> Router<Shared> {
+    Router::new()
+        .route("/auth/config", get(auth_config))
+        .route("/auth/register", post(register))
+        .route("/auth/login", post(login))
+        .route("/auth/guest", post(guest))
+        .route("/auth/confirm", get(confirm))
+        .route("/auth/confirm/resend", post(resend_confirmation))
+        .route("/auth/logout", post(logout))
+        .route("/account", delete(account::delete_account))
+        .route("/me", get(me))
+        .route("/players/{handle}", get(player))
+        .route("/settings", get(get_settings).put(put_settings))
 }
 
 /// The authenticated account's profile.
@@ -3436,17 +3459,40 @@ async fn run_lobby_socket(
     // Subscribed before the first send, so a change that lands while the
     // opening listing is being rendered is not lost between the two.
     let mut changed = state.lobby_changed.subscribe();
+    // And before asking whether the account is still there (#292): one
+    // deleted after the door read its session is refused here, and one
+    // deleted later is named on `departed`.
+    let mut departed = state.departed.subscribe();
+    if !matches!(store::account(&state.db, &account_id).await, Ok(Some(_))) {
+        let _ = socket.send(Message::Close(None)).await;
+        return;
+    }
     loop {
         let payload = listing_page(&state, &account_id, &query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
             return;
         }
-        // A reader that fell behind is sent the state of the world, not the
-        // history it missed: the payload is the whole listing every time, so
-        // one late send says everything the skipped ones would have.
-        match changed.recv().await {
-            Ok(()) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
-            Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+        loop {
+            tokio::select! {
+                // A reader that fell behind is sent the state of the world,
+                // not the history it missed: the payload is the whole
+                // listing every time, so one late send says everything the
+                // skipped ones would have.
+                news = changed.recv() => match news {
+                    Ok(()) | Err(RecvError::Lagged(_)) => break,
+                    Err(RecvError::Closed) => return,
+                },
+                gone = departed.recv() => match gone {
+                    Ok(id) if id != account_id => {}
+                    // Its own account is gone, or so many went at once that
+                    // this reader lost count and cannot tell. A reader that
+                    // is still signed in dials again and is let back in.
+                    _ => {
+                        let _ = socket.send(Message::Close(None)).await;
+                        return;
+                    }
+                },
+            }
         }
     }
 }
@@ -3634,6 +3680,23 @@ fn to_engine(state: &Shared, game_id: &str, msg: v1::envelope::Msg) -> bool {
     })
 }
 
+/// Whether chair `seat` of `game` still holds a seat token. A seated
+/// player's chair loses it only when their account is deleted (#292).
+fn holds_token(game: &lobby::LobbyGame, seat: usize) -> bool {
+    game.seats
+        .get(seat)
+        .is_some_and(|chair| chair.seat_token_hash.is_some())
+}
+
+/// [`holds_token`] for a game named by id, which is gone once reaped.
+fn still_seated(state: &Shared, game_id: &str, seat: usize) -> bool {
+    let lobby = state.lobby.lock();
+    lobby
+        .games
+        .get(game_id)
+        .is_some_and(|game| holds_token(game, seat))
+}
+
 /// One seat's socket: everything it says goes to the engine tagged with its
 /// seat, and everything the engine addresses to that seat comes back.
 ///
@@ -3670,12 +3733,20 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
     // Subscribe BEFORE announcing the seat, so this socket cannot miss its
     // own first view; every envelope addressed to this seat arrives here,
     // including the ones produced by the opponent's actions.
-    let (mut rx, mut ready) = {
+    //
+    // The lobby's changes too, under the same lock the chair is read with:
+    // a chair loses its seat token when its player's account is deleted
+    // (#292), which the socket hears about as a change and then reads.
+    let (mut rx, mut ready, mut changed) = {
         let lobby = state.lobby.lock();
-        let Some(game) = lobby.games.get(&game_id) else {
+        let Some(game) = lobby.games.get(&game_id).filter(|g| holds_token(g, seat)) else {
             return;
         };
-        (game.updates.subscribe(), game.ready.subscribe())
+        (
+            game.updates.subscribe(),
+            game.ready.subscribe(),
+            state.lobby_changed.subscribe(),
+        )
     };
     if !engine_ready(&mut ready).await {
         tracing::warn!(game_id, seat, "no engine attached; seat socket closing");
@@ -3748,6 +3819,14 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+            // Its player's account was deleted (#292): the chair is the
+            // house's once the engine hears the seat has gone, and the
+            // socket goes now.
+            news = changed.recv() => {
+                if matches!(news, Err(RecvError::Closed)) || !still_seated(&state, &game_id, seat) {
+                    break;
                 }
             }
         }

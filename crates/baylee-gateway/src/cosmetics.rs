@@ -105,13 +105,17 @@ impl Kind {
 pub struct Store {
     /// The directory, or `None` when uploads are switched off.
     dir: Option<PathBuf>,
-    /// Held while a picture is stored and its owner recorded, and while a
-    /// picture nobody owns any more is removed (#292).
+    /// Held by an upload from recording its owner to writing its file, and
+    /// by an account's deletion from its delete to removing the pictures
+    /// nobody claims any more (#292).
     ///
     /// A picture is one file however many players upload it, so a deletion
     /// that found no owner left and an upload of the same bytes must not
     /// interleave: the upload would see the file there, skip writing it, add
     /// its owner, and then lose the file to the deletion.
+    ///
+    /// The lock is this process's, so one image directory serves one
+    /// gateway.
     files: tokio::sync::Mutex<()>,
 }
 
@@ -138,10 +142,10 @@ impl Store {
         }
     }
 
-    /// Holds the store's files still (why: the `files` field). Whoever stores a
-    /// picture holds this until its owner is recorded, and whoever removes
-    /// one holds it from asking whether anybody still owns it until the file
-    /// is gone.
+    /// Holds the store's files still (why: the `files` field). An upload
+    /// holds it from recording its owner until its file is written, and a
+    /// deletion from deleting the account until the files nobody claims are
+    /// gone.
     pub async fn hold(&self) -> tokio::sync::MutexGuard<'_, ()> {
         self.files.lock().await
     }
@@ -157,28 +161,72 @@ impl Store {
         Some(self.dir.as_ref()?.join(format!("{id}.jpg")))
     }
 
-    /// Normalises `bytes` as `kind` and stores it, answering with its id.
+    /// Normalises `bytes` as `kind`, ready to be kept, without writing
+    /// anything.
     ///
     /// The id is the hash of the *stored* bytes rather than of the upload, so
     /// two players who crop the same picture the same way share one file — and
     /// re-uploading an unchanged image writes nothing new.
     ///
+    /// Apart from [`Self::keep`] so that the slow half runs before the
+    /// store's lock is taken and the owner is recorded before the file is
+    /// written: a picture that is on disk always has an owner (#292).
+    ///
     /// # Errors
-    /// [`Rejected`] when uploads are off, the body is too large, it does not
-    /// decode, or the directory cannot be written.
-    pub fn put(&self, kind: Kind, bytes: &[u8]) -> Result<String, Rejected> {
-        let dir = self.dir.as_ref().ok_or(Rejected::Disabled)?;
+    /// [`Rejected`] when uploads are off, the body is too large or it does
+    /// not decode.
+    pub fn prepare(&self, kind: Kind, bytes: &[u8]) -> Result<Prepared, Rejected> {
+        if self.dir.is_none() {
+            return Err(Rejected::Disabled);
+        }
         if bytes.len() > MAX_UPLOAD_BYTES {
             return Err(Rejected::TooLarge);
         }
         let encoded = normalise(kind, bytes)?;
-        let id = hex(&Sha256::digest(&encoded));
+        Ok(Prepared {
+            id: hex(&Sha256::digest(&encoded)),
+            encoded,
+        })
+    }
+
+    /// Writes a prepared picture, unless its file is there already.
+    ///
+    /// # Errors
+    /// [`Rejected`] when uploads are off or the directory cannot be written.
+    pub fn keep(&self, prepared: &Prepared) -> Result<(), Rejected> {
+        let dir = self.dir.as_ref().ok_or(Rejected::Disabled)?;
         std::fs::create_dir_all(dir).map_err(|_| Rejected::Storage)?;
-        let path = dir.join(format!("{id}.jpg"));
+        let path = dir.join(format!("{}.jpg", prepared.id));
         if !path.exists() {
-            std::fs::write(&path, &encoded).map_err(|_| Rejected::Storage)?;
+            std::fs::write(&path, &prepared.encoded).map_err(|_| Rejected::Storage)?;
         }
-        Ok(id)
+        Ok(())
+    }
+
+    /// Normalises and writes in one call, answering the id.
+    #[cfg(test)]
+    pub fn put(&self, kind: Kind, bytes: &[u8]) -> Result<String, Rejected> {
+        let prepared = self.prepare(kind, bytes)?;
+        self.keep(&prepared)?;
+        Ok(prepared.id)
+    }
+
+    /// Removes one stored picture (#292). One that is not there, or an id
+    /// that names no picture, is nothing to remove.
+    ///
+    /// # Errors
+    /// When the file is there and cannot be removed.
+    pub fn remove(&self, id: &str) -> std::io::Result<()> {
+        if !well_formed(id) {
+            return Ok(());
+        }
+        let Some(path) = self.path(id) else {
+            return Ok(());
+        };
+        match std::fs::remove_file(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            done => done,
+        }
     }
 
     /// Reads one back, or `None` when it is not there.
@@ -189,6 +237,14 @@ impl Store {
         }
         std::fs::read(self.path(id)?).ok()
     }
+}
+
+/// A picture normalised for storing: [`Store::prepare`], then [`Store::keep`].
+pub struct Prepared {
+    /// Its id, the hash of `encoded`.
+    pub id: String,
+    /// The JPEG to store.
+    encoded: Vec<u8>,
 }
 
 /// Why an upload was refused.
@@ -368,28 +424,40 @@ pub async fn upload(
     // Decoding and rescaling a photograph is not something to do on the async
     // runtime's thread: one upload would stall every socket the gateway is
     // holding, and it holds all of them.
-    //
-    // The file and its owner go together, never between a deletion's check
-    // that nobody owns a picture and its removal of the file (#292).
+    let prepared = match tokio::task::spawn_blocking(move || store.prepare(kind, &bytes)).await {
+        Ok(Ok(prepared)) => prepared,
+        Ok(Err(rejected)) => return refused(rejected),
+        Err(_) => return err(StatusCode::INTERNAL_SERVER_ERROR, "upload failed").into_response(),
+    };
+    let id = prepared.id.clone();
+    // The owner first and then the file, both under the store's lock, which
+    // an account's deletion holds from its delete until the files nobody
+    // claims are gone (#292). So a file on disk always has an owner: an
+    // upload racing its own account's deletion fails on the missing
+    // account before it writes, and one of the same picture as a deleted
+    // account's waits, then writes the file anew.
     let _files = state.deck_images.hold().await;
-    let stored = tokio::task::spawn_blocking(move || store.put(kind, &bytes)).await;
-    match stored {
+    if let Err(e) = crate::store::own_upload(&state.db, &id, &owner, kind.as_str()).await {
+        return crate::db_down(&e).into_response();
+    }
+    let store = Arc::clone(&state.deck_images);
+    match tokio::task::spawn_blocking(move || store.keep(&prepared)).await {
         // The kind comes back with the id because the client uploads both
         // through one path and files the answer under what it asked for; a
         // reply that only said `id` would make the caller remember which
         // request this was.
-        Ok(Ok(id)) => {
-            if let Err(e) = crate::store::own_upload(&state.db, &id, &owner, kind.as_str()).await {
-                return crate::db_down(&e).into_response();
-            }
+        Ok(Ok(())) => {
             axum::Json(serde_json::json!({ "id": id, "kind": kind.as_str() })).into_response()
         }
-        Ok(Err(rejected)) => {
-            let (status, message) = rejected.parts();
-            err(status, message).into_response()
-        }
+        Ok(Err(rejected)) => refused(rejected),
         Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "upload failed").into_response(),
     }
+}
+
+/// A refused upload, as the wire says it.
+fn refused(rejected: Rejected) -> Response {
+    let (status, message) = rejected.parts();
+    err(status, message).into_response()
 }
 
 /// `GET /images/{id}` — one stored cosmetic.

@@ -532,6 +532,38 @@ impl Lobby {
         out
     }
 
+    /// Takes a deleted account out of every table (#292), and says whether
+    /// it sat at any.
+    ///
+    /// Its chairs are emptied whatever the table is doing, since a chair
+    /// keeps the player's account, deck and seat token. A finished table
+    /// matters too: a rematch copies its chairs, deck included. A waiting
+    /// room it hosted passes on as when its host leaves, and closes when
+    /// nobody is left to take it. A running game plays on: the engine's
+    /// house plays the emptied chair once its reconnect window has run out,
+    /// and no player is left to hand a table to that has nobody.
+    pub fn forget_account(&mut self, account_id: &str, now: u64) -> bool {
+        let mut sat = false;
+        for game in self.games.values_mut() {
+            for chair in &mut game.seats {
+                if chair.account_id.as_deref() == Some(account_id) {
+                    chair.vacate();
+                    sat = true;
+                }
+            }
+            if game.hosted_by(account_id) {
+                sat = true;
+                if !game.hand_over_host() {
+                    game.host = None;
+                    if game.state == LobbyState::Waiting {
+                        game.finish(now);
+                    }
+                }
+            }
+        }
+        sat
+    }
+
     /// Games visible in the lobby (waiting or playing), searched and paged.
     ///
     /// `me` is the account asking, so a seat can say whether it is theirs
@@ -1078,5 +1110,51 @@ mod tests {
             !room.hand_over_host(),
             "a room with nobody left to arrange it says so"
         );
+    }
+
+    /// #292: a deleted account leaves nothing of itself at any table, in
+    /// any state: no chair holds its account, seat token or deck, and no
+    /// table names it as host. A waiting room passes to the next player or
+    /// closes; a running game keeps running.
+    #[test]
+    fn a_deleted_account_leaves_every_table() {
+        let mut lobby = Lobby::default();
+        for (id, state) in [
+            ("waiting", LobbyState::Waiting),
+            ("alone", LobbyState::Waiting),
+            ("playing", LobbyState::Playing),
+            ("over", LobbyState::Over),
+        ] {
+            room_in(&mut lobby, id, id, "gone", 0, state);
+        }
+        for id in ["waiting", "playing", "over"] {
+            lobby.games.get_mut(id).unwrap().seats[1] = occupied(1, "stays", 5);
+        }
+        assert!(lobby.forget_account("gone", 100));
+
+        for game in lobby.games.values() {
+            assert!(!game.hosted_by("gone"), "{} still names it host", game.id);
+            for chair in &game.seats {
+                assert_ne!(chair.account_id.as_deref(), Some("gone"), "{}", game.id);
+                if chair.account_id.is_none() {
+                    assert_eq!(chair.seat_token_hash, None, "{}", game.id);
+                    assert!(
+                        chair.deck.is_none() && chair.deck_name.is_empty(),
+                        "{}",
+                        game.id
+                    );
+                }
+            }
+        }
+        let state = |id: &str| lobby.games[id].state;
+        assert!(lobby.games["waiting"].hosted_by("stays"), "passed on");
+        assert_eq!(state("waiting"), LobbyState::Waiting);
+        assert_eq!(state("alone"), LobbyState::Over, "nobody to take it");
+        assert_eq!(state("playing"), LobbyState::Playing, "the game plays on");
+        assert_eq!(
+            lobby.games["playing"].seats[1].account_id.as_deref(),
+            Some("stays")
+        );
+        assert!(!lobby.forget_account("gone", 101), "nothing left of it");
     }
 }

@@ -6,16 +6,16 @@
 //! This is where such a guest goes, with its decks, their history and its
 //! preferences (the cascades of 000001).
 
-use sea_orm::{ConnectionTrait, DbErr, Statement};
+use crate::accounts::{Gone, delete_where};
+use sea_orm::{ConnectionTrait, DbErr};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// Deletes every guest that no session live at `now` leads to, or only
-/// `only` when it is such a guest, and says how many went.
+/// `only` when it is such a guest, and answers what went
+/// ([`crate::accounts`]).
 ///
 /// An account that is not a guest is never touched, whatever its sessions.
-/// A copy another player made of one of a guest's decks stays, pointing at
-/// nothing (`deck_copied_from` is `SET NULL`).
 ///
 /// # Errors
 ///
@@ -24,17 +24,18 @@ pub async fn purge(
     db: &impl ConnectionTrait,
     now: OffsetDateTime,
     only: Option<Uuid>,
-) -> Result<u64, DbErr> {
-    const UNREACHABLE: &str = "DELETE FROM account a WHERE a.guest AND NOT EXISTS \
+) -> Result<Gone, DbErr> {
+    const UNREACHABLE: &str = "a.guest AND NOT EXISTS \
          (SELECT 1 FROM session_token s WHERE s.account_id = a.id AND s.expires_at > $1)";
-    let backend = db.get_database_backend();
-    let statement = match only {
-        None => Statement::from_sql_and_values(backend, UNREACHABLE, [now.into()]),
-        Some(account) => Statement::from_sql_and_values(
-            backend,
-            format!("{UNREACHABLE} AND a.id = $2"),
-            [now.into(), account.into()],
-        ),
-    };
-    Ok(db.execute_raw(statement).await?.rows_affected())
+    match only {
+        None => delete_where(db, UNREACHABLE, vec![now.into()]).await,
+        Some(account) => {
+            delete_where(
+                db,
+                &format!("{UNREACHABLE} AND a.id = $2"),
+                vec![now.into(), account.into()],
+            )
+            .await
+        }
+    }
 }

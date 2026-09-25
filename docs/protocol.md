@@ -1538,6 +1538,35 @@ so a guest is `Guest#1a2b` to the other players.
 Turning a guest into an account, keeping its decks, is not part of this
 (#269 leaves it to an issue of its own).
 
+## Deleting an account (#292)
+
+`DELETE /account` deletes the caller's own account and answers `204`.
+
+- **The password is asked again** of a registered account, as
+  `{"password": "…"}`: a session left signed in on somebody else's machine
+  is not enough. A wrong one is `403` `wrong password`, not `401`, because
+  the session is still good. The tries count against the same eight in five
+  minutes a sign-in has (`429` `too many attempts`). A guest has no
+  password and sends `{}`: its session is enough. The body is JSON either
+  way.
+- **What goes, in one statement** (`baylee_db::accounts::delete`): the
+  account, its sessions, confirmation links, decks with their history,
+  preferences, and its claims on uploaded pictures. A picture no other
+  account claims is removed, file and all, and a deck that still named it
+  names none. One another player uploaded too stays theirs. Another
+  player's copy of one of its decks stays, pointing at nothing.
+- **What goes from memory:** its chair at every lobby table. A waiting
+  room it hosted passes to the player who joined next, or closes with
+  nobody left. Its lobby sockets close.
+- **At a running table** its seat socket closes and its seat token opens
+  nothing any more. The engine hears the seat has gone (`SeatDetached`),
+  and once the reconnect window has run out, the house plays the chair to
+  the end of the game. The engine keeps the handle it was given at the
+  start in memory until the game ends and writes nothing. A rematch of the
+  table has that chair empty.
+- A guest that goes, signed out or lapsed, leaves its chairs and sockets
+  the same way.
+
 ## A name is not a claim: `Alice#af03`
 
 A display name is **not** unique. Two players may both register as Alice, and
@@ -1591,6 +1620,7 @@ from a curl recipe into a contract:
 | sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}` |
 | play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
+| leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, sleeve, playmat}]` |

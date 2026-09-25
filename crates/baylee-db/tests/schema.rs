@@ -748,6 +748,65 @@ async fn deleting_an_account_takes_everything_it_owned() {
     sandbox.close().await;
 }
 
+/// An account's deletion answers every picture it claimed, read in the one
+/// statement whose cascade removes the claims (#292): the caller removes
+/// the files nobody claims any more, and could not find them afterwards.
+/// Another account's claim on the same picture stays.
+#[tokio::test]
+async fn a_deletion_says_which_pictures_its_account_claimed() {
+    let sandbox = Sandbox::open("delete_pictures").await;
+    let mut players = Vec::new();
+    for email in ["leaver@example.com", "stayer@example.com"] {
+        let account = an_account(email);
+        let Set(id) = account.id else { unreachable!() };
+        Account::insert(account).exec(&sandbox.db).await.unwrap();
+        players.push(id);
+    }
+    let (leaver, stayer) = (players[0], players[1]);
+    let (shared, own) = ("aa".repeat(32), "bb".repeat(32));
+    for (image, account, kind) in [
+        (&shared, leaver, "sleeve"),
+        (&own, leaver, "playmat"),
+        (&shared, stayer, "sleeve"),
+    ] {
+        Upload::insert(upload::ActiveModel {
+            image_id: Set(image.clone()),
+            account_id: Set(account),
+            kind: Set(kind.to_owned()),
+            created_at: Set(OffsetDateTime::now_utc()),
+        })
+        .exec(&sandbox.db)
+        .await
+        .unwrap();
+    }
+
+    let gone = baylee_db::accounts::delete(&sandbox.db, leaver)
+        .await
+        .expect("the deletion");
+    assert_eq!(gone.accounts, [leaver]);
+    let mut claimed = vec![shared.clone(), own.clone()];
+    claimed.sort();
+    assert_eq!(gone.pictures, claimed, "both, though the cascade took them");
+
+    let left: Vec<(String, Uuid)> = Upload::find()
+        .all(&sandbox.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|u| (u.image_id, u.account_id))
+        .collect();
+    assert_eq!(left, [(shared, stayer)], "the other claim stays");
+    assert_eq!(
+        baylee_db::accounts::delete(&sandbox.db, leaver)
+            .await
+            .unwrap(),
+        baylee_db::accounts::Gone::default(),
+        "nobody left to delete"
+    );
+
+    sandbox.close().await;
+}
+
 /// The pictures uploaded before anybody recorded who uploaded them (#292)
 /// belong to every account with a deck that shows them: the uploader, or a
 /// player who copied the uploader's deck. A deck of nobody's gives nobody a
@@ -1148,7 +1207,11 @@ async fn a_guest_goes_with_its_last_session_and_takes_its_decks() {
     let copy = Deck::insert(copy).exec_with_returning(db).await.unwrap().id;
 
     assert_eq!(
-        baylee_db::guests::purge(db, now, None).await.unwrap(),
+        baylee_db::guests::purge(db, now, None)
+            .await
+            .unwrap()
+            .accounts
+            .len(),
         2,
         "the lapsed guest and the one signed out"
     );
@@ -1183,19 +1246,20 @@ async fn a_guest_goes_with_its_last_session_and_takes_its_decks() {
         baylee_db::guests::purge(db, now, Some(playing))
             .await
             .unwrap(),
-        0
+        baylee_db::accounts::Gone::default()
     );
     assert_eq!(
         baylee_db::guests::purge(db, now + 2 * hour, Some(keeper))
             .await
             .unwrap(),
-        0
+        baylee_db::accounts::Gone::default()
     );
     assert_eq!(
         baylee_db::guests::purge(db, now + 2 * hour, Some(playing))
             .await
-            .unwrap(),
-        1
+            .unwrap()
+            .accounts,
+        [playing]
     );
     assert_eq!(Account::find().count(db).await.unwrap(), 1);
 

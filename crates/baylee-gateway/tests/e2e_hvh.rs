@@ -362,3 +362,131 @@ async fn the_curtain_goes_up_for_both_seats_once_both_are_ready() {
         );
     }
 }
+
+/// The next text frame on a lobby socket.
+async fn next_listing(socket: &mut common::Socket) -> String {
+    loop {
+        let frame = tokio::time::timeout(common::WAIT_BUDGET, socket.next())
+            .await
+            .expect("the lobby socket said nothing")
+            .expect("the lobby socket closed")
+            .expect("the lobby socket errored");
+        if let tokio_tungstenite::tungstenite::Message::Text(text) = frame {
+            return text.to_string();
+        }
+    }
+}
+
+/// Waits for a socket to close, and says whether it did in time.
+async fn closes(socket: &mut common::Socket) -> bool {
+    tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match socket.next().await {
+                None | Some(Err(_)) => return,
+                Some(Ok(frame)) if frame.is_close() => return,
+                Some(Ok(_)) => {}
+            }
+        }
+    })
+    .await
+    .is_ok()
+}
+
+/// #292: a player who deletes their account in the middle of a game leaves
+/// the table. Their seat socket closes and their seat token opens nothing
+/// any more, so the engine hears the seat has gone and its house plays the
+/// chair once the reconnect window has run out. Their lobby socket closes
+/// too. The other player's game and lobby go on, and the lobby no longer
+/// names the one who left.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // e2e scenario script
+async fn a_player_who_deletes_their_account_leaves_the_table() {
+    let gw = spawn_gateway("hvh_farewell");
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let (game_id, seat_token_a, seat_token_b) = start_two_seats(port);
+    let mut ws_a = common::dial_seat(port, &game_id, &seat_token_a).await;
+    let mut ws_b = common::dial_seat(port, &game_id, &seat_token_b).await;
+    let asked = |env: &Envelope| matches!(env.msg, Some(v1::envelope::Msg::ChoiceRequest(_)));
+    recv_until(&mut ws_a, asked).await;
+    let Some(v1::envelope::Msg::ChoiceRequest(bobs)) = recv_until(&mut ws_b, asked).await.msg
+    else {
+        panic!("checked above");
+    };
+
+    // Each player's own session, for the lobby and the deletion.
+    let session = |username: &str| {
+        let creds =
+            format!("{{\"username\":\"{username}\",\"password\":\"a-very-fine-password\"}}");
+        let (status, body) = http(port, "POST", "/auth/login", None, &creds);
+        assert_eq!(status, 200, "{body}");
+        json_field(&body, "token").to_string()
+    };
+    let (alice, bob) = (session("alice"), session("bob"));
+    let lobby = |token: &str| format!("ws://127.0.0.1:{port}/lobby/ws?token={token}");
+    let (mut lobby_a, _) = tokio_tungstenite::connect_async(lobby(&alice))
+        .await
+        .expect("alice's lobby socket");
+    let (mut lobby_b, _) = tokio_tungstenite::connect_async(lobby(&bob))
+        .await
+        .expect("bob's lobby socket");
+    next_listing(&mut lobby_a).await;
+    let before = next_listing(&mut lobby_b).await;
+    assert!(
+        before.contains("alice_hvh"),
+        "alice is at the table: {before}"
+    );
+
+    let (status, body) = http(
+        port,
+        "DELETE",
+        "/account",
+        Some(&alice),
+        "{\"password\":\"a-very-fine-password\"}",
+    );
+    assert_eq!(status, 204, "{body}");
+
+    assert!(closes(&mut ws_a).await, "alice's seat socket stayed open");
+    assert!(
+        closes(&mut lobby_a).await,
+        "alice's lobby socket stayed open"
+    );
+    match tokio_tungstenite::connect_async(common::seat_url(port, &game_id, &seat_token_a)).await {
+        Err(tokio_tungstenite::tungstenite::Error::Http(refused)) => {
+            assert_eq!(refused.status(), 401, "alice's seat token");
+        }
+        other => panic!("alice's seat token still opens a seat: {:?}", other.is_ok()),
+    }
+
+    let after = next_listing(&mut lobby_b).await;
+    assert!(
+        after.contains("bob_hvh"),
+        "bob is still at the table: {after}"
+    );
+    assert!(
+        !after.contains("alice_hvh"),
+        "the lobby forgot alice: {after}"
+    );
+
+    // And bob's game goes on: his answer is heard and answered.
+    let keep = Envelope {
+        msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+            game_id: String::new(),
+            seat_token: String::new(),
+            action_json: serde_json::to_vec(&PlayerAction::MulliganKeep).unwrap(),
+        })),
+    };
+    ws_b.send(tokio_tungstenite::tungstenite::Message::Binary(
+        keep.encode_to_vec().into(),
+    ))
+    .await
+    .expect("bob keeps");
+    recv_until(&mut ws_b, |env| match &env.msg {
+        Some(v1::envelope::Msg::StateDelta(d)) => d.seq > bobs.seq,
+        Some(v1::envelope::Msg::ChoiceRequest(r)) => r.seq > bobs.seq,
+        _ => false,
+    })
+    .await;
+
+    agent.abort();
+}

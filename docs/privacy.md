@@ -12,13 +12,13 @@ the pointers, because line numbers move.
 
 | What | Where | Kept | Removed by |
 | --- | --- | --- | --- |
-| Account | Postgres `account` | indefinitely | nothing (no route; see [Open points](#open-points)) |
+| Account | Postgres `account` | until its player deletes it | `DELETE /account` |
 | Guest account | Postgres `account` (`guest`) | until its last session lapses, 29–30 days after its last request | the sweep, or signing out |
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, or the next resend for that account |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
-| Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | indefinitely | nothing (an owner row: the account's deletion) |
+| Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it | the deletion of the last account that does |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
@@ -53,13 +53,17 @@ the pointers, because line numbers move.
     to any signed-in session, guests included.
   - The lobby shows handles, never ids.
   - `GET /me` shows the owner everything but the hash.
-- **Kept:** indefinitely.
-- **Removed:** no route and no store function deletes a registered account.
-  If a row is deleted by hand, the foreign keys cascade to its decks and
-  their history, sessions, confirmations and settings
+- **Kept:** until its player deletes it.
+- **Removed:** `DELETE /account` (`account::delete_account`), with the
+  password asked again (a guest's session is enough). One statement,
+  `baylee_db::accounts::delete`, deletes the row, and the foreign keys
+  cascade to its decks and their history, sessions, confirmations, settings
+  and picture claims
   (`crates/baylee-db/src/migration/m20260915_000001_account_side.rs`,
-  `…m20260916_000002_deck_kinds_and_history.rs`). A copy another player took
-  of one of its decks survives, with `copied_from` set to null.
+  `…m20260916_000002_deck_kinds_and_history.rs`,
+  `…m20260925_000008_upload_owners.rs`). Then the gateway
+  removes the pictures nobody claims any more (see below) and takes the
+  account out of every lobby table and socket (`account::forget_accounts`).
 
 ## Guests (#269)
 
@@ -75,7 +79,9 @@ the pointers, because line numbers move.
     with no live session. It runs every 600 s in `spawn_cleanup`, after the
     session sweep.
   - `POST /auth/logout` deletes the guest at once.
-  - Either way the cascade takes its decks, history and settings.
+  - `DELETE /account`, with the guest's session.
+  - Every way, the cascade takes its decks, history and settings, and the
+    gateway lets go of it as of a deleted account (above).
 - **Limits:** `BAYLEE_GUEST_CAP` caps live guests (default 1000), and
   `BAYLEE_GUESTS=off` turns guests off.
 
@@ -130,7 +136,8 @@ the pointers, because line numbers move.
   deck name or note (`baylee_core::preset`).
 - **Kept:** indefinitely.
 - **Removed:** `DELETE /decks/{id}` (`store::delete_deck`), and the history
-  with it by cascade. The sleeve and mat files stay (see below).
+  with it by cascade. The sleeve and mat files stay while an account claims
+  them (see below).
 
 ## Settings
 
@@ -159,8 +166,10 @@ the pointers, because line numbers move.
 - **Who may read:** anyone who has the id. `GET /images/{id}` asks for no
   session and is cached `public` for a year. A deck's images reach the other
   seats at its table through `GET /games/{id}/cosmetics`.
-- **Removed:** never. Deleting a deck, an account or a guest leaves the file.
-  An owner row goes with its account.
+- **Removed:** when the last account claiming it is deleted
+  (`account::forget_pictures`): the file, and any deck's mention of it.
+  Deleting a deck leaves the file. A picture uploaded before #292 that no
+  deck showed has no owner and is never removed.
 
 ## Lobby tables (memory)
 
@@ -178,6 +187,9 @@ the pointers, because line numbers move.
   - a finished game goes 1 h after it ended (`OVER_GRACE_SECS`), unless a
     rematch room still points at it;
   - a restart loses all of it.
+- **Removed early:** a deleted account's chairs are emptied at every table,
+  waiting, running or over (`Lobby::forget_account`), and its seat and lobby
+  sockets close. A running game plays on with the house in that chair.
 
 ## Rate limits (memory)
 
@@ -186,7 +198,7 @@ the pointers, because line numbers move.
   from a peer listed in `BAYLEE_TRUSTED_PROXIES` (`rate_limit_ip`).
 - `AppState.sign_in_limiter` (8 per 300 s) is keyed by the account, or by
   what was typed when no account matches, which can be an e-mail address.
-  A successful sign-in forgets the key.
+  A successful sign-in forgets the key, and so does an account's deletion.
 - The art mirror's limiter is keyed by account id (`art::OUTBOUND_PER_ACCOUNT`).
 - `auth::RateLimiter` prunes a key's old hits when the key is used, and drops
   idle keys in a sweep that runs inside the next check made after a window
@@ -198,7 +210,8 @@ the pointers, because line numbers move.
 - The **agent** receives a game id, a per-game engine token and the gateway
   URL (`StartEngine`), and nothing about players. It writes no files.
 - The **engine** receives `GameSetup`:
-  - the seats' handles (`Name#tag`, or "House AI");
+  - the seats' handles (`Name#tag`, or "House AI"), for the whole game,
+    also a player's who deletes their account during it;
   - the preset: seed, house rules, printings, and each seat's cards, team and
     controller;
   - then each seat's actions and standing answers.
@@ -217,7 +230,8 @@ the pointers, because line numbers move.
   `tower-http` trace layer) and no JSON output. How long stdout is kept is up
   to whatever runs the process.
 - **What is personal in them:** game ids, seat numbers, an agent's operator
-  label, and counts (for example "idle guests deleted"). No log line names
+  label, counts (for example "idle guests deleted"), and the id of a picture
+  whose file could not be removed. No log line names
   a username, e-mail, display name, account id, IP address or token.
   - The engine's development harness (`baylee-engine-server` without
     `--attach`) logs a connecting peer's address. It binds loopback by
@@ -285,19 +299,20 @@ decks and settings as JSON.
 Found while writing this inventory. They are facts for the owner and the PM
 to weigh, not conclusions.
 
-1. **An account cannot be deleted.** No route or store function deletes a
-   registered account. `docs/legal.md` §4 says "account deletion endpoint".
-2. **Uploaded images:**
-   - they are never deleted;
-   - they are readable by anyone with the id, without a session;
+1. **Uploaded images:**
+   - they are readable by anyone with the id, without a session, and cached
+     `public` for a year, so a copy can outlive the file's removal;
    - the ones uploaded before #292 that no deck showed have no owner, so
-     no account's deletion can take them.
-3. **Confirmation rows:**
+     no account's deletion can take them;
+   - a gateway that stops between an account's deletion and the removal of
+     its pictures leaves those files behind with no owner: the deletion
+     commits first.
+2. **Confirmation rows:**
    - there is no periodic sweep, contrary to the entity's doc;
    - expired rows go only when the same account asks for a resend.
-4. **The legacy import file** stays on disk after import, with e-mails and
+3. **The legacy import file** stays on disk after import, with e-mails and
    password hashes in it.
-5. **Tokens in query strings** (listed under Logs) are exposed to whatever
+4. **Tokens in query strings** (listed under Logs) are exposed to whatever
    access log sits in front of the gateway.
-6. **Retention of stdout logs and of backups** is not set anywhere in the
+5. **Retention of stdout logs and of backups** is not set anywhere in the
    repository.

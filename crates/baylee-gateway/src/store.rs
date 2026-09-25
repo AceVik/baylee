@@ -525,22 +525,83 @@ pub async fn guest_count(db: &DatabaseConnection) -> Result<u64> {
         .await?)
 }
 
+/// What deleting accounts took (#292): the accounts, spelled as the lobby
+/// and the sessions spell them, and every picture one of them claimed. A
+/// picture here may still be claimed by somebody else ([`let_go`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Gone {
+    /// The deleted accounts' ids.
+    pub accounts: Vec<String>,
+    /// The ids of the pictures they claimed.
+    pub pictures: Vec<String>,
+}
+
+impl From<baylee_db::accounts::Gone> for Gone {
+    fn from(gone: baylee_db::accounts::Gone) -> Self {
+        Self {
+            accounts: gone.accounts.iter().map(Uuid::to_string).collect(),
+            pictures: gone.pictures,
+        }
+    }
+}
+
 /// Delete every guest no live session leads to any more, or only `only`,
-/// answering how many went (#269). The account is gone with its decks and
+/// answering what went (#269). The account is gone with its decks and
 /// preferences: [`baylee_db::guests::purge`].
 ///
 /// # Errors
 ///
 /// If the database refuses.
-pub async fn purge_guests(db: &DatabaseConnection, now: u64, only: Option<&str>) -> Result<u64> {
+pub async fn purge_guests(db: &DatabaseConnection, now: u64, only: Option<&str>) -> Result<Gone> {
     let only = match only {
         None => None,
         Some(account_id) => match uuid(account_id) {
             Some(account_id) => Some(account_id),
-            None => return Ok(0),
+            None => return Ok(Gone::default()),
         },
     };
-    Ok(baylee_db::guests::purge(db, at(now), only).await?)
+    Ok(baylee_db::guests::purge(db, at(now), only).await?.into())
+}
+
+/// Delete one account and everything it owns (#292), answering what went:
+/// [`baylee_db::accounts::delete`].
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn delete_account(db: &DatabaseConnection, account_id: &str) -> Result<Gone> {
+    let Some(account) = uuid(account_id) else {
+        return Ok(Gone::default());
+    };
+    Ok(baylee_db::accounts::delete(db, account).await?.into())
+}
+
+/// Whether nobody claims the picture `image_id` any more (#292), and if so,
+/// takes it off every deck that still names it, so that no deck points at a
+/// file about to go. A player's deck names that player's own pictures,
+/// claimed when uploaded or by the migration's backfill, so what this finds
+/// is a deck of nobody's, or one given an id its player never uploaded.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn let_go(db: &DatabaseConnection, image_id: &str) -> Result<bool> {
+    let claimed = Uploads::find()
+        .filter(upload::Column::ImageId.eq(image_id))
+        .count(db)
+        .await?
+        > 0;
+    if claimed {
+        return Ok(false);
+    }
+    for column in [deck::Column::Sleeve, deck::Column::Playmat] {
+        Decks::update_many()
+            .col_expr(column, Expr::value(Option::<String>::None))
+            .filter(column.eq(image_id))
+            .exec(db)
+            .await?;
+    }
+    Ok(true)
 }
 
 /// Records that `account_id` owns the stored picture `image_id` (#292).

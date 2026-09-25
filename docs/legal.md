@@ -147,7 +147,8 @@ Urheber- und Medienrecht.
    off. `cardmat::nothing_but_the_finish_is_drawn_on_the_print` holds both
    card shaders to that; `docs/client.md` §"The card surface" has the frame.
 4. **Privacy:** self-hosted; minimal account data; account deletion
-   endpoint; no tracking. As a private, GitHub-hosted open-source project
+   endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
+   (#292)"); no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).
 5. **Audio:** the client ships **no audio files**. Every sound it makes is
    computed — `crates/baylee-client/src/sound.rs` writes PCM and a RIFF
