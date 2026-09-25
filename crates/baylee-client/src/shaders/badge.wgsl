@@ -20,6 +20,9 @@ struct BadgeParams {
     /// `cardplate::badge_rect`.
     right: f32,
     top: f32,
+    /// `cardplate::PLATE_TURNED`'s: the figures a half turn round, for one
+    /// looking at the card from its far side.
+    turned: u32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: BadgeParams;
@@ -34,5 +37,5 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // Taken here, in uniform control flow, before anything branches on
     // where a fragment is.
     let aa = max(fwidth(p.x), 0.0015);
-    return count_badge(p, params.count, params.right, params.top, aa, marks, marks_sampler);
+    return count_badge(p, params.count, params.turned, params.right, params.top, aa, marks, marks_sampler);
 }

@@ -1698,7 +1698,7 @@ pub struct SceneIndex {
     badges: HashMap<ObjectId, (BadgeKey, Entity)>,
     /// One badge material per count and place, shared by every card saying
     /// it.
-    badge_materials: HashMap<(u32, BadgePlace), Handle<BadgeMaterial>>,
+    badge_materials: HashMap<(u32, BadgePlace, bool), Handle<BadgeMaterial>>,
     /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
     /// mesh for the whole table, since the shader sizes the body inside it.
     badge_quad: Option<Handle<Mesh>>,
@@ -3172,8 +3172,8 @@ fn sync_strip(
 pub struct CountBadge;
 
 /// What a card's badge was put on for: the count, the row step, where it
-/// stands and whether its card is tapped.
-type BadgeKey = (u32, f32, BadgePlace, bool);
+/// stands, whether its card is tapped and whether it reads turned round.
+type BadgeKey = (u32, f32, BadgePlace, bool, bool);
 
 /// A badge standing over its card ([`BadgePlace::Above`]) stays upright when
 /// the card taps (the owner, 25.09): it is where it would be on the card
@@ -3226,6 +3226,23 @@ fn on_card(rung: f32, quad: [f32; 4]) -> Transform {
     )
 }
 
+/// Whether writing lying on the table turned `rotation` reads upside down
+/// through `eye` (the PO, 25.09): its tops, the quad's `+y`, point down the
+/// screen. A seat's cards face their owner, so across the table an
+/// opponent's do from the local seat, and the local seat's do once the
+/// camera has gone round to frame that opponent. The plate and the badge
+/// then draw their numbers a half turn round ([`cardplate::PLATE_TURNED`]);
+/// the strip stays as its card lies. Writing lying sideways, as a side
+/// seat's at a ring, is neither, and stays as it lies.
+fn reads_upside_down(rotation: Quat, eye: &Transform) -> bool {
+    (rotation * Vec3::Y).dot(eye.rotation * Vec3::Y) < -SIDEWAYS
+}
+
+/// How far past square a thing's tops must point from the screen's before
+/// it reads upside down: a side seat's writing, square to the eye, stays as
+/// it lies rather than turning on a rounding error.
+const SIDEWAYS: f32 = 1e-3;
+
 /// Keeps every badge standing over its card and every plate upright while
 /// its card turns (#298): a tap glides, and each is the card's child, so it
 /// is laid again from where the glide has the card this frame.
@@ -3246,19 +3263,38 @@ pub fn keep_upright(
 /// so it follows every glide and goes with the card; not a [`CardShadow`];
 /// not pickable, since a click on the count is a click on the card. Where it
 /// stands is its seat's rows' ([`SeatSlot::badge_place`]): over the card it
-/// is [`Upright`], beside it it turns with a tapped card.
+/// is [`Upright`], beside it it turns with a tapped card. Where `eye` sees
+/// it upside down, its count is drawn turned round ([`reads_upside_down`]).
 fn sync_badge(
     commands: &mut Commands,
     index: &mut SceneIndex,
     materials: &mut Assets<BadgeMaterial>,
     card: Entity,
     placement: &Placement,
+    eye: &Transform,
 ) {
     let place = placement.slot.badge_place();
-    let key: BadgeKey = (placement.badge, placement.rung, place, placement.tapped);
+    let pose = |tapped| card_transform(&placement.slot, placement.position, tapped, placement.lift);
+    let base = pose(false).rotation;
+    // Where it comes to rest: an upright badge as its card lies untapped,
+    // one beside the card as the card lies.
+    let rest = if place == BadgePlace::Above {
+        base
+    } else {
+        pose(placement.tapped).rotation
+    };
+    let turned = reads_upside_down(rest, eye);
+    let key: BadgeKey = (
+        placement.badge,
+        placement.rung,
+        place,
+        placement.tapped,
+        turned,
+    );
     let current = index.badges.get(&placement.object).copied();
-    if current.is_some_and(|((count, rung, at, tapped), _)| {
-        (count, at, tapped) == (key.0, key.2, key.3) && rung.to_bits() == key.1.to_bits()
+    if current.is_some_and(|((count, rung, at, tapped, turn), _)| {
+        (count, at, tapped, turn) == (key.0, key.2, key.3, key.4)
+            && rung.to_bits() == key.1.to_bits()
     }) {
         return;
     }
@@ -3273,25 +3309,14 @@ fn sync_badge(
     };
     let material = index
         .badge_materials
-        .entry((placement.badge, place))
-        .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge, place)))
+        .entry((placement.badge, place, turned))
+        .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge, place, turned)))
         .clone();
     let at = badge_transform(placement.rung, place);
-    let upright = (place == BadgePlace::Above).then(|| Upright {
-        base: card_transform(&placement.slot, placement.position, false, placement.lift).rotation,
-        at,
-    });
+    let upright = (place == BadgePlace::Above).then_some(Upright { base, at });
     // Laid for where the card will come to rest; `keep_upright` keeps an
     // upright one so on the way there.
-    let transform = upright.map_or(at, |upright| {
-        upright.on(card_transform(
-            &placement.slot,
-            placement.position,
-            placement.tapped,
-            placement.lift,
-        )
-        .rotation)
-    });
+    let transform = upright.map_or(at, |upright| upright.on(pose(placement.tapped).rotation));
     let badge = if let Some((_, badge)) = current {
         commands
             .entity(badge)
@@ -3342,7 +3367,8 @@ type PlateKey = (PlateWords, [u32; 4], u32, bool);
 /// printed box, on the card's own foot, or under a tapped card — and
 /// nowhere, and it goes, where a tapped card's neighbours leave it no air.
 /// It is always [`Upright`]: on an untapped card that is where it lies
-/// anyway.
+/// anyway. Where `eye` sees it upside down, its numbers are drawn turned
+/// round ([`reads_upside_down`]).
 fn sync_plate(
     commands: &mut Commands,
     index: &mut SceneIndex,
@@ -3350,13 +3376,16 @@ fn sync_plate(
     card: Entity,
     placement: &Placement,
     words: Option<PlateWords>,
+    eye: &Transform,
 ) {
     let place = placement.slot.badge_place();
     // A badge beside the card turns with it, and under a tapped card it
     // hangs where the plate would.
     let badge = (placement.badge > 0 && placement.tapped && place == BadgePlace::Beside)
         .then(|| cardplate::badge_quad_rect(place));
+    let base = card_transform(&placement.slot, placement.position, false, placement.lift).rotation;
     let body = words.and_then(|words| {
+        let words = words.turned(reads_upside_down(base, eye));
         let kind = words.word >> cardplate::KIND_SHIFT;
         cardplate::plate_rect(kind, placement.tapped, placement.room, badge)
             .map(|(body, _)| (words, body))
@@ -3386,7 +3415,7 @@ fn sync_plate(
         .or_insert_with(|| materials.add(PlateMaterial::new(words)))
         .clone();
     let upright = Upright {
-        base: card_transform(&placement.slot, placement.position, false, placement.lift).rotation,
+        base,
         at: on_card(placement.rung, cardplate::plate_quad(body)),
     };
     // Laid for where the card will come to rest, as an upright badge is.
@@ -4579,9 +4608,14 @@ pub fn sync_scene(
     ): CardCompanions<'_>,
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
-    mode: Res<crate::face::FaceMode>,
-    settings: Res<crate::settings::ClientSettings>,
-    prefs: Res<crate::prefs::Prefs>,
+    // How the player asked to see the table, and where from: the plate and
+    // the badge read upright to the camera as it stands this frame.
+    (mode, settings, prefs, shown): (
+        Res<crate::face::FaceMode>,
+        Res<crate::settings::ClientSettings>,
+        Res<crate::prefs::Prefs>,
+        Res<ShownRig>,
+    ),
     sheen: Res<crate::sheen::Sheen>,
     // The fonts, and what has arrived of them: a face is measured in one.
     (fonts, font_assets): (Option<Res<crate::hud::UiFonts>>, Option<Res<Assets<Font>>>),
@@ -4594,6 +4628,7 @@ pub fn sync_scene(
         return;
     };
     let blank = index.blank.clone();
+    let eye = shown.rig().unwrap_or_default().eye();
     // Read after the guards and not before them: a frame that bails because
     // the quad or the print table has not arrived yet must not swallow the
     // one batch of moves this view will ever produce. `sheen` may have read
@@ -4939,6 +4974,7 @@ pub fn sync_scene(
             &mut badge_materials,
             entity,
             placement,
+            &eye,
         );
         sync_plate(
             &mut commands,
@@ -4947,6 +4983,7 @@ pub fn sync_scene(
             entity,
             placement,
             plated.then(|| PlateWords::of(corner, placement.sick)),
+            &eye,
         );
         sync_floor(
             &mut commands,

@@ -755,7 +755,10 @@ the seat's rows leave above their cards):
   other. It stays upright when its card taps (`table::Upright`;
   `keep_upright` lays it again on every frame of the turn): tapping
   moves nothing in a row, and a badge turned with its card would stand
-  beside it, over the next card in a fan.
+  beside it, over the next card in a fan. Like the plate, it reads upright
+  to the one looking: seen from its card's far side, its count is drawn a
+  half turn round its box's middle (`BadgeParams::turned`,
+  `PLATE_TURNED`'s reason), and its shadow still falls where it fell.
 - **Beside the card** (`Beside`), at a ring table, whose rows stand 0.019
   apart and so cannot show "higher". Its left end stands on the print's own
   black border (`BADGE_LEFT`, so the shadow's left end is at the border's
@@ -2480,6 +2483,22 @@ numbers, and the **light on the felt** round the card says what is on offer.
     below 0.82, which is a row of twenty-odd in the narrowest lane — it
     shows none. **Accepted:** the preview says it.
 
+  **It reads upright to the one looking** (the PO, 25.09: a `6/1` upside
+  down reads `1/9`, and power and toughness decide combat). A seat's cards
+  face their owner, so from the local seat an opponent's across the table
+  lie upside down, and the local seat's do once the camera has gone round
+  to frame that opponent. Where the camera shown this frame (`ShownRig`)
+  sees a plate's tops point down the screen (`table::reads_upside_down`),
+  its ink word carries `PLATE_TURNED` and `plate_object` draws its face a
+  half turn round the body's middle. The body maps onto itself, so what
+  the plate covers, where its shadow falls and every guard above are
+  unchanged; the strip stays as its card lies. A side seat's plate at a
+  ring lies square to the eye and stays as it lies.
+  `every_plate_and_badge_reads_upright_to_the_eye`
+  (`table/plate_tests.rs`) walks every table from two seats to eight, every
+  seat, tapped and not, from the opening shot and from the camera framing
+  each seat.
+
   `no_plate_lies_on_a_print_drawn_under_it` (`layout/tests/plates.rs`) walks
   every lane width, rows to sixty, tapped and staged patterns and piles;
   `the_plate_lies_on_nothing_its_card_says` keeps it off the name and cost,
@@ -2494,7 +2513,7 @@ numbers, and the **light on the felt** round the card says what is on offer.
   and chapter count, are written. `client-core/src/cardplate.rs` decides
   what it says and packs it into one `u32` — three ten-bit numbers and two
   kind bits — which with its ink word (the tone and `PLATE_NIGHT`,
-  `Corner::plate_words`) is the plate material's key, so a creature dealt
+  `Corner::plate_words`, and `PLATE_TURNED`) is the plate material's key, so a creature dealt
   three damage becomes a different plate and redraws with no second pass;
   where it stands is its transform's, so a row of twelve 2/2 Soldiers is one
   material. Marked damage is the plate **filling from the bottom** to

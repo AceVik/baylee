@@ -1313,6 +1313,8 @@ const TONE_DEADLY: u32 = 1u;
 const TONE_TOXIC: u32 = 2u;
 /// The plate's ink word's night bit. `cardplate::PLATE_NIGHT`.
 const PLATE_NIGHT: u32 = 1u;
+/// And its turned bit, `cardplate::PLATE_TURNED`: the face a half turn round.
+const PLATE_TURNED: u32 = 2u;
 
 /// A sleeping creature's plate ink, and its moon: moon-grey, still about
 /// 5.8:1 on the plate's body.
@@ -1601,11 +1603,19 @@ fn plate_object(
     }
     let right = quad.x - BADGE_DROP_X - BADGE_BLUR;
     let top = BADGE_BLUR - BADGE_DROP_Y;
-    let face = plate_layer(p, right, top, word, ink, aa, marks, marks_s);
     let shape = plate_shape(kind);
     let half = vec2<f32>(shape.x * 0.5, PLATE_H * 0.5);
+    let mid = vec2<f32>(right - half.x, top + half.y);
+    // Turned, the face is read a half turn round the body's middle, which
+    // the body maps onto itself: the numbers and the damage band turn, and
+    // what the plate covers and where its shadow falls do not.
+    var q = p;
+    if (ink & PLATE_TURNED) != 0u {
+        q = 2.0 * mid - p;
+    }
+    let face = plate_layer(q, right, top, word, ink, aa, marks, marks_s);
     let drop = vec2<f32>(BADGE_DROP_X, BADGE_DROP_Y);
-    let d = sd_round_box(p - vec2<f32>(right - half.x, top + half.y) - drop, half, shape.y);
+    let d = sd_round_box(p - mid - drop, half, shape.y);
     let fall = 1.0 - smoothstep(0.0, BADGE_BLUR, max(d, 0.0));
     return strip_over_shadow(face.rgb, face.a, SHADOW_DEPTH * fall * fall);
 }
@@ -1787,10 +1797,13 @@ const BADGE_W: f32 = 0.2006886;
 /// its digits, up to `×99`, and beside the card `right` moves with them so
 /// the box starts on the printed border (`cardplate::badge_rect`); three
 /// digits are set smaller to fit (`cardplate::badge_cap`). `count` is a uniform, so the
-/// early return keeps what follows in uniform control flow.
+/// early return keeps what follows in uniform control flow. `turned` is
+/// `cardplate::PLATE_TURNED`'s: set, the figures are read a half turn round
+/// their box's middle, for one looking at the card from its far side.
 fn count_badge(
     p: vec2<f32>,
     count: u32,
+    turned: u32,
     right: f32,
     top: f32,
     aa: f32,
@@ -1813,8 +1826,16 @@ fn count_badge(
     // alike.
     let unit = cap / TEXT_CAP;
     let drop = vec2<f32>(BADGE_DROP_X, BADGE_DROP_Y);
-    let shadow = text_cover(p - drop, mid, cap, line, marks, marks_s, max(aa, 0.08 * unit));
+    // Turned, the figures turn round the middle of their box, which maps it
+    // onto itself; their shadow still falls down the card and right of them.
+    var at = p;
+    var under = p - drop;
+    if turned != 0u {
+        at = 2.0 * mid - at;
+        under = 2.0 * mid - under;
+    }
+    let shadow = text_cover(under, mid, cap, line, marks, marks_s, max(aa, 0.08 * unit));
     let shade = SHADOW_DEPTH * 1.4 * shadow.x;
-    let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
+    let hit = text_cover(at, mid, cap, line, marks, marks_s, aa);
     return strip_over_shadow(INK, hit.x, min(shade, 0.9));
 }

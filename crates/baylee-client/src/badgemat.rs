@@ -15,10 +15,12 @@
 //! in it; `card_common.wgsl`'s `count_badge` draws it, for both shaders
 //! here.
 //!
-//! **The material key is the count and the place.** Every badge is the same
-//! quad, and the shader sizes the body inside it from the count, so a table
-//! has at most one badge material per distinct count on it. There is no
-//! clock: a badge does not move on its own.
+//! **The material key is the count, the place and which way up it reads.**
+//! Every badge is the same quad, and the shader sizes the body inside it from
+//! the count, so a table has at most one badge material per distinct count,
+//! place and turn on it. There is no clock: a badge does not move on its own.
+//! A badge whose card is seen from its far side is drawn a half turn round
+//! ([`BadgeParams::turned`]), so its count reads upright to the one looking.
 
 use baylee_client_core::cardplate::{self, BadgePlace};
 use bevy::asset::embedded_asset;
@@ -30,8 +32,8 @@ use bevy::shader::ShaderRef;
 /// What the badge's shader reads.
 ///
 /// Thirty-two bytes: a uniform block under the GL backend is laid out
-/// `std140`, the rectangle takes the first sixteen, and the count and the
-/// body's corner take twelve of the next sixteen.
+/// `std140`, the rectangle takes the first sixteen, and the count, the
+/// body's corner and the turn take the next sixteen.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct BadgeParams {
     /// The quad, [`cardplate::badge_quad_rect`]: `[x0, y0, x1, y1]` in card
@@ -47,10 +49,14 @@ pub struct BadgeParams {
     pub right: f32,
     /// See [`Self::right`].
     pub top: f32,
+    /// [`cardplate::PLATE_TURNED`] where the one looking sees the card from
+    /// its far side: the figures are drawn a half turn round their box's
+    /// middle, which covers what the box covered. Zero otherwise.
+    pub turned: u32,
 }
 
 impl BadgeParams {
-    /// The badge saying `count`, standing at `place`.
+    /// The badge saying `count`, standing at `place`, upright on its card.
     #[must_use]
     pub fn new(count: u32, place: BadgePlace) -> Self {
         let [_, top, right, _] = cardplate::badge_rect(count, place);
@@ -59,6 +65,7 @@ impl BadgeParams {
             count,
             right,
             top,
+            turned: 0,
         }
     }
 }
@@ -91,11 +98,15 @@ pub struct BadgeMaterial {
 }
 
 impl BadgeMaterial {
-    /// The badge saying `count`, standing at `place`.
+    /// The badge saying `count`, standing at `place`, and `turned` a half
+    /// turn round for one seeing its card from the far side.
     #[must_use]
-    pub fn new(count: u32, place: BadgePlace) -> Self {
+    pub fn new(count: u32, place: BadgePlace, turned: bool) -> Self {
         Self {
-            params: BadgeParams::new(count, place),
+            params: BadgeParams {
+                turned: if turned { cardplate::PLATE_TURNED } else { 0 },
+                ..BadgeParams::new(count, place)
+            },
             marks: crate::markatlas::MARKS,
         }
     }
@@ -258,7 +269,8 @@ struct UiVertexOutput {
                     "quad: vec4<f32>,",
                     "count: u32,",
                     "right: f32,",
-                    "top: f32,"
+                    "top: f32,",
+                    "turned: u32,"
                 ],
                 "{which} lays the uniform out differently from `BadgeParams`"
             );

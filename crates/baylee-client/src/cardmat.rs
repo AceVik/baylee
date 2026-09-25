@@ -2241,6 +2241,7 @@ struct Globals { time: f32 };
             ("TONE_DEADLY", plate::TONE_DEADLY),
             ("TONE_TOXIC", plate::TONE_TOXIC),
             ("PLATE_NIGHT", plate::PLATE_NIGHT),
+            ("PLATE_TURNED", plate::PLATE_TURNED),
         ] {
             // Half a unit, not an epsilon: these are whole numbers, so an
             // agreement is exactly zero apart and a disagreement is at least

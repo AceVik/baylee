@@ -16,7 +16,10 @@
 //! the same quad, and the shader lays the body out flush right inside it,
 //! so where a plate stands is its transform's and a lane of twelve 2/2
 //! Soldiers is one material. There is no clock: a plate does not move on
-//! its own.
+//! its own. The ink word also says which way up it reads: a plate whose card
+//! is seen from its far side, as an opponent's across the table, is drawn a
+//! half turn round ([`PlateWords::turned`]), so its numbers read upright to
+//! the one looking (the PO, 25.09).
 
 use baylee_client_core::cardplate;
 use bevy::asset::embedded_asset;
@@ -34,7 +37,8 @@ pub struct PlateWords {
     /// The plate, [`cardplate::Plate::packed`].
     pub word: u32,
     /// Its ink, the second of [`cardplate::Corner::plate_words`]: the tone,
-    /// and [`cardplate::PLATE_NIGHT`] on a sleeping creature.
+    /// [`cardplate::PLATE_NIGHT`] on a sleeping creature, and
+    /// [`cardplate::PLATE_TURNED`] where its card is seen from the far side.
     pub ink: u32,
 }
 
@@ -45,6 +49,20 @@ impl PlateWords {
     pub fn of(corner: cardplate::Corner, night: bool) -> Self {
         let [word, ink] = corner.plate_words(night);
         Self { word, ink }
+    }
+
+    /// The same words, drawn a half turn round ([`cardplate::PLATE_TURNED`])
+    /// where `turned`: for one seeing the card from its far side.
+    #[must_use]
+    pub fn turned(self, turned: bool) -> Self {
+        Self {
+            ink: if turned {
+                self.ink | cardplate::PLATE_TURNED
+            } else {
+                self.ink & !cardplate::PLATE_TURNED
+            },
+            ..self
+        }
     }
 }
 

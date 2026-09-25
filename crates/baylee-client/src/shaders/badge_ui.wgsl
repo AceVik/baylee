@@ -14,6 +14,7 @@ struct BadgeParams {
     count: u32,
     right: f32,
     top: f32,
+    turned: u32,
 }
 
 @group(1) @binding(0) var<uniform> params: BadgeParams;
@@ -24,5 +25,5 @@ struct BadgeParams {
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let p = mix(params.quad.xy, params.quad.zw, in.uv);
     let aa = max(fwidth(p.x), 0.0015);
-    return count_badge(p, params.count, params.right, params.top, aa, marks, marks_sampler);
+    return count_badge(p, params.count, params.turned, params.right, params.top, aa, marks, marks_sampler);
 }

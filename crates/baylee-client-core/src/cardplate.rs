@@ -427,6 +427,12 @@ pub const TONE_TOXIC: u32 = 2;
 /// Set on the plate's ink word ([`Corner::plate_words`]) when its creature
 /// is asleep: the plate writes in moon-grey.
 pub const PLATE_NIGHT: u32 = 1;
+/// Set on the plate's ink word when the one looking sees its card from the
+/// far side, as an opponent's across the table: the plate's face is drawn a
+/// half turn round its own middle, so its numbers read upright to them (the
+/// PO, 25.09: a `6/1` upside down reads `1/9`). The body is as symmetric as
+/// the turn, so it covers what it covered.
+pub const PLATE_TURNED: u32 = 2;
 
 /// The largest chapter drawn in roman numerals.
 ///

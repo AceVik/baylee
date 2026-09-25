@@ -2,6 +2,7 @@
 //! it lies over in a fanned row, and that it comes and goes with the count.
 
 use super::flying_tests::{creature, duel};
+use super::plate_tests::home;
 use super::*;
 use baylee_client_core::layout::CARD_SPAN;
 use bevy::ecs::world::CommandQueue;
@@ -125,7 +126,14 @@ fn a_badge_over_its_card_stays_upright_as_the_card_taps() {
     let mut sync = |world: &mut World, placement: &Placement| {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, world);
-        sync_badge(&mut commands, &mut index, &mut materials, entity, placement);
+        sync_badge(
+            &mut commands,
+            &mut index,
+            &mut materials,
+            entity,
+            placement,
+            &home(),
+        );
         queue.apply(world);
     };
     let badge_at = |world: &mut World| {
@@ -183,7 +191,14 @@ fn a_badge_comes_and_goes_with_the_count() {
     let mut sync = |world: &mut World, index: &mut SceneIndex, placement: &Placement, card| {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, world);
-        sync_badge(&mut commands, index, &mut materials, card, placement);
+        sync_badge(
+            &mut commands,
+            index,
+            &mut materials,
+            card,
+            placement,
+            &home(),
+        );
         queue.apply(world);
     };
     let badges = |world: &mut World| {
@@ -363,7 +378,14 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
         cards.push(card);
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        sync_badge(&mut commands, &mut index, &mut materials, card, placement);
+        sync_badge(
+            &mut commands,
+            &mut index,
+            &mut materials,
+            card,
+            placement,
+            &home(),
+        );
         queue.apply(&mut world);
     }
     let size = crate::badgemat::quad_size();
