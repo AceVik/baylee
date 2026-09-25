@@ -82,11 +82,15 @@ const GLOW_LIFT: f32 = 0.001;
 /// A bias, and not a reordering of the lifts, because the lifts are *right* —
 /// they are the heights these things are at, and the depth buffer uses them.
 /// The gain only has to be large enough that the smallest rung of the ladder
-/// beats the widest table: the rungs are half a thousandth apart and the
-/// eight-seat ring reaches about forty units across, so 0.0005 × 400 000 =
-/// 200 is a comfortable margin. `the_ladder_decides_what_covers_what` held
-/// both halves of that until it went with the air (d368cb56); nothing but
-/// this arithmetic holds it now.
+/// beats the widest table: the rungs are half a thousandth apart, so
+/// 0.0005 × 400 000 = 200. That was a comfortable margin while the eight-seat
+/// ring reached about forty units across. Since every ring seat is as wide
+/// as a duel's (#264), eight seats on a phone turned on its side reach about
+/// 190, and 200 still beats it, though no longer by much. A larger gain is
+/// no way out: the keys are `f32`, and at a few million two things of one
+/// rung a tenth of a unit apart would tie. `the_ladder_decides_what_covers_what`
+/// held both halves of that until it went with the air (d368cb56); nothing
+/// but this arithmetic holds it now.
 ///
 /// It touches nothing but the sort. Depth *writing* is off for every blended
 /// surface here but defender's wall, which is solid and goes first
