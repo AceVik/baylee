@@ -1313,7 +1313,7 @@ pub(crate) mod tests {
         assert_eq!(
             wgsl_const(src, "LABEL_ITEMS") as usize,
             2 + cardrail::MARK_ORDER.len() + baylee_client_core::cardcrest::MAX_CRESTS,
-            "the plate, the moon, every mark and the crests"
+            "the chip, the moon, every mark and the crests"
         );
     }
 
@@ -2183,7 +2183,7 @@ struct Globals { time: f32 };
     /// Thirty numbers with no compiler between them, and every one of them
     /// fails silently: a slot boundary a bit out draws a 4/4 as a 0/16, a
     /// glyph word off by a copy-paste draws every 6 as an 8, and a geometry
-    /// constant that drifts puts the plate off its strip. The
+    /// constant that drifts puts the plate off its quad. The
     /// packing is checked from the other side by
     /// `cardplate::tests::every_number_survives_the_packing`; this is the
     /// half that checks the shader agrees about where the bits are.
@@ -2240,6 +2240,7 @@ struct Globals { time: f32 };
             ("TONE_PLAIN", plate::TONE_PLAIN),
             ("TONE_DEADLY", plate::TONE_DEADLY),
             ("TONE_TOXIC", plate::TONE_TOXIC),
+            ("PLATE_NIGHT", plate::PLATE_NIGHT),
         ] {
             // Half a unit, not an epsilon: these are whole numbers, so an
             // agreement is exactly zero apart and a disagreement is at least

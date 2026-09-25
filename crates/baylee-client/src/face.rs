@@ -1053,7 +1053,7 @@ fn on_the_card(x: f32, y: f32) -> Vec2 {
 /// cost's ink is the one its art box lets it ([`textface::cost_ink`] of
 /// `word`, the card's [`textface::face_word`]). Children inherit the
 /// parent's rotation, so a tapped card's face turns with it and needs no
-/// special case. `plate` is what the card's ledge already says, so the face
+/// special case. `plate` is what the card's plate already says, so the face
 /// does not say it twice ([`world_stats`]).
 pub fn spawn_world(
     commands: &mut Commands,
@@ -1150,14 +1150,13 @@ pub fn spawn_world(
     texts
 }
 
-/// The body line a text face still has to write: none when the plate on its
-/// strip already says the same number (#274, #298). `plate` is the plate's
-/// kind ([`Plate::kind`]).
+/// The body line a text face still has to write: none when its plate
+/// already says the same number (#274, #298). `plate` is the plate's kind
+/// ([`Plate::kind`]).
 ///
-/// A card on the table showing its text face always has its plate on the
-/// strip (`Corner::shows_plate`: there is no print to say the numbers), so a
-/// creature drawn as text would say `3/3` twice, a hand's width apart. What
-/// it keeps is the one shape where the two differ — a planeswalker that is
+/// A card on the table showing its text face always shows its plate at its
+/// bottom right (`Corner::shows_plate`: there is no print to say the
+/// numbers), so a creature drawn as text would say `3/3` twice. What it keeps is the one shape where the two differ — a planeswalker that is
 /// also a creature plates its loyalty, and its power and toughness are then
 /// said nowhere else on the table — and every card with no plate over it, as
 /// a card in hand has.

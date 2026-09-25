@@ -36,6 +36,7 @@
 //! All coordinates are table-space: `+x` right, `+y` away from the local seat.
 //! The renderer maps this onto whatever plane it draws.
 
+use crate::cardplate::PlateRoom;
 use baylee_core::ids::PlayerId;
 use glam::Vec2;
 
@@ -1592,6 +1593,76 @@ impl LanePacking {
         window.shown.contains(&(index + 1))
             && self.offsets[index + 1] - self.reach[index + 1] - self.offsets[index]
                 < CARD_SPAN - 1e-4
+    }
+
+    /// What the row leaves card `index`'s plate ([`PlateRoom`]), `tapped`
+    /// and `staged` saying which of the row's cards are turned and which
+    /// have stepped out of it into combat ([`STAGE_STEP`]).
+    ///
+    /// Where the next shown card begins, its pile included, else the lane's
+    /// end; and the stretch of air under the card that no shown card's
+    /// print reaches into. An untapped card in the row reaches under a
+    /// tapped one, a tapped one stays out, and a card that stepped forward
+    /// has left the air of the row behind it: a staged card's own air is in
+    /// the row, where every card that stayed reaches, and a staged untapped
+    /// card beside it too.
+    ///
+    /// # Panics
+    ///
+    /// If `tapped` or `staged` do not name the row's cards.
+    #[must_use]
+    pub fn plate_room(
+        &self,
+        index: usize,
+        window: &RowWindow,
+        tapped: &[bool],
+        staged: &[bool],
+    ) -> PlateRoom {
+        let n = self.offsets.len();
+        assert!(
+            tapped.len() == n && staged.len() == n,
+            "a state for every card"
+        );
+        let half = |j: usize| {
+            if tapped[j] {
+                CARD_SPAN * 0.5
+            } else {
+                CARD_WIDTH * 0.5
+            }
+        };
+        let reaches = |j: usize| {
+            if staged[index] {
+                !staged[j] || !tapped[j]
+            } else {
+                !staged[j] && !tapped[j]
+            }
+        };
+        let own = self.offsets[index] - CARD_WIDTH * 0.5;
+        let end = self.usable * 0.5 - window.shift;
+        let start = -self.usable * 0.5 - window.shift;
+        let left_of = |j: usize| self.offsets[j] - half(j) - self.reach[j];
+        let next = index + 1;
+        let right = if window.shown.contains(&next) {
+            left_of(next)
+        } else {
+            end
+        };
+        let after = window
+            .shown
+            .clone()
+            .filter(|&j| j > index && reaches(j))
+            .map(left_of)
+            .fold(end, f32::min);
+        let before = window
+            .shown
+            .clone()
+            .filter(|&j| j < index && reaches(j))
+            .map(|j| self.offsets[j] + half(j))
+            .fold(start, f32::max);
+        PlateRoom {
+            right: (right - own) / CARD_WIDTH,
+            below: [(before - own) / CARD_WIDTH, (after - own) / CARD_WIDTH],
+        }
     }
 }
 

@@ -520,3 +520,52 @@ fn a_preview_keeps_its_count_badge_on_the_screen() {
         }
     }
 }
+
+/// A preview stands its plate beside the printed box, over the black border,
+/// as a row with room to spare does (the owner, 25.09), so a little of it
+/// and its shadow hang past the card's right edge: the panel is placed as
+/// one that much wider, so the plate lands on the screen at the window's
+/// right edge, and the bubble's clip lets it out. It stays inside the
+/// card's height, where the clip needs nothing.
+#[test]
+fn a_preview_keeps_its_plate_on_the_screen() {
+    use crate::hud::overlay::{place_with_badge, plate_reach};
+    use baylee_client_core::cardplate::{KIND_FIGHT, KIND_LORE, KIND_LOYALTY};
+    use baylee_client_core::cardrail::CARD_TALL;
+    for kind in [KIND_FIGHT, KIND_LOYALTY, KIND_LORE] {
+        let [_, y0, x1, y1] = crate::platemat::preview_quad(kind);
+        assert!(
+            x1 > 1.0,
+            "kind {kind}: the plate does not straddle the border"
+        );
+        assert!(
+            y0 > 0.0 && y1 < CARD_TALL,
+            "kind {kind}: the plate leaves the card's height"
+        );
+        for img_w in [154.0_f32, 308.0, 539.0] {
+            let past = (x1 - 1.0) * img_w;
+            let reach = plate_reach(img_w);
+            assert!(
+                reach + 6.0 >= past - 1e-3,
+                "a card {img_w} wide: the clip lets out {reach} past the padding \
+                 and the plate reaches {past} past the card"
+            );
+            let panel = Vec2::new(img_w + 12.0, img_w * 88.0 / 63.0 + 12.0);
+            for at in [
+                PreviewAt::Pointer(Vec2::new(1724.0, 300.0)),
+                PreviewAt::Card(Rect::from_corners(
+                    Vec2::new(1688.0, 200.0),
+                    Vec2::new(1728.0, 256.0),
+                )),
+                PreviewAt::Pointer(Vec2::new(4.0, 300.0)),
+            ] {
+                let place = place_with_badge(at, panel + Vec2::new(reach, 0.0), WINDOW, None, 0.0);
+                let plate_right = place.x + 6.0 + img_w + past;
+                assert!(
+                    plate_right <= WINDOW.x + 1e-3,
+                    "{at:?}, a card {img_w} wide: the plate ends at {plate_right}, off the screen"
+                );
+            }
+        }
+    }
+}

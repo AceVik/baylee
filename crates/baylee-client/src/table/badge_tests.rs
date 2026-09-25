@@ -157,7 +157,7 @@ fn a_badge_over_its_card_stays_upright_as_the_card_taps() {
             .expect("the card")
             .rotation = rest.rotation.slerp(tapped.rotation, share);
         world
-            .run_system_once(keep_badges_upright)
+            .run_system_once(keep_upright)
             .expect("the system runs");
         assert!(
             same(badge_at(&mut world), upright),

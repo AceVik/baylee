@@ -3,6 +3,7 @@ mod facing;
 mod fan;
 mod packing;
 mod piles;
+mod plates;
 mod ring;
 mod seating;
 mod sides;

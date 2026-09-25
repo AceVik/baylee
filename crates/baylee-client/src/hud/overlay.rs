@@ -61,6 +61,16 @@ pub(super) fn badge_reach(img_w: f32) -> f32 {
     (over - PREVIEW_PAD).max(0.0)
 }
 
+/// How far past the bubble's padding the plate reaches off the card's right
+/// edge, in logical pixels, for a card `img_w` wide: the preview stands it
+/// beside the printed box, over the black border
+/// ([`crate::platemat::preview_quad`]), as a row with room to spare does, so
+/// a little of it and its shadow hang past the card.
+pub(super) fn plate_reach(img_w: f32) -> f32 {
+    let quad = crate::platemat::preview_quad(baylee_client_core::cardplate::KIND_FIGHT);
+    ((quad[2] - 1.0) * img_w - PREVIEW_PAD).max(0.0)
+}
+
 /// Where the preview panel's top-left corner goes when a badge reaches
 /// `reach` over its top edge: placed as a panel that much taller, so the
 /// badge lands on the screen wherever the panel does.
@@ -75,6 +85,14 @@ pub(super) fn place_with_badge(
     preview_place(at, panel + shift, window, keep_out) + shift
 }
 
+/// The preview's objects' material caches: its strip's, its count badge's
+/// and its plate's. Each is there only once its plugin is.
+type PreviewObjects<'w> = (
+    Option<ResMut<'w, crate::marksmat::UiMarksMaterials>>,
+    Option<ResMut<'w, crate::badgemat::UiBadgeMaterials>>,
+    Option<ResMut<'w, crate::platemat::UiPlateMaterials>>,
+);
+
 /// Removes the overlay when the duel hands the screen back.
 ///
 /// The 3D stage has always been torn down on `Close`; the overlay was not,
@@ -88,8 +106,7 @@ pub fn despawn_overlay(
     mut revision: ResMut<HudRevision>,
     mut ledge: ResMut<ledge::LedgeRevision>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
-    strips: Option<ResMut<crate::marksmat::UiMarksMaterials>>,
-    badges: Option<ResMut<crate::badgemat::UiBadgeMaterials>>,
+    (strips, badges, plates): PreviewObjects<'_>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -109,6 +126,9 @@ pub fn despawn_overlay(
     }
     if let Some(mut badges) = badges {
         badges.clear();
+    }
+    if let Some(mut plates) = plates {
+        plates.clear();
     }
 }
 
@@ -151,6 +171,11 @@ pub struct Surfaces<'w> {
     badges: Option<ResMut<'w, crate::badgemat::UiBadgeMaterials>>,
     /// Where they are minted.
     badge_assets: Option<ResMut<'w, Assets<crate::badgemat::BadgeUiMaterial>>>,
+    /// The preview's plate materials, one per thing a plate says. Optional
+    /// for the cloth's reason: `PlateMaterialPlugin` puts them there.
+    plates: Option<ResMut<'w, crate::platemat::UiPlateMaterials>>,
+    /// Where they are minted.
+    plate_assets: Option<ResMut<'w, Assets<crate::platemat::PlateUiMaterial>>>,
 }
 
 impl Surfaces<'_> {
@@ -181,6 +206,16 @@ impl Surfaces<'_> {
     fn badge(&mut self, count: u32) -> Option<Handle<crate::badgemat::BadgeUiMaterial>> {
         let assets = self.badge_assets.as_deref_mut()?;
         Some(self.badges.as_mut()?.get(count, assets))
+    }
+
+    /// The plate saying `words`, or `None` when there is nowhere to draw
+    /// it.
+    fn plate(
+        &mut self,
+        words: crate::platemat::PlateWords,
+    ) -> Option<Handle<crate::platemat::PlateUiMaterial>> {
+        let assets = self.plate_assets.as_deref_mut()?;
+        Some(self.plates.as_mut()?.get(words, assets))
     }
 }
 
@@ -620,7 +655,25 @@ pub fn sync_overlay(
             } else {
                 0.0
             };
-            let place = place_with_badge(anchor, panel, window, keep_out, reach);
+            // And the plate, where the print cannot say the numbers (the
+            // owner, 25.09): beside the printed box over the black border,
+            // so a little of it hangs past the card's right edge. The panel
+            // is placed as one that much wider, and the clip lets it out.
+            let plate = hovered
+                .and_then(|id| view.object(id))
+                .and_then(crate::platemat::words_of);
+            let plate_over = if plate.is_some() {
+                plate_reach(img_w)
+            } else {
+                0.0
+            };
+            let place = place_with_badge(
+                anchor,
+                panel + Vec2::new(plate_over, 0.0),
+                window,
+                keep_out,
+                reach,
+            );
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
                 ..art
@@ -702,10 +755,10 @@ pub fn sync_overlay(
             // The strip, lying on the art where it lies on the table (#274,
             // #298): an object of its own over the card, at the same place in
             // card widths, saying what it says there. The preview is the
-            // same permanent drawn larger, so it says the same numbers: a 2/2
-            // under an anthem is a 3/3 on the table, and a preview showing
-            // the printed 2/2 would put two answers for one creature on one
-            // screen. A card in hand has no view object and so no strip,
+            // same permanent drawn larger, so it says the same numbers, on
+            // its plate and in its chip: a 2/2 under an anthem is a 3/3 on
+            // the table, and a preview showing the printed 2/2 would put two
+            // answers for one creature on one screen. A card in hand has no view object and so no strip,
             // which is right — its printed body is what it is. Over the art
             // only: a card showing its text face says it in words.
             let strip = hovered
@@ -746,7 +799,8 @@ pub fn sync_overlay(
                         flex_direction: FlexDirection::Column,
                         border_radius: preview_radius(img_w),
                         overflow: Overflow::clip(),
-                        overflow_clip_margin: OverflowClipMargin::padding_box().with_margin(reach),
+                        overflow_clip_margin: OverflowClipMargin::padding_box()
+                            .with_margin(reach.max(plate_over)),
                         ..default()
                     },
                     // Transparent, like the hand zone under it and for the
@@ -844,6 +898,32 @@ pub fn sync_overlay(
             if let Some(material) = badge {
                 let [x0, y0, x1, y1] =
                     baylee_client_core::cardplate::badge_quad_rect(crate::badgemat::PREVIEW);
+                let down = img_h / baylee_client_core::cardrail::CARD_TALL;
+                let node = commands
+                    .spawn((
+                        MaterialNode(material),
+                        crate::flip::Side::Front,
+                        Visibility::Inherited,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px(x0 * img_w),
+                            top: px(y0 * down),
+                            width: px((x1 - x0) * img_w),
+                            height: px((y1 - y0) * down),
+                            ..default()
+                        },
+                    ))
+                    .id();
+                commands.entity(frame).add_child(node);
+            }
+            // The plate hangs off the frame for the badge's reason, and over
+            // the art only, for the strip's: a text face says it in words.
+            if let Some(words) = plate
+                && built.is_none()
+                && let Some(material) = surfaces.plate(words)
+            {
+                let kind = words.word >> baylee_client_core::cardplate::KIND_SHIFT;
+                let [x0, y0, x1, y1] = crate::platemat::preview_quad(kind);
                 let down = img_h / baylee_client_core::cardrail::CARD_TALL;
                 let node = commands
                     .spawn((

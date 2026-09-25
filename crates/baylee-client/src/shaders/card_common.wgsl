@@ -884,7 +884,7 @@ const LABEL_MOON: u32 = 1u;
 const LABEL_CREST_SHIFT: u32 = 1u;
 const LABEL_CREST_BITS: u32 = 2u;
 
-/// How many things a strip can carry: the plate, the moon, every mark and
+/// How many things a strip can carry: the chip, the moon, every mark and
 /// two crests, in the order they are packed from the left.
 const LABEL_ITEMS: u32 = 19u;
 
@@ -905,17 +905,9 @@ const STRIP_LIP: vec3<f32> = vec3<f32>(0.010, 0.011, 0.014);
 
 /// Item `i`'s size, `(width, height)` in card widths, or zero for one this
 /// strip does not carry. `cardrail::Strip`'s items, in their order.
-fn label_item(i: u32, bits: u32, plate: u32, swing: u32, label: u32) -> vec2<f32> {
+fn label_item(i: u32, bits: u32, swing: u32, label: u32) -> vec2<f32> {
     if i == 0u {
-        let kind = plate >> PLATE_KIND_SHIFT;
-        if kind == PLATE_NONE {
-            return vec2<f32>(0.0);
-        }
-        var w = select(PLATE_W, PLATE_H, kind == PLATE_LORE);
-        if (swing & SWING_SET) != 0u {
-            w = w + CHIP_GAP + CHIP_W;
-        }
-        return vec2<f32>(w, PLATE_H);
+        return select(vec2<f32>(0.0), vec2<f32>(CHIP_W, PLATE_H), (swing & SWING_SET) != 0u);
     }
     if i == 1u {
         return select(vec2<f32>(0.0), vec2<f32>(MARK), (label & LABEL_MOON) != 0u);
@@ -936,8 +928,8 @@ fn moon_sdf(cell: vec2<f32>) -> f32 {
     return max(lit, -bite);
 }
 
-/// The keyword strip, and since #298 the card's label: the plate with its
-/// chip, the sleep moon, the marks and the identity crests, packed from the
+/// The keyword strip, and since #298 the card's label: the chip, the sleep
+/// moon, the marks and the identity crests, packed from the
 /// left along the seam, a cell that would run past `ROW_MAX` opening a row
 /// above (`cardrail::Strip::cells`, which is the same arithmetic in Rust).
 ///
@@ -950,7 +942,6 @@ fn label_strip(
     q: vec2<f32>,
     quad: vec2<f32>,
     bits: u32,
-    plate: u32,
     swing: u32,
     label: u32,
     t: f32,
@@ -958,8 +949,7 @@ fn label_strip(
     marks: texture_2d<f32>,
     marks_s: sampler,
 ) -> vec4<f32> {
-    let has_plate = (plate >> PLATE_KIND_SHIFT) != PLATE_NONE;
-    let first = select(MARK, PLATE_H, has_plate);
+    let first = select(MARK, PLATE_H, (swing & SWING_SET) != 0u);
     let x0 = SHADOW_MARGIN;
     let seam = quad.y - STRIP_PAD;
 
@@ -974,7 +964,7 @@ fn label_strip(
     var hit_rect = vec4<f32>(0.0);
     var hit_k = 0u;
     for (var i = 0u; i < LABEL_ITEMS; i = i + 1u) {
-        let size = label_item(i, bits, plate, swing, label);
+        let size = label_item(i, bits, swing, label);
         if size.x <= 0.0 {
             continue;
         }
@@ -1033,10 +1023,9 @@ fn label_strip(
     let centre = vec2<f32>(0.5 * (hit_rect.x + hit_rect.z), 0.5 * (hit_rect.y + hit_rect.w));
     let e = max(0.5 * aa / MARK, 0.012);
 
-    // The plate, with its chip.
+    // The chip.
     if hit == 0u {
-        let night = (label & LABEL_MOON) != 0u;
-        out = plate_layer(q, hit_rect.x, centre.y, plate, swing, night, aa, out, marks, marks_s);
+        out = chip_layer(q, hit_rect.x, centre.y, swing, aa, out, marks, marks_s);
         return strip_over_shadow(out, cover, shade);
     }
 
@@ -1179,8 +1168,8 @@ fn crest_cell(
 // ------------------------------------------------------------------ the plate
 //
 // A creature's power and toughness with the damage marked on it, or a
-// planeswalker's loyalty, at the keyword strip's left end (#298), the chip
-// beside it. The Rust half is
+// planeswalker's loyalty, as an object of its own at the card's bottom right
+// (the owner, 25.09), and the chip on the keyword strip. The Rust half is
 // `baylee_client_core::cardplate`, which is where the numbers are packed and
 // where every constant below is mirrored and tested.
 
@@ -1322,6 +1311,8 @@ const TONE_SHIFT: u32 = 21u;
 const TONE_PLAIN: u32 = 0u;
 const TONE_DEADLY: u32 = 1u;
 const TONE_TOXIC: u32 = 2u;
+/// The plate's ink word's night bit. `cardplate::PLATE_NIGHT`.
+const PLATE_NIGHT: u32 = 1u;
 
 /// A sleeping creature's plate ink, and its moon: moon-grey, still about
 /// 5.8:1 on the plate's body.
@@ -1524,109 +1515,156 @@ fn fit(cap: f32, line: vec2<u32>, room: f32) -> f32 {
     return min(cap, room * TEXT_CAP / max(text_width(line), 0.001));
 }
 
-/// Draws the plate and the chip beside it, on the strip.
+/// Draws the chip on the strip: what a permanent's ±1/±1 counters add, net
+/// (CR 704.5q). `edge` is its left edge and `mid_y` its middle line, in card
+/// widths; `swing` is `cardplate::Corner::chip`, and `aa` is taken by the
+/// caller, in uniform control flow.
 ///
-/// The two words are `cardplate::Corner::packed` in order: the plate, and
-/// the swing with the tone. `p` is the point and `edge` where the plate's
-/// left edge stands on `mid_y`, its middle line, all in card widths; `aa`
-/// is taken by the caller, in uniform control flow. `night` turns the
-/// plate's ink to moon-grey on a sleeping creature.
-fn plate_layer(
+/// A swing is a chip of green or violet stock with the plate's dark body for
+/// ink, the way a damaged plate is a hot box with dark digits: at table size
+/// the stock is what is read. A swing that nets to neither is a dark chip in
+/// the plate's ink, and a `+1/-1` says as much by being neither colour.
+fn chip_layer(
     p: vec2<f32>,
     edge: f32,
     mid_y: f32,
-    word: u32,
     swing: u32,
-    night: bool,
     aa: f32,
     color: vec3<f32>,
     marks: texture_2d<f32>,
     marks_s: sampler,
 ) -> vec3<f32> {
+    if (swing & SWING_SET) == 0u {
+        return color;
+    }
+    let chip_mid = vec2<f32>(edge + CHIP_W * 0.5, mid_y);
+    let chip_half = vec2<f32>(CHIP_W * 0.5, PLATE_H * 0.5);
+    let d_chip = sd_round_box(p - chip_mid, chip_half, PLATE_H * 0.28);
+    let on_chip = 1.0 - smoothstep(-aa, aa, d_chip);
+
+    let dp = i32(swing & PLATE_SLOT_MASK) - PLATE_BIAS;
+    let dt = i32((swing >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
+    var stock = PLATE;
+    var figure = INK;
+    if dp + dt > 0 {
+        stock = GROWN;
+        figure = PLATE;
+    } else if dp + dt < 0 {
+        stock = SHRUNK;
+        figure = PLATE;
+    }
+    var out = mix(color, stock, on_chip * 0.88);
+    let chip_rim = 1.0 - smoothstep(-aa, aa, abs(d_chip) - 0.0045);
+    out = mix(out, figure, chip_rim * 0.55);
+
+    // A symmetric swing — every `+1/+1` and `-1/-1` counter there is — says
+    // its number once: `+2` in a green chip beside a `4/4` reads as what it
+    // is, and `+2/+2` in nine pixels would not read at all. The rare
+    // lopsided one is written out and shrinks to fit.
+    var line = text_signed(vec2<u32>(0u, 0u), dp, true);
+    if dp != dt {
+        line = text_push(line, GLYPH_SLASH);
+        line = text_signed(line, dt, true);
+    }
+    let room = CHIP_W - 2.0 * PLATE_PAD;
+    let hit = text_cover(p, chip_mid, fit(PLATE_CAP, line, room), line, marks, marks_s, aa);
+    return mix(out, figure, hit.x * on_chip);
+}
+
+/// The plate's width and corner radius for its kind: a chapter is a page,
+/// square and barely rounded; everything else is the wide plate.
+fn plate_shape(kind: u32) -> vec2<f32> {
+    if kind == PLATE_LORE {
+        return vec2<f32>(PLATE_H, PLATE_H * 0.10);
+    }
+    return vec2<f32>(PLATE_W, PLATE_H * 0.28);
+}
+
+/// The plate as an object of its own (the owner, 25.09): its body flush
+/// right in its quad, over its own drop shadow, as one colour and one
+/// coverage for the blend. `p` is the point in the quad, card widths from
+/// its top-left corner, and `quad` its size: `cardplate::plate_quad`, whose
+/// margins are the count badge's drop and blur, so the two stand at one
+/// height over the table.
+fn plate_object(
+    p: vec2<f32>,
+    quad: vec2<f32>,
+    word: u32,
+    ink: u32,
+    aa: f32,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec4<f32> {
     let kind = word >> PLATE_KIND_SHIFT;
     if kind == PLATE_NONE {
-        return color;
+        return vec4<f32>(0.0);
+    }
+    let right = quad.x - BADGE_DROP_X - BADGE_BLUR;
+    let top = BADGE_BLUR - BADGE_DROP_Y;
+    let face = plate_layer(p, right, top, word, ink, aa, marks, marks_s);
+    let shape = plate_shape(kind);
+    let half = vec2<f32>(shape.x * 0.5, PLATE_H * 0.5);
+    let drop = vec2<f32>(BADGE_DROP_X, BADGE_DROP_Y);
+    let d = sd_round_box(p - vec2<f32>(right - half.x, top + half.y) - drop, half, shape.y);
+    let fall = 1.0 - smoothstep(0.0, BADGE_BLUR, max(d, 0.0));
+    return strip_over_shadow(face.rgb, face.a, SHADOW_DEPTH * fall * fall);
+}
+
+/// Draws the plate, its body's right end at `right` and its top at `top`,
+/// in card widths: its colour, and how much of the point it covers.
+///
+/// The two words are `cardplate::Corner::plate_words`: the plate, and its
+/// ink, which is the tone with `PLATE_NIGHT` on a sleeping creature, whose
+/// numbers are moon-grey. `aa` is taken by the caller, in uniform control
+/// flow.
+fn plate_layer(
+    p: vec2<f32>,
+    right: f32,
+    top: f32,
+    word: u32,
+    ink_word: u32,
+    aa: f32,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec4<f32> {
+    let kind = word >> PLATE_KIND_SHIFT;
+    if kind == PLATE_NONE {
+        return vec4<f32>(0.0);
     }
 
     // A chapter is a page: square, barely rounded, and light. Everything else
-    // is the wide dark plate. Same corner and same left edge, so the two can
+    // is the wide dark plate. Same corner and same right edge, so the two can
     // never be mistaken for each other and never move.
-    var pw = PLATE_W;
-    var radius = PLATE_H * 0.28;
+    let shape = plate_shape(kind);
+    let pw = shape.x;
+    let radius = shape.y;
     var body = PLATE;
     var accent = INK;
     if kind == PLATE_LORE {
-        pw = PLATE_H;
-        radius = PLATE_H * 0.10;
         body = PARCHMENT;
         accent = SEPIA;
     } else if kind == PLATE_LOYALTY {
         // Gilt, and explicitly not a shield — see GILT.
         accent = GILT;
-    } else if night {
+    } else if (ink_word & PLATE_NIGHT) != 0u {
         accent = MOON_INK;
     }
 
-    // Where the strip put it: `cardrail::Strip::cells`.
-    let y0 = mid_y - PLATE_H * 0.5;
+    // Where the table put it: `cardplate::plate_rect`.
+    let y0 = top;
     let y1 = y0 + PLATE_H;
-    let x0 = edge;
-    let x1 = x0 + pw;
+    let x1 = right;
+    let x0 = x1 - pw;
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
     let half = vec2<f32>(pw * 0.5, PLATE_H * 0.5);
-
-    var out = color;
-
-    // ---- the chip, beside the plate
-    //
-    // What the counters did. A swing is a chip of green or violet stock with
-    // the plate's dark body for ink, the way a damaged plate is a hot box
-    // with dark digits: at table size the stock is what is read. A swing
-    // that nets to neither is a dark chip in the plate's ink, and a `+1/-1`
-    // says as much by being neither colour.
-    if (swing & SWING_SET) != 0u {
-        let cx0 = x1 + CHIP_GAP;
-        let chip_mid = vec2<f32>(cx0 + CHIP_W * 0.5, mid.y);
-        let chip_half = vec2<f32>(CHIP_W * 0.5, PLATE_H * 0.5);
-        let d_chip = sd_round_box(p - chip_mid, chip_half, PLATE_H * 0.28);
-        let on_chip = 1.0 - smoothstep(-aa, aa, d_chip);
-
-        let dp = i32(swing & PLATE_SLOT_MASK) - PLATE_BIAS;
-        let dt = i32((swing >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
-        var stock = body;
-        var figure = accent;
-        if dp + dt > 0 {
-            stock = GROWN;
-            figure = body;
-        } else if dp + dt < 0 {
-            stock = SHRUNK;
-            figure = body;
-        }
-        out = mix(out, stock, on_chip * 0.88);
-        let chip_rim = 1.0 - smoothstep(-aa, aa, abs(d_chip) - 0.0045);
-        out = mix(out, figure, chip_rim * 0.55);
-
-        // A symmetric swing — every `+1/+1` and `-1/-1` counter there is —
-        // says its number once: `+2` in a green chip beside a `4/4` reads as
-        // what it is, and `+2/+2` in nine pixels would not read at all. The
-        // rare lopsided one is written out and shrinks to fit.
-        var line = text_signed(vec2<u32>(0u, 0u), dp, true);
-        if dp != dt {
-            line = text_push(line, GLYPH_SLASH);
-            line = text_signed(line, dt, true);
-        }
-        let room = CHIP_W - 2.0 * PLATE_PAD;
-        let hit = text_cover(p, chip_mid, fit(PLATE_CAP, line, room), line, marks, marks_s, aa);
-        out = mix(out, figure, hit.x * on_chip);
-    }
 
     // ---- the plate
     let d_plate = sd_round_box(p - mid, half, radius);
     let inside = 1.0 - smoothstep(-aa, aa, d_plate);
     if inside <= 0.0 {
-        return out;
+        return vec4<f32>(0.0);
     }
-    out = mix(out, body, inside * 0.88);
+    var out = body;
 
     let a = i32(word & PLATE_SLOT_MASK) - PLATE_BIAS;
     let b = i32((word >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
@@ -1645,7 +1683,7 @@ fn plate_layer(
         let share = clamp(f32(c) / f32(b), 0.0, 1.0);
         let lit = max(PLATE_H * share, DAMAGE_FLOOR);
         let level = y1 - lit;
-        band = inside * smoothstep(level - aa, level + aa, p.y);
+        band = smoothstep(level - aa, level + aa, p.y);
         out = mix(out, HEAT, band);
 
         // Drawn large — the hover preview, or a camera a player has pushed
@@ -1699,7 +1737,7 @@ fn plate_layer(
     let cap = fit(PLATE_CAP, line, pw - 2.0 * PLATE_PAD);
     let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
     if hit.x <= 0.0 {
-        return out;
+        return vec4<f32>(out, inside);
     }
 
     // Which ink, and it is two questions. Deathtouch turns the *power* —
@@ -1709,14 +1747,14 @@ fn plate_layer(
     // the waterline cuts a numeral cleanly: a `4` half in the band is white
     // above the line and dark below it, which is one more place the level is
     // drawn.
-    let tone = swing >> TONE_SHIFT;
+    let tone = ink_word >> TONE_SHIFT;
     var ink = accent;
     if tone == TONE_TOXIC {
         ink = TOXIC;
     } else if tone == TONE_DEADLY && hit.y < f32(left) {
         ink = DEADLY;
     }
-    return mix(out, mix(ink, body, clamp(band, 0.0, 1.0)), hit.x);
+    return vec4<f32>(mix(out, mix(ink, body, clamp(band, 0.0, 1.0)), hit.x), inside);
 }
 
 /// The fewest permanents a card has to stand for before it says how many,

@@ -78,6 +78,7 @@ pub mod marksmat;
 pub mod matmat;
 pub mod music;
 pub mod net;
+pub mod platemat;
 pub mod prefs;
 pub mod rowbar;
 pub mod settings;
@@ -1290,7 +1291,7 @@ fn add_present_systems(app: &mut App) {
                 table::glide.after(table::sync_scene),
                 table::retire,
                 table::ground_the_shadows,
-                table::keep_badges_upright,
+                table::keep_upright,
                 // Where the camera is this frame, as well as the cards.
                 table::fit_the_shells.after(table::apply_camera_rig),
             )
@@ -1596,6 +1597,7 @@ impl Plugin for DuelPlugin {
             .add_plugins(markatlas::MarkAtlasPlugin)
             .add_plugins(marksmat::MarksMaterialPlugin)
             .add_plugins(badgemat::BadgeMaterialPlugin)
+            .add_plugins(platemat::PlateMaterialPlugin)
             .add_plugins(floormat::FloorMaterialPlugin)
             .add_plugins(shellmat::ShellMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)

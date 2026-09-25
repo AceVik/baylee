@@ -1,5 +1,5 @@
 // The keyword strip on a card lying on the table (#274), and since #298 the
-// card's label: its numbers, its moon and its crests beside the marks.
+// card's label: its counters' chip, its moon and its crests beside the marks.
 //
 // One quad per card with something to say, a child of the card lying just
 // over its face, and this is all it draws: `card_common.wgsl`'s
@@ -19,14 +19,12 @@ struct MarksParams {
     motion: f32,
     /// The quad's size in card widths.
     quad: vec2<f32>,
-    /// The plate, `cardplate::Plate::packed`; zero for none (#298).
-    plate: u32,
-    /// The chip's swing and the plate's tone.
+    /// The chip, `cardplate::Corner::chip`; zero for none.
     swing: u32,
     /// The sleep moon and the crests, `cardrail::label`.
     label: u32,
     /// Sixteen-byte rows under the GL backend's `std140`.
-    pad: u32,
+    pad: vec2<u32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: MarksParams;
@@ -46,7 +44,6 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         q,
         params.quad,
         params.bits,
-        params.plate,
         params.swing,
         params.label,
         t,

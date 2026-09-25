@@ -753,7 +753,7 @@ the seat's rows leave above their cards):
   stands `BADGE_AIR` (0.01) over the card's top edge, so no card of its row
   reaches it however far the row fans, and a merged card fans like any
   other. It stays upright when its card taps (`table::Upright`;
-  `keep_badges_upright` lays it again on every frame of the turn): tapping
+  `keep_upright` lays it again on every frame of the turn): tapping
   moves nothing in a row, and a badge turned with its card would stand
   beside it, over the next card in a fan.
 - **Beside the card** (`Beside`), at a ring table, whose rows stand 0.019
@@ -1958,10 +1958,14 @@ on objects of its own:
 - **The strip** (`cardrail::Strip`, `marksmat.rs`, `label_strip`) lies on
   the art along the seam between the art and the type line, as a lifted
   object with its own shadow, and carries the card's **label** from the
-  left: the plate with its chip, the sleep moon, the keyword marks and the
+  left: the counters' chip, the sleep moon, the keyword marks and the
   identity crests ("The strip says what the card does in combat", below).
   The owner's okay for a wider strip carrying all of that is recorded in
   `docs/legal.md` §3.
+- **The plate** stands at the card's bottom right, where the print says
+  its power and toughness: beside the printed box over the black border,
+  on the card's own foot in a fan, upright under a tapped card ("The plate
+  says what the card *is* in numbers", below; `docs/legal.md` §3).
 - **The count badge** stands at the card's top-right corner, outside it:
   over the top edge in a duel, beside the right edge at a ring ("Grouping
   and the token summary").
@@ -2139,8 +2143,7 @@ on them.
   (`the_strip_lies_on_the_art_box_and_never_on_the_type_line`); the art box
   takes what the name bar leaves.
 - No power and toughness on the table's face: a card showing its text face
-  always has its plate on the strip (`Corner::shows_plate`), which is the
-  P/T box. The one exception is `face::world_stats`'s — an animated
+  always shows its plate (`Corner::shows_plate`), which is the P/T box. The one exception is `face::world_stats`'s — an animated
   planeswalker's body, which the plate (showing loyalty) cannot say — at the
   text box's foot, right, where a print has its P/T. The interface's faces
   (hand, preview) have no strip over them and write their own numbers.
@@ -2400,9 +2403,9 @@ numbers, and the **light on the felt** round the card says what is on offer.
   widths, eight pixels on the felt); a seventh opens a row **above** the
   first, so the row a creature already wears never moves and the strip's
   foot stays on the seam. The card's own material has no dimension for
-  them any more: the strip's material is keyed on `cardrail::Strip`'s four
-  words alone — the marks, the plate, the swing and the label — so a table
-  has one strip material per distinct label on it.
+  them any more: the strip's material is keyed on `cardrail::Strip`'s three
+  words alone — the marks, the chip and the label — so a table has one
+  strip material per distinct label on it.
 
   It lies half a row step over its card's face, not a card's thickness as
   first planned: a lane's whole rise is `LANE_RISE` (0.004) shared out over
@@ -2414,8 +2417,8 @@ numbers, and the **light on the felt** round the card says what is on offer.
   declared, and the preview names its marks. The
   preview draws the same strip as a UI node over the art at the same place.
 - **The moon says a creature is asleep.** A creature with summoning
-  sickness (CR 302.6) wears a crescent after its plate (`label::MOON`,
-  `moon_sdf`), and its plate writes in the moon's grey. It was night
+  sickness (CR 302.6) wears a crescent on its strip (`label::MOON`,
+  `moon_sdf`), and its plate writes in the moon's grey (`PLATE_NIGHT`). It was night
   falling on the frame's paper under #274, and a dimmed, desaturated print
   before that — which is the very thing Scryfall's terms name.
   `board::asleep` sets it only for creatures, because summoning sickness is
@@ -2431,25 +2434,54 @@ numbers, and the **light on the felt** round the card says what is on offer.
   and the glyph is not relied on; in the preview it names it. The ink holds
   4.5:1 on all three papers (`the_ink_reads_on_every_paper`; the slips' ink
   measured 3.5:1 on the oxblood).
-- **The plate says what the card *is* in numbers.** The strip's first item
-  is a plate: a creature's power and toughness, or a planeswalker's loyalty
-  behind a gilt rim. It was the bottom-right fifth of the print until #274,
-  which the rail left empty for it, then the left end of the frame's ledge;
-  since #298 it leads the strip (`cardplate::PLATE_W`, 0.196 wide), because a
-  lane fans with each card's own left edge exposed —
-  `the_plate_and_the_first_mark_survive_the_tightest_fan`. And it is there
-  only when it says something the print cannot (`Corner::shows_plate`): a
-  vanilla 2/2 under nothing has its own P/T box, and a plate beside it
-  saying 2/2 is noise on every creature of the board. A body the layers
-  changed, marked damage, a card drawn without its print, a print whose box
-  the next card of a fanned lane covers, and every loyalty and chapter
-  count, are written. `client-core/src/cardplate.rs` decides what it says
-  and packs it into one `u32` — three ten-bit numbers and two kind bits —
-  that rides the strip's material key, so a creature dealt three damage
-  becomes a different strip and the plate redraws with no second pass.
-  Marked damage is the plate **filling from the bottom** to
+- **The plate says what the card *is* in numbers.** A creature's power and
+  toughness, or a planeswalker's loyalty behind a gilt rim, on a dark plate
+  of its own with its own shadow (`platemat.rs`, `plate.wgsl`,
+  `plate_ui.wgsl`; `card_common.wgsl`'s `plate_object`). It was the
+  bottom-right fifth of the print until #274, then the left end of the
+  frame's ledge, then the strip's first item (#298), until the owner, 25.09,
+  read the numbers among the keyword marks as the fault. It stands at the
+  card's bottom right now, where the print says them, by one rule for every
+  pitch of its row (`cardplate::plate_rect`, from what the row leaves it,
+  `LanePacking::plate_room`):
+  - with room before the next card, **beside the printed box**, straddling
+    the black border (`PLATE_BESIDE`), never over the box itself;
+  - in a fanned row, **on its own card**, right-aligned to the part of it in
+    sight, its foot at `PLATE_FOOT` (0.880 of the print's height: just above
+    the box, and clear of the artist's and the ©/™ lines, which start at
+    `FOOT_TEXT`, 0.92). What it covers there is the foot of its own text
+    box, which the preview reads in full. No gap is held for it: a row
+    scrolls no sooner for the plate;
+  - under a **tapped** card, upright (`table::Upright`, as a duel's badge),
+    at the card's on-screen bottom right in its lane's own air, left of a
+    count badge that turned with its card. Where the prints beside it reach
+    into that air — a tapped card between two untapped ones below a pitch of
+    0.62, or one stepped into combat between two tapped ones that stayed,
+    below 0.82, which is a row of twenty-odd in the narrowest lane — it
+    shows none. **Accepted:** the preview says it.
+
+  `no_plate_lies_on_a_print_drawn_under_it` (`layout/tests/plates.rs`) walks
+  every lane width, rows to sixty, tapped and staged patterns and piles;
+  `the_plate_lies_on_nothing_its_card_says` keeps it off the name and cost,
+  the type line, the strip, the printed box and the bottom border's words
+  (`docs/legal.md` §3), measured as `PRINTED_BOX` (0.745–0.945 by
+  0.885–0.95 of the print) on the 112 Scryfall scans in the art cache. And
+  it is there only when it says something the print cannot
+  (`Corner::shows_plate`): a vanilla 2/2 under nothing has its own P/T box,
+  and a plate beside it saying 2/2 is noise on every creature of the board.
+  A body the layers changed, marked damage, a card drawn without its print,
+  a print whose box the next card of a fanned lane covers, and every loyalty
+  and chapter count, are written. `client-core/src/cardplate.rs` decides
+  what it says and packs it into one `u32` — three ten-bit numbers and two
+  kind bits — which with its ink word (the tone and `PLATE_NIGHT`,
+  `Corner::plate_words`) is the plate material's key, so a creature dealt
+  three damage becomes a different plate and redraws with no second pass;
+  where it stands is its transform's, so a row of twelve 2/2 Soldiers is one
+  material. Marked damage is the plate **filling from the bottom** to
   `damage / toughness` rather than a third numeral: what a player needs off
-  a blocked creature is how close to lethal it is.
+  a blocked creature is how close to lethal it is. The preview stands it
+  beside the box, as a roomy row does, on the flip's frame so it hangs past
+  the card (`platemat::preview_quad`, `hud::overlay::plate_reach`).
 - **The numerals are type, and were a stencil.** Each was a 4×6 bitmap mask
   sampled bilinearly, and two complaints came off it that turned out to be
   one fault. It looked **blurry**, because a mask that coarse smoothed up to
@@ -2480,14 +2512,15 @@ numbers, and the **light on the felt** round the card says what is on offer.
   the mark and the colour cannot disagree. Toxic is written into the enum and
   reaches nothing: `board::keyword_bits` has no toxic bit yet.
 - **And the counters stand beside it, on a chip.** The net power and
-  toughness a permanent's ±1/±1 counters add, on a chip 0.100 wide one gap
-  right of the plate: green stock when it grew, violet when it shrank, the
-  plate's dark body for ink. At table size the chip is nine pixels wide and
+  toughness a permanent's ±1/±1 counters add, on a chip 0.100 wide at the
+  strip's left end (`cardrail::Item::Chip`, `chip_layer`): green stock when
+  it grew, violet when it shrank, the plate's dark body for ink. It stays
+  on the strip where the plate shows, and goes where the plate does not. At table size the chip is nine pixels wide and
   the **stock** is the reading; the figures are the preview's. A symmetric
   swing — every `+1/+1` and `-1/-1` counter there is — is written once
   (`+2`), and a lopsided one in full, shrinking to fit. It stood *above* the
   plate, one size down, until #274; the ledge had no room above a plate, and
-  the strip keeps it beside. What
+  the strip kept it beside until the plate left the strip. What
   stood there before that was a column of stamped **chips**, pips to six and a colour per
   kind of counter, and the owner read it as saying nothing: a green disc with
   three pips on it is a rebus for `+3/+3`, and the plate two millimetres
@@ -2500,7 +2533,7 @@ numbers, and the **light on the felt** round the card says what is on offer.
   the plate — under the swing when there is one — which used to hang under
   the plate because the plate covered the print's own P/T box. A **saga** is
   the exception that takes the plate itself: a square parchment page with
-  the chapter in roman numerals, at the same left edge. `Corner::of` decides
+  the chapter in roman numerals, at the same right edge. `Corner::of` decides
   the plate and the chip together, and `Corner::of_object` does the
   same for the hover preview — which drew the *printed* numbers until it did,
   so a 2/2 under an anthem was a 3/3 on the table and a 2/2 in its own
@@ -2516,7 +2549,7 @@ a parameter — which is what lets bevy compile it as an imported module, what
 keeps it clear of the two different bind groups the two shaders read `globals`
 from, and what lets the naga test parse it on its own. Which item of the strip a
 fragment is inside is found by laying the label's items out in order
-(`LABEL_ITEMS`, nineteen: the plate, the moon, fifteen marks, two crests), as
+(`LABEL_ITEMS`, nineteen: the chip, the moon, fifteen marks, two crests), as
 `cardrail::Strip::layout` does: a loop bound at compile time, no dynamic indexing, and inside the GL budget like
 everything else here. *How many* marks there are is counted in that same
 loop, and that is not stylistic: `countOneBits` is what WGSL offers, naga

@@ -1,5 +1,6 @@
 //! The keyword strip's material: a card's marks as an object lying on it
-//! (#274), and since #298 its label — the plate, the moon, the crests.
+//! (#274), and since #298 its label — the chip, the moon, the crests. The
+//! plate lies beside it as an object of its own ([`crate::platemat`]).
 //!
 //! The marks rode the card's own material as a rail along the print's bottom
 //! edge until #274, over the artist and the copyright line. They are an
@@ -30,7 +31,8 @@ use crate::cardmat::motion_of;
 ///
 /// Thirty-two bytes, deliberately: a uniform block under the GL backend is
 /// laid out `std140`, which rounds it up to a multiple of sixteen, and a
-/// buffer shorter than the block it feeds would not bind.
+/// buffer shorter than the block it feeds would not bind. The plate's word
+/// left for its own material, and its four bytes are padding now.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct MarksParams {
     /// The marks, one bit each in `cardrail::MARK_ORDER`'s order.
@@ -41,14 +43,12 @@ pub struct MarksParams {
     /// The quad's size in card widths, [`cardrail::quad_rect`]'s: what turns
     /// the quad's UV into the lengths the strip is laid out in.
     pub quad: Vec2,
-    /// The plate, [`cardrail::Strip::plate`].
-    pub plate: u32,
-    /// The chip and the tone, [`cardrail::Strip::swing`].
+    /// The chip, [`cardrail::Strip::swing`].
     pub swing: u32,
     /// The moon and the crests, [`cardrail::Strip::label`].
     pub label: u32,
-    /// The block's last four bytes.
-    pub pad: u32,
+    /// The block's last eight bytes.
+    pub pad: UVec2,
 }
 
 impl MarksParams {
@@ -59,10 +59,9 @@ impl MarksParams {
             bits: strip.marks,
             motion,
             quad: quad_size(),
-            plate: strip.plate,
             swing: strip.swing,
             label: strip.label,
-            pad: 0,
+            pad: UVec2::ZERO,
         }
     }
 }
@@ -75,8 +74,8 @@ impl MarksParams {
 /// [`board::asleep`](baylee_client_core::board::asleep) and
 /// [`cardcrest::marks`](baylee_client_core::cardcrest::marks) — so a card
 /// held up in the preview says what it says on the table. The preview shows
-/// the whole print, so the plate is on it only where the print cannot say
-/// the numbers.
+/// the whole print, so the chip is on it only where the plate is: where the
+/// print cannot say the numbers.
 #[must_use]
 pub fn strip_of(object: &baylee_view::PublicObject) -> cardrail::Strip {
     use baylee_client_core::{board, cardcrest, cardplate::Corner};
@@ -103,7 +102,7 @@ pub struct MarksMaterial {
     /// The strip and the clock.
     #[uniform(0)]
     pub params: MarksParams,
-    /// The glyph atlas the marks, the plate's numerals and the crests are
+    /// The glyph atlas the marks, the chip's numerals and the crests are
     /// drawn from, baked at startup.
     ///
     /// Always [`crate::markatlas::MARKS`], which is why it is not an
@@ -317,10 +316,9 @@ struct Globals { time: f32 };
                     "bits: u32,",
                     "motion: f32,",
                     "quad: vec2<f32>,",
-                    "plate: u32,",
                     "swing: u32,",
                     "label: u32,",
-                    "pad: u32,"
+                    "pad: vec2<u32>,"
                 ],
                 "{which} lays the uniform out differently from `MarksParams`"
             );

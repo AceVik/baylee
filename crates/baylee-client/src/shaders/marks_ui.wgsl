@@ -13,10 +13,9 @@ struct MarksParams {
     bits: u32,
     motion: f32,
     quad: vec2<f32>,
-    plate: u32,
     swing: u32,
     label: u32,
-    pad: u32,
+    pad: vec2<u32>,
 }
 
 @group(0) @binding(1) var<uniform> globals: Globals;
@@ -34,7 +33,6 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         q,
         params.quad,
         params.bits,
-        params.plate,
         params.swing,
         params.label,
         t,

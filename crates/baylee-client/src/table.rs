@@ -27,6 +27,7 @@ use crate::face;
 use crate::feltmat::FeltMaterial;
 use crate::floormat::{self, FloorMaterial};
 use crate::marksmat::MarksMaterial;
+use crate::platemat::{PlateMaterial, PlateWords};
 use crate::shellmat::{self, Band, ShellKind, ShellLook, ShellMaterial};
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
@@ -1281,10 +1282,12 @@ pub fn glide(
 type ShadowOwners = (With<CardVisual>, Without<CardShadow>);
 
 /// The materials of the objects lying on and round a card: its strip, its
-/// count badge, the offer's light on the felt round it and its shell.
+/// count badge, its plate, the offer's light on the felt round it and its
+/// shell.
 type CardCompanions<'w> = (
     ResMut<'w, Assets<MarksMaterial>>,
     ResMut<'w, Assets<BadgeMaterial>>,
+    ResMut<'w, Assets<PlateMaterial>>,
     ResMut<'w, Assets<FloorMaterial>>,
     ResMut<'w, Assets<ShellMaterial>>,
 );
@@ -1699,6 +1702,16 @@ pub struct SceneIndex {
     /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
     /// mesh for the whole table, since the shader sizes the body inside it.
     badge_quad: Option<Handle<Mesh>>,
+    /// The plate at each card whose plate shows (the owner, 25.09): what it
+    /// was put on for ([`PlateKey`]) and the plate itself. Held for the
+    /// strip's reason.
+    plates: HashMap<ObjectId, (PlateKey, Entity)>,
+    /// One plate material per thing a plate says, shared by every card
+    /// saying it.
+    plate_materials: HashMap<PlateWords, Handle<PlateMaterial>>,
+    /// The quad every plate is drawn on: [`cardplate::plate_quad`], one mesh
+    /// for the whole table, since the shader lays the body out inside it.
+    plate_quad: Option<Handle<Mesh>>,
     /// The offer's light on the felt under each card this client is offering
     /// something for (#298): the offers and the depth it was put at, and the
     /// light itself. Held for the strip's reason, and it comes and goes with
@@ -2103,21 +2116,14 @@ pub fn spawn_stage(
     adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
 ) {
     index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
-    let strip = crate::marksmat::quad_size();
-    index.marks_quad = Some(meshes.add(Rectangle::new(
-        strip.x * CARD_WIDTH,
-        strip.y * DOWN_THE_CARD,
-    )));
-    let badge = crate::badgemat::quad_size();
-    index.badge_quad = Some(meshes.add(Rectangle::new(
-        badge.x * CARD_WIDTH,
-        badge.y * DOWN_THE_CARD,
-    )));
-    let floor = floormat::quad_size();
-    index.floor_quad = Some(meshes.add(Rectangle::new(
-        floor.x * CARD_WIDTH,
-        floor.y * DOWN_THE_CARD,
-    )));
+    // The objects lying on and round a card, each one quad for the whole
+    // table, sized in card widths across and down the card.
+    let mut quad =
+        |size: Vec2| Some(meshes.add(Rectangle::new(size.x * CARD_WIDTH, size.y * DOWN_THE_CARD)));
+    index.marks_quad = quad(crate::marksmat::quad_size());
+    index.badge_quad = quad(crate::badgemat::quad_size());
+    index.plate_quad = quad(crate::platemat::quad_size());
+    index.floor_quad = quad(floormat::quad_size());
     let [inner, outer] = shellmat::RIM_EDGES;
     index.rim_mesh = Some(meshes.add(shellmat::band_mesh(inner, outer)));
     for band in Band::ALL {
@@ -3021,6 +3027,8 @@ pub fn despawn_stage(
     index.marks_materials.clear();
     index.badges.clear();
     index.badge_materials.clear();
+    index.plates.clear();
+    index.plate_materials.clear();
     index.floors.clear();
     index.floor_materials.clear();
     index.shells.clear();
@@ -3163,13 +3171,15 @@ type BadgeKey = (u32, f32, BadgePlace, bool);
 /// A badge standing over its card ([`BadgePlace::Above`]) stays upright when
 /// the card taps (the owner, 25.09): it is where it would be on the card
 /// untapped, clear of the row, and tapping moves nothing else in a row
-/// either. It is still the card's child, so it glides and goes with it;
-/// [`keep_badges_upright`] turns it back by as much as the card has turned.
+/// either. So does every plate ([`sync_plate`]), which under a tapped card
+/// stands where `cardplate::plate_rect` puts it in the untapped card's
+/// frame. Each is still the card's child, so it glides and goes with it;
+/// [`keep_upright`] turns it back by as much as the card has turned.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Upright {
     /// The card's rotation untapped.
     base: Quat,
-    /// The badge's transform on the card untapped.
+    /// Its transform on the card untapped.
     at: Transform,
 }
 
@@ -3194,7 +3204,14 @@ impl Upright {
 /// The strip's height and for the strip's reason: a badge lifted further
 /// would stand over the card laid on this one.
 fn badge_transform(rung: f32, place: BadgePlace) -> Transform {
-    let [x0, y0, x1, y1] = cardplate::badge_quad_rect(place);
+    on_card(rung, cardplate::badge_quad_rect(place))
+}
+
+/// Where a quad lies on its card, in the card's own space, untapped: at
+/// `quad`, `[x0, y0, x1, y1]` in card widths from the card's top-left
+/// corner, at the strip's share of its row's step over the face.
+fn on_card(rung: f32, quad: [f32; 4]) -> Transform {
+    let [x0, y0, x1, y1] = quad;
     Transform::from_xyz(
         (f32::midpoint(x0, x1) - 0.5) * CARD_WIDTH,
         CARD_HEIGHT * 0.5 - f32::midpoint(y0, y1) * DOWN_THE_CARD,
@@ -3202,14 +3219,14 @@ fn badge_transform(rung: f32, place: BadgePlace) -> Transform {
     )
 }
 
-/// Keeps every badge standing over its card upright while its card turns
-/// (#298): a tap glides, and the badge is the card's child, so it is laid
-/// again from where the glide has the card this frame.
-pub fn keep_badges_upright(
-    cards: Query<&Transform, Without<CountBadge>>,
-    mut badges: Query<(&ChildOf, &Upright, &mut Transform), With<CountBadge>>,
+/// Keeps every badge standing over its card and every plate upright while
+/// its card turns (#298): a tap glides, and each is the card's child, so it
+/// is laid again from where the glide has the card this frame.
+pub fn keep_upright(
+    cards: Query<&Transform, Without<Upright>>,
+    mut uprights: Query<(&ChildOf, &Upright, &mut Transform)>,
 ) {
-    for (parent, upright, mut local) in &mut badges {
+    for (parent, upright, mut local) in &mut uprights {
         if let Ok(card) = cards.get(parent.parent()) {
             local.set_if_neq(upright.on(card.rotation));
         }
@@ -3257,8 +3274,8 @@ fn sync_badge(
         base: card_transform(&placement.slot, placement.position, false, placement.lift).rotation,
         at,
     });
-    // Laid for where the card will come to rest; `keep_badges_upright`
-    // keeps an upright one so on the way there.
+    // Laid for where the card will come to rest; `keep_upright` keeps an
+    // upright one so on the way there.
     let transform = upright.map_or(at, |upright| {
         upright.on(card_transform(
             &placement.slot,
@@ -3295,6 +3312,104 @@ fn sync_badge(
         }
     }
     index.badges.insert(placement.object, (key, badge));
+}
+
+/// The plate at a card's bottom right (the owner, 25.09): a marker, so a
+/// plate can be found and counted without being taken for the card, its
+/// strip or its badge.
+#[derive(Component)]
+pub struct CardPlate;
+
+/// What a card's plate was put on for: what it says, where on the card it
+/// stands (its body, [`cardplate::plate_rect`], as bits), the row step and
+/// whether its card is tapped.
+type PlateKey = (PlateWords, [u32; 4], u32, bool);
+
+/// Puts the plate on a card, moves it, or takes it off (the owner, 25.09).
+///
+/// [`sync_badge`]'s diff, for [`sync_strip`]'s reasons: a child of the card,
+/// so it follows every glide and goes with the card; not a [`CardShadow`];
+/// not pickable, since a click on the numbers is a click on the card.
+/// `words` is `None` where the print says the numbers itself. Where it
+/// stands is what the row leaves it ([`Placement::room`]): beside the
+/// printed box, on the card's own foot, or under a tapped card — and
+/// nowhere, and it goes, where a tapped card's neighbours leave it no air.
+/// It is always [`Upright`]: on an untapped card that is where it lies
+/// anyway.
+fn sync_plate(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<PlateMaterial>,
+    card: Entity,
+    placement: &Placement,
+    words: Option<PlateWords>,
+) {
+    let place = placement.slot.badge_place();
+    // A badge beside the card turns with it, and under a tapped card it
+    // hangs where the plate would.
+    let badge = (placement.badge > 0 && placement.tapped && place == BadgePlace::Beside)
+        .then(|| cardplate::badge_quad_rect(place));
+    let body = words.and_then(|words| {
+        let kind = words.word >> cardplate::KIND_SHIFT;
+        cardplate::plate_rect(kind, placement.tapped, placement.room, badge)
+            .map(|(body, _)| (words, body))
+    });
+    let current = index.plates.get(&placement.object).copied();
+    let Some((words, body)) = body else {
+        if let Some((_, plate)) = index.plates.remove(&placement.object) {
+            commands.entity(plate).despawn();
+        }
+        return;
+    };
+    let key: PlateKey = (
+        words,
+        body.map(f32::to_bits),
+        placement.rung.to_bits(),
+        placement.tapped,
+    );
+    if current.is_some_and(|(said, _)| said == key) {
+        return;
+    }
+    let Some(quad) = index.plate_quad.clone() else {
+        return;
+    };
+    let material = index
+        .plate_materials
+        .entry(words)
+        .or_insert_with(|| materials.add(PlateMaterial::new(words)))
+        .clone();
+    let upright = Upright {
+        base: card_transform(&placement.slot, placement.position, false, placement.lift).rotation,
+        at: on_card(placement.rung, cardplate::plate_quad(body)),
+    };
+    // Laid for where the card will come to rest, as an upright badge is.
+    let transform = upright.on(card_transform(
+        &placement.slot,
+        placement.position,
+        placement.tapped,
+        placement.lift,
+    )
+    .rotation);
+    let plate = if let Some((_, plate)) = current {
+        commands
+            .entity(plate)
+            .try_insert((MeshMaterial3d(material), transform, upright));
+        plate
+    } else {
+        let plate = commands
+            .spawn((
+                CardPlate,
+                Mesh3d(quad),
+                MeshMaterial3d(material),
+                transform,
+                upright,
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(card).add_child(plate);
+        plate
+    };
+    index.plates.insert(placement.object, (key, plate));
 }
 
 /// The offer's light on the felt under a card (#298): a marker, so a light
@@ -4047,8 +4162,13 @@ struct Placement {
     crests: [Option<usize>; cardcrest::MAX_CRESTS],
     /// Whether the card laid after this one in its row covers its lower
     /// right, where the print writes its power and toughness — a fanned
-    /// lane — so the strip has to say them (`Corner::shows_plate`).
+    /// lane — so the plate has to say them (`Corner::shows_plate`).
     covered: bool,
+    /// What the row leaves this card's plate
+    /// ([`LanePacking::plate_room`](baylee_client_core::layout::LanePacking::plate_room)):
+    /// [`PlateRoom::OPEN`](cardplate::PlateRoom::OPEN) off the battlefield,
+    /// where no plate shows.
+    room: cardplate::PlateRoom,
     /// How much higher the next card of this card's row stands, which the
     /// strip lies a share of: see [`STRIP_STEP_SHARE`].
     rung: f32,
@@ -4132,20 +4252,28 @@ fn placements(duel: &Duel) -> Vec<Placement> {
             let window = packing.window(duel.rows.first((pod.player, lane.kind)));
             // The row's rise, shared out over however many cards are on it.
             let steps = lane.groups.len().saturating_sub(1).max(1) as f32;
+            // A group is one card standing for several, and combat is
+            // declared per creature — so the step is asked of the members
+            // and not of the representative. It cannot normally differ: a
+            // declared attacker, sent or only proposed, is taken out of its
+            // group by the board model for exactly this reason
+            // (`board::Proposal`). `any` rather than `all` because if that
+            // ever stops being true, a fighting card stepping forward is the
+            // better failure. Asked of the whole row first, because where
+            // a plate may stand depends on its neighbours'.
+            let staged: Vec<bool> = lane
+                .groups
+                .iter()
+                .map(|group| {
+                    combat
+                        .as_ref()
+                        .is_some_and(|c| group.members.iter().any(|m| c.staged(*m)))
+                })
+                .collect();
+            let tapped: Vec<bool> = lane.groups.iter().map(|g| g.status.is_tapped()).collect();
             for (i, (group, offset)) in lane.groups.iter().zip(packing.offsets.iter()).enumerate() {
                 let along = Vec2::new(slot.facing.cos(), -slot.facing.sin());
-                // A group is one card standing for several, and combat is
-                // declared per creature — so the step is asked of the members
-                // and not of the representative. It cannot normally differ:
-                // a declared attacker, sent or only proposed, is taken out of
-                // its group by the board model for exactly this reason
-                // (`board::Proposal`). `any` rather than `all` because if
-                // that ever stops being true, a fighting card stepping
-                // forward is the better failure.
-                let staged = combat
-                    .as_ref()
-                    .is_some_and(|c| group.members.iter().any(|m| c.staged(*m)));
-                let stage = if staged { STAGE_STEP } else { 0.0 };
+                let stage = if staged[i] { STAGE_STEP } else { 0.0 };
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
@@ -4160,6 +4288,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // The last card shown has nothing laid over it, and
                     // nothing lies over a merged card's cell.
                     covered: packing.covered(i, &window),
+                    room: packing.plate_room(i, &window, &tapped, &staged),
                     shown: window.shown.contains(&i),
                     rung: LANE_RISE / steps,
                     tapped: group.status.is_tapped(),
@@ -4268,6 +4397,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         sick: false,
                         crests: [None; cardcrest::MAX_CRESTS],
                         covered: false,
+                        room: cardplate::PlateRoom::OPEN,
                         shown: true,
                         rung: 0.0,
                     });
@@ -4310,6 +4440,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 sick: false,
                 crests: [None; cardcrest::MAX_CRESTS],
                 covered: false,
+                room: cardplate::PlateRoom::OPEN,
                 shown: true,
                 rung: 0.0,
             });
@@ -4347,7 +4478,13 @@ pub fn sync_scene(
     mut card_materials: ResMut<Assets<CardMaterial>>,
     // One parameter for the objects lying on and under a card: a system
     // takes sixteen.
-    (mut strip_materials, mut badge_materials, mut floor_materials, mut shell_materials): CardCompanions<'_>,
+    (
+        mut strip_materials,
+        mut badge_materials,
+        mut plate_materials,
+        mut floor_materials,
+        mut shell_materials,
+    ): CardCompanions<'_>,
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
@@ -4683,17 +4820,16 @@ pub fn sync_scene(
             entity
         };
 
-        // What the strip says. The plate goes on it only where the print
-        // cannot say it (`Corner::shows_plate`): a card showing its text
-        // face has no printed box, and one showing its art has, unless the
-        // next card of the row lies over it.
+        // What the strip and the plate say. The plate shows only where the
+        // print cannot say it (`Corner::shows_plate`): a card showing its
+        // text face has no printed box, and one showing its art has, unless
+        // the next card of the row lies over it. The chip goes with it.
         let print = !show_face && placement.art.is_some();
         let corner = placement.corner;
+        let plated = corner.shows_plate(print, placement.covered);
         let strip = cardrail::Strip::new(
             placement.marks,
-            corner
-                .shows_plate(print, placement.covered)
-                .then_some(corner),
+            plated.then_some(corner),
             placement.sick,
             placement.crests,
         );
@@ -4711,6 +4847,14 @@ pub fn sync_scene(
             &mut badge_materials,
             entity,
             placement,
+        );
+        sync_plate(
+            &mut commands,
+            &mut index,
+            &mut plate_materials,
+            entity,
+            placement,
+            plated.then(|| PlateWords::of(corner, placement.sick)),
         );
         sync_floor(
             &mut commands,
@@ -4791,6 +4935,7 @@ pub fn sync_scene(
             index.faces.remove(&id);
             index.marks.remove(&id);
             index.badges.remove(&id);
+            index.plates.remove(&id);
             index.floors.remove(&id);
             index.stacks.remove(&id);
             // Not the shell: indestructible means nothing off the
@@ -4956,6 +5101,9 @@ mod face_tests;
 mod flying_tests;
 /// The shell round an indestructible permanent, on real tables and from the
 /// real camera ([`shellmat`]).
+/// The plate at a card's bottom right, upright under a tapped card.
+#[cfg(test)]
+mod plate_tests;
 #[cfg(test)]
 mod shell_tests;
 #[cfg(test)]

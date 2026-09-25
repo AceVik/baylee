@@ -385,6 +385,24 @@ impl Corner {
         ]
     }
 
+    /// The chip's word, which the strip carries ([`crate::cardrail::Strip`]):
+    /// the swing without the tone, zero with no swing.
+    #[must_use]
+    pub fn chip(self) -> u32 {
+        self.packed()[1] & (SWING_SET | ((1 << (2 * SLOT_BITS)) - 1))
+    }
+
+    /// The plate object's two words ([`plate_rect`]): the plate, and the ink
+    /// it writes in, the tone with [`PLATE_NIGHT`] on a creature that cannot
+    /// attack yet (CR 302.6).
+    #[must_use]
+    pub fn plate_words(self, night: bool) -> [u32; 2] {
+        [
+            self.plate.packed(),
+            (self.tone_bits() << TONE_SHIFT) | if night { PLATE_NIGHT } else { 0 },
+        ]
+    }
+
     /// The tone, as the two bits the shader switches on.
     const fn tone_bits(self) -> u32 {
         match self.tone {
@@ -406,6 +424,9 @@ pub const TONE_PLAIN: u32 = 0;
 pub const TONE_DEADLY: u32 = 1;
 /// Toxic: both numbers.
 pub const TONE_TOXIC: u32 = 2;
+/// Set on the plate's ink word ([`Corner::plate_words`]) when its creature
+/// is asleep: the plate writes in moon-grey.
+pub const PLATE_NIGHT: u32 = 1;
 
 /// The largest chapter drawn in roman numerals.
 ///
@@ -773,6 +794,183 @@ pub fn badge_quad_rect(place: BadgePlace) -> [f32; 4] {
         (x1 + dx + BADGE_BLUR).max(x1),
         (y1 + dy + BADGE_BLUR).max(y1),
     ]
+}
+
+// ------------------------------------------------------ where the plate stands
+//
+// The plate was the strip's first cell (#298) until the owner, 25.09, read
+// the numbers sitting with the keyword marks as the fault: it stands at the
+// card's bottom right now, where the print's own power and toughness box
+// is, an object of its own with its own shadow. The chip, the moon and the
+// crests stay on the strip. Where it stands is one rule for every pitch of
+// its row: as far right as the part of its card that stays in sight allows
+// (the PM, 25.09).
+
+/// The printed power and toughness box, and the bottom border's words, as
+/// shares of the print: measured on the 112 Scryfall `normal` scans in the
+/// art cache, 2003 and 2015 frames, 25.09.
+///
+/// The box runs from 0.745 to 0.945 of the print's width and from 0.885 to
+/// 0.95 of its height on every one; its right end is at most 0.953, where
+/// the black border begins.
+pub const PRINTED_BOX: [f32; 4] = [0.745, 0.885, 0.945, 0.95];
+
+/// Where the bottom border's words begin, as a share of the print's height:
+/// the artist and the collector's line on the left from 0.92, the ©/™ line
+/// on the right from 0.945. The plate never reaches down to them.
+pub const FOOT_TEXT: f32 = 0.92;
+
+/// The plate's left edge beside the printed box, in card widths: on the
+/// black border's inner line, so the plate straddles the border and the
+/// box is never under it.
+pub const PLATE_BESIDE: f32 = 1.0 - crate::cardrail::PRINTED_BORDER;
+
+/// Where the plate's bottom edge lies on its own card, as a share of the
+/// print's height: just above the printed box's top edge.
+///
+/// The one height that is clear of the box, the artist's line and the ©/™
+/// line at any x, so the plate can be right-aligned to whatever part of its
+/// card stays in sight without ever covering one of them. What it covers
+/// there is the foot of its own card's text box, which the preview reads in
+/// full.
+pub const PLATE_FOOT: f32 = 0.880;
+const _: () = assert!(PLATE_FOOT < PRINTED_BOX[1] && PLATE_FOOT < FOOT_TEXT);
+
+/// The air the plate keeps from the card beside it and from its own card's
+/// edge, in card widths.
+pub const PLATE_AIR: f32 = 0.012;
+
+/// How far the plate's shadow reaches past its body on each side, in card
+/// widths, `[left, top, right, bottom]`: the badge's drop and blur, so the
+/// two objects stand at one height over the table.
+pub const PLATE_SHADE: [f32; 4] = [
+    BADGE_BLUR - BADGE_DROP[0],
+    BADGE_BLUR - BADGE_DROP[1],
+    BADGE_DROP[0] + BADGE_BLUR,
+    BADGE_DROP[1] + BADGE_BLUR,
+];
+
+/// The plate's width for its `kind`: a saga's page is square
+/// ([`PLATE_H`]), every other plate [`PLATE_W`].
+#[must_use]
+pub const fn plate_body_width(kind: u32) -> f32 {
+    if kind == KIND_LORE { PLATE_H } else { PLATE_W }
+}
+
+/// Which of its places the plate stands in.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PlateSpot {
+    /// Beside the printed box, straddling the right-hand border: where the
+    /// row leaves the plate and its shadow room before the next card.
+    Beside,
+    /// On its own card, over the foot of its text box, right-aligned to the
+    /// part of the card in sight: in a fanned row, where the next card
+    /// reaches the place beside the box.
+    OnCard,
+    /// Under a tapped card, upright, in its lane's own air.
+    Below,
+}
+
+/// What a row leaves a card's plate, in card widths along the row, every
+/// one measured from where the card's left edge is while it lies untapped.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct PlateRoom {
+    /// Where the next card along the row begins, its pile's cards included,
+    /// or the lane's end: an untapped card's plate stands clear of it.
+    pub right: f32,
+    /// The stretch of the lane's air under a tapped card that no print
+    /// reaches into: from where the untapped card before it ends to where
+    /// the untapped card after it begins, its pile included, or the lane's
+    /// ends. A tapped neighbour is a card's width tall and stays out of the
+    /// air, so only untapped ones bound it; only a tapped card's plate
+    /// reads it.
+    pub below: [f32; 2],
+}
+
+impl PlateRoom {
+    /// A card with nothing beside it: the preview's.
+    pub const OPEN: Self = Self {
+        right: f32::INFINITY,
+        below: [f32::NEG_INFINITY, f32::INFINITY],
+    };
+}
+
+/// The plate's body: `[x0, y0, x1, y1]` in card widths from the card's
+/// top-left corner while it lies untapped, `y` down the card, and which
+/// place that is. `None` for a tapped card whose row leaves its plate no
+/// room at all: a tapped card between two untapped ones in the tightest
+/// fans, whose neighbours' prints fill the air under it.
+///
+/// A tapped card's plate stands upright (`table::Upright`), so its body is
+/// in the same frame: where it would lie beside the card untapped, which is
+/// the seat's own. `badge` is a count badge that turns with the card
+/// ([`BadgePlace::Beside`]); under a tapped card it hangs where the plate
+/// would, so the plate stands to its left.
+#[must_use]
+pub fn plate_rect(
+    kind: u32,
+    tapped: bool,
+    room: PlateRoom,
+    badge: Option<[f32; 4]>,
+) -> Option<([f32; 4], PlateSpot)> {
+    use crate::cardrail::CARD_TALL;
+    let (w, h) = (plate_body_width(kind), PLATE_H);
+    if tapped {
+        // The tapped card's own box, seen upright: a card's height along the
+        // row and its width across it.
+        let [left, _, right, foot] = turned([0.0, 0.0, 1.0, CARD_TALL]);
+        let mut x1 = right.min(room.below[1] - PLATE_AIR);
+        if let Some(badge) = badge {
+            x1 = x1.min(turned(badge)[0] - PLATE_AIR);
+        }
+        // Its shadow too stays off the print before it, which lies under
+        // it; the one after lies over it and hides what reaches it.
+        let x0 = x1 - w;
+        if x0 < left.max(room.below[0] + PLATE_SHADE[0] + PLATE_AIR) {
+            return None;
+        }
+        let y0 = foot + PLATE_AIR;
+        return Some(([x0, y0, x1, y0 + h], PlateSpot::Below));
+    }
+    let mid = f32::midpoint(PRINTED_BOX[1], PRINTED_BOX[3]) * CARD_TALL;
+    let beside = [PLATE_BESIDE, mid - 0.5 * h, PLATE_BESIDE + w, mid + 0.5 * h];
+    if beside[2] + PLATE_SHADE[2] + PLATE_AIR <= room.right {
+        return Some((beside, PlateSpot::Beside));
+    }
+    // Never off its own card's left border: where a tapped card beside it
+    // leaves less than a plate, the plate lies partly under that card rather
+    // than on the felt or on another print.
+    let x1 = (room.right - PLATE_AIR)
+        .min(PLATE_BESIDE)
+        .max(crate::cardrail::PRINTED_BORDER + w);
+    let y1 = PLATE_FOOT * CARD_TALL;
+    Some(([x1 - w, y1 - h, x1, y1], PlateSpot::OnCard))
+}
+
+/// Where something lying on a card untapped stands once the card has turned
+/// a quarter clockwise to tap, in the same frame: `rect` as
+/// [`plate_rect`]'s, and so is the answer.
+///
+/// For what turns with its card, a count badge beside it, seen from what
+/// stays upright, the plate under it.
+#[must_use]
+pub fn turned(rect: [f32; 4]) -> [f32; 4] {
+    use crate::cardrail::CARD_TALL;
+    let [x0, y0, x1, y1] = rect;
+    // About the card's centre, (0.5, CARD_TALL / 2): the right edge goes
+    // down, the top edge right.
+    let (cx, cy) = (0.5, 0.5 * CARD_TALL);
+    [cx + cy - y1, cy - cx + x0, cx + cy - y0, cy - cx + x1]
+}
+
+/// The quad a plate is drawn in: its body `rect` with the shadow round it,
+/// as wide as the widest plate and flush with the body's right end, so one
+/// mesh serves every plate and the shader lays the body out from the right.
+#[must_use]
+pub fn plate_quad(rect: [f32; 4]) -> [f32; 4] {
+    let [_, y0, x1, y1] = rect;
+    let [l, t, r, b] = PLATE_SHADE;
+    [x1 - PLATE_W - l, y0 - t, x1 + r, y1 + b]
 }
 
 #[cfg(test)]
@@ -1278,5 +1476,217 @@ mod tests {
             BADGE_REACH < room,
             "the badge reaches {BADGE_REACH} past a tapped card and the next row is {room} away"
         );
+    }
+
+    /// Every room a row can leave a card, from the tightest fan past a
+    /// comfortable pitch and a card with nothing beside it.
+    fn rooms() -> impl Iterator<Item = PlateRoom> {
+        (0..=200)
+            .map(|n| {
+                let right = 0.10 + n as f32 * 0.01;
+                PlateRoom {
+                    right,
+                    below: [f32::NEG_INFINITY, right],
+                }
+            })
+            .chain(std::iter::once(PlateRoom::OPEN))
+    }
+
+    fn overlaps(a: [f32; 4], b: [f32; 4]) -> bool {
+        a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
+    }
+
+    /// The plate lies on nothing of its own card that a player reads, and on
+    /// nothing the law asks to be seen (`docs/legal.md` §3): not the name
+    /// and cost, not the type line, not the strip, not the printed box, not
+    /// the artist's line and not the ©/™ line, at any pitch its row can
+    /// fan to. Measured in the print's height, which is the card's since
+    /// #298; `PRINTED_BOX` and `FOOT_TEXT` say where they were measured.
+    #[test]
+    fn the_plate_lies_on_nothing_its_card_says() {
+        use crate::cardrail::{CARD_TALL, Strip};
+        let height = |share: f32| share * CARD_TALL;
+        let said = [
+            ("the name and cost", [0.0, 0.0, 1.0, height(0.105)]),
+            ("the type line", [0.0, height(0.55), 1.0, height(0.62)]),
+            ("the strip", Strip::largest().rect()),
+            (
+                "the printed box",
+                [
+                    PRINTED_BOX[0],
+                    height(PRINTED_BOX[1]),
+                    PRINTED_BOX[2],
+                    height(PRINTED_BOX[3]),
+                ],
+            ),
+            (
+                "the artist's and the ©/™ line",
+                [0.0, height(FOOT_TEXT), PRINTED_BOX[2], CARD_TALL],
+            ),
+        ];
+        let mut spots = Vec::new();
+        for kind in [KIND_FIGHT, KIND_LOYALTY, KIND_LORE] {
+            for room in rooms() {
+                let (body, spot) = plate_rect(kind, false, room, None).expect("an untapped plate");
+                spots.push(spot);
+                for (what, rect) in said {
+                    assert!(
+                        !overlaps(body, rect),
+                        "kind {kind} with {room:?} lies on {what}: {body:?}"
+                    );
+                }
+            }
+        }
+        // Both places are reached, or the loop above said nothing about one.
+        assert!(spots.contains(&PlateSpot::Beside) && spots.contains(&PlateSpot::OnCard));
+    }
+
+    /// Beside the printed box when the row leaves the plate and its shadow
+    /// room, and right-aligned to the part of the card in sight when it does
+    /// not: never under the next card, and never on the felt past it.
+    #[test]
+    fn the_plate_stands_as_far_right_as_its_card_is_in_sight() {
+        for room in rooms() {
+            let (body, spot) = plate_rect(KIND_FIGHT, false, room, None).expect("untapped");
+            match spot {
+                PlateSpot::Beside => {
+                    assert!((body[0] - PLATE_BESIDE).abs() < 1e-6);
+                    assert!(
+                        body[2] + PLATE_SHADE[2] + PLATE_AIR <= room.right + 1e-6,
+                        "{room:?}: beside the box, its shadow reaches the next card"
+                    );
+                }
+                // Less room than a plate is a tapped card beside it in the
+                // tightest fan, and the plate keeps to its own card.
+                PlateSpot::OnCard
+                    if room.right < crate::cardrail::PRINTED_BORDER + PLATE_W + PLATE_AIR =>
+                {
+                    assert!((body[0] - crate::cardrail::PRINTED_BORDER).abs() < 1e-6);
+                }
+                PlateSpot::OnCard => {
+                    assert!(
+                        body[2] <= room.right - PLATE_AIR + 1e-6,
+                        "{room:?}: the plate reaches under the next card: {body:?}"
+                    );
+                    assert!(
+                        body[2] >= (room.right - PLATE_AIR).min(PLATE_BESIDE) - 1e-6,
+                        "{room:?}: the plate stands short of the edge in sight: {body:?}"
+                    );
+                    assert!(body[0] >= crate::cardrail::PRINTED_BORDER - 1e-6);
+                }
+                PlateSpot::Below => panic!("an untapped plate below its card"),
+            }
+        }
+        assert_eq!(
+            plate_rect(KIND_FIGHT, false, PlateRoom::OPEN, None).map(|(_, spot)| spot),
+            Some(PlateSpot::Beside),
+            "a card with nothing beside it"
+        );
+    }
+
+    /// A tapped card's plate stands upright under it, in its lane's own air:
+    /// under the card, clear of the cards on either side and of a count
+    /// badge turned with the card, at every table this client lays out.
+    #[test]
+    fn a_tapped_cards_plate_stands_in_its_lanes_air() {
+        use crate::cardrail::CARD_TALL;
+        use crate::layout::{CARD_HEIGHT, TableLayout};
+        use baylee_core::ids::PlayerId;
+        let [left, _, right, foot] = turned([0.0, 0.0, 1.0, CARD_TALL]);
+        let badge = turned(badge_quad_rect(BadgePlace::Beside));
+        let mut placed = 0;
+        for room in rooms() {
+            for with_badge in [false, true] {
+                let at = plate_rect(
+                    KIND_FIGHT,
+                    true,
+                    room,
+                    with_badge.then_some(badge_quad_rect(BadgePlace::Beside)),
+                );
+                let Some((body, spot)) = at else {
+                    assert!(
+                        room.below[1] - PLATE_AIR - left < PLATE_W + 1e-6 || with_badge,
+                        "{room:?}: room for a plate and none placed"
+                    );
+                    continue;
+                };
+                placed += 1;
+                assert_eq!(spot, PlateSpot::Below);
+                assert!(body[1] >= foot + PLATE_AIR - 1e-6, "on the card: {body:?}");
+                assert!(body[0] >= left - 1e-6 && body[2] <= right + 1e-6);
+                assert!(body[2] <= room.below[1] - PLATE_AIR + 1e-6);
+                if with_badge {
+                    assert!(!overlaps(body, badge), "{room:?}: on the badge: {body:?}");
+                }
+            }
+        }
+        assert!(placed > 100, "only {placed} tapped plates placed");
+        // An untapped card before it reaches under a tapped card, and the
+        // plate stands clear of it or not at all.
+        let squeezed = PlateRoom {
+            right: 1.2,
+            below: [0.6, 1.2],
+        };
+        let (body, _) = plate_rect(KIND_FIGHT, true, squeezed, None).expect("room enough");
+        assert!(body[0] - PLATE_SHADE[0] >= 0.6 + PLATE_AIR - 1e-6);
+        assert_eq!(
+            plate_rect(
+                KIND_FIGHT,
+                true,
+                PlateRoom {
+                    right: 0.7,
+                    below: [0.6, 0.7]
+                },
+                None
+            ),
+            None,
+            "no room between the two prints"
+        );
+        // A tapped card after it stays out of the air, and the plate keeps
+        // its tapped card's bottom right however close that card lies.
+        let tapped_next = PlateRoom {
+            right: 0.3,
+            below: [f32::NEG_INFINITY, f32::INFINITY],
+        };
+        let (body, _) = plate_rect(KIND_FIGHT, true, tapped_next, None).expect("the air is free");
+        assert!((body[2] - right).abs() < 1e-6, "{body:?}");
+        // The shadow stays inside the lane at the tightest table there is.
+        let lowest = foot + PLATE_AIR + PLATE_H + PLATE_SHADE[3];
+        for seats in 1..=8u8 {
+            let players: Vec<PlayerId> = (0..seats).map(PlayerId::new).collect();
+            for aspect in [16.0 / 9.0, 4.0 / 3.0] {
+                for slot in &TableLayout::new(&players, aspect, None).slots {
+                    let lane_foot =
+                        0.5 * CARD_TALL + 0.5 * slot.lane_height() / CARD_HEIGHT * CARD_TALL;
+                    assert!(
+                        lowest <= lane_foot,
+                        "{seats} seats at {aspect}: the plate's shadow reaches {lowest}, the lane ends at {lane_foot}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// What turns with a card turns about its centre, clockwise: its right
+    /// edge goes down and its top edge right, and a quarter turn four times
+    /// over is where it started.
+    #[test]
+    fn a_quarter_turn_is_a_quarter_turn() {
+        use crate::cardrail::CARD_TALL;
+        let card = [0.0, 0.0, 1.0, CARD_TALL];
+        let [x0, y0, x1, y1] = turned(card);
+        assert!((x1 - x0 - CARD_TALL).abs() < 1e-6 && (y1 - y0 - 1.0).abs() < 1e-6);
+        assert!(
+            (f32::midpoint(x0, x1) - 0.5).abs() < 1e-6
+                && (f32::midpoint(y0, y1) - 0.5 * CARD_TALL).abs() < 1e-6
+        );
+        // The top-right corner, where a badge beside the card stands, comes
+        // to the bottom right.
+        let corner = turned([0.9, 0.0, 1.0, 0.1]);
+        assert!(corner[0] > 0.5 && corner[1] > 0.5 * CARD_TALL, "{corner:?}");
+        let round = turned(turned(turned(corner)));
+        for (a, b) in round.iter().zip([0.9, 0.0, 1.0, 0.1]) {
+            assert!((a - b).abs() < 1e-5, "{round:?}");
+        }
     }
 }

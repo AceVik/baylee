@@ -32,10 +32,13 @@
 //! the card again. What the frame said moved on to the strip, which the
 //! owner allowed on one condition — it reads as an object lying over the
 //! card, with its own shadow. So the strip is a label now ([`Strip`]):
-//! the plate with the chip (`cardplate`), the sleep moon, the marks, and the
-//! identity crests (`cardcrest`), packed from the left in that order, and
-//! a card with none of them wears no strip at all. Hexproof, indestructible
-//! and shroud, which were the frame's material, are marks like any other.
+//! the chip (`cardplate`), the sleep moon, the marks, and the identity
+//! crests (`cardcrest`), packed from the left in that order, and a card
+//! with none of them wears no strip at all. Hexproof, indestructible and
+//! shroud, which were the frame's material, are marks like any other. The
+//! plate stood at the strip's left end too until the owner, 25.09, read the
+//! numbers sitting with the marks as the fault: it is an object of its own
+//! at the card's bottom right now (`cardplate::plate_rect`).
 //!
 //! [`badge_at`] answers "what is that little green drop?" for a pointer, and
 //! nothing calls it yet — the hover tooltip that will is the next step, and
@@ -87,7 +90,7 @@ pub const MARK_GAP: f32 = 0.012;
 
 /// How long a row of the strip may run, inside its margin, in card widths.
 ///
-/// Seven marks, or the plate and its chip with three beside them. A cell that
+/// Seven marks, or the chip with six beside it. A cell that
 /// would run past it opens a row **above** the first: the row a creature
 /// already wears never moves, and the strip's bottom edge stays on the seam.
 /// Seven tenths of a card and not all of it, so the strip reads as a label
@@ -235,9 +238,9 @@ pub mod label {
     pub const CREST_BITS: u32 = 2;
 }
 
-/// Everything the strip says about one card, as the four words its shader
+/// Everything the strip says about one card, as the three words its shader
 /// reads (#298): the keywords, and the label that used to be the frame's —
-/// the numbers, the moon and the crests.
+/// what the counters add, the moon and the crests.
 ///
 /// The strip is the material's whole key, so two cards saying the same
 /// thing share one material however long the lane is.
@@ -245,11 +248,9 @@ pub mod label {
 pub struct Strip {
     /// The marks, [`mark_bits`].
     pub marks: u32,
-    /// The plate, [`crate::cardplate::Plate::packed`]; zero when the strip
-    /// carries none ([`crate::cardplate::Corner::shows_plate`]).
-    pub plate: u32,
-    /// The chip and the plate's tone, the second of
-    /// [`crate::cardplate::Corner::packed`]; zero with no plate.
+    /// The chip: the swing half of [`crate::cardplate::Corner::packed`]
+    /// without the plate's tone, zero with no swing or where the card shows
+    /// no plate ([`crate::cardplate::Corner::shows_plate`]).
     pub swing: u32,
     /// The moon and the crests, [`label`].
     pub label: u32,
@@ -258,8 +259,8 @@ pub struct Strip {
 /// One thing the strip carries, in the order they are packed from the left.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Item {
-    /// The plate, with the chip beside it when there is a swing.
-    Plate,
+    /// The chip: what a permanent's ±1/±1 counters add.
+    Chip,
     /// The sleep moon.
     Moon,
     /// A keyword, by its slot in [`MARK_ORDER`].
@@ -279,8 +280,9 @@ pub struct Cell {
 }
 
 impl Strip {
-    /// The strip for a card: its keyword word, the corner when the strip
-    /// carries the plate, whether it is asleep, and its crests.
+    /// The strip for a card: its keyword word, its corner when the card
+    /// shows its plate (the chip goes with it), whether it is asleep, and
+    /// its crests.
     #[must_use]
     pub fn new(
         marks: u32,
@@ -288,7 +290,7 @@ impl Strip {
         sick: bool,
         crests: [Option<usize>; crate::cardcrest::MAX_CRESTS],
     ) -> Self {
-        let [plate, swing] = corner.map_or([0, 0], crate::cardplate::Corner::packed);
+        let swing = corner.map_or(0, crate::cardplate::Corner::chip);
         let mut label = if sick { label::MOON } else { 0 };
         for (n, glyph) in crests.iter().enumerate() {
             if let Some(glyph) = glyph {
@@ -298,7 +300,6 @@ impl Strip {
         }
         Self {
             marks,
-            plate,
             swing,
             label,
         }
@@ -307,18 +308,16 @@ impl Strip {
     /// Whether there is nothing to draw, and so no strip.
     #[must_use]
     pub const fn is_empty(self) -> bool {
-        self.marks == 0 && self.plate >> crate::cardplate::KIND_SHIFT == 0 && self.label == 0
+        self.marks == 0 && self.swing & crate::cardplate::SWING_SET == 0 && self.label == 0
     }
 
     /// The items this strip carries, in packing order, each with its width
     /// and height in card widths.
     fn items(self) -> Vec<(Item, f32, f32)> {
-        use crate::cardplate::{KIND_SHIFT, PLATE_H, SWING_SET, plate_width};
+        use crate::cardplate::{CHIP_W, PLATE_H, SWING_SET};
         let mut out = Vec::new();
-        let kind = self.plate >> KIND_SHIFT;
-        if kind != 0 {
-            let w = plate_width(kind, self.swing & SWING_SET != 0);
-            out.push((Item::Plate, w, PLATE_H));
+        if self.swing & SWING_SET != 0 {
+            out.push((Item::Chip, CHIP_W, PLATE_H));
         }
         if self.label & label::MOON != 0 {
             out.push((Item::Moon, MARK, MARK));
@@ -340,7 +339,7 @@ impl Strip {
     /// Every item and where it lies: packed from the left along the seam,
     /// a cell that would run past [`ROW_MAX`] opening a row above.
     ///
-    /// The first row is as tall as the plate when there is one and a mark
+    /// The first row is as tall as the chip when there is one and a mark
     /// otherwise, and every cell stands on its row's middle line. The
     /// strip's shader lays itself out by the same steps, and `cardmat`'s
     /// tests hold the two to the same constants.
@@ -352,7 +351,7 @@ impl Strip {
     /// [`Self::cells`], and the top edge of the highest row.
     fn layout(self) -> (Vec<Cell>, f32) {
         let items = self.items();
-        let first = if matches!(items.first(), Some((Item::Plate, ..))) {
+        let first = if matches!(items.first(), Some((Item::Chip, ..))) {
             crate::cardplate::PLATE_H
         } else {
             MARK
@@ -392,13 +391,12 @@ impl Strip {
     }
 
     /// The widest and tallest strip there is: every mark, the moon, both
-    /// crests and a creature's plate with its chip.
+    /// crests and the chip.
     #[must_use]
     pub fn largest() -> Self {
-        use crate::cardplate::{KIND_FIGHT, KIND_SHIFT, SWING_SET};
+        use crate::cardplate::SWING_SET;
         Self {
             marks: (1 << MARK_ORDER.len()) - 1,
-            plate: KIND_FIGHT << KIND_SHIFT,
             swing: SWING_SET,
             label: label::MOON
                 | (1 << label::CREST_SHIFT)
@@ -467,7 +465,7 @@ pub fn badge_at(uv: (f32, f32), strip: Strip) -> Option<KeywordBadge> {
 mod tests {
     use super::*;
     use crate::board::keyword_bits as k;
-    use crate::cardplate::{Corner, PLATE_W, Plate};
+    use crate::cardplate::{CHIP_W, Corner, Plate};
 
     /// Every badge is a mark, and the first twelve kept their slots.
     ///
@@ -518,9 +516,10 @@ mod tests {
         assert_eq!(glyph_of(KeywordBadge::Shroud), Some('\u{ea88}'));
     }
 
-    /// A strip for every shape of label: no plate, a creature's plate with
-    /// and without its chip, a saga's page and a planeswalker's; asleep and
-    /// awake; no crest, one and two; and each with every count of marks.
+    /// A strip for every shape of label: no corner, a creature's with and
+    /// without a chip, a saga's with and without one and a planeswalker's;
+    /// asleep and awake; no crest, one and two; and each with every count
+    /// of marks.
     fn every_strip() -> Vec<Strip> {
         let fight = Corner {
             plate: Plate::Fight {
@@ -626,7 +625,7 @@ mod tests {
         for strip in every_strip() {
             let cells = strip.cells();
             let rank = |item: Item| match item {
-                Item::Plate => (0, 0),
+                Item::Chip => (0, 0),
                 Item::Moon => (1, 0),
                 Item::Mark(slot) => (2, slot),
                 Item::Crest(_) => (3, 0),
@@ -685,13 +684,13 @@ mod tests {
         }
     }
 
-    /// The plate and the first mark are whole in the edge of a card the
+    /// The chip and the first mark are whole in the edge of a card the
     /// tightest fan shows.
     #[test]
-    fn the_plate_and_the_first_mark_survive_the_tightest_fan() {
+    fn the_chip_and_the_first_mark_survive_the_tightest_fan() {
         let edge = crate::layout::MIN_VISIBLE_FRACTION;
-        let plate = STRIP_X0 + STRIP_PAD + PLATE_W;
-        assert!(plate < edge, "the plate ends at {plate}");
+        let chip = STRIP_X0 + STRIP_PAD + CHIP_W;
+        assert!(chip < edge, "the chip ends at {chip}");
         let mark = STRIP_X0 + STRIP_PAD + MARK;
         assert!(mark < edge, "the first mark ends at {mark}");
     }
@@ -726,9 +725,28 @@ mod tests {
         );
         assert!(Strip::new(0, None, false, [None, None]).is_empty());
         assert!(!Strip::new(0, None, true, [None, None]).is_empty());
-        // A corner the strip does not carry leaves no trace in the key.
+        // A corner the strip does not carry leaves no trace in the key, and
+        // nor does a plate: it is an object of its own (`plate_rect`).
         let none = Corner::default();
         assert!(Strip::new(0, Some(none), false, [None, None]).is_empty());
+        let plate = Corner {
+            plate: Plate::Loyalty(3),
+            ..none
+        };
+        assert!(Strip::new(0, Some(plate), false, [None, None]).is_empty());
+        let chip = Strip::new(
+            0,
+            Some(Corner {
+                swing: Some((1, 0)),
+                ..plate
+            }),
+            false,
+            [None, None],
+        );
+        assert_eq!(
+            chip.cells().iter().map(|c| c.item).collect::<Vec<_>>(),
+            vec![Item::Chip]
+        );
     }
 
     /// Every mark answers for its own badge, and nothing else on the strip
@@ -738,6 +756,7 @@ mod tests {
         let word = k::FLYING | k::TRAMPLE | k::LIFELINK;
         let corner = Corner {
             plate: Plate::Loyalty(3),
+            swing: Some((0, 2)),
             ..Corner::default()
         };
         let strip = Strip::new(mark_bits(word), Some(corner), false, [None, None]);
@@ -760,10 +779,10 @@ mod tests {
                 KeywordBadge::Trample
             ]
         );
-        // The plate is on the strip and is not a keyword; the middle of the
+        // The chip is on the strip and is not a keyword; the middle of the
         // card and the gap between two marks are neither.
         assert_eq!(badge_at(middle(&cells[0]), strip), None);
-        assert_eq!(strip.at(middle(&cells[0])), Some(Item::Plate));
+        assert_eq!(strip.at(middle(&cells[0])), Some(Item::Chip));
         assert_eq!(badge_at((0.5, 0.2), strip), None);
         let gap = f32::midpoint(cells[1].rect[2], cells[2].rect[0]);
         assert_eq!(badge_at((gap, middle(&cells[1]).1), strip), None);

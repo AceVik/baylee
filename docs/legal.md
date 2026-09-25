@@ -134,15 +134,28 @@ Urheber- und Medienrecht.
    the window of a frame of ours and said everything about the card on the
    frame; the owner did not want the frame, and since #298 the print fills
    the card again and what the frame said lies on **objects** of ours, each
-   with its own shadow, none of them paint in the image. Four of them touch
+   with its own shadow, none of them paint in the image. Five of them touch
    a card, each by the owner's decision:
    - the **strip**, a small dark label lying on the art's bottom-left edge,
      where a modern frame's art meets its type line. The owner allowed it
-     wider under #298, carrying the power/toughness plate and its counter
-     chip, the sleep moon and the identity crests beside the keyword marks,
+     wider under #298, carrying the counter chip, the sleep moon and the
+     identity crests beside the keyword marks,
      on one condition: it reads as a lifted object over the card with its
      own shadow. It never lies over the name, the cost, the type line or the
      artist (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`);
+   - the **plate**, a card's power and toughness, loyalty or chapter where
+     the print cannot say it, which left the strip on the owner's word of
+     25.09 for the card's bottom right: a small dark plate with its own
+     shadow, beside the printed box over the black border where its row
+     leaves the room, on its own card in a fanned row (right-aligned to what
+     of the card is in sight, its foot above the printed box, over the foot
+     of its own text box), and upright under a tapped card in its lane's
+     air (the PM, 25.09). It never lies over the name, the cost, the type
+     line, the strip, the printed power/toughness box or the artist's and
+     ©/™ lines (`cardplate::tests::the_plate_lies_on_nothing_its_card_says`,
+     measured on 112 Scryfall scans), nor on another card's print: a tapped
+     card whose neighbours' prints fill the air under it shows none
+     (`layout::tests::plates::no_plate_lies_on_a_print_drawn_under_it`);
    - the **count badge** of a merged group, at the card's top-right corner,
      outside it, on the felt (the owner, 25.09: "the right edge and a bit
      higher"): over the card's top edge where the rows leave the room (a
