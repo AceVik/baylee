@@ -188,11 +188,15 @@ const STACK_LIFT: f32 = 0.006;
 ///
 /// Spread across the row rather than added per card, so a long lane cannot
 /// ramp: the step shrinks as the row grows, and the shrinking is what bounds
-/// it. A reverse-`z` depth buffer resolves a few millionths of a unit at
-/// [`CameraRig::MAX_DISTANCE`]; an ordinary fan of a dozen puts its cards a
-/// hundred times that apart, and a lane packed all the way to
-/// `MIN_VISIBLE_FRACTION` — past which a row scrolls, never showing more than
-/// its lane holds — keeps an order of magnitude of it.
+/// it. A reverse-`z` depth buffer resolves about an eight-millionth of the
+/// eye's distance: some 4·10⁻⁵ of a unit at [`CameraRig::MAX_DISTANCE`],
+/// which #264 took from 120 to 300. An ordinary fan of a dozen puts its
+/// cards ten times that apart there and thirty times at the 95 units a
+/// four-seat table stands at. A duel-wide lane packed all the way to
+/// `MIN_VISIBLE_FRACTION` — past which a row scrolls, never showing more
+/// than its lane holds — is some eighty cards and keeps about one step of
+/// it at 300, which is an eight-seat table on a phone turned on its side,
+/// where a card is drawn four pixels wide.
 const LANE_RISE: f32 = 0.004;
 // A row that rose further than a card floats would be a staircase, not a row.
 const _: () = assert!(LANE_RISE < CARD_LIFT);
@@ -476,16 +480,18 @@ impl CameraRig {
     /// It was a limit on the *player's* zoom and is now the only limit there
     /// is: the zoom went at the owner's word (*„Das Zoom in/out sollte eh
     /// weg!"*), so the pair bounds [`CameraRig::home`] and nothing else —
-    /// which is why it has headroom over the furthest table there is. A
-    /// five-seat table asks for about 81 units, and a limit sitting just
-    /// above that would not stop the shot: it would silently crop it,
-    /// because a fit refused is a fit that no longer fits.
+    /// which is why it has headroom over the furthest table there is. Since
+    /// every seat at a ring is handed a duel's board (#264), that is eight
+    /// seats: 186 units on a laptop, 223 on a phone held upright and 273 on
+    /// one turned on its side, where the furthest table used to ask for 81.
+    /// A limit sitting just above that would not stop the shot: it would
+    /// silently crop it, because a fit refused is a fit that no longer fits.
     ///
     /// Both ends are distances through [`FOV`], so both moved when it did:
     /// the same shot through half the angle stands twice as far off, and a
     /// pair left where they were would have clamped every table on the way
     /// in and every large one on the way out.
-    pub const MAX_DISTANCE: f32 = 120.0;
+    pub const MAX_DISTANCE: f32 = 300.0;
 
     // `MIN_LEAN` (0.176, about 10° off plan) and `MAX_LEAN` (1.428, about
     // 55°) stood here and are gone with the tilt control they bounded. Their

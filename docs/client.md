@@ -688,9 +688,10 @@ accident, and arithmetic borrows nothing.
   where that would seat a **free-for-all** as something it is not. Three seats
   each playing for themselves sit on a circle at 0°, 120° and 240°, because on
   a canvas-shaped ellipse they come out side by side across the top, which is
-  the silhouette a 2v1 draws. It is offered to any table with no allies at it
+  the silhouette a 2v1 draws. It is offered to three seats with no allies
   and taken only when the camera can afford it (`layout::ROUND_COST`); four
-  seats and up keep the canvas shape, and so does a canvas narrower than about
+  seats and up keep the canvas shape (a five-seat circle puts a seat at 72°,
+  neither a flank nor across the table), and so does a canvas narrower than about
   4:5 — a phone held upright would pay more than twice the reach for a circle,
   so three seats there go on sitting where they fit. The desktop canvas only
   started affording it when the tab strip and the phase rail came off the top
@@ -700,7 +701,15 @@ accident, and arithmetic borrows nothing.
   *smaller* when the window got taller, 34.9 → 32.0 pixels a table unit, and
   it is the circle being bought rather than anything going wrong.
 - Every seat plays on a board of the same width, and focusing an opponent
-  widens that one at the other opponents' expense, never at yours.
+  widens that one at the other opponents' expense, never at yours. From three
+  seats up that width is **a duel's** on the same window
+  (`layout::standard_board`, #264): the owner asked for every table to be
+  about as wide as in 1v1, the whole table growing and the camera zooming out
+  for it. On a 1728×1052 window a seat is 27.4 wide at every seat count, and
+  the camera stands 44.7 units off for a duel, 95 for four seats and 186 for
+  eight, where it stood 59 and 81 when a ring seat was twelve units at most. The
+  players' strip (§"The players' strip, and the bar's right end") is how a
+  player gets close to one of them.
 - Lanes fan when crowded, and a row that cannot fan legibly with its merged
   cards' cells held whole scrolls (§"A row that does not fit scrolls").
 - A seat's tab carries a **second life total** when one applies. Twenty-one

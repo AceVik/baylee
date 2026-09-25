@@ -86,7 +86,12 @@ fn grounds_overlap(a: &SeatSlot, b: &SeatSlot) -> bool {
 /// Written out a second time on purpose: a test that asked
 /// [`TableLayout::seated`]'s own search would agree with it however wrong
 /// both were.
-fn tightest(count: usize, aspect: f32, shape: impl Fn(f32) -> Vec2) -> Option<(Vec2, f32)> {
+fn tightest(
+    count: usize,
+    aspect: f32,
+    standard: f32,
+    shape: impl Fn(f32) -> Vec2,
+) -> Option<(Vec2, f32)> {
     let half_depth = POD_DEPTH * 0.5;
     let even = vec![1.0; count];
     let floor = half_depth + CENTRE_GAP * 0.5;
@@ -99,7 +104,7 @@ fn tightest(count: usize, aspect: f32, shape: impl Fn(f32) -> Vec2) -> Option<(V
         let sides = sides_on(count, radius);
         let held = compartment_half(&sides, &even, radius, half_depth);
         let half = pod_half_width(held, radius.x + half_depth);
-        if half * 2.0 >= MIN_POD_WIDTH {
+        if half * 2.0 >= standard {
             return Some((radius, reach_of(&sides, half, half_depth, aspect)));
         }
     }

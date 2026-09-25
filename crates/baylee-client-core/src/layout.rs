@@ -833,6 +833,8 @@ fn compartment_half(sides: &[Side], party: &[f32], radius: Vec2, half_depth: f32
 /// `even` is what each side asks for, one entry per side, so its length is
 /// the number of sides. `alone` says nobody at the table has an ally, which
 /// is what makes a round ring worth offering — see [`ROUND_COST`].
+/// `standard` is the width every seat is to be handed, which is
+/// [`standard_board`]'s to say.
 fn ring_that_seats(
     even: &[f32],
     aspect: f32,
@@ -840,6 +842,7 @@ fn ring_that_seats(
     spread: f32,
     clear: f32,
     alone: bool,
+    standard: f32,
 ) -> Vec2 {
     let t = even.len();
     // What a ring of this shape hands out: where the sides sit on it, and
@@ -857,7 +860,7 @@ fn ring_that_seats(
     // unit every card is drawn smaller for.
     let settle = |shape: &dyn Fn(f32) -> Vec2, ceiling: f32| -> Vec2 {
         let (mut lo, mut hi) = (clear, ceiling.max(clear));
-        if narrowest(shape(hi)) < MIN_POD_WIDTH {
+        if narrowest(shape(hi)) < standard {
             // Past the cap the camera would have to pull back further than
             // `CameraRig::MAX_DISTANCE`, and a table it cannot frame slides
             // its near mats under the hand bar. Crowded tables live here:
@@ -865,12 +868,12 @@ fn ring_that_seats(
             // lanes fan. That is what fanning is for.
             return shape(hi);
         }
-        if narrowest(shape(lo)) >= MIN_POD_WIDTH {
+        if narrowest(shape(lo)) >= standard {
             return shape(lo);
         }
         for _ in 0..24 {
             let mid = f32::midpoint(lo, hi);
-            if narrowest(shape(mid)) >= MIN_POD_WIDTH {
+            if narrowest(shape(mid)) >= standard {
                 hi = mid;
             } else {
                 lo = mid;
@@ -890,10 +893,11 @@ fn ring_that_seats(
     let shaped = settle(&canvas, MAX_RING_Y.min(by_x));
     // Nobody at this table has an ally, so there is a round ring to compare
     // against: it is taken if it still seats everybody at the standard width
-    // and the camera can afford to stand where it puts them.
-    alone
+    // and the camera can afford to stand where it puts them. Only at three,
+    // which is the one table it was ever for — see [`ROUND_COST`].
+    (alone && t == 3)
         .then(|| settle(&|ry: f32| Vec2::splat(ry), MAX_RING_Y.min(MAX_RING_X)))
-        .filter(|&round| narrowest(round) >= MIN_POD_WIDTH)
+        .filter(|&round| narrowest(round) >= standard)
         .filter(|&round| {
             let (round, shaped) = (cut_for(round), cut_for(shaped));
             reach_of(&round.0, round.1, half_depth, aspect)
@@ -1043,6 +1047,10 @@ impl TableLayout {
     #[must_use]
     pub fn seated(seats: &[Seat], aspect: f32, focus: Option<PlayerId>) -> Self {
         let n = seats.len();
+        // Read before the aspect is narrowed below: the duel it asks about
+        // narrows its own, and would otherwise be asked about a canvas it
+        // was never going to be drawn on.
+        let standard = standard_board(n, aspect);
         // A phone held upright is 0.46 and the tallest thing this has to
         // shape a table for; the floor used to sit above it, so the table was
         // built a seventh wider than the canvas it was going into and the
@@ -1123,7 +1131,7 @@ impl TableLayout {
         // growing the ring would only push the camera back. Sharing a side is
         // crowding, though, so a two-headed table searches like any other.
         let alone = parties.iter().all(|party| party.len() == 1);
-        let radius = ring_that_seats(&even, aspect, half_depth, spread, clear, alone);
+        let radius = ring_that_seats(&even, aspect, half_depth, spread, clear, alone, standard);
         if n == 0 {
             return Self {
                 slots: Vec::new(),
@@ -1288,8 +1296,41 @@ pub const POD_DEPTH: f32 = CARD_HEIGHT * 3.0 * 1.18 + crate::tabletop::MAT_LEDGE
 /// cards were drawn smaller for.
 pub const CENTRE_GAP: f32 = 3.4;
 
+/// The width every seat at a table of `seats` is handed: at three and up,
+/// what a duel on the same canvas hands each of its two.
+///
+/// The owner's word (#264, 24.09.): *„Wenn es mehr als 2 Spieler sind, sollen
+/// alle Tische so breit sein in etwa wie im 1vs1 Modus, aber dafür wird der
+/// Tisch sehr groß und die Kamera zoomt raus."* A ring used to grow only until
+/// its narrowest seat had [`MIN_POD_WIDTH`], twelve units, where a duel on a
+/// laptop hands each seat 27.4: a player's board at four seats was less than
+/// half of the one the same player had in a duel. Now the ring grows until
+/// every seat has a duel's board, the table grows with it, and the camera
+/// stands back to frame it — on that laptop 44.7 units of distance for a
+/// duel, 95 for four seats, 186 for eight, where it was 59 and 81. What a
+/// player gives up is how big the whole table is drawn; what they get back
+/// is a board as wide as a duel's, one press away on the players' strip
+/// (`hud::ledge::players` in the client), which is what the owner asked for
+/// the strip to be.
+///
+/// Asked of [`TableLayout::seated`] itself rather than restated, because a
+/// duel's width is not a constant: a duel spends a wide canvas on a wider
+/// ring and taller lanes, so it is 27.4 on a laptop, 20.7 at 1.6 and 38.9 on
+/// an ultrawide, and "as wide as a duel" is only true on the canvas the duel
+/// would have been drawn on. [`MIN_POD_WIDTH`] stays under it as a floor,
+/// which is what a phone held upright is handed — its duel is 11.9.
+fn standard_board(seats: usize, aspect: f32) -> f32 {
+    if seats <= 2 {
+        return MIN_POD_WIDTH;
+    }
+    let duel = [Seat::alone(PlayerId::new(0)), Seat::alone(PlayerId::new(1))];
+    let duel = TableLayout::seated(&duel, aspect, None);
+    (duel.slots[0].half_extent.x * 2.0).max(MIN_POD_WIDTH)
+}
+
 /// The narrowest a seat's lane is allowed to get before the ring grows to
-/// make room — eight cards laid side by side.
+/// make room — eight cards laid side by side — and since #264 the floor under
+/// [`standard_board`] rather than the standard itself.
 ///
 /// This is what stops a big table from solving itself by squeezing: more
 /// seats get a bigger ring, not a strip of ground too narrow to read. It is
@@ -1297,21 +1338,12 @@ pub const CENTRE_GAP: f32 = 3.4;
 /// arc, and a pod was then given that arc less a pile strip on each side, so
 /// what the name promised and what a player got were four units apart.
 ///
-/// Ten was too careful once the widths were measured against the right axes.
-/// A board is worth what it is worth *against the table around it*, and the
-/// number that says so is its share of the span the camera frames: at four
-/// seats ten units was 38% of it and twelve is 42%, for two units of camera
-/// distance out of the forty-six there are.
-///
-/// What sets the ceiling on it is not four seats but **five**, which is the
-/// table the camera has least room for — at the ring's own ceiling its mats
-/// are wider than a six-seat table's and its span is the largest there is.
-/// Five costs 39.4 units of distance at a minimum of ten, 44.1 at twelve and
-/// 45.8 at thirteen against a `MAX_DISTANCE` of 46, so thirteen would buy a
-/// four-seat board two per cent of the screen and leave a five-seat table
-/// with no margin at all. Above that it stops paying twice over: seventeen
-/// buys 50% at thirty-one units, and every card at the table is drawn a
-/// third smaller to read a row nobody fills.
+/// Twelve was chosen as the standard, against a camera that could stand no
+/// further back than forty-six units of the lens it then had: five seats was
+/// the table with least room, and thirteen would have left it none. The
+/// owner then asked for every seat to be as wide as a duel's and for the
+/// camera to zoom out to make it so, and it was the ceiling that moved
+/// ([`MAX_RING_X`]), not this.
 const MIN_POD_WIDTH: f32 = 12.0;
 
 /// The furthest out the ring may stand, whatever the seat count asks for.
@@ -1322,18 +1354,17 @@ const MIN_POD_WIDTH: f32 = 12.0;
 /// needs a ceiling, and it takes **two**, because the two radii are what the
 /// camera sees and only one of them is being searched over.
 ///
-/// Measured through `CameraRig::home` on a 1728×1052 window with the duel
-/// HUD, whose free area is about 2.01 wide to 1 tall: the camera runs a
-/// little under 1.8 units of distance per unit of `x`, so a ring at `x` 23.1
-/// needs 46 — exactly the clamp — while 21.0 asks about 42 and leaves the
-/// margin standing. `y` binds instead at a narrow canvas, where `x` is small
-/// and the table is deep rather than wide.
-///
-/// A table that wants more room than this does not get it — it gets fanned
-/// lanes, which is what fanning is for. Six seats and up live here.
-const MAX_RING_X: f32 = 21.0;
+/// Set (#264) so that eight seats, the most a table is dealt, get
+/// [`standard_board`] on every canvas the layout is shaped for: the widest,
+/// 2.8 — an ultrawide, or a phone on its side — needs an `x` of 90.3, and
+/// the tallest, 0.46, a phone held upright, a `y` of 33.9. It was 21.0 × 11.2 when
+/// the standard was twelve units and the camera stopped at forty-six, and
+/// six seats and up lived on it, fanned. A table that wants more room than
+/// this does not get it — it gets fanned lanes, which is what fanning is
+/// for — and nothing deals one: the gateway seats eight.
+const MAX_RING_X: f32 = 92.0;
 /// The same ceiling on the other radius; see [`MAX_RING_X`].
-const MAX_RING_Y: f32 = 11.2;
+const MAX_RING_Y: f32 = 35.0;
 
 /// How much further back the camera may be pushed to seat a free-for-all
 /// round, as a multiple of what the same table costs on a ring shaped to the
@@ -1352,10 +1383,10 @@ const MAX_RING_Y: f32 = 11.2;
 /// afford it. At three seats it cost a quarter when this was written: 22.3
 /// units of reach against 17.9, every card a quarter smaller, and about two
 /// fifths of the screen's width left bare — which is what a round table is
-/// worth. At four it costs four fifths, for an arrangement that was already
-/// a diamond, and at five and six the circle is past [`MAX_RING_Y`] before
-/// it has handed anybody a board. This is the line between those, and it is
-/// deliberately nearer the first: 1.25 is bought, 1.43 is not.
+/// worth. At four it cost four fifths, for an arrangement that was already
+/// a diamond, and at five and six the circle was past the ring's ceiling
+/// before it had handed anybody a board. This is the line between those,
+/// and it is deliberately nearer the first: 1.25 is bought, 1.43 is not.
 ///
 /// That quarter was the *old* canvas — 110 logical pixels of tab strip and
 /// phase rail off the top of the window, an aspect of 2.25, and three seats
@@ -1366,6 +1397,14 @@ const MAX_RING_Y: f32 = 11.2;
 /// `camera_tests::three_seats_playing_for_themselves_sit_on_a_circle` is
 /// what says so out loud, because this filter is one window shape away from
 /// flipping back and nothing else at the table would notice.
+///
+/// Offered at three and nowhere else since #264. Four and up were refused
+/// by this price or by the ceiling, and when the ceiling rose to hand every
+/// seat a duel's board ([`standard_board`]) a five-seat circle came in under
+/// the price — with a seat at 72°, whose lean of 0.31 is neither a flank nor
+/// across the table ([`SIDE_SEAT_TILT`]), so the camera's answer at that
+/// seat would have been the tolerance's and not the geometry's. Three at a
+/// duel's width sit on a circle of 13.5 on the laptop, and it is still taken.
 const ROUND_COST: f32 = 1.3;
 
 /// How much of the arc between two neighbours a mat may claim. The rest is

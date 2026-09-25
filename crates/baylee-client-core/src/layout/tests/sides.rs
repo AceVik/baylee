@@ -1,4 +1,4 @@
-//! Who shares a side of the ring, and what shape that asks the ring to be. Allies sit shoulder to shoulder along one side and face the same way, because across the table a partner's board is drawn upside down; a table of pairs and lone players still hands every *seat* the same board rather than every side; and a format that gives everybody a team of their own is laid out as the free-for-all it is. The round table is a price and not a seat count: three seats alone take a circle, where an ellipse would draw them in the gable a 2v1 makes, and four seats and up — or any canvas too narrow to pay `ROUND_COST` — stay shaped to the canvas. The prices are re-derived here by walking a ring outwards rather than by asking `TableLayout::seated`'s own search, which would agree with it however wrong both were.
+//! Who shares a side of the ring, and what shape that asks the ring to be. Allies sit shoulder to shoulder along one side and face the same way, because across the table a partner's board is drawn upside down; a table of pairs and lone players still hands every *seat* the same board rather than every side; and a format that gives everybody a team of their own is laid out as the free-for-all it is. The round table is offered at three and priced there: three seats alone take a circle, where an ellipse would draw them in the gable a 2v1 makes, unless the canvas is too narrow to pay `ROUND_COST`; four seats and up stay shaped to the canvas, because a five-seat circle puts a seat between a flank and across the table. The prices are re-derived here by walking a ring outwards rather than by asking `TableLayout::seated`'s own search, which would agree with it however wrong both were.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
@@ -54,7 +54,7 @@ fn a_team_sits_along_one_side_of_the_table() {
                 "{order:?}: one partner sits further out than the other"
             );
             assert!(
-                slot.lane_width() >= MIN_POD_WIDTH - 1e-2,
+                slot.lane_width() >= standard_board(order.len(), 1.78) - 1e-2,
                 "{order:?}: seat {i} plays on {}",
                 slot.lane_width()
             );
@@ -83,16 +83,13 @@ fn a_team_sits_along_one_side_of_the_table() {
             span.x / span.y
         );
 
-        // And the whole point of it: a table of two sides is a smaller
-        // table than one of four, so the camera comes in rather than
-        // pulling back to frame a ring nobody is sitting on.
-        let apart = TableLayout::new(&seats(4), 1.78, None);
-        assert!(
-            layout.radius.x < apart.radius.x && layout.radius.y < apart.radius.y,
-            "{order:?}: two sides want a ring of {:?}, four wanted {:?}",
-            layout.radius,
-            apart.radius
-        );
+        // This also said a table of two sides was a smaller table than one
+        // of four, and it was while a seat was twelve units wide. Since
+        // every seat is handed a duel's board (#264), a side of two is two
+        // duel boards shoulder to shoulder, and at 1.78 it costs the camera
+        // 33.3 units of reach against the free-for-all's 27.4. That is the
+        // owner's trade and not a ring nobody sits on: the table is still
+        // the shape of the canvas, which is what the bound above says.
     }
 }
 
@@ -142,7 +139,9 @@ fn a_mixed_table_still_hands_out_one_board() {
                     layout.slots[0].half_extent
                 );
                 assert!(
-                    at_ceiling || at_channel || slot.lane_width() >= MIN_POD_WIDTH - 1e-2,
+                    at_ceiling
+                        || at_channel
+                        || slot.lane_width() >= standard_board(order.len(), aspect) - 1e-2,
                     "{order:?} at {aspect}: a seat plays on {}",
                     slot.lane_width()
                 );
@@ -193,16 +192,20 @@ fn three_seats_playing_for_themselves_sit_round_the_table() {
                 want.to_degrees()
             );
             assert!(
-                (slot.lane_width() - MIN_POD_WIDTH).abs() < 1e-2,
+                (slot.lane_width() - standard_board(3, aspect)).abs() < 1e-2,
                 "aspect {aspect:.2}: seat {i} plays on {:.2} units, and the \
-                 standard board is {MIN_POD_WIDTH}",
-                slot.lane_width()
+                 standard board is {:.2}",
+                slot.lane_width(),
+                standard_board(3, aspect)
             );
         }
         // Taken because it is affordable, and the bound is the one the
         // constant names.
-        let shaped = tightest(3, aspect, |ry| ring_for(ry, aspect, POD_DEPTH * 0.5, 1.0))
-            .expect("three seats fit on a ring shaped to the canvas");
+        let standard = standard_board(3, aspect);
+        let shaped = tightest(3, aspect, standard, |ry| {
+            ring_for(ry, aspect, POD_DEPTH * 0.5, 1.0)
+        })
+        .expect("three seats fit on a ring shaped to the canvas");
         assert!(
             reach_of_layout(&layout, aspect) <= shaped.1 * ROUND_COST,
             "aspect {aspect:.2}: sitting round costs {:.1} units of reach \
@@ -240,36 +243,33 @@ fn a_table_of_teams_of_one_is_a_free_for_all() {
 
 #[test]
 fn a_bigger_free_for_all_stays_shaped_to_the_canvas() {
-    // And it is refused for a reason, not by accident: at four seats and
-    // up a round table costs more than [`ROUND_COST`] of what the same
-    // seats cost on a ring shaped to the canvas — or it runs past the
-    // ring's own ceiling before it has handed anybody a board.
-    for n in [4u8, 5, 6, 8] {
-        for aspect in [2.014_f32, 16.0 / 9.0, 1.0] {
+    // Four seats and up keep the ring shaped to the canvas, as they always
+    // have. It used to be the price that refused them — a circle cost more
+    // than [`ROUND_COST`] of the shaped ring, or ran past the ceiling before
+    // it had handed anybody a board — and when the ceiling rose to hand
+    // every seat a duel's board (#264), a five-seat circle came in under the
+    // price, at 1.4 and on a 1024 × 768 window. Five on a circle puts a seat
+    // at 72°, and a lean of 0.31 is neither a flank nor across the table:
+    // the gap `facing::nothing_at_any_table_sits_in_the_tolerance_the_flanks_need`
+    // keeps clear, and the test that caught it. So the circle is offered at
+    // three, the one table it was argued for, and #264 changed how wide the
+    // seats are and not where they sit.
+    for n in [4u8, 5, 6, 7, 8] {
+        for aspect in [2.014_f32, 16.0 / 9.0, 1.4, 1.0] {
             let layout = TableLayout::new(&seats(n), aspect, None);
             assert!(
                 (layout.radius.x - layout.radius.y).abs() > 1e-3,
                 "{n} seats at {aspect:.2}: the ring came out round, at {:?}",
                 layout.radius
             );
-            let shaped = reach_of_layout(&layout, aspect);
-            if let Some((radius, cost)) = tightest(n as usize, aspect, Vec2::splat) {
-                assert!(
-                    cost > shaped * ROUND_COST,
-                    "{n} seats at {aspect:.2}: a circle of {:.2} would have \
-                     cost {cost:.1} units of reach against {shaped:.1}, which \
-                     is inside {ROUND_COST} — it should have been taken",
-                    radius.x
-                );
-            }
         }
     }
 }
 
 #[test]
 fn a_narrow_canvas_cannot_afford_a_round_table() {
-    // The rule is a price and not a seat count, so it answers differently
-    // on a canvas taller than it is wide — where a circle is the one
+    // At three the rule is a price and not a seat count, so it answers
+    // differently on a canvas taller than it is wide — where a circle is the one
     // shape the camera cannot pay for. A phone held upright is 0.46, the
     // narrowest frame `Metrics::of` draws and the clamp in
     // [`TableLayout::seated`]: a circle wide enough to seat three would
@@ -285,8 +285,8 @@ fn a_narrow_canvas_cannot_afford_a_round_table() {
             layout.radius
         );
         let shaped = reach_of_layout(&layout, aspect);
-        let (radius, cost) =
-            tightest(3, aspect, Vec2::splat).expect("a circle seats three at any aspect");
+        let (radius, cost) = tightest(3, aspect, standard_board(3, aspect), Vec2::splat)
+            .expect("a circle seats three at any aspect");
         assert!(
             cost > shaped * ROUND_COST,
             "aspect {aspect:.2}: a circle of {:.2} would have cost {cost:.1} \

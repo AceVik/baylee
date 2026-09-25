@@ -430,14 +430,15 @@ pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 /// so there the same 0.85% of extra pod is about that much less board. It is
 /// small either way; it is not nothing.
 ///
-/// **What stops it is `layout::MAX_RING_Y`, not the assertion
-/// below.** A ring of two *sides* — a 2v2, partners shoulder to shoulder —
-/// is the deepest table there is for its width, and it reaches that ceiling
-/// at a ledge of about 1.01: past that the ring is clamped, the table comes
-/// out 2.23 wide to 1 instead of 1.78, and `layout::tests` finds the two
-/// partners overlapping. So the ceiling on this constant is a fact about
-/// what the camera can frame, and the shelf never got near the "is it a
-/// fourth lane" bound it was written against.
+/// **What stopped it was `layout::MAX_RING_Y`, not the assertion
+/// below**, while that ceiling was 11.2. A ring of two *sides* — a 2v2,
+/// partners shoulder to shoulder — is the deepest table there is for its
+/// width, and it reached that ceiling at a ledge of about 1.01: past that
+/// the ring was clamped, the table came out 2.23 wide to 1 instead of 1.78,
+/// and `layout::tests` found the two partners overlapping. Since #264 the
+/// ceiling is set for eight seats at a duel's width, and a 2v2 at 1.78
+/// stands at 12.4 against 35, so the bound that runs out first is now the
+/// card one below.
 pub const MAT_LEDGE: f32 = 1.00;
 
 /// The shelf has to clear the rim on both sides with something left in the
@@ -453,11 +454,10 @@ const _: () = assert!(MAT_LEDGE > MAT_RIM * 4.0);
 /// three-quarters of a *lane* lets the shelf grow to nine tenths of a card.
 ///
 /// The owner authorised moving this fraction to buy the two-row bar, and it
-/// did not have to move: the ring ceiling above binds first, at about 1.01,
+/// did not have to move: the ring ceiling above bound first, at about 1.01,
 /// and 0.75 of a card is 1.048. The bound is left where it was because it is
-/// still the one that says what a shelf *is*, and a reader who finds it
-/// slack should not conclude the rule was abandoned — it was simply not the
-/// rule that ran out.
+/// still the one that says what a shelf *is*; since the ceiling rose (#264)
+/// it is also the one that runs out first.
 const _: () = assert!(MAT_LEDGE < crate::layout::CARD_HEIGHT * 0.75);
 
 /// How much of white the ledge is veiled with, on the same scale as

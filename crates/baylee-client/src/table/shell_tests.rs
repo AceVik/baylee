@@ -553,6 +553,9 @@ fn sweep_walls(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Wa
 /// is not true of nothing: prints stand in front of walls, and much of
 /// every wall is left to see: measured when this was written (25.09.2026),
 /// 0.55 of the points behind some print, 0.010 behind their own card's.
+/// Then 0.14 and 0.008, once every seat at a ring was handed a duel's board
+/// (#264): the rows at three, four and eight seats stopped overlapping, and
+/// a print stands in front of a wall only where a row does.
 #[test]
 fn a_wall_never_draws_over_a_print() {
     let mut found = WallSweep::default();
@@ -575,7 +578,7 @@ fn a_wall_never_draws_over_a_print() {
         &found.trespass[..found.trespass.len().min(5)]
     );
     assert!(
-        found.hidden > 1_000_000,
+        found.hidden > 500_000,
         "prints stood in front of walls only {} times",
         found.hidden
     );

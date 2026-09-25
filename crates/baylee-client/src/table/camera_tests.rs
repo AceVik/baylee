@@ -404,7 +404,7 @@ fn drawn_width(rig: CameraRig, canvas: Canvas, slot: &SeatSlot) -> f32 {
 /// foreshortening of a board turned away from the camera, and squeezing
 /// that out means a lean of zero, which is a table of decals.
 ///
-/// The bound was 1.08, then 1.12, and is 1.13 — a promise being given
+/// The bound was 1.08, then 1.12, then 1.13, and is 1.14 — a promise being given
 /// back in pieces, so each piece says what bought it. [`CAMERA_LEAN`]
 /// went 0.27 → 0.36 because the owner asked a third time for more angle
 /// after being told what it trades against, and the widest board on an
@@ -418,6 +418,11 @@ fn drawn_width(rig: CameraRig, canvas: Canvas, slot: &SeatSlot) -> f32 {
 /// test was written for, which drew one board 18.9% wider than its
 /// neighbours.
 ///
+/// Then 1.14, when every seat at a ring was handed a duel's board (#264):
+/// the eight-seat ring on the laptop stands 61.6 × 29.7 where it stood
+/// 21.0 × 9.77, a little rounder against the same canvas, and it went
+/// 12.1% → 13.2%.
+///
 /// The phone keeps 1.18 and did not move — it was already 16.5% at three
 /// seats for the reason below, and the taller canvas took it to 17.5%.
 #[test]
@@ -427,8 +432,8 @@ fn every_seat_is_drawn_a_board_of_the_same_width() {
     // fraction of the eye distance closer than it does on a ring that had
     // room to be round, and no lens shortens that.
     for (window, bound) in [
-        (WINDOW, 1.13),
-        (Vec2::new(1280.0, 800.0), 1.13),
+        (WINDOW, 1.14),
+        (Vec2::new(1280.0, 800.0), 1.14),
         (Vec2::new(430.0, 932.0), 1.18),
     ] {
         let canvas = Canvas::hud(window);
@@ -469,7 +474,13 @@ fn every_seat_is_drawn_a_board_of_the_same_width() {
 /// bar, which is the one edge a player is looking at.
 #[test]
 fn a_seats_printed_border_is_inside_the_band_too() {
-    for window in [WINDOW, Vec2::new(1280.0, 800.0), Vec2::new(430.0, 932.0)] {
+    for window in [
+        WINDOW,
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(430.0, 932.0),
+        Vec2::new(932.0, 430.0),
+        Vec2::new(360.0, 800.0),
+    ] {
         let canvas = Canvas::hud(window);
         let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
         let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;

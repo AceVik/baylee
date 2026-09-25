@@ -1,4 +1,4 @@
-//! The solve: how far out the ring stands and how wide a board it hands each seat. One board for everybody unless an opponent is under inspection, in which case what it gains comes from the other opponents; a mat the same depth at every table, because depth off the ring gave a duel the shallowest board of the lot; a middle left clear for the hearth and no wider than it has to be; and a pod that gets what `MIN_POD_WIDTH` promises or a ring at the ceiling the camera can still frame. Every claim that a ring could have grown further carries the same three escapes — the centre channel, a crowding solve that has already paid the minimum, and `MAX_RING_X`/`MAX_RING_Y` — because a ring satisfying none of them is empty felt every card is drawn smaller for. What shape the ring takes is `sides`, and what it costs the camera is `extent`.
+//! The solve: how far out the ring stands and how wide a board it hands each seat. One board for everybody unless an opponent is under inspection, in which case what it gains comes from the other opponents; a mat the same depth at every table, because depth off the ring gave a duel the shallowest board of the lot; a middle left clear for the hearth and no wider than it has to be; and a pod that gets what `standard_board` promises — a duel's board, at three seats and up — or a ring at the ceiling the camera can still frame. Every claim that a ring could have grown further carries the same three escapes — the centre channel, a crowding solve that has already paid the minimum, and `MAX_RING_X`/`MAX_RING_Y` — because a ring satisfying none of them is empty felt every card is drawn smaller for. What shape the ring takes is `sides`, and what it costs the camera is `extent`.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
@@ -39,7 +39,9 @@ fn every_seat_gets_the_same_board() {
                     layout.slots[0].half_extent
                 );
                 assert!(
-                    at_ceiling || at_channel || slot.lane_width() >= MIN_POD_WIDTH - 1e-2,
+                    at_ceiling
+                        || at_channel
+                        || slot.lane_width() >= standard_board(usize::from(n), aspect) - 1e-2,
                     "{n} seats at {aspect}: a seat plays on {} on a ring that \
                      could still have grown",
                     slot.lane_width()
@@ -110,7 +112,7 @@ fn the_middle_stays_clear_for_the_table() {
         //
         // - the mats are as close to the middle as the open gap allows;
         // - the crowding solve stopped there, a pod being exactly the
-        //   board's worth `MIN_POD_WIDTH` promises and one step further
+        //   board's worth `standard_board` promises and one step further
         //   out therefore more than a seat needs;
         // - or the ring is at the ceiling the camera can still frame, and
         //   the pods are narrower than the minimum only because there is
@@ -142,7 +144,7 @@ fn the_middle_stays_clear_for_the_table() {
             layout.radius.x >= MAX_RING_X - 1e-3 || layout.radius.y >= MAX_RING_Y - 1e-3;
         assert!(
             (inner - CENTRE_GAP * 0.5).abs() < 1e-3
-                || (narrowest - MIN_POD_WIDTH).abs() < 1e-2
+                || (narrowest - standard_board(usize::from(n), 2.0)).abs() < 1e-2
                 || at_ceiling,
             "{n} seats: mats stop {inner} out and are {narrowest} wide on a ring \
              {:?} that could still have grown — none of the middle, the \
@@ -152,25 +154,33 @@ fn the_middle_stays_clear_for_the_table() {
     }
 }
 
-// `MIN_POD_WIDTH` is the width a seat is *handed*, and for a long time it
-// was the width of an arc a seat was then charged two pile strips out of.
-// Measured at the aspect above: four seats were solved for an arc of 10.0
-// and given 6.10 — four cards on a row the name promises seven to.
+// The owner's word (#264): with more than two players every seat is about
+// as wide as it is in a duel, and the table grows instead. Asked from a
+// phone held upright to the widest canvas the layout is shaped for, at every
+// seat count the gateway deals, and with no ceiling to hide behind: eight
+// seats at a duel's width is what `MAX_RING_X` and `MAX_RING_Y` are set for.
+// The ring this replaced grew only to `MIN_POD_WIDTH`, and handed four seats
+// on a laptop 12.0 of a duel's 27.4.
 #[test]
-fn a_pod_gets_the_width_its_minimum_promises_or_the_ring_is_at_its_ceiling() {
-    for n in [3u8, 4, 5, 6, 8] {
-        for aspect in [HUD_ASPECT, 16.0 / 9.0, 1.0] {
+fn every_seat_at_a_bigger_table_is_as_wide_as_a_duel() {
+    for aspect in [HUD_ASPECT, 16.0 / 9.0, 1.6, 1.0, 0.6, 0.46, 2.8] {
+        let duel = TableLayout::new(&seats(2), aspect, None).slots[0].lane_width();
+        // A phone's duel is narrower than the floor, and the floor holds.
+        let want = duel.max(MIN_POD_WIDTH);
+        for n in 3..=8u8 {
             let layout = TableLayout::new(&seats(n), aspect, None);
-            let width = layout.slots[0].lane_width();
-            let at_ceiling =
-                layout.radius.x >= MAX_RING_X - 0.01 || layout.radius.y >= MAX_RING_Y - 0.01;
-            assert!(
-                width >= MIN_POD_WIDTH - 0.01 || at_ceiling,
-                "{n} seats at aspect {aspect:.2}: {width:.2} wide on a ring \
-                 ({:.2}, {:.2}) that could still have grown",
-                layout.radius.x,
-                layout.radius.y,
-            );
+            for slot in &layout.slots {
+                assert!(
+                    slot.lane_width() >= want - 1e-2,
+                    "{n} seats at aspect {aspect:.2}: seat {} plays on {:.2}, \
+                     and a duel on the same canvas plays on {duel:.2} (ring \
+                     {:.2} × {:.2})",
+                    slot.ring_index,
+                    slot.lane_width(),
+                    layout.radius.x,
+                    layout.radius.y,
+                );
+            }
         }
     }
 }
@@ -193,18 +203,20 @@ fn six_cards_lie_side_by_side_at_a_four_seat_table() {
 
 // Growing the ring is only free while the camera can still frame it, so
 // the ceiling exists — and a ceiling that no seat count ever reaches is a
-// ceiling nobody has checked. Six seats and up sit on it.
+// ceiling nobody has checked. No table the gateway deals reaches it since
+// #264 (eight seats at a duel's width is what it is set for, above), so it
+// is checked at twelve, which the layout would still be asked to seat.
 #[test]
 fn a_crowded_table_stops_growing_at_the_ceiling() {
-    let layout = TableLayout::new(&seats(8), HUD_ASPECT, None);
+    let layout = TableLayout::new(&seats(12), HUD_ASPECT, None);
     assert!(
         layout.radius.x <= MAX_RING_X + 0.01 && layout.radius.y <= MAX_RING_Y + 0.01,
         "the ring outgrew what the camera can frame: {:?}",
         layout.radius
     );
     assert!(
-        layout.slots[0].lane_width() < MIN_POD_WIDTH,
-        "eight seats reaching the minimum would mean the ceiling is never tested"
+        layout.slots[0].lane_width() < standard_board(12, HUD_ASPECT),
+        "twelve seats reaching a duel's board would mean the ceiling is never tested"
     );
 }
 

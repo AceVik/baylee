@@ -223,9 +223,10 @@ fn cards_that_overlap_in_a_row_do_not_lie_at_the_same_height() {
     let duel = Duel {
         // Enough of them that the row fans however wide a four-seat pod
         // is: twelve stopped fanning the day `MIN_POD_WIDTH` went up, and
-        // a test that quietly stops testing is worse than one that fails
-        // — which is what the assertion at the bottom is for.
-        board: Some(board((1..=24).map(creature).collect())),
+        // twenty-four the day a four-seat board became a duel's (#264). A
+        // test that quietly stops testing is worse than one that fails —
+        // which is what the assertion at the bottom is for.
+        board: Some(board((1..=48).map(creature).collect())),
         layout: Some(TableLayout::new(&seats, 2.01, None)),
         ..Duel::default()
     };
