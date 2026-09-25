@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use crate::arena::Arena;
-use crate::event::{Cause, GameEvent, Journal, LossReason};
+use crate::event::{Cause, GameEvent, Journal, LibraryPlace, LossReason};
 use crate::object::{
     CardRef, Characteristics, CounterKind, GameObject, ObjectKind, PrintedFace, Rider,
 };
@@ -1820,11 +1820,18 @@ impl GameState {
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
         }
+        // Read off `to` after the redirects above, so a commander that went
+        // to the command zone instead names no place in a library.
+        let place = match to {
+            ZoneLocation::Library(_) => Some(library_place(pos, self.zones.list(to).len())),
+            _ => None,
+        };
         self.journal.record(GameEvent::ZoneChanged {
             object: id,
             from: from_zone,
             to: to.zone(),
             cause,
+            place,
         });
         Ok(id)
     }
@@ -2329,6 +2336,25 @@ const fn loss_byte(loss: Option<LossReason>) -> u8 {
         Some(LossReason::CommanderDamage) => 4,
         Some(LossReason::Conceded) => 5,
         Some(LossReason::Effect) => 6,
+    }
+}
+
+/// Where `pos` put a card in a library that holds `len` cards with it.
+///
+/// `Index` counts from the bottom and is clamped the way `Zones::insert`
+/// clamps it.
+fn library_place(pos: ZonePosition, len: usize) -> LibraryPlace {
+    match pos {
+        ZonePosition::Top => LibraryPlace::Top,
+        ZonePosition::Bottom => LibraryPlace::Bottom,
+        ZonePosition::Index(i) => {
+            let at = i.min(len.saturating_sub(1));
+            match len - at {
+                1 => LibraryPlace::Top,
+                _ if at == 0 => LibraryPlace::Bottom,
+                n => LibraryPlace::FromTop(u32::try_from(n).unwrap_or(u32::MAX)),
+            }
+        }
     }
 }
 
@@ -3340,6 +3366,64 @@ mod tests {
             state.ltb_attachments.is_empty(),
             "and the move that brings it back clears the pairing, or an \
              Equipment attached to nobody would go on granting to it"
+        );
+    }
+
+    /// A move into a library says where in it the card went, and nothing
+    /// else says a place (#300). `FromTop` is checked against where the card
+    /// actually sits, and an index past either end reads as that end.
+    #[test]
+    fn a_move_into_a_library_names_where_in_it_the_card_went() {
+        use crate::zone::ZonePosition as At;
+        let mut state = GameState::from_preset(&make_preset(11), &RegistryLookup).unwrap();
+        let p0 = PlayerId::new(0);
+        let library = ZoneLocation::Library(p0);
+        let card = state.draw_cards(p0, 1)[0];
+        let place_of = |state: &mut GameState, to: ZoneLocation, at: At| {
+            state
+                .move_object(card, to, at, crate::event::Cause::Effect)
+                .unwrap();
+            match state.journal.entries().last().map(|e| &e.event) {
+                Some(GameEvent::ZoneChanged { place, .. }) => *place,
+                other => panic!("the move is journaled last, got {other:?}"),
+            }
+        };
+        let hand = ZoneLocation::Hand(p0);
+        assert_eq!(
+            place_of(&mut state, library, At::Top),
+            Some(LibraryPlace::Top)
+        );
+        place_of(&mut state, hand, At::Top);
+        assert_eq!(
+            place_of(&mut state, library, At::Bottom),
+            Some(LibraryPlace::Bottom)
+        );
+        place_of(&mut state, hand, At::Top);
+        let place = place_of(&mut state, library, At::Index(2));
+        let list = state.zones.list(library);
+        let from_top = list.len() - list.iter().position(|&o| o == card).unwrap();
+        assert!(
+            from_top > 1 && from_top < list.len(),
+            "a card between the ends"
+        );
+        assert_eq!(
+            place,
+            Some(LibraryPlace::FromTop(u32::try_from(from_top).unwrap()))
+        );
+        place_of(&mut state, hand, At::Top);
+        assert_eq!(
+            place_of(&mut state, library, At::Index(0)),
+            Some(LibraryPlace::Bottom)
+        );
+        place_of(&mut state, hand, At::Top);
+        assert_eq!(
+            place_of(&mut state, library, At::Index(usize::MAX)),
+            Some(LibraryPlace::Top)
+        );
+        assert_eq!(
+            place_of(&mut state, hand, At::Top),
+            None,
+            "a hand has no place"
         );
     }
 

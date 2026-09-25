@@ -85,6 +85,11 @@ pub enum GameEvent {
         to: Zone,
         /// Why.
         cause: Cause,
+        /// Where in the library it went, when `to` is a library; `None`
+        /// for every other zone (#300). The position is public, even when
+        /// the card is not.
+        #[serde(default)]
+        place: Option<LibraryPlace>,
     },
     /// Counters on an object changed.
     CounterChanged {
@@ -337,6 +342,23 @@ pub enum GameEvent {
         /// What the policy answered.
         answer: PolicyAnswer,
     },
+}
+
+/// Where in a library a card was put.
+///
+/// What the move asked for, not where the card happens to sit: a card put
+/// on the bottom of an empty library is [`Self::Bottom`]. A card shuffled
+/// in is put on top and then shuffled, and says so as a `Shuffled` of that
+/// library right after it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum LibraryPlace {
+    /// On top.
+    Top,
+    /// On the bottom.
+    Bottom,
+    /// Nth from the top, counting the top card as 1. Never 1 and never the
+    /// bottom card: those are [`Self::Top`] and [`Self::Bottom`].
+    FromTop(u32),
 }
 
 /// What a seat's standing policy for one ability answered for it (#234).

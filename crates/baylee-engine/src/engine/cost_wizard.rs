@@ -459,6 +459,7 @@ mod tests {
                     from: crate::zone::Zone::Graveyard,
                     to: crate::zone::Zone::Exile,
                     cause: Cause::Cost,
+                    place: None,
                 } if object == buried
             )),
             "the move is journaled as a cost paid out of the graveyard"

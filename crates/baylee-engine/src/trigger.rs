@@ -519,6 +519,7 @@ fn collect_for_objects(
                         from,
                         to,
                         cause: _,
+                        place: _,
                     } = &entry.event
                         && *object == permanent
                         && *from == crate::zone::Zone::Battlefield

@@ -374,6 +374,7 @@ fn arrive(state: &mut GameState, id: ObjectId) {
         from: crate::zone::Zone::OutsideGame,
         to: crate::zone::Zone::Battlefield,
         cause: crate::event::Cause::Effect,
+        place: None,
     });
 }
 
