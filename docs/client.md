@@ -798,24 +798,34 @@ the bubble's clip lets it out as far
 how it and `/state` find the card a pointer is on.
 
 **A merged card is a stack** (#261: "wie ein Stapel gerendert"). It stands
-on its deck: the top card at the deck's height (`stack_rise`, 0.006 a card
-up to thirty) and one slab per card under it up to fourteen
-(`stack_layers`), children of the card built by `table::sync_stack`. A slab
-is a card with no print — nothing under the top card carries an image —
-jogged right and left in turn, and further out the deeper it lies: from
-half of `PILE_JOG` under the top card to all of it at the foot (0.08 card
-widths: the owner's "about eight percent" each, 25.09, who had not noticed
-the 0.045 before it), so each side is a staircase of edges. And the slabs on a side alternate between the back and a lighter edge
-(`slab_color`, `SLAB_EDGE_COLOR`, twenty-odd display levels over the back),
-so the layers stripe. The slabs wore the top card's identity paper while
-the frame had a paper to wear, and at 0.012 a card that paper was all that
-showed; with the frame gone, twenty Forests read as one Forest on a dark
-block until #298 widened and staggered the jog and striped the edges
-(`a_pile_shows_its_layers`; two constant assertions under `PILE_JOG` hold
-the jog between half a keyword mark and the air a card has in its lane
-cell). In a fan a pile lies over its neighbour as its card does: a slab has
-no print, only an edge. The library stays backs all the way down, face down
-(CR 401.2; `a_library_is_backs_all_the_way_down`).
+on its deck: the top card at the deck's height (`stack_rise`) and the cards
+under it as slabs, children of the card built by `table::sync_stack`. A slab
+is a card with no print — nothing under the top card carries an image — and
+the slabs alternate between the back and a lighter edge (`SLAB_EDGE_COLOR`,
+twenty-odd display levels over the back), so the layers stripe.
+
+- **A merged permanent** steps its slabs out **to the left**, each
+  `layout::PILE_JOG` (0.08 card widths: the owner's "about eight percent",
+  25.09) past the one above it, and shows **at most five** of them
+  (`PILE_SLABS`; the owner, 25.09: "bis 5 reichen aus"). The count badge says
+  how many there are. Left in the seat's own frame, tapped or not: a tapped
+  card is turned a quarter about its face, so its slabs are laid again along
+  its own −y when it taps (`table::pile_slab_transform`,
+  `a_pile_steps_out_to_the_left_five_cards_at_most`,
+  `a_pile_lays_its_cards_again_when_it_taps`). The row keeps the room they
+  take (`layout::pile_reach`; §"A row stands in sections").
+- **A zone pile** (library, graveyard, exile) keeps one slab per card up to
+  fourteen (`stack_layers`), jogged right and left in turn and further out
+  the deeper it lies, from half of `PILE_JOG` to all of it
+  (`table::slab_transform`, `slab_color`).
+
+The slabs wore the top card's identity paper while the frame had a paper to
+wear, and at 0.012 a card that paper was all that showed; with the frame
+gone, twenty Forests read as one Forest on a dark block until #298 widened
+the jog and striped the edges (`a_pile_shows_its_layers`). In a fan a pile
+lies over its neighbour as its card does: a slab has no print, only an edge.
+The library stays backs all the way down, face down (CR 401.2;
+`a_library_is_backs_all_the_way_down`).
 
 The deck follows the count. `sync_stack` rebuilds the slabs and the
 contact shadow when the count changes, and nothing when it does not — rebuilt
@@ -825,30 +835,37 @@ spawned: a group of Treasures growing from two to twelve under the same top
 card kept one slab under a card that had risen to stand on eleven
 (`the_deck_follows_the_count`).
 
-When they merge depends on what they are (`board::group_objects`). Tokens
-merge from two, on any row: a token is made to be one of many, and a fan of
-Treasures says nothing their `×N` does not. Cards merge only once the row
-would have to fan them (`pack_lane(..).fanned`); two Forests on a roomy row
-are two Forests, because a second one swallowing the first was
-`docs/observed-faults.md` 19. A token is what `board::provenance_of` calls
-one, so a token copy of a card merges like a token.
+**Identical permanents pile from two, on any row**, cards and tokens alike
+(`board::group_objects`; the owner, 25.09, #263: eight Forests and three
+Llanowar Elves on a roomy board are a `×8` and a `×3`, not eleven cards in a
+line). It used to wait for a row to fan, because a second Forest swallowing
+the first without a count was `docs/observed-faults.md` 19; the badge and
+the slabs now say what that card did not.
 
-Two independent guards keep the merge honest:
+Three guards keep the merge honest:
 
-- objects merge only when every property a decision reads matches
+- objects merge only when every visible difference matches
   (`PublicObject::summary_key`): name, card or token, controller and owner,
   status (tapped, face down, …), the projected types, colours and keywords,
-  P/T and the printed P/T under it, damage, loyalty, counters, summoning
-  sickness and any granted mana. So a tapped Soldier stands beside the
-  untapped ones, and a Soldier with lifelink beside the plain ones;
+  P/T and the printed P/T under it, damage, loyalty, counters, what is
+  attached, summoning sickness and any granted mana. So a pile splits by
+  state: summoning-sick, tapped and neither are three piles, and a Soldier
+  with lifelink stands beside the plain ones
+  (`sick_tapped_and_ready_are_three_piles`). `a_counter_is_never_merged_away`
+  holds every member of every pile to its top card's counters, damage, P/T
+  and status, and goes red with counters taken out of the key;
 - objects with individual identity never merge, however identical they look —
-  attacking or blocking (sent), enchanted, equipped, or targeted by the stack.
+  attacking or blocking (sent), enchanted, equipped, or targeted by the stack;
+- a face-down permanent never merges: two morphs look alike to the table and
+  are not alike to their controller.
 
 **In a choice, a merged card is a pool** (#210). What the answer being built
 proposes for a permanent — declared at a defender, blocking an attacker,
-picked as a target (`board::Proposal`, from `crate::proposals`) — is part of
-what it is merged on, so the proposal splits the card the way a sent
-declaration does: three of twelve Soldiers declared at a seat are a `×3`
+picked as a target, or a permanent the mana plan on offer would tap
+(`board::Proposal`, from `crate::proposals`) — is part of what it is merged
+on, so the proposal splits the card the way a sent declaration does (five
+Forests paying `{G}` are a lit `×1` beside a dark `×4`,
+`the_lit_lands_are_the_ones_the_plan_names`): three of twelve Soldiers declared at a seat are a `×3`
 stepping forward beside a `×9`, two sent at a planeswalker a card of their
 own again. `table::track_proposals` rebuilds the board the frame the answer
 changes, whichever door changed it. A click on a merged card is
@@ -878,15 +895,57 @@ The board model also builds a text chip row per seat (`board::TokenChip`,
 an unfocused pod at eight seats. **Neither is drawn** — measured for #210,
 nothing in `baylee-client` reads either.
 
+### A row stands in sections
+
+The owner asked for cards grouped "mit Hirn": first in the centre, then in
+two columns, then in three (#263). So each row lays its cards out in three
+sections, **left, centre, right** (`board::Section`), a section with no
+cards taking no room and the row centred as a whole, so one kind of card
+sits in the middle and each further kind opens a column beside it. One
+sense on every row: the many on the left, the ordinary in the centre, the
+singular or the used on the right.
+
+- **Lands**: basic lands left, in WUBRG by basic land type, Wastes last; a
+  land that only makes mana in the centre; a **utility land** right. A
+  utility land is one its player uses for more than mana
+  (`cardart::utility_land`, the `Registry`'s `utility_land`): a
+  non-mana ability activated on the battlefield (a fetchland, a creature
+  land; a Triome's cycling is used from the hand), a static or replacement
+  ability (Reliquary Tower, Urborg), or no mana ability at all. What
+  happens *to* its player does not count: entering tapped, a shockland's
+  life, City of Brass's damage, Path of Ancestry's scry. A land whose
+  ability list holds an unread ability claims nothing from what is missing
+  (`a_utility_land_is_one_its_player_uses`). A token land is a land.
+- **Creatures and other permanents**: tokens left; ordinary cards in the
+  centre; legends, planeswalkers and battles right, the commander outermost.
+- Within a section, by name, then by id.
+
+A section is what a card **is**, never what it is doing: tapping, attacking,
+summoning sickness or a pump moves no card between sections, or a row would
+shuffle every turn (`a_card_keeps_its_section_whatever_it_does`). Left and
+right are the seat's own, as in paper. The air between two sections is half
+a card, four of a comfortable row's gaps (`layout::SECTION_AIR`), and closes
+with the fan to two (`SECTION_AIR_MIN`) — never to none, or three sections
+would read as one row on exactly the crowded board they were meant to sort
+(`each_row_stands_in_sections`,
+`a_section_keeps_its_last_card_whole_and_air_after_it`).
+
+A pile's slabs reach left of its card (`layout::pile_reach`), so the row
+holds that room before it: a `×8` Forest's five slabs never lie on the card
+beside it, and the row is centred with them
+(`a_pile_holds_its_room_on_the_left`).
+
 ### A row that does not fit scrolls
 
-A battlefield row packs its cards into its lane (`layout::pack_row`,
+A battlefield row packs its cards into its lane (`layout::pack_gaps`,
 `Lane::pack`): at `CARD_SPAN + CARD_GAP` while that fits, fanned when it
 does not until a third of each card is left (`MIN_VISIBLE_FRACTION`, 0.33;
-the owner, 25.09: "at least 33% of each card stays visible"), and at a ring
-table with the gap after every merged card held whole (`HELD_PITCH`, the
-room of a count badge standing beside its card; §"Grouping and the token
-summary"). A row that cannot do that **scrolls** (the owner, 25.09, for all
+the owner, 25.09: "at least 33% of each card stays visible"), each
+section's last card whole with its air after it, and at a ring table with
+the gap after every merged card held whole (`HELD_PITCH`, the room of a
+count badge standing beside its card; §"Grouping and the token summary").
+`Lane::gaps` says which of the three a gap is (`layout::Gap`). One
+division finds the pitch, since a section's air falls linearly with it. A row that cannot do that **scrolls** (the owner, 25.09, for all
 three rows). It used to run on past its lane into the pile strip beside it
 instead, and fanned to a quarter of a card (0.26) before that.
 

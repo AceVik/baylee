@@ -13,8 +13,8 @@
 //!
 //! # What stays here, and why it has to
 //!
-//! Every non-test item — `model`, `crowded_model`, `bolt_at_bears`, the two
-//! widths — stays in this file. That is not tidiness but visibility: a child
+//! Every non-test item — `model`, `bolt_at_bears` and the rest — stays in
+//! this file. That is not tidiness but visibility: a child
 //! module reaches its parent's private items through `use super::*`, and a
 //! **sibling** reaches nothing at all. A helper that moved into one part
 //! would be invisible to the other seven.
@@ -38,17 +38,6 @@ use baylee_core::ids::{AbilityRef, CardIndex, Defender, PrintRef};
 
 use baylee_view::{AttackerView, BlockerView, CardIdentity, StackItem, StackText};
 
-const WIDE: f32 = 40.0;
-
-/// A row barely wider than one card, which is where merging lives.
-///
-/// Identical permanents merge only once they would have to overlap, so a
-/// test *about* merging has to be given a row that cannot hold its cards
-/// — otherwise it draws them all separately and asserts nothing. Every
-/// test below that is about what stays apart when things merge uses this
-/// rather than [`WIDE`].
-const CROWDED: f32 = 2.0;
-
 /// One chair on the roster, by the two facts that say who is answering for it.
 ///
 /// Positional rather than a builder, because the pair is the whole point: a
@@ -65,11 +54,7 @@ fn identity(player: u8, is_ai: bool, away: bool) -> baylee_view::SeatIdentity {
 }
 
 fn model(view: &PlayerView) -> BoardModel {
-    BoardModel::from_view(view, Openings::none(), |_| WIDE, &[], Registry::none())
-}
-
-fn crowded_model(view: &PlayerView) -> BoardModel {
-    BoardModel::from_view(view, Openings::none(), |_| CROWDED, &[], Registry::none())
+    BoardModel::from_view(view, Openings::none(), &[], Registry::none())
 }
 
 /// A spell on the stack and the permanent it is pointed at.

@@ -2,7 +2,9 @@
 //! table lays one for a row that scrolls and none for a row that fits.
 
 use super::*;
-use baylee_client_core::board::{BoardModel, CardGroup, Lane, Provenance, SeatPod, SeatRole};
+use baylee_client_core::board::{
+    BoardModel, CardGroup, Lane, Provenance, SeatPod, SeatRole, Section,
+};
 use baylee_client_core::layout::CARD_HEIGHT;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::ObjectStatus;
@@ -34,6 +36,7 @@ fn group(slot: u32, merged: bool) -> CardGroup {
         commander: false,
         individual: None,
         proposed: None,
+        section: Section::Centre,
     }
 }
 

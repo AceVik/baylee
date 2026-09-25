@@ -17,13 +17,13 @@
 //! [`crate::owed_tests::seat_with_two_forests`] rather than from a second
 //! harness written here: one wire-built seat, asked two questions.
 //!
-//! **What these do not reach**, said out loud so the next reader does not take
-//! the coverage for wider than it is. Two Forests at this table are two board
-//! groups of one card each — measured, not assumed — so `group.members` is a
-//! single id at every call site below and the *stack* case is untested here.
-//! That case is the reason the offer is resolved in [`super::placements`]
-//! rather than in the sync loop, and it is held next door in `cardmat`, over a
-//! three-member slice.
+//! Two Forests at this table are one pile of two since identical cards pile
+//! on any row (#263), and a Forest the plan would tap is split off it
+//! (`Proposal::Spent`), so the counts below are of permanents, not of cards
+//! drawn: `{G}` is a lit `×1` beside a dark one. The pile is the reason the
+//! offer is resolved in [`super::placements`] rather than in the sync loop;
+//! how a pile would be lit if only some of it were spent is held next door
+//! in `cardmat`, over a three-member slice.
 
 use super::{Placement, placements};
 use crate::owed_tests::seat_with_two_forests;
@@ -41,9 +41,14 @@ fn drawn(owed: Option<ManaCost>) -> Vec<Placement> {
     placements(&duel)
 }
 
-/// Cards the table would light as about to tap.
+/// Permanents the table would light as about to tap: a lit pile counts
+/// every card in it.
 fn lit(drawn: &[Placement]) -> usize {
-    drawn.iter().filter(|p| p.offer.will_tap).count()
+    drawn
+        .iter()
+        .filter(|p| p.offer.will_tap)
+        .map(|p| p.count)
+        .sum()
 }
 
 /// A payment window reaches the felt: the two Forests that would settle it
@@ -92,6 +97,17 @@ fn the_lit_lands_are_the_ones_the_plan_names() {
         lit(&drawn),
         1,
         "{{G}} needs one Forest, so one card is drawn about to tap"
+    );
+    let mut forests: Vec<_> = drawn
+        .iter()
+        .filter(|p| p.slot.player == PlayerId::new(0) && p.fan.is_none())
+        .map(|p| (p.count, p.offer.will_tap))
+        .collect();
+    forests.sort_unstable();
+    assert_eq!(
+        forests,
+        [(1, false), (1, true)],
+        "the Forest being spent stands apart from the one that is not"
     );
 }
 

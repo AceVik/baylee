@@ -337,7 +337,6 @@ impl Client {
                     self.board = Some(BoardModel::from_view(
                         &v,
                         Openings::none(),
-                        |_| 12.0,
                         self.statics.as_ref().map_or(&[][..], |s| &s.seats),
                         baylee_client::cardart::registry(),
                     ));
@@ -1174,7 +1173,6 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
     let board = BoardModel::from_view(
         view,
         Openings::none(),
-        |_| 12.0,
         &[],
         baylee_client::cardart::registry(),
     );

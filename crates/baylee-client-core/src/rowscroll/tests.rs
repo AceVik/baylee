@@ -4,7 +4,7 @@
 //! hidden card into view once and does not fight the wheel afterwards.
 
 use super::*;
-use crate::board::{CardGroup, Lane, Provenance, SeatPod, SeatRole};
+use crate::board::{CardGroup, Lane, Provenance, SeatPod, SeatRole, Section};
 use crate::layout::{LaneKind, TableLayout};
 use baylee_view::ObjectStatus;
 
@@ -35,6 +35,7 @@ fn group(slot: u32, merged: bool) -> CardGroup {
         commander: false,
         individual: None,
         proposed: None,
+        section: Section::Centre,
     }
 }
 

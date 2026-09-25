@@ -2333,7 +2333,6 @@ mod tests {
         let board = baylee_client_core::BoardModel::from_view(
             &view,
             Openings::none(),
-            |_| 800.0,
             &[],
             crate::cardart::registry(),
         );
@@ -2466,7 +2465,6 @@ mod tests {
         let board = baylee_client_core::BoardModel::from_view(
             &view,
             Openings::none(),
-            |_| 800.0,
             &[],
             crate::cardart::registry(),
         );

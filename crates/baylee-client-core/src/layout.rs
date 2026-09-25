@@ -1391,6 +1391,65 @@ pub const HELD_PITCH: f32 = CARD_SPAN;
 const _: () =
     assert!(CARD_SPAN * 0.5 + CARD_WIDTH * 0.5 + crate::cardplate::BADGE_REACH <= HELD_PITCH);
 
+/// How far each card under a merged pile steps out from the one above it,
+/// in card widths: about eight hundredths of a card (the owner, 25.09, who
+/// had not noticed the 0.045 it was).
+///
+/// To the **left**, all of them (the owner, 25.09: "sollte lieber nach
+/// links gehen"), in the seat's own frame whether or not the pile is tapped,
+/// so a pile is a staircase of edges on the side away from its count badge.
+/// Sideways only: a slab standing out at the top would reach towards the
+/// band the seat bar writes on, and one at the bottom towards the row behind.
+pub const PILE_JOG: f32 = 0.08;
+
+/// The most cards a merged pile shows under its top card: "bis 5 reichen
+/// aus" (the owner, 25.09). The count badge says how many there are.
+pub const PILE_SLABS: usize = 5;
+
+/// How far the cards under a merged pile of `count` reach out left of its
+/// top card, in table units: nothing for a lone card.
+#[must_use]
+pub fn pile_reach(count: usize) -> f32 {
+    count.saturating_sub(1).min(PILE_SLABS) as f32 * PILE_JOG * CARD_WIDTH
+}
+
+/// What lies between a card of a row and the next one.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Gap {
+    /// Nothing: the two fan with the rest of the row.
+    Free,
+    /// A whole cell, [`HELD_PITCH`]: the card before it is merged and its
+    /// count badge stands beside it.
+    Held,
+    /// The two stand in different sections of their row (#263): the card
+    /// before it lies whole, and air follows it ([`section_air`]). Wider
+    /// than a held gap, so a merged card at the end of a section needs no
+    /// more.
+    Section,
+}
+
+/// The air between two sections of a row with room to spare (#263): four
+/// of a comfortable row's gaps, about half a card.
+pub const SECTION_AIR: f32 = 4.0 * CARD_GAP;
+
+/// The air a section boundary keeps however tightly its row fans: two gaps.
+///
+/// Never none: three sections that closed up would read as one row on
+/// exactly the crowded board they are there to sort.
+pub const SECTION_AIR_MIN: f32 = 2.0 * CARD_GAP;
+
+/// The air after a section when the row fans at `pitch`: [`SECTION_AIR`] at
+/// a comfortable pitch, falling in step with the pitch to
+/// [`SECTION_AIR_MIN`] at the tightest fan, so a filling row closes up
+/// smoothly instead of in a jump where it starts to fan.
+#[must_use]
+pub fn section_air(pitch: f32) -> f32 {
+    let min_pitch = CARD_WIDTH * MIN_VISIBLE_FRACTION;
+    let comfortable = CARD_SPAN + CARD_GAP;
+    let share = ((pitch - min_pitch) / (comfortable - min_pitch)).clamp(0.0, 1.0);
+    SECTION_AIR_MIN + (SECTION_AIR - SECTION_AIR_MIN) * share
+}
+
 /// How a lane packed its cards.
 #[derive(Clone, PartialEq, Debug)]
 pub struct LanePacking {
@@ -1414,6 +1473,9 @@ pub struct LanePacking {
     pub overflowing: bool,
     /// The lane's usable width, which a scrolled row's window is cut to.
     usable: f32,
+    /// How far each card's pile reaches out on its left ([`pile_reach`]),
+    /// which the row holds room for as it holds a card.
+    reach: Vec<f32>,
 }
 
 /// The run of a row's cards that is shown, and how far their offsets move to
@@ -1442,30 +1504,31 @@ impl LanePacking {
             };
         }
         let first = first.min(self.last_first());
-        let fits = |from: usize, to: usize| {
-            self.offsets[to] - self.offsets[from] + CARD_SPAN <= self.usable + 1e-4
-        };
         let end = (first..n)
-            .take_while(|&i| fits(first, i))
+            .take_while(|&i| self.fits(first, i))
             .last()
             .unwrap_or(first)
             + 1;
         RowWindow {
             shown: first..end,
-            shift: -self.usable * 0.5 + CARD_SPAN * 0.5 - self.offsets[first],
+            shift: -self.usable * 0.5 + CARD_SPAN * 0.5 + self.reach[first] - self.offsets[first],
         }
+    }
+
+    /// Whether the run of cards `from..=to` fits the lane, the pile under
+    /// the first of them too.
+    fn fits(&self, from: usize, to: usize) -> bool {
+        self.offsets[to] - self.offsets[from] + CARD_SPAN + self.reach[from] <= self.usable + 1e-4
     }
 
     /// The first card a row may show and still reach its last.
     #[must_use]
     pub fn last_first(&self) -> usize {
         let n = self.offsets.len();
-        let Some(&last) = self.offsets.last() else {
+        if n == 0 {
             return 0;
-        };
-        (0..n)
-            .find(|&f| last - self.offsets[f] + CARD_SPAN <= self.usable + 1e-4)
-            .unwrap_or(n - 1)
+        }
+        (0..n).find(|&f| self.fits(f, n - 1)).unwrap_or(n - 1)
     }
 
     /// The first shown card that brings card `index` into view, moving the
@@ -1479,17 +1542,17 @@ impl LanePacking {
         if index < window.shown.start {
             return index;
         }
-        (0..=index)
-            .find(|&f| self.offsets[index] - self.offsets[f] + CARD_SPAN <= self.usable + 1e-4)
-            .unwrap_or(index)
+        (0..=index).find(|&f| self.fits(f, index)).unwrap_or(index)
     }
 
     /// Whether the card after `index` can lie over it: the next card is
-    /// shown and the gap to it is tighter than a card's span.
+    /// shown and the gap to it, less the pile under it, is tighter than a
+    /// card's span.
     #[must_use]
     pub fn covered(&self, index: usize, window: &RowWindow) -> bool {
         window.shown.contains(&(index + 1))
-            && self.offsets[index + 1] - self.offsets[index] < CARD_SPAN - 1e-4
+            && self.offsets[index + 1] - self.reach[index + 1] - self.offsets[index]
+                < CARD_SPAN - 1e-4
     }
 }
 
@@ -1500,58 +1563,100 @@ pub fn pack_lane(count: usize, width: f32) -> LanePacking {
 }
 
 /// Packs a row into a lane `width` units wide, holding the gap after each
-/// card `held` names open at [`HELD_PITCH`].
+/// card `held` names open at [`HELD_PITCH`]: [`pack_gaps`] for a row of one
+/// section.
+#[must_use]
+pub fn pack_row(held: &[bool], width: f32) -> LanePacking {
+    let gaps: Vec<Gap> = held
+        .iter()
+        .map(|&h| if h { Gap::Held } else { Gap::Free })
+        .collect();
+    pack_gaps(&gaps, &vec![0.0; held.len()], width)
+}
+
+/// Packs a row into a lane `width` units wide, `after[i]` saying what lies
+/// between card `i` and the next (the last card's entry is not read) and
+/// `reach[i]` how far the pile under card `i` stands out on its left
+/// ([`pile_reach`]), which the row holds as room of its own: a pile never
+/// lies over more of the card before it than that card's own fan allows.
 ///
 /// Cards keep their size and start overlapping once they no longer fit, the
 /// way a physical player fans a row. Shrinking instead would trade a readable
 /// board for an unreadable one at exactly the moment the board matters most.
-/// A fan is only ever of cards over cards: a held gap stays whole, and a row
-/// that cannot hold it and still fan legibly scrolls instead
+/// A fan is only ever of cards over cards within a section: a held gap stays
+/// whole, a section boundary keeps its card whole and some air after it, and
+/// a row that cannot keep them and still fan legibly scrolls instead
 /// (`overflowing`), rather than run past its lane into the piles beside it.
+///
+/// # Panics
+///
+/// If `after` and `reach` do not name the same cards.
 #[must_use]
-pub fn pack_row(held: &[bool], width: f32) -> LanePacking {
-    let count = held.len();
+pub fn pack_gaps(after: &[Gap], reach: &[f32], width: f32) -> LanePacking {
+    assert_eq!(after.len(), reach.len(), "a gap and a reach for every card");
+    let count = after.len();
     let usable = width.max(CARD_SPAN);
+    let reached: f32 = reach.iter().sum();
     if count <= 1 {
         return LanePacking {
-            offsets: vec![0.0; count],
+            offsets: vec![reached * 0.5; count],
             pitch: 0.0,
             fanned: false,
             overflowing: false,
             usable,
+            reach: reach.to_vec(),
         };
     }
 
-    let n = count as f32;
+    let gaps = &after[..count - 1];
+    let tally = |kind: Gap| gaps.iter().filter(|&&g| g == kind).count() as f32;
+    let (free, holds, sections) = (tally(Gap::Free), tally(Gap::Held), tally(Gap::Section));
     let comfortable_pitch = CARD_SPAN + CARD_GAP;
-    let comfortable_span = comfortable_pitch * (n - 1.0) + CARD_SPAN;
-    // The gap after card `i` is held when card `i` is: its badge is on its
-    // right.
-    let gaps: Vec<bool> = held[..count - 1].to_vec();
-    let holds = gaps.iter().filter(|&&h| h).count() as f32;
-    let free = (n - 1.0) - holds;
     let min_pitch = CARD_WIDTH * MIN_VISIBLE_FRACTION;
+    let comfortable_span = CARD_SPAN
+        + reached
+        + (free + holds) * comfortable_pitch
+        + sections * (CARD_SPAN + SECTION_AIR);
 
     let (pitch, fanned, overflowing) = if comfortable_span <= usable {
         (comfortable_pitch, false, false)
     } else {
-        let room = usable - CARD_SPAN - holds * HELD_PITCH;
-        if free > 0.0 {
-            let pitch = (room / free).min(comfortable_pitch);
+        // Every fanned step is linear in the pitch: a free one is the pitch,
+        // a held one does not move, and a section's air follows the pitch
+        // down (`section_air`). So the row's span is too, and the pitch that
+        // fills the lane is one division.
+        let slope = (SECTION_AIR - SECTION_AIR_MIN) / (comfortable_pitch - min_pitch);
+        let fixed = CARD_SPAN
+            + reached
+            + holds * HELD_PITCH
+            + sections * (CARD_SPAN + SECTION_AIR_MIN - slope * min_pitch);
+        let per_pitch = free + sections * slope;
+        if per_pitch > 0.0 {
+            let pitch = ((usable - fixed) / per_pitch).min(comfortable_pitch);
             (pitch.max(min_pitch), true, pitch < min_pitch)
         } else {
-            (HELD_PITCH, true, room < 0.0)
+            (HELD_PITCH, true, usable < fixed)
         }
     };
 
-    let steps: Vec<f32> = if fanned {
-        gaps.iter()
-            .map(|&h| if h { HELD_PITCH } else { pitch })
-            .collect()
-    } else {
-        vec![comfortable_pitch; count - 1]
-    };
-    let span: f32 = steps.iter().sum();
+    // A pile's reach widens the step before it, so the card it lies over
+    // keeps what the step would have shown of it.
+    let steps: Vec<f32> = gaps
+        .iter()
+        .zip(&reach[1..])
+        .map(|(gap, &reach)| {
+            reach
+                + match (gap, fanned) {
+                    (Gap::Section, false) => CARD_SPAN + SECTION_AIR,
+                    (_, false) => comfortable_pitch,
+                    (Gap::Free, true) => pitch,
+                    (Gap::Held, true) => HELD_PITCH,
+                    (Gap::Section, true) => CARD_SPAN + section_air(pitch),
+                }
+        })
+        .collect();
+    // The row is centred as a whole: the first card's pile is part of it.
+    let span: f32 = steps.iter().sum::<f32>() - reach[0];
     let mut offsets = Vec::with_capacity(count);
     let mut at = -span * 0.5;
     offsets.push(at);
@@ -1566,6 +1671,7 @@ pub fn pack_row(held: &[bool], width: f32) -> LanePacking {
         fanned,
         overflowing,
         usable,
+        reach: reach.to_vec(),
     }
 }
 

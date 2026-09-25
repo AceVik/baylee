@@ -1,5 +1,5 @@
 use super::*;
-use baylee_client_core::board::{BoardModel, CardGroup, Lane, Provenance, SeatPod};
+use baylee_client_core::board::{BoardModel, CardGroup, Lane, Provenance, SeatPod, Section};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::LaneKind;
 use baylee_core::ids::Defender;
@@ -32,6 +32,7 @@ fn creature(slot: u32) -> CardGroup {
         commander: false,
         individual: None,
         proposed: None,
+        section: Section::Centre,
     }
 }
 

@@ -62,59 +62,93 @@ fn shadows(world: &mut World, card: Entity) -> Vec<(Entity, Transform)> {
         .collect()
 }
 
-/// The slabs hang between the card's face and the foot of its deck, one per
-/// card under it up to the cap, and jog out right and left in turn — by at
-/// least half the jog and never past it. And no slab carries a print.
+/// A merged pile's cards hang between its top card's face and the foot of
+/// its deck, one per card under it up to five (the owner, 25.09: "bis 5
+/// reichen aus"), each a further [`PILE_JOG`] out to the **left** of its
+/// seat, tapped or not. Read in the seat's frame through the card's own
+/// transform, so a tapped pile whose cards stepped towards the next row
+/// would fail here. And no slab carries a print.
 #[test]
-fn the_slabs_hang_under_the_card_and_jog_in_turn() {
-    for count in [2usize, 3, 8, 15, 40] {
-        let mut world = World::new();
-        let mut materials = Assets::<CardMaterial>::default();
-        let mut index = index();
-        let card = world.spawn_empty().id();
-        sync(&mut world, &mut index, &mut materials, card, &merged(count));
-        let under = slabs(&mut world, card);
-        assert_eq!(under.len(), stack_layers(count - 1), "{count} cards");
-        let deck = stack_rise(count - 1);
-        for (i, (at, handle)) in under.iter().enumerate() {
-            let made = materials.get(handle).expect("a slab's material");
-            assert!(
-                made.art.is_none(),
-                "{count} cards: slab {i} carries a print"
-            );
-            assert!(
-                at.z < 0.0 && at.z >= -deck - 1e-6,
-                "{count} cards: slab {i} hangs at {}, outside the deck of {deck}",
-                at.z
-            );
-            assert!(
-                at.x.abs() <= PILE_JOG * CARD_WIDTH + 1e-6
-                    && at.x.abs() >= 0.5 * PILE_JOG * CARD_WIDTH - 1e-6,
-                "{count} cards: slab {i} stands out {}",
-                at.x
-            );
-            assert!(
-                at.y.abs() < 1e-6,
-                "{count} cards: slab {i} jogs along the card"
-            );
-            if let Some((next, _)) = under.get(i + 1) {
+fn a_pile_steps_out_to_the_left_five_cards_at_most() {
+    for tapped in [false, true] {
+        for count in [2usize, 3, 6, 15, 40] {
+            let mut world = World::new();
+            let mut materials = Assets::<CardMaterial>::default();
+            let mut index = index();
+            let card = world.spawn_empty().id();
+            let mut placed = merged(count);
+            placed.tapped = tapped;
+            sync(&mut world, &mut index, &mut materials, card, &placed);
+            let under = slabs(&mut world, card);
+            assert_eq!(under.len(), (count - 1).min(PILE_SLABS), "{count} cards");
+            let deck = stack_rise(under.len());
+            let pose = card_transform(&placed.slot, placed.position, tapped, 0.0);
+            let along = Vec3::new(placed.slot.facing.cos(), 0.0, placed.slot.facing.sin());
+            for (i, (at, handle)) in under.iter().enumerate() {
+                let made = materials.get(handle).expect("a slab's material");
                 assert!(
-                    at.x * next.x < 0.0,
-                    "{count} cards: slabs {i} and {} jog the same way",
-                    i + 1
+                    made.art.is_none(),
+                    "{count} cards: slab {i} carries a print"
+                );
+                assert!(
+                    at.z < 0.0 && at.z >= -deck - 1e-6,
+                    "{count} cards: slab {i} hangs at {}, outside the deck of {deck}",
+                    at.z
+                );
+                let out = pose.rotation * Vec3::new(at.x, at.y, 0.0);
+                #[allow(clippy::cast_precision_loss)] // five at most
+                let step = (i + 1) as f32 * PILE_JOG * CARD_WIDTH;
+                assert!(
+                    (out.dot(along) + step).abs() < 1e-5,
+                    "{count} cards, tapped {tapped}: slab {i} stands {} along its seat, not {} to the left",
+                    out.dot(along),
+                    step
+                );
+                assert!(
+                    (out - along * out.dot(along)).length() < 1e-5,
+                    "{count} cards, tapped {tapped}: slab {i} steps across the row"
                 );
             }
         }
     }
 }
 
+/// A pile laid again when it taps: the same count, turned, is a pile whose
+/// cards must still step out to the seat's left.
+#[test]
+fn a_pile_lays_its_cards_again_when_it_taps() {
+    let mut world = World::new();
+    let mut materials = Assets::<CardMaterial>::default();
+    let mut index = index();
+    let card = world.spawn_empty().id();
+    let mut placed = merged(4);
+    sync(&mut world, &mut index, &mut materials, card, &placed);
+    let rest: Vec<Vec3> = slabs(&mut world, card)
+        .into_iter()
+        .map(|(at, _)| at)
+        .collect();
+    placed.tapped = true;
+    sync(&mut world, &mut index, &mut materials, card, &placed);
+    let turned: Vec<Vec3> = slabs(&mut world, card)
+        .into_iter()
+        .map(|(at, _)| at)
+        .collect();
+    assert_eq!(rest.len(), turned.len());
+    for (a, b) in rest.iter().zip(&turned) {
+        assert!(
+            (a.x - b.y).abs() < 1e-6 && b.x.abs() < 1e-6,
+            "{a} became {b}"
+        );
+    }
+}
+
 /// A pile reads as cards and not as one card on a block (#261, #298).
 ///
 /// Three things make it: the pile stands out far enough to be seen at table
-/// size (the assertions under `PILE_JOG`, which bound it both ways), each
-/// slab on a side stands out further than the one above it so every edge
-/// shows and not only the first, and the slabs on one side alternate between
-/// the back and a lighter edge, so the layers stripe.
+/// size (`PILE_JOG`, eight hundredths of a card), each of its at most
+/// `PILE_SLABS` cards stands out further to the left than the one above it
+/// so every edge shows and not only the first (#263), and the slabs
+/// alternate between the back and a lighter edge, so the layers stripe.
 /// Measured live on e72c8980, before any of it: at 0.012 a card the jog was
 /// a pixel on a 94-pixel card, every slab was the back at the same offset,
 /// and twenty Forests read as one Forest on a dark block.
@@ -144,37 +178,29 @@ fn a_pile_shows_its_layers() {
     let card = world.spawn_empty().id();
     sync(&mut world, &mut index, &mut materials, card, &merged(9));
     let under = slabs(&mut world, card);
-    assert_eq!(under.len(), 8);
-    for side in [-1.0f32, 1.0] {
-        let steps: Vec<f32> = under
-            .iter()
-            .filter(|(at, _)| at.x * side > 0.0)
-            .map(|(at, _)| at.x.abs())
-            .collect();
-        for pair in steps.windows(2) {
-            assert!(
-                pair[1] > pair[0] + 1e-4,
-                "a deeper slab on the {side} side does not stand out past the one above it: {steps:?}"
-            );
-        }
-        let tints: Vec<Vec4> = under
-            .iter()
-            .filter(|(at, _)| at.x * side > 0.0)
-            .map(|(_, handle)| {
-                materials
-                    .get(handle)
-                    .expect("a slab's material")
-                    .params
-                    .tint
-            })
-            .collect();
-        assert_eq!(tints.len(), 4, "four slabs on the {side} side");
-        for pair in tints.windows(2) {
-            assert_ne!(
-                pair[0], pair[1],
-                "two slabs in a row on the {side} side wear the same colour: {tints:?}"
-            );
-        }
+    assert_eq!(under.len(), PILE_SLABS);
+    let steps: Vec<f32> = under.iter().map(|(at, _)| -at.x).collect();
+    for pair in steps.windows(2) {
+        assert!(
+            pair[1] > pair[0] + 1e-4,
+            "a deeper slab does not stand out past the one above it: {steps:?}"
+        );
+    }
+    let tints: Vec<Vec4> = under
+        .iter()
+        .map(|(_, handle)| {
+            materials
+                .get(handle)
+                .expect("a slab's material")
+                .params
+                .tint
+        })
+        .collect();
+    for pair in tints.windows(2) {
+        assert_ne!(
+            pair[0], pair[1],
+            "two slabs in a row wear the same colour: {tints:?}"
+        );
     }
 }
 
@@ -195,8 +221,8 @@ fn the_deck_follows_the_count() {
     for count in [2usize, 12, 1, 12] {
         sync(&mut world, &mut index, &mut materials, card, &merged(count));
         let under = slabs(&mut world, card);
-        assert_eq!(under.len(), stack_layers(count - 1), "{count} cards");
-        let deck = stack_rise(count - 1);
+        assert_eq!(under.len(), (count - 1).min(PILE_SLABS), "{count} cards");
+        let deck = stack_rise(under.len());
         if let Some((foot, _)) = under.last() {
             assert!(
                 (foot.z + deck).abs() < 1e-6,

@@ -9,8 +9,8 @@ use baylee_engine::choice::LegalActions;
 
 /// A Forest on the table, untapped, that the engine is offering.
 ///
-/// A card, not a bare object: a cardless one is a token, and tokens merge on
-/// any row (#210), which would draw the two as one.
+/// A card, not a bare object, as a player's Forest is. Two of them pile on
+/// any row (#263), so the table's tests read a pile of two.
 fn forest(slot: u32) -> baylee_view::PublicObject {
     let mut obj = baylee_client_core::test_support::token(slot, 0, "Forest", 0, 0);
     obj.card = Some(baylee_view::CardIdentity {

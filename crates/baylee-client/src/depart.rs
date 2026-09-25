@@ -212,13 +212,7 @@ mod running {
                     .collect(),
             )
             .build();
-        BoardModel::from_view(
-            &view,
-            Openings::none(),
-            |_| 12.0,
-            &[],
-            crate::cardart::registry(),
-        )
+        BoardModel::from_view(&view, Openings::none(), &[], crate::cardart::registry())
     }
 
     /// An app with the two systems in it and a hand of `slots` on the board.

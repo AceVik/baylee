@@ -242,3 +242,103 @@ fn empty_and_single_lanes_are_degenerate_but_valid() {
     assert!(pack_lane(0, 10.0).offsets.is_empty());
     assert_eq!(pack_lane(1, 10.0).offsets, vec![0.0]);
 }
+
+/// Sections stand apart (#263): the last card of a section lies whole, with
+/// [`SECTION_AIR`] after it on a roomy row. As the row fills, the air closes
+/// in step with the fan to [`SECTION_AIR_MIN`] and no further, and it never
+/// grows while the lane narrows.
+#[test]
+fn a_section_keeps_its_last_card_whole_and_air_after_it() {
+    let mut after = vec![Gap::Free; 24];
+    after[7] = Gap::Section;
+    after[15] = Gap::Section;
+    let reach = vec![0.0; after.len()];
+    let mut last_air = f32::INFINITY;
+    let mut fanned = 0;
+    for tenth in (40..=400).rev() {
+        #[allow(clippy::cast_precision_loss)] // a few hundred widths
+        let width = tenth as f32 * 0.1;
+        let packing = pack_gaps(&after, &reach, width);
+        for boundary in [7, 15] {
+            let air = packing.offsets[boundary + 1] - packing.offsets[boundary] - CARD_SPAN;
+            assert!(
+                (SECTION_AIR_MIN - 1e-4..=SECTION_AIR + 1e-4).contains(&air),
+                "{width}: the air after a section is {air}"
+            );
+            if !packing.fanned {
+                assert!(
+                    (air - SECTION_AIR).abs() < 1e-4,
+                    "{width}: a roomy row's air is {air}"
+                );
+            }
+            if packing.overflowing {
+                assert!(
+                    (air - SECTION_AIR_MIN).abs() < 1e-4,
+                    "{width}: a full row's air is {air}"
+                );
+            }
+            let window = packing.window(0);
+            assert!(
+                !packing.covered(boundary, &window),
+                "{width}: the last card of a section is covered"
+            );
+        }
+        let air = packing.offsets[8] - packing.offsets[7] - CARD_SPAN;
+        assert!(
+            air <= last_air + 1e-4,
+            "{width}: the air grew as the lane narrowed"
+        );
+        last_air = air;
+        fanned += usize::from(packing.fanned && !packing.overflowing);
+    }
+    assert!(fanned > 10, "only {fanned} widths fanned");
+}
+
+/// A pile's cards step out on its left (the owner, 25.09), and the row holds
+/// that room as its own: the card before a pile shows as much of itself as
+/// the fan gives every card, a row that fits stays inside its lane with the
+/// first pile's cards too, and so does every window of a row that scrolls.
+#[test]
+fn a_pile_holds_its_room_on_the_left() {
+    for width in [3.0f32, 6.1, 12.0, 19.7] {
+        for count in [2usize, 5, 13, 40] {
+            let after = vec![Gap::Free; count];
+            let reach: Vec<f32> = (0..count)
+                .map(|i| if i % 3 == 0 { pile_reach(9) } else { 0.0 })
+                .collect();
+            let packing = pack_gaps(&after, &reach, width);
+            let usable = width.max(CARD_SPAN);
+            for (i, (pair, reach)) in packing.offsets.windows(2).zip(&reach[1..]).enumerate() {
+                let shows = pair[1] - reach - pair[0];
+                assert!(
+                    shows >= CARD_WIDTH * MIN_VISIBLE_FRACTION - 1e-4,
+                    "{count} in {width}: card {i} shows {shows} beside the pile after it"
+                );
+            }
+            for first in 0..count {
+                let window = packing.window(first);
+                let start = window.shown.start;
+                let end = window.shown.end - 1;
+                let left = packing.offsets[start] + window.shift - reach[start] - CARD_SPAN * 0.5;
+                let right = packing.offsets[end] + window.shift + CARD_SPAN * 0.5;
+                assert!(
+                    left >= -usable * 0.5 - 1e-3 && right <= usable * 0.5 + 1e-3,
+                    "{count} in {width}, from {first}: the run spans {left}..{right}"
+                );
+            }
+            if !packing.overflowing {
+                let left = packing.offsets[0] - reach[0] - CARD_SPAN * 0.5;
+                let right = packing.offsets[count - 1] + CARD_SPAN * 0.5;
+                assert!(
+                    (left + right).abs() < 1e-3,
+                    "{count} in {width}: off-centre"
+                );
+            }
+        }
+    }
+    assert!((pile_reach(1)).abs() < 1e-6, "a lone card has no pile");
+    assert!(
+        (pile_reach(100) - pile_reach(PILE_SLABS + 1)).abs() < 1e-6,
+        "a pile shows at most {PILE_SLABS} cards under its top"
+    );
+}

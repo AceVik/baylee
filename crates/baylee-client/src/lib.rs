@@ -2342,19 +2342,32 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
 }
 
 /// What the answer being built proposes for each permanent it names: the
-/// pairs of a combat declaration, and the objects a choice has picked.
+/// permanents the mana plan on offer would tap, the pairs of a combat
+/// declaration, and the objects a choice has picked, the last two winning
+/// over a tap because they are the answer itself.
 #[must_use]
 pub fn proposals(
-    interaction: Option<&Interaction>,
+    duel: &Duel,
 ) -> std::collections::HashMap<ObjectId, baylee_client_core::board::Proposal> {
     use baylee_client_core::board::Proposal;
-    interaction.map_or_else(std::collections::HashMap::new, |i| {
+    let plan = match duel.proposing() {
+        Proposing::Armed(Armed {
+            deed: Deed::Run { plan, .. },
+            ..
+        })
+        | Proposing::Owed(plan) => Some(plan),
+        Proposing::Armed(_) | Proposing::Nothing => None,
+    };
+    let spent = plan
+        .into_iter()
+        .flat_map(|plan| plan.steps.iter().map(|step| (step.source, Proposal::Spent)));
+    let answer = duel.interaction.as_ref().into_iter().flat_map(|i| {
         i.assignments()
             .into_iter()
             .map(|(id, focus)| (id, Proposal::Combat(focus)))
             .chain(i.selected().map(|id| (id, Proposal::Picked)))
-            .collect()
-    })
+    });
+    spent.chain(answer).collect()
 }
 
 /// Rebuilds the render model from the current view.
@@ -2367,7 +2380,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
     duel.suspend_reach = suspend_reach(duel);
     duel.activatable = activatable(duel);
-    duel.proposed = proposals(duel.interaction.as_ref());
+    duel.proposed = proposals(duel);
 
     let Some(view) = duel.view.as_ref() else {
         return;
@@ -2436,16 +2449,6 @@ pub fn rebuild_board(duel: &mut Duel) {
             reachable: &reach,
             activatable: &duel.activatable,
             proposed: &duel.proposed,
-        },
-        // Each pod is measured against its own row. This used to be one
-        // number taken off the first opponent, which is only ever right on a
-        // table nobody has focused: a focus widens the seat it is on and
-        // shrinks the rest, so the local board was being gated against a
-        // 23.7-unit row while standing on a 14.7-unit one.
-        |player| {
-            layout
-                .slot(player)
-                .map_or(12.0, baylee_client_core::layout::SeatSlot::lane_width)
         },
         // Who is answering for each chair. From the roster and not from the
         // view, because that is the payload that knows: a chair the house is

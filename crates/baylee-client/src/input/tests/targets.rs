@@ -114,13 +114,7 @@ fn the_card_cursor_reaches_a_spell_on_the_stack() {
         .with_hand(vec![("Ornithopter", 0, 30)])
         .with_stack(vec![printed(200, 0, "Spellseeker", 4)])
         .build();
-    let board = BoardModel::from_view(
-        &view,
-        Openings::none(),
-        |_| 12.0,
-        &[],
-        crate::cardart::registry(),
-    );
+    let board = BoardModel::from_view(&view, Openings::none(), &[], crate::cardart::registry());
     assert!(
         board.stack.iter().any(|item| item.id == obj(200)),
         "the board model carries the stack"

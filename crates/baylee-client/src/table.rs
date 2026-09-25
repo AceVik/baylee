@@ -38,7 +38,7 @@ use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
-    CARD_HEIGHT, CARD_SPAN, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout,
+    CARD_HEIGHT, CARD_WIDTH, PILE_JOG, PILE_SLABS, PileKind, STAGE_STEP, SeatSlot, TableLayout,
 };
 use baylee_client_core::tabletop;
 use baylee_client_core::textface;
@@ -227,24 +227,11 @@ pub(crate) const FLOOR_RUNG: f32 = CARD_LIFT * 0.75;
 /// and what fills a slab's window under a pile, where nothing sees it.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
 
-/// How far the deepest slab under a pile stands out sideways, in card widths
-/// (#261), alternating left and right, so a merged card reads as a stack of
-/// its own kind rather than as one card on a dark block. The slabs above it
-/// stand out less, down to half of it under the top card
-/// ([`slab_transform`]), so each side is a staircase of edges.
-///
-/// About eight hundredths of a card each (the owner, 25.09, who had not
-/// noticed the 0.045 it was). Inside the air an untapped card has in its lane
-/// cell, so on a roomy row no slab reaches the next card; in a fan the pile
-/// lies over its neighbour as its card does, and a slab has no print, only
-/// an edge.
-///
-/// Sideways only: a slab standing out at the top would reach towards the
-/// band the seat bar writes on, and one at the bottom towards the row
-/// behind.
-const PILE_JOG: f32 = 0.08;
+// A merged pile's cards step out by `layout::PILE_JOG` each, to the left and
+// at most `PILE_SLABS` of them ([`pile_slab_transform`]); the row holds the
+// room they take (`layout::pile_reach`). A zone pile's slabs alternate
+// sides ([`slab_transform`]).
 const _: () = assert!(PILE_JOG >= cardrail::MARK / 2.0);
-const _: () = assert!(PILE_JOG * CARD_WIDTH <= (CARD_SPAN - CARD_WIDTH) / 2.0);
 /// The lighter of the two colours a pile's slabs wear in turn (#298): card
 /// stock in shadow, so the layers stripe against the back beside them.
 ///
@@ -253,7 +240,7 @@ const _: () = assert!(PILE_JOG * CARD_WIDTH <= (CARD_SPAN - CARD_WIDTH) / 2.0);
 /// ways).
 const SLAB_EDGE_COLOR: Color = Color::srgb(0.24, 0.25, 0.28);
 
-/// The colour of the `i`-th slab under a pile, counted from 1 as
+/// The colour of the `i`-th slab under a zone pile, counted from 1 as
 /// [`slab_transform`] counts them: each side's slabs alternate between the
 /// back and [`SLAB_EDGE_COLOR`], so each stands out from the one before it on
 /// its side as well as from the felt.
@@ -780,12 +767,13 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
 ///
 /// A proposal is part of what a stack is merged on
 /// (`baylee_client_core::board::Proposal`): three Soldiers declared out of
-/// twelve are a card of their own. The answer changes through a click, a
-/// key, `Esc`, a row in the prompt bar — more doors than
+/// twelve are a card of their own, and so is the Forest a plan would tap
+/// out of five. The answer changes through a click, a key, `Esc`, a row in
+/// the prompt bar, an armed spell — more doors than
 /// [`crate::rebuild_board`] has callers — so the change is noticed here,
 /// once a frame, the way [`track_canvas`] notices the window.
 pub fn track_proposals(mut duel: ResMut<Duel>) {
-    if crate::proposals(duel.interaction.as_ref()) != duel.proposed {
+    if crate::proposals(&duel) != duel.proposed {
         crate::rebuild_board(&mut duel);
     }
 }
@@ -3808,14 +3796,42 @@ pub struct StackSlab;
 struct Stack {
     /// The count the deck was built for.
     count: usize,
+    /// Whether the pile was laid tapped: a merged pile's cards step out to
+    /// its seat's left, which a tapped card's own space names differently.
+    tapped: bool,
     /// The slabs, top first.
     slabs: Vec<Entity>,
     /// The contact shadow under the whole deck.
     shadow: Option<Entity>,
 }
 
-/// Where the `i`-th of `layers` slabs hangs under a card standing `deck`
-/// high, in the card's own space: that share of the deck down, to the right
+/// Where the `i`-th of `layers` cards under a merged pile hangs, the pile
+/// standing `deck` high (#263): that share of the deck down, and a further
+/// [`PILE_JOG`] out to the left of the seat for each, whether or not the
+/// pile is tapped (the owner, 25.09). A tapped card is turned a quarter
+/// about its face, so its seat's left is its own −y, and the offset is laid
+/// there.
+fn pile_slab_transform(i: usize, layers: usize, deck: f32, tapped: bool) -> Transform {
+    #[allow(clippy::cast_precision_loss)] // at most `PILE_SLABS`
+    let (step, share) = (i as f32, i as f32 / layers as f32);
+    let out = -step * PILE_JOG * CARD_WIDTH;
+    let (x, y) = if tapped { (0.0, out) } else { (out, 0.0) };
+    Transform::from_xyz(x, y, -deck * share)
+}
+
+/// The colour of the `i`-th card under a merged pile: the back and
+/// [`SLAB_EDGE_COLOR`] in turn, so each edge of the staircase stands out
+/// from the one above it.
+fn pile_slab_color(i: usize) -> Color {
+    if i % 2 == 1 {
+        SLAB_EDGE_COLOR
+    } else {
+        BACK_COLOR
+    }
+}
+
+/// Where the `i`-th of `layers` slabs hangs under a zone pile standing
+/// `deck` high, in the card's own space: that share of the deck down, to the right
 /// for an odd slab and to the left for an even one, and further out the
 /// deeper it lies — from half of [`PILE_JOG`] towards all of it — so every
 /// slab's edge shows past the one above it on its side, not only the first.
@@ -3836,7 +3852,9 @@ fn slab_transform(i: usize, layers: usize, deck: f32) -> Transform {
 /// own height and the rest hangs below it as children, so what a player sees
 /// is one block of cardboard with a face on top. The slabs are cards with no
 /// print, jogged ([`PILE_JOG`]) so their edges show, in two colours in turn
-/// ([`slab_color`]) so the layers do. Children and not loose
+/// ([`pile_slab_color`], [`slab_color`]) so the layers do: a merged pile's
+/// to the left, at most [`PILE_SLABS`] of them, a zone pile's to either
+/// side. Children and not loose
 /// entities, for the strip's reasons and one more: as loose entities they
 /// were never despawned at all, and every card that ever lay on a graveyard
 /// left its slabs standing there for the rest of the game.
@@ -3855,8 +3873,12 @@ fn sync_stack(
     placement: &Placement,
     motion: f32,
 ) {
+    // A merged card on the battlefield, which the badge is only ever on.
+    let pile = placement.badge > 0;
     let current = index.stacks.get(&placement.object);
-    if current.is_some_and(|stack| stack.count == placement.count) {
+    if current.is_some_and(|stack| {
+        stack.count == placement.count && (!pile || stack.tapped == placement.tapped)
+    }) {
         return;
     }
     let Some(quad) = index.quad.clone() else {
@@ -3868,7 +3890,14 @@ fn sync_stack(
         commands.entity(slab).despawn();
     }
     let under = placement.count.saturating_sub(1);
-    let deck = stack_rise(under);
+    // A pile shows at most `PILE_SLABS` cards under it and stands as high
+    // as they do: the badge says how many there are.
+    let layers = if pile {
+        under.min(PILE_SLABS)
+    } else {
+        stack_layers(under)
+    };
+    let deck = stack_rise(if pile { layers } else { under });
     if recount {
         if let Some(shadow) = stack.shadow.take() {
             commands.entity(shadow).despawn();
@@ -3894,11 +3923,14 @@ fn sync_stack(
             stack.shadow = Some(shadow);
         }
     }
-    let layers = stack_layers(under);
     for i in 1..=layers {
         // Nothing sees more of a slab than its jog and its wall: the card on
         // top covers the rest.
-        let color = slab_color(i);
+        let color = if pile {
+            pile_slab_color(i)
+        } else {
+            slab_color(i)
+        };
         let look = CardLook::flat(color, FinishTreatment::Plain);
         let material = index
             .face_materials
@@ -3910,7 +3942,11 @@ fn sync_stack(
                 StackSlab,
                 Mesh3d(quad.clone()),
                 MeshMaterial3d(material),
-                slab_transform(i, layers, deck),
+                if pile {
+                    pile_slab_transform(i, layers, deck, placement.tapped)
+                } else {
+                    slab_transform(i, layers, deck)
+                },
                 // The deck under a card is depth, not cards: the top card is
                 // what a click has to reach.
                 Pickable::IGNORE,
@@ -3920,6 +3956,7 @@ fn sync_stack(
         stack.slabs.push(slab);
     }
     stack.count = placement.count;
+    stack.tapped = placement.tapped;
     index.stacks.insert(placement.object, stack);
 }
 

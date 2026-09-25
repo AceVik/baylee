@@ -140,7 +140,7 @@ fn a_chair_says_who_is_answering_for_it() {
         identity(1, true, false),
         identity(2, false, true),
     ];
-    let m = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &roster, Registry::none());
+    let m = BoardModel::from_view(&view, Openings::none(), &roster, Registry::none());
     let role = |seat: u8| m.pod(PlayerId::new(seat)).expect("pod").role;
     assert_eq!(role(0), SeatRole::Present, "somebody is sitting there");
     assert_eq!(role(1), SeatRole::House, "the house plays that chair");
@@ -165,14 +165,14 @@ fn a_chair_says_who_is_answering_for_it() {
 #[test]
 fn an_empty_roster_seats_nobody_the_house_is_playing_for() {
     let view = ViewBuilder::new(2).build();
-    let bare = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &[], Registry::none());
+    let bare = BoardModel::from_view(&view, Openings::none(), &[], Registry::none());
     assert!(
         bare.pods.iter().all(|pod| pod.role == SeatRole::Present),
         "a chair nothing has been said about belongs to a player"
     );
 
     let roster = vec![identity(0, false, false), identity(1, true, false)];
-    let told = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &roster, Registry::none());
+    let told = BoardModel::from_view(&view, Openings::none(), &roster, Registry::none());
     assert!(
         told.pods.iter().any(|pod| pod.role == SeatRole::House),
         "with a roster the same view does say who is at the table, so the \
@@ -191,6 +191,6 @@ fn an_empty_roster_seats_nobody_the_house_is_playing_for() {
 fn a_chair_that_is_both_is_read_as_the_one_that_can_end() {
     let view = ViewBuilder::new(2).build();
     let roster = vec![identity(0, false, false), identity(1, true, true)];
-    let m = BoardModel::from_view(&view, Openings::none(), |_| WIDE, &roster, Registry::none());
+    let m = BoardModel::from_view(&view, Openings::none(), &roster, Registry::none());
     assert_eq!(m.pod(PlayerId::new(1)).expect("pod").role, SeatRole::Away);
 }

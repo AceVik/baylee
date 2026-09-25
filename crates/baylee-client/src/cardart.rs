@@ -14,8 +14,10 @@
 //! harder half missing: it has no card and no registry token either, so its
 //! name was all there ever was to go on and it drew as a coloured rectangle.
 
+use baylee_cards_dsl::{AbilityDef, ActivationZone};
 use baylee_client_core::board::{Registry, Wears};
 use baylee_core::ids::CardIndex;
+use baylee_view::RulesFace;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -84,6 +86,48 @@ pub fn named(name: &str) -> Option<Wears> {
         .or_else(|| crate::tokenart::wearing(name).map(Wears::Token))
 }
 
+/// Whether a land is one its player uses for more than mana (#263): the
+/// land row's right-hand section.
+///
+/// The owner's example was "Utility Land rechts", so the test is what a
+/// player means by the word, read off the ability list of the face whose
+/// rules the land has (a copy follows what it copies), never off its text:
+/// an ability activated on the battlefield that is not a mana ability (a
+/// fetchland, a creature land; a Triome's cycling is used from the hand), a
+/// static or replacement ability (Reliquary Tower, Urborg), or no mana
+/// ability at all. What happens *to* its player does not count: entering
+/// tapped and the shockland's life are `enter_modifiers`, a bridge's
+/// indestructible is a keyword, and City of Brass's damage and Path of
+/// Ancestry's scry are a trigger and a rider on mana. An unread ability
+/// claims nothing: such a land stands with the mana lands unless what was
+/// read already says otherwise.
+#[must_use]
+pub fn utility_land(face: RulesFace) -> bool {
+    let Some(def) = baylee_cards::by_index(face.card) else {
+        return false;
+    };
+    let mut makes_mana = false;
+    let mut unread = false;
+    for ability in def.abilities_for_face(usize::from(face.face)) {
+        match ability {
+            ability if ability.is_mana_ability() => makes_mana = true,
+            AbilityDef::Activated {
+                zone: ActivationZone::Battlefield,
+                ..
+            }
+            | AbilityDef::ActivatedConditional {
+                zone: ActivationZone::Battlefield,
+                ..
+            }
+            | AbilityDef::Static(_)
+            | AbilityDef::Replacement(_) => return true,
+            AbilityDef::Unimplemented => unread = true,
+            _ => {}
+        }
+    }
+    !makes_mana && !unread
+}
+
 /// The compiled registry, as a board asks for it.
 ///
 /// One function so that no caller can bring half of it. The two lookups are
@@ -94,16 +138,50 @@ pub fn named(name: &str) -> Option<Wears> {
 pub fn registry() -> Registry<'static> {
     static NAMED: fn(&str) -> Option<Wears> = named;
     static TOKEN_NAME: fn(u16) -> Option<&'static str> = crate::tokenart::name;
+    static UTILITY_LAND: fn(RulesFace) -> bool = utility_land;
     Registry {
         named: &NAMED,
         token_name: &TOKEN_NAME,
+        utility_land: &UTILITY_LAND,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{named, of, registry, wearing};
+    use super::{named, of, registry, utility_land, wearing};
     use baylee_client_core::board::Wears;
+    use baylee_view::RulesFace;
+
+    /// A utility land is one its player uses (#263): the lands a player means
+    /// by the word stand right, and the ones that only make mana, whatever
+    /// else happens to their player, stand in the centre. Zagoth Triome is
+    /// here for its cycling, activated from the hand and not on the table.
+    #[test]
+    fn a_utility_land_is_one_its_player_uses() {
+        let face = |name: &str| match named(name) {
+            Some(Wears::Card(card, face)) => RulesFace { card, face },
+            other => panic!("{name}: {other:?}"),
+        };
+        for name in [
+            "Reliquary Tower",
+            "Arid Mesa",
+            "Celestial Colonnade",
+            "Urborg, Tomb of Yawgmoth",
+        ] {
+            assert!(utility_land(face(name)), "{name} is a utility land");
+        }
+        for name in [
+            "Forest",
+            "Rustvale Bridge",
+            "Hallowed Fountain",
+            "City of Brass",
+            "Path of Ancestry",
+            "Tundra",
+            "Zagoth Triome",
+        ] {
+            assert!(!utility_land(face(name)), "{name} only makes mana");
+        }
+    }
 
     /// The two halves have to meet: a name is looked up, and the index that
     /// comes back has to be one `of` can turn into a picture. This is the

@@ -27,7 +27,6 @@ fn the_hand_keeps_the_order_the_cards_arrived_in() {
             activatable: &HashSet::new(),
             proposed: &HashMap::new(),
         },
-        |_| WIDE,
         &[],
         Registry::none(),
     );
@@ -61,16 +60,16 @@ fn a_group_is_activatable_only_when_every_card_in_it_is() {
         proposed: &unproposed,
     };
 
-    let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED, &[], Registry::none());
+    let lit = BoardModel::from_view(&view, openings(&both), &[], Registry::none());
     let group = &lit.pods[0].lanes[0].groups[0];
     assert_eq!(group.count(), 2, "identical permanents still merge");
     assert!(group.activatable);
 
     // One of the two cannot be tapped, so the card standing for both must
     // not claim it can — the player would click it and be told no.
-    let half = BoardModel::from_view(&view, openings(&one), |_| CROWDED, &[], Registry::none());
+    let half = BoardModel::from_view(&view, openings(&one), &[], Registry::none());
     assert!(!half.pods[0].lanes[0].groups[0].activatable);
 
-    let dark = BoardModel::from_view(&view, openings(&empty), |_| CROWDED, &[], Registry::none());
+    let dark = BoardModel::from_view(&view, openings(&empty), &[], Registry::none());
     assert!(!dark.pods[0].lanes[0].groups[0].activatable);
 }

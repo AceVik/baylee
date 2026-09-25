@@ -10,7 +10,7 @@
 //! ways:
 //!
 //! - It only happens at all once the row cannot hold its cards — when
-//!   [`crate::layout::pack_lane`] reports a fan. A fan exists so that cards
+//!   [`crate::layout::pack_gaps`] reports a fan. A fan exists so that cards
 //!   stay visible, and identical cards are the one case where that is not
 //!   worth doing: spreading them out says nothing their count does not. Two
 //!   Forests on a duel's row are two Forests, and a fourteenth is what turns
@@ -31,10 +31,10 @@
 use crate::cardplate::BadgePlace;
 use crate::images::{ArtSize, Face, ImageKey};
 use crate::interaction::CombatFocus;
-use crate::layout::{LaneKind, LanePacking, PileKind, SeatSlot, pack_lane, pack_row};
+use crate::layout::{Gap, LaneKind, LanePacking, PileKind, SeatSlot, pack_gaps, pile_reach};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
-use baylee_core::types::TypeSet;
-use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, TargetRef};
+use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, RulesFace, TargetRef};
 use std::collections::{HashMap, HashSet};
 
 /// Keyword bits the client renders as icons.
@@ -210,6 +210,83 @@ pub fn lane_of(types: TypeSet) -> LaneKind {
     }
 }
 
+/// Which part of its row a card stands in (#263).
+///
+/// The owner asked for cards grouped with thought: "first in the centre,
+/// then two, then three columns: left, centre, right". A row lays its
+/// sections out in that order, a section without cards takes no room, and
+/// the row stays centred as a whole, so one kind of card sits in the middle
+/// and each further kind opens a column beside it. Every row reads the same
+/// way: the many on the left, the ordinary in the centre, the singular and
+/// the used on the right.
+///
+/// Decided by what a card *is*, never by what it is doing: tapping,
+/// attacking, summoning sickness or a pump moves no card between sections,
+/// or a row would reshuffle every turn. Left and right are the seat's own,
+/// as in paper, because a chair at a ring's side has no "viewer's right".
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum Section {
+    /// Tokens; on the land row, the basic lands.
+    Left,
+    /// Everything ordinary; on the land row, the lands that only make mana.
+    Centre,
+    /// Legends, planeswalkers and battles, a commander outermost; on the
+    /// land row, the lands a player uses for more than mana.
+    Right,
+}
+
+/// Where `obj` stands in its row `kind`, and its rank inside that section:
+/// the basics in WUBRG order, a commander after every other legend. Cards of
+/// one rank stand by name, then id.
+///
+/// A token land is a land here: what a land is for decides its place.
+fn section_of(obj: &PublicObject, kind: LaneKind, reg: Registry<'_>) -> (Section, u8) {
+    if kind == LaneKind::Lands {
+        if obj.supertypes.contains(SupertypeSet::BASIC) {
+            return (Section::Left, basic_rank(obj));
+        }
+        let utility = obj.rules.is_some_and(|face| (reg.utility_land)(face));
+        return (
+            if utility {
+                Section::Right
+            } else {
+                Section::Centre
+            },
+            0,
+        );
+    }
+    if provenance_of(obj, reg) == Provenance::Token {
+        (Section::Left, 0)
+    } else if obj.commander {
+        (Section::Right, 1)
+    } else if obj.supertypes.contains(SupertypeSet::LEGENDARY)
+        || obj
+            .types
+            .intersects(TypeSet::PLANESWALKER.union(TypeSet::BATTLE))
+    {
+        (Section::Right, 0)
+    } else {
+        (Section::Centre, 0)
+    }
+}
+
+/// A basic land's place in WUBRG by its basic land type, and one without
+/// one (Wastes) after the five.
+fn basic_rank(obj: &PublicObject) -> u8 {
+    use baylee_core::generated::subtypes::land;
+    [
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
+    ]
+    .iter()
+    .zip(0u8..)
+    .find_map(|(&kind, rank)| obj.subtypes.contains(kind).then_some(rank))
+    .unwrap_or(5)
+}
+
 /// Why an object may not be merged into a group.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Individual {
@@ -240,6 +317,10 @@ pub enum Proposal {
     Combat(CombatFocus),
     /// One of the objects a choice is being answered with.
     Picked,
+    /// A permanent the mana plan on offer would tap (#263): with lands
+    /// piling on any row, five Forests paying `{G}` are a lit `×1` beside a
+    /// dark `×4`, not one lit card that says all five are being spent.
+    Spent,
 }
 
 /// One drawable card, which may stand for several identical permanents.
@@ -330,6 +411,9 @@ pub struct CardGroup {
     /// The same for all of them by construction: it is part of what a group
     /// is merged on (`group_objects`).
     pub proposed: Option<Proposal>,
+    /// Which part of its row the card stands in. The same for every member:
+    /// it is read off characteristics `ObjectSummaryKey` merges on.
+    pub section: Section,
 }
 
 impl CardGroup {
@@ -362,23 +446,46 @@ pub struct Lane {
 }
 
 impl Lane {
-    /// How the row packs into its lane at `slot`: after every merged card
-    /// whose count badge stands beside it, the gap holds a whole cell
-    /// ([`crate::layout::HELD_PITCH`]), and a row that does not fit that way
-    /// scrolls ([`LanePacking::overflowing`]).
+    /// How the row packs into its lane at `slot`: its sections apart, the
+    /// gap after every merged card whose count badge stands beside it held
+    /// at a whole cell ([`crate::layout::HELD_PITCH`]), room left of every
+    /// pile for the cards under it ([`pile_reach`]), and a row that does not
+    /// fit that way scrolls ([`LanePacking::overflowing`]).
     #[must_use]
     pub fn pack(&self, slot: &SeatSlot) -> LanePacking {
-        pack_row(&self.held(slot.badge_place()), slot.lane_width())
+        self.pack_at(slot.lane_width(), slot.badge_place())
     }
 
-    /// Which of the row's cards hold the gap after them open: the merged
-    /// ones, where their badges stand beside them, and none where they stand
-    /// over them.
+    /// [`Self::pack`] into a lane `width` wide whose badges stand at
+    /// `place`.
     #[must_use]
-    pub fn held(&self, place: BadgePlace) -> Vec<bool> {
+    pub fn pack_at(&self, width: f32, place: BadgePlace) -> LanePacking {
+        let reach: Vec<f32> = self.groups.iter().map(|g| pile_reach(g.count())).collect();
+        pack_gaps(&self.gaps(place), &reach, width)
+    }
+
+    /// What lies after each of the row's cards: the air between sections
+    /// where the next card stands in another one, else a held cell after a
+    /// merged card whose badge stands beside it, and nothing where the
+    /// badges stand over their cards.
+    #[must_use]
+    pub fn gaps(&self, place: BadgePlace) -> Vec<Gap> {
+        let sections: Vec<Section> = self.groups.iter().map(|g| g.section).collect();
         self.groups
             .iter()
-            .map(|group| place == BadgePlace::Beside && group.is_stack())
+            .enumerate()
+            .map(|(i, group)| {
+                if sections
+                    .get(i + 1)
+                    .is_some_and(|&next| next != group.section)
+                {
+                    Gap::Section
+                } else if place == BadgePlace::Beside && group.is_stack() {
+                    Gap::Held
+                } else {
+                    Gap::Free
+                }
+            })
             .collect()
     }
 
@@ -886,16 +993,9 @@ impl BoardModel {
     /// Builds the render model from a view.
     ///
     /// `openings` says what the hand can do; the client marks it but never
-    /// decides legality itself. `lane_width` answers how much room *that
-    /// seat's* rows have, which is what decides both when a lane collapses
-    /// identical cards and when it reports overflow.
-    ///
-    /// It is a function per seat rather than one number because seats do not
-    /// get equal space: [`crate::layout::TableLayout`] always makes the local
-    /// pod the largest, and focusing an opponent widens that one at the
-    /// others' expense. One number read off the first opponent is right only
-    /// in the one case where every pod is the same size — an unfocused
-    /// table — and gates every other board against a seat it is not.
+    /// decides legality itself. How much room a seat's rows have decides
+    /// nothing here since identical cards pile on any row (#263): it is the
+    /// table's business, where a row fans and scrolls ([`Lane::pack`]).
     ///
     /// `reg` is the compiled registry, asked what a projected name names. It
     /// is handed in for the reason [`crate::images::resolve`] is handed
@@ -915,7 +1015,6 @@ impl BoardModel {
     pub fn from_view(
         view: &PlayerView,
         openings: Openings<'_>,
-        lane_width: impl Fn(PlayerId) -> f32,
         roster: &[baylee_view::SeatIdentity],
         reg: Registry<'_>,
     ) -> Self {
@@ -933,7 +1032,6 @@ impl BoardModel {
                     player,
                     &individual,
                     &openings,
-                    lane_width(player),
                     roster
                         .iter()
                         .find(|identity| identity.player == player)
@@ -1214,6 +1312,9 @@ pub struct Registry<'a> {
     pub named: &'a dyn Fn(&str) -> Option<Wears>,
     /// The name a registry token is printed with.
     pub token_name: &'a dyn Fn(u16) -> Option<&'static str>,
+    /// Whether a land with these rules is one its player uses for more than
+    /// mana: the land row's right-hand section ([`Section`]).
+    pub utility_land: &'a dyn Fn(RulesFace) -> bool,
 }
 
 #[cfg(test)]
@@ -1224,6 +1325,11 @@ fn nothing_named(_: &str) -> Option<Wears> {
 #[cfg(test)]
 fn no_token_named(_: u16) -> Option<&'static str> {
     None
+}
+
+#[cfg(test)]
+fn no_utility_land(_: RulesFace) -> bool {
+    false
 }
 
 impl Registry<'_> {
@@ -1237,9 +1343,11 @@ impl Registry<'_> {
     pub(crate) fn none() -> Registry<'static> {
         static NAMED: fn(&str) -> Option<Wears> = nothing_named;
         static TOKEN_NAME: fn(u16) -> Option<&'static str> = no_token_named;
+        static UTILITY_LAND: fn(RulesFace) -> bool = no_utility_land;
         Registry {
             named: &NAMED,
             token_name: &TOKEN_NAME,
+            utility_land: &UTILITY_LAND,
         }
     }
 
@@ -1249,9 +1357,11 @@ impl Registry<'_> {
     #[must_use]
     fn of(named: &dyn Fn(&str) -> Option<Wears>) -> Registry<'_> {
         static TOKEN_NAME: fn(u16) -> Option<&'static str> = no_token_named;
+        static UTILITY_LAND: fn(RulesFace) -> bool = no_utility_land;
         Registry {
             named,
             token_name: &TOKEN_NAME,
+            utility_land: &UTILITY_LAND,
         }
     }
 }
@@ -1553,7 +1663,6 @@ fn build_pod(
     player: PlayerId,
     individual: &HashMap<ObjectId, Individual>,
     openings: &Openings<'_>,
-    pod_width: f32,
     role: SeatRole,
     reg: Registry<'_>,
 ) -> SeatPod {
@@ -1571,32 +1680,12 @@ fn build_pod(
                 .copied()
                 .filter(|o| lane_of(o.types) == kind)
                 .collect();
-            // Cards first; counted stacks only once the cards would have to
-            // overlap. The collapse used to run on every board, so a second
-            // Forest made the first one *disappear* into a count — and
-            // tapping one for mana brought it back, the summary key carrying
-            // the tap, and untapping hid it again. That is entry 19 of
-            // `docs/observed-faults.md`, and it was this line rather than
-            // anything in the renderer.
-            //
-            // The threshold is the *fan*, not the overflow, and the rule that
-            // picks it is what a fan is for: spreading cards out so each one
-            // stays visible. Distinct cards are worth that; identical ones
-            // are not, because a fan of them shows nothing their count does
-            // not already say. So two Forests on a roomy row are two Forests,
-            // and the moment a fourteenth would have to overlap them they are
-            // one card saying fourteen. Gating on `overflowing` instead would
-            // fix the Forests and break the forty tokens `docs/design.md`
-            // wrote the collapse for: a duel's row only overflows past
-            // seventy cards, so forty Soldiers would fan at a third of a card
-            // apiece.
-            let crowded = pack_lane(members.len(), pod_width).fanned;
             let groups = group_objects(
+                kind,
                 &members,
                 individual,
                 openings.activatable,
                 openings.proposed,
-                crowded,
                 reg,
             );
             Lane { kind, groups }
@@ -1623,26 +1712,27 @@ fn build_pod(
     }
 }
 
-/// Merges identical permanents, preserving anything individually significant.
+/// Orders one row's permanents by [`Section`] and piles identical ones,
+/// keeping anything individually significant on its own.
 ///
-/// `collapse` is the caller's answer to "is there room to draw them all?".
-/// Without it every board was a collapsed board, which is right for forty
-/// tokens and wrong for two Forests: a counted stack is what a player falls
-/// back to when the cards will not fit, not what a table looks like.
-///
-/// Tokens merge whatever the answer (#210). A token is made to be one of
-/// many — the Treasures a spell leaves, the Soldiers it makes — and a row
-/// of them fanned out says nothing the card's `×N` does not. Cards keep
-/// the room test, because a second Forest swallowing the first was
-/// `docs/observed-faults.md` 19. The key still splits tokens by state, so
-/// a tapped Soldier stands beside the untapped ones rather than inside
-/// them: that difference is the one a player reads.
+/// Identical permanents pile on any row, cards as well as tokens (the owner,
+/// 25.09: eight Forests and three Llanowar Elves lying singly on a roomy row
+/// were not what he asked for). It used to take a row that had to fan:
+/// `docs/observed-faults.md` 19 was a second Forest vanishing into a count
+/// and coming back out when one of the two tapped, the board rearranging
+/// itself every time a land paid for something. That is now what a pile
+/// is for, and said out loud: the key splits a pile by every difference a
+/// player reads (`ObjectSummaryKey`: tapped, summoning sick, counters,
+/// damage, attached, power and toughness, controller and the rest), so a
+/// tapped Forest stands as a pile of its own beside the untapped ones, and a
+/// Soldier given a +1/+1 counter leaves its pile for one of Soldiers that
+/// each carry one.
 fn group_objects(
+    kind: LaneKind,
     objects: &[&PublicObject],
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
     proposed: &HashMap<ObjectId, Proposal>,
-    collapse: bool,
     reg: Registry<'_>,
 ) -> Vec<CardGroup> {
     let mut groups: Vec<CardGroup> = Vec::new();
@@ -1651,22 +1741,29 @@ fn group_objects(
 
     // Sort first so grouping and ordering are both deterministic: the same
     // board always produces the same scene, which is what lets the renderer
-    // diff frames instead of rebuilding them.
-    let mut sorted: Vec<&PublicObject> = objects.to_vec();
-    sorted.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)));
+    // diff frames instead of rebuilding them. Section first (#263), then
+    // rank, name and id.
+    let mut sorted: Vec<(Section, u8, &PublicObject)> = objects
+        .iter()
+        .map(|&obj| {
+            let (section, rank) = section_of(obj, kind, reg);
+            (section, rank, obj)
+        })
+        .collect();
+    sorted.sort_by(|a, b| (a.0, a.1, &a.2.name, a.2.id).cmp(&(b.0, b.1, &b.2.name, b.2.id)));
 
-    for obj in sorted {
+    for (section, _, obj) in sorted {
         let can_act = activatable.contains(&obj.id);
         let reason = individual.get(&obj.id).copied();
-        // A card stands alone either because the row has room for it or
-        // because something about this particular permanent makes it not
-        // interchangeable — an aura on it, a spell pointed at it. The reason
-        // travels either way: it is why a card is drawn on its own, and a
-        // roomy row does not make an aura stop mattering.
-        let merges = collapse || provenance_of(obj, reg) == Provenance::Token;
+        // A card stands alone when something about this particular
+        // permanent makes it not interchangeable — an aura on it, a spell
+        // pointed at it — and the reason travels with it: it is why the card
+        // is drawn on its own. A face-down permanent stands alone too: two
+        // of them look alike and need not be alike, and a pile would say
+        // they are.
         let proposal = proposed.get(&obj.id).copied();
-        if !merges || reason.is_some() {
-            groups.push(card_group(obj, reason, can_act, proposal, reg));
+        if reason.is_some() || obj.status.is_face_down() {
+            groups.push(card_group(obj, reason, can_act, proposal, section, reg));
             continue;
         }
         // What is proposed for it is part of what it is merged on: the
@@ -1679,7 +1776,7 @@ fn group_objects(
             groups[i].activatable &= can_act;
         } else {
             index.insert(key, groups.len());
-            groups.push(card_group(obj, None, can_act, proposal, reg));
+            groups.push(card_group(obj, None, can_act, proposal, section, reg));
         }
     }
 
@@ -1694,6 +1791,7 @@ fn card_group(
     individual: Option<Individual>,
     activatable: bool,
     proposed: Option<Proposal>,
+    section: Section,
     reg: Registry<'_>,
 ) -> CardGroup {
     CardGroup {
@@ -1724,6 +1822,7 @@ fn card_group(
         commander: obj.commander,
         individual,
         proposed,
+        section,
     }
 }
 

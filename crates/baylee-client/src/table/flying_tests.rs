@@ -1,5 +1,5 @@
 use super::*;
-use baylee_client_core::board::{CardGroup, Provenance};
+use baylee_client_core::board::{CardGroup, Provenance, Section};
 
 fn obj(slot: u32) -> ObjectId {
     ObjectId::new(slot, 0)
@@ -60,6 +60,7 @@ pub(super) fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
         commander: false,
         individual: None,
         proposed: None,
+        section: Section::Centre,
     }
 }
 
@@ -138,13 +139,7 @@ fn the_keyword_survives_the_trip_from_the_view_to_the_table() {
         .with_battlefield(1, vec![drake])
         .with_battlefield(0, vec![token(2, 0, "Ogre", 3, 3)])
         .build();
-    let board = BoardModel::from_view(
-        &view,
-        Openings::none(),
-        |_| 12.0,
-        &[],
-        crate::cardart::registry(),
-    );
+    let board = BoardModel::from_view(&view, Openings::none(), &[], crate::cardart::registry());
     let duel = Duel {
         board: Some(board),
         layout: Some(TableLayout::new(

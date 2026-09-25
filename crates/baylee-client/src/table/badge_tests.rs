@@ -3,6 +3,7 @@
 
 use super::flying_tests::{creature, duel};
 use super::*;
+use baylee_client_core::layout::CARD_SPAN;
 use bevy::ecs::world::CommandQueue;
 
 /// The badge's quad is where `cardplate` says, in the card's own space, at

@@ -322,6 +322,12 @@ not by the order they were told, and nothing here is fixed yet.
     whichever seat happened to sit at ring index 1. `BoardModel::from_view`
     takes a width *per seat* now.
 
+    Since #263 the gate is gone, and the width per seat with it: identical
+    cards pile from two on any row (the owner, 25.09). The fault was a card
+    vanishing with nothing to say where; a pile now says `×N` and shows its
+    slabs, and a tapped Forest splitting off is the count changing in front
+    of the player.
+
 20. **Target selection needs a real design.** Attacking and every other
     "choose a target" step.
 

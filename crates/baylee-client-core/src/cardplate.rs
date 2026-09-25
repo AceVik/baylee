@@ -778,7 +778,7 @@ pub fn badge_quad_rect(place: BadgePlace) -> [f32; 4] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::Provenance;
+    use crate::board::{Provenance, Section};
     use baylee_core::ids::ObjectId;
     use baylee_view::ObjectStatus;
 
@@ -820,6 +820,7 @@ mod tests {
             commander: false,
             individual: None,
             proposed: None,
+            section: Section::Centre,
         }
     }
 
