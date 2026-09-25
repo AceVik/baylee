@@ -275,15 +275,21 @@ Urheber- und Medienrecht.
     faces stand in a scene (`crates/baylee-client/src/vista.rs`,
     `shaders/vista.wgsl`) that the owner asked to have the depth of the
     login screen of Blizzard's *World of Warcraft: Midnight*. What came
-    from it is a mood and nothing else: a blue-hour key, depth told in
-    parallax layers, and joining told as passing a threshold. No image,
-    texture, logo, font, frame, ornament, layout or motif of Blizzard's is
-    in the repository or the build, nothing was traced or sampled, and no
-    screenshot of it was kept. The scene is arithmetic, like clause 5's
-    music and the table's felt: a noise sky, a ridge of crystal fins, the
-    table's epoxy river of light, and a cleft between two broken mineral
-    jambs rather than a ring or a gate of stone. It has no city, tree, elf
-    or other figure and no Magic art, and its colours are the lobby's own.
+    from it is a mood and a job: a cool foreground frame around a warm,
+    bright world the form stands in, a lit seam where the two meet, depth
+    told in parallax, and joining told as passing a threshold. Nothing of
+    its expression is here: no round ornate ring, no spikes standing off
+    it, no jewels at its sides, no crystal wings, no city, tree or figure,
+    and no Blizzard image, texture, logo, font, layout or motif; nothing
+    was traced or sampled, and the screenshot that showed the mood was
+    deleted once the scene was done. Ours is a geode: the screen is the cut
+    face of a dark mineral, agate bands following the cavity's line out
+    into rough rock; the opening is its cavity, a broken superellipse that
+    is nowhere a circle, lined with crystal teeth that point inward as a
+    geode's do; and the world seen through it is a first light over a
+    ridge of crystal fins, mirrored in a resin floor. It is arithmetic,
+    like clause 5's music and the table's felt, it has no Magic art, and
+    its colours are the lobby's own.
 
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet

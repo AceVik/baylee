@@ -1084,7 +1084,7 @@ fn ink_on(app: &mut App, panel: Panel, label: &str) -> Option<f32> {
     None
 }
 
-/// A tenth of the passage through the cleft per frame, about a fifth of the
+/// A tenth of the passage through the cavity per frame, about a fifth of the
 /// panels' own film and of the carousel.
 fn frames_of_a_fifth(app: &mut App) {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
@@ -1132,7 +1132,7 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
             .resource_mut::<LobbyState>()
             .select_gateway(0)
     );
-    // The passage through the cleft (#295) takes a second, ten of these
+    // The passage through the cavity (#295) takes a second, ten of these
     // frames; the rim brightens for the first two, and the panels move from
     // the third.
     run(&mut app, 3);

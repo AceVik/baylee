@@ -2247,6 +2247,19 @@ fn front_door(
                 ..default()
             },
             TextColor(palette::DOCK_INK),
+            // The first light is below it in the scene (#295), so its
+            // glyphs' undersides catch it: a warm edge, not a bigger title.
+            TextShadow {
+                offset: Vec2::new(
+                    0.0,
+                    if metrics.frame == Frame::Phone {
+                        1.0
+                    } else {
+                        1.5
+                    },
+                ),
+                color: Color::srgba(0.98, 0.81, 0.51, 0.45),
+            },
             Pickable::IGNORE,
         ))
         .id();

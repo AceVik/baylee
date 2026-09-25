@@ -3224,40 +3224,57 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 
 ### The front door stands in a scene
 
-The gateway and sign-in faces are drawn in front of a landscape in depth
-(#295): `vista.rs` schedules it and `shaders/vista.wgsl` paints it, one
-full-screen `UiMaterial` on uniforms only, so it stays inside the GL budget.
-Back to front: the lobby's blue-hour sky (the same warped noise as
-`ambience.rs`), a ridge of crystal fins, the table's epoxy river of light
-running towards the viewer, and a cleft of two broken mineral jambs framing
-the panel on screen (`vista::Framed`), with a bevel, a violet glow that never
-reaches into the panel and a few sparks on its edge. Each layer leans with the
-pointer by its own amount, which is where the depth comes from. The light
-behind the panel is capped (`RING_CAP`), so a form is read against the scene
-and not through it.
+The gateway and sign-in faces are drawn inside a geode (#295): `vista.rs`
+schedules it and `shaders/vista.wgsl` paints it, one full-screen `UiMaterial`
+on uniforms only, so it stays inside the GL budget. The screen is the geode's
+cut face, agate bands following the cavity's line out into rough rock; the
+cavity is a broken superellipse round the panel (`vista::Framed`), lined with
+two rows of crystal teeth pointing inward and edged with a gold seam that
+breathes with the music's bar. Through it, back to front: the lobby's
+blue-hour sky (the same warped noise as `ambience.rs`) with clouds and rays,
+a first light low over a ridge of crystal fins, a resin lake mirroring both
+with the light's path glittering towards the viewer, and motes drifting in
+two planes. The first light is the brightest thing on the screen and rises
+just over the panel, below the title, so the title's lit edge is its
+underside. Each layer leans
+with the pointer by its own amount, which is where the depth comes from. The
+world behind the panel is capped (`PANEL_CAP` in the shader), so a form is
+read against the scene and not through it, and nothing of the world is drawn
+where solid stone covers it.
+
+The stage the scene frames is the card's own height, not the screen's
+(`front::stage`): a taller frame put a slab of stone behind a short card.
 
 **Choosing a gateway is walking through it.** `FrontMotion::progress` says
 how far the viewer has come, 0 on the gateway's side and 1 arrived, and
-`vista::passage` turns that into a frame of the scene: the rim brightens, the
-viewer walks through the first gate, a haze rises over the moment the panels
-change, and they arrive inside a second gate, an hour later and on the other
-side of the ridge. It takes a second (`PASSAGE_IN`), 0.8 s back
-(`PASSAGE_OUT`); the panels keep their own 0.48 s film from 0.20 s in, and
-the carousel between the account form's tabs keeps its own time and does not
-touch the scene. The haze peaks at 0.35 going in and 0.25 coming back and is
-never white.
+`vista::passage` turns that into a frame of the scene: the seam brightens,
+the viewer walks through the cavity, a haze rises over the moment the panels
+change, and they arrive inside a wider cavity on the far side, the light
+broadened. It takes a second (`PASSAGE_IN`), 0.8 s back (`PASSAGE_OUT`); the
+panels keep their own 0.48 s film from 0.20 s in, and the carousel between
+the account form's tabs keeps its own time and does not touch the scene. The
+haze peaks at `HAZE_IN` going in and `HAZE_OUT` coming back and is never
+white.
 
 **A wait is the passage held open.** The veil (`loading.rs`) raises the same
-scene around its card (`Vista::Wait`, `vista::waiting`): the gate stands wide,
-the haze and the rim rise a little over 0.4 s, and the hour turns slowly for
-as long as the wait lasts, so a long wait is seen to be going on without a
-spinner being the only thing that moves.
+scene around its card (`Vista::Wait`, `vista::waiting`): the cavity stands
+wide, the haze and the seam rise a little over 0.4 s, and the light turns
+slowly for as long as the wait lasts, so a long wait is seen to be going on
+without a spinner being the only thing that moves. The scene covers nearly
+all of the screen behind it (`WAIT_PRESENCE`): over a bright sky, a form
+showing through reads as clutter.
 
 Under `reduce_motion` nothing moves: the scene ignores time and the pointer,
-and the passage is a quarter-second change of colour to the far side's hour.
-A phone draws it without the fine skyline and the river's sparkle
-(`vista::QUALITY`). On the Mac (M1 Max, 3456×2104, debug build) the scene
-against a flat fill measured 109–113 fps against 107–111, which is noise: the
+and the passage is a quarter-second change of colour to the far side's light.
+Measured on the Mac at 3456×2104: 0 pixels of 7,271,424 changed in 1.5 s,
+against 24.9 % with motion. A phone draws it without the fine skyline and
+the rim's fine break, the clouds' own noise, the rays, the middle motes, the
+finer seams and the glitter's sparkle (`vista::QUALITY`). Its cost is not
+measured on a phone yet: on the Android emulator (Pixel 9 Pro XL image, API
+35, landscape, release build) against a flat fill it drew 14–20 fps against
+10–16 on the host GPU and 2.3–2.5 against 1.6–2.3 on SwiftShader, which is
+the emulator's own overhead, not the scene. The first version of the scene
+measured 109–113 fps against 107–111 on the Mac (M1 Max, debug build): the
 lobby is CPU-bound there.
 
 ## The deck builder

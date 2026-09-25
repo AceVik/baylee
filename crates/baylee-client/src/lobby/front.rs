@@ -8,9 +8,10 @@
 //!
 //! # The two motions
 //!
-//! Choosing a gateway goes *into* it, and through the cleft the scene
-//! behind the panels frames it (#295, [`crate::vista`]): the rim brightens,
-//! the viewer walks through, and arrives inside another gate an hour later.
+//! Choosing a gateway goes *into* it, through the cavity the scene behind
+//! the panels frames them in (#295, [`crate::vista`]): the rim brightens,
+//! the viewer walks through, and arrives inside a wider cavity on the far
+//! side, the light broadened.
 //! The panels ride that passage: the gateway panel grows past the viewer
 //! from the chosen row and fades, while the account panel comes up out of
 //! the depth, from nine tenths of its size and nothing. Back, or Escape, is
@@ -45,7 +46,7 @@ use bevy::ui::{UiTransform, Val2};
 /// How long the panels take to move, in either motion.
 const MOVE_SECONDS: f32 = 0.48;
 
-/// How long walking through the cleft takes, and walking back.
+/// How long walking through the cavity takes, and walking back.
 const PASSAGE_IN: f32 = 1.0;
 /// See [`PASSAGE_IN`].
 const PASSAGE_OUT: f32 = 0.8;
@@ -185,7 +186,7 @@ impl FrontMotion {
         self.from != self.to
     }
 
-    /// Whether this is the passage through the cleft, rather than the
+    /// Whether this is the passage through the cavity, rather than the
     /// carousel of the account form's tabs.
     fn through_the_door(&self) -> bool {
         self.from == Panel::Gateway || self.to == Panel::Gateway
@@ -202,7 +203,7 @@ impl FrontMotion {
         }
     }
 
-    /// How far through the cleft the viewer is: 0 before it, on the
+    /// How far through the cavity the viewer is: 0 before it, on the
     /// gateway's side, 1 arrived. The carousel turns on the far side.
     pub(crate) fn progress(&self) -> f32 {
         if !self.moving() || !self.through_the_door() {
@@ -617,24 +618,39 @@ pub(super) fn stage(
     metrics: Metrics,
     scrolled_to: &Scrolled,
 ) -> Entity {
-    let stage = commands
+    // The room the tallest panel needs, so the page does not jump when the
+    // panel changes, with the stage in its middle.
+    let room = commands
         .spawn((
             Node {
-                display: Display::Grid,
                 width: card_width(metrics.frame),
                 max_width: percent(100),
                 min_height: stage_height(metrics.frame),
                 flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let stage = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                width: percent(100),
                 grid_template_columns: vec![GridTrack::flex(1.0)],
-                grid_template_rows: vec![GridTrack::flex(1.0)],
+                grid_template_rows: vec![GridTrack::auto()],
                 ..default()
             },
             // What the scene behind is framed around: the stage keeps its
-            // place while the panels on it move.
+            // place while the panels on it move, and is as tall as the
+            // panels on it, not as the room kept for them (#295).
             crate::vista::Framed(crate::vista::Vista::Front),
             Pickable::IGNORE,
         ))
         .id();
+    commands.entity(room).add_child(stage);
     let panels = [Some(cast.shown), cast.going];
     for panel in panels.into_iter().flatten() {
         let card = card(
@@ -648,7 +664,7 @@ pub(super) fn stage(
         );
         commands.entity(stage).add_child(card);
     }
-    stage
+    room
 }
 
 /// The card's elevation: a close ambient shadow and a long key shadow. It is
@@ -1104,11 +1120,27 @@ pub(super) fn colophon(
                     height: side,
                     ..default()
                 },
+                Pickable::IGNORE,
+            ))
+            .id();
+        // Framed like the form it belongs to (#295), so it is a plate of
+        // the page and not a hole in the scene.
+        let frame = commands
+            .spawn((
+                Node {
+                    padding: UiRect::all(px(3)),
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(5)),
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL),
+                BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
                 Button,
                 Press::OpenSource,
             ))
+            .add_child(picture)
             .id();
-        commands.entity(colophon).add_child(picture);
+        commands.entity(colophon).add_child(frame);
     }
     colophon
 }

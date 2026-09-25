@@ -29,10 +29,13 @@ const QUIET: i32 = 4;
 /// pixels, which a phone reads off a laptop at arm's length.
 pub(super) const MODULE_PX: f32 = 2.0;
 
-/// The code's dark modules and its light ground: near-black on paper,
-/// because a reader wants the contrast the standard assumes.
-const DARK: [u8; 4] = [0x14, 0x13, 0x12, 0xff];
-const LIGHT: [u8; 4] = [0xf4, 0xf1, 0xea, 0xff];
+/// The code's dark modules and its light ground: near-black on warm paper.
+///
+/// The paper is darker than white (#295): a white square was the brightest
+/// thing on the front door, brighter than the scene's own light. The pair
+/// still differs by more than ten to one, far more than a reader needs.
+const DARK: [u8; 4] = [0x1a, 0x16, 0x12, 0xff];
+const LIGHT: [u8; 4] = [0xd2, 0xc6, 0xae, 0xff];
 
 /// The code drawn for the address on show.
 #[derive(Clone, Debug)]

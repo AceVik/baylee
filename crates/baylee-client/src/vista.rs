@@ -1,5 +1,6 @@
-//! The front door's scene (#295): a blue-hour landscape in depth, framed by
-//! a cleft around the panel, which choosing a gateway walks through.
+//! The front door's scene (#295): a world at first light seen through the
+//! cavity of a geode, the panel standing in it, which choosing a gateway
+//! walks through.
 //!
 //! It grows out of [`crate::ambience`]'s field (the same warped noise makes
 //! its sky) and, like it, is arithmetic rather than a picture:
@@ -7,8 +8,8 @@
 //! layers.
 //!
 //! This file schedules what the shader draws. A frame of the scene is a
-//! [`Stage`]: the hour, the haze, the glow on the rim, and the two gates of a
-//! passage. [`passage`] gives the stage at any point of walking through, from
+//! [`Stage`]: the hour, the haze, the glow on the rim, and the two frames of
+//! a passage. [`passage`] gives the stage at any point of walking through, from
 //! the gateway's side (0) to the far side (1), so the front door's motion
 //! only has to say how far it has come; [`waiting`] gives the stage of a
 //! wait, which is the passage held open. Where the scene stands (the panel it
@@ -26,7 +27,8 @@ use bevy::ui::UiGlobalTransform;
 use bevy::window::PrimaryWindow;
 
 /// Whether the shader draws what a phone's tiler pays most for: the fine
-/// skyline and the river's sparkle.
+/// skyline and the rim's fine break, the clouds' own noise, the rays, the
+/// middle motes, the finer seams and the glitter's sparkle.
 const QUALITY: f32 = if cfg!(any(target_os = "android", target_os = "ios")) {
     0.0
 } else {
@@ -57,36 +59,37 @@ const WAIT_RISE_SECONDS: f32 = 0.4;
 
 /// How much of a wait's scene there is: nearly all, so the screen it covers
 /// stays faintly in sight and a player can tell they have not been thrown
-/// back to the beginning.
-const WAIT_PRESENCE: f32 = 0.92;
+/// back to the beginning. Faintly: over a bright sky a form showing through
+/// at a twelfth reads as clutter, not as a place.
+const WAIT_PRESENCE: f32 = 0.96;
 
 /// What the scene draws at one moment, apart from where it stands.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Stage {
-    /// 0 on the gateway's side, 1 on the far side: the same world an hour
-    /// later, seen from inside the gate.
+    /// 0 on the gateway's side, 1 on the far side: the same world with the
+    /// light broadened, seen from inside the far cavity.
     pub hour: f32,
     /// The accent's fog, which hides the hour turning. Never white.
     pub haze: f32,
     /// How bright the rim's glow is, 1 at rest.
     pub glow: f32,
-    /// The gate walked through.
+    /// The frame walked through.
     pub before: GateStage,
-    /// How far the viewer has walked, 0 to 1: the ridge and the river come
-    /// nearer with it, less than the gate does.
+    /// How far the viewer has walked, 0 to 1: the ridge and the floor come
+    /// nearer with it, less than the frame does.
     pub dolly: f32,
-    /// The gate arrived in.
+    /// The frame arrived in.
     pub after: GateStage,
-    /// How bright the river runs, 1 at rest.
+    /// How bright the light's path on the floor runs, 1 at rest.
     pub river: f32,
-    /// How many sparks the rim throws, 1 at rest.
+    /// How many embers the rim throws, 1 at rest.
     pub sparks: f32,
 }
 
-/// One gate of a passage.
+/// One frame of a passage.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct GateStage {
-    /// How far the cleft stands off the panel: 1 in front of it, wider once
+    /// How far the cavity stands off the panel: 1 in front of it, wider once
     /// the viewer stands inside it.
     pub opening: f32,
     /// How much of it there is.
@@ -103,11 +106,11 @@ impl GateStage {
     };
 }
 
-/// The opening of the gate the viewer stands inside, on the far side.
+/// The opening of the cavity the viewer stands inside, on the far side.
 const INSIDE: f32 = 1.35;
 
 /// The haze's peak on the way in, and on the way back out.
-pub const HAZE_IN: f32 = 0.35;
+pub const HAZE_IN: f32 = 0.55;
 /// See [`HAZE_IN`].
 pub const HAZE_OUT: f32 = 0.25;
 
@@ -188,11 +191,12 @@ pub struct VistaParams {
     pub view: Vec4,
     /// Hour, haze, glow, quality.
     pub hour: Vec4,
-    /// The gate walked through: opening, alpha, zoom, dolly.
+    /// The frame walked through: opening, alpha, zoom, dolly.
     pub gate_a: Vec4,
-    /// The gate arrived in: opening, alpha, zoom, unused.
+    /// The frame arrived in: opening, alpha, zoom, unused.
     pub gate_b: Vec4,
-    /// River brightness, spark rate, the scene's alpha, the river's zoom.
+    /// The path's brightness, the ember rate, the scene's alpha, the floor's
+    /// zoom.
     pub air: Vec4,
 }
 
