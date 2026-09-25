@@ -5,7 +5,7 @@ use super::*;
 
 /// A face fitted before the font arrived is not the face to show once it
 /// has. The average's widths are a stand-in and the font's can put the same
-/// name on the other number of lines — "Abandoned Outpost" is one line by the
+/// name on the other number of lines — "Abandoned Campground" is one line by the
 /// average and two by the font (`face::tests`) — so a face kept across the
 /// font's arrival would be set in lines its name bar was not made for.
 #[test]
@@ -36,7 +36,7 @@ fn regular() -> Font {
 /// A name the average puts on one line and the font on two.
 fn outpost() -> CardFace {
     CardFace {
-        name: "Abandoned Outpost".to_owned(),
+        name: "Abandoned Campground".to_owned(),
         cost: Vec::new(),
         type_line: "Land".to_owned(),
         body: Vec::new(),
@@ -50,7 +50,7 @@ fn outpost() -> CardFace {
 
 /// When the font arrives mid-game, a face fitted by the average is fitted
 /// again — and the material is re-keyed with it, so the name's lines and the
-/// name bar the material draws never disagree. "Abandoned Outpost" is one
+/// name bar the material draws never disagree. "Abandoned Campground" is one
 /// line by the average and two by the font: kept on its old material, it
 /// would be two lines of text under a one-line bar.
 #[test]
@@ -58,15 +58,7 @@ fn the_font_s_arrival_re_keys_the_material_with_the_text() {
     let font = regular();
     let guessed = face::Widths::of(None);
     let measured = face::Widths::of(Some(&font));
-    let look = |now: &FaceNow| {
-        face_look(
-            None,
-            now.lines(),
-            FinishTreatment::Plain,
-            0,
-            cardplate::Corner::default(),
-        )
-    };
+    let look = |now: &FaceNow| face_look(None, now.lines(), FinishTreatment::Plain);
     let two_lines = |look: CardLook| {
         look.face >> textface::FACE_NAME_SHIFT & 0xff == u32::from(textface::Depths::table(2).name)
     };

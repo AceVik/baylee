@@ -6,9 +6,12 @@
 //! The owner's placement is an object: "ganz oben links an der Ecke, leicht
 //! überragend mit elevation shadow". So it is a quad and a material of its
 //! own, like the keyword strip ([`crate::marksmat`]), and the card's material
-//! has no dimension for it at all. `baylee_client_core::cardplate` says where
-//! the quad lies ([`cardplate::badge_quad_rect`]) and where the body lies in
-//! it; `card_common.wgsl`'s `count_badge` draws it, for both shaders here.
+//! has no dimension for it at all. Since #298 it is the figures over their
+//! own drop shadow with no plate behind them, hanging off the card's left
+//! edge, and it turns with a tapped card. `baylee_client_core::cardplate`
+//! says where the quad lies ([`cardplate::badge_quad_rect`]) and where the
+//! count lies in it; `card_common.wgsl`'s `count_badge` draws it, for both
+//! shaders here.
 //!
 //! **The material key is the count and nothing else.** Every badge is the
 //! same quad, and the shader sizes the body inside it from the count, so a
@@ -36,10 +39,9 @@ pub struct BadgeParams {
     /// How many permanents the card stands for,
     /// [`cardplate::count_word`]: below two, nothing is drawn.
     pub count: u32,
-    /// Where the body's right end stands, [`cardplate::BADGE_RIGHT`], and
+    /// Where the count's right end stands, [`cardplate::BADGE_RIGHT`], and
     /// its top, [`cardplate::BADGE_TOP`], in card widths: in the material
-    /// and not the shader, so [`cardplate::BADGE_OFF_THE_PRINTS`] is the one
-    /// line that moves the badge (#274).
+    /// and not the shader, so those two are the lines that move the badge.
     pub right: f32,
     /// See [`Self::right`].
     pub top: f32,
@@ -73,7 +75,7 @@ pub struct BadgeMaterial {
     pub params: BadgeParams,
     /// The glyph atlas the plate's numerals are drawn from, always
     /// [`crate::markatlas::MARKS`] — see
-    /// [`CardMaterial::marks`](crate::cardmat::CardMaterial::marks) for why
+    /// [`MarksMaterial::marks`](crate::marksmat::MarksMaterial::marks) for why
     /// it is not an `Option`.
     #[texture(1)]
     #[sampler(2)]

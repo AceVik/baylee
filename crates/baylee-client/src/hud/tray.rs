@@ -3050,7 +3050,7 @@ fn spawn_thumb(
             // No keyword sheath: nothing in the browser is on a battlefield,
             // and a card in a graveyard wearing an indestructible border
             // would be claiming something the rules do not say.
-            CardLook::art(key, finish_of(statics, Some(key)), 0),
+            CardLook::art(key, finish_of(statics, Some(key))),
             cards.as_deref_mut(),
             // No face is drawn here, so nothing is fitted.
             &crate::face::Widths::of(None),

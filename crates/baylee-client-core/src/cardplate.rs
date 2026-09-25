@@ -1,22 +1,21 @@
-//! What a card's numbers say, on the ledge under its print.
+//! What a card's numbers say, on the keyword strip lying on its art.
 //!
-//! Three rules facts are printed on a Magic card and drawn nowhere in this
-//! client on a card showing art: power, toughness, and the damage marked on a
-//! creature. A fourth, a planeswalker's loyalty, is not printed at all — it is
-//! a number the game keeps. All four lived in the bottom-right corner of the
-//! print, which [`crate::cardrail`] left empty for them, until #274 took
-//! everything this client draws off the print: they stand on the frame's
-//! ledge now, at its left end (see "the ledge" below).
+//! Three rules facts are printed on a Magic card: power, toughness and, on a
+//! planeswalker, the loyalty it started with. What the game has made of them
+//! since (the layers, marked damage, the loyalty it has now) is printed
+//! nowhere. #274 took the numbers off the print onto a frame's ledge; #298
+//! took the frame away, and the numbers stand at the left end of the keyword
+//! strip ([`crate::cardrail`]), an object lying on the art, whenever the
+//! print cannot say them itself ([`Corner::shows_plate`]).
 //!
-//! The same split as `cardrail`: the plate is *drawn* by the card shader, one
-//! more layer on the pipeline that already draws eleven pictograms, and *what
-//! it says* is arithmetic that belongs somewhere it can be tested without a
-//! GPU. The constants below are the shader's, mirrored, and a test in
-//! `baylee-client` reads the WGSL and fails when the two drift.
+//! The same split as `cardrail`: the plate is *drawn* by the strip's shader,
+//! and *what it says* is arithmetic that belongs somewhere it can be tested
+//! without a GPU. The constants below are the shader's, mirrored, and a test
+//! in `baylee-client` reads the WGSL and fails when the two drift.
 //!
-//! Deliberately not gated on whether the card has artwork. A card drawn as a
-//! flat tint is a card whose art has not loaded, and a 4/4 that could block is
-//! the thing a player most needs off a card they cannot otherwise read.
+//! A card drawn as a flat tint is a card whose art has not loaded, and a 4/4
+//! that could block is the thing a player most needs off a card they cannot
+//! otherwise read: without a print, the plate is always written.
 //!
 //! Beside the plate stands the **chip**: the swing, the net power and
 //! toughness a permanent's ±1/±1 counters add, written out in the same
@@ -295,20 +294,20 @@ pub fn tone_of(badges: &[KeywordBadge]) -> Tone {
 
 // ------------------------------------------------------------- the corner
 
-/// Everything the ledge's numbers say about one card.
+/// Everything the strip's numbers say about one card.
 ///
-/// The plate, and the chip beside it: what the counters add and, drawn
-/// large, what the printing says the body was. The plate is the only one
-/// that is always there.
+/// The plate, and the chip beside it: what the counters add. Since #298 the
+/// strip carries them, and only when the print cannot say the same thing
+/// ([`Corner::shows_plate`]).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Corner {
     /// What the plate itself says.
     pub plate: Plate,
     /// The net ±1/±1 swing, written in the chip.
     pub swing: Option<(i16, i16)>,
-    /// The printed body, written in the chip when the card is drawn large —
-    /// and only when it is not the body the plate is already showing.
-    pub base: Option<(i16, i16)>,
+    /// The printed body, when the view names one: what the print's own
+    /// power and toughness box says.
+    pub printed: Option<(i16, i16)>,
     /// Which numerals are not written in the plate's own ink.
     pub tone: Tone,
 }
@@ -320,7 +319,7 @@ impl Corner {
         Self {
             plate: Plate::of(group),
             swing: counter_swing(&group.counters),
-            base: base_body(Plate::of(group), group.base_power, group.base_toughness),
+            printed: group.base_power.zip(group.base_toughness),
             tone: tone_of(&group.badges),
         }
     }
@@ -342,42 +341,47 @@ impl Corner {
                 &object.counters,
             ),
             swing: counter_swing(&object.counters),
-            base: base_body(
-                Plate::of_parts(
-                    object.power,
-                    object.toughness,
-                    object.loyalty,
-                    object.damage,
-                    &object.counters,
-                ),
-                object.base_power,
-                object.base_toughness,
-            ),
+            printed: object.base_power.zip(object.base_toughness),
             tone: tone_of(&KeywordBadge::from_bits(object.keywords)),
         }
     }
 
-    /// The three uniforms the shader reads.
+    /// Whether the strip carries the plate (#298).
     ///
-    /// The plate, the swing, and the printed body.
+    /// The print fills the card again, and a creature's print has its own
+    /// power and toughness box: a plate beside it saying the same numbers is
+    /// noise on every vanilla creature of the board. So a body is written
+    /// only where it says something the print cannot: a body the layers
+    /// changed or the view cannot set against a printed one, marked damage,
+    /// a card drawn without its print, or a print whose box the next card of
+    /// a fanned lane lies on (`covered`). Loyalty and a saga's chapter are
+    /// counts the print never had, and are always written.
     #[must_use]
-    pub fn packed(self) -> [u32; 3] {
+    pub fn shows_plate(&self, print: bool, covered: bool) -> bool {
+        match self.plate {
+            Plate::None => false,
+            Plate::Loyalty(_) | Plate::Lore(_) => true,
+            Plate::Fight {
+                power,
+                toughness,
+                damage,
+            } => damage > 0 || !print || covered || self.printed != Some((power, toughness)),
+        }
+    }
+
+    /// The two uniforms the strip's shader reads: the plate, and the swing
+    /// with the tone.
+    #[must_use]
+    pub fn packed(self) -> [u32; 2] {
         let swing = match self.swing {
             None => 0,
             Some((power, toughness)) => {
                 SWING_SET | slot(i32::from(power)) | (slot(i32::from(toughness)) << SLOT_BITS)
             }
         };
-        let base = match self.base {
-            None => 0,
-            Some((power, toughness)) => {
-                BASE_SET | slot(i32::from(power)) | (slot(i32::from(toughness)) << SLOT_BITS)
-            }
-        };
         [
             self.plate.packed(),
             swing | (self.tone_bits() << TONE_SHIFT),
-            base,
         ]
     }
 
@@ -394,38 +398,6 @@ impl Corner {
 /// Set on the swing word when there *is* a swing, so that a `0/0` net and an
 /// absent one are different states rather than the same zero.
 pub const SWING_SET: u32 = 1 << 20;
-/// The same flag on the base word, for the same reason: a printed `0/0`
-/// Walking Ballista is a real body.
-pub const BASE_SET: u32 = 1 << 20;
-
-/// The printed body, when it is worth writing in the chip.
-///
-/// Only when it **differs** from what the plate is showing, which is the
-/// whole design of the appendage. A creature drawn at its printed size has
-/// its printed size on the plate already, and a second figure beside every
-/// untouched creature on the board is noise with no information in it. When
-/// they differ, that difference is exactly the thing a player is trying to
-/// work out. (The plate used to sit on the print's own P/T box and hide it;
-/// since #274 the print shows it, but a card drawn from its tint or its text
-/// has no print to read it off.)
-///
-/// A permanent whose plate is not a body (a planeswalker, a saga, a land)
-/// gets nothing: there is no printed body to set against it.
-#[must_use]
-pub fn base_body(plate: Plate, power: Option<i16>, toughness: Option<i16>) -> Option<(i16, i16)> {
-    let Plate::Fight {
-        power: shown,
-        toughness: shown_t,
-        ..
-    } = plate
-    else {
-        return None;
-    };
-    match (power, toughness) {
-        (Some(p), Some(t)) if (p, t) != (shown, shown_t) => Some((p, t)),
-        _ => None,
-    }
-}
 /// Where the tone sits in the swing word.
 pub const TONE_SHIFT: u32 = 21;
 /// The plate writes in its own ink.
@@ -443,48 +415,26 @@ pub const TONE_TOXIC: u32 = 2;
 /// composition rule and an honest number beats a pretty one.
 pub const ROMAN_MAX: u16 = 5;
 
-/// How tall a card has to be *drawn* before the chip writes the printed
-/// body, as the pixel size the shader already measures.
-///
-/// It is not written on the table and that is the measurement, not a
-/// preference: a card there is about 94 physical pixels wide, which would
-/// put a second line in the chip at three, and three-pixel figures are a
-/// smudge that says only "something is here" — on every pumped creature at
-/// once. The damage band's rules appear on the same terms and through the
-/// same `aa` (`TICK_AA`), so the ledge already has this behaviour and a
-/// player has already met it: push the camera in, or hover the card, and the
-/// ledge says more.
-pub const BASE_AA: f32 = 0.004;
-
-// ---------------------------------------------------------------- the ledge
+// ---------------------------------------------------------------- the plate
 //
-// Since #274 the numbers are not drawn on the print at all: they stand on
-// the frame's ledge under it (`cardframe::FRAME_FOOT` deep), and read from
-// the left, because a lane fans with each card's own **left** edge exposed
-// (`layout::MIN_VISIBLE_FRACTION`). The plate comes first, then the chip,
-// and the identity crest (`cardcrest`) is right-aligned at the other end;
-// all three are centred on the ledge's own middle line.
-
-/// How far in from the card's left edge the plate starts, in card widths.
-pub const LEDGE_PAD: f32 = 0.030;
+// Since #298 the numbers stand on the keyword strip (`cardrail`), at its left
+// end, because a lane fans with each card's own **left** edge exposed
+// (`layout::MIN_VISIBLE_FRACTION`): the plate comes first, then the chip.
+// These are their sizes; where they stand is the strip's layout.
 
 /// The plate's width, in card widths.
 ///
-/// The width the corner always had. What changed is where it stands: it ends
-/// at `LEDGE_PAD + PLATE_W` = 0.226, inside the 0.26 of a card the tightest
-/// fan still shows, so every creature in a crowded lane shows its body.
+/// The width the corner always had. The strip starts it at
+/// `cardrail::STRIP_X0 + cardrail::STRIP_PAD` = 0.037, so it ends at 0.233,
+/// inside the 0.26 of a card the tightest fan still shows: every creature in
+/// a crowded lane shows its body.
 pub const PLATE_W: f32 = 0.196;
 
 /// The margin inside the plate, in card widths.
-///
-/// Was 0.020 when the plate was 0.115 deep. The ledge is 0.125, and the
-/// figures did not shrink to pay for it: the margin did, from a little under
-/// two physical pixels to a little over one, and [`PLATE_CAP`] is where it
-/// was.
 pub const PLATE_PAD: f32 = 0.012;
 
 /// How tall the plate's figures are, in card widths: seven physical pixels
-/// on a card 94 wide, which is the floor the ledge was measured against.
+/// on a card 94 wide.
 pub const PLATE_CAP: f32 = 0.075;
 
 /// The plate's height, in card widths: its figures and its margin.
@@ -495,44 +445,26 @@ pub const CHIP_GAP: f32 = 0.010;
 
 /// The chip's width, in card widths.
 ///
-/// The chip is what the counters did — the net swing of a permanent's ±1/±1
-/// counters, on green stock for growth and violet for a shrink — and, drawn
-/// large, the printed body under it. It used to be two lines, one standing
-/// on the plate and one hanging under it; the ledge has no room above or
-/// below a plate, so they stand beside it.
+/// The chip is what the counters did: the net swing of a permanent's ±1/±1
+/// counters, on green stock for growth and violet for a shrink, standing
+/// beside the plate.
 pub const CHIP_W: f32 = 0.100;
 
-/// The ledge's middle line, in card widths from the card's top edge.
+/// How wide the plate is on the strip with the chip beside it, for the
+/// plate's `kind` bits: a saga's page is square, every other plate
+/// [`PLATE_W`].
 #[must_use]
-pub const fn ledge_mid() -> f32 {
-    crate::cardframe::CARD_TALL - crate::cardframe::FRAME_FOOT * 0.5
+pub const fn plate_width(kind: u32, chip: bool) -> f32 {
+    let plate = if kind == KIND_LORE { PLATE_H } else { PLATE_W };
+    if chip {
+        plate + CHIP_GAP + CHIP_W
+    } else {
+        plate
+    }
 }
 
-/// The plate's rectangle on the card, `[x0, y0, x1, y1]` in card widths from
-/// the card's top-left corner, `y` growing down the card.
-///
-/// A saga's page is the square at the left of this rectangle.
-#[must_use]
-pub const fn plate_rect() -> [f32; 4] {
-    let y0 = ledge_mid() - PLATE_H * 0.5;
-    [LEDGE_PAD, y0, LEDGE_PAD + PLATE_W, y0 + PLATE_H]
-}
-
-/// The chip's rectangle, likewise.
-#[must_use]
-pub const fn chip_rect() -> [f32; 4] {
-    let [_, y0, x1, y1] = plate_rect();
-    [x1 + CHIP_GAP, y0, x1 + CHIP_GAP + CHIP_W, y1]
-}
-
-/// The plate has room for a glyph once its own margin is taken out of it,
-/// and fits on the ledge with air round it.
-///
-/// Compile-time rather than tests, because every term is a constant: a
-/// plate taller than the ledge would sit on the print, which is the one
-/// place #274 exists to keep it off.
+/// The plate has room for a glyph once its own margin is taken out of it.
 const _: () = assert!(PLATE_CAP > 0.02);
-const _: () = assert!(PLATE_H < crate::cardframe::FRAME_FOOT);
 
 /// The characters the corner writes with, in the order their cells sit in the
 /// atlas.
@@ -688,70 +620,33 @@ pub fn count_width(count: u32) -> f32 {
     cells * PLATE_CAP / TEXT_CAP + 2.0 * PLATE_PAD
 }
 
-/// Whether the count badge keeps off every print (#274): the placement this
-/// client ships until the owner says the other one may.
-///
-/// The owner's placement (#261: "ganz oben links an der Ecke, leicht
-/// überragend") hangs the badge off the card's top-left corner, and in a
-/// fanned row that overhang lies on the card before it, on the top of its
-/// print where its name is: at the tightest fan, 0.26 of a card apart, a
-/// `×2` covers that card's print from 0.137 to 0.305 of its width, and the
-/// print starts at 0.061. Nothing of ours lies on a print without the
-/// owner's okay, and that okay has not come. So the badge sits at the card's
-/// **bottom**-left corner instead, on the ledge left of the plate, and its
-/// overhang lies on the ledge of the card before it and on the felt. Above
-/// the top edge was measured and is no way out: a creature staged into
-/// combat stands half a card forward of its row, print and all, so the
-/// print of the card before a merged one can be right there.
-///
-/// `false` is the owner's placement, whole: the badge back at the top-left
-/// corner and turning with a tapped card again. The shader takes where the
-/// badge stands from its material ([`BADGE_RIGHT`], [`BADGE_TOP`]), so this
-/// is the one line to change.
-pub const BADGE_OFF_THE_PRINTS: bool = true;
-
 /// The count badge's height, in card widths (#261).
 ///
-/// The badge is an object of its own lying on the card, not paint in the
-/// frame: a pill of the plate's body with its own drop shadow, hanging off a
-/// corner. Taller than the plate ([`PLATE_H`]) by the air a thing standing
-/// proud of the card wants round its figures.
+/// The badge is an object of its own, not paint on the card: `×N` in the
+/// plate's ink with its own drop shadow and no plate behind it (the owner,
+/// #298), hanging off the card's top-left corner. Taller than the plate
+/// ([`PLATE_H`]) by the air a thing standing proud of the card wants round
+/// its figures.
 pub const BADGE_H: f32 = 0.12;
 
 /// Where the badge's right end stands, in card widths from the card's left
 /// edge.
 ///
 /// Its words grow **left** from here, off the card: the overhang the owner
-/// asked for (#261). Off the prints ([`BADGE_OFF_THE_PRINTS`]) it stands on
-/// the ledge, short of the plate ([`LEDGE_PAD`]) by the shadow's reach and a
-/// hair of air, so the card's own power and toughness stay uncovered. In the
-/// owner's placement it stands short of the print's window
-/// ([`crate::cardframe::FRAME_SIDE`]) by the same, so nothing of the badge,
-/// body or shadow, reaches the print.
-pub const BADGE_RIGHT: f32 = if BADGE_OFF_THE_PRINTS {
-    LEDGE_PAD - (BADGE_DROP[0] + BADGE_BLUR) - 0.004
-} else {
-    0.045
-};
+/// asked for (#261, "ganz oben links an der Ecke, leicht überragend") and
+/// allowed outside the card (#298). The shadow's right end stays on the
+/// print's own printed border ([`crate::cardrail::PRINTED_BORDER`]), so the
+/// name and the mana cost are never under any of it.
+pub const BADGE_RIGHT: f32 = crate::cardrail::PRINTED_BORDER - (BADGE_DROP[0] + BADGE_BLUR);
 
 /// How far below the card's top edge the badge's top stands, in card widths.
 ///
-/// Off the prints ([`BADGE_OFF_THE_PRINTS`]) it stands on the ledge, under
-/// the print's window by the shadow's rise, so the shadow stays off the
-/// print too; the body then reaches a hair past the card's bottom edge,
-/// onto the felt, which a ring leaves 0.019 of before the next row's frame.
-///
-/// In the owner's placement it stands flush with the top edge, not over it:
-/// a lane's rows stand `lane_height − CARD_HEIGHT` apart, 0.019 at a ring
-/// table, so a badge standing proud of the top edge would lie on the next
-/// row's ledge, its power and toughness. Down by the shadow's own rise, so
-/// the shadow stays on the card too.
-pub const BADGE_TOP: f32 = if BADGE_OFF_THE_PRINTS {
-    crate::cardframe::FRAME_TOP + crate::cardframe::PRINT_TALL + (BADGE_BLUR - BADGE_DROP[1])
-} else {
-    0.008
-};
-// The body sits on the card, not on its edge.
+/// Flush with the top edge, not over it: a lane's rows stand
+/// `lane_height − CARD_HEIGHT` apart, 0.019 at a ring table, so a badge
+/// standing proud of the top edge would lie on the next row's cards. Down
+/// by the shadow's own rise, so the shadow stays below the edge too.
+pub const BADGE_TOP: f32 = 0.008;
+// The body sits below the card's top edge, not on it.
 const _: () = assert!(BADGE_TOP > 0.0);
 
 /// The badge's corner radius: the plate's own proportion of its height.
@@ -767,11 +662,11 @@ pub const BADGE_BLUR: f32 = 0.02;
 
 /// The widest the badge grows: `×99`.
 ///
-/// Held there so the overhang is bounded whatever the count. In the owner's
-/// placement a tapped card's badge turns with it, and its left edge is its
-/// side facing the next row: a ring table leaves a tapped card 0.217 of its
+/// Held there so the overhang is bounded whatever the count. A tapped
+/// card's badge turns with it, and its left edge is its side facing the
+/// next row: a ring table leaves a tapped card 0.217 of its
 /// lane to that side, and a `×999` at the plate's figure height would reach
-/// 0.240 with its shadow and lie on the next row's ledge. So three digits are set smaller instead ([`badge_cap`]), which is
+/// 0.240 with its shadow and lie on the next row's cards. So three digits are set smaller instead ([`badge_cap`]), which is
 /// still the true count, and a count that rare is read up close anyway.
 pub const BADGE_W: f32 = {
     let cells = TEXT_ADV[GLYPH_TIMES] + 2.0 * TEXT_ADV[0];
@@ -838,7 +733,7 @@ mod tests {
     fn group(power: Option<i16>, toughness: Option<i16>, loyalty: Option<u16>) -> CardGroup {
         CardGroup {
             // The printed body is the projected one by default, so a test
-            // that is not about the appendage never draws it.
+            // that is not about the plate's predicate never reads it.
             base_power: power,
             base_toughness: toughness,
             representative: ObjectId::new(1, 0),
@@ -936,36 +831,19 @@ mod tests {
         assert_eq!(((word & SLOT_MASK) as i32) - BIAS, -BIAS);
     }
 
-    /// The ledge reads plate, then chip, from the left, and the plate is
-    /// whole in the strip of a card the tightest fan still shows.
-    ///
-    /// The fan is why the left: a lane offsets each card to the right of the
-    /// one under it and draws it higher, so what is left of a covered card is
-    /// its own left edge, `MIN_VISIBLE_FRACTION` of it at the tightest
-    /// pitch. A plate that ran past that edge would show a creature's power
-    /// and not its toughness in exactly the lane that most needs both.
+    /// A saga's page is square and every other plate is the plate's width,
+    /// and the chip stands one gap past either.
     #[test]
-    fn the_plate_leads_the_ledge_and_survives_the_tightest_fan() {
-        let [_, py0, px1, py1] = plate_rect();
-        let [cx0, cy0, cx1, cy1] = chip_rect();
-        assert!(
-            px1 < crate::layout::MIN_VISIBLE_FRACTION,
-            "the plate ends at {px1}, past the {} a fanned card shows",
-            crate::layout::MIN_VISIBLE_FRACTION
-        );
-        assert!(
-            (cx0 - px1 - CHIP_GAP).abs() < 1e-6,
-            "the chip is not one gap past the plate"
-        );
-        assert!((cx1 - cx0 - CHIP_W).abs() < 1e-6);
-        assert!(
-            (py0 - cy0).abs() < 1e-6 && (py1 - cy1).abs() < 1e-6,
-            "one row"
-        );
-        assert!(
-            (f32::midpoint(py0, py1) - ledge_mid()).abs() < 1e-6,
-            "the plate is not centred on the ledge"
-        );
+    fn the_chip_stands_one_gap_past_the_plate() {
+        assert!((plate_width(KIND_FIGHT, false) - PLATE_W).abs() < 1e-6);
+        assert!((plate_width(KIND_LOYALTY, false) - PLATE_W).abs() < 1e-6);
+        assert!((plate_width(KIND_LORE, false) - PLATE_H).abs() < 1e-6);
+        for kind in [KIND_FIGHT, KIND_LOYALTY, KIND_LORE] {
+            assert!(
+                (plate_width(kind, true) - plate_width(kind, false) - CHIP_GAP - CHIP_W).abs()
+                    < 1e-6
+            );
+        }
     }
 
     /// The named indices name the characters they claim to.
@@ -1108,36 +986,53 @@ mod tests {
         );
     }
 
-    /// The printed body is drawn only when the plate is not already showing
-    /// it.
+    /// The strip carries a creature's body only where the print cannot say
+    /// it (#298): a body the layers changed, marked damage, no print, or a
+    /// print the next card lies on. Loyalty and a chapter always.
     #[test]
-    fn the_base_appears_when_it_differs_and_never_otherwise() {
-        let pumped = CardGroup {
+    fn the_plate_is_written_only_where_the_print_cannot_say_it() {
+        let printed = |power, toughness| CardGroup {
             base_power: Some(2),
             base_toughness: Some(2),
-            ..group(Some(5), Some(5), None)
+            ..group(Some(power), Some(toughness), None)
         };
-        assert_eq!(Corner::of(&pumped).base, Some((2, 2)));
-
-        // A creature at its printed size says it once.
-        assert_eq!(Corner::of(&group(Some(2), Some(2), None)).base, None);
-
-        // A permanent whose plate is not a body has no printed body under
-        // it to hide: a planeswalker that is also a creature plates its
-        // loyalty, and a `3/3` under that would be a second number nobody
-        // asked for.
+        let vanilla = Corner::of(&printed(2, 2));
+        assert!(
+            !vanilla.shows_plate(true, false),
+            "a vanilla 2/2 in the open"
+        );
+        assert!(
+            vanilla.shows_plate(true, true),
+            "a 2/2 the next card lies on"
+        );
+        assert!(vanilla.shows_plate(false, false), "a 2/2 without its print");
+        assert!(
+            Corner::of(&printed(5, 5)).shows_plate(true, false),
+            "a pumped 2/2"
+        );
+        let hurt = CardGroup {
+            damage: 1,
+            ..printed(2, 2)
+        };
+        assert!(
+            Corner::of(&hurt).shows_plate(true, false),
+            "a 2/2 with damage"
+        );
+        // A body the view cannot set against a printed one is written.
+        let unknown = CardGroup {
+            base_power: None,
+            base_toughness: None,
+            ..group(Some(2), Some(2), None)
+        };
+        assert!(Corner::of(&unknown).shows_plate(true, false));
+        // Loyalty, even at its printed number; nothing, never.
         let walker = CardGroup {
-            base_power: Some(2),
-            base_toughness: Some(2),
+            base_power: Some(5),
+            base_toughness: Some(5),
             ..group(Some(5), Some(5), Some(4))
         };
-        assert_eq!(Corner::of(&walker).base, None);
-
-        // And it survives its word.
-        let [_, _, word] = Corner::of(&pumped).packed();
-        assert_ne!(word & BASE_SET, 0);
-        assert_eq!((word & SLOT_MASK) as i32 - BIAS, 2);
-        assert_eq!(((word >> SLOT_BITS) & SLOT_MASK) as i32 - BIAS, 2);
+        assert!(Corner::of(&walker).shows_plate(true, false));
+        assert!(!Corner::of(&group(None, None, None)).shows_plate(false, true));
     }
 
     /// Deathtouch colours a number, and only through the strip's own badges.
@@ -1153,7 +1048,7 @@ mod tests {
     }
 
     /// The swing and the tone survive their word, and an empty corner is
-    /// three zeroes.
+    /// two zeroes.
     #[test]
     fn the_swing_survives_the_packing() {
         let mut swung = CardGroup {
@@ -1161,15 +1056,15 @@ mod tests {
             ..group(Some(5), Some(5), None)
         };
         swung.badges = vec![crate::board::KeywordBadge::Deathtouch];
-        let [_, word, _] = Corner::of(&swung).packed();
+        let [_, word] = Corner::of(&swung).packed();
         assert_ne!(word & SWING_SET, 0, "the word does not say there is one");
         assert_eq!((word & SLOT_MASK) as i32 - BIAS, -2);
         assert_eq!(((word >> SLOT_BITS) & SLOT_MASK) as i32 - BIAS, -2);
         assert_eq!(word >> TONE_SHIFT, TONE_DEADLY);
 
         // A corner with nothing to say packs to nothing, which is what lets
-        // every card in a hand share one material.
-        assert_eq!(Corner::of(&group(None, None, None)).packed(), [0, 0, 0]);
+        // every strip without a plate share one material.
+        assert_eq!(Corner::of(&group(None, None, None)).packed(), [0, 0]);
     }
 
     /// One permanent is a card like every other and says nothing; two and
@@ -1185,21 +1080,22 @@ mod tests {
         assert_eq!(count_word(4000), COUNT_MAX, "clamped, not wrapped");
     }
 
-    /// Nothing of the badge, body or shadow, reaches the print (#261): its
-    /// whole quad ends left of the window, for every count, so the rule
-    /// `docs/legal.md` §3 keeps for the card's own print holds by geometry
-    /// rather than by what the shader happens to draw.
+    /// Nothing of the badge, body or shadow, reaches the name or the cost
+    /// (#298): its whole quad ends on the print's own printed border, for
+    /// every count, so the rule holds by geometry rather than by what the
+    /// shader happens to draw.
     #[test]
-    fn nothing_of_the_badge_reaches_the_print() {
+    fn nothing_of_the_badge_reaches_past_the_printed_border() {
         let [.., x1, _] = badge_quad_rect();
-        let [window_x0, ..] = crate::cardframe::window();
+        let border = crate::cardrail::PRINTED_BORDER;
         assert!(
-            x1 < window_x0,
-            "the badge's quad reaches {x1}, and the print starts at {window_x0}"
+            x1 <= border + 1e-6,
+            "the badge's quad reaches {x1}, past the printed border at {border}"
         );
         for count in COUNT_MIN..=COUNT_MAX {
-            let [.., right, _] = badge_rect(count);
+            let [x0, .., right, _] = badge_rect(count);
             assert!(right <= x1, "×{count} ends past its quad");
+            assert!(x0 < 0.0, "×{count} does not hang off the card");
         }
     }
 
@@ -1209,28 +1105,6 @@ mod tests {
     fn nothing_of_the_badge_stands_above_the_card() {
         let [_, y0, ..] = badge_quad_rect();
         assert!(y0 >= 0.0, "the badge's quad starts {y0} above the card");
-    }
-
-    /// Off the prints (#274), nothing of the badge reaches the print's
-    /// bottom edge or the card's own plate: it lies on the ledge, left of
-    /// the plate, whatever the count. Whether it lies on *another* card's
-    /// print is the table's question (`table::badge_tests`).
-    #[test]
-    fn off_the_prints_the_badge_lies_on_the_ledge_left_of_the_plate() {
-        if !BADGE_OFF_THE_PRINTS {
-            return;
-        }
-        let [_, qy0, qx1, _] = badge_quad_rect();
-        let [.., print_bottom] = crate::cardframe::window();
-        assert!(
-            qy0 >= print_bottom,
-            "the badge's quad starts {qy0} down the card, over the print ending at {print_bottom}"
-        );
-        let [plate_x0, ..] = plate_rect();
-        assert!(
-            qx1 <= plate_x0,
-            "the badge's quad reaches {qx1}, over the plate starting at {plate_x0}"
-        );
     }
 
     /// Every count fits its badge, and every badge its quad.

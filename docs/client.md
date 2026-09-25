@@ -726,62 +726,41 @@ corner of it, `×N` (#261; `cardplate::count_word` and `badge_rect`,
 `card_common.wgsl`'s `count_badge`). It was a pill painted over the printed
 cost until #274 took everything of ours off the print; the owner's placement
 is "ganz oben links an der Ecke, leicht überragend mit elevation shadow". So
-it is an object lying on the card, as the keyword strip is: a pill of the
-plate's dark body 0.12 card widths tall, with the strip's slate edge, the
-plate's figures and a shadow dropped down and a little left (`BADGE_DROP`,
-`BADGE_BLUR`); one quad per merged card, a child of the card, not pickable
-and not a `CardShadow`; one material per distinct count on the table. The
-`×` is load-bearing: a bare `12` in a corner reads as twelve generic mana.
+it is an object lying on the card, as the strip is: since #298 the plate's
+figures, 0.12 card widths tall, over their own drop shadow (`BADGE_DROP`,
+`BADGE_BLUR`) and **no plate behind them**; one quad per merged card, a
+child of the card, not pickable and not a `CardShadow`; one material per
+distinct count on the table. The `×` is load-bearing: a bare `12` in a
+corner reads as twelve generic mana.
 
-**Until the owner's okay it stands at the bottom-left corner**
-(`cardplate::BADGE_OFF_THE_PRINTS`, #274). At the top-left corner, in a
-fanned lane, its overhang lay on the print of the card before it, where
-that card's name is: at the tightest fan, 0.26 of a card apart, a `×2`
-covered that print from 0.137 to 0.305 of its width, and every pitch under
-about 1.1 overlapped. Nothing of ours lies on a print without the owner's
-okay, so the constant keeps the badge on the ledge, left of the plate, and
-its overhang on the ledge of the card before it and on the felt. `false`
-brings back the owner's placement, whole. The shader reads where the badge
-stands from its material (`BadgeParams::right`, `top`), so that one line is
-the switch.
+**It hangs off the card's top-left corner, outside it** (#298). Its right
+end stands in the print's own black border (`BADGE_RIGHT`, 0.031: the
+border's 0.045 less the shadow's reach), its top 0.008 under the card's top
+edge, and it grows **left** with its digits, off the card. The bottom-left
+stand-in it had while the frame's ledge carried the plate
+(`BADGE_OFF_THE_PRINTS`) went with the ledge: without a frame it would have
+stood under the card, on the row behind.
 
-- Its right end stands short of the plate (`LEDGE_PAD`) by the shadow's
-  reach, and it grows **left** with its digits, off the card. Its top stands
-  under the print's window by the shadow's rise, and the body reaches a hair
-  past the card's bottom edge onto the felt, its shadow about 0.035; a ring's
-  rows stand 0.019 apart and the next row's frame is 0.045 deep
-  (`off_the_prints_the_badge_lies_on_the_ledge_left_of_the_plate`).
-- A tapped card's badge does not turn with it (`table::hold_badges_upright`,
-  after the glide). Turned, the overhang would lie across the print of an
-  untapped card before it, whose top stands clear of the tapped one's. It
-  stays at the corner of the card's cell, below and left of the tapped card,
-  however far the card has turned this frame.
-- Above the top edge was measured and is no way out: a creature staged into
-  combat stands half a card forward of its row, print and all, and the card
-  before a merged one can be that creature.
-- `no_badge_lies_on_another_card_s_print` holds it: every badge, spawned as
-  the scene spawns it and held by the upright system, against every other
-  card's print window on the table, at a duel and a ring of eight, rows of 2
-  to 40 in all three lanes (reaching the 0.26 fan), untapped, tapped and
-  every other one tapped, and with a creature staged beside a merged one.
-- **What it costs:** at a tight fan the overhang lies on the left of the
-  previous card's plate, its power and toughness; a tapped merged card's
-  count stands a little apart from the card.
+- A tapped card turns its badge with it, as any object lying on the card
+  does; there is no longer a system holding it upright.
+- **What it costs, accepted by the owner:** in a fanned row the overhang
+  lies on the cards before it, which the row has already covered with the
+  cards after them; in a row with less room between two cards than the
+  badge overhangs, it lies on the top-right corner of the card before it,
+  where that card's cost is.
+- `a_badge_lies_only_on_a_card_its_own_card_lies_on` holds the rest: every
+  badge, spawned as the scene spawns it, against every card on the table
+  that is not one before it in its own row and that its own card does not
+  already lie on, at a duel and a ring of eight, rows of 2 to 40 in all
+  three lanes (reaching the 0.26 fan), untapped, tapped and every other one
+  tapped, and with a creature staged beside a merged one.
 - It grows to `×99` (`BADGE_W`) and no further; three digits are set smaller
-  to fit (`badge_cap`). In the owner's placement a tapped card turns its
-  badge with it, its left edge is its side facing the next row, a ring
-  leaves it 0.217 of the lane there, and a `×999` at full size reached 0.240
-  with its shadow (`a_tapped_card_s_badge_stays_off_the_next_row`, over
-  every seated layout from two to eight chairs at four aspects).
+  to fit (`badge_cap`).
 - It lies at the strip's height, half a row step over its card's face, which
   also lays its overhang over the card before it in a fanned row, a whole
   step lower (`a_badge_lies_on_its_card_and_under_the_next_one`).
-- In the owner's placement its right end stands at 0.045, short of the
-  print's window by the shadow's reach
-  (`nothing_of_the_badge_reaches_the_print`), and its top 0.008 under the
-  card's top edge (`nothing_of_the_badge_stands_above_the_card`); a tapped
-  card in a fanned lane turns its badge towards the card laid over it, which
-  hides it, and the preview names the count.
+- Nothing of it reaches past the print's border onto the art
+  (`nothing_of_the_badge_reaches_past_the_printed_border`).
 
 Until #210 the count was the job of a function (`table::stack_badge`) that
 nothing called: 54 Goblins drew as one Goblin, the slab under the card was
@@ -801,19 +780,15 @@ how it and `/state` find the card a pointer is on.
 on its deck: the top card at the deck's height (`stack_rise`, 0.006 a card
 up to thirty) and one slab per card under it up to fourteen
 (`stack_layers`), children of the card built by `table::sync_stack`. A slab
-is a frame with no print — nothing under the top card carries an image —
-in the top card's identity paper (`glow::IDENTITY`: verdigris for tokens,
-violet for copies, oxblood for commanders; not its offer, its sickness or
-its protection, which are the top card's and this turn's), jogged
-`PILE_JOG` (0.012 card widths) right and left in turn so that each slab's
-edge shows as a sliver of paper. The jog is less than the frame's side, so
-what shows is never a window. A pile's slabs — a graveyard's, an exile's —
-wear plain paper, because the cards under a pile's top card are other
-cards (`Placement::shared`), and the library stays backs all the way down,
-face down (CR 401.2; `a_library_is_backs_all_the_way_down`).
+is a card with no print — nothing under the top card carries an image —
+jogged `PILE_JOG` (0.012 card widths) right and left in turn so that each
+slab's edge shows. The slabs wore the top card's identity paper while the
+frame had a paper to wear; #298 took the frame away and the pile's own look
+is #261's next step. The library stays backs all the way down, face down
+(CR 401.2; `a_library_is_backs_all_the_way_down`).
 
-The deck follows the count. `sync_stack` rebuilds the slabs when the count
-or the paper changes, and the contact shadow when the count does — rebuilt
+The deck follows the count. `sync_stack` rebuilds the slabs and the
+contact shadow when the count changes, and nothing when it does not — rebuilt
 rather than moved, because `ground_the_shadows` remembers a flier's resting
 shadow by entity. Until #274 the deck was built once, when the card was
 spawned: a group of Treasures growing from two to twelve under the same top
@@ -1592,9 +1567,11 @@ the same reason a token's is and is not the same fact at all, and `is_token`,
 which was that field, called every opponent's morph a token for as long as
 nothing read it.
 
-The mark is the **frame's paper** (#274): verdigris for a token, violet for a
-copy, oxblood for a commander — see "The card surface". It was an **identity
-slip** under the printed name before that: the Mana font's `ms-token` (a
+The mark is a **crest** at the strip's right end (#298): a square of paper,
+verdigris for a token, violet for a copy, oxblood for a commander, with the
+glyph printed on it — see "The card surface". It was the frame's own paper
+while there was a frame (#274), and an **identity slip** under the printed
+name before that: the Mana font's `ms-token` (a
 squirrel), `ms-ability-copy` (two cards) and `ms-commander` on those papers,
 sampled out of the same atlas the keyword marks come from. Before the slips it
 was two **fixed rows** in a column in the right margin, and before those a
@@ -1806,36 +1783,50 @@ which is the whole reason all of this hid.
 
 ## The card surface
 
-Art is the texture; the *finish* and the keywords are the shader. One material
+Art is the texture; the *finish* is the shader. One material
 (`cardmat::CardMaterial`, one WGSL file shipped inside the binary with
-`embedded_asset!`) draws all three, because a foil that is also indestructible
-is one card and not three draws, and a board of three hundred permanents can
-afford one pipeline.
+`embedded_asset!`) draws every card, because a board of three hundred
+permanents can afford one pipeline. What the rules and this client say about
+a card stands on objects of their own, each with a material of its own.
 
-**The print and its frame (#274).** Nothing this client *paints* lies on the
-print. It is the owner's rule and Scryfall's: their image terms ask that a
-card image is not covered, cropped, blurred, tinted or stamped, and the
-artist's name, the collector line and the © line run along the print's bottom
-edge — exactly where the keyword rail and the power/toughness plate used to
-lie, with the ward bands tinting the rest of that strip (8.2:1 contrast down
-to 2.6:1 under shroud, measured in #270). So a card is now a print in a
-window, and the paper around the window is ours. One object of ours
-overlaps the print, by the owner's decision: the keyword strip, lying on the
-card over the art's bottom edge and never over the name, the cost, the type
-line or the artist (below, "The strip says what the card does in combat").
-A second lies on the card beside the print and never on it, nor on any other
-card's print: the count badge off a merged card's corner ("Grouping and the
-token summary").
+### The print fills the card
 
-- The quad keeps its size, 1 × 1.397 card widths, so no lane, pile, hit test
-  or shadow moved. The print is scaled into it at `cardframe::PRINT_SCALE`
-  (0.878 of the card's width, 63:88 kept, nothing cropped), with the frame
-  0.061 wide beside it, 0.045 over it and a ledge of 0.125 under it — 5.7,
-  4.2 and 11.8 pixels on a card 94 pixels wide on the felt.
-  `client-core/src/cardframe.rs` holds the numbers and `card_common.wgsl`
-  mirrors them; `the_frame_is_the_same_frame_in_both_languages` holds the
-  two together. The window is the print's own rounded rectangle, so the
-  scan's white corners fall on the frame and never show.
+**Nothing this client *paints* lies on the print (#274), and since #298 the
+print is the whole card.** It is the owner's rule and Scryfall's: their image
+terms ask that a card image is not covered, cropped, blurred, tinted or
+stamped, and the artist's name, the collector line and the © line run along
+the print's bottom edge — exactly where the keyword rail and the
+power/toughness plate used to lie, with the ward bands tinting the rest of
+that strip (8.2:1 contrast down to 2.6:1 under shroud, measured in #270).
+#274 answered with a frame: the print scaled into a window and our paper
+round it. The owner did not want the frame (#298: "I really do not like the
+new gray cards border. Maybe just remove it?"), so the print fills the quad
+again, 1 × 1.397 card widths, edge to edge, and what the frame said stands
+on objects of its own:
+
+- **The strip** (`cardrail::Strip`, `marksmat.rs`, `label_strip`) lies on
+  the art along the seam between the art and the type line, as a lifted
+  object with its own shadow, and carries the card's **label** from the
+  left: the plate with its chip, the sleep moon, the keyword marks and the
+  identity crests ("The strip says what the card does in combat", below).
+  The owner's okay for a wider strip carrying all of that is recorded in
+  `docs/legal.md` §3.
+- **The count badge** hangs off the card's top-left corner, outside it
+  ("Grouping and the token summary").
+- **The offer's light** lies on the felt round the card (`floormat.rs`,
+  `floor.wgsl`, `floor_light`): a quad under the card, `floormat::REACH`
+  (0.10 card widths) past it on every side, added to the felt at
+  `table::FLOOR_RUNG`, over the contact shadows and under every card — so
+  the card covers the light's middle and the next card of a fanned lane its
+  edge, which the owner accepted. The amber chase, the indigo chase, the
+  armed gold and the blue will-tap pulse are the frame rim's own colours and
+  motion; the material key is the four offers (`cardmat::glow::OFFERS`).
+- **Protection** is a mark on the strip (hexproof, indestructible and shroud
+  were appended to `MARK_ORDER` as slots 12–14, the index being the wire and
+  the atlas cell). The shells that are its glance — a brick wall for
+  defender, domes for hexproof and shroud, a steel rim for indestructible —
+  are #298's next step.
+
 - Drawn on the print: its own **finish** (`print_finish`), because a foil is
   what that printing *is* — the one exception the owner accepted — and
   light that passes over the whole card and leaves nothing behind: the
@@ -1843,19 +1834,19 @@ token summary").
   brushed **coating** every card used to wear is gone, not moved: its floor
   lifted the print's blacks from 18 to 23–26 of 255 everywhere, the artist's
   line included, and the owner took it off entirely.
-- Everything else is `frame_layer`, one function in `card_common.wgsl` that
-  both card shaders call and then hide inside the window with
-  `print_cover`. `nothing_but_the_finish_is_drawn_on_the_print` reads both
-  fragments as text and fails if anything but the finish writes the print,
-  or anything but light and the corner touches the colour after the merge.
-  The live half is a window diff, clock paused, in two halves: the same
-  card rendered with every state but its keywords on and then off must be
-  identical inside the window — including the bottom 7% of the window,
-  where the artist and © lines are — and with its keywords on and then off
-  must differ inside the strip's rectangle (`cardrail::quad_rect`) and
-  nowhere else.
-- A text face (a card drawn from our own text) fills the window the way a
-  print would, and is laid out against it: see "The text face" below.
+- `nothing_but_the_finish_is_drawn_on_the_print` reads both card fragments
+  as text and fails if anything but the finish writes the print, anything
+  but light and the corner touches the colour after it, or the card still
+  reads a word the frame used to (`glow`, `plate`, `chips`). The live half,
+  not yet run on #298's look, is a diff with the clock paused: the same card
+  rendered with every state on and then off must be identical everywhere on the print but under the strip's
+  rectangle (`cardrail::quad_rect`), the badge's and the felt round it —
+  including the bottom 7% of the card, where the artist and © lines are.
+- The mesh is rounded at the print's own corner radius and the sliver its
+  edge antialiases through is inked the edge wall's colour, which also
+  covers whatever a scan's corners were photographed against.
+- A text face (a card drawn from our own text) fills the card the way a
+  print does, and is laid out against it: see "The text face" below.
 
 ### The text face
 
@@ -1868,7 +1859,7 @@ Now the window is laid out and drawn as a card is:
 (`card_common.wgsl`) draws its parts, and the table's `Text2d` lines stand
 on them.
 
-- A dark border (`BORDER`, 0.040 card widths) inside the window, then a name
+- A dark border (`BORDER`, 0.040 card widths) inside the card, then a name
   bar, a pinline, an art box, a type bar and a text box, in a card's order.
   The foot under the text box stays empty: a print has its collector line
   there, and there is none to write.
@@ -1879,10 +1870,12 @@ on them.
   lies on the art box and never on the type line
   (`the_strip_lies_on_the_art_box_and_never_on_the_type_line`); the art box
   takes what the name bar leaves.
-- No power and toughness in the window: the ledge's plate is the P/T box. The
-  one exception is `face::world_stats`'s — an animated planeswalker's body,
-  which the plate (showing loyalty) cannot say — at the text box's foot,
-  right, where a print has its P/T.
+- No power and toughness on the table's face: a card showing its text face
+  always has its plate on the strip (`Corner::shows_plate`), which is the
+  P/T box. The one exception is `face::world_stats`'s — an animated
+  planeswalker's body, which the plate (showing loyalty) cannot say — at the
+  text box's foot, right, where a print has its P/T. The interface's faces
+  (hand, preview) have no strip over them and write their own numbers.
 
 **The table sets its text large, so its bars are deep.** A table card is
 about 94 pixels wide, where a print's own name is five pixels tall and
@@ -2051,80 +2044,60 @@ print table is per seat, so a printing a seat has not earned resolves to
 the card instead would be a hidden-information leak with no game object to
 hide behind.
 
-**The glows come from `PublicObject.keywords`**, which is already projected —
-the layer system has run, so a creature that gained indestructible this turn
-glows this turn. `cardmat::glow_of` is the one gatherer for a `PublicObject`,
+**The marks and the glow word come from `PublicObject.keywords`**, which is
+already projected — the layer system has run, so a creature that gained
+indestructible this turn wears it this turn. `cardmat::glow_of` is the one gatherer for a `PublicObject`,
 wherever it is drawn — battlefield, stack, command zone, tray or preview;
 inside it `glow_bits` narrows the engine's `u128` to the bits the shader
 reads, and a test pins each one against `KeywordSet`, because that numbering
 is generated and a card glowing for the wrong keyword would be a rules lie a
 player would believe.
 
-The hand bar is the one caller that cannot go through it, because a
-`HandObject` is not a `PublicObject`, and it contributes exactly one bit at
-its own call site: `glow::COMMANDER`. Nothing else in that word is true of a
-card in a hand — the keyword sheaths say what is protected *on the
-battlefield*, and a hand that glowed with them would be claiming something
-that is not yet so.
+The hand bar does not call it at all: a card in a hand is its print and its
+finish and nothing else of ours (#298). What the frame said there — the armed
+ring, a commander's paper — went with the frame; the hand's own halo says what
+can be done with a card, and an armed card stands up out of the row. The
+keywords never reached it: they say what is protected *on the battlefield*,
+and a hand that wore them would be claiming something that is not yet so.
 
-What a card *is*, what can be *done* with it and its *numbers* are drawn in
-three registers of the frame, and that separation is the whole grammar:
+What a card *is*, what can be *done* with it and its *numbers* were three
+registers of the frame #274 drew round the print — its paper, its rim and its
+ledge. #298 took the frame away and gave what it said to two objects that lie
+off the print: the **strip** over the art says what the card is, in marks and
+numbers, and the **light on the felt** round the card says what is on offer.
 
-- **The paper says what the card is.** Its colour is the card's identity: the
-  plain frame is a warm slate (linear 0.30/0.29/0.27, about 150 of 255), a
-  token is verdigris, a copy violet, a commander oxblood — gilt is this
-  client's word for "yours", and gilt paper under an amber offer and a gold
-  armed ring would be one colour. A card that is two of those (a token copy
-  of a commander) wears the stronger on the sides and the top and the other
-  on the ledge. Indestructible makes the paper **steel**; hexproof and
-  shroud lie over it as a **wash** — green wisps, or a colder, denser haze,
-  since not even its controller may target it. `glow_bits` still drops
-  hexproof whenever shroud is present (CR 702.18a against 702.11b), in Rust
-  so it is tested once. A creature with summoning sickness is drawn as
-  **night falling on the paper** (0.30 → 0.14 linear, 45 display levels,
-  with the moon's slight cool cast), where it used to dim and desaturate
-  the print — which is the very thing Scryfall's terms name. The bit is set
-  only for creatures, because summoning sickness is visible on nothing else.
-  `cardframe`'s tests hold the night and every identity at least 20 display
-  levels from the plain paper.
-
-  Defender used to be drawn a second time as a brick wall crossing the face;
-  the face is the print, so the wall went, and defender is its mark on the
-  strip alone (`a_defender_is_a_mark_on_the_strip_and_nothing_more`).
-- **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
-  same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
+- **The felt says what is on offer.** `glow::ACTIVATABLE` rides in the glow
+  word but is deliberately *not* in `KEYWORD_BITS`: it comes from
   `LegalActions` rather than from the card, and is drawn as a warm light
-  travelling round the rim — lit from the card's edge inwards and faded out
-  by `cardframe::OFFER_REACH`, the frame's thinnest side, before it reaches
-  the print — rather than as a material, for exactly that reason (see
-  "Tapping lands for a spell"). It is added on top of the paper instead of
-  averaged into it, because the two are answering different questions and
-  both have to stay legible. `glow::REACHABLE` is its twin for
-  a card lying in a pile: the same chase in the hand's indigo, because it is
-  this client's offer to tap lands first rather than the engine's yes (see
-  "A card in a pile is reached for too"). `glow_of` draws one or the other,
-  never both, and the engine's wins.
-- **And the perimeter also says what has been decided.** Two more bits share
+  travelling round the card on the cloth (`floor_light`, see "The print
+  fills the card") rather than as anything on the card, for exactly that
+  reason (see "Tapping lands for a spell"). `glow::REACHABLE` is its twin
+  for a card lying in a pile: the same chase in the hand's indigo, because
+  it is this client's offer to tap lands first rather than the engine's yes
+  (see "A card in a pile is reached for too"). `glow_of` draws one or the
+  other, never both, and the engine's wins.
+- **And the felt also says what has been decided.** Two more bits share
   that register, and the difference between them and `ACTIVATABLE` is motion.
   `glow::ARMED` is the card an armed deed is waiting on (see
-  `docs/keyboard-map.md` §Arming): a bright ring pulled in tight against the
-  printed edge, breathing in place and **not** travelling, because the offer
+  `docs/keyboard-map.md` §Arming): a bright light pulled in tight against the
+  card's edge, breathing in place and **not** travelling, because the offer
   has already been accepted and a light that still moved would say it was
-  still a suggestion. It sits on the rim with the rest of this register.
-  `glow::WILL_TAP` is what that deed would spend — the sources of an armed
-  mana `Run` — cool where the other two are warm, and a beat behind the armed
-  card, because the price follows the verb. `glow_of` drops `ACTIVATABLE` on
-  an armed card rather than drawing both: one rim carrying a chase *and* a ring would be saying the same thing twice with
+  still a suggestion. `glow::WILL_TAP` is what that deed would spend — the
+  sources of an armed mana `Run` — cool where the other two are warm, and a
+  beat behind the armed card, because the price follows the verb. `glow_of`
+  drops `ACTIVATABLE` on an armed card rather than drawing both: one light
+  carrying a chase *and* a ring would be saying the same thing twice with
   nothing left to read the difference from. `Offer::on` answers both from a
   `CardGroup`'s **members** rather than its representative — a plan taps one
   particular Forest and the card drawn for it may stand for four — and both
   are *any* where `CardGroup::activatable` is *all*, because that rule exists
   to stop an offer inviting a click that gets refused and these two invite
   nothing.
-- **The strip says what the card does in combat.** Twelve keywords —
+- **The strip says what the card does in combat.** Fifteen keywords —
   flying, first and double strike, deathtouch, haste, lifelink, menace,
-  reach, trample, vigilance, defender and prowess — are marks in a row, one
-  place each, always in the same order (`client-core/src/cardrail.rs`). They
+  reach, trample, vigilance, defender, prowess, and since #298 hexproof,
+  indestructible and shroud — are marks in a row, one place each, always in
+  the same order (`client-core/src/cardrail.rs`). They
   are marks and not more paint because paint cannot *count*: a creature can
   carry six of these at once, and six colours mixed into one border is one
   colour that says nothing. **The mark is the Mana font's own ability
@@ -2135,15 +2108,22 @@ three registers of the frame, and that separation is the whole grammar:
   drawing of ours can be the picture they already know.
   `cardrail::MARK_GLYPHS` is one of the three doors those codepoints come
   through, and `docs/legal.md` §2a is what makes that a rule rather than
-  tidiness. Hexproof and indestructible are deliberately absent — the paper
-  already says them, and a mark repeating it would be the same claim twice in
-  two languages.
+  tidiness.
+
+  Hexproof, indestructible and shroud were absent until #298, because the
+  frame's paper said them — steel for indestructible, green wisps for
+  hexproof, a colder, denser haze for shroud — and a mark repeating that
+  would have been the same claim twice. With the frame gone they are marks
+  12–14, appended rather than inserted, because a slot is a GPU bit and an
+  atlas cell. A card with both hexproof and shroud wears both marks; the
+  glow word lets shroud swallow hexproof (`glow_bits`, CR 702.18a against
+  702.11b) for the shells that will be their glance, #298's next step.
 
   The row ran along the card's bottom edge as a *rail* until #274, over the
   artist's line. It is an **object** now (`marksmat.rs`, `marks.wgsl`,
-  `marks_ui.wgsl`; the drawing is `card_common.wgsl`'s `marks_strip`): a
-  dark plate with its own contact shadow, one quad per card that wears
-  marks, a child of the card so it follows every glide, tap and lift, not
+  `marks_ui.wgsl`; the drawing is `card_common.wgsl`'s `label_strip`): a
+  dark plate with its own contact shadow, one quad per card with anything to
+  say, a child of the card so it follows every glide, tap and lift, not
   pickable and not a `CardShadow`. Its bottom edge stands on the seam where a
   modern frame's art meets its type line — `cardrail::M15_SEAM`, measured on
   36 scans, row 378 of 680 — at the card's left, where a fanned lane leaves
@@ -2152,9 +2132,9 @@ three registers of the frame, and that separation is the whole grammar:
   widths, eight pixels on the felt); a seventh opens a row **above** the
   first, so the row a creature already wears never moves and the strip's
   foot stays on the seam. The card's own material has no dimension for
-  them any more: the strip's material is keyed on the twelve-bit word alone
-  (`cardrail::mark_bits`), so a table has one strip material per distinct
-  set of keywords on it.
+  them any more: the strip's material is keyed on `cardrail::Strip`'s four
+  words alone — the marks, the plate, the swing and the label — so a table
+  has one strip material per distinct label on it.
 
   It lies half a row step over its card's face, not a card's thickness as
   first planned: a lane's whole rise is `LANE_RISE` (0.004) shared out over
@@ -2162,34 +2142,46 @@ three registers of the frame, and that separation is the whole grammar:
   laid over it and drew on that card's art
   (`a_strip_lies_on_its_card_and_under_the_next_one`). The shadow is what
   makes it read as lying on the card. **Accepted:** a tapped creature in a
-  fanned lane turns its strip out of the exposed edge and shows its plate,
-  not its marks — its attack is declared, and the preview names them. The
+  fanned lane turns its strip out of the exposed edge — its attack is
+  declared, and the preview names its marks. The
   preview draws the same strip as a UI node over the art at the same place.
-- **Identity used to be slips under the name**, paper tabs with the Mana
-  font's `ms-commander`, `ms-token` and `ms-ability-copy` — after a crown on
-  the top edge and a column in the right margin were both sent back. All
-  three homes were on the print. Since #274 the tab's stock is the frame's
-  paper; the glyphs stay in the atlas (`cardcrest::GLYPHS`, the third door
-  of `docs/legal.md` §2a) for the frame to caption the paper with.
-- **The ledge says what the card *is* in numbers.** The frame's ledge under
-  the print carries a plate: a creature's power and toughness, or a
-  planeswalker's loyalty behind a gilt rim. It was the bottom-right fifth of
-  the print until #274, which the rail left empty for it; now it is the
-  ledge's **left** end (`cardplate::plate_rect`: in 0.030, 0.196 wide,
-  centred on the ledge), because a lane fans with each card's own left edge
-  exposed and the plate ends at 0.226, inside the 0.26 the tightest fan
-  shows — `the_plate_leads_the_ledge_and_survives_the_tightest_fan`.
-  `cardframe::tests::nothing_on_the_ledge_lies_on_the_print` holds the plate,
-  the chip and the crests off the window and on the card, and went red on
-  the plate moved back to its old inset and on the old rail's rectangle. `client-core/src/cardplate.rs` decides what it says and packs it into
-  one `u32` — three ten-bit numbers and two kind bits — that rides the
-  material key beside `glow`, so a creature dealt three damage becomes a
-  different material and the corner redraws with no second pass. Marked
-  damage is the plate **filling from the bottom** to `damage / toughness`
-  rather than a third numeral: what a player needs off a blocked creature is
-  how close to lethal it is. The plate is drawn whether or not the card has
-  art — a card that could not load its scan is the one a player can least
-  afford to guess the body of.
+- **The moon says a creature is asleep.** A creature with summoning
+  sickness (CR 302.6) wears a crescent after its plate (`label::MOON`,
+  `moon_sdf`), and its plate writes in the moon's grey. It was night
+  falling on the frame's paper under #274, and a dimmed, desaturated print
+  before that — which is the very thing Scryfall's terms name.
+  `board::asleep` sets it only for creatures, because summoning sickness is
+  visible on nothing else (`only_a_creature_is_modelled_asleep`).
+- **The crests say what the card *is*.** A token, a copy and a commander
+  each wear a **crest** at the strip's end: a square of paper — verdigris,
+  violet, oxblood — with the Mana font's `ms-token`, `ms-ability-copy` or
+  `ms-commander` printed on it (`cardcrest`, `cardrail::Item::Crest`),
+  provenance first, then the commander. The answer was a crown on the top
+  edge, a column in the right margin and slips under the name before #274,
+  and all three were on the print; #274 made it the frame's paper, and #298
+  cut that paper down to the crest. At table size the paper is the answer
+  and the glyph is not relied on; in the preview it names it. The ink holds
+  4.5:1 on all three papers (`the_ink_reads_on_every_paper`; the slips' ink
+  measured 3.5:1 on the oxblood).
+- **The plate says what the card *is* in numbers.** The strip's first item
+  is a plate: a creature's power and toughness, or a planeswalker's loyalty
+  behind a gilt rim. It was the bottom-right fifth of the print until #274,
+  which the rail left empty for it, then the left end of the frame's ledge;
+  since #298 it leads the strip (`cardplate::PLATE_W`, 0.196 wide), because a
+  lane fans with each card's own left edge exposed —
+  `the_plate_and_the_first_mark_survive_the_tightest_fan`. And it is there
+  only when it says something the print cannot (`Corner::shows_plate`): a
+  vanilla 2/2 under nothing has its own P/T box, and a plate beside it
+  saying 2/2 is noise on every creature of the board. A body the layers
+  changed, marked damage, a card drawn without its print, a print whose box
+  the next card of a fanned lane covers, and every loyalty and chapter
+  count, are written. `client-core/src/cardplate.rs` decides what it says
+  and packs it into one `u32` — three ten-bit numbers and two kind bits —
+  that rides the strip's material key, so a creature dealt three damage
+  becomes a different strip and the plate redraws with no second pass.
+  Marked damage is the plate **filling from the bottom** to
+  `damage / toughness` rather than a third numeral: what a player needs off
+  a blocked creature is how close to lethal it is.
 - **The numerals are type, and were a stencil.** Each was a 4×6 bitmap mask
   sampled bilinearly, and two complaints came off it that turned out to be
   one fault. It looked **blurry**, because a mask that coarse smoothed up to
@@ -2207,14 +2199,14 @@ three registers of the frame, and that separation is the whole grammar:
   sideways. `PLATE_PAD` went 0.014 → 0.020 in the same change, because a
   stencil's ink stopped short of its own box and a typeface's does not — at
   the old padding the digits and the plate's rim ran together. It went back
-  to 0.012 for the ledge, which is 0.125 deep: the figures kept their 0.075
-  (`PLATE_CAP`, seven physical pixels on the felt) and the margin paid.
-  A sleeping creature's plate writes in moon-grey, the paper's night carried
-  on to the numbers.
+  to 0.012 for the frame's ledge, which was 0.125 deep, and the strip kept
+  it: the figures kept their 0.075 (`PLATE_CAP`, seven physical pixels on
+  the felt) and the margin paid. A sleeping creature's plate writes in
+  moon-grey, the moon beside it.
 - **Deathtouch greens the power, and only the power.** That is the half of
   the body the keyword acts through: a 1/1 deathtoucher trades with anything,
   and what does the trading is the 1 on the left. A colour on the number
-  rather than a thirteenth mark on a rail that holds twelve, because the
+  rather than one more mark on the strip, because the
   number *is* what the keyword changes the meaning of. `cardplate::Tone`
   reads it off the strip's own badges rather than off the raw keyword word, so
   the mark and the colour cannot disagree. Toxic is written into the enum and
@@ -2226,7 +2218,8 @@ three registers of the frame, and that separation is the whole grammar:
   the **stock** is the reading; the figures are the preview's. A symmetric
   swing — every `+1/+1` and `-1/-1` counter there is — is written once
   (`+2`), and a lopsided one in full, shrinking to fit. It stood *above* the
-  plate, one size down, until #274; the ledge has no room above a plate. What
+  plate, one size down, until #274; the ledge had no room above a plate, and
+  the strip keeps it beside. What
   stood there before that was a column of stamped **chips**, pips to six and a colour per
   kind of counter, and the owner read it as saying nothing: a green disc with
   three pips on it is a rebus for `+3/+3`, and the plate two millimetres
@@ -2247,23 +2240,16 @@ three registers of the frame, and that separation is the whole grammar:
   writes the body under its type line when the plate already says it
   (`face::world_stats`): it said `3/3` twice. An animated planeswalker keeps
   its line, because its plate is its loyalty.
-- **The crest captions the paper.** The identity glyphs — the Mana font's
-  `ms-token`, `ms-ability-copy`, `ms-commander` — stand right-aligned on the
-  ledge (`cardcrest::crest_rect`, 0.870–0.955, a second one gap to the left
-  for a token or copy that is also a commander) in a near-black ink that
-  holds 4.5:1 on all three papers (`the_ink_reads_on_every_paper`; the slips'
-  ink measured 3.5:1 on the oxblood). At table size the paper is the answer
-  and the glyph is not relied on; in the preview it names it.
-
 The pictograms live in a third shader file, `card_common.wgsl`, together with
 the printed corner both shaders cut at: it is everything the table and the
 overlay have to agree about. It contains no bindings and no bevy syntax at all
 — every shader-global it needs, the time and the colour underneath, arrives as
 a parameter — which is what lets bevy compile it as an imported module, what
 keeps it clear of the two different bind groups the two shaders read `globals`
-from, and what lets the naga test parse it on its own. Which mark a fragment
-is inside is found by walking the eleven bits to the k-th set one: a loop
-bound at compile time, no dynamic indexing, and inside the GL budget like
+from, and what lets the naga test parse it on its own. Which item of the strip a
+fragment is inside is found by laying the label's items out in order
+(`LABEL_ITEMS`, nineteen: the plate, the moon, fifteen marks, two crests), as
+`cardrail::Strip::layout` does: a loop bound at compile time, no dynamic indexing, and inside the GL budget like
 everything else here. *How many* marks there are is counted in that same
 loop, and that is not stylistic: `countOneBits` is what WGSL offers, naga
 lowers it to GLSL's `bitCount` with no version check, and `bitCount` arrived
@@ -2282,17 +2268,16 @@ one-word swap for a browser that has no WebGPU. The rule is therefore about
 past the older budget until a commit says it is spending the fallback to get
 something.
 
-The frame is drawn *inside* the card's quad, round the window. The mesh is
-exactly the card, and a frame that needed room around it would need every
-layout in the client to leave room for it — so the print gave up the room
-instead.
+The card's material draws nothing past the print: the mesh is exactly the
+card, and what stands past its edge — the count badge, the offer's light — is
+an object with a quad of its own, so no layout in the client has to leave
+room round a card for it.
 
 **The corners are cut twice, at the printed radius, in two different ways.** A
 Scryfall scan is a rectangle: the card's rounded corner is in the file as
 white paper, and drawn untouched it is the single most obvious way for a card
-to look like a photograph of a card. Since #274 the scan's corners fall
-outside the window and the frame's paper is drawn there; what is cut below is
-the card's own corner. On the table the mesh is already rounded
+to look like a photograph of a card. The frame #274 drew hid them; since #298
+the scan fills the card again, and what is cut below is its corner. On the table the mesh is already rounded
 (`table::CARD_CORNER`), so the shader only inks the sliver the mesh edge
 antialiases through; in the overlay a UI node has no mesh, so `card_ui.wgsl`
 cuts the corner in alpha — and that is the one the player was actually looking
@@ -2313,11 +2298,11 @@ shader file, one set of constants), so a foil in a player's hand looks like
 the foil that will land on the table. The one difference it cannot avoid is
 that a UI node has no world position and no normal, so there is no view angle
 to drive the sheen with; time does it instead, and the sweep runs on its own
-rather than answering the camera. A card in hand carries the finish but no
-keyword glow: the frame tells a player what is protected *on the
-battlefield*, and a hand that glowed would be saying something that is not yet
-true. It wears the same frame, from the same `frame_layer`, so a card picked up
-off the table is the same card.
+rather than answering the camera. A card in hand carries the finish and
+nothing else of ours: the strip tells a player what is protected *on the
+battlefield*, and a hand that wore it would be saying something that is not
+yet true. It is the same print through the same `print_finish`, so a card
+picked up off the table is the same card.
 
 Both material stores reach their systems as `Option`. A headless test has no
 render plugins and therefore no `Assets<CardUiMaterial>`, so every drawing

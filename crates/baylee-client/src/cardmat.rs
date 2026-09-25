@@ -35,20 +35,21 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 
-/// What a card's frame is saying, as the shader's bitset.
+/// What a card on the table is saying round itself, as one bitset.
 ///
-/// Deliberately not the engine's keyword numbering: the shader reads a
-/// handful of bits and the engine has more than a hundred keywords, so
-/// translating once here is cheaper than sending a `u128` to the GPU, and it
-/// makes adding a glow a one-line change on both sides.
+/// Deliberately not the engine's keyword numbering: a shader reads a handful
+/// of bits and the engine has more than a hundred keywords, so translating
+/// once here is cheaper than sending a `u128` to the GPU.
 ///
-/// Two different kinds of claim ride in the same word, and the shader draws
-/// them differently on purpose. The keyword bits are facts about the card —
-/// the frame's paper is made of them, the card *is* that. [`ACTIVATABLE`] is
-/// this client saying "you could do something here", which is an offer, and
-/// reads as a moving light on the rim rather than a material. Nothing in this
-/// word is drawn on the print (#274): `card_common.wgsl`'s `frame_layer` is
-/// the one reader.
+/// Two kinds of claim ride in the word. The offers — [`ACTIVATABLE`],
+/// [`REACHABLE`], [`ARMED`], [`WILL_TAP`] — are this client saying "you
+/// could" or "you are about to", and are light on the felt round the card
+/// (`floor_light`, #298). The three protection keywords are facts about the
+/// card. They were the frame's paper until #298 took the frame away, and they
+/// wait for the shells that replace it. Sickness and identity used to ride
+/// here too, and are the strip's now: the moon and the crests
+/// (`baylee_client_core::cardrail::Strip`). Nothing in this word is drawn on
+/// the print (#274).
 pub mod glow {
     /// Indestructible — darksteel.
     pub const INDESTRUCTIBLE: u32 = 1;
@@ -62,13 +63,6 @@ pub mod glow {
     /// `LegalActions`, changes with priority, and would be a rules lie if it
     /// were ever mistaken for a printed ability.
     pub const ACTIVATABLE: u32 = 8;
-    /// This creature came under its controller's command too recently to
-    /// attack or to tap (CR 302.6).
-    ///
-    /// Also not a keyword: it is a fact about *this turn*, not about the
-    /// card. The shader draws it as night falling on the frame's paper; it
-    /// used to dim the face, and the print is not ours to dim (#274).
-    pub const SUMMONING_SICK: u32 = 16;
     /// An armed deed is waiting on this card: the tap has been made, and one
     /// more sends it.
     ///
@@ -86,64 +80,24 @@ pub mod glow {
     /// "Tap 3, then cast" does not say *which* three, and which three is a
     /// plan the player never made and would otherwise have to trust blind.
     pub const WILL_TAP: u32 = 64;
-    /// This card is one of its owner's commanders (CR 903.3).
-    ///
-    /// The odd one out in this word. The four bits above are offers and a
-    /// fact about *this turn*; the three below are what the frame's paper is
-    /// made of. This is an identity — true in every zone, for the whole game,
-    /// before the first turn and after the card has died four times — so it
-    /// is the paper's own colour, oxblood, and never light on the rim.
-    ///
-    /// It rides this word anyway because the word is what reaches every
-    /// surface: table, hand zone, tray, own-board overlay and hover preview all
-    /// key one [`CardLook`] on it. A commander drawn on the table and plain in
-    /// the overlay would be the same card disagreeing with itself.
-    pub const COMMANDER: u32 = 128;
-
-    /// This permanent has no card under it at all: a token (CR 111.1).
-    ///
-    /// The first of the two provenance bits. Bits 8 to 19 are empty: the
-    /// keyword rail's twelve marks rode there until #274 made them an object
-    /// of their own with its own material ([`crate::marksmat`]), and the bits
-    /// above kept their numbers rather than moving, because
-    /// `card_common.wgsl`'s `GLOW_*` constants are the other half of every one
-    /// of them.
-    ///
-    /// Provenance is the [`COMMANDER`] question asked a second way: not what
-    /// a card can do but what it *is*, true in every zone and for the whole
-    /// game, so it is the paper's colour too. `baylee_client_core::board::Provenance`
-    /// is where the two are decided, in one place, which is what makes them
-    /// exclusive.
-    pub const TOKEN: u32 = 1 << 20;
-
-    /// This permanent's own card is one thing and the face it is showing is
-    /// another: a copy effect is at work (CR 707.2).
-    ///
-    /// Never set together with [`TOKEN`]. A token that a copy effect made is
-    /// a token — the chit is the whole truth about it and there is no
-    /// original to go and look at — and that is settled in the model rather
-    /// than here.
-    pub const COPY: u32 = 1 << 21;
-
     /// This client would tap lands for this card and then cast it:
     /// `Duel::reachable`, drawn on a card lying in a pile (#242).
     ///
     /// [`ACTIVATABLE`]'s twin and deliberately its motion — the same light
-    /// running round the border, because both are "you could" — in the
+    /// running round the card, because both are "you could" — in the
     /// hand's indigo rather than its amber, because the hand already says
     /// the two claims in those two hues: one is the engine's yes, the other
     /// is this client's offer to spend the mana first. Never set with it;
     /// [`super::glow_of`] picks one.
     ///
-    /// Where it is for the reason [`TOKEN`] is.
+    /// Bit 23 because the bits below it were other claims once — sickness,
+    /// the commander, the rail's twelve marks, provenance — and the ones that
+    /// are left kept their numbers rather than moving, because
+    /// `card_common.wgsl`'s `GLOW_*` constants are the other half of each.
     pub const REACHABLE: u32 = 1 << 23;
 
-    /// What a card *is*, as the paper's colour: [`COMMANDER`], [`TOKEN`] and
-    /// [`COPY`]. True of every member of a merged group, in every zone and
-    /// for the whole game, which is why the slabs under a merged card wear
-    /// it (#261) and nothing else in this word: an offer is the top card's,
-    /// sickness is this turn's, and protection is not a colour.
-    pub const IDENTITY: u32 = COMMANDER | TOKEN | COPY;
+    /// The four offers: what the felt round a card is lit with.
+    pub const OFFERS: u32 = ACTIVATABLE | ARMED | WILL_TAP | REACHABLE;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -157,23 +111,17 @@ const KEYWORD_BITS: [(u32, u32); 3] = [
     (14, glow::SHROUD),
 ];
 
-/// Translates the view's keyword bitset into what the frame's paper is.
+/// Translates the view's keyword bitset into the protection a card wears.
 ///
-/// Three keywords come out: the ones the paper is a *material* for. The
-/// twelve a card wears as marks are not here: they are the strip's
-/// ([`baylee_client_core::cardrail::mark_bits`]), which is an object of its own lying on the card
-/// with a material of its own, so a card's material has no dimension for
-/// them. Which keyword goes where is not a matter of taste: a material
-/// composes with at most one other material before it says neither thing,
-/// and a creature can carry six combat keywords at once, so those have to be
-/// countable rather than mixed.
+/// Three keywords come out, the three that were the frame's paper until #298
+/// and are marks on the strip since (`cardrail::MARK_ORDER`'s last three):
+/// the shells that stand round a card for them read them here.
 ///
 /// Shroud swallows hexproof on the way through, because that is what the two
 /// keywords do to each other: a permanent with both may be targeted by
 /// nobody, including its controller, which is precisely shroud. Drawing them
 /// as two sheaths would say the card is protected in two ways when it is
-/// protected in one, and would cost a second material for a border no player
-/// could tell from the first.
+/// protected in one.
 #[must_use]
 pub fn glow_bits(keywords: u128) -> u32 {
     let mut bits = 0;
@@ -300,35 +248,16 @@ impl Offer {
     }
 }
 
-/// Everything a permanent's surface is saying about it, in one word.
-///
-/// Three different kinds of claim ride here and the shader draws each in its
-/// own place: the keywords are what the rules have *made* the card (the
-/// border), summoning sickness is what it cannot do *this turn* (a veil over
-/// the face), and the [`Offer`] is what this client is proposing (the lights
-/// in the border's outer register). They are gathered in one function so that
-/// no caller can assemble a different subset than another — a card in hand, in
-/// the overlay and on the table must agree about what it is.
-///
-/// Sickness is asked of creatures only. The host projects CR 302.6 now and
-/// so answers this for creatures alone, but the field once meant "did this
-/// permanent enter this turn" — a land played this turn came back `true` —
-/// and the shape of the view did not change with its meaning, so no
-/// `VIEW_VERSION` bump refuses a host from before the fix. The type test is
-/// what keeps such a host from putting a whole opening board to sleep, and
-/// it costs one bit compare.
+/// Everything a permanent is saying round itself, in one word: its
+/// protection, and what this client is offering to do with it (the
+/// [`Offer`]). Gathered in one function so that no caller can assemble a
+/// different subset than another.
 #[must_use]
 pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 {
-    let from_card = object.map_or(0, |o| {
-        let sick = o.summoning_sick && o.types.contains(baylee_core::types::TypeSet::CREATURE);
-        glow_bits(o.keywords)
-            | if sick { glow::SUMMONING_SICK } else { 0 }
-            | if o.commander { glow::COMMANDER } else { 0 }
-            | provenance_bit(o)
-    });
+    let from_card = object.map_or(0, |o| glow_bits(o.keywords));
     // An armed card is not also inviting a tap: the invitation was accepted,
-    // and drawing both would put a travelling light and a steady one on the
-    // same border saying the same thing twice.
+    // and drawing both would put a travelling light and a steady one round
+    // the same card saying the same thing twice.
     //
     // The engine's yes beats this client's offer for the same reason: a card
     // the engine will take as it stands needs no lands tapped for it, and
@@ -345,44 +274,11 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
     from_card | offered | if offer.will_tap { glow::WILL_TAP } else { 0 }
 }
 
-/// The provenance mark for one object, as its bit in the glow word.
-///
-/// The registry is reached from inside [`glow_of`] rather than handed to it,
-/// which is the opposite of what `BoardModel::from_view` does one crate down —
-/// and deliberately. That seam exists because `baylee-client-core` does not
-/// link `baylee-cards`; this crate does, and every one of `glow_of`'s three
-/// callers would otherwise pass the same closure to get the same answer, which
-/// is three chances for a card in the hand zone to disagree with the same card
-/// on the table.
-///
-/// `board::provenance_of` is still where the judgement is made. Nothing is
-/// decided here.
-fn provenance_bit(object: &baylee_view::PublicObject) -> u32 {
-    match baylee_client_core::board::provenance_of(object, crate::cardart::registry()) {
-        baylee_client_core::board::Provenance::Printed => 0,
-        baylee_client_core::board::Provenance::Token => glow::TOKEN,
-        baylee_client_core::board::Provenance::Copy => glow::COPY,
-    }
-}
-
 /// What the shader needs to know about one card.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
     pub finish: u32,
-    /// Keyword glows, from [`glow_bits`].
-    pub glow: u32,
-    /// What the reserved bottom-right corner says, packed by
-    /// [`baylee_client_core::cardplate::Plate::packed`]: a creature's power,
-    /// toughness and damage, a planeswalker's loyalty, or a saga's chapter.
-    pub plate: u32,
-    /// The second word of [`baylee_client_core::cardplate::Corner::packed`]:
-    /// the net ±1/±1 swing written above the plate, and which numerals the
-    /// plate's keywords colour.
-    pub chips_a: u32,
-    /// The third word: the printed power and toughness, written under the
-    /// plate when they are not what the plate is showing.
-    pub chips_b: u32,
     /// 1.0 when the material carries real artwork, 0.0 when the card is drawn
     /// as a flat `tint` — its constructed face, or its back.
     pub has_art: f32,
@@ -520,18 +416,6 @@ pub struct CardMaterial {
     /// Everything else.
     #[uniform(2)]
     pub params: CardParams,
-    /// The glyph atlas the ledge's numerals and the crests are drawn from,
-    /// baked at startup.
-    ///
-    /// Always [`markatlas::MARKS`], which is why it is not an `Option`: the
-    /// handle is filled with a blank field before any material is built, so
-    /// there is no moment at which a card could be asked to bind an image
-    /// that does not exist — and a `None` here would bind the fallback white
-    /// texture, which decodes as a distance of -0.25 everywhere and floods
-    /// every glyph with ink.
-    #[texture(3)]
-    #[sampler(4)]
-    pub marks: Handle<Image>,
 }
 
 impl Material for CardMaterial {
@@ -565,18 +449,6 @@ pub struct CardUiMaterial {
     /// Everything else.
     #[uniform(2)]
     pub params: CardParams,
-    /// The glyph atlas the ledge's numerals and the crests are drawn from,
-    /// baked at startup.
-    ///
-    /// Always [`markatlas::MARKS`], which is why it is not an `Option`: the
-    /// handle is filled with a blank field before any material is built, so
-    /// there is no moment at which a card could be asked to bind an image
-    /// that does not exist — and a `None` here would bind the fallback white
-    /// texture, which decodes as a distance of -0.25 everywhere and floods
-    /// every glyph with ink.
-    #[texture(3)]
-    #[sampler(4)]
-    pub marks: Handle<Image>,
 }
 
 impl UiMaterial for CardUiMaterial {
@@ -675,7 +547,6 @@ impl UiCardMaterials {
             return assets.add(CardUiMaterial {
                 art: made.art,
                 params: made.params,
-                marks: crate::markatlas::MARKS,
             });
         }
         if let Some(handle) = self.made.get(&look) {
@@ -685,7 +556,6 @@ impl UiCardMaterials {
         let handle = assets.add(CardUiMaterial {
             art: made.art,
             params: made.params,
-            marks: crate::markatlas::MARKS,
         });
         self.made.insert(look, handle.clone());
         handle
@@ -756,12 +626,6 @@ impl UiCardMaterials {
             art: Some(art),
             params: CardParams {
                 finish: finish_code(finish),
-                glow: 0,
-                // A printing in the picker is a piece of cardboard, not a
-                // permanent: it has no body and no counters on it.
-                plate: 0,
-                chips_a: 0,
-                chips_b: 0,
                 has_art: 1.0,
                 strength: 1.0,
                 // A picker card has no border to animate, but it can be a
@@ -779,7 +643,6 @@ impl UiCardMaterials {
                 face: 0,
                 tint: Vec4::ONE,
             },
-            marks: crate::markatlas::MARKS,
         });
         if self.previewed.len() >= 256 {
             self.previewed.clear();
@@ -844,14 +707,6 @@ pub struct CardLook {
     pub art: Option<ImageKey>,
     /// Its physical finish.
     pub finish: FinishTreatment,
-    /// Its keyword glows.
-    pub glow: u32,
-    /// What its corner plate says, packed. Part of the key because it is part
-    /// of the material: two 2/2s share a plate and a material, a 2/2 and a
-    /// 3/3 share neither.
-    pub plate: u32,
-    /// Its counter chips, packed, for the same reason and with the same cost.
-    pub chips: [u32; 2],
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
@@ -860,8 +715,8 @@ pub struct CardLook {
     pub face: u32,
     /// The one-shot sheen this card is in the middle of, if any.
     ///
-    /// In the key because it is in the material, like the plate — but unlike
-    /// the plate it is *transient*, so a look carrying one is deliberately
+    /// In the key because it is in the material — but it is *transient*,
+    /// so a look carrying one is deliberately
     /// **not** cached: see [`UiCardMaterials::get`]. Two cards that started
     /// sweeping on the same frame still share a material, which is the
     /// opening hand's whole seven.
@@ -871,13 +726,10 @@ pub struct CardLook {
 impl CardLook {
     /// A card showing artwork.
     #[must_use]
-    pub fn art(art: ImageKey, finish: FinishTreatment, glow: u32) -> Self {
+    pub fn art(art: ImageKey, finish: FinishTreatment) -> Self {
         Self {
             art: Some(art),
             finish,
-            glow,
-            plate: 0,
-            chips: [0; 2],
             tint: 0,
             face: 0,
             sweep: None,
@@ -886,13 +738,10 @@ impl CardLook {
 
     /// A card showing a flat colour: its constructed face, or an empty slot.
     #[must_use]
-    pub fn flat(color: Color, finish: FinishTreatment, glow: u32) -> Self {
+    pub fn flat(color: Color, finish: FinishTreatment) -> Self {
         Self {
             art: None,
             finish,
-            glow,
-            plate: 0,
-            chips: [0; 2],
             tint: quantise(color),
             face: 0,
             sweep: None,
@@ -909,8 +758,7 @@ impl CardLook {
 
     /// This look with its text face standing in the window in place of its
     /// art (#259): no picture, `tint` under the face, and the face's `word`.
-    /// Its finish, glows, plate and sweep are the card's still, as they are
-    /// a print's.
+    /// Its finish and sweep are the card's still, as they are a print's.
     #[must_use]
     pub fn faced(self, tint: Color, word: u32) -> Self {
         Self {
@@ -919,19 +767,6 @@ impl CardLook {
             face: word,
             ..self
         }
-    }
-
-    /// The same look with its reserved corner filled in.
-    ///
-    /// A builder rather than a sixth argument on all three constructors: a
-    /// card in hand, a card in a browser and a card in the printing picker
-    /// have no body to show, and only the two board surfaces ever call this.
-    #[must_use]
-    pub fn with_corner(mut self, corner: baylee_client_core::cardplate::Corner) -> Self {
-        let [plate, a, b] = corner.packed();
-        self.plate = plate;
-        self.chips = [a, b];
-        self
     }
 
     /// The same look catching the light once.
@@ -957,13 +792,10 @@ impl CardLook {
     /// it from [`CardLook::flat`]: both have no `ImageKey`, and a back that
     /// collided with a constructed face would draw one as the other.
     #[must_use]
-    pub fn back(finish: FinishTreatment, glow: u32) -> Self {
+    pub fn back(finish: FinishTreatment) -> Self {
         Self {
             art: None,
             finish,
-            glow,
-            plate: 0,
-            chips: [0; 2],
             tint: 0,
             face: 0,
             sweep: None,
@@ -1024,10 +856,6 @@ pub fn material(
         art,
         params: CardParams {
             finish: finish_code(look.finish),
-            glow: look.glow,
-            plate: look.plate,
-            chips_a: look.chips[0],
-            chips_b: look.chips[1],
             has_art,
             strength: 1.0,
             motion,
@@ -1041,7 +869,6 @@ pub fn material(
             face: look.face,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
-        marks: crate::markatlas::MARKS,
     };
     wear(&mut made.params, look.sweep, motion);
     made
@@ -1144,7 +971,6 @@ pub(crate) mod tests {
                 baylee_client_core::images::ArtSize::Small,
             ),
             FinishTreatment::Foil,
-            0,
         );
         cache.made.insert(look, Handle::default());
         cache
@@ -1214,10 +1040,9 @@ pub(crate) mod tests {
         }
     }
 
-    /// The paper speaks for three keywords and the strip for twelve more;
-    /// the engine numbers over a hundred and generates that numbering. A card
-    /// glowing for the wrong keyword would be a rules lie a player would
-    /// believe.
+    /// The protection word speaks for three keywords; the engine numbers
+    /// over a hundred and generates that numbering. A card shelled for the
+    /// wrong keyword would be a rules lie a player would believe.
     #[test]
     fn the_glow_bits_are_the_keywords_they_claim_to_be() {
         use baylee_cards_dsl::KeywordSet;
@@ -1227,14 +1052,14 @@ pub(crate) mod tests {
         );
         assert_eq!(glow_bits(KeywordSet::HEXPROOF.bits()), glow::HEXPROOF);
         assert_eq!(glow_bits(KeywordSet::SHROUD.bits()), glow::SHROUD);
-        // And nothing else reaches the card's material: flying is a mark on
-        // the strip, which is its own object, and a keyword that turned the
-        // paper green would be claiming a protection the card does not have.
+        // And nothing else reaches it: flying is a mark on the strip and
+        // nothing more, and a keyword in this word would be claiming a
+        // protection the card does not have.
         assert_eq!(glow_bits(KeywordSet::FLYING.bits()), 0);
         assert_eq!(glow_bits(0), 0);
     }
 
-    /// Two keywords on one card are one border with both bits, not two draws.
+    /// Two protections on one card are one word with both bits.
     #[test]
     fn a_card_can_wear_more_than_one_glow() {
         use baylee_cards_dsl::KeywordSet;
@@ -1266,37 +1091,12 @@ pub(crate) mod tests {
         assert_eq!(glow_bits(all), glow::SHROUD | glow::INDESTRUCTIBLE);
     }
 
-    /// Sickness is drawn for creatures and nothing else, whatever a host
-    /// says. Only a creature is stopped by it (CR 302.6) — a land played
-    /// this turn taps perfectly well, and a board where every fresh
-    /// permanent breathed would be teaching a player something false. The
-    /// view carries the narrower fact today; this is what holds if it ever
-    /// carries the wider one again.
-    #[test]
-    fn only_a_creature_is_drawn_asleep() {
-        use baylee_core::types::TypeSet;
-        let mut creature = permanent(TypeSet::CREATURE);
-        creature.summoning_sick = true;
-        assert_eq!(glow_of(Some(&creature), Offer::NONE), glow::SUMMONING_SICK);
-
-        let mut land = permanent(TypeSet::LAND);
-        land.summoning_sick = true;
-        assert_eq!(glow_of(Some(&land), Offer::NONE), 0);
-        assert_eq!(
-            glow_of(Some(&land), Offer::activatable(true)),
-            glow::ACTIVATABLE,
-            "a land that entered this turn still offers its mana ability"
-        );
-    }
-
     /// A defender is a mark on the strip and nothing more.
     ///
     /// It used to be drawn twice — the mark, and a brick wall crossing the
     /// card's face — and the wall went with #274, because the face is the
     /// print and nothing of ours is painted on it. What is pinned is that a
-    /// defender's card material is a plain card's, since the mark is the
-    /// strip's and the material key has no dimension left that the shader
-    /// does not read, and that a sick one adds the night and nothing else.
+    /// defender says nothing round itself, since the mark is the strip's.
     #[test]
     fn a_defender_is_a_mark_on_the_strip_and_nothing_more() {
         use baylee_cards_dsl::KeywordSet;
@@ -1316,29 +1116,21 @@ pub(crate) mod tests {
             1 << slot,
             "and the mark is on the strip"
         );
-
-        wall.summoning_sick = true;
-        assert_eq!(
-            glow_of(Some(&wall), Offer::NONE),
-            glow::SUMMONING_SICK,
-            "and a creature that arrived this turn wears the night besides"
-        );
     }
 
-    /// The three claims are three bits, and a card that is all three wears
-    /// all three: they are drawn in three different places on purpose.
+    /// Protection and an offer are separate bits, and a card that is both
+    /// wears both: they are drawn in different places on purpose.
     #[test]
-    fn a_card_can_be_protected_asleep_and_useful_at_once() {
+    fn a_card_can_be_protected_and_useful_at_once() {
         use baylee_cards_dsl::KeywordSet;
         use baylee_core::types::TypeSet;
         let mut obj = permanent(TypeSet::CREATURE);
-        obj.summoning_sick = true;
         obj.keywords = KeywordSet::HEXPROOF
             .union(KeywordSet::INDESTRUCTIBLE)
             .bits();
         assert_eq!(
             glow_of(Some(&obj), Offer::activatable(true)),
-            glow::HEXPROOF | glow::INDESTRUCTIBLE | glow::SUMMONING_SICK | glow::ACTIVATABLE
+            glow::HEXPROOF | glow::INDESTRUCTIBLE | glow::ACTIVATABLE
         );
     }
 
@@ -1350,17 +1142,12 @@ pub(crate) mod tests {
         use baylee_core::ids::PrintRef;
 
         let key = ImageKey::new(PrintRef(0), 0, ArtSize::Normal);
-        let plain = CardLook::art(key, FinishTreatment::Plain, 0);
-        assert_eq!(plain, CardLook::art(key, FinishTreatment::Plain, 0));
+        let plain = CardLook::art(key, FinishTreatment::Plain);
+        assert_eq!(plain, CardLook::art(key, FinishTreatment::Plain));
         assert_ne!(
             plain,
-            CardLook::art(key, FinishTreatment::Foil, 0),
+            CardLook::art(key, FinishTreatment::Foil),
             "a foil is not the same surface as a plain card"
-        );
-        assert_ne!(
-            plain,
-            CardLook::art(key, FinishTreatment::Plain, glow::INDESTRUCTIBLE),
-            "and neither is one the rules have made indestructible"
         );
     }
 
@@ -1371,12 +1158,12 @@ pub(crate) mod tests {
         let a = Color::srgb(0.5, 0.25, 0.125);
         let b = Color::srgb(0.5 + 1.0 / 2048.0, 0.25, 0.125);
         assert_eq!(
-            CardLook::flat(a, FinishTreatment::Plain, 0),
-            CardLook::flat(b, FinishTreatment::Plain, 0)
+            CardLook::flat(a, FinishTreatment::Plain),
+            CardLook::flat(b, FinishTreatment::Plain)
         );
         assert_ne!(
-            CardLook::flat(a, FinishTreatment::Plain, 0),
-            CardLook::flat(Color::srgb(0.1, 0.2, 0.3), FinishTreatment::Plain, 0)
+            CardLook::flat(a, FinishTreatment::Plain),
+            CardLook::flat(Color::srgb(0.1, 0.2, 0.3), FinishTreatment::Plain)
         );
     }
     /// Parses and validates a shader the way `wgpu` will.
@@ -1508,10 +1295,25 @@ pub(crate) mod tests {
             cardrail::MARK_ORDER.len(),
             "the shader draws a different number of marks than the strip has"
         );
+        assert!(
+            (wgsl_const(src, "ROW_MAX") - cardrail::ROW_MAX).abs() < 1e-6,
+            "the shader opens a row at a different length than the hit test"
+        );
+        for (name, ours) in [
+            ("LABEL_MOON", cardrail::label::MOON),
+            ("LABEL_CREST_SHIFT", cardrail::label::CREST_SHIFT),
+            ("LABEL_CREST_BITS", cardrail::label::CREST_BITS),
+        ] {
+            assert_eq!(
+                wgsl_const(src, name) as u32,
+                ours,
+                "{name}: the shader reads the label word differently"
+            );
+        }
         assert_eq!(
-            wgsl_const(src, "PER_ROW") as usize,
-            cardrail::PER_ROW,
-            "the shader wraps the strip at a different mark than the hit test"
+            wgsl_const(src, "LABEL_ITEMS") as usize,
+            2 + cardrail::MARK_ORDER.len() + baylee_client_core::cardcrest::MAX_CRESTS,
+            "the plate, the moon, every mark and the crests"
         );
     }
 
@@ -1533,7 +1335,7 @@ pub(crate) mod tests {
     fn holding_still_rewrites_the_cards_already_made() {
         let mut cache = UiCardMaterials::default();
         let mut assets = Assets::<CardUiMaterial>::default();
-        let look = CardLook::flat(Color::WHITE, FinishTreatment::Foil, glow::ACTIVATABLE);
+        let look = CardLook::flat(Color::WHITE, FinishTreatment::Foil);
 
         // The clock is only ever one of two exact values, but `float_cmp` is
         // right in general and the file already has the idiom.
@@ -1601,10 +1403,6 @@ pub(crate) mod tests {
         // The order `#[derive(ShaderType)]` writes the bytes in.
         let ours = [
             "finish",
-            "glow",
-            "plate",
-            "chips_a",
-            "chips_b",
             "has_art",
             "strength",
             "motion",
@@ -1812,44 +1610,53 @@ pub(crate) mod tests {
         }
     }
 
-    /// Every flag is the same number on both sides, and a bit of its own.
+    /// Every flag is a bit of its own, and every offer the same number on
+    /// both sides.
     ///
     /// Two copies of the same table — one Rust, one WGSL — and nothing in
     /// either compiler can notice when one of them moves. A wrong number here
-    /// has no error and no crash: the card draws a fact it does not have, or
-    /// two flags share a bit and one fact draws as another.
-    /// Since #274 the WGSL copy is one: `frame_layer` in `card_common.wgsl` is
-    /// the only reader, and the card shaders may not keep a table of their own
-    /// that could drift from it.
+    /// has no error and no crash: the felt lights a card for an offer it does
+    /// not have, or two flags share a bit and one offer draws as another.
+    /// `floor_light` in `card_common.wgsl` is the one reader (#298), and no
+    /// other shader may keep a table of its own that could drift from it.
     #[test]
     fn the_glow_flags_are_the_same_number_on_both_sides() {
         let common = include_str!("shaders/card_common.wgsl");
         let mut taken = 0u32;
-        for (name, ours) in [
-            ("GLOW_INDESTRUCTIBLE", glow::INDESTRUCTIBLE),
-            ("GLOW_HEXPROOF", glow::HEXPROOF),
-            ("GLOW_SHROUD", glow::SHROUD),
-            ("GLOW_ACTIVATABLE", glow::ACTIVATABLE),
-            ("GLOW_SUMMONING_SICK", glow::SUMMONING_SICK),
-            ("GLOW_ARMED", glow::ARMED),
-            ("GLOW_WILL_TAP", glow::WILL_TAP),
-            ("GLOW_COMMANDER", glow::COMMANDER),
-            ("GLOW_TOKEN", glow::TOKEN),
-            ("GLOW_COPY", glow::COPY),
-            ("GLOW_REACHABLE", glow::REACHABLE),
+        for (name, ours, drawn) in [
+            ("GLOW_INDESTRUCTIBLE", glow::INDESTRUCTIBLE, false),
+            ("GLOW_HEXPROOF", glow::HEXPROOF, false),
+            ("GLOW_SHROUD", glow::SHROUD, false),
+            ("GLOW_ACTIVATABLE", glow::ACTIVATABLE, true),
+            ("GLOW_ARMED", glow::ARMED, true),
+            ("GLOW_WILL_TAP", glow::WILL_TAP, true),
+            ("GLOW_REACHABLE", glow::REACHABLE, true),
         ] {
-            let theirs = wgsl_const(common, name);
-            assert!(
-                (theirs - ours as f32).abs() < f32::EPSILON,
-                "{name}: {ours} here, {theirs} in card_common.wgsl"
-            );
+            if drawn {
+                let theirs = wgsl_const(common, name);
+                assert!(
+                    (theirs - ours as f32).abs() < f32::EPSILON,
+                    "{name}: {ours} here, {theirs} in card_common.wgsl"
+                );
+                assert_ne!(
+                    ours & glow::OFFERS,
+                    0,
+                    "{name} is an offer the felt is not lit for"
+                );
+            }
             assert_eq!(ours.count_ones(), 1, "{name} is not one bit");
             assert_eq!(ours & taken, 0, "{name} shares a bit with another flag");
             taken |= ours;
         }
+        assert_eq!(
+            glow::OFFERS.count_ones(),
+            4,
+            "the felt is lit for four offers, and the protection is not one"
+        );
         for (which, src) in [
             ("card.wgsl", include_str!("shaders/card.wgsl")),
             ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+            ("floor.wgsl", include_str!("shaders/floor.wgsl")),
         ] {
             assert!(
                 !src.contains("const GLOW_"),
@@ -1858,118 +1665,48 @@ pub(crate) mod tests {
         }
     }
 
-    /// The two provenance bits stand alone in the word, and never together on
-    /// one card.
-    ///
-    /// Two claims, and the second is the one worth a test. A bit that
-    /// collided would draw a token mark on something that is not a token,
-    /// which a player has no way to check; a card carrying both would draw
-    /// one glyph and leave the other silently unsaid, which is worse — the
-    /// mark would be *there*, so it would be believed. `provenance_of` is
-    /// what makes that impossible, by answering with one value of three
-    /// instead of two booleans, and this is what says the packing kept it so.
-    #[test]
-    fn a_card_is_marked_a_token_or_a_copy_and_never_both() {
-        let others = glow::INDESTRUCTIBLE
-            | glow::HEXPROOF
-            | glow::SHROUD
-            | glow::ACTIVATABLE
-            | glow::SUMMONING_SICK
-            | glow::ARMED
-            | glow::WILL_TAP
-            | glow::COMMANDER
-            | glow::REACHABLE;
-        assert_eq!(glow::TOKEN & others, 0, "the token bit is somebody else's");
-        assert_eq!(glow::COPY & others, 0, "the copy bit is somebody else's");
-        assert_eq!(glow::TOKEN & glow::COPY, 0, "and they are not each other");
-
-        // A Clone wearing another card's face, and a token wearing the same
-        // one. Both are drawn from the same registry answer and exactly one
-        // bit comes back each time.
-        let elves = |card: Option<baylee_view::CardIdentity>| {
-            let mut o = baylee_client_core::test_support::token(1, 0, "Llanowar Elves", 1, 1);
-            o.card = card;
-            crate::cardmat::glow_of(Some(&o), Offer::NONE)
-        };
-        let (real, _) = crate::cardart::wearing("Llanowar Elves").expect("the pool has it");
-        let identity = |index: baylee_core::ids::CardIndex| baylee_view::CardIdentity {
-            index,
-            print: baylee_core::ids::PrintRef::new(1),
-            face: 0,
-        };
-        assert_eq!(
-            elves(Some(identity(baylee_core::ids::CardIndex::new(
-                real.get() + 1
-            )))),
-            glow::COPY
-        );
-        assert_eq!(elves(None), glow::TOKEN);
-        assert_eq!(
-            elves(Some(identity(real))),
-            0,
-            "and a Llanowar Elves that is one wears no mark at all"
-        );
-    }
-
     /// Nothing is drawn on the print but its own finish, and light that
-    /// passes over (#274).
+    /// passes over (#274, #298).
     ///
     /// The owner's rule, and Scryfall's: a card image is not covered, tinted,
-    /// dimmed or stamped. Each card shader samples the print into `print`,
-    /// gives it its finish, and merges it with the frame by `print_cover`;
-    /// after that merge the colour may be touched only by the lamp and the
-    /// arrival sweep (`METAL_TONE`), a door (`door_layer`) and the card's own
-    /// corner — all of them light that leaves nothing behind, or ink outside
-    /// the card. Everything else this client says about a card is
-    /// `frame_layer`'s, which the window hides.
+    /// dimmed or stamped. Each card shader samples the print edge to edge
+    /// into `color` and gives it its finish; after that the colour may be
+    /// touched only by the lamp and the arrival sweep (`METAL_TONE`), a door
+    /// (`door_layer`) and the card's own corner — all of them light that
+    /// leaves nothing behind, or ink outside the card. Everything else this
+    /// client says about a card stands on an object of its own: the strip,
+    /// the badge, the light on the felt.
     ///
     /// Read as text, because what it holds is a composition and not a
-    /// number: a rail or a night laid on the colour after the merge draws
+    /// number: a rail or a night laid on the colour after the finish draws
     /// perfectly well, compiles, and is exactly the fault. The live half —
-    /// the same card rendered with every state on and off, diffed inside the
-    /// window — is in `docs/client.md` §"The print and its frame".
+    /// the same card rendered with every state on and off, diffed over the
+    /// print — is in `docs/client.md` §"The print fills the card".
     #[test]
     fn nothing_but_the_finish_is_drawn_on_the_print() {
-        for (which, src) in [
-            ("card.wgsl", include_str!("shaders/card.wgsl")),
-            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+        for (which, src, angle) in [
+            ("card.wgsl", include_str!("shaders/card.wgsl"), "facing"),
+            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl"), "tilt"),
         ] {
             let body = src
                 .split_once("fn fragment(")
                 .unwrap_or_else(|| panic!("{which} has no fragment"))
                 .1;
             let lines: Vec<&str> = body.lines().map(str::trim).collect();
+            let writes = |from: &[&'static str]| -> Vec<&'static str> {
+                from.iter()
+                    .copied()
+                    .filter(|l| l.starts_with("color") || l.starts_with("var color"))
+                    .collect()
+            };
 
-            // The print: sampled, finished, and nothing more.
-            let writes: Vec<&str> = lines
-                .iter()
-                .copied()
-                .filter(|l| l.starts_with("print =") || l.starts_with("var print"))
-                .collect();
-            assert_eq!(
-                writes,
-                [
-                    "var print = mix(flat, sampled, params.has_art);",
-                    "print = print_finish(print, at, facing, t, params.finish, params.strength);"
-                        .replace(
-                            "facing",
-                            if which == "card.wgsl" {
-                                "facing"
-                            } else {
-                                "tilt"
-                            }
-                        )
-                        .as_str(),
-                ],
-                "{which} writes to the print"
-            );
             assert!(
-                lines.contains(&"let sampled = textureSample(art, art_sampler, at);"),
-                "{which} samples its art somewhere other than through the window"
+                lines.contains(&"let sampled = textureSample(art, art_sampler, uv);"),
+                "{which} samples its art somewhere other than edge to edge"
             );
             // What stands in for a print where there is none (#259): the flat
-            // colour, or the text face. It is weighed by `1 - has_art` above,
-            // so it never lies on a print.
+            // colour, or the text face. It is weighed by `1 - has_art`, so it
+            // never lies on a print.
             let flats: Vec<&str> = lines
                 .iter()
                 .copied()
@@ -1983,24 +1720,23 @@ pub(crate) mod tests {
                 "{which} stands something else in for a print"
             );
 
-            // The merge, once, and after it only light and the corner.
-            let merge = lines
-                .iter()
-                .position(|l| l.contains("mix(frame, print.rgb, inside)"))
-                .unwrap_or_else(|| panic!("{which} no longer merges print and frame"));
-            assert_eq!(
-                lines.iter().filter(|l| l.contains("print.rgb")).count(),
-                1,
-                "{which} reads the print twice"
+            // The print: sampled, finished, and nothing more.
+            let finish = format!(
+                "color = print_finish(color, uv, {angle}, t, params.finish, params.strength);"
             );
-            let after: Vec<&str> = lines[merge + 1..]
+            let finished = lines
                 .iter()
-                .copied()
-                .filter(|l| l.starts_with("color") || l.contains("color.rgb +"))
-                .collect();
+                .position(|l| *l == finish)
+                .unwrap_or_else(|| panic!("{which} no longer finishes the print"));
+            assert_eq!(
+                writes(&lines[..finished]),
+                ["var color = mix(flat, sampled, params.has_art);"],
+                "{which} writes to the print before its finish"
+            );
+            let after = writes(&lines[finished + 1..]);
             assert!(
                 after.len() >= 3,
-                "only {} writes after the merge in {which} — the scan has gone blind",
+                "only {} writes after the finish in {which} — the scan has gone blind",
                 after.len()
             );
             // A statement split over lines is read by its lines: the opening
@@ -2012,16 +1748,15 @@ pub(crate) mod tests {
                         || ["METAL_TONE", "door_layer(", "corner_sdf(uv)", "EDGE_INK"]
                             .iter()
                             .any(|allowed| line.contains(allowed)),
-                    "{which} draws on the print after the merge: {line}"
+                    "{which} draws on the print after its finish: {line}"
                 );
             }
 
-            // And the frame's inputs reach nothing but the frame.
-            for field in ["params.glow", "params.plate", "params.chips_a"] {
-                assert_eq!(
-                    body.matches(field).count(),
-                    1,
-                    "{which} reads {field} outside `frame_layer`"
+            // And the frame's inputs are gone from the card with the frame.
+            for field in ["params.glow", "params.plate", "params.chips", "print_cover"] {
+                assert!(
+                    !src.contains(field),
+                    "{which} reads {field}: the card says that on an object of its own"
                 );
             }
         }
@@ -2181,8 +1916,8 @@ pub(crate) mod tests {
     }
 
     /// Every mark the strip carries is the keyword it claims to be, the
-    /// three the paper speaks for are not on it twice, and none of the
-    /// twelve reaches the card's own material.
+    /// three protections are marks too since #298 took the paper away, and
+    /// none of the combat marks reaches the protection word.
     #[test]
     fn the_strip_carries_the_keywords_it_says_it_does() {
         use baylee_cards_dsl::KeywordSet;
@@ -2194,12 +1929,14 @@ pub(crate) mod tests {
         // which is the whole reason the two numberings are pinned rather
         // than assumed to be the same list.
         assert_eq!(slot(KeywordSet::PROWESS), 1 << 11);
-        // The paper's three keep the paper and stay off the strip.
-        assert_eq!(slot(KeywordSet::HEXPROOF), 0);
-        assert_eq!(slot(KeywordSet::INDESTRUCTIBLE), 0);
-        assert_eq!(slot(KeywordSet::SHROUD), 0);
-        // And a creature wearing six of them is one word with six bits in it,
-        // and a card material with none: the strip is the key for those.
+        // The paper's three were appended when the paper went (#298): the
+        // index is the wire and the atlas cell, so they could not go in
+        // front.
+        assert_eq!(slot(KeywordSet::HEXPROOF), 1 << 12);
+        assert_eq!(slot(KeywordSet::INDESTRUCTIBLE), 1 << 13);
+        assert_eq!(slot(KeywordSet::SHROUD), 1 << 14);
+        // And a creature wearing six combat keywords is one word with six
+        // bits in it, and no protection.
         let six = KeywordSet::FLYING
             .union(KeywordSet::TRAMPLE)
             .union(KeywordSet::LIFELINK)
@@ -2221,7 +1958,7 @@ pub(crate) mod tests {
     /// work.
     ///
     /// The twelve functions are gone and the question is not: `mark_pulse`
-    /// is one switch with twelve arms, and an arm that returns a constant is
+    /// is one switch with an arm per mark, and an arm that returns a constant is
     /// the same silence in one line instead of thirty. So a still arm
     /// declares itself with `STILL` in the comment above it. This is the
     /// build-time half of a claim that otherwise needs a camera: it cannot
@@ -2276,10 +2013,14 @@ pub(crate) mod tests {
             still.push(slot);
         }
 
-        assert_eq!(seen, 12, "twelve marks on the strip, twelve arms");
+        assert_eq!(
+            seen,
+            cardrail::MARK_ORDER.len(),
+            "a mark on the strip, an arm"
+        );
         assert_eq!(
             still,
-            [10],
+            [10, 12, 13, 14],
             "which marks hold still is a decision, and this is the list of it"
         );
         assert_eq!(
@@ -2309,7 +2050,7 @@ pub(crate) mod tests {
     /// makes a guard a change nobody could see.
     ///
     /// So what is pinned here is the **absence**. `which` is read exactly
-    /// twice between the not-found bail and the ink — the glyph and the
+    /// twice between the mark being chosen and the ink — the glyph and the
     /// accent — and a third use is somebody making the drawing depend on the
     /// mark's identity. That is a legitimate thing to want (#23 is open, and
     /// #24's lane wave rides the same `phase`), which is precisely why it
@@ -2319,20 +2060,18 @@ pub(crate) mod tests {
     #[test]
     fn the_ink_below_a_mark_is_not_told_which_mark_it_is() {
         let src = include_str!("shaders/card_common.wgsl");
-        let open = src.find("fn marks_strip(").expect("the strip");
+        let open = src.find("fn label_strip(").expect("the strip");
         let body = &src[open..];
         let body = &body[..body.find("\n}").expect("a brace at column zero")];
 
-        // The window: after the bail that proves a mark was found, up to and
-        // including the ink. Everything before it is *choosing* the mark, and
-        // reading `which` there is the point.
-        let bail = body
-            .find("if which == MARK_COUNT {")
-            .expect("the not-found bail");
-        let after = body[bail..].find('}').expect("the bail closes") + bail + 1;
+        // The window: after the line that names the mark the point is in, up
+        // to and including the ink. Everything before it is *choosing* the
+        // mark, and reading which one there is the point.
+        let bail = body.find("let which = hit - 2u;").expect("the mark chosen");
+        let after = body[bail..].find(';').expect("the line ends") + bail + 1;
         let ink = body.find("let ink =").expect("the ink");
         let ink = body[ink..].find(';').expect("the ink ends") + ink + 1;
-        assert!(after < ink, "the bail comes before the ink it guards");
+        assert!(after < ink, "the mark is chosen before it is inked");
 
         // WGSL has no string literals, so a line is code up to its `//`.
         let code = body[after..ink]
@@ -2353,7 +2092,7 @@ pub(crate) mod tests {
 
         assert_eq!(
             uses, 2,
-            "between the bail and the ink, `which` should be read exactly \
+            "between the choice and the ink, `which` should be read exactly \
              twice — `mark_sdf(which, ..)` for the glyph and `mark_color(which)` \
              for the accent. {uses} means the ink now depends on which mark it \
              is drawing, which is #23's decision and #102's claim: say so in \
@@ -2444,7 +2183,7 @@ struct Globals { time: f32 };
     /// Thirty numbers with no compiler between them, and every one of them
     /// fails silently: a slot boundary a bit out draws a 4/4 as a 0/16, a
     /// glyph word off by a copy-paste draws every 6 as an 8, and a geometry
-    /// constant that drifts puts the plate over the print. The
+    /// constant that drifts puts the plate off its strip. The
     /// packing is checked from the other side by
     /// `cardplate::tests::every_number_survives_the_packing`; this is the
     /// half that checks the shader agrees about where the bits are.
@@ -2454,7 +2193,6 @@ struct Globals { time: f32 };
         let src = include_str!("shaders/card_common.wgsl");
 
         for (name, ours) in [
-            ("LEDGE_PAD", plate::LEDGE_PAD),
             ("PLATE_W", plate::PLATE_W),
             ("PLATE_H", plate::PLATE_H),
             ("PLATE_PAD", plate::PLATE_PAD),
@@ -2498,7 +2236,6 @@ struct Globals { time: f32 };
             ("COUNT_MIN", plate::COUNT_MIN),
             ("COUNT_MAX", plate::COUNT_MAX),
             ("SWING_SET", plate::SWING_SET),
-            ("BASE_SET", plate::BASE_SET),
             ("TONE_SHIFT", plate::TONE_SHIFT),
             ("TONE_PLAIN", plate::TONE_PLAIN),
             ("TONE_DEADLY", plate::TONE_DEADLY),
@@ -2529,7 +2266,6 @@ struct Globals { time: f32 };
             ("TEXT_ADV_I", plate::TEXT_ADV[plate::GLYPH_I]),
             ("TEXT_ADV_V", plate::TEXT_ADV[plate::GLYPH_V]),
             ("TEXT_ADV_TIMES", plate::TEXT_ADV[plate::GLYPH_TIMES]),
-            ("BASE_AA", plate::BASE_AA),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
@@ -2857,61 +2593,22 @@ struct Globals { time: f32 };
 
         let tint = Color::srgb(0.2, 0.3, 0.4);
         let word = FACE_ON | 5 << 4 | 133 << FACE_NAME_SHIFT;
-        let face = CardLook::flat(tint, FinishTreatment::Plain, 0).with_face(word);
+        let face = CardLook::flat(tint, FinishTreatment::Plain).with_face(word);
         assert_eq!(material(face, None, tint, 1.0).params.face, word);
-        assert_ne!(face, CardLook::flat(tint, FinishTreatment::Plain, 0));
+        assert_ne!(face, CardLook::flat(tint, FinishTreatment::Plain));
 
         let key = ImageKey::new(PrintRef(0), 0, ArtSize::Normal);
         for look in [
-            CardLook::flat(tint, FinishTreatment::Plain, 0),
-            CardLook::art(key, FinishTreatment::Plain, 0),
-            CardLook::back(FinishTreatment::Plain, 0),
+            CardLook::flat(tint, FinishTreatment::Plain),
+            CardLook::art(key, FinishTreatment::Plain),
+            CardLook::back(FinishTreatment::Plain),
         ] {
             assert_eq!(material(look, None, tint, 1.0).params.face, 0, "{look:?}");
         }
     }
 
-    /// The frame is the same frame in both languages (#274).
-    ///
-    /// Everything this client draws on a card is placed against the print's
-    /// window, and the Rust half (`cardframe`) is what lays out whatever
-    /// lies beside the shader — a world-text face, a badge — so the two
-    /// have to agree to the digit. Compared rather than derived: WGSL cannot
-    /// import a Rust constant, and a test that recomputed one side from the
-    /// other would be agreeing with itself.
-    #[test]
-    fn the_frame_is_the_same_frame_in_both_languages() {
-        use baylee_client_core::cardframe as frame;
-        let src = include_str!("shaders/card_common.wgsl");
-        for (name, ours) in [
-            ("FRAME_SIDE", frame::FRAME_SIDE),
-            ("FRAME_TOP", frame::FRAME_TOP),
-            ("PRINT_SCALE", frame::PRINT_SCALE),
-            ("OFFER_REACH", frame::OFFER_REACH),
-            ("FRAME_NIGHT", frame::FRAME_NIGHT),
-        ] {
-            let theirs = wgsl_const(src, name);
-            assert!(
-                (theirs - ours).abs() < 1e-6,
-                "{name}: {ours} here, {theirs} in the shader"
-            );
-        }
-        for (name, ours) in [
-            ("FRAME_PAPER", frame::FRAME_PAPER),
-            ("FRAME_COMMANDER", frame::COMMANDER_PAPER),
-        ] {
-            let theirs = wgsl_vec3(src, name);
-            for c in 0..3 {
-                assert!(
-                    (theirs[c] - ours[c]).abs() < 1e-5,
-                    "{name}: {ours:?} here, {theirs:?} in the shader"
-                );
-            }
-        }
-    }
-
-    /// A token and a copy are the paper the HUD's slips are printed on, in
-    /// both languages, and the crests are where the atlas put them.
+    /// The crests' papers and ink are the same in both languages, and the
+    /// crests are where the atlas put them.
     ///
     /// The papers are keyed by the glyph index rather than written out in
     /// order, so a shader that swapped two of them fails here rather than
@@ -2926,7 +2623,6 @@ struct Globals { time: f32 };
             ("CREST_TOKEN", crest::GLYPH_TOKEN),
             ("CREST_COPY", crest::GLYPH_COPY),
             ("CREST_COMMANDER", crest::GLYPH_COMMANDER),
-            ("CREST_NONE", crest::GLYPH_COUNT),
         ] {
             assert!(
                 (wgsl_const(src, name) - ours as f32).abs() < 0.5,
@@ -2934,19 +2630,9 @@ struct Globals { time: f32 };
             );
         }
         for (name, ours) in [
-            ("CREST_W", crest::CREST_W),
-            ("CREST_X1", crest::CREST_X1),
-            ("CREST_GAP", crest::CREST_GAP),
-        ] {
-            let theirs = wgsl_const(src, name);
-            assert!(
-                (theirs - ours).abs() < 1e-5,
-                "{name}: {ours} here, {theirs} in the shader"
-            );
-        }
-        for (name, ours) in [
             ("PAPER_TOKEN", crest::PAPER[crest::GLYPH_TOKEN]),
             ("PAPER_COPY", crest::PAPER[crest::GLYPH_COPY]),
+            ("PAPER_COMMANDER", crest::PAPER[crest::GLYPH_COMMANDER]),
             ("CREST_INK", crest::CREST_INK),
         ] {
             let theirs = wgsl_vec3(src, name);
@@ -3007,13 +2693,13 @@ struct Globals { time: f32 };
         // flag as well as the handle.
         let flat = images.add(Image::default());
         let back = cache.get(
-            CardLook::back(FinishTreatment::Plain, 0),
+            CardLook::back(FinishTreatment::Plain),
             Some(flat.clone()),
             Color::BLACK,
             &mut assets,
         );
         let bare = cache.get(
-            CardLook::back(FinishTreatment::Plain, 1),
+            CardLook::back(FinishTreatment::Plain),
             None,
             Color::BLACK,
             &mut assets,
@@ -3022,7 +2708,7 @@ struct Globals { time: f32 };
         // the picture: both have no `ImageKey`, and the tint is what tells
         // them apart.
         let face = cache.get(
-            CardLook::flat(Color::srgb(0.2, 0.3, 0.4), FinishTreatment::Plain, 0),
+            CardLook::flat(Color::srgb(0.2, 0.3, 0.4), FinishTreatment::Plain),
             None,
             Color::srgb(0.2, 0.3, 0.4),
             &mut assets,

@@ -13,21 +13,11 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, print_uv, print_cover, frame_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
     finish: u32,
-    /// What the rules have made this card, plus what this client is
-    /// offering to do with it. The bits are `cardmat::glow`, never the
-    /// engine's keyword numbering.
-    glow: u32,
-    /// What the reserved bottom-right corner says, packed by
-    /// `cardplate::Plate::packed`: a creature's power, toughness and marked
-    /// damage, or a planeswalker's loyalty.
-    plate: u32,
-    chips_a: u32,
-    chips_b: u32,
     /// 1.0 when `art` holds real artwork.
     has_art: f32,
     /// How strongly the finish is applied.
@@ -55,9 +45,6 @@ struct CardParams {
 @group(1) @binding(0) var art: texture_2d<f32>;
 @group(1) @binding(1) var art_sampler: sampler;
 @group(1) @binding(2) var<uniform> params: CardParams;
-// The glyph atlas; see the table shader, which binds the same one.
-@group(1) @binding(3) var marks: texture_2d<f32>;
-@group(1) @binding(4) var marks_sampler: sampler;
 
 
 /// The view angle a still foil is drawn at: the one whose glint equals the
@@ -95,34 +82,19 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // |tilt| = 1 - √0.227).
     let tilt = mix(STILL_TILT, sin(t * 0.55), m);
 
-    // ---- the print, and the one thing ever drawn on it
+    // ---- the print, which is the whole card (#298)
     //
-    // The same window as the table's, from the same function, so a card
-    // picked up off the table is the same card. Nothing below this block
-    // writes to `print`.
-    let at = print_uv(uv);
-    let sampled = textureSample(art, art_sampler, at);
+    // The artwork, edge to edge, with its own finish: a foil is what that
+    // printing is. A card with no artwork is a flat colour and gets the same
+    // finish — a face-down foil is still a foil. Nothing this client says
+    // about the card is drawn here: the strip, the badge and the offer's
+    // light on the felt are objects of their own.
+    let sampled = textureSample(art, art_sampler, uv);
     // A card with no art stands its text face in the window where it has
-    // one (#259): drawn only where there is no print to cover.
+    // one (#259).
     let flat = select(params.tint, vec4<f32>(text_face(uv, params.face), 1.0), (params.face & FACE_ON) != 0u);
-    var print = mix(flat, sampled, params.has_art);
-    print = print_finish(print, at, tilt, t, params.finish, params.strength);
-
-    // ---- the frame, drawn by the one function the table uses
-    let frame = frame_layer(
-        uv,
-        params.glow,
-        params.plate,
-        params.chips_a,
-        params.chips_b,
-        t,
-        m,
-        globals.time,
-        marks,
-        marks_sampler,
-    );
-    let inside = print_cover(uv);
-    var color = vec4<f32>(mix(frame, print.rgb, inside), mix(1.0, print.a, inside));
+    var color = mix(flat, sampled, params.has_art);
+    color = print_finish(color, uv, tilt, t, params.finish, params.strength);
 
     // ---- light passing over the whole card: the arrival, or a door
     //
@@ -141,9 +113,8 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     // ---- the card's own corners
     //
-    // A UI node has no mesh to round, so the corner is cut here, in alpha.
-    // The scan's own white corners never get this far: they are outside the
-    // window, where the frame's paper is drawn.
+    // A UI node has no mesh to round, so the corner is cut here, in alpha,
+    // and the scan's own corners go with it.
     color.a *= 1.0 - smoothstep(-0.003, 0.003, corner_sdf(uv));
 
     return color;

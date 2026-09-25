@@ -10,7 +10,7 @@
 //!
 //! # Why a distance field and not a picture
 //!
-//! `marks_strip` does not draw a mark, it consumes a *signed distance* to
+//! `label_strip` does not draw a mark, it consumes a *signed distance* to
 //! one: the plate underneath, the halo (`exp(-d * 24)`), the ink ramp and the
 //! pulse are all arithmetic on `d`. A coverage bitmap has an edge and no
 //! distance, so it would keep the silhouette and lose everything around it.
@@ -671,8 +671,9 @@ mod tests {
     /// the glyph that nearly failed it. Measured over the shipped font: the
     /// middle row changes at 66 of 96 texels (defender, the plainest
     /// silhouette) to 95 (first strike, deathtouch), and the deepest texel of
-    /// a cell runs 158 (the two strikes, whose thickest stroke is a circle rim
-    /// six texels wide) to 223 (defender).
+    /// a cell runs 146 (hexproof since #298, an outlined shield whose rim is
+    /// the whole of its ink) and 158 (the two strikes, whose thickest stroke
+    /// is a circle rim six texels wide) to 223 (defender).
     ///
     /// The depth is measured over the whole cell and not along that walk,
     /// which is the finding rather than a convenience. The row through the
@@ -709,7 +710,7 @@ mod tests {
                 .max()
                 .expect("a cell has texels");
             assert!(
-                deepest > 150,
+                deepest > 140,
                 "{mark:?} is nowhere deeper than {deepest} inside its own ink"
             );
         }

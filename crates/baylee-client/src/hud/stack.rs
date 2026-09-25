@@ -1722,7 +1722,7 @@ fn spawn_stack_card(
             // Nothing on the stack is on a battlefield, so no glow: the
             // border says what the rules have made a *permanent*, and a
             // spell wearing one would be claiming something untrue.
-            CardLook::art(key, finish_of(statics, Some(key)), 0),
+            CardLook::art(key, finish_of(statics, Some(key))),
             cards,
             widths,
         );

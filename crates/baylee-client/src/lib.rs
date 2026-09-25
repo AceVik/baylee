@@ -60,6 +60,7 @@ pub mod face;
 pub mod feltmat;
 pub mod filterui;
 pub mod flip;
+pub mod floormat;
 pub mod frontal;
 pub mod gpu;
 pub mod hand_order;
@@ -1269,15 +1270,14 @@ fn add_present_systems(app: &mut App) {
             // because that is what the first pair is — a card that left this
             // frame is moved once before it is counted against its own clock,
             // so a table running at ten frames a second still shows the exit
-            // instead of skipping it. The last two read where the glide
-            // left each card: a flying one's shadow, a tapped one's badge.
+            // instead of skipping it. The last reads where the glide left
+            // each card: a flying one's shadow.
             (
                 combatfx::animate.before(table::sync_scene),
                 combatfx::age.before(table::sync_scene),
                 table::glide.after(table::sync_scene),
                 table::retire,
                 table::ground_the_shadows,
-                table::hold_badges_upright,
             )
                 .chain(),
             // After the glide, and deliberately: a line is welded to where
@@ -1573,6 +1573,7 @@ impl Plugin for DuelPlugin {
             .add_plugins(markatlas::MarkAtlasPlugin)
             .add_plugins(marksmat::MarksMaterialPlugin)
             .add_plugins(badgemat::BadgeMaterialPlugin)
+            .add_plugins(floormat::FloorMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
             .add_plugins(frontal::FrontalPlugin)
             .add_plugins(matmat::MatMaterialPlugin)

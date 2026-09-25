@@ -1,9 +1,8 @@
-//! What stands under a card on the table (#261): the slabs of its deck, in
-//! whose paper, jogged which way, and that the deck follows the count.
+//! What stands under a card on the table (#261): the slabs of its deck,
+//! jogged which way, and that the deck follows the count.
 
 use super::flying_tests::{creature, duel};
 use super::*;
-use crate::cardmat::glow;
 use bevy::ecs::world::CommandQueue;
 
 /// A table holding one merged card standing for `count`.
@@ -34,19 +33,10 @@ fn sync(
     materials: &mut Assets<CardMaterial>,
     card: Entity,
     placement: &Placement,
-    glow: u32,
 ) {
     let mut queue = CommandQueue::default();
     let mut commands = Commands::new(&mut queue, world);
-    sync_stack(
-        &mut commands,
-        index,
-        materials,
-        card,
-        placement,
-        glow,
-        MOVING,
-    );
+    sync_stack(&mut commands, index, materials, card, placement, MOVING);
     queue.apply(world);
 }
 
@@ -72,69 +62,9 @@ fn shadows(world: &mut World, card: Entity) -> Vec<(Entity, Transform)> {
         .collect()
 }
 
-/// A merged group's slabs wear the top card's identity — here a token's
-/// verdigris — and nothing else the top card is showing: the offer and the
-/// armed ring are the top card's, sickness is this turn's, protection is
-/// not a colour. And no slab carries a print.
-#[test]
-fn a_merged_card_stands_on_slabs_of_its_own_identity() {
-    let mut world = World::new();
-    let mut materials = Assets::<CardMaterial>::default();
-    let mut index = index();
-    let card = world.spawn_empty().id();
-    let placement = merged(3);
-    assert_eq!(
-        placement.shared,
-        glow::IDENTITY,
-        "a merged group's members are its own kind"
-    );
-
-    let top = glow::TOKEN | glow::ARMED | glow::SUMMONING_SICK | glow::HEXPROOF;
-    sync(
-        &mut world,
-        &mut index,
-        &mut materials,
-        card,
-        &placement,
-        top,
-    );
-    let under = slabs(&mut world, card);
-    assert_eq!(under.len(), 2, "three cards are a top card on two slabs");
-    for (_, handle) in &under {
-        let made = materials.get(handle).expect("a slab's material");
-        assert_eq!(
-            made.params.glow,
-            glow::TOKEN,
-            "a slab wears more than identity"
-        );
-        assert!(made.art.is_none(), "a slab carries a print");
-    }
-
-    // The same card as a pile's top: the cards under it are other cards.
-    let other = world.spawn_empty().id();
-    let mut pile = merged(3);
-    pile.object = ObjectId::new(99, 0);
-    pile.shared = 0;
-    sync(
-        &mut world,
-        &mut index,
-        &mut materials,
-        other,
-        &pile,
-        glow::COMMANDER,
-    );
-    for (_, handle) in slabs(&mut world, other) {
-        let made = materials.get(&handle).expect("a slab's material");
-        assert_eq!(
-            made.params.glow, 0,
-            "a commander on a pile made the cards under it commanders"
-        );
-    }
-}
-
 /// The slabs hang between the card's face and the foot of its deck, one per
 /// card under it up to the cap, and jog out right and left in turn — by the
-/// jog and no further, so what shows is the frame's paper.
+/// jog and no further. And no slab carries a print.
 #[test]
 fn the_slabs_hang_under_the_card_and_jog_in_turn() {
     for count in [2usize, 3, 8, 15, 40] {
@@ -142,18 +72,16 @@ fn the_slabs_hang_under_the_card_and_jog_in_turn() {
         let mut materials = Assets::<CardMaterial>::default();
         let mut index = index();
         let card = world.spawn_empty().id();
-        sync(
-            &mut world,
-            &mut index,
-            &mut materials,
-            card,
-            &merged(count),
-            0,
-        );
+        sync(&mut world, &mut index, &mut materials, card, &merged(count));
         let under = slabs(&mut world, card);
         assert_eq!(under.len(), stack_layers(count - 1), "{count} cards");
         let deck = stack_rise(count - 1);
-        for (i, (at, _)) in under.iter().enumerate() {
+        for (i, (at, handle)) in under.iter().enumerate() {
+            let made = materials.get(handle).expect("a slab's material");
+            assert!(
+                made.art.is_none(),
+                "{count} cards: slab {i} carries a print"
+            );
             assert!(
                 at.z < 0.0 && at.z >= -deck - 1e-6,
                 "{count} cards: slab {i} hangs at {}, outside the deck of {deck}",
@@ -184,8 +112,8 @@ fn the_slabs_hang_under_the_card_and_jog_in_turn() {
 /// once at spawn, a pile of Treasures that grew from two to twelve kept one
 /// slab under a card that had risen to stand on eleven.
 ///
-/// A change of paper alone rebuilds the slabs and keeps the shadow, which is
-/// what a flier's grounded shadow is remembered by.
+/// The same count again rebuilds nothing: the shadow is what a flier's
+/// grounded shadow is remembered by.
 #[test]
 fn the_deck_follows_the_count() {
     let mut world = World::new();
@@ -194,14 +122,7 @@ fn the_deck_follows_the_count() {
     let card = world.spawn_empty().id();
 
     for count in [2usize, 12, 1, 12] {
-        sync(
-            &mut world,
-            &mut index,
-            &mut materials,
-            card,
-            &merged(count),
-            0,
-        );
+        sync(&mut world, &mut index, &mut materials, card, &merged(count));
         let under = slabs(&mut world, card);
         assert_eq!(under.len(), stack_layers(count - 1), "{count} cards");
         let deck = stack_rise(count - 1);
@@ -227,36 +148,34 @@ fn the_deck_follows_the_count() {
     }
 
     let before = shadows(&mut world, card)[0].0;
-    sync(
-        &mut world,
-        &mut index,
-        &mut materials,
-        card,
-        &merged(12),
-        glow::TOKEN,
-    );
-    let under = slabs(&mut world, card);
-    assert_eq!(under.len(), 11);
-    for (_, handle) in under {
-        let made = materials.get(&handle).expect("a slab's material");
-        assert_eq!(made.params.glow, glow::TOKEN, "a slab kept the old paper");
-    }
+    let slabs_before: Vec<_> = slabs(&mut world, card)
+        .into_iter()
+        .map(|(at, _)| at)
+        .collect();
+    sync(&mut world, &mut index, &mut materials, card, &merged(12));
     assert_eq!(
         shadows(&mut world, card)[0].0,
         before,
-        "a new paper rebuilt the shadow"
+        "the same count rebuilt the shadow"
+    );
+    assert_eq!(
+        slabs(&mut world, card)
+            .into_iter()
+            .map(|(at, _)| at)
+            .collect::<Vec<_>>(),
+        slabs_before,
+        "the same count moved the slabs"
     );
 }
 
-/// A library is face down (CR 401.2), so it is backs all the way down: the
-/// frames are for a card lying on the table, and the library has none.
+/// A library is face down (CR 401.2), so it is backs all the way down.
 #[test]
 fn a_library_is_backs_all_the_way_down() {
     let mut world = World::new();
     // A handle of its own, so a slab wearing anything else is told apart.
     let mut materials = Assets::<CardMaterial>::default();
     let blank = materials.add(material(
-        CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0),
+        CardLook::flat(BACK_COLOR, FinishTreatment::Plain),
         None,
         BACK_COLOR,
         MOVING,

@@ -410,3 +410,30 @@ fn grouping_removes_the_overflow_that_distinct_cards_would_cause() {
     assert_eq!(lane.groups.len(), 1);
     assert!(!lane.overflowing);
 }
+
+/// Only a creature is modelled asleep, whatever a host says (CR 302.6). A
+/// land played this turn taps perfectly well, and a board where every fresh
+/// permanent wore the moon would be teaching a player something false. The
+/// view carries the narrower fact today; this is what holds if it ever
+/// carries the wider one again.
+#[test]
+fn only_a_creature_is_modelled_asleep() {
+    let mut bear = token(1, 0, "Bear", 2, 2);
+    bear.summoning_sick = true;
+    let mut land = token(2, 0, "Forest", 0, 0);
+    land.types = TypeSet::LAND;
+    land.power = None;
+    land.toughness = None;
+    land.summoning_sick = true;
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, [bear, land])
+        .build();
+    let m = model(&view);
+    let pod = m.pod(PlayerId::new(0)).expect("pod");
+    let asleep = |kind| pod.lane(kind).expect("the lane").groups[0].summoning_sick;
+    assert!(asleep(LaneKind::Creatures), "the creature sleeps");
+    assert!(
+        !asleep(LaneKind::Lands),
+        "a land that arrived this turn does not"
+    );
+}

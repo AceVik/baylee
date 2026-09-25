@@ -167,7 +167,7 @@ impl Reading<'_> {
         // writes its own numbers.
         let laid =
             crate::face::UiFace::lay(face, lang, width, crate::face::Detail::Full, &widths, 0);
-        let look = crate::cardmat::CardLook::back(finish, 0)
+        let look = crate::cardmat::CardLook::back(finish)
             .faced(crate::face::table_color(face.colors), laid.word);
         let node = commands
             .spawn((

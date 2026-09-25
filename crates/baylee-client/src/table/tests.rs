@@ -350,7 +350,7 @@ fn tapping_rotates_a_quarter_turn_but_keeps_the_card_on_the_table() {
 #[test]
 fn a_dressed_back_is_the_material_the_picture_would_have_built() {
     let picture = Handle::<Image>::default();
-    let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0);
+    let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain);
 
     let mut dressed = material(look, None, BACK_COLOR, MOVING);
     assert!(dressed.art.is_none() && dressed.params.has_art == 0.0);

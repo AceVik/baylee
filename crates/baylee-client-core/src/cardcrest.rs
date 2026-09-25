@@ -1,4 +1,4 @@
-//! The identity crests: what a permanent *is*, captioned on its ledge.
+//! The identity crests: what a permanent *is*, at the end of its strip.
 //!
 //! Two questions a board cannot otherwise answer, asked of every permanent
 //! and true of almost none of them. Is that a commander (CR 903.3)? And is
@@ -16,18 +16,18 @@
 //! and hanging into the art. All three were on the print, and since #274
 //! nothing this client draws is (`docs/legal.md` §3).
 //!
-//! So the answer is the frame's own **paper** now ([`PAPER`], drawn by
-//! `card_common.wgsl`'s `frame_paper`): verdigris for a token, violet for a
-//! copy, oxblood for a commander. That is what reads at the 94 pixels a
-//! table card is wide, and it is the slips' own idea taken whole — the
-//! colour was always the stock the mark was printed on, and the stock is the
-//! card's now. The glyphs stay as a **caption**: right-aligned on the ledge,
-//! in [`CREST_INK`], legible in the preview and deliberately not relied on
-//! at table size. A paper and a glyph are a legibility ladder, not the same
-//! claim twice.
+//! So the answer became the frame's own **paper** ([`PAPER`]): verdigris for
+//! a token, violet for a copy, oxblood for a commander, the slips' own idea
+//! taken whole — the colour was always the stock the mark was printed on.
+//! #298 took the frame away, and each crest is a square of its paper at the
+//! keyword strip's right end now (`cardrail::Strip`), the glyph printed on it
+//! in [`CREST_INK`]. The paper is what reads at the 94 pixels a table card
+//! is wide; the glyph is legible in the preview and deliberately not relied
+//! on at table size. A paper and a glyph are a legibility ladder, not the
+//! same claim twice.
 //!
-//! Like [`crate::cardplate`] this module draws nothing. It says where each
-//! crest is, which glyph it is and what it is printed on; `card_common.wgsl`
+//! Like [`crate::cardplate`] this module draws nothing. It says which glyph
+//! each crest is and what it is printed on; `card_common.wgsl`
 //! draws it and a mirror test in `baylee-client` reads the WGSL text and
 //! fails when the two drift.
 
@@ -81,39 +81,24 @@ pub const GLYPHS: [char; GLYPH_COUNT] = [
     '\u{e9c6}', // commander — the format's shield
 ];
 
-/// A crest's square, in card widths: the size of a keyword mark, so the
-/// card's glyphs are one alphabet at one size.
-pub const CREST_W: f32 = 0.085;
-
-/// Where the first crest's right edge sits, in card widths from the card's
-/// left edge.
-///
-/// Right-aligned, because the left of the ledge is the plate's: the numbers
-/// are what a fanned card has to show, and a caption for the preview can
-/// stand where only an uncovered card shows it.
-pub const CREST_X1: f32 = 0.955;
-
-/// The air between two crests, in card widths.
-pub const CREST_GAP: f32 = 0.012;
-
-/// The paper each identity is, by its glyph index: the frame's own stock
-/// for a token, a copy and a commander.
+/// The paper each identity is, by its glyph index: the stock a token's, a
+/// copy's and a commander's crest is printed on.
 ///
 /// Three papers, and each says the thing its mark says without being read as
 /// ink: verdigris is the colour of a thing conjured rather than printed,
 /// violet is what the swing already uses for a permanent that is not quite
-/// what it was, and a commander is oxblood — [`crate::cardframe::COMMANDER_PAPER`],
-/// which says why it is not the gilt it was on the slips.
+/// what it was, and a commander is oxblood: not gilt, which is this client's
+/// word for "yours" and sits too close to the armed light and the offer's
+/// amber, and a commander with an ability to activate is the common case.
 ///
 /// **Card stock, not writing paper.** These are *linear* values — the card
 /// shader mixes in linear light and the framebuffer converts — displayed
-/// around 175 of 255: dark enough to hold ink, to show a sleeping creature's
-/// night and the hexproof wash, and to sit beside a print without
-/// out-shouting it.
+/// around 175 of 255: dark enough to hold ink, and to sit on a dark strip
+/// over a print without out-shouting it.
 pub const PAPER: [[f32; 3]; GLYPH_COUNT] = [
     [0.396, 0.440, 0.418], // token — verdigris
     [0.429, 0.385, 0.506], // copy — violet
-    crate::cardframe::COMMANDER_PAPER,
+    [0.44, 0.17, 0.15],    // commander — oxblood
 ];
 
 /// The ink every crest is printed in, on all three papers.
@@ -122,15 +107,14 @@ pub const PAPER: [[f32; 3]; GLYPH_COUNT] = [
 /// the oxblood: a mid-tone paper holds neither a light ink nor a merely dark
 /// one, and the slips' ink measured 3.5:1 on it. This one is 4.8:1 there and
 /// better on the other two, and [`the ink test`](self) runs over **every**
-/// paper rather than the one it was drawn against. On a sleeping creature's
-/// night paper the crest is quieter still, which is fine for a caption.
+/// paper rather than the one it was drawn against.
 pub const CREST_INK: [f32; 3] = [0.008, 0.007, 0.006];
 
 /// The crests a permanent wears, packed, from the right.
 ///
 /// Provenance first, because it is the one a table actually wears — tokens
 /// are on most boards and commanders on few — so the crest that is usually
-/// there is the one anchored to the ledge's end.
+/// there is the first one after the marks.
 ///
 /// Packed rather than slotted: a lone commander takes the first crest. The
 /// column this replaces could not do that, because at seven pixels a shield
@@ -153,16 +137,6 @@ pub fn marks(provenance: crate::board::Provenance, commander: bool) -> [Option<u
         out[n] = Some(GLYPH_COMMANDER);
     }
     out
-}
-
-/// Crest `n`'s square on the card, `[x0, y0, x1, y1]` in card widths from
-/// the card's top-left corner, the first at the ledge's right end and the
-/// second one gap to its left, both on the ledge's middle line.
-#[must_use]
-pub const fn crest_rect(n: usize) -> [f32; 4] {
-    let x1 = CREST_X1 - (n as f32) * (CREST_W + CREST_GAP);
-    let mid = crate::cardplate::ledge_mid();
-    [x1 - CREST_W, mid - CREST_W * 0.5, x1, mid + CREST_W * 0.5]
 }
 
 #[cfg(test)]
@@ -261,28 +235,6 @@ mod tests {
                 "paper {i} ({paper:?}) holds the ink at only {ratio:.2}:1"
             );
         }
-    }
-
-    /// Two crests stand apart, the first at the ledge's right end and the
-    /// second exactly one gap to its left — the arithmetic that puts a glyph
-    /// over its neighbour if it drifts — and neither reaches the chip.
-    #[test]
-    fn the_crests_run_in_from_the_right_and_never_overlap() {
-        assert!((crest_rect(0)[2] - CREST_X1).abs() < 1e-6);
-        for n in 1..MAX_CRESTS {
-            let (this, before) = (crest_rect(n), crest_rect(n - 1));
-            assert!(
-                (before[0] - this[2] - CREST_GAP).abs() < 1e-6,
-                "crest {n} is not one gap left of crest {}",
-                n - 1
-            );
-        }
-        let last = crest_rect(MAX_CRESTS - 1)[0];
-        let chip = crate::cardplate::chip_rect()[2];
-        assert!(
-            last > chip,
-            "the crests reach {last}, over the chip ending at {chip}"
-        );
     }
 
     /// A wrong codepoint draws an empty box and no compiler can see it, so

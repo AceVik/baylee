@@ -1,10 +1,11 @@
-// The card surface: printed art, its physical finish, and whatever the rules
-// have made it right now.
+// The card surface: printed art, its physical finish, and the light passing
+// over it.
 //
-// One shader for all three because they compose on the same pixel — an
-// indestructible foil is a foil that also glows, not a third case — and
-// because a board of three hundred permanents can afford one pipeline and not
-// three.
+// Nothing the rules have made the card is drawn here any more (#298): the
+// print fills the card, and the strip (`marks.wgsl`), the count badge
+// (`badge.wgsl`) and the offer's light on the felt (`floor.wgsl`) are objects
+// of their own. One shader for every card because a board of three hundred
+// permanents can afford one pipeline and not several.
 //
 // # WebGL2
 //
@@ -16,22 +17,11 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, print_uv, print_cover, frame_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{print_finish, corner_sdf, sweep_amount, door_layer, DOOR_NONE, text_face, FACE_ON}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched, 3 holographic, 4 glitter, 5 galaxy.
     finish: u32,
-    /// What the rules have made this card, what it cannot do this turn, and
-    /// what this client is offering to do with it — the bits are
-    /// `cardmat::glow`. The keywords a card wears as marks are not here:
-    /// they are the strip's, which is its own object (`marks.wgsl`).
-    glow: u32,
-    /// What the reserved bottom-right corner says, packed by
-    /// `cardplate::Plate::packed`: a creature's power, toughness and marked
-    /// damage, or a planeswalker's loyalty.
-    plate: u32,
-    chips_a: u32,
-    chips_b: u32,
     /// 1.0 when `art` holds real artwork, 0.0 when the card draws as `tint`.
     has_art: f32,
     /// How strongly the finish is applied. Lets one material be dimmed
@@ -58,12 +48,6 @@ struct CardParams {
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var art: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var art_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> params: CardParams;
-// The glyph atlas the ledge's numerals and the identity crests are drawn
-// from: one row of square distance fields, baked at startup by
-// `markatlas.rs`. Every card material carries the same handle, so this is one
-// texture for the whole table.
-@group(#{MATERIAL_BIND_GROUP}) @binding(3) var marks: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(4) var marks_sampler: sampler;
 
 
 /// The lamp over the table.
@@ -122,37 +106,21 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let m = params.motion;
     let t = globals.time * m;
 
-    // ---- the print, and the one thing ever drawn on it
+    // ---- the print, which is the whole card (#298)
     //
-    // The artwork, sampled through the window, with its own finish: a foil is
-    // what that printing is. A card with no artwork is a flat colour and gets
-    // the same finish — a face-down foil is still a foil. Nothing below this
-    // block writes to `print`.
-    let at = print_uv(uv);
-    let sampled = textureSample(art, art_sampler, at);
+    // The artwork, edge to edge, with its own finish: a foil is what that
+    // printing is. A card with no artwork is a flat colour and gets the same
+    // finish — a face-down foil is still a foil. Nothing this client says
+    // about the card is drawn here: the strip, the badge and the offer's
+    // light on the felt are objects of their own.
+    let sampled = textureSample(art, art_sampler, uv);
     // A card with no art stands its text face in the window where it has
-    // one (#259): drawn only where there is no print to cover.
+    // one (#259).
     let flat = select(params.tint, vec4<f32>(text_face(uv, params.face), 1.0), (params.face & FACE_ON) != 0u);
-    var print = mix(flat, sampled, params.has_art);
-    print = print_finish(print, at, facing, t, params.finish, params.strength);
+    var color = mix(flat, sampled, params.has_art);
+    color = print_finish(color, uv, facing, t, params.finish, params.strength);
 
-    // ---- the frame, where everything this client says about the card lives
-    let frame = frame_layer(
-        uv,
-        params.glow,
-        params.plate,
-        params.chips_a,
-        params.chips_b,
-        t,
-        m,
-        globals.time,
-        marks,
-        marks_sampler,
-    );
-    let inside = print_cover(uv);
-    var color = vec4<f32>(mix(frame, print.rgb, inside), mix(1.0, print.a, inside));
-
-    // ---- light passing over the whole card, print and frame alike
+    // ---- light passing over the whole card
     //
     // The lamp's pool, and the one-shot sheen for a card that has just
     // arrived — a spell resolving on to the battlefield is the whole of what
@@ -187,8 +155,8 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // the same colour as the card's edge wall rather than cut, because the
     // mesh is opaque and a hole in it would show the felt through the card.
     // The same ink lands as a hairline along the straight edges, which is
-    // what a real card has. The scan's own white corners never get this far:
-    // they are outside the window, and the frame's paper is drawn there.
+    // what a real card has, and covers the scan's own corners, which a
+    // printing's image fills with whatever it was photographed against.
     let outside = smoothstep(-0.004, 0.004, corner_sdf(uv));
     color = vec4<f32>(mix(color.rgb, EDGE_INK, outside), color.a);
 

@@ -258,10 +258,9 @@ type Tap = (&'static str, fn(usize) -> bool);
 type Laid = (Entity, [Vec2; 4]);
 
 /// Every card of `placed` at its resting pose with its badge on it, as the
-/// scene spawns them, and [`hold_badges_upright`] run over them: each card's
-/// pose and entity, and each badge's quad on the table.
+/// scene spawns them: each card's pose and entity, and each badge's quad on
+/// the table.
 fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>) {
-    use bevy::ecs::system::RunSystemOnce;
     let mut world = World::new();
     let mut index = SceneIndex {
         badge_quad: Some(Handle::default()),
@@ -281,9 +280,6 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
         sync_badge(&mut commands, &mut index, &mut materials, card, placement);
         queue.apply(&mut world);
     }
-    world
-        .run_system_once(hold_badges_upright)
-        .expect("the system runs");
     let [x0, y0, x1, y1] = cardplate::badge_quad_rect();
     let half = Vec2::new((x1 - x0) * CARD_WIDTH, (y1 - y0) * DOWN_THE_CARD) * 0.5;
     let laid = world
@@ -304,20 +300,27 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
     (poses, cards, laid)
 }
 
-/// No count badge lies on another card's print (#274), wherever the table
-/// puts the cards.
+/// A count badge lies on no card but the ones before it in its own row
+/// (#274, #298), wherever the table puts the cards.
+///
+/// The print fills the card since #298 and the badge hangs off the card's
+/// top-left corner, outside it — the owner's placement — so in a fanned row
+/// it lies over the cards before it, which the row has already covered with
+/// the cards after them, and in a row with less room between two cards than
+/// the badge overhangs it lies on the corner of the card before it: the
+/// owner accepted both. What it may not do is reach anything else: the next
+/// lane, another seat, or a card laid over its own.
 ///
 /// Every badge is spawned as the scene spawns it, on its card at the card's
-/// resting pose, [`hold_badges_upright`] is run over them, and each badge's
-/// quad, shadow and all, is laid against every other card's print window on
-/// the table. A duel and a ring of eight; rows of two to forty in all three
-/// lanes, so the tightest fan (0.26 of a card, asserted) and the lane before
-/// and behind are all there; untapped, all tapped and every other one
-/// tapped; and a creature staged into combat beside a merged one, half a
-/// card forward of its row, which is where a badge above the top edge
-/// failed.
+/// resting pose, and each badge's quad, shadow and all, is laid against
+/// every other card on the table. A duel and a ring of eight; rows of two to
+/// forty in all three lanes, so the tightest fan (0.26 of a card, asserted)
+/// and the lane before and behind are all there; untapped, all tapped and
+/// every other one tapped, a tapped badge turning with its card; and a
+/// creature staged into combat beside a merged one, half a card forward of
+/// its row, which is where a badge above the top edge failed.
 #[test]
-fn no_badge_lies_on_another_card_s_print() {
+fn a_badge_lies_only_on_a_card_its_own_card_lies_on() {
     use baylee_client_core::layout::{MIN_VISIBLE_FRACTION, STAGE_STEP};
     let taps: [Tap; 3] = [
         ("untapped", |_| false),
@@ -330,6 +333,11 @@ fn no_badge_lies_on_another_card_s_print() {
             for (tap, tapped) in taps {
                 for staged in [false, true] {
                     let mut placed = placements(&crowded(seats, n, tapped));
+                    assert_eq!(
+                        placed.len(),
+                        usize::from(seats) * 3 * n,
+                        "three rows a seat"
+                    );
                     // The first two cards of the local seat's creature row.
                     let row: Vec<usize> = (1..=2)
                         .filter_map(|slot| placed.iter().position(|p| p.object == obj(slot)))
@@ -346,21 +354,26 @@ fn no_badge_lies_on_another_card_s_print() {
                         }
                     }
                     let (poses, cards, laid) = laid_badges(&placed);
-                    let windows: Vec<[Vec2; 4]> = poses
-                        .iter()
-                        .map(|pose| on_table(pose, baylee_client_core::cardframe::window()))
-                        .collect();
+                    let whole = [0.0, 0.0, 1.0, cardrail::CARD_TALL];
+                    let bodies: Vec<[Vec2; 4]> =
+                        poses.iter().map(|pose| on_table(pose, whole)).collect();
                     for (card, badge) in &laid {
                         badges += 1;
-                        let own = cards.iter().position(|c| c == card);
-                        for (other, window) in windows.iter().enumerate() {
-                            if own == Some(other) {
+                        let own = cards
+                            .iter()
+                            .position(|c| c == card)
+                            .expect("a badge on a card");
+                        // `placements` walks the model in order, so a row is
+                        // `n` placements in a run, earliest card first.
+                        for (other, body) in bodies.iter().enumerate() {
+                            let before = other / n == own / n && other < own;
+                            if own == other || before || overlap(&bodies[own], body) {
                                 continue;
                             }
                             pairs += 1;
                             assert!(
-                                !overlap(badge, window),
-                                "{seats} seats, rows of {n}, {tap}{}: a badge lies on the print of {:?}",
+                                !overlap(badge, body),
+                                "{seats} seats, rows of {n}, {tap}{}: a badge lies on {:?}, which its card does not",
                                 if staged { ", one staged" } else { "" },
                                 placed[other].object
                             );

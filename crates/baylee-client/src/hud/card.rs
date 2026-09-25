@@ -108,7 +108,9 @@ pub(super) fn spawn_card_art(
         // Laid out before the card is made, because the material is keyed
         // by the face's word, and the word carries the depths of the bars
         // the fit chose.
-        let laid = crate::face::UiFace::lay(face, lang, width, detail, widths, surface.plate);
+        // No strip lies over a text face in the interface, so the face
+        // writes its own numbers: the plate it is told about is none.
+        let laid = crate::face::UiFace::lay(face, lang, width, detail, widths, 0);
         let tint = crate::face::table_color(face.colors);
         let card = commands
             .spawn(Node {

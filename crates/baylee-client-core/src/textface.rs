@@ -41,15 +41,18 @@
 //! font has arrived, [`average_width`] does.
 //!
 //! Lengths are card widths from the card's top-left corner, `y` growing down
-//! the card, and rectangles are `[x0, y0, x1, y1]` — [`crate::cardframe`]'s
+//! the card, and rectangles are `[x0, y0, x1, y1]` — [`crate::cardrail`]'s
 //! convention.
 
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 
-use crate::cardframe;
+use crate::cardrail::CARD_TALL;
 
-/// The dark border round the face, inside the print's window, in card widths.
+/// The face's window: the whole card, since the print fills it (#298).
+const WINDOW: [f32; 4] = [0.0, 0.0, 1.0, CARD_TALL];
+
+/// The dark border round the face, inside the card's edge, in card widths.
 pub const BORDER: f32 = 0.040;
 
 /// Air above and below a bar's line of text, in card widths.
@@ -74,7 +77,10 @@ pub const BOX_GAP: f32 = 0.012;
 /// of the window under it is the foot: the border's colour and empty, where a
 /// print has its collector line — there is none to write, and a made-up one
 /// would be a claim.
-pub const TEXT_FOOT: f32 = 1.155;
+///
+/// The same share of the face the foot was inside the frame's window before
+/// #298 took the frame away: 0.905 of the face's height.
+pub const TEXT_FOOT: f32 = 1.264;
 
 /// How far a line of text stands in from the bar's ends, in card widths.
 pub const TEXT_INSET: f32 = 0.014;
@@ -94,7 +100,8 @@ pub const TYPE_FLOOR_EM: f32 = 0.09;
 /// What a string is taken to advance per character, in ems, before the font
 /// has arrived to say: Alegreya Sans Regular's mean advance over the pool's
 /// 2715 card names, 0.420. It answers the one-line-or-two question as the
-/// font does for all but 179 of them, and those are refitted when the font
+/// font does for all but 54 of the pool's 2835 names at the face's width
+/// since #298 (179 at the frame's narrower one), and those are refitted when the font
 /// arrives.
 pub const AVERAGE_ADVANCE: f32 = 0.42;
 
@@ -114,7 +121,7 @@ pub const fn bar(em: f32) -> f32 {
 /// The face's inside, left to right: the window less its border.
 #[must_use]
 pub const fn content_x() -> [f32; 2] {
-    let [x0, _, x1, _] = cardframe::window();
+    let [x0, _, x1, _] = WINDOW;
     [x0 + BORDER, x1 - BORDER]
 }
 
@@ -149,7 +156,7 @@ impl Regions {
     #[must_use]
     pub fn new(depths: Depths) -> Self {
         let [x0, x1] = content_x();
-        let top = cardframe::FRAME_TOP + BORDER;
+        let top = WINDOW[1] + BORDER;
         let name_end = top + depths.name_bar();
         let type_end = seam() + depths.type_bar();
         Self {
@@ -788,7 +795,7 @@ mod tests {
     /// card's order down it without overlapping, and each has room.
     #[test]
     fn the_face_is_laid_out_inside_the_window_in_a_card_s_order() {
-        let [wx0, wy0, wx1, wy1] = cardframe::window();
+        let [wx0, wy0, wx1, wy1] = WINDOW;
         let inner = [wx0 + BORDER, wy0 + BORDER, wx1 - BORDER, wy1 - BORDER];
         for lines in [1, 2] {
             let r = Regions::table(lines);
@@ -818,8 +825,9 @@ mod tests {
         for lines in [1, 2] {
             let r = Regions::table(lines);
             for n in 0..=cardrail::MARK_ORDER.len() {
+                let strip = cardrail::Strip::new((1 << n) - 1, None, false, [None, None]);
                 assert!(
-                    cardrail::strip_rect(n)[3] <= r.type_bar[1] + 1e-6,
+                    strip.rect()[3] <= r.type_bar[1] + 1e-6,
                     "{n} marks reach into the type bar"
                 );
             }
@@ -834,7 +842,7 @@ mod tests {
     fn the_tallest_strip_stays_under_the_cost_line() {
         let r = Regions::table(2);
         let cost_bottom = r.art_box[1] + bar(SMALL_EM);
-        let tallest = cardrail::strip_rect(cardrail::MARK_ORDER.len());
+        let tallest = cardrail::Strip::largest().rect();
         assert!(
             cost_bottom <= tallest[1],
             "the cost line ends at {cost_bottom} and a full strip starts at {}",
@@ -956,13 +964,13 @@ mod tests {
             ),
             // Both, when one is not enough.
             (
-                "Legendary Artifact Creature — Human Soldier",
+                "Legendary Enchantment Artifact Creature — Human Soldier",
                 "Human Soldier",
             ),
             // Subtypes alone still too long: cut from the end, whole.
             (
                 "Creature — Human Soldier Warrior Knight Cleric",
-                "Human Soldier Warrior…",
+                "Human Soldier Warrior Knight…",
             ),
             // No subtypes: the card types stay.
             (
@@ -1090,7 +1098,7 @@ mod tests {
 
         // The name steps down, then breaks, inside the room the cost left.
         let room = preview.name_room;
-        let long = "A".repeat(40);
+        let long = "A".repeat(60);
         let fitted = fit_name_in(&preview, &long, mono);
         assert_eq!(fitted.lines.len(), 2);
         for line in &fitted.lines {

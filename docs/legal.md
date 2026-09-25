@@ -130,22 +130,37 @@ Urheber- und Medienrecht.
 
    **Nothing we paint lies on a card image** (#274). Scryfall asks that an
    image is not covered, cropped, tinted or stamped, and the artist's name
-   and the © line run along its bottom edge. So the client draws a print
-   whole, scaled into a window of a frame that is ours, and everything it
-   says about the card — identity, offers, numbers — is on that frame. One
-   object of ours overlaps the print, by the owner's decision: the
-   **keyword strip**, a small dark plate with its own contact shadow lying on
-   the card over the art's bottom-left edge, where a modern frame's art meets
-   its type line. It is an object over the card, not paint in the image, and
-   it never lies over the name, the cost, the type line or the artist
-   (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`).
+   and the © line run along its bottom edge. #274 drew each print whole in
+   the window of a frame of ours and said everything about the card on the
+   frame; the owner did not want the frame, and since #298 the print fills
+   the card again and what the frame said lies on **objects** of ours, each
+   with its own shadow, none of them paint in the image. Three of them touch
+   a card, each by the owner's decision:
+   - the **strip**, a small dark label lying on the art's bottom-left edge,
+     where a modern frame's art meets its type line. The owner allowed it
+     wider under #298, carrying the power/toughness plate and its counter
+     chip, the sleep moon and the identity crests beside the keyword marks,
+     on one condition: it reads as a lifted object over the card with its
+     own shadow. It never lies over the name, the cost, the type line or the
+     artist (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`);
+   - the **count badge** of a merged group, hanging off the card's top-left
+     corner, outside it. It overhangs the felt and, in a tight row, the card
+     or cards before it in the same row — their art and, in the tightest
+     rows, their top-right cost corner — which the owner accepted as the
+     price of keeping it off its own card's print
+     (`cardplate::nothing_of_the_badge_reaches_past_the_printed_border`,
+     `table::badge_tests::a_badge_lies_only_on_a_card_its_own_card_lies_on`);
+   - the **offer's light** on the felt round a card, which the card lies on
+     and which the next card of a fanned lane covers; the owner accepted
+     that it shows only on the felt there.
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival
    sweep and the zone-change doors. The brushed coating every card used to
    wear lifted the image's blacks, the artist's line included, and was taken
    off. `cardmat::nothing_but_the_finish_is_drawn_on_the_print` holds both
-   card shaders to that; `docs/client.md` §"The card surface" has the frame.
+   card shaders to that; `docs/client.md` §"The print fills the card" has
+   the rest.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking. As a private, GitHub-hosted open-source project

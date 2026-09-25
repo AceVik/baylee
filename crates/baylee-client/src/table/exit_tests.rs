@@ -168,7 +168,6 @@ fn plain(materials: &mut Assets<CardMaterial>) -> Handle<CardMaterial> {
         CardLook::flat(
             Color::srgb(0.5, 0.5, 0.5),
             baylee_client_core::images::FinishTreatment::Plain,
-            0,
         ),
         None,
         Color::srgb(0.5, 0.5, 0.5),

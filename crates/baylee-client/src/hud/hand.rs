@@ -260,30 +260,13 @@ pub(super) fn spawn_hand_zone(
             // is read (#259).
             crate::face::Detail::Compact,
             fonts,
-            // A card in hand is not on a battlefield, so no keyword glow: the
-            // border tells a player what is protected *there*, and a hand
-            // that glowed would be saying something that is not yet true.
-            // The armed ring is not a keyword and is drawn — it is a claim
-            // about the card *in the hand*, and the hand is where the player
-            // is looking when they arm a spell.
-            //
-            // The crest is the same exception for the same reason. It is not
-            // a battlefield truth that has to wait: a commander is a
-            // commander in every zone, and this is the zone CR 903.9b leaves
-            // it in. `glow_of` cannot supply it here because a `HandObject`
-            // is not a `PublicObject`, so the one bit it can say is added at
-            // the call site.
-            CardLook::art(
-                card.art,
-                finish_of(statics, Some(card.art)),
-                crate::cardmat::glow_of(None, offer)
-                    | if card.commander {
-                        crate::cardmat::glow::COMMANDER
-                    } else {
-                        0
-                    },
-            )
-            .with_sweep(sheen.of(card.id, crate::sheen::Surface::Hand)),
+            // The print and its finish, and nothing of ours on it (#298).
+            // What the frame said here — the armed ring, a commander's
+            // paper — went with the frame: the halo round the card says
+            // what can be done with it, and an armed card stands out of the
+            // row besides.
+            CardLook::art(card.art, finish_of(statics, Some(card.art)))
+                .with_sweep(sheen.of(card.id, crate::sheen::Surface::Hand)),
             cards.as_deref_mut(),
             &faces.widths,
         );

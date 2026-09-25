@@ -1,5 +1,5 @@
 //! The keyword strip's material: a card's marks as an object lying on it
-//! (#274).
+//! (#274), and since #298 its label — the plate, the moon, the crests.
 //!
 //! The marks rode the card's own material as a rail along the print's bottom
 //! edge until #274, over the artist and the copyright line. They are an
@@ -7,13 +7,13 @@
 //! seam between the art and the type line — so they are a quad and a material
 //! of their own, and the card's material has no dimension for them at all.
 //! `baylee_client_core::cardrail` says where the quad lies on the card;
-//! `card_common.wgsl`'s `marks_strip` draws inside it, for both shaders here.
+//! `card_common.wgsl`'s `label_strip` draws inside it, for both shaders here.
 //!
-//! **The material key is the word and nothing else.** Every strip is the same
-//! quad, and the shader sizes the strip inside it from the twelve-bit word
-//! (`cardrail::mark_bits`), so a lane of twelve Soldiers with the same
-//! keywords is one material however long it is, and a table has at most one
-//! strip material per distinct set of keywords on it. The clock is on the
+//! **The material key is the strip and nothing else.** Every strip is the
+//! same quad, and the shader sizes the strip inside it from its words
+//! (`cardrail::Strip`), so a lane of twelve Soldiers saying the same thing is
+//! one material however long it is, and a table has at most one strip
+//! material per distinct thing its strips say. The clock is on the
 //! material rather than in the key, for the reason
 //! [`CardParams::motion`](crate::cardmat::CardParams::motion) gives.
 
@@ -28,9 +28,9 @@ use crate::cardmat::motion_of;
 
 /// What the strip's shader reads.
 ///
-/// Sixteen bytes, deliberately: a uniform block under the GL backend is laid
-/// out `std140`, which rounds it up to sixteen, and a buffer that bound
-/// eight would be shorter than the block it feeds.
+/// Thirty-two bytes, deliberately: a uniform block under the GL backend is
+/// laid out `std140`, which rounds it up to a multiple of sixteen, and a
+/// buffer shorter than the block it feeds would not bind.
 #[derive(Clone, Copy, Debug, Default, PartialEq, ShaderType)]
 pub struct MarksParams {
     /// The marks, one bit each in `cardrail::MARK_ORDER`'s order.
@@ -41,18 +41,53 @@ pub struct MarksParams {
     /// The quad's size in card widths, [`cardrail::quad_rect`]'s: what turns
     /// the quad's UV into the lengths the strip is laid out in.
     pub quad: Vec2,
+    /// The plate, [`cardrail::Strip::plate`].
+    pub plate: u32,
+    /// The chip and the tone, [`cardrail::Strip::swing`].
+    pub swing: u32,
+    /// The moon and the crests, [`cardrail::Strip::label`].
+    pub label: u32,
+    /// The block's last four bytes.
+    pub pad: u32,
 }
 
 impl MarksParams {
-    /// The strip for `bits`, on the clock `motion`.
+    /// The shader's words for `strip`, on the clock `motion`.
     #[must_use]
-    pub fn new(bits: u32, motion: f32) -> Self {
+    pub fn new(strip: cardrail::Strip, motion: f32) -> Self {
         Self {
-            bits,
+            bits: strip.marks,
             motion,
             quad: quad_size(),
+            plate: strip.plate,
+            swing: strip.swing,
+            label: strip.label,
+            pad: 0,
         }
     }
+}
+
+/// What the strip over one permanent's art says, read off the object itself:
+/// the preview's strip, which has no board group behind it.
+///
+/// The table builds the same strip from the permanent's group, and both come
+/// from the same doors — [`cardrail::mark_bits`], `Corner::of_object`,
+/// [`board::asleep`](baylee_client_core::board::asleep) and
+/// [`cardcrest::marks`](baylee_client_core::cardcrest::marks) — so a card
+/// held up in the preview says what it says on the table. The preview shows
+/// the whole print, so the plate is on it only where the print cannot say
+/// the numbers.
+#[must_use]
+pub fn strip_of(object: &baylee_view::PublicObject) -> cardrail::Strip {
+    use baylee_client_core::{board, cardcrest, cardplate::Corner};
+    let corner = Corner::of_object(object);
+    let provenance = board::provenance_of(object, crate::cardart::registry());
+    cardrail::Strip::new(
+        cardrail::mark_bits(object.keywords),
+        corner.shows_plate(true, false).then_some(corner),
+        board::asleep(object),
+        cardcrest::marks(provenance, object.commander),
+    )
 }
 
 /// The strip's quad, `[width, height]` in card widths.
@@ -65,23 +100,29 @@ pub fn quad_size() -> Vec2 {
 /// The strip on a card lying on the table.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct MarksMaterial {
-    /// The word and the clock.
+    /// The strip and the clock.
     #[uniform(0)]
     pub params: MarksParams,
-    /// The glyph atlas, always [`crate::markatlas::MARKS`] — see
-    /// [`CardMaterial::marks`](crate::cardmat::CardMaterial::marks) for why
-    /// it is not an `Option`.
+    /// The glyph atlas the marks, the plate's numerals and the crests are
+    /// drawn from, baked at startup.
+    ///
+    /// Always [`crate::markatlas::MARKS`], which is why it is not an
+    /// `Option`: the handle is filled with a blank field before any material
+    /// is built, so there is no moment at which a strip could be asked to
+    /// bind an image that does not exist — and a `None` here would bind the
+    /// fallback white texture, which decodes as a distance of -0.25
+    /// everywhere and floods every glyph with ink.
     #[texture(1)]
     #[sampler(2)]
     pub marks: Handle<Image>,
 }
 
 impl MarksMaterial {
-    /// The strip for `bits`.
+    /// The material for `strip`.
     #[must_use]
-    pub fn new(bits: u32, motion: f32) -> Self {
+    pub fn new(strip: cardrail::Strip, motion: f32) -> Self {
         Self {
-            params: MarksParams::new(bits, motion),
+            params: MarksParams::new(strip, motion),
             marks: crate::markatlas::MARKS,
         }
     }
@@ -107,7 +148,7 @@ impl Material for MarksMaterial {
 /// The same strip, on a card drawn as a UI node: the preview.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct MarksUiMaterial {
-    /// The word and the clock.
+    /// The strip and the clock.
     #[uniform(0)]
     pub params: MarksParams,
     /// The glyph atlas; see [`MarksMaterial::marks`].
@@ -122,33 +163,33 @@ impl UiMaterial for MarksUiMaterial {
     }
 }
 
-/// UI strip materials, one per word.
+/// UI strip materials, one per strip.
 ///
 /// The preview is rebuilt whenever the game moves, so a material minted per
-/// rebuild would grow `Assets` for as long as the duel lasted; one per word
-/// is at most one per distinct set of keywords ever previewed. Holding still
+/// rebuild would grow `Assets` for as long as the duel lasted; one per strip
+/// is at most one per distinct thing a previewed strip has said. Holding still
 /// is rewritten in place, the way
 /// [`UiCardMaterials::set_still`](crate::cardmat::UiCardMaterials::set_still)
 /// does it and for its reasons.
 #[derive(Resource, Default)]
 pub struct UiMarksMaterials {
-    made: HashMap<u32, Handle<MarksUiMaterial>>,
+    made: HashMap<cardrail::Strip, Handle<MarksUiMaterial>>,
     still: bool,
 }
 
 impl UiMarksMaterials {
-    /// The material for `bits`, made once.
+    /// The material for `strip`, made once.
     pub fn get(
         &mut self,
-        bits: u32,
+        strip: cardrail::Strip,
         assets: &mut Assets<MarksUiMaterial>,
     ) -> Handle<MarksUiMaterial> {
         let motion = motion_of(self.still);
         self.made
-            .entry(bits)
+            .entry(strip)
             .or_insert_with(|| {
                 assets.add(MarksUiMaterial {
-                    params: MarksParams::new(bits, motion),
+                    params: MarksParams::new(strip, motion),
                     marks: crate::markatlas::MARKS,
                 })
             })
@@ -249,7 +290,7 @@ struct Globals { time: f32 };
     /// [`MarksParams`] claims and the GL backend needs.
     #[test]
     fn the_strip_uniform_is_one_block() {
-        assert_eq!(MarksParams::min_size().get(), 16);
+        assert_eq!(MarksParams::min_size().get(), 32);
     }
 
     /// The two shaders declare the uniform in the order Rust lays it out.
@@ -272,31 +313,46 @@ struct Globals { time: f32 };
                 .collect();
             assert_eq!(
                 fields,
-                ["bits: u32,", "motion: f32,", "quad: vec2<f32>,"],
+                [
+                    "bits: u32,",
+                    "motion: f32,",
+                    "quad: vec2<f32>,",
+                    "plate: u32,",
+                    "swing: u32,",
+                    "label: u32,",
+                    "pad: u32,"
+                ],
                 "{which} lays the uniform out differently from `MarksParams`"
             );
         }
     }
 
-    /// One material per word, and holding still is rewritten on the ones
+    /// One material per strip, and holding still is rewritten on the ones
     /// already made rather than minting new ones.
     #[test]
-    fn a_word_is_one_material_and_holds_still_in_place() {
+    fn a_strip_is_one_material_and_holds_still_in_place() {
         let mut assets = Assets::<MarksUiMaterial>::default();
         let mut cache = UiMarksMaterials::default();
-        let flying = cache.get(1, &mut assets);
+        let strip = |marks, sick| cardrail::Strip::new(marks, None, sick, [None, None]);
+        let flying = cache.get(strip(1, false), &mut assets);
         assert_eq!(
-            cache.get(1, &mut assets),
+            cache.get(strip(1, false), &mut assets),
             flying,
-            "the same word, the same material"
+            "the same strip, the same material"
         );
-        let other = cache.get(1 | 1 << 8, &mut assets);
+        let other = cache.get(strip(1 | 1 << 8, false), &mut assets);
         assert_ne!(other, flying, "another word, another material");
-        assert_eq!(assets.len(), 2);
+        let asleep = cache.get(strip(1, true), &mut assets);
+        assert_ne!(asleep, flying, "the moon is part of the key");
+        assert_eq!(
+            assets.get(&asleep).map(|m| m.params.label),
+            Some(cardrail::label::MOON)
+        );
+        assert_eq!(assets.len(), 3);
 
         cache.set_still(true, &mut assets);
-        assert_eq!(assets.len(), 2, "holding still made materials");
-        for handle in [&flying, &other] {
+        assert_eq!(assets.len(), 3, "holding still made materials");
+        for handle in [&flying, &other, &asleep] {
             let made = assets.get(handle).expect("still there");
             assert!(
                 made.params.motion.abs() < f32::EPSILON,

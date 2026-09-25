@@ -469,7 +469,7 @@ fn the_dodge_is_to_the_nearer_side_of_the_drawer() {
 fn a_preview_keeps_its_count_badge_on_the_screen() {
     use crate::hud::overlay::{badge_reach, place_with_badge};
     let [_, qy0, _, qy1] = baylee_client_core::cardplate::badge_quad_rect();
-    let past = (-qy0).max(qy1 - baylee_client_core::cardframe::CARD_TALL);
+    let past = (-qy0).max(qy1 - baylee_client_core::cardrail::CARD_TALL);
     let over = |img_w: f32| -baylee_client_core::cardplate::badge_quad_rect()[0] * img_w;
     // The picture inside the panel, at the default scale and at the two ends
     // of the slider.

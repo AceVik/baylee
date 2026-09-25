@@ -168,9 +168,12 @@ impl Surfaces<'_> {
 
     /// The keyword strip for `bits`, or `None` when there is nowhere to draw
     /// it.
-    fn strip(&mut self, bits: u32) -> Option<Handle<crate::marksmat::MarksUiMaterial>> {
+    fn strip(
+        &mut self,
+        strip: baylee_client_core::cardrail::Strip,
+    ) -> Option<Handle<crate::marksmat::MarksUiMaterial>> {
         let assets = self.strip_assets.as_deref_mut()?;
-        Some(self.strips.as_mut()?.get(bits, assets))
+        Some(self.strips.as_mut()?.get(strip, assets))
     }
 
     /// The count badge saying `count`, or `None` when there is nowhere to
@@ -652,17 +655,6 @@ pub fn sync_overlay(
                 crate::face::Detail::Full,
                 &fonts,
                 {
-                    // The preview is the same permanent drawn larger, so it
-                    // says the same numbers: a 2/2 under an anthem is a 3/3
-                    // on the table, and a preview showing the printed 2/2
-                    // would put two answers for one creature on one screen.
-                    // A card in hand has no view object and therefore no
-                    // corner, which is right — its printed body is what it is.
-                    let object = hovered.and_then(|id| view.object(id));
-                    let corner = object.map_or_else(
-                        baylee_client_core::cardplate::Corner::default,
-                        baylee_client_core::cardplate::Corner::of_object,
-                    );
                     // `shown`, not `key`: the look is the cache key for the
                     // material, and one naming the full-size art while the
                     // handle beside it holds the stopgap would hand the same
@@ -674,34 +666,34 @@ pub fn sync_overlay(
                     let sweep =
                         hovered.and_then(|id| motion.sheen.of(id, crate::sheen::Surface::Preview));
                     match shown {
-                        Some(shown) => CardLook::art(
-                            shown,
-                            finish_of(statics, Some(shown)),
-                            crate::cardmat::glow_of(object, crate::cardmat::Offer::NONE),
-                        )
-                        .with_corner(corner)
-                        .with_sweep(sweep),
-                        None => CardLook::back(FinishTreatment::Plain, 0)
-                            .with_corner(corner)
-                            .with_sweep(sweep),
+                        Some(shown) => {
+                            CardLook::art(shown, finish_of(statics, Some(shown))).with_sweep(sweep)
+                        }
+                        None => CardLook::back(FinishTreatment::Plain).with_sweep(sweep),
                     }
                 },
                 cards.as_mut(),
                 &faces.widths,
             );
-            // The keyword strip, lying on the art where it lies on the table
-            // (#274): an object of its own over the card, at the same place
-            // in card widths. Over the art only — a card showing its text
-            // face says its keywords in words.
+            // The strip, lying on the art where it lies on the table (#274,
+            // #298): an object of its own over the card, at the same place in
+            // card widths, saying what it says there. The preview is the
+            // same permanent drawn larger, so it says the same numbers: a 2/2
+            // under an anthem is a 3/3 on the table, and a preview showing
+            // the printed 2/2 would put two answers for one creature on one
+            // screen. A card in hand has no view object and so no strip,
+            // which is right — its printed body is what it is. Over the art
+            // only: a card showing its text face says it in words.
             let strip = hovered
                 .and_then(|id| view.object(id))
-                .map_or(0, |o| baylee_client_core::cardrail::mark_bits(o.keywords));
-            if strip != 0
+                .map(crate::marksmat::strip_of)
+                .filter(|strip| !strip.is_empty());
+            if let Some(strip) = strip
                 && built.is_none()
                 && let Some(material) = surfaces.strip(strip)
             {
                 let [x0, y0, x1, y1] = baylee_client_core::cardrail::quad_rect();
-                let down = img_h / baylee_client_core::cardframe::CARD_TALL;
+                let down = img_h / baylee_client_core::cardrail::CARD_TALL;
                 let node = commands
                     .spawn((
                         MaterialNode(material),
@@ -794,15 +786,12 @@ pub fn sync_overlay(
             let (art, look) = match far_face(key, has_back_image(view, hovered)) {
                 Some(back) => (
                     textures.get(back, statics, &assets),
-                    CardLook::art(back, finish_of(statics, Some(back)), 0),
+                    CardLook::art(back, finish_of(statics, Some(back))),
                 ),
                 // No corner on the back: power, toughness and counters are
                 // printed on the face and a card lying face down shows none
                 // of them.
-                None => (
-                    textures.card_back(),
-                    CardLook::back(FinishTreatment::Plain, 0),
-                ),
+                None => (textures.card_back(), CardLook::back(FinishTreatment::Plain)),
             };
             let far = spawn_card_art(
                 &mut commands,
@@ -830,7 +819,7 @@ pub fn sync_overlay(
             // and is hidden with it at the quarter turn.
             if let Some(material) = badge {
                 let [x0, y0, x1, y1] = baylee_client_core::cardplate::badge_quad_rect();
-                let down = img_h / baylee_client_core::cardframe::CARD_TALL;
+                let down = img_h / baylee_client_core::cardrail::CARD_TALL;
                 let node = commands
                     .spawn((
                         MaterialNode(material),
@@ -944,7 +933,7 @@ pub fn sync_overlay(
                     // belong to the permanent on the table, and the
                     // permanent on the table is the big card. This is a
                     // picture of a printing.
-                    CardLook::art(under, finish_of(statics, Some(under)), 0),
+                    CardLook::art(under, finish_of(statics, Some(under))),
                     cards.as_mut(),
                     &faces.widths,
                 );

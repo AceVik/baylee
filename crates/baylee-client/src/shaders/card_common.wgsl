@@ -1,6 +1,6 @@
 // What the table's card shader and its UI twin have to agree about: the shape
-// of the printed card, the frame its print sits in, and everything this client
-// draws on that frame.
+// of the printed card, and everything this client draws beside a print —
+// the keyword strip, the count, the offer's light on the felt.
 //
 // # Why this file exists
 //
@@ -12,25 +12,18 @@
 // own and what keeps it out of the two different bind groups the two shaders
 // read `globals` from.
 //
-// # Why a strip of marks and not more paint
+// # Why a strip of marks and not paint
 //
-// The paper is a *material* — indestructible is what the card is made of,
-// hexproof and shroud are what lies over it — and a material composes with at
-// most one other material before it stops saying either thing. The keywords
-// on the strip are not like that. There are twelve of them — eleven combat
-// words and prowess, which earns its slot by being the one a player most
-// wants to watch fire — they are equal, a creature can carry six at once, and
-// what a player needs is to *count* them and name them. Paint cannot count.
-// Marks can: one slot each, always in the same order, so the row is read the
-// way a row of icons is read and not the way a colour is guessed at.
+// The keywords are equal, a creature can carry six at once, and what a player
+// needs is to *count* them and name them. Paint cannot count. Marks can: one
+// slot each, always in the same order, so the row is read the way a row of
+// icons is read and not the way a colour is guessed at.
 //
-// The three paper keywords are deliberately absent from the strip. The paper
-// already says them, and a mark that repeated it would be the same claim
-// twice in two languages.
-//
-// The strip is drawn here (`marks_strip`) but not by the card: it is an
+// The strip is drawn here (`label_strip`) but not by the card: it is an
 // object of its own lying on the card, with its own quad and material
-// (`marks.wgsl`, `marks_ui.wgsl`), which import this file for the marks.
+// (`marks.wgsl`, `marks_ui.wgsl`), which import this file. Since #298 it is
+// the card's label as well — the plate, the moon and the crests stand on it
+// beside the marks — because the frame that carried them is gone.
 
 /// The card's aspect, so a length measured in card widths means the same on
 /// both axes.
@@ -56,62 +49,20 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
 }
 
-// ---- the frame: a print in a frame of our own
+// ---- the print fills the card
 //
 // Nothing this client *paints* on the print (#274, `docs/legal.md` §3).
 // Scryfall's terms ask that a card image is not covered, cropped, tinted or
 // stamped, and the artist's name and the copyright line run along the
-// print's bottom edge, which is exactly where a rail and a plate used to be.
-// So the quad is still the whole card, 1 × 1/`CARD_ASPECT` card widths, and
-// the print is scaled into a window inside it: everything the rules and this
-// client say about the card is drawn on the paper around that window. The one
+// print's bottom edge. #274 drew a frame round the print for everything this
+// client says about a card; the owner did not want the frame (#298), so the
+// print fills the quad again, 1 × 1/`CARD_ASPECT` card widths, and what the
+// frame said stands on objects of their own: the keyword strip lying on the
+// art (`label_strip`), the count hanging off the corner (`count_badge`) and
+// the offer's light on the felt round the card (`floor_light`). The one
 // thing drawn on the print is its own finish (`print_finish`), because a foil
 // is what that printing *is*; and light that passes over the whole card and
 // leaves nothing behind — the lamp, the arrival sweep, a door.
-//
-// One object lies over the print, by the owner's decision, and it is not
-// this shader's: the keyword strip (`marks_strip`), standing on the art's
-// bottom edge. It never lies over the name, the cost, the type line or the
-// artist.
-//
-// The quad does not grow, so no lane, pile, hit test or shadow moves. What
-// the frame costs is the print's size: 87.8% of the card's width.
-// `cardframe` in client-core is the Rust half of every number here.
-
-/// How wide the frame is beside the print, left and right, in card widths.
-///
-/// Wider than the black border printed on a modern card (about 0.045), so
-/// the frame reads as the card's own paper and not as a second printed
-/// border.
-const FRAME_SIDE: f32 = 0.061;
-/// How deep the frame is above the print.
-const FRAME_TOP: f32 = 0.045;
-/// The print's width as a share of the card's: what the two sides leave.
-///
-/// The print keeps 63:88, so its height follows, and what is left of the
-/// card's height below it is the ledge (`cardframe::FRAME_FOOT`).
-const PRINT_SCALE: f32 = 0.878;
-
-/// Where `uv` falls on the print: 0..1 on both axes inside the window, and
-/// running on outside it, so a derivative taken of it is the same everywhere.
-fn print_uv(uv: vec2<f32>) -> vec2<f32> {
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    return vec2<f32>((p.x - FRAME_SIDE) / PRINT_SCALE, (p.y - FRAME_TOP) * CARD_ASPECT / PRINT_SCALE);
-}
-
-/// Signed distance to the print's window, in card widths: negative on the
-/// print, positive on the frame. The window is the print's own rounded
-/// rectangle, so the scan's corners fall on the frame and never show.
-fn window_sdf(uv: vec2<f32>) -> f32 {
-    return corner_sdf(print_uv(uv)) * PRINT_SCALE;
-}
-
-/// How much of this fragment is print: 1 inside the window, 0 on the frame,
-/// antialiased across the window's edge.
-fn print_cover(uv: vec2<f32>) -> f32 {
-    let aa = max(fwidth(uv.x), 0.0015);
-    return 1.0 - smoothstep(-aa, aa, window_sdf(uv));
-}
 
 // ---- the text face (#259)
 //
@@ -122,21 +73,21 @@ fn print_cover(uv: vec2<f32>) -> f32 {
 // with its printed neighbours' in a lane, and it is light where a card is
 // light, so a row of text tokens is not a row of holes. The text is not
 // drawn here: the table's `Text2d` lines and the overlay's nodes stand on
-// these bars. No power and toughness in here, and no state: the ledge's
-// plate is the P/T box, and the frame says the rest, as it does for a print.
+// these bars. No power and toughness in here, and no state: the strip's
+// plate is the P/T box, and the strip says the rest, as it does for a print.
 // `textface` in client-core is the Rust half of every number here.
 
 /// The dark border inside the window, in card widths.
 const TEXT_BORDER: f32 = 0.04;
 /// Where the type bar's top stands: the keyword strip's seam
 /// (`cardrail::strip_bottom`).
-const TEXT_SEAM: f32 = 0.7267412;
+const TEXT_SEAM: f32 = 0.7764706;
 /// The step the word carries a bar's depth in (`textface::DEPTH_STEP`).
 const DEPTH_STEP: f32 = 1.0 / 512.0;
 const TEXT_PINLINE: f32 = 0.006;
 const TEXT_BOX_GAP: f32 = 0.012;
 /// Where the text box ends; under it the foot is the border's colour.
-const TEXT_FOOT: f32 = 1.155;
+const TEXT_FOOT: f32 = 1.264;
 const BAR_CORNER: f32 = 0.012;
 
 /// The bars' colours, in linear light, in `textface::Hue`'s order.
@@ -197,14 +148,14 @@ fn face_bar(p: vec2<f32>, r: vec4<f32>, color: vec3<f32>, aa: f32) -> vec3<f32> 
     return max(color + vec3<f32>(BEVEL * (lit - shaded)), vec3<f32>(0.0));
 }
 
-/// The face at `uv`, in linear light: the whole window, border included.
+/// The face at `uv`, in linear light: the whole card, border included.
 /// `word` is `textface::face_word`.
 fn text_face(uv: vec2<f32>, word: u32) -> vec3<f32> {
     let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
     let aa = max(fwidth(p.x), 0.0015);
-    let x0 = FRAME_SIDE + TEXT_BORDER;
-    let x1 = FRAME_SIDE + PRINT_SCALE - TEXT_BORDER;
-    let top = FRAME_TOP + TEXT_BORDER;
+    let x0 = TEXT_BORDER;
+    let x1 = 1.0 - TEXT_BORDER;
+    let top = TEXT_BORDER;
     let name_end = top + f32((word >> FACE_NAME_SHIFT) & 0xffu) * DEPTH_STEP;
     let type_end = TEXT_SEAM + f32((word >> FACE_TYPE_SHIFT) & 0xffu) * DEPTH_STEP;
     let bars = face_hue((word >> FACE_BARS_SHIFT) & 0xfu);
@@ -236,62 +187,31 @@ fn text_face(uv: vec2<f32>, word: u32) -> vec3<f32> {
     return out;
 }
 
-// ---- what the frame says
+// ---- the offer's light on the felt
 //
-// Three registers, all on paper that is ours:
-//
-// - **The paper** says what the card *is*: its colour is the card's identity
-//   (plain, a token, a copy, a commander), indestructible makes it steel, and
-//   hexproof or shroud lie over it as a wash. The night a summoning-sick
-//   creature lies under is the paper going dark, because the print is not
-//   ours to dim.
-// - **The rim**, lit from the card's edge inwards, says what this client
-//   offers to do with the card or has just been told to: the travelling
-//   invitation, the aim, the armed ring, the tap a payment plan will make.
-// - **The ledge** under the print carries the numbers.
-//
-// The sentence the border used to live by still holds, one place over: a
-// fact about the card colours the paper, an offer or a deed is light on it.
+// What this client offers to do with a card, or has just been told to, is
+// light: the travelling invitation, the armed card, the tap a payment plan
+// will make. It lit the frame's rim from the card's edge inwards until #298
+// took the frame away; now it lies on the felt round the card, on a quad of
+// its own under it (`floor.wgsl`).
 
-/// The `cardmat::glow` bits this file reads. `cardmat` is the other half, and
-/// a test compares the two.
-const GLOW_INDESTRUCTIBLE: u32 = 1u;
-const GLOW_HEXPROOF: u32 = 2u;
-const GLOW_SHROUD: u32 = 4u;
+/// The `cardmat::glow` bits this file reads: what this client is offering to
+/// do with a card, which the felt round it says (`floor_light`). `cardmat`
+/// is the other half, and a test compares the two.
 const GLOW_ACTIVATABLE: u32 = 8u;
-const GLOW_SUMMONING_SICK: u32 = 16u;
 const GLOW_ARMED: u32 = 32u;
 const GLOW_WILL_TAP: u32 = 64u;
-const GLOW_COMMANDER: u32 = 128u;
-const GLOW_TOKEN: u32 = 1048576u;
-const GLOW_COPY: u32 = 2097152u;
 const GLOW_REACHABLE: u32 = 8388608u;
 
-/// The frame's own paper: a warm slate, in linear light.
+/// How far past the card's edge an offer's light reaches on the felt, and
+/// the band next to the edge it keeps at full strength, in card widths.
 ///
-/// Mid-tone on purpose. A near-black frame on this felt could show neither a
-/// night nor a wash nor an edge, and a light one would out-shout the print it
-/// holds.
-const FRAME_PAPER: vec3<f32> = vec3<f32>(0.30, 0.29, 0.27);
-/// A commander's paper: oxblood.
-///
-/// Not gilt, which is this client's word for "yours" and is also the armed
-/// ring and, near enough, the amber of an offer: a commander with an ability
-/// to activate is the common case, and gilt paper under an amber chase would
-/// be one colour. One constant, so the owner's answer is one line.
-const FRAME_COMMANDER: vec3<f32> = vec3<f32>(0.44, 0.17, 0.15);
-/// How dark the paper goes under a summoning-sick creature: 0.30 → 0.14 in
-/// linear, about 45 display levels on the plain paper.
-const FRAME_NIGHT: f32 = 0.47;
-/// The night's white balance. Multiplicative and close to white, so a token's
-/// verdigris is still verdigris at night.
-const SLEEP_MOON: vec3<f32> = vec3<f32>(0.94, 0.96, 1.0);
-
-/// How far in from the card's edge an offer or a deed is lit, in card widths.
-///
-/// The frame's thinnest side, so the light has faded out before the window
-/// on every side and never reaches the print.
-const OFFER_REACH: f32 = 0.045;
+/// Off the card entirely (#298): it used to light the frame's rim inwards,
+/// and there is no frame. On the felt, the card lying on the light hides
+/// every part of it that would be under the print, and so does the next
+/// card of a fanned lane — which the owner accepted for rings and fans.
+const FLOOR_REACH: f32 = 0.10;
+const FLOOR_HARD: f32 = 0.02;
 
 /// What the travelling activatable light averages to over its own circuit.
 ///
@@ -300,14 +220,6 @@ const OFFER_REACH: f32 = 0.045;
 /// card (`motion == 0`) is lit at that mean rather than at a frozen crest, so
 /// the offer is as strong held still as it is on average when moving.
 const CHASE_STILL: f32 = 0.32;
-
-/// The hexproof wash's density, and the thinnest a wisp of it gets.
-const WARD_HEX: f32 = 0.55;
-const WARD_THIN: f32 = 0.35;
-/// The shroud's, which is strictly the stronger of the two and has to look
-/// it: a thin shroud beside a deep hexproof wash would say the opposite of
-/// what the rules do.
-const WARD_SHROUD: f32 = 0.65;
 
 fn hash21(p: vec2<f32>) -> f32 {
     var q = fract(p * vec2<f32>(123.34, 456.21));
@@ -328,104 +240,36 @@ fn noise(p: vec2<f32>) -> f32 {
 
 // Position around the card's edge, 0..1, clockwise from the top-left corner.
 // Continuous across all four corners, so a light travelling on it runs round
-// the card instead of jumping at the edges.
+// the card instead of jumping at the edges; a point off the card is placed by
+// the edge it is nearest.
 fn perimeter(uv: vec2<f32>) -> f32 {
     let d = vec2<f32>(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
     if d.x < d.y {
         if uv.x < 0.5 {
-            return 0.75 + (1.0 - uv.y) * 0.25;
+            return 0.75 + (1.0 - clamp(uv.y, 0.0, 1.0)) * 0.25;
         }
-        return 0.25 + uv.y * 0.25;
+        return 0.25 + clamp(uv.y, 0.0, 1.0) * 0.25;
     }
     if uv.y < 0.5 {
-        return uv.x * 0.25;
+        return clamp(uv.x, 0.0, 1.0) * 0.25;
     }
-    return 0.5 + (1.0 - uv.x) * 0.25;
+    return 0.5 + (1.0 - clamp(uv.x, 0.0, 1.0)) * 0.25;
 }
 
-/// The paper a card is made of, from what it is.
+/// The light an offer or a deed throws on the felt round a card, in linear
+/// light for an additive blend: `uv` is the card's own UV, running on past
+/// its edges, and the light is nothing under the card.
 ///
-/// A token or a copy is its own paper, a commander is oxblood, and a card that
-/// is two of those — a token copy of a commander — wears the stronger on the
-/// sides and the top and the other on the ledge (`ledge` 1). Commander is the
-/// strongest, then a copy, then a token; token and copy are exclusive already
-/// (`board::provenance_of`), and token wins if both ever arrive, because "no
-/// cardboard at all" is the stronger claim.
-fn frame_paper(glow: u32, ledge: f32) -> vec3<f32> {
-    var made = FRAME_PAPER;
-    if (glow & GLOW_TOKEN) != 0u {
-        made = PAPER_TOKEN;
-    } else if (glow & GLOW_COPY) != 0u {
-        made = PAPER_COPY;
-    }
-    if (glow & GLOW_COMMANDER) != 0u {
-        return mix(FRAME_COMMANDER, made, ledge * f32((glow & (GLOW_TOKEN | GLOW_COPY)) != 0u));
-    }
-    return made;
-}
-
-/// The whole frame of one card: paper, rim and ledge, everything this client
-/// draws on the card and nothing it draws on the print.
-///
-/// Both card shaders call it and mix it with the print by `print_cover`, so
-/// what it returns inside the window is never seen; it is written for the
-/// frame alone. `t` is the card's clock (`globals.time * motion`), `m` the
-/// motion itself and `now` the unscaled clock, for the one term that has to
-/// keep running on a still card.
-fn frame_layer(
-    uv: vec2<f32>,
-    glow: u32,
-    plate: u32,
-    chips_a: u32,
-    chips_b: u32,
-    t: f32,
-    m: f32,
-    now: f32,
-    marks: texture_2d<f32>,
-    marks_s: sampler,
-) -> vec3<f32> {
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let aa = max(fwidth(p.x), 0.0015);
-
-    // ---- the paper
-    let foot = FRAME_TOP + PRINT_SCALE / CARD_ASPECT;
-    let ledge = smoothstep(foot - aa, foot + aa, p.y);
-    var out = frame_paper(glow, ledge);
-    if (glow & GLOW_SUMMONING_SICK) != 0u {
-        out = out * FRAME_NIGHT * SLEEP_MOON;
-    }
-
-    // Indestructible is what the card is made of, so the paper is steel:
-    // brushed along the card's long axis and turning slowly under the light.
-    if (glow & GLOW_INDESTRUCTIBLE) != 0u {
-        let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
-        let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
-        let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
-        let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
-        out = mix(out, steel * turn, 0.85);
-    }
-
-    // Hexproof and shroud are what lies over the card: a wash across the whole
-    // frame, wisps for hexproof and a denser haze for shroud, which swallows
-    // it (`cardmat::glow_of` never sets both).
-    var film = vec3<f32>(0.0);
-    var film_cov = 0.0;
-    if (glow & GLOW_HEXPROOF) != 0u {
-        let n1 = noise(vec2<f32>(uv.x * 6.0 + uv.y * 3.0, p.y * 18.0 + t * 0.50));
-        let n2 = noise(vec2<f32>(uv.x * 10.0 - uv.y * 4.0, p.y * 30.0 + t * 0.35));
-        let wisp = WARD_THIN + (1.0 - WARD_THIN) * (0.6 * n1 + 0.4 * n2);
-        film = vec3<f32>(0.28, 0.86, 0.48);
-        film_cov = wisp * WARD_HEX;
-    }
-    if (glow & GLOW_SHROUD) != 0u {
-        let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
-        film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
-        film_cov = WARD_SHROUD;
-    }
-    out = mix(out, film, film_cov);
-
-    // ---- the rim: offers and deeds, lit from the card's edge inwards
-    let band = 1.0 - smoothstep(0.0, OFFER_REACH, -corner_sdf(uv));
+/// The colours and the motion the frame's rim had: amber chasing round a
+/// card that can be activated, indigo round one the client can pay for by
+/// tapping lands first, a steady breathing gold round an armed one, and a
+/// slow blue pulse round a land a plan will tap. `t` is the card's clock
+/// (`globals.time * motion`), `m` the motion, and `now` the unscaled clock
+/// for the one term that has to keep running on a still card.
+fn floor_light(uv: vec2<f32>, glow: u32, t: f32, m: f32, now: f32) -> vec3<f32> {
+    let d = corner_sdf(uv);
+    let band = (1.0 - smoothstep(FLOOR_HARD, FLOOR_REACH, d)) * step(0.0, d);
+    var out = vec3<f32>(0.0);
     if (glow & GLOW_ACTIVATABLE) != 0u {
         let head = fract(perimeter(uv) - t * 0.22);
         let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
@@ -449,14 +293,6 @@ fn frame_layer(
         let pulse = 0.70 + 0.30 * sin(now * 2.2 - 0.9) * m;
         out = out + vec3<f32>(0.56, 0.60, 0.98) * band * 0.40 * pulse;
     }
-
-    // ---- the ledge: the numbers from the left, the identity at the end
-    //
-    // The keywords are not here: they are the strip's, an object of its own
-    // lying on the art (#274, `marks_strip`).
-    let night = (glow & GLOW_SUMMONING_SICK) != 0u;
-    out = plate_layer(uv, plate, chips_a, chips_b, night, out, marks, marks_s);
-    out = crest_layer(uv, glow, out, marks, marks_s);
     return out;
 }
 
@@ -714,7 +550,7 @@ fn door_layer(uv: vec2<f32>, phase: f32, door: u32) -> vec3<f32> {
 }
 
 /// How many keywords the strip can carry.
-const MARK_COUNT: u32 = 12u;
+const MARK_COUNT: u32 = 15u;
 
 // The strip's shape, in card widths: `baylee_client_core::cardrail`'s
 // constants, mirrored, and `cardmat`'s tests read these lines to hold the two
@@ -731,10 +567,6 @@ const MARK: f32 = 0.085;
 
 /// The air between two marks. `cardrail::MARK_GAP`.
 const MARK_GAP: f32 = 0.012;
-
-/// How many marks a row holds; a seventh opens a row above the first.
-/// `cardrail::PER_ROW`.
-const PER_ROW: u32 = 6u;
 
 /// How far the strip's contact shadow spreads past it, on the left, the right
 /// and the top. The quad has no margin below: the strip stands on the seam's
@@ -862,7 +694,7 @@ const MARK_RANGE: f32 = 0.25;
 /// between the two halves, and both of those are settled before a texel is
 /// written — so a second texture would be two more bindings in two
 /// materials for nothing.
-const ATLAS_CELLS: u32 = 31u;
+const ATLAS_CELLS: u32 = 34u;
 
 /// The envelope every impulse on the strip shares: up over `a`, held until
 /// `h`, down over `r`, and flat zero through the rest of the period — which
@@ -899,7 +731,7 @@ fn strike_clock(ph: f32) -> f32 {
 ///
 /// This arm is the only thing that sentence is true of, and the comment here
 /// claimed the whole drawing until #102. Scale is not the mark's only
-/// movement: the ink in `marks_strip` breathes every mark on the strip —
+/// movement: the ink in `label_strip` breathes every mark on the strip —
 /// `(0.95 + 0.05 * sin(phase))`, with no `which` in it — so defender has no
 /// swell *event* and is in continuous motion exactly like everything beside
 /// it. "It is the stillness that is the drawing" was the argument, and the
@@ -946,12 +778,20 @@ fn mark_pulse(which: u32, ph: f32) -> f32 {
         // than it was — the eye used to close and a shape has to travel
         // further than a size to say the same thing.
         case 9u: { return 1.0 + 0.17 * mark_event(fract(ph * 0.0600), 0.0250, 0.0560, 0.0280); }
-        // Defender: STILL — the scale only. The ink in `marks_strip` breathes
+        // Defender: STILL — the scale only. The ink in `label_strip` breathes
         // this mark with the rest of the row; see the note on this function
         // and `the_ink_below_a_mark_is_not_told_which_mark_it_is`.
         case 10u: { return 1.0; }
         // Prowess: rises, hangs, and comes down — a bonus with a deadline.
         case 11u: { return 1.0 + 0.15 * pow(0.5 + 0.5 * sin(ph * 0.85), 5.0); }
+        // Hexproof: STILL. A protection is a state the card is in and not
+        // an event it does; the shell round the card is the glance, and the
+        // mark is the exact statement (#298).
+        case 12u: { return 1.0; }
+        // Indestructible: STILL, for hexproof's reason.
+        case 13u: { return 1.0; }
+        // Shroud: STILL, for hexproof's reason.
+        case 14u: { return 1.0; }
         default: { return 1.0; }
     }
 }
@@ -1029,110 +869,200 @@ fn mark_color(which: u32) -> vec3<f32> {
         // group with a colour of its own to take.
         case 10u: { return vec3<f32>(0.82, 0.76, 0.66); }
         case 11u: { return vec3<f32>(0.36, 0.90, 0.86); }
+        // Hexproof blue and shroud lavender, the shells' own colours (#298),
+        // and indestructible the grey of steel.
+        case 12u: { return vec3<f32>(0.40, 0.66, 1.00); }
+        case 13u: { return vec3<f32>(0.66, 0.70, 0.76); }
+        case 14u: { return vec3<f32>(0.84, 0.66, 1.00); }
         default: { return INK; }
     }
 }
 
-/// The keyword strip: a dark plate carrying a card's marks, and the contact
-/// shadow it throws on the art round it, as colour and coverage.
+/// The label's bits: the sleep moon, and two identity crests after it, two
+/// bits each, `glyph + 1` or zero for none. `cardrail::label`.
+const LABEL_MOON: u32 = 1u;
+const LABEL_CREST_SHIFT: u32 = 1u;
+const LABEL_CREST_BITS: u32 = 2u;
+
+/// How many things a strip can carry: the plate, the moon, every mark and
+/// two crests, in the order they are packed from the left.
+const LABEL_ITEMS: u32 = 19u;
+
+/// How long a row runs inside the strip's margin before a cell opens a row
+/// above it. `cardrail::ROW_MAX`.
+const ROW_MAX: f32 = 0.70;
+
+/// How far the strip's shadow is thrown up the card past the sides', in
+/// card widths: the lamp stands at the player's side of the table, so a
+/// thing lying *on* the card throws its shadow away from them, over the art.
+/// None falls below the strip, where the type line is.
+const SHADOW_THROW: f32 = 0.006;
+
+/// The strip's lit upper edge and shaded lower one: what makes a flat quad
+/// read as a slab lying on the card (#298) rather than paint on it.
+const STRIP_LIT: vec3<f32> = vec3<f32>(0.34, 0.36, 0.40);
+const STRIP_LIP: vec3<f32> = vec3<f32>(0.010, 0.011, 0.014);
+
+/// Item `i`'s size, `(width, height)` in card widths, or zero for one this
+/// strip does not carry. `cardrail::Strip`'s items, in their order.
+fn label_item(i: u32, bits: u32, plate: u32, swing: u32, label: u32) -> vec2<f32> {
+    if i == 0u {
+        let kind = plate >> PLATE_KIND_SHIFT;
+        if kind == PLATE_NONE {
+            return vec2<f32>(0.0);
+        }
+        var w = select(PLATE_W, PLATE_H, kind == PLATE_LORE);
+        if (swing & SWING_SET) != 0u {
+            w = w + CHIP_GAP + CHIP_W;
+        }
+        return vec2<f32>(w, PLATE_H);
+    }
+    if i == 1u {
+        return select(vec2<f32>(0.0), vec2<f32>(MARK), (label & LABEL_MOON) != 0u);
+    }
+    if i < 2u + MARK_COUNT {
+        return select(vec2<f32>(0.0), vec2<f32>(MARK), (bits & (1u << (i - 2u))) != 0u);
+    }
+    let n = i - 2u - MARK_COUNT;
+    let field = (label >> (LABEL_CREST_SHIFT + LABEL_CREST_BITS * n)) & 3u;
+    return select(vec2<f32>(0.0), vec2<f32>(MARK), field != 0u);
+}
+
+/// The sleep moon in its cell: a crescent, two discs one bitten out of the
+/// other, in `cell` units, -0.5..0.5.
+fn moon_sdf(cell: vec2<f32>) -> f32 {
+    let lit = length(cell - vec2<f32>(-0.04, 0.0)) - 0.36;
+    let bite = length(cell - vec2<f32>(0.14, -0.10)) - 0.30;
+    return max(lit, -bite);
+}
+
+/// The keyword strip, and since #298 the card's label: the plate with its
+/// chip, the sleep moon, the marks and the identity crests, packed from the
+/// left along the seam, a cell that would run past `ROW_MAX` opening a row
+/// above (`cardrail::Strip::cells`, which is the same arithmetic in Rust).
 ///
-/// Its own quad draws it (`marks.wgsl` on the table, `marks_ui.wgsl` in the
-/// preview), so what it returns is blended over the card rather than mixed
-/// into it: the strip is an object lying on the card, not paint on the print
-/// (#274). `q` is the point in that quad and `quad` its size, both in card
-/// widths from the quad's top-left corner with `y` growing down. The strip
-/// stands on the quad's bottom edge — which the quad's owner puts on the
-/// seam between the art and the type line — `SHADOW_MARGIN` in from its
-/// left, and grows upwards: a seventh mark opens a row above the first, so
-/// the row a creature already wears never moves.
-///
-/// `bits` is the twelve-bit word `cardrail::mark_bits` makes: this file never
-/// sees the engine's keyword numbering, or the client's either. `t` is the
-/// strip's clock, `globals.time * motion`, and `aa` the antialiasing width in
-/// card widths — both taken by the caller, because the two shaders read
-/// `globals` from different bind groups and a derivative must be taken in
-/// uniform control flow, which the mark a fragment lands in is not. `marks`
-/// is a parameter and not a binding for the same reason: this file has no
-/// bindings of its own, so `cardmat::tests` can parse it alone.
-fn marks_strip(
+/// `q` is the point in the quad, card widths from its top-left corner, and
+/// `quad` its size; the strip's bottom is the quad's, on the seam, and its
+/// left end is `SHADOW_MARGIN` in. Every word is a uniform, so the layout
+/// loop runs in uniform control flow and only the one cell under `q` is
+/// drawn.
+fn label_strip(
     q: vec2<f32>,
     quad: vec2<f32>,
     bits: u32,
+    plate: u32,
+    swing: u32,
+    label: u32,
     t: f32,
     aa: f32,
     marks: texture_2d<f32>,
     marks_s: sampler,
 ) -> vec4<f32> {
-    // Counted in a loop bound at compile time, and not with `countOneBits`.
-    // naga lowers that to GLSL's `bitCount`, which arrived in ES 3.10, and it
-    // lowers it *unguarded* — WebGL2 compiles ES 3.00, so the browser would
-    // reject this shader, the strip's pipeline would fail to build, and no
-    // card would carry its marks. The strip has to walk these twelve bits
-    // below in any case.
-    var n = 0u;
-    for (var i = 0u; i < MARK_COUNT; i = i + 1u) {
-        if (bits & (1u << i)) != 0u {
-            n = n + 1u;
+    let has_plate = (plate >> PLATE_KIND_SHIFT) != PLATE_NONE;
+    let first = select(MARK, PLATE_H, has_plate);
+    let x0 = SHADOW_MARGIN;
+    let seam = quad.y - STRIP_PAD;
+
+    // Lay every item out, as `cardrail::Strip::layout` does, and keep the
+    // one whose cell — with half the gap round it — holds this point.
+    var x = 0.0;
+    var row = 0u;
+    var width = 0.0;
+    var top = seam;
+    var count = 0u;
+    var hit = LABEL_ITEMS;
+    var hit_rect = vec4<f32>(0.0);
+    var hit_k = 0u;
+    for (var i = 0u; i < LABEL_ITEMS; i = i + 1u) {
+        let size = label_item(i, bits, plate, swing, label);
+        if size.x <= 0.0 {
+            continue;
         }
+        if x > 0.0 && x + size.x > ROW_MAX {
+            row = row + 1u;
+            x = 0.0;
+        }
+        var bottom = seam;
+        var tall = first;
+        if row > 0u {
+            bottom = seam - (first + MARK_GAP + f32(row - 1u) * (MARK + MARK_GAP));
+            tall = MARK;
+        }
+        let mid_y = bottom - tall * 0.5;
+        let left = x0 + STRIP_PAD + x;
+        width = max(width, x + size.x);
+        top = min(top, bottom - tall);
+        let band = q.y >= bottom - tall - 0.5 * MARK_GAP && q.y < bottom + 0.5 * MARK_GAP;
+        if band && q.x >= left - 0.5 * MARK_GAP && q.x < left + size.x + 0.5 * MARK_GAP {
+            hit = i;
+            hit_rect = vec4<f32>(left, mid_y - 0.5 * size.y, left + size.x, mid_y + 0.5 * size.y);
+            hit_k = count;
+        }
+        count = count + 1u;
+        x = x + size.x + MARK_GAP;
     }
-    if n == 0u {
+    if count == 0u {
         return vec4<f32>(0.0);
     }
 
-    // `cardrail::strip_rect`, in the quad's own coordinates.
-    let rows = (n + PER_ROW - 1u) / PER_ROW;
-    let columns = min(n, PER_ROW);
-    let pitch = MARK + MARK_GAP;
-    let size = vec2<f32>(
-        2.0 * STRIP_PAD + f32(columns) * pitch - MARK_GAP,
-        2.0 * STRIP_PAD + f32(rows) * pitch - MARK_GAP,
-    );
-    let x0 = SHADOW_MARGIN;
-    let y1 = quad.y;
-    let mid = vec2<f32>(x0 + 0.5 * size.x, y1 - 0.5 * size.y);
-    let body = sd_round_box(q - mid, 0.5 * size, STRIP_CORNER);
+    // The slab: `cardrail::Strip::rect`.
+    let size = vec2<f32>(2.0 * STRIP_PAD + width, quad.y - (top - STRIP_PAD));
+    let mid = vec2<f32>(x0 + 0.5 * size.x, quad.y - 0.5 * size.y);
+    let half = 0.5 * size;
+    let body = sd_round_box(q - mid, half, STRIP_CORNER);
     let cover = 1.0 - smoothstep(-aa, aa, body);
 
-    // The shadow falls on the art round the strip and is gone by the quad's
-    // edge; below the strip there is no quad to fall on.
-    let fall = 1.0 - smoothstep(0.0, SHADOW_MARGIN, max(body, 0.0));
+    // Its shadow falls on the art round it, thrown a little further up the
+    // card than to the sides, and is gone by the quad's edge; below the
+    // strip there is no quad to fall on.
+    let thrown = sd_round_box(q - mid + vec2<f32>(0.0, SHADOW_THROW), half, STRIP_CORNER);
+    let fall = 1.0 - smoothstep(0.0, SHADOW_MARGIN, max(thrown, 0.0));
     let shade = SHADOW_DEPTH * fall * fall;
 
-    // The plate, with an edge a pixel and a half wide, so the strip keeps an
-    // outline on artwork as dark as it is.
+    // The slab's edge, lit along the top and in shade along the bottom, and
+    // a rim a pixel and a half wide between, so the strip keeps an outline
+    // on artwork as dark as it is.
     let edge = 1.0 - smoothstep(0.0, 1.5 * aa, -body);
-    var out = mix(PLATE, STRIP_RIM, edge);
+    let upper = smoothstep(-0.25 * size.y, 0.25 * size.y, mid.y - q.y);
+    var out = mix(PLATE, mix(STRIP_LIP, STRIP_LIT, upper), edge);
+    out = mix(out, STRIP_RIM, edge * 0.35);
 
-    // Which mark's cell this point is nearest, counted from the bottom-left:
-    // the first row stands on the seam and the second opens above it.
-    let across = q.x - (x0 + STRIP_PAD);
-    let up = (y1 - STRIP_PAD) - q.y;
-    let column = u32(clamp(floor((across + 0.5 * MARK_GAP) / pitch), 0.0, f32(columns - 1u)));
-    let level = u32(clamp(floor((up + 0.5 * MARK_GAP) / pitch), 0.0, f32(rows - 1u)));
-    let k = level * PER_ROW + column;
-
-    // The k-th mark this card actually carries. Twelve iterations, bounded at
-    // compile time, no dynamic indexing: the whole reason the strip is a
-    // bitfield and not a list.
-    var seen = 0u;
-    var which = MARK_COUNT;
-    for (var i = 0u; i < MARK_COUNT; i = i + 1u) {
-        if (bits & (1u << i)) != 0u {
-            if seen == k {
-                which = i;
-                break;
-            }
-            seen = seen + 1u;
-        }
+    if hit == LABEL_ITEMS {
+        return strip_over_shadow(out, cover, shade);
     }
-    if which == MARK_COUNT {
+    let centre = vec2<f32>(0.5 * (hit_rect.x + hit_rect.z), 0.5 * (hit_rect.y + hit_rect.w));
+    let e = max(0.5 * aa / MARK, 0.012);
+
+    // The plate, with its chip.
+    if hit == 0u {
+        let night = (label & LABEL_MOON) != 0u;
+        out = plate_layer(q, hit_rect.x, centre.y, plate, swing, night, aa, out, marks, marks_s);
         return strip_over_shadow(out, cover, shade);
     }
 
-    let left = x0 + STRIP_PAD + f32(column) * pitch;
-    let top = y1 - STRIP_PAD - f32(level) * pitch - MARK;
-    let cell = vec2<f32>((q.x - left) / MARK, (q.y - top) / MARK) - vec2<f32>(0.5);
-    let phase = t * BEAT + f32(k) * 0.22;
+    let cell = (q - centre) / MARK;
+    if abs(cell.x) > 0.5 || abs(cell.y) > 0.5 {
+        return strip_over_shadow(out, cover, shade);
+    }
+
+    // The moon: the plate's night ink, which a sleeping creature's numbers
+    // are written in too.
+    if hit == 1u {
+        out = mix(out, MOON_INK, 1.0 - smoothstep(-e, e, moon_sdf(cell)));
+        return strip_over_shadow(out, cover, shade);
+    }
+
+    // A crest.
+    if hit >= 2u + MARK_COUNT {
+        let n = hit - 2u - MARK_COUNT;
+        let which = ((label >> (LABEL_CREST_SHIFT + LABEL_CREST_BITS * n)) & 3u) - 1u;
+        out = crest_cell(cell, which, e, out, marks, marks_s);
+        return strip_over_shadow(out, cover, shade);
+    }
+
+    // A mark.
+    let which = hit - 2u;
+    let phase = t * BEAT + f32(hit_k) * 0.22;
     let d = mark_sdf(which, cell, phase, marks, marks_s);
     let accent = mark_color(which);
     // 0.70 and not 0.55, because the halo no longer carries the colour. At
@@ -1164,8 +1094,7 @@ fn marks_strip(
     // should never quite reach full ink. `aa / slot` was 0.101 cell at the
     // table, so the ramp spanned two whole pixels — on a solid glyph that is
     // not softness, it is a blur, and it is what closed the skull's eye
-    // sockets and the tower's crenellations at 17 pixels.
-    let e = max(0.5 * aa / MARK, 0.012);
+    // sockets and the tower's crenellations at 17 pixels. `e` above.
     // A rim, not a bloom. At 9 the halo was still 18% of the accent a tenth of
     // a cell out and 5% at the cell wall, so it filled every hole in a solid
     // silhouette — measured on deathtouch, whose eye sockets came back
@@ -1192,109 +1121,71 @@ fn strip_over_shadow(plate: vec3<f32>, cover: f32, shade: f32) -> vec4<f32> {
 //
 // Two questions about what a permanent *is*: is it a commander (CR 903.3),
 // and is the card it looks like its own (CR 111.1, CR 707.2)? They were paper
-// tabs under the printed name, which is on the print, so since #274 the
-// answer is the frame's own paper (`frame_paper`): the tab's stock became the
-// card's. `baylee_client_core::cardcrest` is the Rust half.
+// tabs under the printed name, which is on the print, then the frame's own
+// paper (#274); since #298 each is a square of that paper at the strip's
+// right end with its glyph printed on it. `baylee_client_core::cardcrest`
+// is the Rust half.
 
-/// Where the identity glyphs sit in the atlas, and which is which.
-const CREST_BASE: u32 = 28u;
+/// Where the identity glyphs sit in the atlas.
+const CREST_BASE: u32 = 31u;
+
+/// Which glyph is which: `cardcrest::GLYPH_TOKEN`, `GLYPH_COPY` and
+/// `GLYPH_COMMANDER`.
 const CREST_TOKEN: u32 = 0u;
 const CREST_COPY: u32 = 1u;
 const CREST_COMMANDER: u32 = 2u;
 
-/// Nothing to draw.
-const CREST_NONE: u32 = 3u;
-
-/// The paper a token and a copy are made of. `cardcrest::PAPER`.
+/// The paper a token, a copy and a commander are printed on, by glyph.
+/// `cardcrest::PAPER`.
 ///
 /// Linear, and card stock rather than writing paper: displayed around 175 of
-/// 255, dark enough to hold ink and to show a night or a wash. Verdigris is a
-/// thing conjured rather than printed; violet is what the swing uses for a
-/// permanent that is not what it was. A commander's paper is the frame's own
-/// constant, `FRAME_COMMANDER`.
+/// 255, dark enough to hold ink. Verdigris is a thing conjured rather than
+/// printed; violet is what the swing uses for a permanent that is not what
+/// it was; oxblood is a commander's.
 const PAPER_TOKEN: vec3<f32> = vec3<f32>(0.396, 0.440, 0.418);
 const PAPER_COPY: vec3<f32> = vec3<f32>(0.429, 0.385, 0.506);
-
-/// A crest's square, where the first one's right edge sits, and the air
-/// between two, in card widths. `cardcrest::CREST_W`, `CREST_X1`,
-/// `CREST_GAP`.
-const CREST_W: f32 = 0.085;
-const CREST_X1: f32 = 0.955;
-const CREST_GAP: f32 = 0.012;
+const PAPER_COMMANDER: vec3<f32> = vec3<f32>(0.44, 0.17, 0.15);
 
 /// The crests' ink, near-black so it holds on all three papers.
 /// `cardcrest::CREST_INK`.
 const CREST_INK: vec3<f32> = vec3<f32>(0.008, 0.007, 0.006);
 
-/// The identity glyphs, right-aligned on the ledge: a caption for the
-/// preview. The paper already says the same thing at table size, so the
-/// glyph is not relied on there — a legibility ladder, not the same claim
+/// One crest in its cell: its paper, and its glyph printed on it. `cell` is
+/// the point in the cell's own units, -0.5..0.5 on both axes; `e` the edge's
+/// softness in the same units. The paper is what reads at table size, the
+/// glyph is the preview's caption — a legibility ladder, not the same claim
 /// twice.
-///
-/// Packed from the right, provenance first (`cardcrest::marks`): a lone
-/// commander takes the first crest where a lone token would. `glow` is a
-/// uniform, so every branch here is uniform, and the atlas is read with an
-/// explicit level in `cell_sdf` anyway.
-fn crest_layer(
-    uv: vec2<f32>,
-    glow: u32,
-    color: vec3<f32>,
+fn crest_cell(
+    cell: vec2<f32>,
+    which: u32,
+    e: f32,
+    under: vec3<f32>,
     marks: texture_2d<f32>,
     marks_s: sampler,
 ) -> vec3<f32> {
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let aa = max(fwidth(p.x), 0.0015);
-
-    var first = CREST_NONE;
-    if (glow & GLOW_TOKEN) != 0u {
-        first = CREST_TOKEN;
-    } else if (glow & GLOW_COPY) != 0u {
-        first = CREST_COPY;
+    var paper = PAPER_TOKEN;
+    if which == CREST_COPY {
+        paper = PAPER_COPY;
+    } else if which == CREST_COMMANDER {
+        paper = PAPER_COMMANDER;
     }
-    var second = CREST_NONE;
-    if (glow & GLOW_COMMANDER) != 0u {
-        if first == CREST_NONE {
-            first = CREST_COMMANDER;
-        } else {
-            second = CREST_COMMANDER;
-        }
-    }
-    if first == CREST_NONE {
-        return color;
-    }
-
-    let foot = FRAME_TOP + PRINT_SCALE / CARD_ASPECT;
-    let mid_y = (foot + 1.0 / CARD_ASPECT) * 0.5;
-    var out = color;
-    for (var n = 0u; n < 2u; n = n + 1u) {
-        let which = select(first, second, n == 1u);
-        if which == CREST_NONE {
-            continue;
-        }
-        let x1 = CREST_X1 - f32(n) * (CREST_W + CREST_GAP);
-        let cell = (p - vec2<f32>(x1 - CREST_W * 0.5, mid_y)) / CREST_W;
-        if abs(cell.x) > 0.5 || abs(cell.y) > 0.5 {
-            continue;
-        }
-        let d = cell_sdf(CREST_BASE + which, cell, MARK_RANGE, marks, marks_s);
-        let e = max(aa / CREST_W, 0.02);
-        out = mix(out, CREST_INK, 1.0 - smoothstep(-e, e, d));
-    }
+    let square = sd_round_box(cell, vec2<f32>(0.5), 0.18);
+    var out = mix(under, paper, 1.0 - smoothstep(-e, e, square));
+    let d = cell_sdf(CREST_BASE + which, cell, MARK_RANGE, marks, marks_s);
+    out = mix(out, CREST_INK, 1.0 - smoothstep(-e, e, d));
     return out;
 }
 
 // ------------------------------------------------------------------ the plate
 //
 // A creature's power and toughness with the damage marked on it, or a
-// planeswalker's loyalty, on the ledge under the print (#274): the plate at
-// the ledge's left end and the chip beside it. The Rust half is
+// planeswalker's loyalty, at the keyword strip's left end (#298), the chip
+// beside it. The Rust half is
 // `baylee_client_core::cardplate`, which is where the numbers are packed and
 // where every constant below is mirrored and tested.
 
-/// Where the plate starts, how wide it is, its inner margin and its figure
-/// height, in card widths. `cardplate::LEDGE_PAD`, `PLATE_W`, `PLATE_PAD`,
-/// `PLATE_CAP`.
-const LEDGE_PAD: f32 = 0.030;
+/// How wide the plate is, its inner margin and its figure height, in card
+/// widths. `cardplate::PLATE_W`, `PLATE_PAD`, `PLATE_CAP`.
 const PLATE_W: f32 = 0.196;
 const PLATE_PAD: f32 = 0.012;
 const PLATE_CAP: f32 = 0.075;
@@ -1330,7 +1221,7 @@ const PLATE_LORE: u32 = 3u;
 /// means. The face is `AlegreyaSans-Bold`, which this client already sets
 /// its interface in; `baylee_client_core::cardplate::TEXT_CHARS` is the
 /// order and `markatlas` bakes them into the same row as the strip's marks.
-const TEXT_BASE: u32 = 12u;
+const TEXT_BASE: u32 = 15u;
 const TEXT_COUNT: u32 = 16u;
 const GLYPH_MINUS: u32 = 10u;
 const GLYPH_SLASH: u32 = 11u;
@@ -1432,32 +1323,10 @@ const TONE_PLAIN: u32 = 0u;
 const TONE_DEADLY: u32 = 1u;
 const TONE_TOXIC: u32 = 2u;
 
-/// The printed body's word. `cardplate::BASE_SET`.
-const BASE_SET: u32 = 0x100000u;
-
-/// How large a card has to be *drawn* before the chip writes the printed
-/// body. `cardplate::BASE_AA`.
-///
-/// On the table a card is about 94 physical pixels wide, which would put a
-/// second line in the chip at three and make it a smudge on every pumped
-/// creature at once. The damage band's rules appear on the same terms and
-/// through the same `aa`, so the ledge already behaves this way and a player
-/// has already met it.
-const BASE_AA: f32 = 0.004;
-
-/// A sleeping creature's plate ink: moon-grey, the night the paper round it
-/// is under carried on to the numbers, and still about 5.8:1 on the plate's
-/// body.
+/// A sleeping creature's plate ink, and its moon: moon-grey, still about
+/// 5.8:1 on the plate's body.
 const MOON_INK: vec3<f32> = vec3<f32>(0.50, 0.54, 0.64);
 
-/// The printed body's ink: the plate's accent, held well back.
-///
-/// It is the one thing in this corner that is *not* news — it is what the
-/// card always said — so it is written at the weight of a caption. Loud
-/// enough to read when the card is drawn large enough for it to appear at
-/// all, and never loud enough to be mistaken for the body the creature
-/// currently has.
-const BASE_FADE: f32 = 0.52;
 
 /// Deathtouch green, on the power alone.
 ///
@@ -1655,19 +1524,21 @@ fn fit(cap: f32, line: vec2<u32>, room: f32) -> f32 {
     return min(cap, room * TEXT_CAP / max(text_width(line), 0.001));
 }
 
-/// Draws the plate and the chip beside it, on the ledge.
+/// Draws the plate and the chip beside it, on the strip.
 ///
-/// The three words are `cardplate::Corner::packed` in order: the plate, the
-/// swing and the printed body. Not gated on whether the card has artwork: a
-/// card drawn as a flat tint is a card whose art has not loaded, and its
-/// body is the thing a player most needs off it. `night` turns the plate's
-/// ink to moon-grey on a sleeping creature.
+/// The two words are `cardplate::Corner::packed` in order: the plate, and
+/// the swing with the tone. `p` is the point and `edge` where the plate's
+/// left edge stands on `mid_y`, its middle line, all in card widths; `aa`
+/// is taken by the caller, in uniform control flow. `night` turns the
+/// plate's ink to moon-grey on a sleeping creature.
 fn plate_layer(
-    uv: vec2<f32>,
+    p: vec2<f32>,
+    edge: f32,
+    mid_y: f32,
     word: u32,
     swing: u32,
-    base: u32,
     night: bool,
+    aa: f32,
     color: vec3<f32>,
     marks: texture_2d<f32>,
     marks_s: sampler,
@@ -1676,15 +1547,6 @@ fn plate_layer(
     if kind == PLATE_NONE {
         return color;
     }
-
-    // Width units, so a length means the same thing on both axes.
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let height = 1.0 / CARD_ASPECT;
-
-    // Every derivative this function takes, taken here — the branches below
-    // are not uniform, and a derivative asked for inside one of them is
-    // undefined on half the backends this ships to.
-    let aa = max(fwidth(p.x), 0.0015);
 
     // A chapter is a page: square, barely rounded, and light. Everything else
     // is the wide dark plate. Same corner and same left edge, so the two can
@@ -1705,11 +1567,10 @@ fn plate_layer(
         accent = MOON_INK;
     }
 
-    // Centred on the ledge: `cardplate::plate_rect`.
-    let foot = FRAME_TOP + PRINT_SCALE / CARD_ASPECT;
-    let y0 = (foot + height - PLATE_H) * 0.5;
+    // Where the strip put it: `cardrail::Strip::cells`.
+    let y0 = mid_y - PLATE_H * 0.5;
     let y1 = y0 + PLATE_H;
-    let x0 = LEDGE_PAD;
+    let x0 = edge;
     let x1 = x0 + pw;
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
     let half = vec2<f32>(pw * 0.5, PLATE_H * 0.5);
@@ -1718,18 +1579,13 @@ fn plate_layer(
 
     // ---- the chip, beside the plate
     //
-    // What the counters did, and — drawn large — what the printing says the
-    // body was. It used to be two lines, the swing standing on the plate and
-    // the printed body hanging under it; the ledge has room for neither, so
-    // they stand beside it, one row each. A swing is a chip of green or
-    // violet stock with the plate's dark body for ink, the way a damaged
-    // plate is a hot box with dark digits: at table size the stock is what
-    // is read. A swing that nets to neither is a dark chip in the plate's
-    // ink, and a `+1/-1` says as much by being neither colour.
-    let has_swing = (swing & SWING_SET) != 0u;
-    let has_base = (base & BASE_SET) != 0u && aa <= BASE_AA;
-    if has_swing || has_base {
-        let cx0 = LEDGE_PAD + PLATE_W + CHIP_GAP;
+    // What the counters did. A swing is a chip of green or violet stock with
+    // the plate's dark body for ink, the way a damaged plate is a hot box
+    // with dark digits: at table size the stock is what is read. A swing
+    // that nets to neither is a dark chip in the plate's ink, and a `+1/-1`
+    // says as much by being neither colour.
+    if (swing & SWING_SET) != 0u {
+        let cx0 = x1 + CHIP_GAP;
         let chip_mid = vec2<f32>(cx0 + CHIP_W * 0.5, mid.y);
         let chip_half = vec2<f32>(CHIP_W * 0.5, PLATE_H * 0.5);
         let d_chip = sd_round_box(p - chip_mid, chip_half, PLATE_H * 0.28);
@@ -1739,10 +1595,10 @@ fn plate_layer(
         let dt = i32((swing >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
         var stock = body;
         var figure = accent;
-        if has_swing && dp + dt > 0 {
+        if dp + dt > 0 {
             stock = GROWN;
             figure = body;
-        } else if has_swing && dp + dt < 0 {
+        } else if dp + dt < 0 {
             stock = SHRUNK;
             figure = body;
         }
@@ -1750,37 +1606,18 @@ fn plate_layer(
         let chip_rim = 1.0 - smoothstep(-aa, aa, abs(d_chip) - 0.0045);
         out = mix(out, figure, chip_rim * 0.55);
 
-        // One row, or two when both are there: the swing on top, because it
-        // is news, and the printed body under it, because it is history.
-        let room = CHIP_W - 2.0 * PLATE_PAD;
-        let rows = select(1.0, 2.0, has_swing && has_base);
-        let row_h = PLATE_CAP / rows;
-        let row_cap = select(row_h, row_h * 0.85, has_swing && has_base);
-        let top = mid.y - PLATE_CAP * 0.5 + row_h * 0.5;
-        if has_swing {
-            // A symmetric swing — every `+1/+1` and `-1/-1` counter there is
-            // — says its number once: `+2` in a green chip beside a `4/4`
-            // reads as what it is, and `+2/+2` in nine pixels would not read
-            // at all. The rare lopsided one is written out and shrinks to fit.
-            var line = text_signed(vec2<u32>(0u, 0u), dp, true);
-            if dp != dt {
-                line = text_push(line, GLYPH_SLASH);
-                line = text_signed(line, dt, true);
-            }
-            let at = vec2<f32>(chip_mid.x, top);
-            let hit = text_cover(p, at, fit(row_cap, line, room), line, marks, marks_s, aa);
-            out = mix(out, figure, hit.x * on_chip);
-        }
-        if has_base {
-            let bp = i32(base & PLATE_SLOT_MASK) - PLATE_BIAS;
-            let bt = i32((base >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
-            var line = text_signed(vec2<u32>(0u, 0u), bp, false);
+        // A symmetric swing — every `+1/+1` and `-1/-1` counter there is —
+        // says its number once: `+2` in a green chip beside a `4/4` reads as
+        // what it is, and `+2/+2` in nine pixels would not read at all. The
+        // rare lopsided one is written out and shrinks to fit.
+        var line = text_signed(vec2<u32>(0u, 0u), dp, true);
+        if dp != dt {
             line = text_push(line, GLYPH_SLASH);
-            line = text_signed(line, bt, false);
-            let at = vec2<f32>(chip_mid.x, top + row_h * (rows - 1.0));
-            let hit = text_cover(p, at, fit(row_cap, line, room), line, marks, marks_s, aa);
-            out = mix(out, mix(stock, figure, BASE_FADE), hit.x * on_chip);
+            line = text_signed(line, dt, true);
         }
+        let room = CHIP_W - 2.0 * PLATE_PAD;
+        let hit = text_cover(p, chip_mid, fit(PLATE_CAP, line, room), line, marks, marks_s, aa);
+        out = mix(out, figure, hit.x * on_chip);
     }
 
     // ---- the plate
@@ -1887,12 +1724,11 @@ fn plate_layer(
 const COUNT_MIN: u32 = 2u;
 const COUNT_MAX: u32 = 999u;
 
-/// The count badge's geometry, in card widths (#261): its height, its
+/// The count's geometry, in card widths (#261): its box's height, its
 /// corner, where its shadow falls and how soft it is, and the widest it
 /// grows. `cardplate::BADGE_H`, `BADGE_CORNER`, `BADGE_DROP`, `BADGE_BLUR`
 /// and `BADGE_W`. Where it stands on the card is the material's
-/// (`cardplate::BADGE_RIGHT`, `BADGE_TOP`), so one Rust constant moves it
-/// (#274).
+/// (`cardplate::BADGE_RIGHT`, `BADGE_TOP`), so one Rust constant moves it.
 const BADGE_H: f32 = 0.12;
 const BADGE_CORNER: f32 = 0.034;
 const BADGE_DROP_X: f32 = -0.006;
@@ -1900,20 +1736,19 @@ const BADGE_DROP_Y: f32 = 0.012;
 const BADGE_BLUR: f32 = 0.02;
 const BADGE_W: f32 = 0.2006886;
 
-/// How many permanents a merged card stands for, `×54`, on a badge of its own
-/// hanging off a corner of the card (#261, #274): the body over its drop
-/// shadow, as one colour and one coverage for the blend. `p` is the point in
-/// card widths from the card's top-left corner, `y` down the card, and lies
-/// off the card left of its edge, where the badge overhangs. `right` and
-/// `top` are where the body's right end and top stand.
+/// How many permanents a merged card stands for, `×54`, hanging off the
+/// card's top-left corner (#261, #298): the figures over their own drop
+/// shadow, as one colour and one coverage for the blend, and no plate behind
+/// them — the owner's placement, outside the card. `p` is the point in card
+/// widths from the card's top-left corner, `y` down the card, and lies off
+/// the card left of its edge, where the count overhangs. `right` and `top`
+/// are where the count's box's right end and top stand.
 ///
-/// The plate's register — its body, its ink, its figure height — because it
-/// is one of this client's numbers and not something printed, and the
-/// strip's edge, because it is an object lying on the card as the strip is.
-/// It grows leftwards with its digits (`cardplate::badge_rect`), off the card
-/// and away from the print, up to `×99`; three digits are set smaller to fit
-/// (`cardplate::badge_cap`). `count` is a uniform, so the early return keeps
-/// what follows in uniform control flow.
+/// The plate's ink and figure height, because it is one of this client's
+/// numbers and not something printed. It grows leftwards with its digits
+/// (`cardplate::badge_rect`), off the card, up to `×99`; three digits are set
+/// smaller to fit (`cardplate::badge_cap`). `count` is a uniform, so the
+/// early return keeps what follows in uniform control flow.
 fn count_badge(
     p: vec2<f32>,
     count: u32,
@@ -1931,25 +1766,16 @@ fn count_badge(
     let wants = text_width(line) * PLATE_CAP / TEXT_CAP;
     let cap = PLATE_CAP * min((BADGE_W - 2.0 * PLATE_PAD) / wants, 1.0);
     let w = max(min(wants + 2.0 * PLATE_PAD, BADGE_W), BADGE_H);
+    let mid = vec2<f32>(right - 0.5 * w, top + 0.5 * BADGE_H);
 
-    let half = vec2<f32>(0.5 * w, 0.5 * BADGE_H);
-    let mid = vec2<f32>(right - half.x, top + half.y);
-    let body = sd_round_box(p - mid, half, BADGE_CORNER);
-    let cover = 1.0 - smoothstep(-aa, aa, body);
-
-    // The shadow of a thing standing proud of the card rather than lying
-    // flat on it: the body itself, dropped down and a little left, away from
-    // the card's print and plate, and softened by `BADGE_BLUR`.
+    // The figures' own shadow: the same figures dropped down and a little
+    // left, away from the card's name, and softened as far as their
+    // distance field reaches, so they read on the felt and on a light print
+    // alike.
+    let unit = cap / TEXT_CAP;
     let drop = vec2<f32>(BADGE_DROP_X, BADGE_DROP_Y);
-    let dropped = sd_round_box(p - mid - drop, half, BADGE_CORNER);
-    let fall = 1.0 - smoothstep(0.0, BADGE_BLUR, max(dropped, 0.0));
-    let shade = SHADOW_DEPTH * fall * fall;
-
-    // The strip's edge, so the badge keeps an outline on a dark card and on
-    // the felt it overhangs.
-    let edge = 1.0 - smoothstep(0.0, 1.5 * aa, -body);
-    var out = mix(PLATE, STRIP_RIM, edge);
+    let shadow = text_cover(p - drop, mid, cap, line, marks, marks_s, max(aa, 0.08 * unit));
+    let shade = SHADOW_DEPTH * 1.4 * shadow.x;
     let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
-    out = mix(out, INK, hit.x);
-    return strip_over_shadow(out, cover, shade);
+    return strip_over_shadow(INK, hit.x, min(shade, 0.9));
 }

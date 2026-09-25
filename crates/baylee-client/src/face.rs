@@ -489,8 +489,9 @@ pub struct UiFace {
 
 impl UiFace {
     /// `face` laid out on a card `width` pixels wide, its lines measured by
-    /// `widths`. `plate` is what the card's corner says, packed
-    /// (`CardLook::plate`): numbers it already shows are not written twice.
+    /// `widths`. `plate` is what the strip over the card says, packed
+    /// (`cardrail::Strip::plate`): numbers it already shows are not written
+    /// twice.
     #[must_use]
     pub fn lay(
         face: &CardFace,
@@ -1150,15 +1151,16 @@ pub fn spawn_world(
 }
 
 /// The body line a text face still has to write: none when the plate on its
-/// ledge already says the same number (#274). `plate` is the plate's kind
-/// ([`Plate::kind`]).
+/// strip already says the same number (#274, #298). `plate` is the plate's
+/// kind ([`Plate::kind`]).
 ///
-/// The plate is drawn by the card's material under every face, text or art,
-/// so a creature drawn as text used to say `3/3` twice, a hand's width
-/// apart. What it keeps is the one shape where the two differ — a
-/// planeswalker that is also a creature plates its loyalty, and its power
-/// and toughness are then said nowhere else on the table — and every card
-/// whose look carries no plate, as a card in hand does.
+/// A card on the table showing its text face always has its plate on the
+/// strip (`Corner::shows_plate`: there is no print to say the numbers), so a
+/// creature drawn as text would say `3/3` twice, a hand's width apart. What
+/// it keeps is the one shape where the two differ — a planeswalker that is
+/// also a creature plates its loyalty, and its power and toughness are then
+/// said nowhere else on the table — and every card with no plate over it, as
+/// a card in hand has.
 fn world_stats(stats: Option<Stats>, plate: u32) -> Option<Stats> {
     match (stats?, plate) {
         (Stats::PowerToughness { .. }, cardplate::KIND_FIGHT)
@@ -1253,7 +1255,7 @@ pub(crate) mod tests {
         use textface::fit_name;
         let font = regular();
         let widths = Widths::of(Some(&font));
-        let name = "Abandoned Outpost";
+        let name = "Abandoned Campground";
         let guessed = fit_name(name, textface::average_width);
         let measured = fit_name(name, |s| widths.width(s));
         assert_eq!(guessed.lines.len(), 1);

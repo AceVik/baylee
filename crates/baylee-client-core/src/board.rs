@@ -67,6 +67,8 @@ pub mod keyword_bits {
     pub const VIGILANCE: u128 = 1 << 11;
     /// Defender.
     pub const DEFENDER: u128 = 1 << 12;
+    /// Shroud (CR 702.18): no player may target it, its controller included.
+    pub const SHROUD: u128 = 1 << 14;
     /// Prowess.
     ///
     /// The one mark on the strip that is not a combat keyword. It is here
@@ -91,6 +93,8 @@ pub enum KeywordBadge {
     Haste,
     /// Hexproof.
     Hexproof,
+    /// Shroud.
+    Shroud,
     /// Indestructible.
     Indestructible,
     /// Lifelink.
@@ -120,6 +124,7 @@ impl KeywordBadge {
             Self::Deathtouch => "DT",
             Self::Haste => "H",
             Self::Hexproof => "HX",
+            Self::Shroud => "SH",
             Self::Indestructible => "IN",
             Self::Lifelink => "LL",
             Self::Menace => "MN",
@@ -132,13 +137,14 @@ impl KeywordBadge {
     }
 
     /// Every badge, in display order.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Flying,
         Self::FirstStrike,
         Self::DoubleStrike,
         Self::Deathtouch,
         Self::Haste,
         Self::Hexproof,
+        Self::Shroud,
         Self::Indestructible,
         Self::Lifelink,
         Self::Menace,
@@ -165,6 +171,7 @@ impl KeywordBadge {
             Self::Deathtouch => k::DEATHTOUCH,
             Self::Haste => k::HASTE,
             Self::Hexproof => k::HEXPROOF,
+            Self::Shroud => k::SHROUD,
             Self::Indestructible => k::INDESTRUCTIBLE,
             Self::Lifelink => k::LIFELINK,
             Self::Menace => k::MENACE,
@@ -296,7 +303,8 @@ pub struct CardGroup {
     /// Llanowar Elves are two groups and not one, and every member of a group
     /// is the same piece of cardboard.
     pub original: Option<ImageKey>,
-    /// Whether the permanent entered too recently to attack.
+    /// Whether this creature came under its controller's control too
+    /// recently to attack or to tap: [`asleep`], the strip's moon.
     pub summoning_sick: bool,
     /// Whether *every* permanent in the group has an ability the engine
     /// listed as activatable right now.
@@ -1332,6 +1340,20 @@ pub enum Provenance {
     Copy,
 }
 
+/// Whether `obj` is a creature that came under its controller's control too
+/// recently to attack or to tap (CR 302.6): what the strip's moon says.
+///
+/// Asked of creatures only, whatever a host says. The host projects CR 302.6
+/// now and so answers this for creatures alone, but the field once meant
+/// "did this permanent enter this turn" — a land played this turn came back
+/// `true` — and the shape of the view did not change with its meaning, so no
+/// `VIEW_VERSION` bump refuses a host from before the fix. The type test is
+/// what keeps such a host from putting a whole opening board to sleep.
+#[must_use]
+pub fn asleep(obj: &PublicObject) -> bool {
+    obj.summoning_sick && obj.types.contains(TypeSet::CREATURE)
+}
+
 /// Which of the three [`Provenance`] cases one object is.
 #[must_use]
 pub fn provenance_of(obj: &PublicObject, reg: Registry<'_>) -> Provenance {
@@ -1689,7 +1711,7 @@ fn card_group(
         art: art_of(obj, ArtSize::Small, reg),
         provenance: provenance_of(obj, reg),
         original: original_of(obj, ArtSize::Small, reg),
-        summoning_sick: obj.summoning_sick,
+        summoning_sick: asleep(obj),
         activatable,
         commander: obj.commander,
         individual,

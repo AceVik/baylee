@@ -25,11 +25,13 @@ use crate::badgemat::BadgeMaterial;
 use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
 use crate::feltmat::FeltMaterial;
+use crate::floormat::{self, FloorMaterial};
 use crate::marksmat::MarksMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::airborne;
 use baylee_client_core::board::KeywordBadge;
 use baylee_client_core::card_face::CardFace;
+use baylee_client_core::cardcrest;
 use baylee_client_core::cardplate;
 use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
@@ -215,6 +217,11 @@ const _: () = assert!(STRIP_STEP_SHARE > 0.0 && STRIP_STEP_SHARE < 1.0);
 /// Where the keyword strip sits in the transparent pass: the height it lies
 /// at, on a card's face. See [`sort_bias`].
 pub(crate) const STRIP_RUNG: f32 = CARD_LIFT + CARD_THICKNESS;
+/// Where the offer's light on the felt lies (#298): over the contact
+/// shadows, which are at half of [`CARD_LIFT`], and under every card, which
+/// is at least all of it — so the card it is for covers its middle and the
+/// next card of a fanned lane covers its edge. See [`sort_bias`].
+pub(crate) const FLOOR_RUNG: f32 = CARD_LIFT * 0.75;
 /// The back of a card: what a card whose art never arrives falls back to,
 /// and what fills a slab's window under a pile, where nothing sees it.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
@@ -223,13 +230,11 @@ const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
 /// in card widths (#261), alternating left and right, so a merged card reads
 /// as a stack of its own kind rather than as one card on a dark block.
 ///
-/// Only the frame's paper ever shows: a slab's window is further in than
-/// this on every side, so what peeks out is paper, never a print — and a
-/// slab has no print in any case. Sideways only: a slab standing out at the
-/// top would reach towards the band the seat bar writes on, and one at the
-/// bottom towards the row behind.
+/// What peeks out is the slab's edge, never a print: a slab has none.
+/// Sideways only: a slab standing out at the top would reach towards the
+/// band the seat bar writes on, and one at the bottom towards the row
+/// behind.
 const PILE_JOG: f32 = 0.012;
-const _: () = assert!(PILE_JOG <= baylee_client_core::cardframe::FRAME_SIDE);
 /// How many slabs a pile is ever built from.
 ///
 /// Fourteen rather than four, and the number is about *continuity* rather
@@ -1233,6 +1238,14 @@ pub fn glide(
 /// The exclusion makes the card and shadow transform queries disjoint.
 type ShadowOwners = (With<CardVisual>, Without<CardShadow>);
 
+/// The materials of the objects lying on and under a card: its strip, its
+/// count badge and the offer's light on the felt round it.
+type CardCompanions<'w> = (
+    ResMut<'w, Assets<MarksMaterial>>,
+    ResMut<'w, Assets<BadgeMaterial>>,
+    ResMut<'w, Assets<FloorMaterial>>,
+);
+
 /// Ground flying shadows using the card's live pose, preserving its tapped
 /// heading while removing its bank. Spread grows with height up to a fixed cap.
 /// Remember the original child pose so losing flying restores a contact shadow;
@@ -1583,13 +1596,9 @@ fn face_look(
     object: Option<&baylee_view::PublicObject>,
     lines: usize,
     finish: FinishTreatment,
-    glow: u32,
-    corner: cardplate::Corner,
 ) -> CardLook {
     let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
-    CardLook::flat(face::table_color(colors), finish, glow)
-        .with_face(face_word(object, lines))
-        .with_corner(corner)
+    CardLook::flat(face::table_color(colors), finish).with_face(face_word(object, lines))
 }
 
 /// The face word of `object` with its name on `lines` lines: what the
@@ -1609,9 +1618,8 @@ pub struct SceneIndex {
     cards: HashMap<ObjectId, Entity>,
     /// One material per *look*, shared by every card wearing it — a board of
     /// forty plain Islands is one material, not forty. A foil Island is a
-    /// second, and an Island the rules have made indestructible is a third
-    /// until it stops being one: those are the differences the shader draws,
-    /// so they are exactly the differences the key carries.
+    /// second: that is a difference the shader draws, and since #298 the
+    /// print, its finish and the light passing over it are all it draws.
     materials: HashMap<CardLook, Handle<CardMaterial>>,
     quad: Option<Handle<Mesh>>,
     blank: Option<Handle<CardMaterial>>,
@@ -1625,31 +1633,40 @@ pub struct SceneIndex {
     /// whose card changed (an anthem, a counter, a clone) without rebuilding
     /// every face every frame.
     faces: HashMap<ObjectId, ShownFace>,
-    /// The keyword strip lying on each card that wears marks (#274): the
-    /// word and the row step it was put on for, and the strip itself.
+    /// The strip lying on each card with something to say (#274, #298): what
+    /// it says and the row step it was put on for, and the strip itself.
     ///
     /// Held here for the reason [`Self::faces`] is: a strip comes and goes
     /// with what the rules do to the card, and has to be taken off as cheaply
     /// as it was put on.
-    marks: HashMap<ObjectId, (u32, f32, Entity)>,
-    /// One strip material per word, shared by every card wearing it — a lane
-    /// of twelve Soldiers with the same keywords is one.
-    marks_materials: HashMap<u32, Handle<MarksMaterial>>,
+    marks: HashMap<ObjectId, (cardrail::Strip, f32, Entity)>,
+    /// One strip material per thing a strip says, shared by every card
+    /// saying it — a lane of twelve Soldiers with the same keywords is one.
+    marks_materials: HashMap<cardrail::Strip, Handle<MarksMaterial>>,
     /// The quad every strip is drawn on: [`cardrail::quad_rect`], one mesh
     /// for the whole table, since the shader sizes the strip inside it.
     marks_quad: Option<Handle<Mesh>>,
-    /// The count badge hanging off each merged card (#261): the count, the
-    /// row step and the card's untapped rotation it was put on for, and the
-    /// badge itself. Held for the strip's reason.
-    badges: HashMap<ObjectId, (u32, f32, Quat, Entity)>,
+    /// The count badge hanging off each merged card (#261): the count and
+    /// the row step it was put on for, and the badge itself. Held for the
+    /// strip's reason.
+    badges: HashMap<ObjectId, (u32, f32, Entity)>,
     /// One badge material per count, shared by every card saying it.
     badge_materials: HashMap<u32, Handle<BadgeMaterial>>,
     /// The quad every badge is drawn on: [`cardplate::badge_quad_rect`], one
     /// mesh for the whole table, since the shader sizes the body inside it.
     badge_quad: Option<Handle<Mesh>>,
+    /// The offer's light on the felt under each card this client is offering
+    /// something for (#298): the offers and the depth it was put at, and the
+    /// light itself. Held for the strip's reason, and it comes and goes with
+    /// priority, which is far more often.
+    floors: HashMap<ObjectId, (u32, f32, Entity)>,
+    /// One light material per combination of offers: at most sixteen.
+    floor_materials: HashMap<u32, Handle<FloorMaterial>>,
+    /// The quad every light is drawn on: [`floormat::quad_size`], one mesh
+    /// for the whole table.
+    floor_quad: Option<Handle<Mesh>>,
     /// What stands under each card on the table: the slabs of its deck and
-    /// its contact shadow, with the count and the paper they were built for
-    /// (#261). Held for the strip's reason, and because a group grows under
+    /// its contact shadow, with the count they were built for (#261). Held for the strip's reason, and because a group grows under
     /// the same top card: a deck built once at spawn kept one slab under a
     /// card that had risen to stand on eleven.
     stacks: HashMap<ObjectId, Stack>,
@@ -2037,6 +2054,11 @@ pub fn spawn_stage(
         badge.x * CARD_WIDTH,
         badge.y * DOWN_THE_CARD,
     )));
+    let floor = floormat::quad_size();
+    index.floor_quad = Some(meshes.add(Rectangle::new(
+        floor.x * CARD_WIDTH,
+        floor.y * DOWN_THE_CARD,
+    )));
 
     // The contact shadow: a quad a little larger than a card, carrying a
     // painted halo that is dense under the card and gone by its own edge.
@@ -2101,7 +2123,7 @@ pub fn spawn_stage(
     // dressed and every hidden card would go back to being a dark rectangle.
     index.back_dressed = false;
     index.blank = Some(cards.add(material(
-        CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0),
+        CardLook::flat(BACK_COLOR, FinishTreatment::Plain),
         None,
         BACK_COLOR,
         // No finish and no glow: the clock drives the foil sheen and a card
@@ -2923,6 +2945,8 @@ pub fn despawn_stage(
     index.marks_materials.clear();
     index.badges.clear();
     index.badge_materials.clear();
+    index.floors.clear();
+    index.floor_materials.clear();
     index.stacks.clear();
     watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
@@ -2993,9 +3017,9 @@ fn strip_transform(rung: f32) -> Transform {
     )
 }
 
-/// Puts the keyword strip on a card, changes it, or takes it off (#274).
+/// Puts the strip on a card, changes it, or takes it off (#274, #298).
 ///
-/// A diff like the rest of [`sync_scene`]: a card whose word and row step
+/// A diff like the rest of [`sync_scene`]: a card whose strip and row step
 /// have not moved costs one lookup. The strip is a child of the card, so it
 /// follows every glide, tap, lift and exit with nothing to keep in step, and
 /// goes when the card does. It is not a [`CardShadow`] —
@@ -3006,18 +3030,16 @@ fn sync_strip(
     index: &mut SceneIndex,
     materials: &mut Assets<MarksMaterial>,
     card: Entity,
-    placement: &Placement,
+    (object, strip, rung): (ObjectId, cardrail::Strip, f32),
     motion: f32,
 ) {
-    let current = index.marks.get(&placement.object).copied();
-    if current.is_some_and(|(bits, rung, _)| {
-        bits == placement.marks && rung.to_bits() == placement.rung.to_bits()
-    }) {
+    let current = index.marks.get(&object).copied();
+    if current.is_some_and(|(said, at, _)| said == strip && at.to_bits() == rung.to_bits()) {
         return;
     }
-    if placement.marks == 0 {
-        if let Some((_, _, strip)) = index.marks.remove(&placement.object) {
-            commands.entity(strip).despawn();
+    if strip.is_empty() {
+        if let Some((.., entity)) = index.marks.remove(&object) {
+            commands.entity(entity).despawn();
         }
         return;
     }
@@ -3026,17 +3048,17 @@ fn sync_strip(
     };
     let material = index
         .marks_materials
-        .entry(placement.marks)
-        .or_insert_with(|| materials.add(MarksMaterial::new(placement.marks, motion)))
+        .entry(strip)
+        .or_insert_with(|| materials.add(MarksMaterial::new(strip, motion)))
         .clone();
-    let transform = strip_transform(placement.rung);
-    let strip = if let Some((_, _, strip)) = current {
+    let transform = strip_transform(rung);
+    let entity = if let Some((.., entity)) = current {
         commands
-            .entity(strip)
+            .entity(entity)
             .try_insert((MeshMaterial3d(material), transform));
-        strip
+        entity
     } else {
-        let strip = commands
+        let entity = commands
             .spawn((
                 KeywordStrip,
                 Mesh3d(quad),
@@ -3045,25 +3067,16 @@ fn sync_strip(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(card).add_child(strip);
-        strip
+        commands.entity(card).add_child(entity);
+        entity
     };
-    index
-        .marks
-        .insert(placement.object, (placement.marks, placement.rung, strip));
+    index.marks.insert(object, (strip, rung, entity));
 }
 
-/// The count badge hanging off a merged card (#261): so a badge can be found
-/// and counted without being taken for the card or its strip, and what
-/// [`hold_badges_upright`] needs to keep it where it lies on the card
-/// untapped.
+/// The count badge hanging off a merged card (#261): a marker, so a badge
+/// can be found and counted without being taken for the card or its strip.
 #[derive(Component)]
-pub struct CountBadge {
-    /// The row step it lies a share of, for [`badge_transform`].
-    rung: f32,
-    /// Its card's rotation untapped: lying flat, facing its owner.
-    upright: Quat,
-}
+pub struct CountBadge;
 
 /// Where a card's count badge lies, in the card's own space: at
 /// [`cardplate::badge_quad_rect`], off the card's left edge, at the strip's
@@ -3096,9 +3109,8 @@ fn sync_badge(
     placement: &Placement,
 ) {
     let current = index.badges.get(&placement.object).copied();
-    let upright = card_transform(&placement.slot, placement.position, false, 0.0).rotation;
-    if current.is_some_and(|(count, rung, turned, _)| {
-        count == placement.badge && rung.to_bits() == placement.rung.to_bits() && turned == upright
+    if current.is_some_and(|(count, rung, _)| {
+        count == placement.badge && rung.to_bits() == placement.rung.to_bits()
     }) {
         return;
     }
@@ -3117,19 +3129,15 @@ fn sync_badge(
         .or_insert_with(|| materials.add(BadgeMaterial::new(placement.badge)))
         .clone();
     let transform = badge_transform(placement.rung);
-    let marker = CountBadge {
-        rung: placement.rung,
-        upright,
-    };
     let badge = if let Some((.., badge)) = current {
         commands
             .entity(badge)
-            .try_insert((MeshMaterial3d(material), transform, marker));
+            .try_insert((MeshMaterial3d(material), transform));
         badge
     } else {
         let badge = commands
             .spawn((
-                marker,
+                CountBadge,
                 Mesh3d(quad),
                 MeshMaterial3d(material),
                 transform,
@@ -3139,42 +3147,88 @@ fn sync_badge(
         commands.entity(card).add_child(badge);
         badge
     };
-    index.badges.insert(
-        placement.object,
-        (placement.badge, placement.rung, upright, badge),
-    );
+    index
+        .badges
+        .insert(placement.object, (placement.badge, placement.rung, badge));
 }
 
-/// Keeps each count badge where it lies on its card untapped (#274).
+/// The offer's light on the felt under a card (#298): a marker, so a light
+/// can be found and counted without being taken for the card, its shadow or
+/// its strip.
+#[derive(Component)]
+pub struct FloorLight;
+
+/// Where a card's light lies, in the card's own space: `depth` under the
+/// card's own lift, so on the felt at [`FLOOR_RUNG`] however high the card's
+/// row and deck have put it.
+fn floor_transform(depth: f32) -> Transform {
+    Transform::from_xyz(0.0, 0.0, -(CARD_LIFT - FLOOR_RUNG + depth))
+}
+
+/// Puts the offer's light under a card, changes it, or takes it away (#298).
 ///
-/// Off the prints ([`cardplate::BADGE_OFF_THE_PRINTS`]) the badge hangs off
-/// the card's bottom-left corner, over the ledge of the card before it. A
-/// tapped card would turn that corner a quarter, and the overhang with it,
-/// up across the print of an untapped card before it, whose top stands
-/// clear of the tapped one's by the difference of their spans. So the badge
-/// does not turn: it stays at the corner of the card's cell, under and left
-/// of a tapped card, however far the card has turned this frame, because it
-/// is the card's live rotation that is undone and not its target. In the
-/// owner's placement it turns with the card, as it always did.
-///
-/// After [`glide`], which is what turns the card.
-pub fn hold_badges_upright(
-    cards: Query<&Transform, Without<CountBadge>>,
-    mut badges: Query<(&CountBadge, &ChildOf, &mut Transform)>,
+/// [`sync_strip`]'s diff, for [`sync_strip`]'s reasons: a child of the card,
+/// so it follows every glide and tap and goes with the card; not a
+/// [`CardShadow`]; not pickable, since a click on the light round a card
+/// means the table. It lies at the felt under the row's rise and the deck,
+/// and rides a card lifted by a hover or by flying, whose light it still is.
+/// A card standing in a pile's hover fan is tipped up in the air, so its
+/// light lies just under it instead, as a halo round the card.
+fn sync_floor(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<FloorMaterial>,
+    card: Entity,
+    placement: &Placement,
+    glow: u32,
+    motion: f32,
 ) {
-    if !cardplate::BADGE_OFF_THE_PRINTS {
+    let offers = glow & crate::cardmat::glow::OFFERS;
+    let depth = if placement.fan.is_some() {
+        0.0
+    } else {
+        placement.lift + stack_rise(placement.count.saturating_sub(1))
+    };
+    let current = index.floors.get(&placement.object).copied();
+    if current.is_some_and(|(said, at, _)| said == offers && at.to_bits() == depth.to_bits()) {
         return;
     }
-    for (badge, parent, mut at) in &mut badges {
-        let Ok(card) = cards.get(parent.parent()) else {
-            continue;
-        };
-        let pose = Transform::from_rotation(card.rotation.inverse() * badge.upright)
-            * badge_transform(badge.rung);
-        if *at != pose {
-            *at = pose;
+    if offers == 0 {
+        if let Some((.., light)) = index.floors.remove(&placement.object) {
+            commands.entity(light).despawn();
         }
+        return;
     }
+    let Some(quad) = index.floor_quad.clone() else {
+        return;
+    };
+    let material = index
+        .floor_materials
+        .entry(offers)
+        .or_insert_with(|| materials.add(FloorMaterial::new(offers, motion)))
+        .clone();
+    let transform = floor_transform(depth);
+    let light = if let Some((.., light)) = current {
+        commands
+            .entity(light)
+            .try_insert((MeshMaterial3d(material), transform));
+        light
+    } else {
+        let light = commands
+            .spawn((
+                FloorLight,
+                Mesh3d(quad),
+                MeshMaterial3d(material),
+                transform,
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(card).add_child(light);
+        light
+    };
+    index
+        .floors
+        .insert(placement.object, (offers, depth, light));
 }
 
 /// One slab of the deck under a card: depth, not a card. A marker, so the
@@ -3187,8 +3241,6 @@ pub struct StackSlab;
 struct Stack {
     /// The count the deck was built for.
     count: usize,
-    /// The paper its slabs wear, as glow bits: see [`Placement::shared`].
-    paper: u32,
     /// The slabs, top first.
     slabs: Vec<Entity>,
     /// The contact shadow under the whole deck.
@@ -3208,13 +3260,12 @@ fn slab_transform(i: usize, layers: usize, deck: f32) -> Transform {
 }
 
 /// Builds what stands under a card — the slabs of its deck and its contact
-/// shadow — and rebuilds it when the count or the paper changes (#261).
+/// shadow — and rebuilds it when the count changes (#261).
 ///
 /// A pile stands on the cards under it: the top card is drawn at the deck's
 /// own height and the rest hangs below it as children, so what a player sees
-/// is one block of cardboard with a face on top. The slabs are frames with no
-/// print, jogged ([`PILE_JOG`]) so their edges show: a merged group's in the
-/// top card's identity paper, a pile's in plain paper. Children and not loose
+/// is one block of cardboard with a face on top. The slabs are cards with no
+/// print, jogged ([`PILE_JOG`]) so their edges show. Children and not loose
 /// entities, for the strip's reasons and one more: as loose entities they
 /// were never despawned at all, and every card that ever lay on a graveyard
 /// left its slabs standing there for the rest of the game.
@@ -3225,19 +3276,16 @@ fn slab_transform(i: usize, layers: usize, deck: f32) -> Transform {
 /// lands. It sits under the whole deck and wider the taller the deck is — a
 /// thick pile sits in more shadow than a single card does, which is most of
 /// what makes it read as thick at all.
-#[allow(clippy::too_many_arguments)]
 fn sync_stack(
     commands: &mut Commands,
     index: &mut SceneIndex,
     materials: &mut Assets<CardMaterial>,
     card: Entity,
     placement: &Placement,
-    glow: u32,
     motion: f32,
 ) {
-    let paper = glow & placement.shared;
     let current = index.stacks.get(&placement.object);
-    if current.is_some_and(|stack| stack.count == placement.count && stack.paper == paper) {
+    if current.is_some_and(|stack| stack.count == placement.count) {
         return;
     }
     let Some(quad) = index.quad.clone() else {
@@ -3277,9 +3325,9 @@ fn sync_stack(
     }
     let layers = stack_layers(under);
     if layers > 0 {
-        // The window is filled with the back's colour, and nothing sees it:
-        // the card on top covers every slab but its jog, which is paper.
-        let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain, paper);
+        // The back's colour, and nothing sees more of it than the jog: the
+        // card on top covers the rest.
+        let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain);
         let material = index
             .face_materials
             .entry(look)
@@ -3302,7 +3350,6 @@ fn sync_stack(
         }
     }
     stack.count = placement.count;
-    stack.paper = paper;
     index.stacks.insert(placement.object, stack);
 }
 
@@ -3324,6 +3371,7 @@ fn fan_rotation(slot: &SeatSlot, pose: baylee_client_core::FanPose) -> Quat {
 }
 
 /// Where every group in the current board model belongs.
+#[allow(clippy::struct_excessive_bools)] // five facts about one card, each read on its own
 struct Placement {
     object: ObjectId,
     slot: SeatSlot,
@@ -3345,12 +3393,6 @@ struct Placement {
     /// battlefield, and zero for a lone card, a pile and a fanned card — a
     /// pile's size is `count` above and is drawn as the deck under it.
     badge: u32,
-    /// What of this card's paper the cards under it share, as glow bits: a
-    /// merged group's members are its own kind and share its identity
-    /// ([`glow::IDENTITY`](crate::cardmat::glow::IDENTITY)); a pile's are
-    /// other cards and share nothing — a commander on top of a graveyard
-    /// does not make the cards under it commanders.
-    shared: u32,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
     corner: baylee_client_core::cardplate::Corner,
@@ -3367,6 +3409,15 @@ struct Placement {
     /// The keyword strip's word ([`cardrail::badge_bits`]): zero for a card
     /// wearing no marks, which is every card that is not a permanent.
     marks: u32,
+    /// Whether the strip wears the moon: a creature that cannot attack or
+    /// tap this turn (CR 302.6, `CardGroup::summoning_sick`).
+    sick: bool,
+    /// The identity crests at the strip's end ([`cardcrest::marks`]).
+    crests: [Option<usize>; cardcrest::MAX_CRESTS],
+    /// Whether the card laid after this one in its row covers its lower
+    /// right, where the print writes its power and toughness — a fanned
+    /// lane — so the strip has to say them (`Corner::shows_plate`).
+    covered: bool,
     /// How much higher the next card of this card's row stands, which the
     /// strip lies a share of: see [`STRIP_STEP_SHARE`].
     rung: f32,
@@ -3466,6 +3517,10 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // before it, and never in bands of both.
                     lift: LANE_RISE * i as f32 / steps,
                     marks: cardrail::badge_bits(&group.badges),
+                    sick: group.summoning_sick,
+                    crests: cardcrest::marks(group.provenance, group.commander),
+                    // The last card of a row has nothing laid over it.
+                    covered: packing.fanned && i + 1 < lane.groups.len(),
                     rung: LANE_RISE / steps,
                     tapped: group.status.is_tapped(),
                     // A group is one card standing for several and every
@@ -3475,7 +3530,6 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     flying: group.badges.contains(&KeywordBadge::Flying),
                     count: group.count(),
                     badge: cardplate::count_word(group.count()),
-                    shared: crate::cardmat::glow::IDENTITY,
                     art: group.art,
                     // Resolved here rather than in the sync loop, because
                     // here is where the group's *members* are: a plan taps
@@ -3553,7 +3607,6 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                             1
                         },
                         badge: 0,
-                        shared: 0,
                         art: card.art,
                         offer: pile_offer(duel, card.object),
                         corner: baylee_client_core::cardplate::Corner::default(),
@@ -3563,6 +3616,9 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                             .is_some_and(|i| i.is_selected(card.object)),
                         fan: Some((pose, pile.kind)),
                         marks: 0,
+                        sick: false,
+                        crests: [None; cardcrest::MAX_CRESTS],
+                        covered: false,
                         rung: 0.0,
                     });
                 }
@@ -3589,7 +3645,6 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 flying: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 badge: 0,
-                shared: 0,
                 art: pile.art,
                 offer: pile_offer(duel, top),
                 corner: baylee_client_core::cardplate::Corner::default(),
@@ -3599,6 +3654,9 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     .is_some_and(|i| i.is_selected(top)),
                 fan: None,
                 marks: 0,
+                sick: false,
+                crests: [None; cardcrest::MAX_CRESTS],
+                covered: false,
                 rung: 0.0,
             });
         }
@@ -3633,11 +3691,9 @@ pub fn sync_scene(
     mut watch: ResMut<ZoneWatch>,
     mut textures: Option<ResMut<CardTextures>>,
     mut card_materials: ResMut<Assets<CardMaterial>>,
-    // One parameter for both objects lying on a card: a system takes sixteen.
-    (mut strip_materials, mut badge_materials): (
-        ResMut<Assets<MarksMaterial>>,
-        ResMut<Assets<BadgeMaterial>>,
-    ),
+    // One parameter for the objects lying on and under a card: a system
+    // takes sixteen.
+    (mut strip_materials, mut badge_materials, mut floor_materials): CardCompanions<'_>,
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
@@ -3718,6 +3774,11 @@ pub fn sync_scene(
                 material.params.motion = motion;
             }
         }
+        for handle in index.floor_materials.values() {
+            if let Some(mut material) = floor_materials.get_mut(handle) {
+                material.params.motion = motion;
+            }
+        }
     }
 
     let wanted = placements(&duel);
@@ -3754,19 +3815,15 @@ pub fn sync_scene(
             .as_ref()
             .and_then(|view| view.object(placement.object));
 
-        // What the card is physically, and what the rules have made it. Both
-        // ride on the material, so a foil that gains indestructible becomes a
-        // different material and needs no second pass.
-        //
-        // The finish is a property of the printing, so it comes from the
-        // print table — which is per seat, and a printing this seat has not
-        // earned reads as plain rather than as a leak.
+        // What the card is physically: the finish is a property of the
+        // printing, so it comes from the print table — which is per seat, and
+        // a printing this seat has not earned reads as plain rather than as
+        // a leak.
         let finish = crate::cardmat::finish_of(statics, placement.art);
-        // Keywords are what the card is, sickness is what it cannot do this
-        // turn, and the offer is what the player could do with it — or has
-        // just said they will. All of it rides on the material, so a Forest
-        // that becomes tappable becomes a different material and needs no
-        // second pass — and stops being one the moment priority moves on.
+        // The offer is what the player could do with the card — or has just
+        // said they will — and is light on the felt round it; a Forest that
+        // becomes tappable is lit, and stops being lit the moment priority
+        // moves on.
         let glow = crate::cardmat::glow_of(object, placement.offer);
 
         // The face is fitted before the material is chosen: its name's lines
@@ -3787,7 +3844,7 @@ pub fn sync_scene(
             // One material per colour identity and name depth, so a
             // mono-green board is one material however many creatures are on
             // it.
-            let look = face_look(object, face_now.lines(), finish, glow, placement.corner);
+            let look = face_look(object, face_now.lines(), finish);
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
@@ -3800,8 +3857,7 @@ pub fn sync_scene(
             // One material per look, created on first use.
             match placement.art {
                 Some(key) => {
-                    let look = CardLook::art(key, finish, glow)
-                        .with_corner(placement.corner)
+                    let look = CardLook::art(key, finish)
                         .with_sweep(sheen.of(placement.object, crate::sheen::Surface::Table));
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
@@ -3958,12 +4014,26 @@ pub fn sync_scene(
             entity
         };
 
+        // What the strip says. The plate goes on it only where the print
+        // cannot say it (`Corner::shows_plate`): a card showing its text
+        // face has no printed box, and one showing its art has, unless the
+        // next card of the row lies over it.
+        let print = !show_face && placement.art.is_some();
+        let corner = placement.corner;
+        let strip = cardrail::Strip::new(
+            placement.marks,
+            corner
+                .shows_plate(print, placement.covered)
+                .then_some(corner),
+            placement.sick,
+            placement.crests,
+        );
         sync_strip(
             &mut commands,
             &mut index,
             &mut strip_materials,
             entity,
-            placement,
+            (placement.object, strip, placement.rung),
             motion,
         );
         sync_badge(
@@ -3973,13 +4043,21 @@ pub fn sync_scene(
             entity,
             placement,
         );
+        sync_floor(
+            &mut commands,
+            &mut index,
+            &mut floor_materials,
+            entity,
+            placement,
+            glow,
+            motion,
+        );
         sync_stack(
             &mut commands,
             &mut index,
             &mut card_materials,
             entity,
             placement,
-            glow,
             motion,
         );
 
@@ -4031,11 +4109,12 @@ pub fn sync_scene(
             // Despawning a card takes its text children with it, so the map
             // only has to forget them — and it keeps them for as long as the
             // card is still leaving, which is what makes a named card sink
-            // into the graveyard rather than a blank one. The strip and the
-            // badge are children in the same way.
+            // into the graveyard rather than a blank one. The strip, the
+            // badge and the light on the felt are children in the same way.
             index.faces.remove(&id);
             index.marks.remove(&id);
             index.badges.remove(&id);
+            index.floors.remove(&id);
             index.stacks.remove(&id);
             // A stale id with no move behind it did not leave anywhere: it is
             // a graveyard's old top card, covered by the one that landed on
