@@ -234,3 +234,35 @@ async fn the_catalog_answers_a_session_and_nobody_else() {
     let (status, body) = http(gw.port, "GET", &asks[0], Some(&token), "");
     assert_eq!(status, 401, "once the session has ended: {body}");
 }
+
+/// Mind Stone's Mirrodin Besieged printing: a real Scryfall id, which the
+/// catalog here has never been given.
+const UNSEEN_PRINTING: &str = "b30a8f92-ce42-4b27-a893-bcf97fde228d";
+
+/// #270: the gateway asks Scryfall on nobody's behalf. A printing the
+/// catalog lacks is not answered, even for a session, and nothing is
+/// fetched into the catalog for it. The gateway used to fetch it and keep
+/// it, which made `/catalog/text` a proxy.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_printing_the_catalog_lacks_is_fetched_for_nobody() {
+    let gw = spawn_gateway("text-unseen");
+    let catalog = Catalog::connect(&gw.database_url())
+        .await
+        .expect("connecting to the gateway's schema");
+    let token = login(gw.port, "unseen", "Unseen");
+    let (status, body) = http(
+        gw.port,
+        "GET",
+        &format!("/catalog/text?lang=en&ids={UNSEEN_PRINTING}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{body}");
+    assert!(entries(&body).is_empty(), "not in the catalog: {body}");
+    let kept = catalog
+        .cards_of(&[UNSEEN_PRINTING.to_string()])
+        .await
+        .expect("reading the catalog");
+    assert!(kept.is_empty(), "nothing was fetched and kept: {kept:?}");
+    assert_eq!(catalog.count().await.expect("counting"), 0);
+}

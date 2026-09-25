@@ -20,15 +20,11 @@
 //! batches, and a stamp per batch would rebuild every language on nearly
 //! every request for the three minutes an ingest runs.
 //!
-//! The gateway's own on-demand fill (`/catalog/text?ids=`, for clients that
-//! predate `oracle_ids`) does not move it either. It re-reads just the cards
-//! it filled ([`TextCache::refresh`]): their text in each language this
-//! process holds and their names once, so a fill costs a small query per
-//! held language instead of a rebuild of each. The limit that leaves: **a second gateway process on the same
-//! database sees such a fill only at the next ingest**, and until then serves
-//! that card's previous pick — valid text, without the one new printing.
-//! Scaling gateways out means lifting it first, with a stamp of the fill's
-//! own or by moving the fill out of the gateway.
+//! No gateway writes cards into the catalog. It used to fill a
+//! printing it lacked from Scryfall (`/catalog/text?ids=`), without moving
+//! the stamp, which left a second gateway on the same database serving the
+//! older pick until the next ingest; #270 took the fill out, and the limit
+//! with it.
 //!
 //! # What is held
 //!
@@ -222,62 +218,6 @@ impl TextCache {
         let names = Arc::new(catalog.names(pool_cards()).await?);
         *held = Some((version, Arc::clone(&names)));
         Ok(names)
-    }
-
-    /// Reads `oracle_ids` again into every language held, their text and
-    /// their names, after this gateway filled printings of them from
-    /// Scryfall. A pool card the catalog had no printing of until then is
-    /// read in too; cards outside the pool are not held and cost nothing.
-    ///
-    /// # Errors
-    /// When the catalog cannot be read; what is held is left as it was.
-    pub async fn refresh(&self, catalog: &Catalog, oracle_ids: &[String]) -> anyhow::Result<()> {
-        let pool = pool_cards();
-        let mut wanted: Vec<String> = oracle_ids
-            .iter()
-            .filter(|id| pool.binary_search(id).is_ok())
-            .cloned()
-            .collect();
-        wanted.sort_unstable();
-        wanted.dedup();
-        if wanted.is_empty() {
-            return Ok(());
-        }
-        let names = {
-            let mut held = self.names.lock().await;
-            let Some((at, names)) = held.as_ref() else {
-                // Nothing is held: the next request reads it all anyway.
-                return Ok(());
-            };
-            let mut patched: Vec<LocalName> = names
-                .iter()
-                .filter(|name| wanted.binary_search(&name.oracle_id).is_err())
-                .cloned()
-                .collect();
-            patched.extend(catalog.names(&wanted).await?);
-            // By card only, and stable: within a card the order is the
-            // one Postgres sorted the names in, under its own collation,
-            // and it is the order `/pool` lists them in.
-            patched.sort_by(|a, b| a.oracle_id.cmp(&b.oracle_id));
-            let patched = Arc::new(patched);
-            *held = Some((*at, Arc::clone(&patched)));
-            patched
-        };
-        let slots: Vec<Slot> = self.slots.lock().values().cloned().collect();
-        for slot in slots {
-            let mut held = slot.lock().await;
-            let Some(language) = held.as_ref() else {
-                continue;
-            };
-            let mut by_card = language.by_card.clone();
-            for entry in catalog.text_by_card(&wanted, &language.lang).await? {
-                by_card.insert(entry.oracle_id.clone(), entry);
-            }
-            let patched =
-                Language::assemble(language.version, language.lang.clone(), by_card, &names)?;
-            *held = Some(Arc::new(patched));
-        }
-        Ok(())
     }
 
     fn slot(&self, lang: &str) -> Slot {
@@ -516,49 +456,6 @@ mod tests {
         assert!(read.iter().all(|language| Arc::ptr_eq(&read[0], language)));
         assert_eq!(printed(&read[0]), Some(OLD));
         assert_eq!(reads(&cache), 2, "one read before the stamp, one after");
-        sandbox.close().await;
-    }
-
-    /// The gateway's own fill does not move the stamp: it re-reads the
-    /// cards it filled into every language held, and nothing else, and
-    /// what it leaves is what a read would give. The card starts out
-    /// missing, as a pool card an old catalog lacks does.
-    #[tokio::test]
-    async fn a_fill_re_reads_its_own_cards_and_nothing_else() {
-        let sandbox = Sandbox::open("fill").await;
-        let catalog = &sandbox.catalog;
-        let cache = TextCache::default();
-        let stone = [mind_stone().oracle_id.to_owned()];
-        assert_eq!(
-            printed(&cache.get(catalog, "de").await.expect("reading")),
-            None
-        );
-        cache.get(catalog, "en").await.expect("reading");
-        let version = catalog.data_version().await.expect("the stamp");
-
-        for (n, date, text) in [(1, "2007-07-13", OLD), (2, "2025-06-13", NEW)] {
-            catalog
-                .upsert(&[german(n, date, text)])
-                .await
-                .expect("the fill");
-            cache.refresh(catalog, &stone).await.expect("re-reading");
-
-            let de = cache.get(catalog, "de").await.expect("reading");
-            assert_eq!(printed(&de), Some(text));
-            let en = cache.get(catalog, "en").await.expect("reading");
-            let pool = String::from_utf8(en.pool_json().to_vec()).expect("utf-8");
-            assert!(
-                pool.contains("Gedankenstein"),
-                "the names are read again too"
-            );
-            let fresh = TextCache::default();
-            for held in [de, en] {
-                let read = fresh.get(catalog, held.lang()).await.expect("reading");
-                assert_eq!(held.pool_json(), read.pool_json(), "{}", held.lang());
-            }
-        }
-        assert_eq!(reads(&cache), 2, "no language was read again");
-        assert_eq!(catalog.data_version().await.expect("the stamp"), version);
         sandbox.close().await;
     }
 

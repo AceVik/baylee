@@ -1284,14 +1284,6 @@ fn db_down(e: &anyhow::Error) -> (StatusCode, Json<ErrorBody>) {
 /// can cost.
 const MAX_TEXT_IDS: usize = 500;
 
-/// How many unknown cards one request may pull from Scryfall.
-///
-/// Filling on demand is for the handful of cards a bulk snapshot missed, not
-/// for populating an empty catalog — that is what `baylee-catalog ingest` is.
-/// Scryfall's rate limit is a shared budget (`docs/legal.md` §3), so a single
-/// client cannot be allowed to spend all of it.
-const MAX_ONDEMAND_FILL: usize = 25;
-
 /// Connects the card catalog when `DATABASE_URL` is configured.
 ///
 /// A failure here is logged and otherwise ignored: card text is presentation,
@@ -1346,16 +1338,16 @@ fn text_ids(list: &str) -> Vec<String> {
 /// For a signed-in session only (#270), asked before anything else, as
 /// `/art` is (#273). The catalog is Scryfall's data, and Scryfall's terms
 /// say "You may not simply repackage, republish, or proxy Scryfall data":
-/// a route anyone could call served it to whoever asked, and asked by
-/// printing it fetched from Scryfall on a stranger's behalf. A player
+/// a route anyone could call served it to whoever asked. A player
 /// signs in with a free account, a guest's included, which the same terms
 /// allow ("end-users should be able to access card data anonymously or
 /// with free accounts"). A client that is not signed in asks Scryfall
 /// itself, and has the English Oracle compiled in.
 ///
-/// Asked by card, a card the catalog lacks is simply not answered.
-/// Asked by printing, a printing it lacks is fetched once and kept, as it
-/// always was for the clients that still ask that way.
+/// A card or printing the catalog lacks is simply not answered. Asked by
+/// printing, the gateway used to fetch a missing one from Scryfall and keep
+/// it; that made it a proxy for whoever asked, and nothing asked it any
+/// more, so it asks Scryfall on nobody's behalf (#270).
 async fn catalog_text(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -1381,44 +1373,10 @@ async fn catalog_text(
     if ids.is_empty() {
         return Ok(Json(Vec::new()));
     }
-    let mut asked = catalog
+    let asked = catalog
         .cards_of(&ids)
         .await
         .map_err(|e| catalog_error("looking up card text", &e))?;
-
-    // Anything the catalog has never seen is fetched once and kept.
-    let missing: Vec<String> = ids
-        .iter()
-        .filter(|id| !asked.iter().any(|(known, _)| known == *id))
-        .take(MAX_ONDEMAND_FILL)
-        .cloned()
-        .collect();
-    if !missing.is_empty() {
-        let wanted = missing.clone();
-        let fetched = tokio::task::spawn_blocking(move || {
-            wanted
-                .iter()
-                .filter_map(|id| baylee_catalog::ingest::fetch_one_blocking(id).ok())
-                .collect::<Vec<_>>()
-        })
-        .await
-        .unwrap_or_default();
-        if let Err(err) = catalog.upsert(&fetched).await {
-            tracing::warn!(%err, "storing on-demand cards failed");
-        } else if !fetched.is_empty() {
-            let filled = catalog
-                .cards_of(&missing)
-                .await
-                .map_err(|e| catalog_error("looking up card text", &e))?;
-            // Not a data stamp: see `texts` for why a fill re-reads its own
-            // cards instead.
-            let cards: Vec<String> = filled.iter().map(|(_, card)| card.clone()).collect();
-            if let Err(err) = state.texts.refresh(catalog, &cards).await {
-                tracing::warn!(%err, "re-reading filled cards failed");
-            }
-            asked.extend(filled);
-        }
-    }
 
     let mut cards: Vec<String> = asked.iter().map(|(_, card)| card.clone()).collect();
     cards.sort_unstable();

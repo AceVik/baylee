@@ -203,8 +203,9 @@ and to the compiled Oracle.
 answered with its card's entry under the id that was asked for, so an old
 client gets the same choice. That is the one answer in which an entry names
 two printings: `scryfall_id` is the one asked for, while `lang`, `layout`
-and the faces are the served printing's. A printing the catalog lacks is fetched once
-from Scryfall and kept, at most 25 a request, as before.
+and the faces are the served printing's. A printing the catalog lacks is
+not answered either. The gateway used to fetch it from Scryfall and keep
+it, which made it a proxy for whoever asked; #270 took that out.
 
 `oracle_id`, `layout` and `printed` were added with `oracle_ids`, with serde
 defaults. A new client reads an old gateway's answer, and an old client,
@@ -243,16 +244,11 @@ SET value = (catalog_meta.value::bigint + 1)::text;
 
 A row added to `languages` needs the restart.
 
-**Scaling out.** The one writer that does not move the stamp is the
-gateway's own fill (`ids=` above), because a stamp would make every gateway
-rebuild every language it holds. The filling gateway re-reads just the
-cards it filled instead: their text in each language it holds, a query
-each, and their names once. So a *second* gateway on the same database sees
-another gateway's fill only at the next ingest. Until then it serves that
-card's previous pick, which is valid text without the one new printing.
-Lift this before running more than one gateway: give the fill a stamp of
-its own, or move the fill out of the gateway.
-`crates/baylee-gateway/src/texts.rs` has the mechanism.
+**Scaling out.** No gateway writes cards into the catalog, so every
+writer is one of those above, and every gateway on the same database reads
+an ingest on its next request. (The gateway's own fill from Scryfall did not move it, and a
+second gateway served the older pick until the next ingest; #270 removed
+the fill.) `crates/baylee-gateway/src/texts.rs` has the mechanism.
 
 ## Card art (`GET /art/…`)
 

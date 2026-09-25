@@ -14,13 +14,9 @@ use crate::{Catalog, scryfall};
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
 use std::io::{BufRead, BufReader};
-use std::time::Duration;
 
 /// User agent sent to Scryfall. Their terms ask for an identifying agent.
 const USER_AGENT: &str = concat!("baylee/", env!("CARGO_PKG_VERSION"));
-
-/// Pause between single-card API calls — well inside the published limit.
-const RATE_LIMIT_PAUSE: Duration = Duration::from_millis(120);
 
 /// How many printings are handed to one [`Catalog::upsert`].
 ///
@@ -171,25 +167,6 @@ fn bulk_uri(feed: Feed) -> Result<String> {
         .find(|e| e.kind == feed.scryfall_type())
         .map(|e| e.jsonl_download_uri)
         .with_context(|| format!("Scryfall has no {} feed", feed.scryfall_type()))
-}
-
-/// Fetches one printing from the Scryfall API and stores it.
-///
-/// Used when a client asks for a card the catalog does not have. Blocking, so
-/// callers in an async context run it on a blocking worker.
-///
-/// # Errors
-/// When the request fails or the card does not exist.
-pub fn fetch_one_blocking(id: &str) -> Result<Card> {
-    std::thread::sleep(RATE_LIMIT_PAUSE);
-    let card: Card = ureq::get(&format!("{}/cards/{id}", scryfall::API))
-        .header("User-Agent", USER_AGENT)
-        .call()
-        .with_context(|| format!("fetching card {id}"))?
-        .into_body()
-        .read_json()
-        .context("decoding a card")?;
-    Ok(card)
 }
 
 #[cfg(test)]
