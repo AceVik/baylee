@@ -6620,10 +6620,13 @@ space. The clip stops the report at the row and clips none of the glyphs.
 A turn's heading is a quieter line under a rule. Every other line is the
 seat swatch, then the sentence with each name set one weight up and
 "(×N)" in the quieter ink after a line that happened more than once. The
-swatch is drawn empty until the book says which seat a line is about
-(`LogLine::subject`, from the log's owner); it already takes its width, so
-the lines do not move when it is filled. The panel's words are `GameLog…`
-phrases, because every `Log…` phrase is a sentence of the book's.
+swatch is the colour of the seat the line is about (`LogLine::subject`):
+`hud::seat_colour`, the one the seat bar's own swatch wears, so the reader's
+lines are gold and another seat's are its team's. A line about the table
+(a block, counters, day and night, the end of the game) keeps the swatch's
+width and draws it empty, so every sentence starts at one edge
+(`ledge::log::subject_ink`). The panel's words are `GameLog…` phrases,
+because every `Log…` phrase is a sentence of the book's.
 
 **The end screen** (`hud::finish::write_the_log`) carries the whole log
 between the loss lines and the way out, under a "Game log" caption, in a box

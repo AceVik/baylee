@@ -154,17 +154,12 @@ const LOG_CAPTION_GAP: f32 = 6.0;
 const LOG_PAD: f32 = 8.0;
 
 /// The log's lines in the sheet's inks, settling with it.
-///
-/// No seat swatch: the sheet is one reader's account of a game that is over,
-/// and a column of seat colours down its left is the panel's, where the table
-/// is still being played beside it.
 const SHEET_INKS: LineInks = LineInks {
     line_pt: LOG_PT,
     turn_pt: LOG_TURN_PT,
     ink: palette::PARCHMENT_INK,
     soft: palette::SLIP_SOFT,
     rule: palette::PARCHMENT_EDGE,
-    swatch: false,
     paint: settle,
 };
 
@@ -569,7 +564,10 @@ fn write_the_log(
         ))
         .id();
     for line in lines {
-        let row = spawn_line(commands, fonts, lang, line, &SHEET_INKS);
+        // No seat swatch: the sheet is one reader's account of a game that
+        // is over, and a column of seat colours down its left is the
+        // panel's, where the table is still being played beside it.
+        let row = spawn_line(commands, fonts, lang, line, &SHEET_INKS, None);
         commands.entity(list).add_child(row);
     }
     let bar = scrollbar(

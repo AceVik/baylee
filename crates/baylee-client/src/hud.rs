@@ -1869,6 +1869,23 @@ pub fn team_color(team: Option<u8>) -> Color {
     }
 }
 
+/// The colour a seat is named by, as `reader` sees it: [`palette::ACTIVE`]
+/// for the reader's own seat and its team's [`team_color`] for any other.
+///
+/// The seat bar's swatch and the game log's both draw it, so a line in the
+/// log and the bar of the player it is about wear one colour.
+#[must_use]
+pub(crate) fn seat_colour(
+    reader: PlayerId,
+    statics: Option<&GameStatic>,
+    player: PlayerId,
+) -> Color {
+    if player == reader {
+        return palette::ACTIVE;
+    }
+    team_color(statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team))
+}
+
 /// The abilities the chooser should draw for `object`.
 pub(crate) fn ability_options(
     duel: &Duel,

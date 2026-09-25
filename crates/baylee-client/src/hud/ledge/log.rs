@@ -294,7 +294,15 @@ pub fn sync_log(
         let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
         let wording = wording(&duel, lang, &lookup);
         for line in duel.log.lines_since(revision.drawn, &wording) {
-            let row = spawn_line(&mut commands, &fonts, lang, &line, &PANEL_INKS);
+            let swatch = subject_ink(&wording, line.subject);
+            let row = spawn_line(
+                &mut commands,
+                &fonts,
+                lang,
+                &line,
+                &PANEL_INKS,
+                Some(swatch),
+            );
             commands.entity(list).add_child(row);
         }
         if !follow.stuck {
@@ -312,8 +320,9 @@ pub fn sync_log(
         }
     }
     let lookup = |card: CardIndex, face: u8| texts.as_ref().and_then(|t| t.face(card, face));
-    let lines = duel.log.lines(&wording(&duel, lang, &lookup));
-    let parts = draw_all(&mut commands, &fonts, lang, &lines);
+    let wording = wording(&duel, lang, &lookup);
+    let lines = duel.log.lines(&wording);
+    let parts = draw_all(&mut commands, &fonts, &wording, &lines);
     commands.entity(panel).add_children(&parts);
     *revision = LogRevision { drawn: len, ..next };
 }
@@ -323,9 +332,10 @@ pub fn sync_log(
 fn draw_all(
     commands: &mut Commands,
     fonts: &UiFonts,
-    lang: Lang,
+    wording: &Wording,
     lines: &[LogLine],
 ) -> [Entity; 2] {
+    let lang = wording.lang;
     let head = head(commands, fonts, lang);
     let body = commands
         .spawn((
@@ -368,7 +378,8 @@ fn draw_all(
         commands.entity(list).add_child(empty);
     }
     for line in lines {
-        let row = spawn_line(commands, fonts, lang, line, &PANEL_INKS);
+        let swatch = subject_ink(wording, line.subject);
+        let row = spawn_line(commands, fonts, lang, line, &PANEL_INKS, Some(swatch));
         commands.entity(list).add_child(row);
     }
     let track = scrollbar(
@@ -397,6 +408,14 @@ pub(in crate::hud) fn wording<'a>(
         statics: duel.statics.as_ref(),
         texts,
     }
+}
+
+/// The swatch of a line about `subject`: the seat's own colour, the one its
+/// bar wears ([`seat_colour`]), and none for a line about the table.
+pub(in crate::hud) fn subject_ink(wording: &Wording, subject: Option<PlayerId>) -> Color {
+    subject.map_or(Color::NONE, |player| {
+        seat_colour(wording.seat, wording.statics, player)
+    })
 }
 
 /// The head: the title, and the cross that closes it.
@@ -549,8 +568,6 @@ pub(in crate::hud) struct LineInks {
     pub soft: Color,
     /// The rule over a turn's heading.
     pub rule: Color,
-    /// Whether a line keeps the seat swatch's room at its left.
-    pub swatch: bool,
     /// Puts one of those colours on a node.
     pub paint: fn(&mut EntityCommands, Paint),
 }
@@ -573,7 +590,6 @@ pub(in crate::hud) const PANEL_INKS: LineInks = LineInks {
     ink: palette::DIALOG_INK,
     soft: palette::DIALOG_SOFT,
     rule: palette::DIALOG_LINE,
-    swatch: true,
     paint: at_rest,
 };
 
@@ -607,14 +623,16 @@ const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
 /// One line of the log, as a row.
 ///
 /// A turn's heading is a quieter line under a rule. Any other line is the
-/// seat swatch and the sentence, with each name the sentence gives an object
-/// set one weight up, and "(×N)" after a line that happened more than once.
+/// seat swatch, when `swatch` gives it a colour ([`subject_ink`]), and the
+/// sentence, with each name the sentence gives an object set one weight up,
+/// and "(×N)" after a line that happened more than once.
 pub(in crate::hud) fn spawn_line(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
     line: &LogLine,
     inks: &LineInks,
+    swatch: Option<Color>,
 ) -> Entity {
     if line.header {
         let mut heading = commands.spawn((
@@ -681,7 +699,7 @@ pub(in crate::hud) fn spawn_line(
             Pickable::IGNORE,
         ))
         .id();
-    if inks.swatch {
+    if let Some(colour) = swatch {
         let swatch = commands
             .spawn((
                 Node {
@@ -690,11 +708,7 @@ pub(in crate::hud) fn spawn_line(
                     border_radius: BorderRadius::all(px(SWATCH_W / 2.0)),
                     ..default()
                 },
-                // The seat swatch's one spot: `LogLine::subject`, once it
-                // lands, is `palette::ACTIVE` for the reading seat and
-                // `team_color` for another, and a line about the table keeps
-                // it empty.
-                BackgroundColor(Color::NONE),
+                BackgroundColor(colour),
                 Pickable::IGNORE,
             ))
             .id();
@@ -828,7 +842,7 @@ mod tests {
     use super::*;
     use baylee_client_core::gamelog::NameSpan;
     use baylee_core::ids::ObjectId;
-    use baylee_view::{LogEntry, LogEvent, LogTail};
+    use baylee_view::{DayNight, GameStatic, LogEntry, LogEvent, LogTail, SeatIdentity};
 
     fn fonts() -> UiFonts {
         UiFonts {
@@ -962,11 +976,18 @@ mod tests {
 
     /// A panel over a book, with `sync_log` running.
     fn panel_over(lines: u32) -> (App, Entity) {
+        panel_with(&tail(0, lines), None)
+    }
+
+    /// A panel over a book of `entries`, read by seat 0 with `statics` as
+    /// its roster.
+    fn panel_with(entries: &LogTail, statics: Option<GameStatic>) -> (App, Entity) {
         let mut app = App::new();
         let mut duel = Duel::default();
         let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
-        duel.log.append(&tail(0, lines), &view);
+        duel.log.append(entries, &view);
         duel.view = Some(view);
+        duel.statics = statics;
         duel.log_open = true;
         app.insert_resource(duel)
             .insert_resource(fonts())
@@ -981,6 +1002,98 @@ mod tests {
         queue.apply(app.world_mut());
         app.update();
         (app, panel)
+    }
+
+    /// A book of `events` from line `from` on, all in turn 1.
+    fn book(from: u32, events: Vec<LogEvent>) -> LogTail {
+        LogTail {
+            from,
+            entries: events
+                .into_iter()
+                .map(|event| LogEntry {
+                    turn: 1,
+                    repeat: 1,
+                    event,
+                })
+                .collect(),
+        }
+    }
+
+    fn mulligan(seat: u8) -> LogEvent {
+        LogEvent::Mulliganed {
+            player: PlayerId::new(seat),
+        }
+    }
+
+    /// A line about the table: nobody's.
+    fn dawn() -> LogEvent {
+        LogEvent::DayNight { now: DayNight::Day }
+    }
+
+    /// Two seats on two teams.
+    fn two_teams() -> GameStatic {
+        GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: "g".into(),
+            your_seat: PlayerId::new(0),
+            seats: (0..2)
+                .map(|seat| SeatIdentity {
+                    player: PlayerId::new(seat),
+                    display_name: format!("seat {seat}"),
+                    is_ai: false,
+                    away: false,
+                    team: Some(seat),
+                })
+                .collect(),
+            prints: vec![],
+        }
+    }
+
+    /// Each row's swatch colour, in order.
+    fn swatches(app: &mut App) -> Vec<Color> {
+        let rows = rows(app);
+        let world = app.world();
+        rows.iter()
+            .map(|row| {
+                let swatch = world.get::<Children>(*row).expect("a row's parts")[0];
+                world.get::<BackgroundColor>(swatch).expect("a swatch").0
+            })
+            .collect()
+    }
+
+    /// A line wears the colour of the seat it is about, the one that seat's
+    /// bar wears: the reader's own, another seat's team's, and none for a line
+    /// about the table. Both ways a line is drawn: with the panel as it
+    /// opens, and arriving after it.
+    ///
+    /// The reader's team is not the reader's colour, so a swatch that asked
+    /// only for teams would fail here too.
+    #[test]
+    fn a_line_wears_the_colour_of_the_seat_it_is_about() {
+        let opened = book(0, vec![mulligan(0), mulligan(1), dawn()]);
+        let (mut app, _) = panel_with(&opened, Some(two_teams()));
+        let (own, theirs) = (palette::ACTIVE, team_color(Some(1)));
+        assert_ne!(own, team_color(Some(0)), "the test cannot tell them apart");
+        assert_eq!(
+            swatches(&mut app),
+            [own, theirs, Color::NONE],
+            "the lines drawn as the panel opened"
+        );
+
+        {
+            let mut duel = app.world_mut().resource_mut::<Duel>();
+            let view = duel.view.clone().expect("a view");
+            duel.log
+                .append(&book(3, vec![dawn(), mulligan(1), mulligan(0)]), &view);
+        }
+        app.update();
+        assert_eq!(
+            swatches(&mut app)[3..],
+            [Color::NONE, theirs, own],
+            "the lines that arrived after it"
+        );
     }
 
     fn rows(app: &mut App) -> Vec<Entity> {
@@ -1083,7 +1196,14 @@ mod tests {
             for (at, text) in said.iter().enumerate() {
                 let mut line = line(text, &[], 1);
                 line.header = at == said.len() - 1;
-                let row = spawn_line(&mut commands, &fonts, Lang::En, &line, &PANEL_INKS);
+                let row = spawn_line(
+                    &mut commands,
+                    &fonts,
+                    Lang::En,
+                    &line,
+                    &PANEL_INKS,
+                    Some(Color::NONE),
+                );
                 commands.entity(list).add_child(row);
             }
             list

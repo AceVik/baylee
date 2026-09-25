@@ -896,12 +896,7 @@ fn swatch(
     width: f32,
     height: f32,
 ) -> Entity {
-    let team = statics.and_then(|s| s.seats.iter().find(|i| i.player == seat.player)?.team);
-    let colour = if seat.player == view.seat {
-        palette::ACTIVE
-    } else {
-        team_color(team)
-    };
+    let colour = seat_colour(view.seat, statics, seat.player);
     commands
         .spawn((
             Node {
