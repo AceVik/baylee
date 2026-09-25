@@ -105,7 +105,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - A `dev-table` gateway reads `BAYLEE_DEV_SEAT_BOARD` (`0:Card;1:Card`, `baylee_cards::decks::deal_named`); a bad spec refuses startup. Keep board seeding behind the feature.
 - Gateway CORS is `Access-Control-Allow-Origin: *` without `Allow-Credentials`; keep bearer-header auth, never set cookies.
 - Agent: `BAYLEE_GATEWAY`, `BAYLEE_AGENT_TOKEN`, `BAYLEE_AGENT_NAME`, `BAYLEE_AGENT_CAPACITY` (0 = unlimited), `BAYLEE_ENGINE_BIN` (default beside the agent).
-- Engine: `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`; none = listening dev harness (`PORT`, `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
+- Engine: `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`; none = listening dev harness (`PORT`, `0` and `BAYLEE_PORT_FILE` as on the gateway; `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
 - Client: `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; browser `?game=…&token=…`.
 
 ## Architecture
