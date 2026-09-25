@@ -32,9 +32,11 @@
 //! the card again. What the frame said moved on to the strip, which the
 //! owner allowed on one condition — it reads as an object lying over the
 //! card, with its own shadow. So the strip is a label now ([`Strip`]):
-//! the chip (`cardplate`), the sleep moon, the marks, and the identity
-//! crests (`cardcrest`), packed from the left in that order, and a card
-//! with none of them wears no strip at all. Hexproof, indestructible and
+//! the chip (`cardplate`), the marks, and the identity crests
+//! (`cardcrest`), packed from the left in that order, and a card with none
+//! of them wears no strip at all. The sleep moon that stood after the chip
+//! went when summoning sickness became a wave over the card (`shellmat`,
+//! #298); its place in the packing stays empty. Hexproof, indestructible and
 //! shroud, which were the frame's material, are marks like any other. The
 //! plate stood at the strip's left end too until the owner, 25.09, read the
 //! numbers sitting with the marks as the fault: it is an object of its own
@@ -227,11 +229,11 @@ pub fn badge_bits(badges: &[KeywordBadge]) -> u32 {
     mark_bits(badges.iter().fold(0, |word, badge| word | badge.bit()))
 }
 
-/// The label bits of the strip's word: the sleep moon, and the identity
-/// crests packed after it, two bits each, `glyph + 1` or zero for none.
+/// The label bits of the strip's word: the identity crests, two bits each,
+/// `glyph + 1` or zero for none. Bit 0 was the sleep moon's until
+/// summoning sickness became a wave over the card (#298); it stays unused,
+/// so the crests keep their places.
 pub mod label {
-    /// The creature is summoning sick (CR 302.6): the moon.
-    pub const MOON: u32 = 1;
     /// Where the first crest's two bits start.
     pub const CREST_SHIFT: u32 = 1;
     /// How wide one crest's field is.
@@ -240,7 +242,7 @@ pub mod label {
 
 /// Everything the strip says about one card, as the three words its shader
 /// reads (#298): the keywords, and the label that used to be the frame's —
-/// what the counters add, the moon and the crests.
+/// what the counters add and the crests.
 ///
 /// The strip is the material's whole key, so two cards saying the same
 /// thing share one material however long the lane is.
@@ -252,7 +254,7 @@ pub struct Strip {
     /// without the plate's tone, zero with no swing or where the card shows
     /// no plate ([`crate::cardplate::Corner::shows_plate`]).
     pub swing: u32,
-    /// The moon and the crests, [`label`].
+    /// The crests, [`label`].
     pub label: u32,
 }
 
@@ -261,8 +263,6 @@ pub struct Strip {
 pub enum Item {
     /// The chip: what a permanent's ±1/±1 counters add.
     Chip,
-    /// The sleep moon.
-    Moon,
     /// A keyword, by its slot in [`MARK_ORDER`].
     Mark(usize),
     /// An identity crest, by its [`crate::cardcrest`] glyph.
@@ -281,17 +281,15 @@ pub struct Cell {
 
 impl Strip {
     /// The strip for a card: its keyword word, its corner when the card
-    /// shows its plate (the chip goes with it), whether it is asleep, and
-    /// its crests.
+    /// shows its plate (the chip goes with it), and its crests.
     #[must_use]
     pub fn new(
         marks: u32,
         corner: Option<crate::cardplate::Corner>,
-        sick: bool,
         crests: [Option<usize>; crate::cardcrest::MAX_CRESTS],
     ) -> Self {
         let swing = corner.map_or(0, crate::cardplate::Corner::chip);
-        let mut label = if sick { label::MOON } else { 0 };
+        let mut label = 0;
         for (n, glyph) in crests.iter().enumerate() {
             if let Some(glyph) = glyph {
                 let at = label::CREST_SHIFT + label::CREST_BITS * n as u32;
@@ -318,9 +316,6 @@ impl Strip {
         let mut out = Vec::new();
         if self.swing & SWING_SET != 0 {
             out.push((Item::Chip, CHIP_W, PLATE_H));
-        }
-        if self.label & label::MOON != 0 {
-            out.push((Item::Moon, MARK, MARK));
         }
         for slot in 0..MARK_ORDER.len() {
             if self.marks & (1 << slot) != 0 {
@@ -390,17 +385,15 @@ impl Strip {
         [STRIP_X0, top - STRIP_PAD, x1 + STRIP_PAD, y1]
     }
 
-    /// The widest and tallest strip there is: every mark, the moon, both
-    /// crests and the chip.
+    /// The widest and tallest strip there is: every mark, both crests and
+    /// the chip.
     #[must_use]
     pub fn largest() -> Self {
         use crate::cardplate::SWING_SET;
         Self {
             marks: (1 << MARK_ORDER.len()) - 1,
             swing: SWING_SET,
-            label: label::MOON
-                | (1 << label::CREST_SHIFT)
-                | (3 << (label::CREST_SHIFT + label::CREST_BITS)),
+            label: (1 << label::CREST_SHIFT) | (3 << (label::CREST_SHIFT + label::CREST_BITS)),
         }
     }
 
@@ -554,11 +547,9 @@ mod tests {
         let crests = [[None, None], [Some(0), None], [Some(1), Some(2)]];
         let mut out = Vec::new();
         for corner in corners {
-            for sick in [false, true] {
-                for crest in crests {
-                    for n in 0..=MARK_ORDER.len() {
-                        out.push(Strip::new((1 << n) - 1, corner, sick, crest));
-                    }
+            for crest in crests {
+                for n in 0..=MARK_ORDER.len() {
+                    out.push(Strip::new((1 << n) - 1, corner, crest));
                 }
             }
         }
@@ -626,7 +617,6 @@ mod tests {
             let cells = strip.cells();
             let rank = |item: Item| match item {
                 Item::Chip => (0, 0),
-                Item::Moon => (1, 0),
                 Item::Mark(slot) => (2, slot),
                 Item::Crest(_) => (3, 0),
             };
@@ -670,7 +660,7 @@ mod tests {
     /// a shorter or a narrower strip.
     #[test]
     fn an_eighth_mark_opens_a_row_above() {
-        let marks = |n: u32| Strip::new((1 << n) - 1, None, false, [None, None]);
+        let marks = |n: u32| Strip::new((1 << n) - 1, None, [None, None]);
         let seven = marks(7).rect();
         let eight = marks(8).rect();
         assert!((seven[3] - eight[3]).abs() < 1e-6, "the first row moved");
@@ -707,12 +697,13 @@ mod tests {
         assert_eq!(badge_bits(&KeywordBadge::from_bits(word)), mark_bits(word));
     }
 
-    /// The label's word packs the moon and each crest where the shader
-    /// reads them, and a strip with nothing to say is empty.
+    /// The label's word packs each crest where the shader reads it, its
+    /// first bit, the sleep moon's once, left empty; and a strip with
+    /// nothing to say is empty.
     #[test]
-    fn the_label_word_carries_the_moon_and_the_crests() {
-        let strip = Strip::new(0, None, true, [Some(1), Some(2)]);
-        assert_eq!(strip.label & label::MOON, label::MOON);
+    fn the_label_word_carries_the_crests() {
+        let strip = Strip::new(0, None, [Some(1), Some(2)]);
+        assert_eq!(strip.label & 1, 0, "the moon's bit is set");
         let crest = |n: u32| (strip.label >> (label::CREST_SHIFT + label::CREST_BITS * n)) & 3;
         assert_eq!(
             (crest(0), crest(1)),
@@ -721,26 +712,24 @@ mod tests {
         );
         assert_eq!(
             strip.cells().iter().map(|c| c.item).collect::<Vec<_>>(),
-            vec![Item::Moon, Item::Crest(1), Item::Crest(2)]
+            vec![Item::Crest(1), Item::Crest(2)]
         );
-        assert!(Strip::new(0, None, false, [None, None]).is_empty());
-        assert!(!Strip::new(0, None, true, [None, None]).is_empty());
+        assert!(Strip::new(0, None, [None, None]).is_empty());
         // A corner the strip does not carry leaves no trace in the key, and
         // nor does a plate: it is an object of its own (`plate_rect`).
         let none = Corner::default();
-        assert!(Strip::new(0, Some(none), false, [None, None]).is_empty());
+        assert!(Strip::new(0, Some(none), [None, None]).is_empty());
         let plate = Corner {
             plate: Plate::Loyalty(3),
             ..none
         };
-        assert!(Strip::new(0, Some(plate), false, [None, None]).is_empty());
+        assert!(Strip::new(0, Some(plate), [None, None]).is_empty());
         let chip = Strip::new(
             0,
             Some(Corner {
                 swing: Some((1, 0)),
                 ..plate
             }),
-            false,
             [None, None],
         );
         assert_eq!(
@@ -759,7 +748,7 @@ mod tests {
             swing: Some((0, 2)),
             ..Corner::default()
         };
-        let strip = Strip::new(mark_bits(word), Some(corner), false, [None, None]);
+        let strip = Strip::new(mark_bits(word), Some(corner), [None, None]);
         let cells = strip.cells();
         let middle = |c: &Cell| {
             (

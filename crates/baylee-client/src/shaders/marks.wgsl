@@ -21,7 +21,7 @@ struct MarksParams {
     quad: vec2<f32>,
     /// The chip, `cardplate::Corner::chip`; zero for none.
     swing: u32,
-    /// The sleep moon and the crests, `cardrail::label`.
+    /// The crests, `cardrail::label`.
     label: u32,
     /// Sixteen-byte rows under the GL backend's `std140`.
     pad: vec2<u32>,

@@ -47,8 +47,8 @@ use bevy::shader::ShaderRef;
 /// (`floor_light`, #298). The three protection keywords are facts about the
 /// card. They were the frame's paper until #298 took the frame away, and they
 /// wait for the shells that replace it. Sickness and identity used to ride
-/// here too, and are the strip's now: the moon and the crests
-/// (`baylee_client_core::cardrail::Strip`). Nothing in this word is drawn on
+/// here too: identity is the strip's crests now
+/// (`baylee_client_core::cardrail::Strip`), and sickness a shell's wave. Nothing in this word is drawn on
 /// the print (#274).
 pub mod glow {
     /// Indestructible — darksteel.
@@ -1300,7 +1300,6 @@ pub(crate) mod tests {
             "the shader opens a row at a different length than the hit test"
         );
         for (name, ours) in [
-            ("LABEL_MOON", cardrail::label::MOON),
             ("LABEL_CREST_SHIFT", cardrail::label::CREST_SHIFT),
             ("LABEL_CREST_BITS", cardrail::label::CREST_BITS),
         ] {
@@ -1313,7 +1312,7 @@ pub(crate) mod tests {
         assert_eq!(
             wgsl_const(src, "LABEL_ITEMS") as usize,
             2 + cardrail::MARK_ORDER.len() + baylee_client_core::cardcrest::MAX_CRESTS,
-            "the chip, the moon, every mark and the crests"
+            "the chip, the moon's empty place, every mark and the crests"
         );
     }
 

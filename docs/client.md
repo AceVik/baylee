@@ -1992,8 +1992,7 @@ on objects of its own:
 - **The strip** (`cardrail::Strip`, `marksmat.rs`, `label_strip`) lies on
   the art along the seam between the art and the type line, as a lifted
   object with its own shadow, and carries the card's **label** from the
-  left: the counters' chip, the sleep moon, the keyword marks and the
-  identity crests ("The strip says what the card does in combat", below).
+  left: the counters' chip, the keyword marks and the identity crests ("The strip says what the card does in combat", below).
   The owner's okay for a wider strip carrying all of that is recorded in
   `docs/legal.md` §3.
 - **The plate** stands at the card's bottom right, where the print says
@@ -2070,8 +2069,21 @@ on objects of its own:
   shade at its foot (`shellmat::wall_shade_mesh`). It turns with its card and always
   stands, on the felt whatever the card does (`table::wall_pose`: never
   lifted or grown with a hover or a flier's bob). It is solid, so it
-  writes depth, and it comes first in the pass (`WALL_RUNG`). Two rules
-  hold the shells:
+  writes depth, and it comes first in the pass (`WALL_RUNG`).
+  Summoning sickness (CR 302.6) is the fourth shell: a slow wave of
+  moonlight running out over the card from its middle line to
+  `WAVE_INSET` (0.05) inside its edge, a real ripple on a sheet
+  `WAVE_LIFT` (0.003) over the face whose crest rises `WAVE_CREST`
+  (0.009) as its front passes (`shellmat::wave_mesh`, lifted in
+  `shell.wgsl`'s vertex stage). One wave takes `WAVE_TRAVEL` (3.6 s) and
+  the next follows `WAVE_PERIOD` (6 s) after it, each card at its own
+  moment from where it lies, so a board of new creatures does not pulse
+  as one; with motion off it holds still most of the way out, crest and
+  all. It shades only its crest's slopes, with a glint of the key light
+  along it, and is nothing where there is no crest, so it passes and
+  leaves the print as it was, the way the arrival sweep does (the owner,
+  25.09; `docs/legal.md` §3). It lies over the rings and under the rim,
+  the strip and a dome (`WAVE_RUNG`). Two rules hold the shells:
   - **Exactly nothing of the rim, a ring or the wall over its own print.**
     Its vertex stage hands the fragment the camera in the shell's own
     space (`get_local_from_world`), the fragment follows its ray to the
@@ -2079,11 +2091,12 @@ on objects of its own:
     over `MASK_FEATHER` (0.012) off it (`clear_over_print`, mirrored in
     Rust and read against the shader by
     `the_shader_measures_the_card_this_file_does`). Every `return` of the
-    fragment but the dome's one carries it
-    (`every_colour_but_the_domes_carries_the_mask`). It is the real
-    camera, so it holds at every yaw, hover and tap. From the table's real
-    shots it leaves 0.93 of a standing rim's width to see. The dome is
-    glass over its whole card, by the owner's choice (25.09).
+    fragment but the dome's and the wave's carries it
+    (`every_colour_but_the_domes_and_the_waves_carries_the_mask`). It is
+    the real camera, so it holds at every yaw, hover and tap. From the
+    table's real shots it leaves 0.93 of a standing rim's width to see.
+    The dome is glass over its whole card, and the wave passes over its
+    own print, both by the owner's choice (25.09).
   - **Never on another card's print.** The mask cannot see a neighbour, so
     `table::fit_the_shells` asks, after the glide and from where every card
     and the camera are this frame, whether a shell standing round its card
@@ -2130,11 +2143,20 @@ on objects of its own:
     rows, with and without hovers, from the home
     shot, every seat's framing and every other seat's side of the table:
     none lands on a print, and both halves of each choice are taken
-    hundreds of times. Domes stand in 28296 of 29320 cases, 14758 of them
+    hundreds of times. Domes stand in 26269 of 29320 cases, 11444 of them
     at full height, and at every step; they lie in a duel's fanned rows,
     which since every seat at a ring has a duel's board (#264) are the
     only rows that fan. Taking the first guard away turned
     both red by the million.
+    The wave is the same guard over a flat profile, its crest standing at
+    full height everywhere at once (`WAVE_PROFILE`, `shellmat::wave_stands`):
+    where it would land on another card's print, under the next card of a
+    fanned row above all, it is not drawn, and it comes back only with
+    `STAND_AGAIN` of headroom. `a_wave_never_lands_on_another_cards_print`
+    sweeps the same tables and shots: 28312 drawn, 1008 taken away, and a
+    guard that always stood put 102196 of its points on a print. A face
+    level with the card's own is not under it: where two overlap, nothing
+    says whose print is on top (two hovered neighbours in the sweep).
     The wall needs no guard: it is lower than every face (0.08 against a
     resting card's 0.083, a const assert), so past any point of it the
     camera's ray only goes lower, and every print the ray crosses is in
@@ -2470,13 +2492,18 @@ numbers, and the **light on the felt** round the card says what is on offer.
   fanned lane turns its strip out of the exposed edge — its attack is
   declared, and the preview names its marks. The
   preview draws the same strip as a UI node over the art at the same place.
-- **The moon says a creature is asleep.** A creature with summoning
-  sickness (CR 302.6) wears a crescent on its strip (`label::MOON`,
-  `moon_sdf`), and its plate writes in the moon's grey (`PLATE_NIGHT`). It was night
-  falling on the frame's paper under #274, and a dimmed, desaturated print
-  before that — which is the very thing Scryfall's terms name.
-  `board::asleep` sets it only for creatures, because summoning sickness is
-  visible on nothing else (`only_a_creature_is_modelled_asleep`).
+- **A wave says a creature is asleep.** A creature with summoning
+  sickness (CR 302.6) has a slow wave of moonlight run over it
+  (`ShellKind::Wave`, the shells above), and its plate writes in the
+  moon's grey (`PLATE_NIGHT`). The plate keeps that ink because the wave
+  cannot stand in a fanned row, where the next card covers it; the plate
+  shows there. The strip wore a crescent until the wave (#298); its place
+  in the label (bit 0, the shader's item 1) stays empty, so the marks and
+  crests keep their indices. It was night falling on the frame's paper
+  under #274, and a dimmed, desaturated print before that — which is the
+  very thing Scryfall's terms name. `board::asleep` sets it only for
+  creatures, because summoning sickness is visible on nothing else
+  (`only_a_creature_is_modelled_asleep`).
 - **The crests say what the card *is*.** A token, a copy and a commander
   each wear a **crest** at the strip's end: a square of paper — verdigris,
   violet, oxblood — with the Mana font's `ms-token`, `ms-ability-copy` or
@@ -2572,7 +2599,7 @@ numbers, and the **light on the felt** round the card says what is on offer.
   to 0.012 for the frame's ledge, which was 0.125 deep, and the strip kept
   it: the figures kept their 0.075 (`PLATE_CAP`, seven physical pixels on
   the felt) and the margin paid. A sleeping creature's plate writes in
-  moon-grey, the moon beside it.
+  moon-grey, its wave over the card.
 - **Deathtouch greens the power, and only the power.** That is the half of
   the body the keyword acts through: a 1/1 deathtoucher trades with anything,
   and what does the trading is the 1 on the left. A colour on the number
@@ -2619,7 +2646,7 @@ a parameter — which is what lets bevy compile it as an imported module, what
 keeps it clear of the two different bind groups the two shaders read `globals`
 from, and what lets the naga test parse it on its own. Which item of the strip a
 fragment is inside is found by laying the label's items out in order
-(`LABEL_ITEMS`, nineteen: the chip, the moon, fifteen marks, two crests), as
+(`LABEL_ITEMS`, nineteen: the chip, the moon's empty place, fifteen marks, two crests), as
 `cardrail::Strip::layout` does: a loop bound at compile time, no dynamic indexing, and inside the GL budget like
 everything else here. *How many* marks there are is counted in that same
 loop, and that is not stylistic: `countOneBits` is what WGSL offers, naga

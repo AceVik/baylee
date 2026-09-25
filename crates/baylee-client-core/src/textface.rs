@@ -825,7 +825,7 @@ mod tests {
         for lines in [1, 2] {
             let r = Regions::table(lines);
             for n in 0..=cardrail::MARK_ORDER.len() {
-                let strip = cardrail::Strip::new((1 << n) - 1, None, false, [None, None]);
+                let strip = cardrail::Strip::new((1 << n) - 1, None, [None, None]);
                 assert!(
                     strip.rect()[3] <= r.type_bar[1] + 1e-6,
                     "{n} marks reach into the type bar"

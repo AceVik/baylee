@@ -64,6 +64,16 @@
 //! ([`dome_shade_mesh`], [`wall_shade_mesh`]), at [`SHADE_RUNG`], under
 //! every card's face for the wall's reason; a dome's, lifted with its card,
 //! is faded out before it could rise to one.
+//!
+//! The fourth is summoning sickness (CR 302.6): a slow wave of moonlight
+//! running out over the card from its middle, a real ripple a hair over its
+//! face, resting before the next ([`WAVE_PERIOD`]). It lies over its own
+//! print, as the arrival sweep does, and leaves nothing behind (the owner,
+//! 25.09), so it is the other shell the mask exempts. It keeps the other
+//! rule: it is the same guard over a flat profile ([`WAVE_PROFILE`]), and
+//! where it would land on another card's print, under the next card of a
+//! fanned row above all, it is not drawn; the plate such a card shows
+//! writes in moon-grey. With motion off it holds still, crest and all.
 
 use baylee_client_core::airborne;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
@@ -220,6 +230,35 @@ const _: () = assert!(WALL_NEAR > DOME_MARGIN);
 // Over a card's own contact shadow, under the offer's light.
 const _: () = assert!(SHADE_RUNG > CARD_LIFT * 0.5 && SHADE_RUNG < FLOOR_RUNG);
 
+/// How far over the card's face summoning sickness's wave lies where no
+/// crest lifts it.
+pub const WAVE_LIFT: f32 = 0.003;
+/// How high the wave's crest rises over that as its front passes.
+pub const WAVE_CREST: f32 = 0.009;
+/// The highest any point of the wave stands over its card's face.
+pub const WAVE_TOP: f32 = WAVE_LIFT + WAVE_CREST;
+/// How far inside the card's edge the wave's sheet stops: past the card's
+/// rounded corner, so the sheet is a plain rectangle over the print.
+pub const WAVE_INSET: f32 = 0.05;
+/// How long one wave takes to run out to its sheet's edge, and how long from
+/// one wave to the next, in seconds: slow, and resting between.
+pub const WAVE_TRAVEL: f32 = 3.6;
+/// See [`WAVE_TRAVEL`].
+pub const WAVE_PERIOD: f32 = 6.0;
+/// The wave's sheet's cells, across and down the card.
+pub const WAVE_CELLS: (u32, u32) = (18, 26);
+/// Where the wave sits in the transparent pass: over the rings, under the
+/// rim, the strip, whose label lies over it, and a dome.
+pub const WAVE_RUNG: f32 = RIM_RUNG - 0.0005;
+/// The wave as the guard measures it ([`shell_stands`]): its sheet with the
+/// crest standing everywhere at once, from the card's middle line out to
+/// [`WAVE_INSET`] inside its edge.
+pub const WAVE_PROFILE: [(f32, f32); 2] = [(-CARD_WIDTH / 2.0, WAVE_TOP), (-WAVE_INSET, WAVE_TOP)];
+
+const _: () = assert!(WAVE_INSET > CARD_CORNER);
+const _: () = assert!(WAVE_RUNG > RING_RUNG && WAVE_RUNG < RIM_RUNG);
+const _: () = assert!(WAVE_TRAVEL < WAVE_PERIOD);
+
 /// Which shell a material draws, as `shell.wgsl` reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u32)]
@@ -236,6 +275,8 @@ pub enum ShellKind {
     Wall = 5,
     /// A standing dome's or the wall's shadow on the felt.
     Shade = 6,
+    /// Summoning sickness's wave of moonlight over the card.
+    Wave = 7,
 }
 
 /// A protection that stands over its card as a dome of light (#298).
@@ -356,8 +397,7 @@ pub struct ShellParams {
     /// The clock: [`MOVING`](crate::cardmat::MOVING) or
     /// [`STILL`](crate::cardmat::STILL).
     pub motion: f32,
-    /// Where a ring's band, or a dome's foot line, starts and ends past the
-    /// card's edge.
+    /// Where a ring's band starts and ends past the card's edge.
     pub inner: f32,
     /// See [`Self::inner`].
     pub outer: f32,
@@ -419,6 +459,7 @@ impl ShellMaterial {
             4 => ShellKind::DomeRing,
             5 => ShellKind::Wall,
             6 => ShellKind::Shade,
+            7 => ShellKind::Wave,
             _ => ShellKind::Rim,
         }
     }
@@ -442,8 +483,8 @@ impl Material for ShellMaterial {
         AlphaMode::Blend
     }
 
-    /// See [`RIM_RUNG`], [`RING_RUNG`], [`DOME_RUNG`], [`WALL_RUNG`] and
-    /// [`SHADE_RUNG`].
+    /// See [`RIM_RUNG`], [`RING_RUNG`], [`DOME_RUNG`], [`WALL_RUNG`],
+    /// [`SHADE_RUNG`] and [`WAVE_RUNG`].
     fn depth_bias(&self) -> f32 {
         crate::table::sort_bias(match self.kind() {
             ShellKind::Rim => RIM_RUNG,
@@ -451,6 +492,7 @@ impl Material for ShellMaterial {
             ShellKind::Dome => DOME_RUNG,
             ShellKind::Wall => WALL_RUNG,
             ShellKind::Shade => SHADE_RUNG,
+            ShellKind::Wave => WAVE_RUNG,
         })
     }
 
@@ -852,6 +894,50 @@ fn shade_mesh(strips: &[Vec<(Vec2, Vec2, f32)>], z: f32, closed: bool) -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
+/// Summoning sickness's wave as a mesh, flat, in the card's own space with
+/// its face at `z = 0`: a grid of [`WAVE_CELLS`] over the card,
+/// [`WAVE_INSET`] in from its edge. `shell.wgsl`'s vertex stage lifts it.
+///
+/// # Panics
+///
+/// Never: a wave has a few hundred vertices.
+#[must_use]
+pub fn wave_mesh() -> Mesh {
+    let (cols, rows) = WAVE_CELLS;
+    let (hw, hh) = (
+        CARD_WIDTH / 2.0 - WAVE_INSET,
+        CARD_HEIGHT / 2.0 - WAVE_INSET,
+    );
+    let mut at = Vec::new();
+    let mut uvs = Vec::new();
+    for j in 0..=rows {
+        for i in 0..=cols {
+            #[expect(clippy::cast_precision_loss)] // a few dozen cells
+            let (u, v) = (i as f32 / cols as f32, j as f32 / rows as f32);
+            at.push([-hw + 2.0 * hw * u, hh - 2.0 * hh * v, 0.0]);
+            uvs.push([u, v]);
+        }
+    }
+    let mut indices = Vec::new();
+    for j in 0..rows {
+        for i in 0..cols {
+            let a = j * (cols + 1) + i;
+            let (b, c, d) = (a + 1, a + cols + 1, a + cols + 2);
+            // Anticlockwise seen from over the face.
+            indices.extend([a, c, b, b, c, d]);
+        }
+    }
+    let normals = vec![[0.0, 0.0, 1.0]; at.len()];
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
+}
+
 /// Defender's wall as a mesh, in the card's own space with its face at
 /// `z = 0` and the felt [`RIM_DROP`] under it: two courses of brick along a
 /// shallow arc past the card's top edge, their face towards the card
@@ -1074,6 +1160,19 @@ pub fn rim_stands(
     shell_stands(&RIM_EDGES, me, others, eye, headroom)
 }
 
+/// Whether summoning sickness's wave may be drawn over the card at `me`
+/// this frame, seen from `eye`, `headroom` higher than it stands: the one
+/// guard over [`WAVE_PROFILE`].
+#[must_use]
+pub fn wave_stands(
+    me: &Footprint,
+    others: impl IntoIterator<Item = Footprint>,
+    eye: Vec3,
+    headroom: f32,
+) -> bool {
+    shell_stands(&WAVE_PROFILE, me, others, eye, headroom)
+}
+
 /// Whether a shell of this profile (`(distance past the card's edge, height
 /// over its face)` points, joined by straight runs as its mesh joins them)
 /// can stand round the card at `me` without
@@ -1092,7 +1191,8 @@ pub fn rim_stands(
 ///
 /// Its own card's print hides what lies under it: a run whose every ray
 /// crosses the card's own face inside its edge cannot land on a card lower
-/// than that face, and is only measured against faces above it. A face
+/// than that face, and is only measured against faces level with it or
+/// above it. A face
 /// higher than the shell's top hides the shell.
 #[must_use]
 pub fn shell_stands(
@@ -1154,7 +1254,9 @@ pub fn shell_stands(
         if centre.distance(other.centre()) > radius + reach + other.radius() {
             return true;
         }
-        let below_me = other.high <= me.low;
+        // Strictly: of two faces level with each other, nothing says whose
+        // print is on top where they overlap.
+        let below_me = other.high < me.low;
         let (there, other_radius) = (other.centre(), other.radius());
         let mut landed = Vec::with_capacity(24);
         for pair in profile.windows(2) {
@@ -1347,6 +1449,11 @@ struct VertexOutput {
             ("WALL_BRICK", WALL_BRICK),
             ("WALL_HEIGHT", WALL_HEIGHT),
             ("SHADE_FLOOR", crate::table::TABLE_Y + SHADE_RUNG),
+            ("WAVE_LIFT", WAVE_LIFT),
+            ("WAVE_CREST", WAVE_CREST),
+            ("WAVE_INSET", WAVE_INSET),
+            ("WAVE_TRAVEL", WAVE_TRAVEL),
+            ("WAVE_PERIOD", WAVE_PERIOD),
         ] {
             let theirs = wgsl_const(SHADER, name);
             assert!(
@@ -1361,6 +1468,7 @@ struct VertexOutput {
             ("SHELL_DOME_RING", ShellKind::DomeRing),
             ("SHELL_WALL", ShellKind::Wall),
             ("SHELL_SHADE", ShellKind::Shade),
+            ("SHELL_WAVE", ShellKind::Wave),
         ] {
             #[expect(clippy::cast_precision_loss)] // a small enum
             let ours = kind as u32 as f32;
@@ -1371,33 +1479,46 @@ struct VertexOutput {
         }
     }
 
-    /// Every colour the fragment stage returns but the dome's has the mask as
-    /// the last factor of its alpha: a `return` that forgot it would be a rim
-    /// or a ring drawn over its own print from whichever side the camera
-    /// happened to be on.
+    /// Every colour the fragment stage returns but the dome's and the wave's
+    /// has the mask as the last factor of its alpha: a `return` that forgot
+    /// it would be a rim or a ring drawn over its own print from whichever
+    /// side the camera happened to be on.
     #[test]
-    fn every_colour_but_the_domes_carries_the_mask() {
+    fn every_colour_but_the_domes_and_the_waves_carries_the_mask() {
         let open = SHADER.find("fn fragment(").expect("the fragment stage");
         let body = &SHADER[open..];
-        // The dome's own branch, the one colour the owner let lie over its
-        // print (25.09): its one return, and nothing else, goes unmasked.
-        let dome = body
-            .find("if params.kind == SHELL_DOME {")
-            .expect("the dome's branch");
-        let dome_end = dome + body[dome..].find("\n    }").expect("it closes");
-        let glass = &body[dome..dome_end];
-        assert_eq!(
-            glass.matches("return").count(),
-            1,
-            "the dome's branch returns once"
-        );
-        assert!(glass.contains("return vec4<f32>(colour, glass);"));
-        let returns: Vec<&str> = body[..dome]
-            .lines()
-            .chain(body[dome_end..].lines())
-            .map(str::trim)
-            .filter(|l| l.starts_with("return"))
-            .collect();
+        // The two branches the owner let lie over their own print (25.09),
+        // the dome's glass and the wave's passing light: each returns once,
+        // and nothing else goes unmasked.
+        let mut exempt = Vec::new();
+        for (branch, colour) in [
+            (
+                "if params.kind == SHELL_DOME {",
+                "return vec4<f32>(colour, glass);",
+            ),
+            (
+                "if params.kind == SHELL_WAVE {",
+                "return vec4<f32>(MOONLIGHT, glow);",
+            ),
+        ] {
+            let start = body.find(branch).expect("the branch");
+            let end = start + body[start..].find("\n    }").expect("it closes");
+            let own = &body[start..end];
+            assert_eq!(own.matches("return").count(), 1, "`{branch}` returns once");
+            assert!(own.contains(colour), "`{branch}` returns `{colour}`");
+            exempt.push(start..end);
+        }
+        let mut at = 0;
+        let mut returns = Vec::new();
+        for line in body.split_inclusive('\n') {
+            let here = at;
+            at += line.len();
+            if !exempt.iter().any(|range| range.contains(&here))
+                && line.trim().starts_with("return")
+            {
+                returns.push(line.trim());
+            }
+        }
         assert!(returns.len() >= 4, "the fragment stage returns too little");
         for line in returns {
             let alpha = line
@@ -1409,6 +1530,31 @@ struct VertexOutput {
                 "`{line}` returns an alpha the mask has not touched"
             );
         }
+    }
+
+    /// The wave's sheet lies wholly over the print, [`WAVE_INSET`] inside the
+    /// card's edge all the way round, and flat on the face until the vertex
+    /// stage lifts it.
+    #[test]
+    #[allow(clippy::float_cmp)] // exactly flat is the claim
+    fn the_waves_sheet_lies_over_the_print() {
+        let mesh = wave_mesh();
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("a wave has positions");
+        };
+        let (cols, rows) = WAVE_CELLS;
+        assert_eq!(at.len(), ((cols + 1) * (rows + 1)) as usize);
+        let outmost = at
+            .iter()
+            .map(|p| card_sdf(Vec2::new(p[0], p[1])))
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            (outmost + WAVE_INSET).abs() < 1e-4,
+            "the sheet reaches {outmost} past the card's edge"
+        );
+        assert!(at.iter().all(|p| p[2] == 0.0), "the sheet is flat");
     }
 
     /// The mask, by hand: the camera straight over the card's middle sees

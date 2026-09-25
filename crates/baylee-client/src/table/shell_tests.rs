@@ -363,6 +363,54 @@ fn sweep_domes(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sw
     }
 }
 
+/// Summoning sickness's wave's points, in its own space with its card's
+/// face at `z = 0`: every vertex of its sheet at the crest's full height, as
+/// if the crest stood everywhere at once.
+fn wave_points() -> Vec<Vec3> {
+    let mesh = shellmat::wave_mesh();
+    let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        panic!("a wave has positions");
+    };
+    at.iter()
+        .map(|p| Vec3::new(p[0], p[1], shellmat::WAVE_TOP))
+        .collect()
+}
+
+/// Draws every card's wave where [`shellmat::wave_stands`] lets it, and
+/// follows the ray from `eye` through every point of every drawn wave down
+/// to every card's face below it.
+fn sweep_waves(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut Sweep) {
+    let points = wave_points();
+    let poses: Vec<Transform> = placed
+        .iter()
+        .zip(hovered)
+        .map(|(p, &h)| pose(p, h))
+        .collect();
+    let faces: Vec<Footprint> = poses.iter().map(Footprint::of).collect();
+    let table = posed(&poses);
+    for (i, at) in poses.iter().enumerate() {
+        if tucked(&placed[i]) {
+            continue;
+        }
+        let others = faces
+            .iter()
+            .enumerate()
+            .filter(move |(j, _)| *j != i)
+            .map(|(_, f)| *f);
+        if !shellmat::wave_stands(&faces[i], others, eye, 0.0) {
+            found.lying += 1;
+            continue;
+        }
+        found.standing += 1;
+        let sheet = at.to_matrix() * Mat4::from_translation(Vec3::Z * CARD_THICKNESS);
+        for &p in &points {
+            land(sheet.transform_point3(p), i, placed, &table, eye, found);
+        }
+    }
+}
+
 /// The tables the sweeps are taken on: a duel at three windows, including
 /// the wide one that leans the camera furthest, with sparse rows,
 /// comfortable ones, full ones and fanned ones, and rings of three, four and
@@ -662,4 +710,39 @@ fn a_wall_never_draws_over_a_print() {
         found.hidden_by_own * 20 < found.points,
         "walls stand behind their own cards: {found:?}"
     );
+}
+
+/// Summoning sickness's wave never lands on another card's print, its crest
+/// taken at full height everywhere at once: from every shot the table is
+/// seen from, every seat's side included, with and without cards lifted
+/// under a hover. And the sweep is not true of nothing: waves are drawn, and
+/// waves are taken away, under the next card of a fanned row above all.
+#[test]
+fn a_wave_never_lands_on_another_cards_print() {
+    let mut found = Sweep::default();
+    for (seats, row, window) in tables() {
+        let duel = table(seats, row, window);
+        let placed = placements(&duel);
+        for hovered in [
+            vec![false; placed.len()],
+            (0..placed.len()).map(|i| i % 5 == 2).collect(),
+        ] {
+            for eye in eyes(&duel, window) {
+                sweep_waves(&placed, &hovered, eye, &mut found);
+            }
+        }
+    }
+    assert!(
+        found.trespass.is_empty(),
+        "{} wave points land on a print, the first: {:?}",
+        found.trespass.len(),
+        &found.trespass[..found.trespass.len().min(5)]
+    );
+    assert!(
+        found.standing >= 1000 && found.lying >= 100,
+        "the sweep takes one side only: {} drawn, {} taken away",
+        found.standing,
+        found.lying
+    );
+    eprintln!("{} drawn, {} taken away", found.standing, found.lying);
 }

@@ -878,14 +878,14 @@ fn mark_color(which: u32) -> vec3<f32> {
     }
 }
 
-/// The label's bits: the sleep moon, and two identity crests after it, two
-/// bits each, `glyph + 1` or zero for none. `cardrail::label`.
-const LABEL_MOON: u32 = 1u;
+/// The label's bits: two identity crests, two bits each, `glyph + 1` or
+/// zero for none, after the bit that was the sleep moon's. `cardrail::label`.
 const LABEL_CREST_SHIFT: u32 = 1u;
 const LABEL_CREST_BITS: u32 = 2u;
 
-/// How many things a strip can carry: the chip, the moon, every mark and
-/// two crests, in the order they are packed from the left.
+/// How many things a strip can carry: the chip, the sleep moon's empty
+/// place, every mark and two crests, in the order they are packed from the
+/// left.
 const LABEL_ITEMS: u32 = 19u;
 
 /// How long a row runs inside the strip's margin before a cell opens a row
@@ -909,8 +909,10 @@ fn label_item(i: u32, bits: u32, swing: u32, label: u32) -> vec2<f32> {
     if i == 0u {
         return select(vec2<f32>(0.0), vec2<f32>(CHIP_W, PLATE_H), (swing & SWING_SET) != 0u);
     }
+    // The sleep moon's place, empty since summoning sickness became a wave
+    // over the card (#298): the marks and crests keep their indices.
     if i == 1u {
-        return select(vec2<f32>(0.0), vec2<f32>(MARK), (label & LABEL_MOON) != 0u);
+        return vec2<f32>(0.0);
     }
     if i < 2u + MARK_COUNT {
         return select(vec2<f32>(0.0), vec2<f32>(MARK), (bits & (1u << (i - 2u))) != 0u);
@@ -920,18 +922,10 @@ fn label_item(i: u32, bits: u32, swing: u32, label: u32) -> vec2<f32> {
     return select(vec2<f32>(0.0), vec2<f32>(MARK), field != 0u);
 }
 
-/// The sleep moon in its cell: a crescent, two discs one bitten out of the
-/// other, in `cell` units, -0.5..0.5.
-fn moon_sdf(cell: vec2<f32>) -> f32 {
-    let lit = length(cell - vec2<f32>(-0.04, 0.0)) - 0.36;
-    let bite = length(cell - vec2<f32>(0.14, -0.10)) - 0.30;
-    return max(lit, -bite);
-}
-
-/// The keyword strip, and since #298 the card's label: the chip, the sleep
-/// moon, the marks and the identity crests, packed from the
-/// left along the seam, a cell that would run past `ROW_MAX` opening a row
-/// above (`cardrail::Strip::cells`, which is the same arithmetic in Rust).
+/// The keyword strip, and since #298 the card's label: the chip, the marks
+/// and the identity crests, packed from the left along the seam, a cell that
+/// would run past `ROW_MAX` opening a row above (`cardrail::Strip::cells`,
+/// which is the same arithmetic in Rust).
 ///
 /// `q` is the point in the quad, card widths from its top-left corner, and
 /// `quad` its size; the strip's bottom is the quad's, on the seam, and its
@@ -1031,13 +1025,6 @@ fn label_strip(
 
     let cell = (q - centre) / MARK;
     if abs(cell.x) > 0.5 || abs(cell.y) > 0.5 {
-        return strip_over_shadow(out, cover, shade);
-    }
-
-    // The moon: the plate's night ink, which a sleeping creature's numbers
-    // are written in too.
-    if hit == 1u {
-        out = mix(out, MOON_INK, 1.0 - smoothstep(-e, e, moon_sdf(cell)));
         return strip_over_shadow(out, cover, shade);
     }
 
@@ -1316,8 +1303,8 @@ const PLATE_NIGHT: u32 = 1u;
 /// And its turned bit, `cardplate::PLATE_TURNED`: the face a half turn round.
 const PLATE_TURNED: u32 = 2u;
 
-/// A sleeping creature's plate ink, and its moon: moon-grey, still about
-/// 5.8:1 on the plate's body.
+/// A sleeping creature's plate ink: moon-grey, still about 5.8:1 on the
+/// plate's body.
 const MOON_INK: vec3<f32> = vec3<f32>(0.50, 0.54, 0.64);
 
 

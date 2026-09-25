@@ -1,5 +1,5 @@
 //! The keyword strip's material: a card's marks as an object lying on it
-//! (#274), and since #298 its label — the chip, the moon, the crests. The
+//! (#274), and since #298 its label — the chip and the crests. The
 //! plate lies beside it as an object of its own ([`crate::platemat`]).
 //!
 //! The marks rode the card's own material as a rail along the print's bottom
@@ -45,7 +45,7 @@ pub struct MarksParams {
     pub quad: Vec2,
     /// The chip, [`cardrail::Strip::swing`].
     pub swing: u32,
-    /// The moon and the crests, [`cardrail::Strip::label`].
+    /// The crests, [`cardrail::Strip::label`].
     pub label: u32,
     /// The block's last eight bytes.
     pub pad: UVec2,
@@ -70,8 +70,7 @@ impl MarksParams {
 /// the preview's strip, which has no board group behind it.
 ///
 /// The table builds the same strip from the permanent's group, and both come
-/// from the same doors — [`cardrail::mark_bits`], `Corner::of_object`,
-/// [`board::asleep`](baylee_client_core::board::asleep) and
+/// from the same doors — [`cardrail::mark_bits`], `Corner::of_object` and
 /// [`cardcrest::marks`](baylee_client_core::cardcrest::marks) — so a card
 /// held up in the preview says what it says on the table. The preview shows
 /// the whole print, so the chip is on it only where the plate is: where the
@@ -84,7 +83,6 @@ pub fn strip_of(object: &baylee_view::PublicObject) -> cardrail::Strip {
     cardrail::Strip::new(
         cardrail::mark_bits(object.keywords),
         corner.shows_plate(true, false).then_some(corner),
-        board::asleep(object),
         cardcrest::marks(provenance, object.commander),
     )
 }
@@ -331,26 +329,26 @@ struct Globals { time: f32 };
     fn a_strip_is_one_material_and_holds_still_in_place() {
         let mut assets = Assets::<MarksUiMaterial>::default();
         let mut cache = UiMarksMaterials::default();
-        let strip = |marks, sick| cardrail::Strip::new(marks, None, sick, [None, None]);
-        let flying = cache.get(strip(1, false), &mut assets);
+        let strip = |marks, crest| cardrail::Strip::new(marks, None, [crest, None]);
+        let flying = cache.get(strip(1, None), &mut assets);
         assert_eq!(
-            cache.get(strip(1, false), &mut assets),
+            cache.get(strip(1, None), &mut assets),
             flying,
             "the same strip, the same material"
         );
-        let other = cache.get(strip(1 | 1 << 8, false), &mut assets);
+        let other = cache.get(strip(1 | 1 << 8, None), &mut assets);
         assert_ne!(other, flying, "another word, another material");
-        let asleep = cache.get(strip(1, true), &mut assets);
-        assert_ne!(asleep, flying, "the moon is part of the key");
+        let crested = cache.get(strip(1, Some(0)), &mut assets);
+        assert_ne!(crested, flying, "the label is part of the key");
         assert_eq!(
-            assets.get(&asleep).map(|m| m.params.label),
-            Some(cardrail::label::MOON)
+            assets.get(&crested).map(|m| m.params.label),
+            Some(1 << cardrail::label::CREST_SHIFT)
         );
         assert_eq!(assets.len(), 3);
 
         cache.set_still(true, &mut assets);
         assert_eq!(assets.len(), 3, "holding still made materials");
-        for handle in [&flying, &other, &asleep] {
+        for handle in [&flying, &other, &crested] {
             let made = assets.get(handle).expect("still there");
             assert!(
                 made.params.motion.abs() < f32::EPSILON,

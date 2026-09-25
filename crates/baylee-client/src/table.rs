@@ -1744,6 +1744,8 @@ pub struct SceneIndex {
     /// Defender's wall, one for the whole table, and its shadow.
     wall_mesh: Option<Handle<Mesh>>,
     wall_shade: Option<Handle<Mesh>>,
+    /// Summoning sickness's wave, one for the whole table.
+    wave_mesh: Option<Handle<Mesh>>,
     /// What stands under each card on the table: the slabs of its deck and
     /// its contact shadow, with the count they were built for (#261). Held for the strip's reason, and because a group grows under
     /// the same top card: a deck built once at spawn kept one slab under a
@@ -2152,6 +2154,7 @@ pub fn spawn_stage(
     }
     index.wall_mesh = Some(meshes.add(shellmat::wall_mesh()));
     index.wall_shade = Some(meshes.add(shellmat::wall_shade_mesh()));
+    index.wave_mesh = Some(meshes.add(shellmat::wave_mesh()));
 
     // The contact shadow: a quad a little larger than a card, carrying a
     // painted halo that is dense under the card and gone by its own edge.
@@ -3546,6 +3549,8 @@ pub enum ShellPart {
     Wall,
     /// A standing dome's shadow on the felt, or the wall's.
     Shade,
+    /// Summoning sickness's wave, over the card's face.
+    Wave,
 }
 
 /// One shell round a card: what stands, the ring it lies down to, and how
@@ -3569,6 +3574,8 @@ struct Shell {
     dome: Option<(shellmat::Dome, Layer)>,
     /// Defender's wall, which always stands.
     wall: Option<Entity>,
+    /// Summoning sickness's wave, and whether it was drawn last frame.
+    wave: Option<(Entity, bool)>,
 }
 
 impl Shell {
@@ -3586,10 +3593,13 @@ impl Shell {
         if let Some(wall) = self.wall {
             commands.entity(wall).despawn();
         }
+        if let Some((wave, _)) = self.wave {
+            commands.entity(wave).despawn();
+        }
     }
 
     fn is_empty(self) -> bool {
-        self.layers().next().is_none() && self.wall.is_none()
+        self.layers().next().is_none() && self.wall.is_none() && self.wave.is_none()
     }
 }
 
@@ -3670,9 +3680,9 @@ fn spawn_shade(
     shade
 }
 
-/// Puts a protected permanent's shells round it, or takes them away:
-/// indestructible's steel, hexproof's or shroud's dome, and defender's
-/// wall.
+/// Puts a permanent's shells round it, or takes them away: indestructible's
+/// steel, hexproof's or shroud's dome, defender's wall and summoning
+/// sickness's wave.
 ///
 /// Each is spawned hidden, as children of the card, and [`fit_the_shells`]
 /// shows it standing or lying on the same frame: which depends on where
@@ -3690,6 +3700,7 @@ fn sync_shell(
     let steel = placement.indestructible && on_table;
     let dome = placement.dome.filter(|_| on_table);
     let wall = placement.defender && on_table;
+    let wave = placement.sick && on_table;
     let mut shell = index
         .shells
         .get(&placement.object)
@@ -3698,6 +3709,7 @@ fn sync_shell(
     if shell.steel.is_some() == steel
         && shell.dome.map(|(d, _)| d) == dome
         && shell.wall.is_some() == wall
+        && shell.wave.is_some() == wave
     {
         return;
     }
@@ -3745,6 +3757,9 @@ fn sync_shell(
     }
     if shell.wall.is_some() != wall {
         shell.wall = sync_wall(commands, index, materials, card, shell.wall, motion);
+    }
+    if shell.wave.is_some() != wave {
+        shell.wave = sync_wave(commands, index, materials, card, shell.wave, motion);
     }
     if shell.is_empty() {
         index.shells.remove(&placement.object);
@@ -3844,6 +3859,38 @@ fn sync_wall(
     Some(wall)
 }
 
+/// Takes summoning sickness's wave away if `had` one, or lays one, hidden,
+/// on `card`'s face: [`fit_the_shells`] shows it where it lands on no other
+/// card's print.
+fn sync_wave(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<ShellMaterial>,
+    card: Entity,
+    had: Option<(Entity, bool)>,
+    motion: f32,
+) -> Option<(Entity, bool)> {
+    if let Some((gone, _)) = had {
+        commands.entity(gone).despawn();
+        return None;
+    }
+    let mesh = index.wave_mesh.clone()?;
+    let material = shell_material(index, materials, ShellLook::steel(ShellKind::Wave), motion);
+    let wave = commands
+        .spawn((
+            ShellPart::Wave,
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            // On the card's face, which its sheet is drawn from.
+            Transform::from_xyz(0.0, 0.0, CARD_THICKNESS),
+            Visibility::Hidden,
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(wave);
+    Some((wave, false))
+}
+
 /// Where a ring lies under the card at `at`, in the card's own space: flat on
 /// the felt at [`shellmat::RING_RUNG`] under the card's middle, unbanked,
 /// the way [`ground_the_shadows`] holds a flier's shadow. It grows with the
@@ -3893,9 +3940,11 @@ pub fn wall_pose(at: &Transform) -> Transform {
 /// where the camera is. A dome stands at the tallest step that fits. Where
 /// the steel and the dome both lie, the steel takes the band's inner half
 /// and the dome its outer, nested as they stand. Defender's wall always
-/// stands, on the felt ([`wall_pose`]).
+/// stands, on the felt ([`wall_pose`]). Summoning sickness's wave is drawn
+/// where [`shellmat::wave_stands`] finds it lands on no other print, and
+/// comes back only with a flier's bob of headroom, as a ring stands up.
 #[allow(clippy::type_complexity)] // four disjoint views of one table
-#[allow(clippy::too_many_lines)] // three shells fitted in one pass over the table
+#[allow(clippy::too_many_lines)] // four shells fitted in one pass over the table
 pub fn fit_the_shells(
     mut index: ResMut<SceneIndex>,
     cards: Query<
@@ -3954,6 +4003,21 @@ pub fn fit_the_shells(
             .iter()
             .filter(move |(entity, _)| *entity != card)
             .map(|(_, face)| *face);
+        if let Some((wave, standing)) = &mut shell.wave {
+            let headroom = if *standing {
+                0.0
+            } else {
+                shellmat::STAND_AGAIN
+            };
+            *standing = shellmat::wave_stands(&me, others.clone(), eye, headroom);
+            if let Ok((mut shown, _, _, _)) = parts.get_mut(*wave) {
+                shown.set_if_neq(if *standing {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                });
+            }
+        }
         if let Some(steel) = &mut shell.steel {
             let headroom = if steel.step.is_some() {
                 0.0
@@ -4280,8 +4344,9 @@ struct Placement {
     /// The keyword strip's word ([`cardrail::badge_bits`]): zero for a card
     /// wearing no marks, which is every card that is not a permanent.
     marks: u32,
-    /// Whether the strip wears the moon: a creature that cannot attack or
-    /// tap this turn (CR 302.6, `CardGroup::summoning_sick`).
+    /// Whether the creature cannot attack or tap this turn (CR 302.6,
+    /// `CardGroup::summoning_sick`): the wave over it, and the plate's
+    /// moon-grey ink.
     sick: bool,
     /// The identity crests at the strip's end ([`cardcrest::marks`]).
     crests: [Option<usize>; cardcrest::MAX_CRESTS],
@@ -5062,12 +5127,8 @@ pub fn sync_scene(
         let print = !show_face && placement.art.is_some();
         let corner = placement.corner;
         let plated = corner.shows_plate(print, placement.covered);
-        let strip = cardrail::Strip::new(
-            placement.marks,
-            plated.then_some(corner),
-            placement.sick,
-            placement.crests,
-        );
+        let strip =
+            cardrail::Strip::new(placement.marks, plated.then_some(corner), placement.crests);
         sync_strip(
             &mut commands,
             &mut index,
