@@ -82,6 +82,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 ## Seat bars
 
 - Bars sit on the centre-side `MAT_LEDGE` shelf (`LEDGE_IS_OUTER=false`). `MatParams::ledge_outer` is a flag, never a flipped `uv.y`. No card on the band (`no_card_reaches_the_band_its_seat_writes_on`).
+- No seat's ink is drawn under the hand zone (#303, `seatbar::attached::under_the_hand`): bars sit at `GlobalZIndex(-1)` under a see-through skirt, so `attached::place` hides a panel the hand zone would partly cover.
 - Caret, colour, name, life, four zone counts, turn with day/night, twelve steps; `attached.rs` poses three panels by one `pose_on` and scale.
 - Own retained tree on `hud::BarRevision`, never `HudRevision`; rotated via `UiTransform::from_rotation`.
 - `Density::for_length`: Full→Compact→Pip→Mark; the hover sheet carries the dropped. `for_shelf` picks `Split` on a long, deep shelf (a duel's, in practice): plaque (name over life) beside timeline (steps over counts and turn); the plaque never shrinks for tiles. `Shelf::box_size` measures from the ledge.
