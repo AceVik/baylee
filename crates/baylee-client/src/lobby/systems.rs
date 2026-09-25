@@ -1006,6 +1006,12 @@ pub(super) fn clicks(
                 dispatch(&mut state, &mailbox, request);
             }
             Press::OpenSettings => state.settings = SettingsPane::Open,
+            Press::ToggleMusic => {
+                if let Some(settings) = settings.as_mut() {
+                    settings.music.toggle();
+                    settings.save();
+                }
+            }
             Press::CloseSettings => state.settings = SettingsPane::Closed,
             Press::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
             Press::CancelAccountDeletion => state.lobby.cancel_account_deletion(),
@@ -1828,6 +1834,8 @@ pub(crate) enum Press {
     Rematch(usize),
     /// Open the settings screen.
     OpenSettings,
+    /// Silence the music, or let it play again (#296).
+    ToggleMusic,
     /// Leave it.
     CloseSettings,
     /// Wait for a key and bind it to this action.

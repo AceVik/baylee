@@ -341,6 +341,10 @@ messages! {
     },
     /// Opens the settings screen.
     Settings { en: "Settings", de: "Einstellungen" },
+    /// The music's switch while the music plays (#296); pressed, it stops.
+    MusicPlaying { en: "Music", de: "Musik" },
+    /// The music's switch while the music is silent; pressed, it plays.
+    MusicSilent { en: "Music off", de: "Musik aus" },
     /// The button that changes the interface language.
     Language { en: "Language", de: "Sprache" },
 

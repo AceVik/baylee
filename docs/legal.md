@@ -191,15 +191,15 @@ Urheber- und Medienrecht.
    one — files a player supplies are theirs, not ours to distribute — and
    `baylee_client_core::cue::Cue` is deliberately a named moment rather than
    a file name so that answer stays open.
-   The front door's music (#296) is the same answer at the length of a tune.
+   The lobby's music (#296) is the same answer at the length of a tune.
    `baylee_client_core::music` holds a composition written for this client,
    note by note, and synthesises it as it plays: square, pulse and triangle
-   voices and a noise drum, in the manner of the demo scene's cracktros and
-   trainers. No module file, sample or recording from the scene or anywhere
-   else is in it, and it quotes no known melody: no keygen, cracktro,
-   trainer, game or film theme, and nothing of Wizards' (the Fan Content
-   Policy: "Don't use Wizards' Video or Music in your Fan Content"). The
-   style is borrowed, which costs nothing; the notes are ours.
+   voices and a frame drum made of sines, in the manner of the demo scene's
+   cracktros and trainers. No module file, sample or recording from the
+   scene or anywhere else is in it, and it quotes no known melody: no keygen,
+   cracktro, trainer, game or film theme, and nothing of Wizards' (the Fan
+   Content Policy: "Don't use Wizards' Video or Music in your Fan Content").
+   The style is borrowed, which costs nothing; the notes are ours.
 6. **AGPL §13 — the network clause.** This is the one licence obligation the
    project's own architecture triggers, and it was written down nowhere.
    §13 says a user who interacts with a modified version of the program

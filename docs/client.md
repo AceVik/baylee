@@ -5469,14 +5469,20 @@ are the same `last_cue` and two different sounds, so a harness reading only
 the name could not tell a burst from a tap — which is precisely the thing the
 counted cues exist to do.
 
-### The front door has music, and the table never does
+### The lobby has music, and the table never does
 
-The gateway, sign-in and registration faces play a tune (#296), and it is
-arithmetic like everything above: `baylee-client-core/src/music.rs` writes it
-a sample at a time, in the manner of a tracker module and from no module. A
-square lead with its own echo, an arpeggio on a pulse whose width sweeps, a
-triangle bass and a noise drum, 32 bars of 6/8 in D minor at a dotted quarter
-of 76. Where it comes from is `docs/legal.md` §5.
+The lobby plays a tune (#296), from the gateway face through the builder, and
+it is arithmetic like everything above: `baylee-client-core/src/music.rs`
+writes it a sample at a time, in the manner of a tracker module and from no
+module. A square lead with its own echo, a harp breaking the chords on a
+triangle and a pulse whose width sweeps, a triangle bass and a frame drum
+whose skin is three falling sines at a membrane's mode ratios (1, 1.59,
+2.14), 32 bars of 6/8 in D minor at a dotted quarter of 63. Every note rings
+on under the next on its own release (`Voice` keeps four sounding), so no
+voice clicks from one note to the next. The owner heard the first version
+(76, a 50 Hz arpeggio, a noise drum) as too quick and its beat as made;
+`the_drum_is_a_skin_and_not_a_hiss` holds the drum's weight under 400 Hz
+(the noise drum's lay at 3.4 kHz). Where it comes from is `docs/legal.md` §5.
 
 **It is streamed, never rendered ahead.** `Tune` is an endless iterator, and
 `crates/baylee-client/src/music.rs` makes it a `Decodable` asset whose decoder
@@ -5484,21 +5490,25 @@ is the tune itself, so rodio pulls it a buffer at a time on the audio thread.
 No frame computes a sample, nothing is held but the tune's few voices, and
 startup waits for none of it. A browser has no audio thread, so the pull
 there runs between frames on the one thread it has. Both are cheap: a
-release build makes the tune about 300× faster than it plays on an M1 and
-220× faster on a Pixel 11 Pro XL (`music::tests::record` prints the factor).
+release build makes the tune about 130× faster than it plays on an M1
+(`music::tests::record` prints the factor). The first version, one note per
+voice at a time, was 300× there and 220× on a Pixel 11 Pro XL; the Pixel has
+not been measured since the notes began to ring on.
 
 **It loops without a seam.** The first four bars are an introduction and are
 heard once; `LOOP` returns to `RESTART`, bar 5. Every note restarts its
-oscillator's phase and the drum's noise is reseeded at `RESTART`, so the
+oscillator's phase and the drum's noise is reseeded at `RESTART` (a stroke's
+strength is read off its beat), so the
 second pass is the first one sample for sample, and a player who leaves the
 face open for an hour hears no drift. `the_loop_plays_on_without_a_seam`
 holds the join to no larger a step than the tune takes inside itself.
 
-**It is heard at the front door and nowhere else.** `music::heard` is
-`Screen::SignIn` while `DuelPhase::Closed`. The music fades in over 2.5 s and
-out over 0.8 s, on signing in, on a game opening over the face, and on a
-mute. At most one player exists; one that has faded out is despawned, so a
-table synthesises nothing, and the next front door starts again at bar 1
+**It is heard until a table opens.** `music::heard` is any screen but
+`Screen::Seated` while `DuelPhase::Closed`: the faces, the lobby and the
+builder (the owner, 25.09.). The music fades in over 2.5 s and out over
+0.8 s, on a seat being granted, on a game opening, and on a mute. At most one
+player exists; one that has faded out is despawned, so a table synthesises
+nothing, and leaving it starts the tune again at bar 1
 (`the_player_comes_and_goes_with_the_front_door`).
 
 **The level is the device's.** `ClientSettings::music` is a `MusicLevel`: a
@@ -5508,10 +5518,15 @@ not in the account's settings, for `last_username`'s reason: it plays before
 anybody has signed in. The fields are private because serde_json writes a NaN
 `f32` as `null`, and a `null` there would refuse the whole settings file,
 gateways and guest sessions included; the setters ignore a non-number and
-clamp. Its controls are the settings gear's and a speaker beside it on the
-faces it plays on, because music that starts by itself has to be stoppable
-where it plays (WCAG 1.4.2). The system reads the level every frame, so a
-slider is heard as it moves.
+clamp. Music that starts by itself has to be stoppable where it plays (WCAG
+1.4.2), so every screen it plays on has its switch: `lobby::music_toggle`, a
+speaker and a word (`Press::ToggleMusic`, `MusicLevel::toggle`), in the
+lobby's bar left of Settings, first on the right of the builder's bar, and
+beside the gear on the faces (#295). `ui::show_the_music_level` keeps every
+switch's speaker and word in step with the level each frame, so a screen
+that keeps its bar rather than redrawing it (the builder) still shows the
+press (`the_music_switch_is_in_the_lobby_and_the_builder`). The system reads
+the level every frame, so a slider is heard as it moves.
 
 **A browser keeps it quiet until someone presses something.** Browsers start
 an `AudioContext` suspended until the page has had a gesture, and cpal asks

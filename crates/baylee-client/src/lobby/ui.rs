@@ -488,8 +488,10 @@ fn table(
         palette::PANEL_LIT,
         true,
     );
+    let music = music_toggle(commands, fonts, metrics, lang);
     commands.entity(bar).add_child(gap);
     commands.entity(bar).add_child(status);
+    commands.entity(bar).add_child(music);
     commands.entity(bar).add_child(settings);
     commands.entity(bar).add_child(out);
     commands.entity(root).add_child(bar);
@@ -1985,6 +1987,89 @@ pub(crate) fn button(
         commands.entity(id).insert(press);
     }
     id
+}
+
+/// The music's switch, wherever a screen puts it (#296).
+#[derive(Component)]
+pub(crate) struct MusicToggle;
+
+/// The speaker on it, which [`show_the_music_level`] turns to a crossed one
+/// while the music is silent.
+#[derive(Component)]
+pub(super) struct MusicSpeaker;
+
+/// Font Awesome's speaker, and its speaker with a cross.
+const SPEAKER: [char; 2] = ['\u{f028}', '\u{f6a9}'];
+
+/// The music's switch: a speaker and a word, as the lobby's other buttons
+/// are drawn, which a press turns off or on again (`Press::ToggleMusic`).
+///
+/// It assumes nothing about where it stands: it is one flex item for its
+/// parent to place, like [`button`]. The music plays before anybody has
+/// signed in and on until a table opens, so every screen it plays on offers
+/// the switch (WCAG 1.4.2). Its speaker and word follow the level every
+/// frame ([`show_the_music_level`]), so a screen that does not redraw after
+/// a press still shows it pressed.
+pub(crate) fn music_toggle(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+) -> Entity {
+    let id = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::MusicPlaying.text(lang),
+        Press::ToggleMusic,
+        palette::PANEL_LIT,
+        true,
+    );
+    let speaker = commands
+        .spawn((
+            Text::new(SPEAKER[0].to_string()),
+            crate::hud::icon_tf(fonts, metrics.small),
+            TextColor(palette::DOCK_INK),
+            Pickable::IGNORE,
+            MusicSpeaker,
+        ))
+        .id();
+    commands
+        .entity(id)
+        .insert(MusicToggle)
+        .insert_children(0, &[speaker]);
+    id
+}
+
+/// Keeps every music switch saying what the music is doing: the speaker and
+/// "Music" while it can be heard, the crossed speaker and "Music off" while
+/// it cannot, muted or turned all the way down. Written only when it
+/// differs, so a switch left alone is not re-laid out every frame.
+pub(super) fn show_the_music_level(
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    state: Res<LobbyState>,
+    toggles: Query<&Children, With<MusicToggle>>,
+    mut texts: Query<(&mut Text, Has<MusicSpeaker>)>,
+) {
+    let level = settings.map(|settings| settings.music).unwrap_or_default();
+    let heard = level.gain() > 0.0;
+    let lang = state.lobby.lang();
+    let speaker = SPEAKER[usize::from(!heard)].to_string();
+    let words = if heard {
+        Phrase::MusicPlaying
+    } else {
+        Phrase::MusicSilent
+    }
+    .text(lang);
+    for children in &toggles {
+        let mut part = texts.iter_many_mut(children);
+        while let Some((mut text, is_speaker)) = part.fetch_next() {
+            let want = if is_speaker { speaker.as_str() } else { words };
+            if text.0 != want {
+                want.clone_into(&mut text.0);
+            }
+        }
+    }
 }
 
 /// A column panel: a fixed width beside its neighbour, or the full width

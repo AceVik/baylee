@@ -72,8 +72,8 @@ impl Plugin for LobbyPlugin {
         }
         crate::prefs::install(app);
         crate::ambience::install(app);
-        // The front door's music (#296): heard on the faces before sign-in
-        // and faded out on the way to the lobby or a table.
+        // The music before the table (#296): heard on every face of the
+        // lobby, the builder's included, and faded out when a table opens.
         crate::music::install(app);
         crate::loading::install(app);
         crate::flip::install(app);
@@ -111,7 +111,9 @@ impl Plugin for LobbyPlugin {
                         front::pose_front,
                     )
                         .chain(),
-                    ui::blink,
+                    // After the rebuild, so a music switch it just stood up
+                    // says the right thing on its first frame.
+                    (ui::blink, ui::show_the_music_level),
                     dock::materialize,
                     button_style::materialize,
                     // The duel's own runs only while there is a duel, and a
@@ -495,8 +497,8 @@ pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
 pub(crate) use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};
 pub(crate) use ui::{
-    FieldLook, FieldTail, Frame, Metrics, button, chip, heading, note, panel, print_mark, row,
-    scroller, spacer, text_field,
+    FieldLook, FieldTail, Frame, Metrics, button, chip, heading, music_toggle, note, panel,
+    print_mark, row, scroller, spacer, text_field,
 };
 
 pub(crate) mod scrollbars;

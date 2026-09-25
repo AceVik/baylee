@@ -1,20 +1,22 @@
-//! The front door's music (#296): [`baylee_client_core::music::Tune`],
-//! heard on the gateway and sign-in faces and nowhere else.
+//! The music before the table (#296): [`baylee_client_core::music::Tune`],
+//! heard on the gateway and sign-in faces, in the lobby and in the builder,
+//! and never at a table.
 //!
 //! The tune is a [`Decodable`] asset whose decoder is the tune itself, so
 //! `bevy_audio` hands it to rodio and the audio thread pulls it a buffer at
 //! a time: no frame computes a sample, and no buffer is held. In a browser
 //! there is no audio thread, and the pull runs between frames on the one
-//! thread there is; the tune is made about three hundred times faster than
-//! it plays, so that costs a fraction of a millisecond a frame.
+//! thread there is; the tune is made about a hundred and thirty times faster
+//! than it plays (a release build, measured by `music::tests::record`), so
+//! that costs about an eighth of a millisecond a frame.
 //!
 //! One player exists while the music is heard or fading, and none at any
 //! other time, so a player at the table synthesises nothing. It fades in
-//! over [`FADE_IN`] when the front door opens, and out over [`FADE_OUT`]
-//! when a player signs in, a game opens or the music is muted; the volume
+//! over [`FADE_IN`] when the client opens, and out over [`FADE_OUT`] when a
+//! seat is granted, a game opens or the music is muted; the volume
 //! in [`ClientSettings::music`] is read on every frame, so a slider is heard
-//! as it moves. A tune that fades to nothing is let go; the next front door
-//! starts it from its first bar.
+//! as it moves. A tune that fades to nothing is let go; leaving the table
+//! starts it again from its first bar.
 
 use std::time::Duration;
 
@@ -39,7 +41,7 @@ const FADE_OUT: f32 = 0.8;
 /// The tune, as an asset `bevy_audio` can play. It holds nothing: every
 /// player made from it starts a new [`Tune`] at its first bar.
 #[derive(Asset, TypePath, Clone, Copy, Debug, Default)]
-pub struct FrontDoorTune;
+pub struct LobbyTune;
 
 /// A [`Tune`] as rodio pulls it.
 pub struct Stream(Tune);
@@ -72,7 +74,7 @@ impl Source for Stream {
     }
 }
 
-impl Decodable for FrontDoorTune {
+impl Decodable for LobbyTune {
     type Decoder = Stream;
 
     fn decoder(&self) -> Stream {
@@ -82,7 +84,7 @@ impl Decodable for FrontDoorTune {
 
 /// The asset every player is made from.
 #[derive(Resource)]
-struct TuneHandle(Handle<FrontDoorTune>);
+struct TuneHandle(Handle<LobbyTune>);
 
 /// The one player, and how far it has faded in: from 0, silent, to 1, at
 /// the player's volume.
@@ -91,26 +93,27 @@ struct Playing {
     presence: f32,
 }
 
-/// Adds the music to the front door, when the app has audio at all: an
+/// Adds the music to the lobby, when the app has audio at all: an
 /// embedding without bevy's `AudioPlugin` has nothing to play it through.
 pub fn install(app: &mut App) {
     if !app.is_plugin_added::<AudioPlugin>() {
         return;
     }
-    app.add_audio_source::<FrontDoorTune>();
+    app.add_audio_source::<LobbyTune>();
     let handle = app
         .world_mut()
-        .resource_mut::<Assets<FrontDoorTune>>()
-        .add(FrontDoorTune);
+        .resource_mut::<Assets<LobbyTune>>()
+        .add(LobbyTune);
     app.insert_resource(TuneHandle(handle))
-        .add_systems(Update, play_at_the_front_door);
+        .add_systems(Update, play_until_a_table_opens);
 }
 
-/// Whether the music belongs on this screen: the gateway, sign-in and
-/// registration faces, which are all [`Screen::SignIn`], and only while no
-/// game is open over them.
+/// Whether the music belongs on this screen: every face of the lobby, the
+/// builder's included (#296, the owner: it plays on while a player picks a
+/// table or builds a deck), until a seat is granted, and never while a game
+/// is open over them.
 fn heard(screen: &Screen, duel: DuelPhase) -> bool {
-    matches!(screen, Screen::SignIn { .. }) && duel == DuelPhase::Closed
+    !matches!(screen, Screen::Seated(_)) && duel == DuelPhase::Closed
 }
 
 /// How far faded in, one frame of `dt` seconds later, moving from `now`
@@ -123,7 +126,7 @@ fn fade(now: f32, target: f32, dt: f32) -> f32 {
     }
 }
 
-fn play_at_the_front_door(
+fn play_until_a_table_opens(
     mut commands: Commands,
     time: Res<Time<Real>>,
     tune: Res<TuneHandle>,
@@ -162,19 +165,30 @@ fn play_at_the_front_door(
 mod tests {
     use super::*;
 
-    /// Heard on the faces before sign-in, and nowhere once a player is in
-    /// or a game is open, the table's above all.
+    /// Heard on every face of the lobby, the builder's included, and
+    /// nowhere once a seat is granted or a game is open, the table's above
+    /// all.
     #[test]
-    fn the_music_is_heard_at_the_front_door_and_nowhere_else() {
-        let signing_in = Screen::SignIn { registering: false };
-        let registering = Screen::SignIn { registering: true };
-        assert!(heard(&signing_in, DuelPhase::Closed));
-        assert!(heard(&registering, DuelPhase::Closed));
-        for phase in [DuelPhase::Opening, DuelPhase::Playing, DuelPhase::Finished] {
-            assert!(!heard(&signing_in, phase), "{phase:?}");
+    fn the_music_is_heard_until_a_table_opens() {
+        let lobby = [
+            Screen::SignIn { registering: false },
+            Screen::SignIn { registering: true },
+            Screen::Table,
+            Screen::Build,
+        ];
+        for screen in &lobby {
+            assert!(heard(screen, DuelPhase::Closed), "{screen:?}");
+            for phase in [DuelPhase::Opening, DuelPhase::Playing, DuelPhase::Finished] {
+                assert!(!heard(screen, phase), "{screen:?} {phase:?}");
+            }
         }
-        assert!(!heard(&Screen::Table, DuelPhase::Closed));
-        assert!(!heard(&Screen::Build, DuelPhase::Closed));
+        let seated = Screen::Seated(baylee_client_core::lobby::SeatHandover {
+            game_id: "g".into(),
+            seat: 0,
+            seat_token: "t".into(),
+            local: false,
+        });
+        assert!(!heard(&seated, DuelPhase::Closed));
     }
 
     /// The fades take their own time each way, whatever the volume, and
@@ -216,7 +230,7 @@ mod tests {
             .insert_resource(LobbyState::new())
             .insert_resource(ClientSettings::default())
             .insert_resource(TuneHandle(Handle::default()))
-            .add_systems(Update, play_at_the_front_door);
+            .add_systems(Update, play_until_a_table_opens);
         app.update();
         app
     }
@@ -235,15 +249,15 @@ mod tests {
         }
     }
 
-    /// The player's whole life: made at the front door and faded all the
+    /// The player's whole life: made in the lobby and faded all the
     /// way in, faded out and let go when a game opens over it, made again
-    /// from the first bar when the front door is back, and faded out and let
+    /// from the first bar when the lobby is back, and faded out and let
     /// go when muted.
     #[test]
     fn the_player_comes_and_goes_with_the_front_door() {
         let mut app = front_door();
         run(&mut app, FADE_IN / 2.0);
-        let rising = playing(&mut app).expect("the front door plays");
+        let rising = playing(&mut app).expect("the lobby plays");
         assert!(rising > 0.0 && rising < 1.0, "fading in: {rising}");
         run(&mut app, FADE_IN);
         let gain = playing(&mut app).expect("still playing");
@@ -264,7 +278,7 @@ mod tests {
             .resource_mut::<NextState<DuelPhase>>()
             .set(DuelPhase::Closed);
         run(&mut app, 0.2);
-        assert!(playing(&mut app).is_some(), "back at the front door");
+        assert!(playing(&mut app).is_some(), "back in the lobby");
         run(&mut app, FADE_IN);
 
         app.world_mut()
@@ -284,7 +298,7 @@ mod tests {
     /// rate, and no end.
     #[test]
     fn the_stream_says_what_it_is() {
-        let stream = FrontDoorTune.decoder();
+        let stream = LobbyTune.decoder();
         assert_eq!(stream.channels().get(), music::CHANNELS);
         assert_eq!(stream.sample_rate().get(), music::RATE);
         assert_eq!(stream.total_duration(), None);

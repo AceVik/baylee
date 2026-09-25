@@ -1,30 +1,34 @@
-//! The front door's music (#296): a tune of our own, played by a tracker's
-//! voices and synthesised here, one sample at a time.
+//! The music before the table (#296): a tune of our own, played by a
+//! tracker's voices and synthesised here, one sample at a time.
 //!
 //! # Whose it is
 //!
 //! Every note below was written for this client, and every sound is
-//! arithmetic: a square lead with its echo, a pulse voice running chords as
-//! fast arpeggios, a triangle bass and a drum made of noise and a falling
-//! sine. There is no sample, no module file from the demo scene and no
-//! recording in it, and it quotes no tune: the style is the cracktros' and
+//! arithmetic: a square lead with its echo, a harp of pulse and triangle
+//! breaking the chords, a triangle bass and a frame drum whose skin is three
+//! falling sines. There is no sample, no module file from the demo scene and
+//! no recording in it, and it quotes no tune: the style is the cracktros' and
 //! the trainers', the notes are not (`docs/legal.md`).
 //!
 //! # What it is
 //!
 //! Thirty-two bars in 6/8, in D minor with the Dorian sixth for a colour of
-//! magic (the G major of bar 10), at a dotted crotchet of 76: a lilt, which
-//! is what keeps it an adventure and out of techno, where the beat would be
-//! four even kicks. Four bars of chords and bass, a theme twice over, a
-//! brighter middle in F with the drum under it, and a turn on A that leads
-//! back to the first bar.
+//! magic (the G major of bar 10), at a dotted crotchet of 63: a slow lilt,
+//! which is what keeps it an adventure and out of techno, where the beat
+//! would be four even kicks. Four bars of chords and bass, a theme twice
+//! over, a brighter middle in F with the drum under it, and a turn on A that
+//! leads back to the first bar.
+//!
+//! It plays under the lobby and the builder as long as a player stays there
+//! (#296, the owner, 25.09.): slow, and with every note ringing on under the
+//! next, so a minute of it is company and not a signal.
 //!
 //! # Why it streams
 //!
 //! [`Tune`] is an endless iterator of stereo samples, not a buffer. The
 //! audio thread pulls it, so none of it is computed on a frame, and nothing
-//! is held: fifty seconds of stereo would be nine megabytes of `f32` for a
-//! screen a player leaves in half a minute. And a loop that is *played*,
+//! is held: a minute of stereo would be ten megabytes of `f32` for music
+//! that may play for a minute or an hour. And a loop that is *played*,
 //! rather than repeated, has no seam to hide: the echo and the last note's
 //! release ring on into the first bar, as they would if a band played it
 //! twice.
@@ -35,19 +39,22 @@ pub const RATE: u32 = 44_100;
 /// Two, interleaved left then right.
 pub const CHANNELS: u16 = 2;
 
-/// One tracker row, a semiquaver: a dotted crotchet of 76.04.
+/// One tracker row, a semiquaver: a dotted crotchet of 63.
 ///
 /// A whole number of samples, so the loop is too, and the wrap lands on a
 /// sample rather than between two.
-const ROW: u32 = 5_800;
+const ROW: u32 = 7_000;
 
 /// A bar of 6/8 in semiquavers.
 const ROWS_PER_BAR: u32 = 12;
 
+/// One beat, a dotted crotchet: two to a bar.
+const BEAT: u32 = 6 * ROW;
+
 /// Bars in the loop.
 const BARS: usize = 32;
 
-/// The whole tune, in samples per channel: 50.5 seconds.
+/// The whole tune, in samples per channel: 61 seconds.
 pub const LOOP: u32 = ROW * ROWS_PER_BAR * BARS as u32;
 
 /// Where the loop goes back to: the theme, bar 5. The four bars of chords
@@ -55,7 +62,7 @@ pub const LOOP: u32 = ROW * ROWS_PER_BAR * BARS as u32;
 /// song's introduction behind; the last bar is a pickup into the theme.
 pub const RESTART: u32 = ROW * ROWS_PER_BAR * 4;
 
-/// The part that repeats, bars 5 to 32: 44.2 seconds.
+/// The part that repeats, bars 5 to 32: 53.3 seconds.
 pub const REPEATS: u32 = LOOP - RESTART;
 
 /// The harmony, one chord per bar.
@@ -71,7 +78,7 @@ enum Chord {
 }
 
 impl Chord {
-    /// The root, as a MIDI note in the arpeggio's octave (G3 to F4).
+    /// The root, as a MIDI note in the harp's octave (G3 to F4).
     const fn root(self) -> u8 {
         match self {
             Self::Dm => 62,
@@ -91,15 +98,14 @@ impl Chord {
         }
     }
 
-    /// Whether the arpeggio adds the major seventh: on the two chords that
-    /// take it without a fight with the lead (B flat and F), where it is
-    /// the shimmer the style calls magic.
+    /// Whether the harp turns on the major seventh rather than the octave:
+    /// on the two chords that take it without a fight with the lead (B flat
+    /// and F), where it is the shimmer the style calls magic.
     const fn seventh(self) -> bool {
         matches!(self, Self::Bb | Self::F)
     }
 
-    /// The bass's root, in F2 to E3: the arpeggio's root an octave or two
-    /// down.
+    /// The bass's root, in F2 to E3: the harp's root an octave or two down.
     const fn bass(self) -> u8 {
         let root = self.root() - 12;
         if root > 52 { root - 12 } else { root }
@@ -114,7 +120,7 @@ const CHORDS: [Chord; BARS] = [
     Dm, Bb, C, A, //
     // The theme.
     Dm, Bb, F, C, Dm, G, Bb, A, //
-    // Again, higher, with the drum's kick.
+    // Again, higher, with the drum's deep stroke.
     Dm, Bb, F, C, Gm, Bb, A, Dm, //
     // The middle, in F, with the whole drum.
     F, C, Dm, Bb, F, C, Gm, A, //
@@ -159,13 +165,13 @@ const LEAD: [&str; BARS] = [
     "A4:6 E4:2 F4:2 G4:2",
 ];
 
-/// Which bars the drum plays in: none in the opening, the kick alone under
-/// the theme's second time, the whole kit in the middle, and a breath in
-/// the last bar so the turn is heard.
+/// Which bars the drum plays in: none in the opening, the deep stroke alone
+/// under the theme's second time, the whole drum in the middle, and a breath
+/// in the last bar so the turn is heard.
 fn drum_in(bar: usize) -> Drum {
     match bar {
-        12..=19 => Drum::Kick,
-        20..=30 => Drum::Kit,
+        12..=19 => Drum::Deep,
+        20..=30 => Drum::Whole,
         _ => Drum::None,
     }
 }
@@ -173,8 +179,10 @@ fn drum_in(bar: usize) -> Drum {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Drum {
     None,
-    Kick,
-    Kit,
+    /// The deep stroke on each bar's first beat.
+    Deep,
+    /// That, a lighter one on the second beat, and fingers on the rim.
+    Whole,
 }
 
 /// A note of a voice, in samples from the top of the loop.
@@ -183,10 +191,6 @@ struct Note {
     start: u32,
     len: u32,
     hz: f32,
-    /// For the arpeggio: the chord it runs, as semitones above `hz`, and
-    /// how many of them it runs.
-    chord: [u8; 5],
-    tones: u8,
 }
 
 /// A MIDI note from its name, "C#5" or "Bb4".
@@ -244,8 +248,6 @@ fn lead() -> Vec<Note> {
                 start: row * ROW,
                 len: len * ROW,
                 hz: hz(midi),
-                chord: [0; 5],
-                tones: 1,
             });
             row += len;
         }
@@ -253,30 +255,30 @@ fn lead() -> Vec<Note> {
     out
 }
 
-/// The arpeggio: each bar's chord, struck twice, once on each beat. In
-/// the middle it takes the octave on top as well, so the accompaniment
-/// changes where the tune does.
-fn arpeggio() -> Vec<Note> {
+/// The harp: each bar's chord broken into semiquavers, up and back down
+/// within each beat, every tone ringing on under the next. On the chords
+/// with a seventh it turns on the seventh, and in the middle the figure
+/// climbs an octave higher, so the accompaniment opens up where the tune
+/// does.
+fn harp() -> Vec<Note> {
     let mut out = Vec::new();
     for (index, chord) in CHORDS.iter().enumerate() {
-        let mut tones = vec![0, chord.third(), 7];
-        if chord.seventh() {
-            tones.push(11);
-        }
-        if (20..28).contains(&index) {
-            tones.push(12);
-        }
-        let mut notes = [0; 5];
-        notes[..tones.len()].copy_from_slice(&tones);
+        let third = chord.third();
+        let top = if chord.seventh() { 11 } else { 12 };
+        let figure = if (20..28).contains(&index) {
+            [0, 7, 12, 12 + third, 12, 7]
+        } else {
+            [0, third, 7, top, 7, third]
+        };
         for beat in 0..2 {
-            let row = index as u32 * ROWS_PER_BAR + beat * 6;
-            out.push(Note {
-                start: row * ROW,
-                len: 6 * ROW,
-                hz: hz(chord.root()),
-                chord: notes,
-                tones: tones.len() as u8,
-            });
+            for (step, up) in (0..).zip(figure) {
+                let row = index as u32 * ROWS_PER_BAR + beat * 6 + step;
+                out.push(Note {
+                    start: row * ROW,
+                    len: ROW,
+                    hz: hz(chord.root() + up),
+                });
+            }
         }
     }
     out
@@ -300,8 +302,6 @@ fn bass() -> Vec<Note> {
                 start: (top + row) * ROW,
                 len: len * ROW,
                 hz: hz(root + up),
-                chord: [0; 5],
-                tones: 1,
             });
         }
     }
@@ -359,15 +359,25 @@ fn triangle(phase: f32) -> f32 {
     4.0 * (phase - 0.5).abs() - 1.0
 }
 
-/// One voice playing its notes: which is sounding, and its oscillator.
+/// How many notes of one voice sound at once: the one last struck and those
+/// before it, ringing out. By the time a fourth note takes its place, the
+/// oldest has fallen below a fiftieth of its level on every voice here.
+const SLOTS: usize = 4;
+
+/// A note sounding: the note, how long since it was struck, and its level.
+type Sound = (Note, f32, f32);
+
+/// One voice playing its notes. A note struck while the last still sounds
+/// does not cut it off: the last rings out under it on its own release, as
+/// a string does, so a voice never clicks from one note to the next.
 struct Voice {
     notes: Vec<Note>,
     envelope: Envelope,
-    /// The note sounding or ringing out, if any has been struck yet.
-    current: Option<usize>,
+    /// The notes sounding, newest first, each with where its oscillator is
+    /// in its cycle.
+    sounding: [Option<(usize, f32)>; SLOTS],
     /// The next note to strike.
     next: usize,
-    phase: f32,
 }
 
 impl Voice {
@@ -375,15 +385,14 @@ impl Voice {
         Self {
             notes,
             envelope,
-            current: None,
+            sounding: [None; SLOTS],
             next: 0,
-            phase: 0.0,
         }
     }
 
     /// Moves to `pos`, one sample on from the last call, and says which
-    /// note sounds there, how long since it was struck, and at what level.
-    fn at(&mut self, pos: u32, wrapped: bool) -> Option<(Note, f32, f32)> {
+    /// notes sound there, slot by slot.
+    fn at(&mut self, pos: u32, wrapped: bool) -> [Option<Sound>; SLOTS] {
         if wrapped {
             self.next = self.notes.partition_point(|note| note.start < RESTART);
         }
@@ -392,30 +401,35 @@ impl Voice {
         {
             // Struck from the top of its cycle, as a tracker retriggers a
             // note, so every time round sounds the same.
-            self.current = Some(self.next);
+            self.sounding.rotate_right(1);
+            self.sounding[0] = Some((self.next, 0.0));
             self.next += 1;
-            self.phase = 0.0;
         }
-        let note = self.notes[self.current?];
-        // A note from the end of the loop still ringing into its restart.
-        let age = if pos >= note.start {
-            pos - note.start
-        } else {
-            pos + REPEATS - note.start
-        };
-        let age = age as f32 / RATE as f32;
-        let held = note.len as f32 / RATE as f32;
-        let level = self.envelope.level(age, held);
-        (level > 1e-4).then_some((note, age, level))
+        self.sounding.map(|slot| {
+            let note = self.notes[slot?.0];
+            // A note from the end of the loop still ringing into its restart.
+            let age = if pos >= note.start {
+                pos - note.start
+            } else {
+                pos + REPEATS - note.start
+            };
+            let age = age as f32 / RATE as f32;
+            let held = note.len as f32 / RATE as f32;
+            let level = self.envelope.level(age, held);
+            (level > 1e-4).then_some((note, age, level))
+        })
     }
 
-    /// Advances the oscillator by one sample at `hz`, and says where in its
-    /// cycle it was and how far a sample moves it.
-    fn step(&mut self, hz: f32) -> (f32, f32) {
+    /// Advances the oscillator in `slot` by one sample at `hz`, and says
+    /// where in its cycle it was and how far a sample moves it.
+    fn step(&mut self, slot: usize, hz: f32) -> (f32, f32) {
         let dt = hz / RATE as f32;
-        let phase = self.phase;
-        self.phase = (self.phase + dt).fract();
-        (phase, dt)
+        let Some((_, phase)) = self.sounding[slot].as_mut() else {
+            return (0.0, dt);
+        };
+        let was = *phase;
+        *phase = (*phase + dt).fract();
+        (was, dt)
     }
 }
 
@@ -424,29 +438,81 @@ impl Voice {
 const VIBRATO: f32 = 0.18;
 const VIBRATO_HZ: f32 = 5.5;
 
-/// The arpeggio's speed: a new note of the chord every fiftieth of a
-/// second, a PAL frame, which is where the sound comes from.
-const ARP_STEP: u32 = RATE / 50;
-
 /// The echo: the lead again a beat later, fainter each time.
-const ECHO: usize = (6 * ROW) as usize;
+const ECHO: usize = BEAT as usize;
 const ECHO_GAIN: f32 = 0.42;
 const ECHO_FEEDBACK: f32 = 0.33;
 
 /// How loud each voice is before [`MASTER`].
 const LEAD_GAIN: f32 = 0.30;
-const ARP_GAIN: f32 = 0.12;
+const HARP_GAIN: f32 = 0.16;
 const BASS_GAIN: f32 = 0.34;
-const DRUM_GAIN: f32 = 0.30;
+const DRUM_GAIN: f32 = 0.26;
 
 /// The whole mix, chosen so the loudest bar peaks near 0.8 and nothing
 /// clips (`the_tune_is_loud_enough_and_never_clips`).
-const MASTER: f32 = 0.8;
+const MASTER: f32 = 0.65;
 
-/// The pulse width's slow sweep: once round every two bars, which both the
-/// restart and the end are whole numbers of, so the loop ends where it
-/// began.
+/// Where the mix is rounded off: the square's edges are there, and its
+/// fizz above is not, which is most of what makes a chip voice tiring.
+const WARMTH: f32 = 4_500.0;
+
+/// The harp's pulse width's slow sweep: once round every two bars, which
+/// both the restart and the end are whole numbers of, so the loop ends where
+/// it began.
 const SWEEP: u32 = 2 * ROWS_PER_BAR * ROW;
+
+/// A stroke on the frame drum: how deep it sounds, how long it rings and
+/// how hard it is struck.
+#[derive(Clone, Copy)]
+struct Stroke {
+    pitch: f32,
+    ring: f32,
+    weight: f32,
+}
+
+/// The stroke on beat `beat` of the loop, if the drum plays one: the deep
+/// stroke, in the middle of the skin, on each bar's first beat, and in the
+/// middle section a lighter one nearer the rim on its second.
+fn stroke(beat: u32) -> Option<Stroke> {
+    let first = beat.is_multiple_of(2);
+    match (drum_in((beat / 2) as usize), first) {
+        (Drum::None, _) | (Drum::Deep, false) => None,
+        (_, true) => Some(Stroke {
+            pitch: 78.0,
+            ring: 0.28,
+            weight: 1.0,
+        }),
+        (Drum::Whole, false) => Some(Stroke {
+            pitch: 124.0,
+            ring: 0.16,
+            weight: 0.5,
+        }),
+    }
+}
+
+/// How hard a hand strikes on beat `beat`: never twice quite the same, and
+/// the same every time round the loop, since it is read off the beat.
+fn touch(beat: u32) -> f32 {
+    let hash = beat.wrapping_mul(0x9E37_79B1) >> 24;
+    0.86 + 0.14 * hash as f32 / 255.0
+}
+
+/// A drum's skin `t` seconds after it was struck. The fundamental falls a
+/// little as the skin settles from the blow, and over it ring the
+/// membrane's next two modes, which are what a sine lacks to sound like a
+/// drum: a round skin's overtones stand at 1.59 and 2.14 times its
+/// fundamental, not at whole multiples, and die faster.
+fn skin(t: f32, pitch: f32, ring: f32) -> f32 {
+    use std::f32::consts::TAU;
+    let fall = 0.2 * pitch;
+    let phase = pitch * t + fall * 0.03 * (1.0 - (-t / 0.03).exp());
+    let attack = (t / 0.003).min(1.0);
+    attack
+        * ((TAU * phase).sin() * (-t / ring).exp()
+            + 0.4 * (TAU * 1.593 * phase).sin() * (-t / (0.5 * ring)).exp()
+            + 0.2 * (TAU * 2.136 * phase).sin() * (-t / (0.3 * ring)).exp())
+}
 
 /// The tune, as an endless stream of interleaved stereo samples.
 pub struct Tune {
@@ -454,14 +520,14 @@ pub struct Tune {
     /// Whether `pos` has just gone back to [`RESTART`].
     wrapped: bool,
     lead: Voice,
-    arpeggio: Voice,
+    harp: Voice,
     bass: Voice,
     echo: Vec<f32>,
     echo_at: usize,
     noise: u32,
-    /// The last hi-hat noise, which the hat is the difference from.
-    hat_last: f32,
-    /// A gentle low-pass on each side, which takes the edge off the square.
+    /// The noise with its highs taken off: the hand's thump on the skin.
+    hand: f32,
+    /// A gentle low-pass on each side, at [`WARMTH`].
     smooth: [f32; 2],
     /// The right-hand sample of the frame whose left went out last.
     right: Option<f32>,
@@ -489,12 +555,12 @@ impl Tune {
                     release: 0.09,
                 },
             ),
-            arpeggio: Voice::new(
-                arpeggio(),
+            harp: Voice::new(
+                harp(),
                 Envelope {
                     attack: 0.004,
-                    decay: 0.5,
-                    sustain: 0.45,
+                    decay: 0.3,
+                    sustain: 0.25,
                     release: 0.12,
                 },
             ),
@@ -510,7 +576,7 @@ impl Tune {
             echo: vec![0.0; ECHO],
             echo_at: 0,
             noise: Self::SEED,
-            hat_last: 0.0,
+            hand: 0.0,
             smooth: [0.0; 2],
             right: None,
         }
@@ -529,85 +595,99 @@ impl Tune {
     }
 
     fn lead(&mut self) -> f32 {
-        let Some((note, age, level)) = self.lead.at(self.pos, self.wrapped) else {
-            self.lead.step(0.0);
-            return 0.0;
-        };
-        let depth = ((age - 0.25) / 0.35).clamp(0.0, 1.0) * VIBRATO;
-        let bend = depth * (std::f32::consts::TAU * VIBRATO_HZ * age).sin();
-        let (phase, dt) = self.lead.step(note.hz * (bend / 12.0).exp2());
-        pulse(phase, 0.5, dt) * level
+        let mut out = 0.0;
+        for (slot, sound) in self.lead.at(self.pos, self.wrapped).into_iter().enumerate() {
+            let Some((note, age, level)) = sound else {
+                continue;
+            };
+            let depth = ((age - 0.25) / 0.35).clamp(0.0, 1.0) * VIBRATO;
+            let bend = depth * (std::f32::consts::TAU * VIBRATO_HZ * age).sin();
+            let (phase, dt) = self.lead.step(slot, note.hz * (bend / 12.0).exp2());
+            out += pulse(phase, 0.5, dt) * level;
+        }
+        out
     }
 
-    fn arpeggio(&mut self) -> f32 {
-        let Some((note, age, level)) = self.arpeggio.at(self.pos, self.wrapped) else {
-            self.arpeggio.step(0.0);
-            return 0.0;
-        };
-        let step = (age * RATE as f32) as u32 / ARP_STEP;
-        let up = note.chord[(step % u32::from(note.tones)) as usize];
-        let (phase, dt) = self.arpeggio.step(note.hz * (f32::from(up) / 12.0).exp2());
+    /// The harp: a triangle for its body and a narrow pulse, its width
+    /// slowly sweeping, for the pluck.
+    fn harp(&mut self) -> f32 {
         let turn = (self.pos % SWEEP) as f32 / SWEEP as f32;
         let duty = 0.3 + 0.14 * (std::f32::consts::TAU * turn).sin();
-        pulse(phase, duty, dt) * level
+        let mut out = 0.0;
+        for (slot, sound) in self.harp.at(self.pos, self.wrapped).into_iter().enumerate() {
+            let Some((note, _, level)) = sound else {
+                continue;
+            };
+            let (phase, dt) = self.harp.step(slot, note.hz);
+            out += (0.6 * triangle(phase) + 0.4 * pulse(phase, duty, dt)) * level;
+        }
+        out
     }
 
     fn bass(&mut self) -> f32 {
-        let Some((note, _, level)) = self.bass.at(self.pos, self.wrapped) else {
-            self.bass.step(0.0);
-            return 0.0;
-        };
-        let (phase, _) = self.bass.step(note.hz);
-        triangle(phase) * level
+        let mut out = 0.0;
+        for (slot, sound) in self.bass.at(self.pos, self.wrapped).into_iter().enumerate() {
+            let Some((note, _, level)) = sound else {
+                continue;
+            };
+            let (phase, _) = self.bass.step(slot, note.hz);
+            out += triangle(phase) * level;
+        }
+        out
     }
 
-    /// The drum: a kick on the first beat, and in the middle a snare on the
-    /// second and a hat on the last quaver of each.
+    /// The frame drum: its strokes, each with the hand's thump, the last
+    /// beat's still ringing under this one's, and in the middle the fingers
+    /// on the rim on the last quaver of each beat.
     fn drum(&mut self) -> f32 {
         if self.pos == RESTART {
             self.noise = Self::SEED;
+            self.hand = 0.0;
         }
-        let bar = (self.pos / (ROW * ROWS_PER_BAR)) as usize;
-        let row = self.pos / ROW % ROWS_PER_BAR;
-        let t = (self.pos % ROW) as f32 / RATE as f32;
-        let kit = drum_in(bar);
         let noise = self.noise();
+        let a = 1.0 - (-std::f32::consts::TAU * 900.0 / RATE as f32).exp();
+        self.hand += a * (noise - self.hand);
+        let beat = self.pos / BEAT;
+        let into = self.pos % BEAT;
+        let t = into as f32 / RATE as f32;
         let mut out = 0.0;
-        if kit != Drum::None && row == 0 {
-            // A sine falling from 120 Hz to 45, its phase the integral of
-            // that fall.
-            let phase = 45.0 * t + 75.0 * 0.03 * (1.0 - (-t / 0.03).exp());
-            out += (std::f32::consts::TAU * phase).sin() * (-t / 0.09).exp() * (t / 0.002).min(1.0);
-        }
-        if kit == Drum::Kit {
-            if row == 6 {
-                let body = (std::f32::consts::TAU * 185.0 * t).sin() * (-t / 0.03).exp();
-                out += (noise * 0.55 * (-t / 0.05).exp() + body * 0.35) * (t / 0.001).min(1.0);
-            }
-            if row == 4 || row == 10 {
-                let hat = noise - self.hat_last;
-                out += hat * 0.18 * (-t / 0.012).exp();
+        for back in 0..2 {
+            let Some(struck) = beat.checked_sub(back) else {
+                continue;
+            };
+            let Some(hit) = stroke(struck) else {
+                continue;
+            };
+            let since = t + (back * BEAT) as f32 / RATE as f32;
+            let weight = hit.weight * touch(struck);
+            out += weight * skin(since, hit.pitch, hit.ring);
+            if back == 0 {
+                out += weight * 0.5 * self.hand * (-since / 0.012).exp();
             }
         }
-        self.hat_last = noise;
+        if drum_in((beat / 2) as usize) == Drum::Whole && into >= 4 * ROW {
+            let since = (into - 4 * ROW) as f32 / RATE as f32;
+            let tap = skin(since, 330.0, 0.03) + 1.2 * self.hand * (-since / 0.006).exp();
+            out += 0.22 * touch(beat + 7) * tap;
+        }
         out
     }
 
     /// The next frame, left and right.
     pub fn frame(&mut self) -> [f32; 2] {
         let lead = self.lead() * LEAD_GAIN;
-        let arpeggio = self.arpeggio() * ARP_GAIN;
+        let harp = self.harp() * HARP_GAIN;
         let bass = self.bass() * BASS_GAIN;
         let drum = self.drum() * DRUM_GAIN;
         let echo = self.echo[self.echo_at];
         self.echo[self.echo_at] = lead + echo * ECHO_FEEDBACK;
         self.echo_at = (self.echo_at + 1) % ECHO;
         let echo = echo * ECHO_GAIN;
-        // The lead a little left and its echo right, the chords a little
+        // The lead a little left and its echo right, the harp a little
         // right: the old trick of one channel's echo on the other.
-        let left = lead * 0.85 + echo * 0.35 + arpeggio * 0.7 + bass + drum;
-        let right = lead * 0.55 + echo * 0.9 + arpeggio + bass + drum;
-        let a = 1.0 - (-std::f32::consts::TAU * 7_000.0 / RATE as f32).exp();
+        let left = lead * 0.85 + echo * 0.35 + harp * 0.7 + bass + drum;
+        let right = lead * 0.55 + echo * 0.9 + harp + bass + drum;
+        let a = 1.0 - (-std::f32::consts::TAU * WARMTH / RATE as f32).exp();
         self.smooth[0] += a * (left - self.smooth[0]);
         self.smooth[1] += a * (right - self.smooth[1]);
         self.pos += 1;
@@ -694,6 +774,21 @@ impl MusicLevel {
         if self.muted { 0.0 } else { self.loudness() }
     }
 
+    /// Silences the music if it can be heard, and lets it be heard if not:
+    /// what its switch does (#296). A switch pressed to play music whose
+    /// volume is 0 would do nothing a player could hear, so that also brings
+    /// the volume back to where it starts.
+    pub fn toggle(&mut self) {
+        if self.gain() > 0.0 {
+            self.muted = true;
+        } else {
+            self.muted = false;
+            if self.volume() <= 0.0 {
+                self.set_volume(Self::default().volume());
+            }
+        }
+    }
+
     /// The amplitude the volume stands for, muted or not: its square,
     /// because the ear hears amplitude roughly as its logarithm and a linear
     /// slider would do all its work in its first quarter. A player fades
@@ -777,6 +872,29 @@ mod tests {
         assert!(drift < 1e-3, "the second time differs by {drift}");
     }
 
+    /// The drum is a skin and not a hiss (#296: the noise drum sounded
+    /// made). Through the middle, where it plays most, the weight of its
+    /// sound lies low, where a frame drum's does.
+    #[test]
+    fn the_drum_is_a_skin_and_not_a_hiss() {
+        let mut tune = Tune::new();
+        let (from, to) = (20 * ROWS_PER_BAR * ROW, 31 * ROWS_PER_BAR * ROW);
+        let (mut last, mut power, mut slope) = (0.0_f32, 0.0_f64, 0.0_f64);
+        for pos in 0..to {
+            tune.pos = pos;
+            let sample = tune.drum();
+            if pos >= from {
+                power += f64::from(sample * sample);
+                slope += f64::from((sample - last) * (sample - last));
+            }
+            last = sample;
+        }
+        // A sine at f moves 2·sin(πf/RATE) of its size a sample: read back
+        // as a frequency, the ratio says where the sound's weight lies.
+        let centre = ((slope / power).sqrt() / 2.0).asin() * f64::from(RATE) / std::f64::consts::PI;
+        assert!(centre < 400.0, "the drum's weight lies at {centre:.0} Hz");
+    }
+
     /// The level: half way and playing by default, silent when muted
     /// whatever the volume, and a volume that is no number never taken.
     #[test]
@@ -798,6 +916,23 @@ mod tests {
         let kept: MusicLevel =
             serde_json::from_str(&serde_json::to_string(&level).expect("writes")).expect("reads");
         assert_eq!(kept, level);
+    }
+
+    /// The switch flips what is heard: a playing tune goes silent and keeps
+    /// its volume, a silent one plays again, and one silenced by a volume of
+    /// 0 comes back at the starting volume rather than staying silent.
+    #[test]
+    fn the_switch_flips_what_is_heard() {
+        let mut level = MusicLevel::default();
+        level.set_volume(0.8);
+        level.toggle();
+        assert!(level.muted() && level.gain().abs() < f32::EPSILON);
+        level.toggle();
+        assert!(!level.muted() && (level.volume() - 0.8).abs() < f32::EPSILON);
+        level.set_volume(0.0);
+        level.toggle();
+        assert!(level.gain() > 0.0);
+        assert!((level.volume() - MusicLevel::default().volume()).abs() < f32::EPSILON);
     }
 
     /// Writes two loops to the file `BAYLEE_MUSIC_WAV` names, for a person

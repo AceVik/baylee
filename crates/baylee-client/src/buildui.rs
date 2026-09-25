@@ -12,7 +12,8 @@ use crate::hud::{UiFonts, btn_radius, palette, tf};
 use crate::lobby::heading;
 use crate::lobby::{
     FieldLook, FieldTail, Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip,
-    hover_of_card, hover_of_entry, note, print_mark, row, scroller, spacer, text_field,
+    hover_of_card, hover_of_entry, music_toggle, note, print_mark, row, scroller, spacer,
+    text_field,
 };
 use baylee_client_core::deckbuilder::{
     BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
@@ -291,6 +292,10 @@ fn build_bar(
     commands.entity(bar).add_child(build);
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     commands.entity(bar).add_child(gap);
+    // The music plays on while a deck is built (#296), so its switch is here
+    // too, first on the right: nothing about the deck depends on it.
+    let music = music_toggle(commands, fonts, metrics, lang);
+    commands.entity(bar).add_child(music);
     let mut history_hint = None;
     {
         let history = button(
